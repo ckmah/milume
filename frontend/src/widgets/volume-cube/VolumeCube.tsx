@@ -5,6 +5,7 @@ import { VivViewer, loadOmeZarr } from "@hms-dbmi/viv";
 
 import { Badge } from "@/components/ui/badge";
 
+import type { ChunkCache } from "./chunk-cache";
 import {
   CUBE_EXTENSIONS,
   EMPTY_CELL_LUT,
@@ -15,18 +16,22 @@ import {
 import type { Range, ViewPreset } from "./CubeControls";
 import { type CubeFrame, FramedVolumeView } from "./frame-layers";
 import { paletteLut } from "./palettes";
+import { type WindowTarget, levelVoxelSize, useShownWindow } from "./use-shown-window";
 import {
   type Box,
   type Frame,
   type Level,
   type ZarrSource,
   LabelVolumeSource,
-  WindowPixelSource,
+  MAX_TEXTURE_AXIS,
+  WINDOW_VOXEL_BUDGET,
   axisSize,
   boxIsEmpty,
+  levelBox,
   matchingLevel,
   pickLevel,
   pyramidLevels,
+  regionBox,
   windowBox,
 } from "./window-source";
 
@@ -37,7 +42,12 @@ export type CubeLoadState = {
   labels: "off" | "loading" | "on" | "error";
   channels: 1 | 2;
   pan: [number, number];
+  /** The displayed level. */
   level: number;
+  /** A coarser level is shown while the target level loads. */
+  refining: boolean;
+  /** Set when the target level failed and the coarse view stays: `Could not refine: <message>`. */
+  refineError?: string;
 };
 
 export type CubeBounds = {
@@ -78,6 +88,22 @@ export type VolumeCubeProps = {
   onBounds?: (b: CubeBounds) => void;
   /** The preset the camera matches, or null after orbiting away from all of them. */
   onPreset?: (p: ViewPreset | null) => void;
+  /** Voxels the target window may load. Default WINDOW_VOXEL_BUDGET. */
+  budget?: number;
+  /** Load a region around the window instead (preview): its centre, and its side as `scale` × the window. */
+  region?: { scale: number; budget: number; cx: number; cy: number } | null;
+  /** Show a coarse level first (dock): the level `pickLevel(levels, frame, size * scale, budget)`. */
+  coarse?: { scale: number; budget: number } | null;
+  /** Default true; false leaves the camera fixed (no controller). */
+  interactive?: boolean;
+  /** Default true: the category Badge legend over the canvas. */
+  showLegend?: boolean;
+  /** Decoded chunks shared across the widget's cubes. */
+  chunkCache?: ChunkCache | null;
+  /** Hold the cache's background prefetch while this cube's target loads. */
+  pausesPrefetch?: boolean;
+  /** Called after each deck render. */
+  onRendered?: (canvas: HTMLCanvasElement) => void;
 };
 
 type ViewState = {
@@ -205,6 +231,14 @@ export function VolumeCube({
   onLoadState,
   onBounds,
   onPreset,
+  budget = WINDOW_VOXEL_BUDGET,
+  region = null,
+  coarse = null,
+  interactive = true,
+  showLegend = true,
+  chunkCache = null,
+  pausesPrefetch = false,
+  onRendered,
 }: VolumeCubeProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState({ width: 640, height: 520 });
@@ -247,7 +281,9 @@ export function VolumeCube({
     (async () => {
       try {
         const loaded = await loadOmeZarr(absoluteUrl(imageUrl), { type: "multiscales" });
-        if (!cancelled) setImage(loaded.data as unknown as ZarrSource[]);
+        const pyramid = loaded.data as unknown as ZarrSource[];
+        pyramid.forEach((level, i) => chunkCache?.attach(level._data, `${imageUrl}#${i}`));
+        if (!cancelled) setImage(pyramid);
       } catch (err) {
         if (!cancelled) setError(errorText(err));
       }
@@ -255,6 +291,7 @@ export function VolumeCube({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageUrl]);
 
   // Labels load on first use and then stay: the Labels switch and highlights
@@ -272,7 +309,9 @@ export function VolumeCube({
     (async () => {
       try {
         const lab = await loadOmeZarr(absoluteUrl(labelsUrl), { type: "multiscales" });
-        if (!cancelled) setLabels(lab.data as unknown as ZarrSource[]);
+        const pyramid = lab.data as unknown as ZarrSource[];
+        pyramid.forEach((level, i) => chunkCache?.attach(level._data, `${labelsUrl}#${i}`));
+        if (!cancelled) setLabels(pyramid);
       } catch (err) {
         if (!cancelled) setLabelsError(errorText(err));
       }
@@ -280,6 +319,7 @@ export function VolumeCube({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantLabels, labelsUrl]);
 
   const [szUm, syUm, sxUm] = voxelSizeUm;
@@ -290,67 +330,73 @@ export function VolumeCube({
   );
 
   const levels = useMemo(() => (image ? pyramidLevels(image) : null), [image]);
-  const level: Level | null = useMemo(
-    () => (levels ? pickLevel(levels, frame, window_size_um) : null),
-    [levels, frame, window_size_um],
-  );
 
   // Only the fetch waits for the debounce; the frame follows the window at once.
   const center = useDebounced(`${window_cx},${window_cy}`, WINDOW_DEBOUNCE_MS);
-  const windowVoxels = useMemo(() => {
-    if (!level) return null;
-    const [cx, cy] = center.split(",").map(Number) as [number, number];
-    return windowBox(level, frame, cx, cy, window_size_um);
-  }, [level, frame, center, window_size_um]);
-  const boxKey = windowVoxels ? Object.values(windowVoxels).join(",") : "";
+  const [cx, cy] = center.split(",").map(Number) as [number, number];
+
+  // The target: what the props ask for, fetched in full before it is shown.
+  // Labels share the image's grid, so the same voxel box cuts both.
+  const regionScale = region?.scale ?? 0;
+  const regionBudget = region?.budget ?? 0;
+  const regionCx = region?.cx ?? 0;
+  const regionCy = region?.cy ?? 0;
+  const target: WindowTarget | null = useMemo(() => {
+    if (!levels) return null;
+    const size = regionScale ? window_size_um * regionScale : window_size_um;
+    const level = pickLevel(levels, frame, size, regionScale ? Math.min(budget, regionBudget) : budget);
+    let box: Box;
+    if (!regionScale) box = windowBox(level, frame, cx, cy, window_size_um);
+    else if (fitsBudget(levelBox(level), regionBudget)) box = levelBox(level);
+    else box = regionBox(level, frame, regionCx, regionCy, size);
+    return { level, box, cells: labels ? matchingLevel(labels, level) : null };
+  }, [levels, labels, frame, cx, cy, window_size_um, budget, regionScale, regionBudget, regionCx, regionCy]);
+  // The dock's first step: a level coarse enough to arrive at once.
+  const coarseScale = coarse?.scale ?? 0;
+  const coarseBudget = coarse?.budget ?? 0;
+  const coarseTarget: WindowTarget | null = useMemo(() => {
+    if (!levels || !coarseScale || regionScale) return null;
+    const level = pickLevel(levels, frame, window_size_um * coarseScale, coarseBudget);
+    const box = windowBox(level, frame, cx, cy, window_size_um);
+    return { level, box, cells: labels ? matchingLevel(labels, level) : null };
+  }, [levels, labels, frame, cx, cy, window_size_um, coarseScale, coarseBudget, regionScale]);
+  const labelsMismatch = Boolean(wantLabels && labels && target && !target.cells);
+
+  const { shown, imageError, cellsError } = useShownWindow({
+    levels,
+    frame,
+    fine: target,
+    coarse: coarseTarget,
+    chunkCache,
+    pausesPrefetch,
+  });
+  // Everything drawn follows the shown window, never the target still loading.
+  const level: Level | null = shown?.level ?? null;
+  const shownBox = shown?.box ?? null;
   // The window asked for right now, before the debounced fetch catches up.
   const liveBox = useMemo(
     () => (level ? windowBox(level, frame, window_cx, window_cy, window_size_um) : null),
     [level, frame, window_cx, window_cy, window_size_um],
   );
-  // The window whose voxels are on the GPU (Viv keeps showing it while the next loads).
-  const [loaded, setLoaded] = useState<{ box: Box; level: number } | null>(null);
 
-  // Voxel size at the chosen level, and world scale relative to X (Viv's convention).
-  const levelVoxel: [number, number, number] | null = level
-    ? [szUm * level.factor[0], syUm * level.factor[1], sxUm * level.factor[2]]
-    : null;
+  // Voxel size at the shown level, and world scale relative to X (Viv's convention).
+  const levelVoxel: [number, number, number] | null = level ? levelVoxelSize(frame, level) : null;
   const ry = levelVoxel ? levelVoxel[1] / levelVoxel[2] : 1;
   const rz = levelVoxel ? levelVoxel[0] / levelVoxel[2] : 1;
 
-  // New loader identities make VolumeLayer refetch, which is the point here:
-  // one fetch per window, keyed on the voxel box rather than the raw props.
-  const imageWindow = useMemo(() => {
-    if (!level || !windowVoxels || !levelVoxel || boxIsEmpty(windowVoxels)) return null;
-    return new WindowPixelSource(level.source, windowVoxels, levelVoxel);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [level, boxKey, levelVoxel?.join(",")]);
-  // Labels share the image's grid, so the same voxel box cuts both.
-  const labelsLevel = useMemo(() => (labels && level ? matchingLevel(labels, level) : null), [labels, level]);
-  const labelsMismatch = Boolean(wantLabels && labels && level && !labelsLevel);
-  const cellsWindow = useMemo(() => {
-    if (!labelsLevel || !windowVoxels || !levelVoxel || boxIsEmpty(windowVoxels)) return null;
-    return new WindowPixelSource(labelsLevel, windowVoxels, levelVoxel);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [labelsLevel, boxKey, levelVoxel?.join(",")]);
-  // Viv waits on every plane of a window and never reports a failed fetch, so
-  // watch the one shared window fetch per source (missing chunks read as fill).
-  const imageFetchError = useFetchError(imageWindow);
-  const cellsFetchError = useFetchError(cellsWindow);
+  // Viv is only handed sources whose fetch has resolved, so a new loader swaps
+  // in at once (VolumeLayer refetches per loader identity, from memory here).
   const loader = useMemo(() => {
-    if (!imageWindow) return null;
-    // Failed labels fall back to the image alone rather than stalling the layer.
-    if (!cellsWindow || cellsFetchError) return [imageWindow];
-    return [new LabelVolumeSource(imageWindow, cellsWindow)];
-  }, [imageWindow, cellsWindow, cellsFetchError]);
-  const hasCells = loader?.[0] instanceof LabelVolumeSource;
+    if (!shown) return null;
+    return shown.cells ? [new LabelVolumeSource(shown.image, shown.cells)] : [shown.image];
+  }, [shown]);
+  const hasCells = Boolean(shown?.cells);
   const cellLut = useMemo(() => (showLabels ? buildCellLut(groups) : EMPTY_CELL_LUT), [showLabels, groups]);
   const imagePalette = useMemo(() => paletteLut(render.palette), [render.palette]);
 
-  // Frame, camera and cuts live in the requested window; the loaded volume pans
+  // Frame, camera and cuts live in the requested window; the shown volume pans
   // under it until the new window arrives, so moving Inspect slides the tissue
   // at once instead of jumping when the fetch lands.
-  const shownBox = loaded && level && loaded.level === level.index ? loaded.box : windowVoxels;
   const winW = liveBox ? liveBox.x1 - liveBox.x0 : 1;
   const winH = liveBox ? liveBox.y1 - liveBox.y0 : 1;
   const shownW = shownBox ? shownBox.x1 - shownBox.x0 : 1;
@@ -428,6 +474,22 @@ export function VolumeCube({
     if (fit && !viewState) setViewState(isoHome(fit, box));
   }, [fit, viewState, box]);
 
+  // World units are the shown level's X voxels, so a finer level is a bigger
+  // world: a level swap (coarse to fine) zooms out by the factor ratio to keep
+  // the same framing.
+  const levelFx = level ? level.factor[2] : 0;
+  const framedFxRef = useRef(0);
+  useLayoutEffect(() => {
+    if (!levelFx) return;
+    const prevFx = framedFxRef.current;
+    framedFxRef.current = levelFx;
+    if (!prevFx || prevFx === levelFx) return;
+    const dz = Math.log2(levelFx / prevFx);
+    setViewState((prev) =>
+      prev ? { ...prev, zoom: prev.zoom + dz, minZoom: prev.minZoom + dz, maxZoom: prev.maxZoom + dz } : prev,
+    );
+  }, [levelFx]);
+
   const displayViewStates = useMemo(() => {
     if (!viewState) return undefined;
     return [{ ...viewState, id: "3d", target: aimTarget }];
@@ -494,8 +556,16 @@ export function VolumeCube({
   );
 
   const views = useMemo(
-    () => [new FramedVolumeView({ id: "3d", target: aimTarget, useFixedAxis: true } as never)],
-    [aimTarget],
+    () => [new FramedVolumeView({ id: "3d", target: aimTarget, useFixedAxis: true, controller: interactive } as never)],
+    [aimTarget, interactive],
+  );
+  const onRenderedRef = useLatest(onRendered);
+  const deckProps = useMemo(
+    () => ({
+      onAfterRender: ({ gl }: { gl: WebGL2RenderingContext }) =>
+        onRenderedRef.current?.(gl.canvas as HTMLCanvasElement),
+    }),
+    [onRenderedRef],
   );
   const layerProps = useMemo(
     () =>
@@ -519,10 +589,6 @@ export function VolumeCube({
               frameMatrix: Z_UP,
               clippingPlanes: [],
               cubeFrame,
-              // VolumeLayer captures this with the loader it starts fetching.
-              onViewportLoad: () => {
-                if (windowVoxels && level) setLoaded({ box: windowVoxels, level: level.index });
-              },
             },
           ]
         : null,
@@ -545,13 +611,21 @@ export function VolumeCube({
     ],
   );
 
-  const outside = windowVoxels ? boxIsEmpty(windowVoxels) : false;
+  const outside = target
+    ? boxIsEmpty(regionScale ? windowBox(target.level, frame, cx, cy, window_size_um) : target.box)
+    : false;
+  // A failed target with a coarser view already shown keeps that view; the error
+  // goes to the caller's title bar rather than over the canvas.
+  const refineFailed = Boolean(imageError && shown && target && shown.level.index !== target.level.index);
+  const refineError = refineFailed ? `Could not refine: ${imageError}` : "";
+  const settled = Boolean(shown && target && shown.level.index === target.level.index);
+  const refining = !settled && !error && !imageError && !outside;
 
   // Labels only show over a loaded image, so an image failure fails them too.
-  const labelsFailure = labelsError || cellsFetchError || error || imageFetchError;
+  const labelsFailure = labelsError || cellsError || error || (refineFailed ? "" : imageError);
   let status = "";
   if (!image) status = error || "Loading volume…";
-  else if (imageFetchError) status = `Could not load this window: ${imageFetchError}`;
+  else if (imageError && !refineFailed) status = `Could not load this window: ${imageError}`;
   else if (outside) status = "Inspect window is outside the volume";
   else if (labelsMismatch) status = "Labels are on a different grid from the image";
   else if (showLabels && labelsFailure) status = `Could not load labels: ${labelsFailure}`;
@@ -561,7 +635,8 @@ export function VolumeCube({
     if (labelsMismatch || labelsFailure) labelsState = "error";
     else labelsState = hasCells ? "on" : "loading";
   }
-  const legend = showLabels && hasCells ? groups.filter((g) => g.labels.length > 0) : NO_GROUPS;
+  const highlighted = showLabels && hasCells ? groups.filter((g) => g.labels.length > 0) : NO_GROUPS;
+  const legend = showLegend ? highlighted : NO_GROUPS;
   const channels = hasCells ? 2 : 1;
   const levelIndex = level ? level.index : 0;
 
@@ -570,8 +645,15 @@ export function VolumeCube({
   // Layout effects: the caller's readout and data-* mirrors update before paint.
   const onLoadStateRef = useLatest(onLoadState);
   useLayoutEffect(() => {
-    onLoadStateRef.current?.({ labels: labelsState, channels, pan: [panX, panY], level: levelIndex });
-  }, [labelsState, channels, panX, panY, levelIndex, onLoadStateRef]);
+    onLoadStateRef.current?.({
+      labels: labelsState,
+      channels,
+      pan: [panX, panY],
+      level: levelIndex,
+      refining,
+      refineError,
+    });
+  }, [labelsState, channels, panX, panY, levelIndex, refining, refineError, onLoadStateRef]);
 
   // Reported once the image is open: before that the volume has no extent.
   const onBoundsRef = useLatest(onBounds);
@@ -589,11 +671,13 @@ export function VolumeCube({
       style={{ height }}
       data-labels={labelsState}
       data-channels={channels}
-      data-highlight={legend.length}
+      data-highlight={highlighted.length}
       data-render={mode}
       data-pan={`${panX},${panY}`}
       data-palette={render.palette}
       data-image-gamma={render.imageGamma}
+      data-level={shown?.level.index ?? -1}
+      data-refining={String(refining)}
     >
       {layerProps && displayViewStates ? (
         <VivViewer
@@ -603,6 +687,7 @@ export function VolumeCube({
             viewStates: displayViewStates,
             onViewStateChange,
             useDevicePixels: false,
+            deckProps,
           } as unknown as React.ComponentProps<typeof VivViewer>)}
         />
       ) : null}
@@ -628,19 +713,10 @@ function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** The error of `source`'s window fetch, cleared when the window changes. */
-function useFetchError(source: WindowPixelSource | null): string {
-  const [failed, setFailed] = useState<{ source: WindowPixelSource; message: string } | null>(null);
-  useEffect(() => {
-    if (!source) return;
-    let current = true;
-    // The same promise Viv reads (fetchBlock caches per window), so no second fetch.
-    source.fetchBlock({}).catch((err: unknown) => {
-      if (current) setFailed({ source, message: errorText(err) });
-    });
-    return () => {
-      current = false;
-    };
-  }, [source]);
-  return failed && failed.source === source ? failed.message : "";
+/** Whether one box fits `budget` voxels and the 3D texture axis limit. */
+function fitsBudget(b: Box, budget: number): boolean {
+  const d = b.z1 - b.z0;
+  const h = b.y1 - b.y0;
+  const w = b.x1 - b.x0;
+  return d * h * w <= budget && Math.max(d, h, w) <= MAX_TEXTURE_AXIS;
 }

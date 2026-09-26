@@ -283,7 +283,7 @@ class LandmarksWidget(AnyWidget):
     a reference to ``adata`` (no ``obs.copy()``, no full-``X`` densify at
     construct beyond the eager gene pack). ``genes=None`` (default) packs every
     ``var_name`` for view-only coloring; pass a name or list to restrict.
-    Chrome follows the notebook cell width; height starts at 550px and is
+    Chrome follows the notebook cell width; height starts at 720px and is
     resizable. Marker radius comes from median nearest-neighbor distance.
 
     Notebook API (synced on every edit): ``landmarks``, ``selections``,

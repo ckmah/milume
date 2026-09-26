@@ -4,6 +4,8 @@ import { useNotebookTheme } from "@/hooks/use-notebook-theme";
 import { cn } from "@/lib/utils";
 
 import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
+import { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
+import { PREVIEW_REGION_BUDGET, WINDOW_VOXEL_BUDGET } from "@/widgets/volume-cube/window-source";
 
 import { decodeF32Base64, decodeI32Base64 } from "./binary";
 import {
@@ -35,7 +37,7 @@ import { useInspectCube } from "./use-inspect-cube";
 import { useLandmarksModel } from "./use-landmarks-model";
 import { useWidgetFullscreen } from "./use-widget-fullscreen";
 
-const SHELL_HEIGHT = 550;
+const SHELL_HEIGHT = 720;
 const MIN_HEIGHT = 400;
 const MAX_HEIGHT = 1400;
 const NARROW_BREAKPOINT = 640;
@@ -51,11 +53,14 @@ export function LandmarksView({
   model,
   hostEl,
   defaultHeight = SHELL_HEIGHT,
+  cubeBudgets,
 }: {
   hostEl: HTMLElement;
   model: AnyModel;
-  /** Dev harness can pass a taller initial shell height; notebooks keep 550px default. */
+  /** Dev harness can pass a taller initial shell height; notebooks keep the 720px default. */
   defaultHeight?: number;
+  /** Harness only: voxel budgets for the cube's coarse step (`preview`) and fine level (`dock`). */
+  cubeBudgets?: { preview: number; dock: number };
 }) {
   const dark = useNotebookTheme(hostEl.parentElement);
   const facade = useMemo(() => wrapLandmarksModel(model), [model]);
@@ -72,6 +77,12 @@ export function LandmarksView({
   const wasFullscreenRef = useRef(false);
 
   const inspectCube = useInspectCube(facade, lm, engine);
+  // One decoded-chunk cache per widget, kept across cube opens.
+  const chunkCache = useMemo(() => new ChunkCache(), []);
+  const budgets = useMemo(
+    () => cubeBudgets ?? { preview: PREVIEW_REGION_BUDGET, dock: WINDOW_VOXEL_BUDGET },
+    [cubeBudgets],
+  );
   const { hasVolume, cube, patchCube } = inspectCube;
 
   // Decode each packed buffer once per string, and only when there is a cube.
@@ -344,6 +355,8 @@ export function LandmarksView({
             cut={inspectCube.cut}
             dark={dark}
             groups={groups}
+            cache={chunkCache}
+            budgets={budgets}
           />
         ) : null}
 

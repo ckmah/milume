@@ -1,4 +1,4 @@
-import { COORDINATE_SYSTEM } from "@deck.gl/core";
+import { COORDINATE_SYSTEM, OrbitView } from "@deck.gl/core";
 import { LineLayer, TextLayer } from "@deck.gl/layers";
 import type { Matrix4 } from "@math.gl/core";
 import { VolumeView } from "@hms-dbmi/viv";
@@ -127,6 +127,20 @@ export function frameLayers(frame: CubeFrame, modelMatrix: Matrix4, viewId = "3d
 
 /** Viv's VolumeView plus the frame, so both share one deck and one camera. */
 export class FramedVolumeView extends VolumeView {
+  private readonly controller: boolean;
+
+  /** Viv's VolumeView always makes a controller; `controller: false` fixes the camera. */
+  constructor({ controller = true, ...args }: { controller?: boolean } & ConstructorParameters<typeof VolumeView>[0]) {
+    super(args as ConstructorParameters<typeof VolumeView>[0]);
+    this.controller = controller;
+  }
+
+  getDeckGlView() {
+    const view = super.getDeckGlView() as unknown as OrbitView;
+    if (this.controller) return view;
+    return new OrbitView({ ...(view.props as ConstructorParameters<typeof OrbitView>[0]), controller: false });
+  }
+
   getLayers({ props }: { props: Record<string, unknown> }) {
     // Viv's typings omit getLayers on VolumeView; it exists at runtime.
     const layers = (VolumeView.prototype as unknown as { getLayers: (a: unknown) => unknown[] }).getLayers.call(

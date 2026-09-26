@@ -8,6 +8,15 @@ import { LandmarksView } from "@/widgets/landmarks/LandmarksView";
 
 import { loadFixtureModel } from "../mock-model";
 
+/** `?budgets=<preview>,<dock>` (voxels) makes the toy pyramid pick different levels. */
+function budgetsFromUrl(): { preview: number; dock: number } | undefined {
+  const raw = new URLSearchParams(location.search).get("budgets");
+  if (!raw) return undefined;
+  const [preview, dock] = raw.split(",").map(Number);
+  return preview && dock ? { preview, dock } : undefined;
+}
+const CUBE_BUDGETS = budgetsFromUrl();
+
 /**
  * Landmarks over a toy SpatialData (`public/toy.sdata.zarr`): Inspect opens the
  * floating cube. The engine exposes `window.__landmarksEngine` / `__landmarksModel`.
@@ -37,7 +46,7 @@ function LandmarksVolumeHarness() {
     <div className="dark min-h-screen bg-neutral-950 p-3 text-neutral-100">
       <div ref={setHostEl} className="w-full min-w-0">
         {hostEl && model ? (
-          <LandmarksView model={model} hostEl={hostEl} defaultHeight={820} />
+          <LandmarksView model={model} hostEl={hostEl} defaultHeight={820} cubeBudgets={CUBE_BUDGETS} />
         ) : (
           <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>
         )}

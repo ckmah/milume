@@ -4,7 +4,9 @@ import { XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
-import type { CubeCut } from "@/widgets/volume-cube/VolumeCube";
+import type { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
+import type { CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
+import { PREVIEW_REGION_SCALE } from "@/widgets/volume-cube/window-source";
 
 import type { CubeSettings, CubeSettingsPatch } from "../use-cube-settings";
 import type { LandmarksModel } from "../use-landmarks-model";
@@ -49,6 +51,8 @@ export function CubeWindow({
   cut,
   dark,
   groups,
+  cache,
+  budgets,
 }: {
   lm: LandmarksModel;
   settings: CubeSettings;
@@ -57,10 +61,16 @@ export function CubeWindow({
   cut: CubeCut;
   dark: boolean;
   groups: HighlightGroup[];
+  /** The widget's decoded-chunk cache, shared with the preview. */
+  cache: ChunkCache;
+  /** Voxel budgets: `preview` sizes the coarse first step, `dock` the fine level. */
+  budgets: { preview: number; dock: number };
 }) {
   const ref = useRef<HTMLElement>(null);
   const [rect, setRect] = useState<Rect | null>(null);
   const gesture = useRef<{ kind: "move" | "resize"; x: number; y: number; start: Rect } | null>(null);
+  const [refineError, setRefineError] = useState("");
+  const onLoadState = useCallback((s: CubeLoadState) => setRefineError(s.refineError ?? ""), []);
 
   const container = useCallback(() => {
     const parent = ref.current?.offsetParent as HTMLElement | null;
@@ -144,6 +154,11 @@ export function CubeWindow({
         <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
           Cube · {size} µm
         </span>
+        {refineError ? (
+          <span className="min-w-0 truncate text-xs text-destructive" role="status">
+            {refineError}
+          </span>
+        ) : null}
         <Button
           type="button"
           variant="ghost"
@@ -176,6 +191,12 @@ export function CubeWindow({
             render={settings.render}
             dark={dark}
             height="100%"
+            showLegend={false}
+            coarse={{ scale: PREVIEW_REGION_SCALE, budget: budgets.preview }}
+            budget={budgets.dock}
+            chunkCache={cache}
+            pausesPrefetch
+            onLoadState={onLoadState}
             onBounds={(bounds) => patch({ bounds })}
             onPreset={(preset) => patch({ preset })}
           />

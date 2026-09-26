@@ -199,6 +199,7 @@ test.describe("Landmarks inspect cube", () => {
     const cx0 = Number(await getModel(page, "inspect_cx"));
     await expect.poll(async () => (await cutOf(page))[1]).toBeCloseTo(cx0 + 40, 3);
     const committed = await cutOf(page);
+    await page.waitForTimeout(600); // past the opening click's settle commit: only Python moves the window now
 
     // Python moves the window: the cut stays in place in it, no volume_cut write.
     await setModel(page, { inspect_cx: cx0 + 20 });
@@ -315,12 +316,10 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-channels", "2");
     // Nothing focused: every cell in the window, by category (type1 and type0).
     await expect(view).toHaveAttribute("data-highlight", "2");
-    await expect(cubeWindow(page).getByLabel("Highlighted cells").getByText("type0")).toBeVisible();
 
     // A category: only its cells (category 0 is type1, cells 1 and 3).
     await setModel(page, { selected_kind: "type", selected_index: 0 });
     await expect(view).toHaveAttribute("data-highlight", "1");
-    await expect(cubeWindow(page).getByLabel("Highlighted cells").getByText("type0")).toHaveCount(0);
 
     // A Selection: its cells by category (cell 2 only, type0).
     await setModel(page, {
@@ -329,9 +328,53 @@ test.describe("Landmarks inspect cube", () => {
       selected_index: 0,
     });
     await expect(view).toHaveAttribute("data-highlight", "1");
-    await expect(cubeWindow(page).getByLabel("Highlighted cells").getByText("type0")).toBeVisible();
 
     await setModel(page, { selected_kind: "", selected_index: -1 });
     await expect(view).toHaveAttribute("data-highlight", "2");
+  });
+
+  test("the dock shows the coarse level first, then refines", async ({ page }) => {
+    // Small budgets make the toy pyramid pick different levels (see main.tsx ?budgets).
+    await page.goto("/?budgets=20000,300000", { waitUntil: "networkidle" });
+    await page.waitForFunction(() => Boolean((window as any).__landmarksEngine));
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    const levels: string[] = [];
+    await view.evaluate((el) => {
+      const seen: string[] = [];
+      (window as any).__levels = seen;
+      new MutationObserver(() => seen.push(el.getAttribute("data-level") ?? "")).observe(el, {
+        attributes: true,
+        attributeFilter: ["data-level"],
+      });
+    });
+    await expect(view).toHaveAttribute("data-refining", "false");
+    levels.push(...(await page.evaluate(() => (window as any).__levels as string[])));
+    const shown = levels.filter((l) => l !== "-1").map(Number);
+    expect(shown.length).toBeGreaterThanOrEqual(2);
+    expect(shown[0]).toBeGreaterThan(shown[shown.length - 1]!);
+  });
+
+  test("the hosted cube has no category legend", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await page.getByTestId("context-inspect-toolbar").getByRole("switch", { name: "Labels" }).click();
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-labels", "on");
+    await expect(view).not.toHaveAttribute("data-highlight", "0");
+    await expect(cubeWindow(page).getByLabel("Highlighted cells")).toHaveCount(0);
+  });
+
+  test("reopening the same window reads every chunk from the cache", async ({ page }) => {
+    const box = await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await cubeWindow(page).getByRole("button", { name: "Close cube" }).click();
+    const chunkRequests: string[] = [];
+    page.on("request", (r) => {
+      if (/\/s\d+\/c\//.test(r.url())) chunkRequests.push(r.url());
+    });
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await expect(view).toHaveAttribute("data-refining", "false");
+    expect(chunkRequests).toEqual([]);
   });
 });
