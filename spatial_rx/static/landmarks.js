@@ -3478,20 +3478,53 @@ export function mountEngine({ model, host }) {
     ].filter(Boolean);
   }
 
+  /** The Inspect square's fixed screen size; its µm size follows zoom. */
+  const INSPECT_SQUARE_PX = 160;
+  /** Placed window `{ x, y, size }` (µm); the hover square is `{ x, y, px, py }`. */
   let volumeWindow = null;
   let volumeWindowSavedAt = 0;
   let volumeHover = null;
   let volumeWindowVisible = false;
+  /** The press in Inspect: `{ kind: "new" | "move", size, index?, dx, dy }`. */
+  let inspectGesture = null;
   const inspectListeners = new Set();
 
   function emitInspect(evt) {
     for (const fn of inspectListeners) fn(evt);
   }
 
-  function setVolumeWindow(x, y, flush) {
-    volumeWindow = { x, y };
+  /** The live square's side in µm at the current zoom. */
+  function liveSquareUm() {
+    const z = currentViewState?.zoom;
+    const zoom = Array.isArray(z) ? z[0] : z;
+    return INSPECT_SQUARE_PX / Math.pow(2, zoom ?? 0);
+  }
+
+  function emitInspectHover() {
+    if (!volumeHover) return;
+    const { x, y, px, py } = volumeHover;
+    emitInspect({ type: "hover", x, y, sizeUm: liveSquareUm(), px, py });
+  }
+
+  function clearInspectHover() {
+    if (!volumeHover) return false;
+    volumeHover = null;
+    emitInspect({ type: "hover-end" });
+    return true;
+  }
+
+  /** On zoom the hover square keeps its screen size: redraw it and re-announce its µm size. */
+  function inspectHoverOnView() {
+    if (currentMode !== "inspect" || !volumeHover) return;
+    setDeckLayers();
+    emitInspectHover();
+  }
+
+  function setVolumeWindow(x, y, size, flush) {
+    volumeWindow = { x, y, size };
     model.set("inspect_cx", x);
     model.set("inspect_cy", y);
+    model.set("inspect_size_um", size);
     const now = performance.now();
     if (flush || now - volumeWindowSavedAt > 40) {
       volumeWindowSavedAt = now;
@@ -3500,8 +3533,67 @@ export function mountEngine({ model, host }) {
     setDeckLayers();
   }
 
-  function windowRing(x, y) {
-    const size = Number(model.get("inspect_size_um") || 100);
+  /** The focused inspect Selection whose square holds `pt`, as `{ index, entry }`. */
+  function focusedInspectAt(pt) {
+    if (model.get("selected_kind") !== "selection") return null;
+    const index = Number(model.get("selected_index"));
+    const entry = (model.get("selections") || [])[index];
+    const w = entry?.type === "inspect" ? entry.window : null;
+    if (!w) return null;
+    const half = Number(w.size_um) / 2;
+    if (Math.abs(pt.x - w.cx) > half || Math.abs(pt.y - w.cy) > half) return null;
+    return { index, entry };
+  }
+
+  /** Points inside the axis-aligned square (every depth; the cut never changes membership). */
+  function inspectMemberIndices(cx, cy, size) {
+    const pts = getPointsData();
+    const half = size / 2;
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      if (Math.abs(pts[i].x - cx) <= half && Math.abs(pts[i].y - cy) <= half) out.push(i);
+    }
+    return out;
+  }
+
+  /** Release of an Inspect press: commit a new inspect Selection, or move the focused one. */
+  function commitInspectGesture(gesture) {
+    if (!volumeWindow) return;
+    const { x: cx, y: cy } = volumeWindow;
+    const selections = [...(model.get("selections") || [])];
+    let index;
+    if (gesture.kind === "move") {
+      index = gesture.index;
+      const entry = selections[index];
+      if (!entry || entry.type !== "inspect") return;
+      selections[index] = {
+        ...entry,
+        point_indices: inspectMemberIndices(cx, cy, Number(entry.window.size_um)),
+        window: { ...entry.window, cx, cy },
+      };
+      model.set("selections", selections);
+    } else {
+      const raw = model.get("volume_cut");
+      const cut =
+        Array.isArray(raw) && raw.length === 6 && raw.every((v) => typeof v === "number") ? [...raw] : [];
+      selections.push(
+        withHood({
+          id: nextSelectionId(selections),
+          type: "inspect",
+          point_indices: inspectMemberIndices(cx, cy, gesture.size),
+          window: { cx, cy, size_um: gesture.size, cut },
+        }),
+      );
+      index = selections.length - 1;
+      model.set("selections", selections);
+      model.set("selected_kind", "selection");
+      model.set("selected_index", index);
+    }
+    model.save_changes();
+    emitInspect({ type: "commit", index });
+  }
+
+  function windowRing(x, y, size) {
     const half = size / 2;
     return [
       [x - half, y - half],
@@ -3519,7 +3611,7 @@ export function mountEngine({ model, host }) {
       layers.push(
         new PolygonLayer({
           id: "volume-inspect-window",
-          data: [{ polygon: windowRing(volumeWindow.x, volumeWindow.y) }],
+          data: [{ polygon: windowRing(volumeWindow.x, volumeWindow.y, volumeWindow.size) }],
           getPolygon: (d) => d.polygon,
           filled: true,
           stroked: true,
@@ -3536,7 +3628,7 @@ export function mountEngine({ model, host }) {
       layers.push(
         new PolygonLayer({
           id: "volume-inspect-hover",
-          data: [{ polygon: windowRing(volumeHover.x, volumeHover.y) }],
+          data: [{ polygon: windowRing(volumeHover.x, volumeHover.y, liveSquareUm()) }],
           getPolygon: (d) => d.polygon,
           filled: true,
           stroked: true,
@@ -3625,6 +3717,7 @@ export function mountEngine({ model, host }) {
     }
     currentViewState = vs;
     deckgl.setProps({ viewState: vs });
+    inspectHoverOnView();
     for (const fn of viewStateListeners) {
       try {
         fn(vs);
@@ -3803,6 +3896,7 @@ export function mountEngine({ model, host }) {
           };
           currentViewState = vs;
           deckgl.setProps({ viewState: vs });
+          inspectHoverOnView();
           for (const fn of viewStateListeners) {
             try {
               fn(vs);
@@ -4809,8 +4903,22 @@ export function mountEngine({ model, host }) {
       webglCanvas.focus();
       const pt = eventPoint(event);
       if (!pt) return;
-      setVolumeWindow(pt.x, pt.y, true);
-      emitInspect({ type: "place", x: pt.x, y: pt.y });
+      // A press inside the focused inspect square moves it (keeping the press
+      // offset, so it does not jump); anywhere else starts a new one.
+      const hit = focusedInspectAt(pt);
+      inspectGesture = hit
+        ? {
+            kind: "move",
+            index: hit.index,
+            size: Number(hit.entry.window.size_um),
+            dx: pt.x - hit.entry.window.cx,
+            dy: pt.y - hit.entry.window.cy,
+          }
+        : { kind: "new", size: liveSquareUm(), dx: 0, dy: 0 };
+      const x = pt.x - inspectGesture.dx;
+      const y = pt.y - inspectGesture.dy;
+      setVolumeWindow(x, y, inspectGesture.size, true);
+      emitInspect({ type: "place", x, y });
       return;
     }
     // Right/middle clicks must not preventDefault — that blocks contextmenu.
@@ -4971,9 +5079,12 @@ export function mountEngine({ model, host }) {
       if (event.buttons === 0) {
         volumeHover = pt;
         setDeckLayers();
-      } else if (event.buttons === 1) {
-        setVolumeWindow(pt.x, pt.y, false);
-        emitInspect({ type: "place", x: pt.x, y: pt.y });
+        emitInspectHover();
+      } else if (event.buttons === 1 && inspectGesture) {
+        const x = pt.x - inspectGesture.dx;
+        const y = pt.y - inspectGesture.dy;
+        setVolumeWindow(x, y, inspectGesture.size, false);
+        emitInspect({ type: "place", x, y });
       }
       return;
     }
@@ -5058,6 +5169,10 @@ export function mountEngine({ model, host }) {
       // Drag moves save at most every 40 ms: flush the final window position.
       volumeWindowSavedAt = performance.now();
       model.save_changes();
+      const gesture = inspectGesture;
+      inspectGesture = null;
+      // Inspect stays active (no resetToSelectMode): the next press adds or moves another.
+      if (gesture) commitInspectGesture(gesture);
     }
     const vertexDragActive = vertexDragIndex >= 0 || vertexDragLandmarkIndex >= 0;
     if ((currentMode === "select" || currentMode === "node" || currentMode === "move" || currentMode === "probe" || currentMode === "inspect") && !isDragging && !vertexDragActive) return;
@@ -5220,10 +5335,7 @@ export function mountEngine({ model, host }) {
             container.contains(into)));
       if (!stillOnPlot) clearProbeHover();
     }
-    if (volumeHover) {
-      volumeHover = null;
-      setDeckLayers();
-    }
+    if (clearInspectHover()) setDeckLayers();
     if (isDragging) { isDragging = false; dragStart = null; }
     if (vertexDragIndex >= 0 || vertexDragLandmarkIndex >= 0) {
       vertexDragIndex = -1;
@@ -5467,7 +5579,7 @@ export function mountEngine({ model, host }) {
         return;
       }
       if (currentMode === "inspect") {
-        volumeHover = null;
+        clearInspectHover();
         emitInspect({ type: "close" });
         setDeckLayers();
         return;
@@ -5782,6 +5894,8 @@ export function mountEngine({ model, host }) {
   onChange("mode", () => {
     currentMode = model.get("mode");
     if (currentMode === "pointer") currentMode = "select";
+    inspectGesture = null;
+    clearInspectHover();
     if (currentMode === "node") nodeInsertArmed = true;
     else {
       activeVertexIndex = -1;
@@ -6156,11 +6270,26 @@ export function mountEngine({ model, host }) {
       volumeWindowVisible = Boolean(v);
       setDeckLayers();
     },
+    setInspectWindow(x, y, sizeUm) {
+      volumeWindow = { x, y, size: sizeUm };
+      model.set("inspect_cx", x);
+      model.set("inspect_cy", y);
+      model.set("inspect_size_um", sizeUm);
+      volumeWindowSavedAt = performance.now();
+      model.save_changes();
+      setDeckLayers();
+    },
     getInspectOverlay() {
       return {
         hover: volumeHover ? [volumeHover.x, volumeHover.y] : null,
         placed: volumeWindow ? [volumeWindow.x, volumeWindow.y] : null,
+        sizeUm: liveSquareUm(),
+        placedSizeUm: volumeWindow?.size ?? null,
       };
+    },
+    /** Test / membership probe: `[x, y]` per point, in the `inspect_cx/cy` frame (µm). */
+    getPoints() {
+      return getPointsData().map((p) => [p.x, p.y]);
     },
     destroy,
   };

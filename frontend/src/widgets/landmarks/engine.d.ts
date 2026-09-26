@@ -1,3 +1,11 @@
+/** Events from `subscribeInspect`; positions in µm, `px, py` in canvas pixels. */
+export type InspectEvent =
+  | { type: "place"; x: number; y: number }
+  | { type: "hover"; x: number; y: number; sizeUm: number; px: number; py: number }
+  | { type: "hover-end" }
+  | { type: "commit"; index: number }
+  | { type: "close" };
+
 export type EngineHandle = {
   zoomBy(delta: number, opts?: { animate?: boolean; duration?: number }): void;
   resetZoom(): void;
@@ -72,12 +80,25 @@ export type EngineHandle = {
     }) => void,
   ): () => void;
   getInspectPin(): { kind: string; index: number } | null;
-  /** Inspect placements: "place" on pointer down / drag, "close" on Esc in Inspect. */
-  subscribeInspect(fn: (evt: { type: "place" | "close"; x?: number; y?: number }) => void): () => void;
+  /**
+   * Inspect events: "place" on pointer down / drag (after `inspect_cx/cy` are set),
+   * "hover" on hover moves and zoom, "hover-end" when the hover square goes,
+   * "commit" when a release creates or moves an inspect Selection, "close" on Esc.
+   */
+  subscribeInspect(fn: (evt: InspectEvent) => void): () => void;
   /** Keep the placed square drawn outside Inspect while the cube is open. */
   setInspectWindowVisible(visible: boolean): void;
-  /** Test probe: { hover: [x, y] | null, placed: [x, y] | null }. */
-  getInspectOverlay(): { hover: number[] | null; placed: number[] | null };
+  /** Move the placed square (and `inspect_cx/cy/size_um`) without emitting events. */
+  setInspectWindow(x: number, y: number, sizeUm: number): void;
+  /** The hover / placed square centres and sizes (µm); `sizeUm` is the live square at this zoom. */
+  getInspectOverlay(): {
+    hover: [number, number] | null;
+    placed: [number, number] | null;
+    sizeUm: number;
+    placedSizeUm: number | null;
+  };
+  /** Test probe: `[x, y]` per point (µm, the `inspect_cx/cy` frame). */
+  getPoints(): [number, number][];
   destroy(): void;
 };
 

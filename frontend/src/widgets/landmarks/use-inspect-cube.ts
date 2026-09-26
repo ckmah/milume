@@ -57,8 +57,13 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   useEffect(() => {
     if (!engine || !hasVolume) return;
     return engine.subscribeInspect((e) => {
-      if (e.type === "place" && e.x != null && e.y != null) placedRef.current = { x: e.x, y: e.y };
-      patchCube({ open: e.type === "place" });
+      // Only placements open the cube and Esc closes it; hover and commit leave it be.
+      if (e.type === "place") {
+        placedRef.current = { x: e.x, y: e.y };
+        patchCube({ open: true });
+      } else if (e.type === "close") {
+        patchCube({ open: false });
+      }
     });
   }, [engine, hasVolume, patchCube]);
   useEffect(() => {
