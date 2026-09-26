@@ -494,4 +494,27 @@ test.describe("Landmarks inspect cube", () => {
     await setModel(page, { selections: [], selected_kind: "", selected_index: -1 });
     await expect(cubeWindow(page)).toHaveCount(0);
   });
+
+  test("a chip's snapshot follows its entry's window: moved, or a reused id", async ({ page }) => {
+    const box = await openCubeAtCentre(page);
+    const chip = cubeWindow(page).getByLabel("Inspect history").getByRole("button", { name: "Inspect 1" });
+    const src = () => chip.locator("img").getAttribute("src");
+    await expect(chip.locator("img")).toHaveCount(1);
+    await page.waitForTimeout(1200); // past the snapshot's settle replacement (SNAPSHOT_SETTLE_MS)
+    const before = await src();
+    const id = ((await getModel(page, "selections")) as any[])[0].id;
+
+    // A move gesture on the focused square: the chip re-snapshots at the new window.
+    await dragOnMap(page, box, [0.5, 0.5], [0.62, 0.58]);
+    await expect.poll(src).not.toBe(before);
+    const moved = await src();
+
+    // Delete it, then commit a new entry elsewhere under the same (reused) id.
+    await setModel(page, { selections: [], selected_kind: "", selected_index: -1 });
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.3);
+    expect(((await getModel(page, "selections")) as any[])[0].id).toBe(id);
+    await expect(chip.locator("img")).toHaveCount(1);
+    await expect.poll(src).not.toBe(moved);
+  });
 });

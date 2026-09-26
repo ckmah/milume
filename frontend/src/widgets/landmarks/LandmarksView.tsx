@@ -23,6 +23,7 @@ import {
   PanelCollapseButton,
   PanelPeekTab,
 } from "./chrome";
+import type { ChipSnapshot } from "./chrome/cube-window";
 import { FLOAT_PANEL } from "./chrome/sections";
 import { cubeHighlightGroups } from "./cube-highlight";
 import { mountEngine, type EngineHandle } from "./engine";
@@ -80,7 +81,12 @@ export function LandmarksView({
   // One decoded-chunk cache per widget, kept across cube opens.
   const chunkCache = useMemo(() => new ChunkCache(), []);
   // Inspect history chip snapshots by selection id, kept across cube opens (never synced).
-  const snapshots = useMemo(() => new Map<string, string>(), []);
+  const snapshots = useMemo(() => new Map<string, ChipSnapshot>(), []);
+  // Drop snapshots of deleted selections (ids are reused).
+  useEffect(() => {
+    const ids = new Set(lm.selections.map((s) => String(s.id)));
+    for (const id of snapshots.keys()) if (!ids.has(id)) snapshots.delete(id);
+  }, [lm.selections, snapshots]);
   const budgets = useMemo(
     () => cubeBudgets ?? { preview: PREVIEW_REGION_BUDGET, dock: WINDOW_VOXEL_BUDGET },
     [cubeBudgets],

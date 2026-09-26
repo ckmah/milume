@@ -35,6 +35,14 @@ const SNAPSHOT = { width: 64, height: 40 };
  */
 const SNAPSHOT_SETTLE_MS = 1000;
 
+/** A history chip snapshot: the window it shows (`windowKey`), its data URL, and when it was first taken. */
+export type ChipSnapshot = { key: string; url: string; at: number };
+
+/** The window a snapshot shows. A snapshot under another key (moved entry, reused id) is stale. */
+export function windowKey(w: { cx: number; cy: number; size_um: number }): string {
+  return `${w.cx},${w.cy},${w.size_um}`;
+}
+
 /** Draw `canvas` into a 64×40 WebP, cropped to cover. */
 function snapshotOf(canvas: HTMLCanvasElement): string | null {
   const { width: sw, height: sh } = canvas;
@@ -91,8 +99,8 @@ export function CubeWindow({
   cache: ChunkCache;
   /** Voxel budgets: `preview` sizes the coarse first step, `dock` the fine level. */
   budgets: { preview: number; dock: number };
-  /** History chip snapshots (data URLs) by selection id; kept across opens, never synced. */
-  snapshots: Map<string, string>;
+  /** History chip snapshots by selection id; kept across opens, never synced. */
+  snapshots: Map<string, ChipSnapshot>;
 }) {
   const ref = useRef<HTMLElement>(null);
   const [rect, setRect] = useState<Rect | null>(null);
@@ -117,7 +125,6 @@ export function CubeWindow({
   // Snapshot the focused entry once its window is shown settled (fine level,
   // no pan) at the entry's own window.
   const [, bumpSnapshots] = useReducer((n: number) => n + 1, 0);
-  const snapshotAt = useRef(new Map<string, number>());
   const latest = useRef({ focused, cx: lm.inspect_cx, cy: lm.inspect_cy });
   latest.current = { focused, cx: lm.inspect_cx, cy: lm.inspect_cy };
   const onRendered = useCallback(
@@ -126,13 +133,14 @@ export function CubeWindow({
       const { focused: f, cx, cy } = latest.current;
       if (!s || s.refining || s.pan[0] !== 0 || s.pan[1] !== 0 || !f) return;
       if (f.win.cx !== cx || f.win.cy !== cy) return;
-      const first = snapshotAt.current.get(f.id);
+      const key = windowKey(f.win);
+      const prev = snapshots.get(f.id);
+      const current = prev?.key === key ? prev : null;
       const now = performance.now();
-      if (snapshots.has(f.id) && (first == null || now - first > SNAPSHOT_SETTLE_MS)) return;
+      if (current && now - current.at > SNAPSHOT_SETTLE_MS) return;
       const url = snapshotOf(canvas);
       if (!url) return;
-      if (first == null) snapshotAt.current.set(f.id, now);
-      snapshots.set(f.id, url);
+      snapshots.set(f.id, { key, url, at: current?.at ?? now });
       bumpSnapshots();
     },
     [snapshots],
@@ -279,7 +287,8 @@ export function CubeWindow({
           className="flex shrink-0 gap-1 overflow-x-auto px-1.5 pr-4 pb-1.5"
         >
           {history.map((h, n) => {
-            const src = snapshots.get(h.id);
+            const snap = snapshots.get(h.id);
+            const src = snap?.key === windowKey(h.win) ? snap.url : null;
             return (
               <Button
                 key={`${h.id}-${h.index}`}
