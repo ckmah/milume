@@ -529,13 +529,16 @@ test.describe("Landmarks inspect cube", () => {
     await expect(preview(page)).toBeVisible();
     await expect(view).not.toHaveAttribute("data-level", "-1");
     const region = await preview(page).getAttribute("data-region");
+    // The square sits inside a larger loaded region, so it is panned from the start.
+    const pan = await view.getAttribute("data-pan");
 
     const chunkRequests: string[] = [];
     page.on("request", (r) => {
       if (/\/s\d+\/c\//.test(r.url())) chunkRequests.push(r.url());
     });
     await page.mouse.move(box.x + box.width * 0.51, box.y + box.height * 0.5, { steps: 4 });
-    await expect(view).not.toHaveAttribute("data-pan", "0,0");
+    // The shown region slides under the moved square: a new pan, same region, no fetch.
+    await expect(view).not.toHaveAttribute("data-pan", pan!);
     expect(await preview(page).getAttribute("data-region")).toBe(region);
     expect(chunkRequests).toEqual([]);
     await expect(page.getByRole("dialog", { name: "Cube" })).toHaveCount(0);

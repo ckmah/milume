@@ -38,6 +38,8 @@ const CURSOR_GAP_PX = 24;
 const LEAD_MS = 150;
 /** Hover samples this recent make the velocity. */
 const VELOCITY_MS = 100;
+/** Decoded bytes one ring prefetch may queue: a quarter of the cache. */
+const RING_BYTES = CHUNK_CACHE_BYTES / 4;
 const OPEN_CUT: CubeCut = [-Infinity, Infinity, -Infinity, Infinity, -Infinity, Infinity];
 const ORIGIN_ZYX: [number, number, number] = [0, 0, 0];
 const VOXEL_ZYX: [number, number, number] = [1, 1, 1];
@@ -55,6 +57,11 @@ function voxels(b: Box): number {
 function dtypeBytes(dtype: string): number {
   const bits = Number(/\d+/.exec(dtype)?.[0] ?? 8);
   return Math.max(1, bits / 8);
+}
+
+/** Decoded bytes of one chunk of `source`. */
+function chunkBytes(source: ZarrSource): number {
+  return source._data.chunks.reduce((n, c) => n * c, 1) * dtypeBytes(source.dtype);
 }
 
 /** Every chunk of a level (full Z; 0 on the non-spatial axes), in `source.labels` order. */
@@ -131,8 +138,11 @@ export function InspectPreview({
   const samplesRef = useRef<{ t: number; x: number; y: number }[]>([]);
   const extentRef = useRef<Extent | null>(null);
   extentRef.current = extent;
-  const latest = useRef({ frame, budget: budgets.preview, rootEl });
-  latest.current = { frame, budget: budgets.preview, rootEl };
+  const latest = useRef({ frame, budget: budgets.preview, rootEl, labels: settings.showLabels });
+  latest.current = { frame, budget: budgets.preview, rootEl, labels: settings.showLabels };
+
+  // Leaving Inspect drops the preview's queued prefetches.
+  useEffect(() => () => cache.clearQueue(), [cache]);
 
   const velocity = useCallback((): [number, number] => {
     const s = samplesRef.current;
@@ -250,38 +260,60 @@ export function InspectPreview({
     (index: number, box: Box) => {
       const pyramid = levelsRef.current;
       // Labels opening later prefetch theirs at the same region.
-      const key = `${index}:${box.z0},${box.z1},${box.y0},${box.y1},${box.x0},${box.x1}:${pyramid?.labels ? 1 : 0}`;
+      const key = `${index}:${box.z0},${box.z1},${box.y0},${box.y1},${box.x0},${box.x1}:${latest.current.labels && pyramid?.labels ? 1 : 0}`;
       const r = regionRef.current;
       if (key === prefetchedRef.current || !pyramid || !r) return;
       prefetchedRef.current = key;
       const level = pyramid.levels[index];
       if (!level) return;
-      const cells = pyramid.labels ? matchingLevel(pyramid.labels, level) : null;
+      const { frame: f, labels: wantLabels } = latest.current;
+      const cells = wantLabels && pyramid.labels ? matchingLevel(pyramid.labels, level) : null;
       const sources = [level.source, ...(cells ? [cells] : [])];
       const bytes = sources.reduce((n, s) => n + voxels(levelBox({ ...level, source: s })) * dtypeBytes(s.dtype), 0);
       const whole = bytes <= CHUNK_CACHE_BYTES / 2;
-      const { frame: f } = latest.current;
       const [vx, vy] = velocity();
       const [, fsy, fsx] = f.voxelSize;
       const [, foy, fox] = f.origin;
       const [, fy, fx] = level.factor;
-      if (!whole) cache.clearQueue();
-      for (const [role, source] of sources.entries()) {
-        // Queued once per level and role (0 image, 1 labels): the cache keeps it.
-        const wholeKey = `${index}:${role}`;
-        if (whole && wholeRef.current.has(wholeKey)) continue;
-        if (whole) wholeRef.current.add(wholeKey);
+      /** How far a chunk's centre lies along the direction of travel. */
+      const aheadOf = (source: ZarrSource) => {
         const chunks = source._data.chunks;
         const iy = source.labels.indexOf("y");
         const ix = source.labels.indexOf("x");
-        const ahead = (c: number[]) => {
+        return (c: number[]) => {
           const x = fox + (c[ix]! + 0.5) * chunks[ix]! * fsx * fx - r.cx;
           const y = foy + (c[iy]! + 0.5) * chunks[iy]! * fsy * fy - r.cy;
           return x * vx + y * vy;
         };
-        const coords = (whole ? allChunks(source) : chunkRing(source, box)).sort((a, b) => ahead(b) - ahead(a));
-        cache.prefetch(source._data, coords);
+      };
+      if (whole) {
+        for (const [role, source] of sources.entries()) {
+          // Queued once per level and role (0 image, 1 labels): the cache keeps it.
+          const wholeKey = `${index}:${role}`;
+          if (wholeRef.current.has(wholeKey)) continue;
+          wholeRef.current.add(wholeKey);
+          const ahead = aheadOf(source);
+          cache.prefetch(source._data, allChunks(source).sort((a, b) => ahead(b) - ahead(a)));
+        }
+        return;
       }
+      // The ring, most ahead first, cut to RING_BYTES (image and labels together)
+      // so it never evicts the shown region or the dock's window.
+      const ring = sources.flatMap((source) => {
+        const ahead = aheadOf(source);
+        const bytes = chunkBytes(source);
+        return chunkRing(source, box).map((coords) => ({ source, coords, bytes, ahead: ahead(coords) }));
+      });
+      ring.sort((a, b) => b.ahead - a.ahead);
+      const queued = new Map<ZarrSource, number[][]>();
+      let total = 0;
+      for (const c of ring) {
+        if (total + c.bytes > RING_BYTES) break;
+        total += c.bytes;
+        queued.set(c.source, [...(queued.get(c.source) ?? []), c.coords]);
+      }
+      cache.clearQueue();
+      for (const [source, coords] of queued) cache.prefetch(source._data, coords);
     },
     [cache, velocity],
   );
