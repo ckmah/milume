@@ -40,6 +40,10 @@ export type Level = {
 export const WINDOW_VOXEL_BUDGET = 64 * 1024 * 1024;
 /** WebGL2 guarantees 256 per 3D texture axis; desktop GPUs report 2048. */
 export const MAX_TEXTURE_AXIS = 2048;
+/** Loaded preview region: this many times the square's side. */
+export const PREVIEW_REGION_SCALE = 3;
+/** Voxels one preview region may load. */
+export const PREVIEW_REGION_BUDGET = 8 * 1024 * 1024;
 
 export function axisSize(source: { shape: number[]; labels: string[] }, axis: string): number {
   const i = source.labels.indexOf(axis);
@@ -67,14 +71,14 @@ function windowVoxels0(base: ZarrSource, frame: Frame, sizeUm: number): [number,
 }
 
 /** Finest level whose window fits the voxel budget and the texture axis limit. */
-export function pickLevel(levels: Level[], frame: Frame, sizeUm: number): Level {
+export function pickLevel(levels: Level[], frame: Frame, sizeUm: number, budget = WINDOW_VOXEL_BUDGET): Level {
   const [d0, h0, w0] = windowVoxels0(levels[0]!.source, frame, sizeUm);
   for (const level of levels) {
     const [fz, fy, fx] = level.factor;
     const d = Math.ceil(d0 / fz);
     const h = Math.ceil(h0 / fy);
     const w = Math.ceil(w0 / fx);
-    if (d * h * w <= WINDOW_VOXEL_BUDGET && Math.max(d, h, w) <= MAX_TEXTURE_AXIS) {
+    if (d * h * w <= budget && Math.max(d, h, w) <= MAX_TEXTURE_AXIS) {
       return level;
     }
   }
@@ -315,4 +319,44 @@ export class LabelVolumeSource {
 export function matchingLevel(pyramid: ZarrSource[], level: Level): ZarrSource | null {
   const want = ["z", "y", "x"].map((a) => axisSize(level.source, a)).join(",");
   return pyramid.find((s) => ["z", "y", "x"].map((a) => axisSize(s, a)).join(",") === want) ?? null;
+}
+
+/** The whole level as one box. */
+export function levelBox(level: Level): Box {
+  return {
+    z0: 0,
+    z1: axisSize(level.source, "z"),
+    y0: 0,
+    y1: axisSize(level.source, "y"),
+    x0: 0,
+    x1: axisSize(level.source, "x"),
+  };
+}
+
+/** A square region of `sizeUm` around (cx, cy): the same box rule as a window. */
+export function regionBox(level: Level, frame: Frame, cx: number, cy: number, sizeUm: number): Box {
+  return windowBox(level, frame, cx, cy, sizeUm);
+}
+
+/** Chunk coordinates one chunk outside `box` in Y and X (full Z), in `source.labels` order. */
+export function chunkRing(source: ZarrSource, box: Box): number[][] {
+  const chunks = source._data.chunks;
+  const at = (axis: string) => source.labels.indexOf(axis);
+  const [iz, iy, ix] = [at("z"), at("y"), at("x")];
+  const span = (lo: number, hi: number, i: number) => [Math.floor(lo / chunks[i]!), Math.ceil(hi / chunks[i]!) - 1];
+  const [zy0, zy1] = span(box.z0, box.z1, iz);
+  const [cy0, cy1] = span(box.y0, box.y1, iy);
+  const [cx0, cx1] = span(box.x0, box.x1, ix);
+  const maxY = Math.ceil(axisSize(source, "y") / chunks[iy]!) - 1;
+  const maxX = Math.ceil(axisSize(source, "x") / chunks[ix]!) - 1;
+  const out: number[][] = [];
+  for (let y = Math.max(0, cy0 - 1); y <= Math.min(maxY, cy1 + 1); y++) {
+    for (let x = Math.max(0, cx0 - 1); x <= Math.min(maxX, cx1 + 1); x++) {
+      if (y >= cy0 && y <= cy1 && x >= cx0 && x <= cx1) continue;
+      for (let z = zy0; z <= zy1; z++) {
+        out.push(source.labels.map((_, i) => (i === iz ? z : i === iy ? y : i === ix ? x : 0)));
+      }
+    }
+  }
+  return out;
 }
