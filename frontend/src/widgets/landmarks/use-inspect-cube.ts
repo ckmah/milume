@@ -11,11 +11,21 @@ import {
   toRelativeCut,
 } from "./cube-cut";
 import type { EngineHandle } from "./engine";
-import type { AnyModel } from "./helpers";
+import type { AnyModel, SelectionItem } from "./helpers";
 import { type CubeSettings, type CubeSettingsPatch, useCubeSettings } from "./use-cube-settings";
 import type { LandmarksModel } from "./use-landmarks-model";
 
 type Range = [number, number];
+
+/** An inspect Selection's window: centre and side (µm), and its cut (absolute µm, or `[]`). */
+export type InspectWindow = { cx: number; cy: number; size_um: number; cut: number[] };
+
+/** The entry's window when `sel` is an inspect Selection. */
+export function inspectWindowOf(sel: SelectionItem | undefined): InspectWindow | null {
+  if (!sel || sel.type !== "inspect") return null;
+  const w = sel.window as InspectWindow | undefined;
+  return w && typeof w.cx === "number" && typeof w.cy === "number" ? w : null;
+}
 
 const DEFAULT_CONTRAST: Range = [0, 255];
 const NO_ORIGIN: [number, number, number] = [0, 0, 0];
@@ -43,6 +53,10 @@ export type InspectCube = {
  * never needs a write to stay correct. `volume_cut` (absolute µm) is written on
  * slider release, and once after the user moves the window (when it settles);
  * never in answer to Python's own `volume_cut` or inspect writes.
+ *
+ * Inspect Selections are the dock's history: focusing one restores its window
+ * and cut and opens the dock, each committed cut is also written into the
+ * focused entry, and removing the last one closes the dock.
  */
 export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: EngineHandle | null): InspectCube {
   const hasVolume = Boolean(lm.volume?.image_url);
@@ -57,9 +71,11 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   useEffect(() => {
     if (!engine || !hasVolume) return;
     return engine.subscribeInspect((e) => {
-      // Only placements open the cube and Esc closes it; hover and commit leave it be.
+      // Placements and commits open the cube and Esc closes it; hover leaves it be.
       if (e.type === "place") {
         placedRef.current = { x: e.x, y: e.y };
+        patchCube({ open: true });
+      } else if (e.type === "commit") {
         patchCube({ open: true });
       } else if (e.type === "close") {
         patchCube({ open: false });
@@ -91,13 +107,28 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
 
   // The last value this widget wrote, so its echo is not adopted as Python's.
   const writtenRef = useRef<string | null>(null);
+  // Each committed cut also goes into the focused inspect entry's `window.cut`,
+  // in the same save. Only that entry's `window` changes, never its members.
   const write = useCallback(
     (next: CubeCut) => {
       const key = next.join(",");
       const current = facade.get("volume_cut");
-      if (Array.isArray(current) && current.join(",") === key) return;
-      writtenRef.current = key;
-      facade.set("volume_cut", next);
+      const cutChanged = !(Array.isArray(current) && current.join(",") === key);
+      const sels = (facade.get("selections") as SelectionItem[] | null) ?? [];
+      const index = facade.get("selected_kind") === "selection" ? Number(facade.get("selected_index")) : -1;
+      const entry = inspectWindowOf(sels[index]);
+      const entryChanged = entry != null && (entry.cut ?? []).join(",") !== key;
+      if (!cutChanged && !entryChanged) return;
+      if (cutChanged) {
+        writtenRef.current = key;
+        facade.set("volume_cut", next);
+      }
+      if (entryChanged) {
+        facade.set(
+          "selections",
+          sels.map((s, i) => (i === index ? { ...s, window: { ...entry, cut: [...next] } } : s)),
+        );
+      }
       facade.save_changes();
     },
     [facade],
@@ -125,6 +156,52 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
       patchCube({ cut: { ...cube.cut, z: [p[4], p[5]] } });
     }
   });
+
+  // Focusing an inspect entry opens the dock and, when its window is not the
+  // current one, restores it: the engine moves the square (no events), and the
+  // entry's cut is adopted as a Python-set cut. Keyed on the entry and its
+  // window, not `inspect_cx/cy`, so dragging the focused square (its entry is
+  // stale until release) never snaps it back; after a commit the entry equals
+  // the window, so nothing happens.
+  const focused = lm.selected_kind === "selection" ? lm.selections[lm.selected_index] : undefined;
+  const focusedWin = inspectWindowOf(focused);
+  const focusedId = focusedWin ? String(focused?.id ?? "") : null;
+  const focusedIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const newlyFocused = focusedId !== focusedIdRef.current;
+    focusedIdRef.current = focusedId;
+    if (!engine || !hasVolume || !focusedWin) return;
+    const w = focusedWin;
+    const moved = w.cx !== lm.inspect_cx || w.cy !== lm.inspect_cy || w.size_um !== lm.inspect_size_um;
+    if (moved) {
+      // Not a user placement: nothing to settle.
+      placedRef.current = null;
+      engine.setInspectWindow(w.cx, w.cy, w.size_um);
+      if (w.cut?.length === 6) {
+        const restored = [...w.cut] as CubeCut;
+        // Adopted against the restored window even when `volume_cut` already holds it.
+        pendingRef.current = restored;
+        const current = facade.get("volume_cut");
+        if (!(Array.isArray(current) && current.join(",") === restored.join(","))) {
+          facade.set("volume_cut", restored);
+          facade.save_changes();
+        }
+      }
+    }
+    if (moved || newlyFocused) patchCube({ open: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine, hasVolume, focusedId, focusedWin?.cx, focusedWin?.cy, focusedWin?.size_um]);
+
+  // The dock closes when the last inspect entry goes (deleted anywhere). Only on
+  // that transition: a window with no inspect entries (e.g. set from Python)
+  // stays open.
+  const inspectCount = lm.selections.filter((s) => s.type === "inspect").length;
+  const inspectCountRef = useRef(inspectCount);
+  useEffect(() => {
+    const before = inspectCountRef.current;
+    inspectCountRef.current = inspectCount;
+    if (before > 0 && inspectCount === 0) patchCube({ open: false });
+  }, [inspectCount, patchCube]);
 
   // After the user moves the window, write the cut in its new place once. Only
   // while the window is where the user placed it: a move from Python (no

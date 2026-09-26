@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useLayoutEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useLayoutEffect, useReducer, useRef, useState } from "react";
 import { XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,9 @@ import type { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import type { CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
 import { PREVIEW_REGION_SCALE } from "@/widgets/volume-cube/window-source";
 
+import { SELECTION_COLORS } from "../helpers";
 import type { CubeSettings, CubeSettingsPatch } from "../use-cube-settings";
+import { inspectWindowOf } from "../use-inspect-cube";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { chromeHitClass } from "./primitives";
 import { FLOAT_PANEL } from "./sections";
@@ -25,6 +27,29 @@ const MIN_SIZE = { width: 320, height: 280 };
 const INSET = { top: 56, right: 48 };
 const ORIGIN_ZYX: [number, number, number] = [0, 0, 0];
 const VOXEL_ZYX: [number, number, number] = [1, 1, 1];
+const SNAPSHOT = { width: 64, height: 40 };
+/**
+ * After an entry's first snapshot, later settled renders replace it for this
+ * long: the first settled frame can still carry the previous textures while
+ * Viv uploads the new ones.
+ */
+const SNAPSHOT_SETTLE_MS = 1000;
+
+/** Draw `canvas` into a 64×40 WebP, cropped to cover. */
+function snapshotOf(canvas: HTMLCanvasElement): string | null {
+  const { width: sw, height: sh } = canvas;
+  if (!sw || !sh) return null;
+  const out = document.createElement("canvas");
+  out.width = SNAPSHOT.width;
+  out.height = SNAPSHOT.height;
+  const ctx = out.getContext("2d");
+  if (!ctx) return null;
+  const aspect = SNAPSHOT.width / SNAPSHOT.height;
+  const w = Math.min(sw, sh * aspect);
+  const h = w / aspect;
+  ctx.drawImage(canvas, (sw - w) / 2, (sh - h) / 2, w, h, 0, 0, SNAPSHOT.width, SNAPSHOT.height);
+  return out.toDataURL("image/webp", 0.7);
+}
 
 type Rect = { left: number; top: number; width: number; height: number };
 
@@ -53,6 +78,7 @@ export function CubeWindow({
   groups,
   cache,
   budgets,
+  snapshots,
 }: {
   lm: LandmarksModel;
   settings: CubeSettings;
@@ -65,12 +91,52 @@ export function CubeWindow({
   cache: ChunkCache;
   /** Voxel budgets: `preview` sizes the coarse first step, `dock` the fine level. */
   budgets: { preview: number; dock: number };
+  /** History chip snapshots (data URLs) by selection id; kept across opens, never synced. */
+  snapshots: Map<string, string>;
 }) {
   const ref = useRef<HTMLElement>(null);
   const [rect, setRect] = useState<Rect | null>(null);
   const gesture = useRef<{ kind: "move" | "resize"; x: number; y: number; start: Rect } | null>(null);
   const [refineError, setRefineError] = useState("");
-  const onLoadState = useCallback((s: CubeLoadState) => setRefineError(s.refineError ?? ""), []);
+  const [refining, setRefining] = useState(false);
+  const loadRef = useRef<CubeLoadState | null>(null);
+  const onLoadState = useCallback((s: CubeLoadState) => {
+    loadRef.current = s;
+    setRefineError(s.refineError ?? "");
+    setRefining(s.refining);
+  }, []);
+
+  // History: the inspect Selections, in `selections` order.
+  const history = lm.selections.flatMap((sel, index) => {
+    const win = inspectWindowOf(sel);
+    return win ? [{ id: String(sel.id), index, win }] : [];
+  });
+  const focusedIndex = lm.selected_kind === "selection" ? lm.selected_index : -1;
+  const focused = history.find((h) => h.index === focusedIndex) ?? null;
+
+  // Snapshot the focused entry once its window is shown settled (fine level,
+  // no pan) at the entry's own window.
+  const [, bumpSnapshots] = useReducer((n: number) => n + 1, 0);
+  const snapshotAt = useRef(new Map<string, number>());
+  const latest = useRef({ focused, cx: lm.inspect_cx, cy: lm.inspect_cy });
+  latest.current = { focused, cx: lm.inspect_cx, cy: lm.inspect_cy };
+  const onRendered = useCallback(
+    (canvas: HTMLCanvasElement) => {
+      const s = loadRef.current;
+      const { focused: f, cx, cy } = latest.current;
+      if (!s || s.refining || s.pan[0] !== 0 || s.pan[1] !== 0 || !f) return;
+      if (f.win.cx !== cx || f.win.cy !== cy) return;
+      const first = snapshotAt.current.get(f.id);
+      const now = performance.now();
+      if (snapshots.has(f.id) && (first == null || now - first > SNAPSHOT_SETTLE_MS)) return;
+      const url = snapshotOf(canvas);
+      if (!url) return;
+      if (first == null) snapshotAt.current.set(f.id, now);
+      snapshots.set(f.id, url);
+      bumpSnapshots();
+    },
+    [snapshots],
+  );
 
   const container = useCallback(() => {
     const parent = ref.current?.offsetParent as HTMLElement | null;
@@ -129,6 +195,7 @@ export function CubeWindow({
 
   const volume = lm.volume ?? {};
   const size = lm.inspect_size_um || 100;
+  const swatch = (index: number) => SELECTION_COLORS[index % SELECTION_COLORS.length];
 
   return (
     <section
@@ -152,12 +219,14 @@ export function CubeWindow({
         {...gestureHandlers}
       >
         <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground">
-          Cube · {size} µm
+          Cube · {Math.round(size)} µm
         </span>
         {refineError ? (
           <span className="min-w-0 truncate text-xs text-destructive" role="status">
             {refineError}
           </span>
+        ) : refining ? (
+          <span className="shrink-0 text-xs text-muted-foreground">refining</span>
         ) : null}
         <Button
           type="button"
@@ -197,11 +266,48 @@ export function CubeWindow({
             chunkCache={cache}
             pausesPrefetch
             onLoadState={onLoadState}
+            onRendered={onRendered}
             onBounds={(bounds) => patch({ bounds })}
             onPreset={(preset) => patch({ preset })}
           />
         </Suspense>
       </div>
+      {history.length ? (
+        <div
+          role="group"
+          aria-label="Inspect history"
+          className="flex shrink-0 gap-1 overflow-x-auto px-1.5 pr-4 pb-1.5"
+        >
+          {history.map((h, n) => {
+            const src = snapshots.get(h.id);
+            return (
+              <Button
+                key={`${h.id}-${h.index}`}
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={`Inspect ${n + 1}`}
+                aria-pressed={h.index === focusedIndex}
+                title={`Inspect ${n + 1}`}
+                className={cn(chromeHitClass, "landmarks__inspect-chip")}
+                onClick={() => lm.select("selection", h.index)}
+              >
+                {src ? (
+                  <img src={src} alt="" width={SNAPSHOT.width} height={SNAPSHOT.height} className="rounded-sm" />
+                ) : (
+                  <span
+                    className="block rounded-sm"
+                    style={{ width: SNAPSHOT.width, height: SNAPSHOT.height, background: swatch(h.index) }}
+                  />
+                )}
+                <span className="pointer-events-none absolute bottom-1 left-1.5 text-[10px] leading-none font-medium text-white [text-shadow:0_0_2px_rgb(0_0_0/0.9)]">
+                  {n + 1}
+                </span>
+              </Button>
+            );
+          })}
+        </div>
+      ) : null}
       <button
         type="button"
         className="landmarks__cube-resize"

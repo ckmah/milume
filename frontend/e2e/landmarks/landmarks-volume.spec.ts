@@ -404,11 +404,13 @@ test.describe("Landmarks inspect cube", () => {
     await setModel(page, { selected_kind: "type", selected_index: 0 });
     await expect(view).toHaveAttribute("data-highlight", "1");
 
-    // A Selection: its cells by category (cell 2 only, type0).
+    // A Selection: its cells by category (cell 2 only, type0). The inspect
+    // Selection stays (removing the last one closes the dock).
+    const inspect = (await getModel(page, "selections")) as any[];
     await setModel(page, {
-      selections: [{ id: "sel-1", type: "polygon", point_indices: [1] }],
+      selections: [...inspect, { id: "sel-1", type: "polygon", point_indices: [1] }],
       selected_kind: "selection",
-      selected_index: 0,
+      selected_index: inspect.length,
     });
     await expect(view).toHaveAttribute("data-highlight", "1");
 
@@ -460,5 +462,36 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(view).toHaveAttribute("data-refining", "false");
     expect(chunkRequests).toEqual([]);
+  });
+
+  test("history chips restore each committed window and cut", async ({ page }) => {
+    const box = await openCubeAtCentre(page);
+    await page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Cuts" }).click();
+    const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
+    await zHi.focus();
+    for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
+    await expect.poll(async () => ((await getModel(page, "selections")) as any[])[0].window.cut[5]).toBe(54);
+    const first = ((await getModel(page, "selections")) as any[])[0];
+
+    await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.25);
+    const strip = cubeWindow(page).getByLabel("Inspect history");
+    await expect(strip.getByRole("button")).toHaveCount(2);
+    await expect(strip.getByRole("button", { name: "Inspect 2" })).toHaveAttribute("aria-pressed", "true");
+
+    await strip.getByRole("button", { name: "Inspect 1" }).click();
+    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeCloseTo(first.window.cx, 3);
+    await expect.poll(async () => ((await getModel(page, "volume_cut")) as number[])[5]).toBe(54);
+    // The cut never changed membership.
+    expect(((await getModel(page, "selections")) as any[])[0].point_indices).toEqual(first.point_indices);
+  });
+
+  test("deleting an inspect selection removes its chip; the last one closes the dock", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const strip = cubeWindow(page).getByLabel("Inspect history");
+    await expect(strip.getByRole("button")).toHaveCount(1);
+    // Once refined, the chip carries a snapshot of the cube.
+    await expect(strip.getByRole("button", { name: "Inspect 1" }).locator("img")).toHaveCount(1);
+    await setModel(page, { selections: [], selected_kind: "", selected_index: -1 });
+    await expect(cubeWindow(page)).toHaveCount(0);
   });
 });

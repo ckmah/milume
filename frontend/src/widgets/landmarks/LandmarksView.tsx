@@ -79,6 +79,8 @@ export function LandmarksView({
   const inspectCube = useInspectCube(facade, lm, engine);
   // One decoded-chunk cache per widget, kept across cube opens.
   const chunkCache = useMemo(() => new ChunkCache(), []);
+  // Inspect history chip snapshots by selection id, kept across cube opens (never synced).
+  const snapshots = useMemo(() => new Map<string, string>(), []);
   const budgets = useMemo(
     () => cubeBudgets ?? { preview: PREVIEW_REGION_BUDGET, dock: WINDOW_VOXEL_BUDGET },
     [cubeBudgets],
@@ -357,6 +359,7 @@ export function LandmarksView({
             groups={groups}
             cache={chunkCache}
             budgets={budgets}
+            snapshots={snapshots}
           />
         ) : null}
 
