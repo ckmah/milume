@@ -4,20 +4,6 @@
       "version": "0.5-dev-spatialdata",
       "multiscales": [
         {
-          "axes": [
-            {
-              "name": "z",
-              "type": "space"
-            },
-            {
-              "name": "y",
-              "type": "space"
-            },
-            {
-              "name": "x",
-              "type": "space"
-            }
-          ],
           "datasets": [
             {
               "path": "s0",
@@ -39,9 +25,65 @@
                   ]
                 }
               ]
+            },
+            {
+              "path": "s1",
+              "coordinateTransformations": [
+                {
+                  "type": "scale",
+                  "scale": [
+                    2.0,
+                    2.0,
+                    2.0
+                  ]
+                },
+                {
+                  "type": "translation",
+                  "translation": [
+                    0.5,
+                    0.5,
+                    0.5
+                  ]
+                }
+              ]
+            },
+            {
+              "path": "s2",
+              "coordinateTransformations": [
+                {
+                  "type": "scale",
+                  "scale": [
+                    4.0,
+                    4.0,
+                    4.0
+                  ]
+                },
+                {
+                  "type": "translation",
+                  "translation": [
+                    1.5,
+                    1.5,
+                    1.5
+                  ]
+                }
+              ]
             }
           ],
           "name": "cells",
+          "axes": [
+            {
+              "name": "z",
+              "type": "space"
+            },
+            {
+              "name": "y",
+              "type": "space"
+            },
+            {
+              "name": "x",
+              "type": "space"
+            }
+          ],
           "coordinateTransformations": [
             {
               "type": "identity",

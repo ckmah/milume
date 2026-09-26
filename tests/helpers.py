@@ -72,12 +72,18 @@ def toy_spatialdata(dest):
     sdata = sd.SpatialData(
         images={
             "mosaic": Image3DModel.parse(
-                image[None], dims=("c", "z", "y", "x"), transformations={"global": Identity()}
+                image[None],
+                dims=("c", "z", "y", "x"),
+                transformations={"global": Identity()},
+                scale_factors=[2, 2],
             )
         },
         labels={
             "cells": Labels3DModel.parse(
-                labels.astype(np.uint32), dims=("z", "y", "x"), transformations={"global": Identity()}
+                labels.astype(np.uint32),
+                dims=("z", "y", "x"),
+                transformations={"global": Identity()},
+                scale_factors=[2, 2],
             )
         },
         tables={"table": TableModel.parse(table, region="cells", region_key="region", instance_key="cell_id")},
