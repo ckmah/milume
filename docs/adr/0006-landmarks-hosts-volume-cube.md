@@ -76,3 +76,18 @@ in its own chrome:
 - Traits budget: three more on top of the widget's ~70; still one owner
   per synced value (ADR 0005) — the cube's own controls never become
   traits Python did not ask for.
+
+## Addendum 2026-09-26
+
+[Inspect preview, dock and history](../superpowers/specs/2026-09-26-inspect-preview-dock-design.md)
+adds a live pyramid preview beside the window square and a history strip in
+the dock, without new traits:
+
+- A hover preview and the dock both load through `pickLevel`, prefetch-then-
+  swap (coarse from cache, then the finest level the budget allows).
+- A decoded-chunk LRU is shared per widget instance between the preview and
+  the dock, so recentres and reopens are cache reads, not re-fetches.
+- Each commit is an ordinary `selections` entry (`type: "inspect"`); the
+  history strip reads `selections`, it does not add a trait.
+- `inspect_size_um` flips to an output: the browser derives it from zoom and
+  writes it at commit; Python no longer sets it.

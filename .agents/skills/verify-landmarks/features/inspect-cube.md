@@ -1,19 +1,23 @@
 # inspect-cube
 
-Inspect places a window-sized square on the map; a click opens a floating
-**Cube** dialog with a 3D view of that window, its own context toolbar, and
-a highlight that follows the category panel's focus. Drag pans it live; Esc
-or the close button hides it.
+Inspect places a window-sized square on the map, its side in µm scaled by
+zoom; a click commits an inspect selection and opens/updates a floating
+**Cube** dialog — coarse from the cache first, then the finest level the
+window budget allows — with its own context toolbar and a highlight that
+follows the category panel's focus. Drag pans it live; Esc or the close
+button hides it.
 
 **Spec:** `frontend/e2e/landmarks/landmarks-volume.spec.ts` — `"Landmarks inspect cube"` describe block
 (`E2E_HARNESS=landmarks-volume`, run via `npm run test:e2e:landmarks`)
 
-**Design:** [`docs/superpowers/specs/2026-09-25-landmarks-inspect-cube-design.md`](../../../docs/superpowers/specs/2026-09-25-landmarks-inspect-cube-design.md) · [ADR 0006](../../../docs/adr/0006-landmarks-hosts-volume-cube.md)
+**Design:** [`docs/superpowers/specs/2026-09-25-landmarks-inspect-cube-design.md`](../../../docs/superpowers/specs/2026-09-25-landmarks-inspect-cube-design.md) · [`docs/superpowers/specs/2026-09-26-inspect-preview-dock-design.md`](../../../docs/superpowers/specs/2026-09-26-inspect-preview-dock-design.md) · [ADR 0006](../../../docs/adr/0006-landmarks-hosts-volume-cube.md)
 
 ## Sub-features
 
-- Hover in Inspect draws the window square with no model writes; click places it (`inspect_cx`/`inspect_cy`) and opens the Cube dialog
-- Drag pans the cube live (`data-pan` mirrors nonzero, then settles back to `0,0` once the refetch lands at the new window); moves save `inspect_cx`/`inspect_cy` at most every 40 ms and the release saves the final position
+- Hover in Inspect draws the window square with no model writes, sized `160 screen px / zoomScale` so it covers more tissue zoomed out; click commits an **inspect selection** (`type: "inspect"`, `point_indices`, `window`) and opens the Cube dialog
+- The dock shows the preview level from the shared chunk cache first, then swaps to the finest level the window budget allows (`data-level`, `data-refining="true"` while loading); reopening an already-loaded window reads every chunk from the cache, with no new chunk requests
+- The Landmarks-hosted cube has no category legend — the right panel's category list already shows it; the standalone `VolumeCubeWidget` keeps its own
+- Drag pans the cube live (`data-pan` mirrors nonzero, then settles back to `0,0` once the refetch lands at the new window); moves save `inspect_cx`/`inspect_cy` at most every 40 ms and the release saves the final position, updating the focused entry's `window`
 - Esc (while in Inspect) or the dialog's close button hides the cube; clicking again in Inspect reopens it; switching to another tool keeps it open
 - Inspect context toolbar (`data-testid="context-inspect-toolbar"`): camera presets (Top/Iso/Side), Additive/MIP, Palette, Labels switch, and Cuts/Image/Cells level-2 panels
 - Cuts (X, Y, Z range sliders in µm) render live and commit `volume_cut` on release; X/Y are window-relative (an untouched/open edge tracks the window as it moves) while Z is absolute
@@ -29,10 +33,11 @@ or the close button hides it.
 `w = LandmarksWidget(sdata)` where `sdata` is a SpatialData with a 3D image on
 the same grid as its labels (see [`docs/adr/0006-landmarks-hosts-volume-cube.md`](../../../docs/adr/0006-landmarks-hosts-volume-cube.md)).
 Press **I** or click the cube icon to arm Inspect; the window square follows
-the cursor. Click to place it and open **Cube**; drag to pan it live. Focus a
-category or Selection in the side panel to color the cube; the bottom context
-toolbar shows the cube's controls while Inspect is active and the cube is
-open.
+the cursor, growing or shrinking in µm as you zoom. Click to commit it and
+open **Cube**; drag to pan it live. Focus a category, Selection or an
+inspect-history chip in the side panel/dock to color or restore the cube;
+the bottom context toolbar shows the cube's controls while Inspect is active
+and the cube is open.
 
 ## Driving it with Playwright
 
@@ -68,12 +73,18 @@ in `frontend/e2e/helpers.ts`). Selectors:
 dialog, `getByTestId("context-inspect-toolbar")`.
 
 Model keys: `inspect_cx`, `inspect_cy`, `inspect_size_um`, `volume`,
-`volume_label_ids`, `volume_cut`.
+`volume_label_ids`, `volume_cut`, `selections` (`type: "inspect"` entries).
 
 **Proof**
 
+- Functional: `"the square's µm size follows zoom"` — `inspect_size_um` (and the overlay's `sizeUm`) doubles when zooming out one step; the preview hears the same size on hover/zoom events.
+- Functional: `"a click commits an inspect selection of the points in the square"` — the new `selections[i]` has `type: "inspect"`, `window.size_um` matching `inspect_size_um`, and `point_indices` matching a linear scan of the square; focus moves to it (`selected_kind`/`selected_index`).
+- Functional: `"dragging the focused square moves its entry; a press elsewhere adds one"`, `"drag pans the cube; Esc closes it"`, `"a quick drag saves the final window position on release"` — a drag on the focused square updates its `window.cx`/`cy` and `data-pan` settles to `0,0`; a press elsewhere adds a second entry and focuses it.
+- Functional: `"the dock shows the coarse level first, then refines"` — `data-level` shows a coarser level before a finer one, and `data-refining` returns to `"false"` once it lands.
+- Functional: `"reopening the same window reads every chunk from the cache"` — closing and reopening the same window fires no `/s\d+/c/` chunk requests.
+- Functional: `"the hosted cube has no category legend"` — `getByLabel("Highlighted cells")` has zero count in the Landmarks-hosted dock.
 - Functional (docks): `"Inspect hides both side panels; leaving restores them as they were"` — both docks `data-collapsed="true"` in Inspect, restored on leaving, pre-Inspect state wins over mid-Inspect edits.
-- Functional: `inspect_cx`/`inspect_cy` set on click, and the saved value equals the final position after a quick drag; `data-pan` nonzero mid-drag then `0,0`; `volume_cut` reflects a committed slider edit and stays window-relative across a drag; `volume_cut = []` shows Z as `0–64 µm`; `data-highlight` count matches focus.
+- Functional: `volume_cut` reflects a committed slider edit and stays window-relative across a drag; `volume_cut = []` shows Z as `0–64 µm`; `data-highlight` count matches focus.
 - Visual: no dedicated named anchor yet (functional asserts cover the dialog and toolbar); reuse `rest`/`selection-neighborhood` conventions if a screenshot is added later.
 
 ## Gotchas

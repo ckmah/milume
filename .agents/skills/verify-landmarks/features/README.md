@@ -21,13 +21,15 @@ capability** to existing Playwright coverage — not a product roadmap.
 | [landmark-edit-node](landmark-edit-node.md) | `landmarks-tools.spec.ts` — `"node mode: drag a vertex, insert via midpoint, then delete"` | — |
 | [landmark-undo](landmark-undo.md) | `landmarks-tools.spec.ts` — `"Mod+Z undoes the last landmark geometry edit"` | — |
 | [inspect-cube](inspect-cube.md) | `landmarks-volume.spec.ts` — `"Landmarks inspect cube"` describe block | — |
+| [inspect-history](inspect-history.md) | `landmarks-volume.spec.ts` — `"Landmarks inspect cube"` describe block | — |
 | [toolbar-layout](toolbar-layout.md) | `landmarks.spec.ts` — `"toolbar: interaction order, lasso and landmark dropdowns, cube icon"`, `"active lasso keeps its colours on hover in dark mode"` | — |
 | [panel-peek](panel-peek.md) | `landmarks.spec.ts` — `"side panels collapse to a peek tab and come back"` | — |
 
-`inspect-cube` runs under a separate spec file and harness
-(`E2E_HARNESS=landmarks-volume`, `frontend/e2e/landmarks/landmarks-volume.spec.ts`),
-wired into `npm run test:e2e:landmarks` alongside the rest of this tier; see
-[`frontend/e2e/README.md`](../../../frontend/e2e/README.md). It shares its
+`inspect-cube` and `inspect-history` run under a separate spec file and
+harness (`E2E_HARNESS=landmarks-volume`,
+`frontend/e2e/landmarks/landmarks-volume.spec.ts`), wired into
+`npm run test:e2e:landmarks` alongside the rest of this tier; see
+[`frontend/e2e/README.md`](../../../frontend/e2e/README.md). Both share their
 rendering component (`VolumeCube`) with `VolumeCubeWidget` — see the
 [verify-volume-cube feature map](../../verify-volume-cube/features/README.md).
 
