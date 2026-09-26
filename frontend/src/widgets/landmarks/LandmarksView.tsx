@@ -18,6 +18,7 @@ import {
   RightChromeStack,
   CanvasRulers,
   CubeWindow,
+  InspectPreview,
   InspectToolbar,
   InspectNoVolumePill,
   PanelCollapseButton,
@@ -366,6 +367,19 @@ export function LandmarksView({
             cache={chunkCache}
             budgets={budgets}
             snapshots={snapshots}
+          />
+        ) : null}
+
+        {hasVolume && inspecting ? (
+          <InspectPreview
+            lm={lm}
+            engine={engine}
+            rootEl={rootEl}
+            settings={cube}
+            groups={groups}
+            dark={dark}
+            cache={chunkCache}
+            budgets={budgets}
           />
         ) : null}
 

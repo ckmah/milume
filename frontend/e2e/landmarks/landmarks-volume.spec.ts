@@ -14,6 +14,7 @@ import { bootLandmarksVolumeHarness, canvasBox, getModel, setModel } from "../he
  * fitted zoom a square at the canvas centre (~(115, 135)) holds none of them.
  */
 const cubeWindow = (page: Page) => page.getByRole("dialog", { name: "Cube" });
+const preview = (page: Page) => page.getByTestId("inspect-preview");
 const cutOf = async (page: Page) => (await getModel(page, "volume_cut")) as number[];
 
 /**
@@ -516,5 +517,41 @@ test.describe("Landmarks inspect cube", () => {
     expect(((await getModel(page, "selections")) as any[])[0].id).toBe(id);
     await expect(chip.locator("img")).toHaveCount(1);
     await expect.poll(src).not.toBe(moved);
+  });
+
+  test("hover shows a live coarse preview that slides without refetching", async ({ page }) => {
+    await page.goto("/?budgets=20000,300000", { waitUntil: "networkidle" });
+    await page.waitForFunction(() => Boolean((window as any).__landmarksEngine));
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    const view = preview(page).locator(".volume-cube__view");
+    await expect(preview(page)).toBeVisible();
+    await expect(view).not.toHaveAttribute("data-level", "-1");
+    const region = await preview(page).getAttribute("data-region");
+
+    const chunkRequests: string[] = [];
+    page.on("request", (r) => {
+      if (/\/s\d+\/c\//.test(r.url())) chunkRequests.push(r.url());
+    });
+    await page.mouse.move(box.x + box.width * 0.51, box.y + box.height * 0.5, { steps: 4 });
+    await expect(view).not.toHaveAttribute("data-pan", "0,0");
+    expect(await preview(page).getAttribute("data-region")).toBe(region);
+    expect(chunkRequests).toEqual([]);
+    await expect(page.getByRole("dialog", { name: "Cube" })).toHaveCount(0);
+  });
+
+  test("moving far recentres the preview region; leaving the map hides it", async ({ page }) => {
+    await page.goto("/?budgets=20000,300000", { waitUntil: "networkidle" });
+    await page.waitForFunction(() => Boolean((window as any).__landmarksEngine));
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5);
+    await expect(preview(page)).toBeVisible();
+    const region = await preview(page).getAttribute("data-region");
+    await page.mouse.move(box.x + box.width * 0.75, box.y + box.height * 0.5, { steps: 8 });
+    await expect.poll(() => preview(page).getAttribute("data-region")).not.toBe(region);
+    await page.mouse.move(box.x - 20, box.y - 20);
+    await expect(preview(page)).toBeHidden();
   });
 });

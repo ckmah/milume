@@ -1,0 +1,341 @@
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
+
+import { cn } from "@/lib/utils";
+import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
+import { CHUNK_CACHE_BYTES, type ChunkCache } from "@/widgets/volume-cube/chunk-cache";
+import type { CubeBounds, CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
+import {
+  type Box,
+  type Frame,
+  type Level,
+  type ZarrSource,
+  PREVIEW_REGION_SCALE,
+  axisSize,
+  chunkRing,
+  levelBox,
+  matchingLevel,
+  pickLevel,
+  pyramidLevels,
+} from "@/widgets/volume-cube/window-source";
+
+import type { CubeSettings } from "../use-cube-settings";
+import type { EngineHandle, InspectEvent } from "../engine";
+import type { LandmarksModel } from "../use-landmarks-model";
+import { FLOAT_PANEL } from "./sections";
+
+// Lazy only in the dev harness (see cube-window.tsx).
+const VolumeCube = lazy(() =>
+  import("@/widgets/volume-cube/VolumeCube").then((m) => ({ default: m.VolumeCube })),
+);
+
+/** The preview cube's side (CSS px). */
+export const PREVIEW_PX = 240;
+/** The float's side: the cube plus its padding. */
+const FLOAT_PX = PREVIEW_PX + 8;
+/** Gap between the cursor and the float. */
+const CURSOR_GAP_PX = 24;
+/** A recentred region leads the cursor by its velocity over this long. */
+const LEAD_MS = 150;
+/** Hover samples this recent make the velocity. */
+const VELOCITY_MS = 100;
+const OPEN_CUT: CubeCut = [-Infinity, Infinity, -Infinity, Infinity, -Infinity, Infinity];
+const ORIGIN_ZYX: [number, number, number] = [0, 0, 0];
+const VOXEL_ZYX: [number, number, number] = [1, 1, 1];
+
+type Hover = Extract<InspectEvent, { type: "hover" }>;
+/** The loaded region's centre (µm) and the preview level it was placed for (-1 before the pyramid opens). */
+type Region = { cx: number; cy: number; level: number };
+type Extent = { x: [number, number]; y: [number, number] };
+
+function voxels(b: Box): number {
+  return (b.z1 - b.z0) * (b.y1 - b.y0) * (b.x1 - b.x0);
+}
+
+/** Bytes per voxel of a Viv dtype (`Uint8`, `Float32`, ...). */
+function dtypeBytes(dtype: string): number {
+  const bits = Number(/\d+/.exec(dtype)?.[0] ?? 8);
+  return Math.max(1, bits / 8);
+}
+
+/** Every chunk of a level (full Z; 0 on the non-spatial axes), in `source.labels` order. */
+function allChunks(source: ZarrSource): number[][] {
+  const chunks = source._data.chunks;
+  const n = (axis: string) => {
+    const i = source.labels.indexOf(axis);
+    return i < 0 ? 1 : Math.ceil(axisSize(source, axis) / chunks[i]!);
+  };
+  const out: number[][] = [];
+  for (let z = 0; z < n("z"); z++)
+    for (let y = 0; y < n("y"); y++)
+      for (let x = 0; x < n("x"); x++)
+        out.push(source.labels.map((l) => (l === "z" ? z : l === "y" ? y : l === "x" ? x : 0)));
+  return out;
+}
+
+/** The preview level for a square of `sizeUm`, and the level centre when the whole level fits the budget. */
+function previewLevel(levels: Level[], frame: Frame, sizeUm: number, budget: number) {
+  const level = pickLevel(levels, frame, sizeUm * PREVIEW_REGION_SCALE, budget);
+  const box = levelBox(level);
+  if (voxels(box) > budget) return { level, centre: null };
+  const [, sy, sx] = frame.voxelSize;
+  const [, oy, ox] = frame.origin;
+  const [, fy, fx] = level.factor;
+  return { level, centre: { cx: ox + (box.x1 / 2) * sx * fx, cy: oy + (box.y1 / 2) * sy * fy } };
+}
+
+/**
+ * The live Inspect preview: while the pointer hovers the volume in Inspect, a
+ * small fixed-camera MIP of the square floats beside the cursor. It draws from
+ * a loaded region three squares wide, so the square slides over voxels already
+ * in memory; near the region's edge the region recentres ahead of the cursor,
+ * and each shown region prefetches the chunks around it (in the direction of
+ * travel) into the widget's chunk cache. Mounted on the first hover and then
+ * only hidden, so its WebGL context is reused. Never takes pointer input.
+ */
+export function InspectPreview({
+  lm,
+  engine,
+  rootEl,
+  settings,
+  groups,
+  dark,
+  cache,
+  budgets,
+}: {
+  lm: LandmarksModel;
+  engine: EngineHandle | null;
+  /** The widget root: the float's container, and where the map canvas is found. */
+  rootEl: HTMLElement | null;
+  settings: CubeSettings;
+  groups: HighlightGroup[];
+  dark: boolean;
+  cache: ChunkCache;
+  budgets: { preview: number; dock: number };
+}) {
+  const volume = lm.volume ?? {};
+  const voxelSizeUm = volume.voxel_size_um ?? VOXEL_ZYX;
+  const originUm = volume.origin_um ?? ORIGIN_ZYX;
+  const [sz, sy, sx] = voxelSizeUm;
+  const [oz, oy, ox] = originUm;
+  const frame: Frame = useMemo(() => ({ voxelSize: [sz, sy, sx], origin: [oz, oy, ox] }), [sz, sy, sx, oz, oy, ox]);
+
+  /** The last hover (kept while hidden, so the cube keeps its window), and whether it is live. */
+  const [last, setLast] = useState<{ hover: Hover; left: number; top: number } | null>(null);
+  const [hovering, setHovering] = useState(false);
+  const [region, setRegion] = useState<Region | null>(null);
+  const [extent, setExtent] = useState<Extent | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  const levelsRef = useRef<{ image: ZarrSource[]; labels: ZarrSource[] | null; levels: Level[] } | null>(null);
+  const regionRef = useRef<Region | null>(null);
+  const samplesRef = useRef<{ t: number; x: number; y: number }[]>([]);
+  const extentRef = useRef<Extent | null>(null);
+  extentRef.current = extent;
+  const latest = useRef({ frame, budget: budgets.preview, rootEl });
+  latest.current = { frame, budget: budgets.preview, rootEl };
+
+  const velocity = useCallback((): [number, number] => {
+    const s = samplesRef.current;
+    const a = s[0];
+    const b = s[s.length - 1];
+    const dt = a && b ? b.t - a.t : 0;
+    return a && b && dt > 0 ? [(b.x - a.x) / dt, (b.y - a.y) / dt] : [0, 0];
+  }, []);
+
+  const place = useCallback((next: Region) => {
+    regionRef.current = next;
+    setRegion(next);
+  }, []);
+
+  /** Keep, recentre or fix the region for a hover at (x, y) with a square of `sizeUm`. */
+  const updateRegion = useCallback(
+    (x: number, y: number, sizeUm: number) => {
+      const { frame: f, budget } = latest.current;
+      const prev = regionRef.current;
+      const pyramid = levelsRef.current;
+      const pick = pyramid ? previewLevel(pyramid.levels, f, sizeUm, budget) : null;
+      const level = pick ? pick.level.index : -1;
+      if (pick?.centre) {
+        // The whole level fits: one region, at the level centre, for good.
+        if (!prev || prev.level !== level || prev.cx !== pick.centre.cx || prev.cy !== pick.centre.cy) {
+          place({ ...pick.centre, level });
+          setFailed(false);
+        }
+        return;
+      }
+      const half = (sizeUm * PREVIEW_REGION_SCALE) / 2;
+      const near = prev ? Math.abs(x - prev.cx) > half - sizeUm || Math.abs(y - prev.cy) > half - sizeUm : true;
+      if (prev && prev.level === -1 && level >= 0 && !near) {
+        // The pyramid just opened: the region stays, now for this level.
+        place({ ...prev, level });
+        return;
+      }
+      if (prev && prev.level === level && !near) return;
+      const [vx, vy] = prev ? velocity() : [0, 0];
+      let cx = x + vx * LEAD_MS;
+      let cy = y + vy * LEAD_MS;
+      const e = extentRef.current;
+      if (e) {
+        cx = Math.max(e.x[0], Math.min(e.x[1], cx));
+        cy = Math.max(e.y[0], Math.min(e.y[1], cy));
+      }
+      place({ cx, cy, level });
+      setFailed(false);
+    },
+    [place, velocity],
+  );
+
+  const lastHoverRef = useRef<Hover | null>(null);
+  useEffect(() => {
+    if (!engine) return;
+    return engine.subscribeInspect((e) => {
+      // A press places the dock's window: the preview steps aside until the next hover.
+      if (e.type === "hover-end" || e.type === "place") {
+        samplesRef.current = [];
+        setHovering(false);
+        return;
+      }
+      if (e.type !== "hover") return;
+      const now = performance.now();
+      const samples = samplesRef.current;
+      samples.push({ t: now, x: e.x, y: e.y });
+      while (samples.length > 1 && now - samples[0]!.t > VELOCITY_MS) samples.shift();
+      lastHoverRef.current = e;
+
+      // Beside the cursor, flipped to its left at the widget's right edge.
+      const root = latest.current.rootEl;
+      const r = root?.getBoundingClientRect();
+      const c = root?.querySelector("canvas.landmarks__webgl")?.getBoundingClientRect() ?? r;
+      const ax = (c && r ? c.left - r.left : 0) + e.px;
+      const ay = (c && r ? c.top - r.top : 0) + e.py;
+      const width = r?.width ?? Infinity;
+      const height = r?.height ?? Infinity;
+      let left = ax + CURSOR_GAP_PX;
+      if (left + FLOAT_PX > width) left = ax - CURSOR_GAP_PX - FLOAT_PX;
+      const top = Math.max(0, Math.min(height - FLOAT_PX, ay - FLOAT_PX / 2));
+
+      updateRegion(e.x, e.y, e.sizeUm);
+      setLast({ hover: e, left, top });
+      setHovering(true);
+    });
+  }, [engine, updateRegion]);
+
+  const onLevels = useCallback(
+    (image: ZarrSource[], labels: ZarrSource[] | null) => {
+      levelsRef.current = { image, labels, levels: pyramidLevels(image) };
+      const h = lastHoverRef.current;
+      if (h) updateRegion(h.x, h.y, h.sizeUm);
+    },
+    [updateRegion],
+  );
+
+  const onBounds = useCallback((b: CubeBounds) => {
+    const prev = extentRef.current;
+    if (prev && prev.x[0] === b.volumeX[0] && prev.x[1] === b.volumeX[1] && prev.y[0] === b.volumeY[0] && prev.y[1] === b.volumeY[1])
+      return;
+    setExtent({ x: [...b.volumeX], y: [...b.volumeY] });
+  }, []);
+
+  const onLoadState = useCallback((s: CubeLoadState) => {
+    // Hidden until the next recentre.
+    if (s.imageError) setFailed(true);
+  }, []);
+
+  // After each new region is shown, prefetch around it: the ring of chunks just
+  // outside it, most along the direction of travel first; or the whole level
+  // when it is small enough to keep.
+  const prefetchedRef = useRef("");
+  const wholeRef = useRef(new Set<string>());
+  const onShown = useCallback(
+    (index: number, box: Box) => {
+      const pyramid = levelsRef.current;
+      // Labels opening later prefetch theirs at the same region.
+      const key = `${index}:${box.z0},${box.z1},${box.y0},${box.y1},${box.x0},${box.x1}:${pyramid?.labels ? 1 : 0}`;
+      const r = regionRef.current;
+      if (key === prefetchedRef.current || !pyramid || !r) return;
+      prefetchedRef.current = key;
+      const level = pyramid.levels[index];
+      if (!level) return;
+      const cells = pyramid.labels ? matchingLevel(pyramid.labels, level) : null;
+      const sources = [level.source, ...(cells ? [cells] : [])];
+      const bytes = sources.reduce((n, s) => n + voxels(levelBox({ ...level, source: s })) * dtypeBytes(s.dtype), 0);
+      const whole = bytes <= CHUNK_CACHE_BYTES / 2;
+      const { frame: f } = latest.current;
+      const [vx, vy] = velocity();
+      const [, fsy, fsx] = f.voxelSize;
+      const [, foy, fox] = f.origin;
+      const [, fy, fx] = level.factor;
+      if (!whole) cache.clearQueue();
+      for (const [role, source] of sources.entries()) {
+        // Queued once per level and role (0 image, 1 labels): the cache keeps it.
+        const wholeKey = `${index}:${role}`;
+        if (whole && wholeRef.current.has(wholeKey)) continue;
+        if (whole) wholeRef.current.add(wholeKey);
+        const chunks = source._data.chunks;
+        const iy = source.labels.indexOf("y");
+        const ix = source.labels.indexOf("x");
+        const ahead = (c: number[]) => {
+          const x = fox + (c[ix]! + 0.5) * chunks[ix]! * fsx * fx - r.cx;
+          const y = foy + (c[iy]! + 0.5) * chunks[iy]! * fsy * fy - r.cy;
+          return x * vx + y * vy;
+        };
+        const coords = (whole ? allChunks(source) : chunkRing(source, box)).sort((a, b) => ahead(b) - ahead(a));
+        cache.prefetch(source._data, coords);
+      }
+    },
+    [cache, velocity],
+  );
+
+  const inside = Boolean(
+    last &&
+      extent &&
+      last.hover.x >= extent.x[0] &&
+      last.hover.x <= extent.x[1] &&
+      last.hover.y >= extent.y[0] &&
+      last.hover.y <= extent.y[1],
+  );
+  const visible = hovering && inside && !failed;
+  if (!last) return null;
+  const { hover } = last;
+
+  return (
+    <div
+      data-testid="inspect-preview"
+      data-region={region ? `${region.cx},${region.cy}` : ""}
+      aria-hidden
+      hidden={!visible}
+      className={cn(FLOAT_PANEL, "landmarks__inspect-preview pointer-events-none absolute z-20 p-1")}
+      style={{ left: last.left, top: last.top, width: FLOAT_PX }}
+    >
+      <Suspense fallback={null}>
+        <VolumeCube
+          imageUrl={volume.image_url ?? ""}
+          labelsUrl={volume.labels_url ?? ""}
+          voxelSizeUm={voxelSizeUm}
+          originUm={originUm}
+          windowCx={hover.x}
+          windowCy={hover.y}
+          windowSizeUm={hover.sizeUm}
+          cut={OPEN_CUT}
+          contrast={settings.contrast}
+          mode="mip"
+          preset="iso"
+          resetTick={0}
+          showLabels={settings.showLabels}
+          groups={groups}
+          render={settings.render}
+          dark={dark}
+          height={PREVIEW_PX}
+          region={region ? { scale: PREVIEW_REGION_SCALE, budget: budgets.preview, cx: region.cx, cy: region.cy } : null}
+          interactive={false}
+          showLegend={false}
+          chunkCache={cache}
+          onLevels={onLevels}
+          onShown={onShown}
+          onBounds={onBounds}
+          onLoadState={onLoadState}
+        />
+      </Suspense>
+    </div>
+  );
+}

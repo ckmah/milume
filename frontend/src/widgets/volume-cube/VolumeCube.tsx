@@ -48,6 +48,8 @@ export type CubeLoadState = {
   refining: boolean;
   /** Set when the target level failed and the coarse view stays: `Could not refine: <message>`. */
   refineError?: string;
+  /** Set when the image (or its window, with no coarse view to keep) failed to load. */
+  imageError?: string;
 };
 
 export type CubeBounds = {
@@ -104,6 +106,10 @@ export type VolumeCubeProps = {
   pausesPrefetch?: boolean;
   /** Called after each deck render. */
   onRendered?: (canvas: HTMLCanvasElement) => void;
+  /** Called when each pyramid opens: the image levels, and the labels levels once wanted (else null). */
+  onLevels?: (image: ZarrSource[], labels: ZarrSource[] | null) => void;
+  /** Called when the shown window changes: its level index and voxel box. */
+  onShown?: (level: number, box: Box) => void;
 };
 
 type ViewState = {
@@ -239,8 +245,11 @@ export function VolumeCube({
   chunkCache = null,
   pausesPrefetch = false,
   onRendered,
+  onLevels,
+  onShown,
 }: VolumeCubeProps) {
   const hostRef = useRef<HTMLDivElement>(null);
+  const fixedHeight = typeof height === "number";
   const [box, setBox] = useState({ width: 640, height: 520 });
   const [image, setImage] = useState<ZarrSource[] | null>(null);
   const [labels, setLabels] = useState<ZarrSource[] | null>(null);
@@ -258,8 +267,11 @@ export function VolumeCube({
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => {
         const rect = node.getBoundingClientRect();
-        const width = Math.max(320, Math.round(rect.width));
-        const height = Math.max(360, Math.round(rect.height));
+        // Hidden (display: none): keep the last size.
+        if (!rect.width || !rect.height) return;
+        // A fixed height is laid out as given (the preview is smaller than the floor).
+        const width = fixedHeight ? Math.round(rect.width) : Math.max(320, Math.round(rect.width));
+        const height = fixedHeight ? Math.round(rect.height) : Math.max(360, Math.round(rect.height));
         setBox((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
       });
     };
@@ -270,7 +282,7 @@ export function VolumeCube({
       cancelAnimationFrame(raf);
       obs.disconnect();
     };
-  }, []);
+  }, [fixedHeight]);
 
   useEffect(() => {
     let cancelled = false;
@@ -321,6 +333,11 @@ export function VolumeCube({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wantLabels, labelsUrl]);
+
+  const onLevelsRef = useLatest(onLevels);
+  useEffect(() => {
+    if (image) onLevelsRef.current?.(image, labels);
+  }, [image, labels, onLevelsRef]);
 
   const [szUm, syUm, sxUm] = voxelSizeUm;
   const [ozUm, oyUm, oxUm] = originUm;
@@ -373,6 +390,10 @@ export function VolumeCube({
   // Everything drawn follows the shown window, never the target still loading.
   const level: Level | null = shown?.level ?? null;
   const shownBox = shown?.box ?? null;
+  const onShownRef = useLatest(onShown);
+  useEffect(() => {
+    if (shown) onShownRef.current?.(shown.level.index, shown.box);
+  }, [shown, onShownRef]);
   // The window asked for right now, before the debounced fetch catches up.
   const liveBox = useMemo(
     () => (level ? windowBox(level, frame, window_cx, window_cy, window_size_um) : null),
@@ -473,6 +494,11 @@ export function VolumeCube({
   useEffect(() => {
     if (fit && !viewState) setViewState(isoHome(fit, box));
   }, [fit, viewState, box]);
+  // A fixed camera (no controller) always frames the window: it follows the
+  // window's size and the view's (a preview mounted hidden is measured later).
+  useEffect(() => {
+    if (!interactive && fit) setViewState(isoHome(fit, box));
+  }, [interactive, fit, box]);
 
   // World units are the shown level's X voxels, so a finer level is a bigger
   // world: a level swap (coarse to fine) zooms out by the factor ratio to keep
@@ -621,6 +647,8 @@ export function VolumeCube({
   const refineError = refineFailed ? `Could not refine: ${imageError}` : "";
   const settled = Boolean(shown && target && shown.level.index === target.level.index);
   const refining = !settled && !error && !imageError && !outside;
+  // The image failed with nothing kept on screen.
+  const loadError = error || (refineFailed ? "" : imageError);
 
   // Labels only show over a loaded image, so an image failure fails them too.
   const labelsFailure = labelsError || cellsError || error || (refineFailed ? "" : imageError);
@@ -653,8 +681,9 @@ export function VolumeCube({
       level: levelIndex,
       refining,
       refineError,
+      imageError: loadError,
     });
-  }, [labelsState, channels, panX, panY, levelIndex, refining, refineError, onLoadStateRef]);
+  }, [labelsState, channels, panX, panY, levelIndex, refining, refineError, loadError, onLoadStateRef]);
 
   // Reported once the image is open: before that the volume has no extent.
   const onBoundsRef = useLatest(onBounds);
