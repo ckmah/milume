@@ -199,7 +199,6 @@ test.describe("Landmarks inspect cube", () => {
     const cx0 = Number(await getModel(page, "inspect_cx"));
     await expect.poll(async () => (await cutOf(page))[1]).toBeCloseTo(cx0 + 40, 3);
     const committed = await cutOf(page);
-    await page.waitForTimeout(600); // past the opening click's settle commit: only Python moves the window now
 
     // Python moves the window: the cut stays in place in it, no volume_cut write.
     await setModel(page, { inspect_cx: cx0 + 20 });

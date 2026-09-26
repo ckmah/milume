@@ -89,12 +89,20 @@ export function useShownWindow({
   coarse: WindowTarget | null;
   chunkCache: ChunkCache | null;
   pausesPrefetch: boolean;
-}): { shown: ShownWindow | null; imageError: string; cellsError: string } {
-  const [state, setState] = useState<{ levels: Level[] | null; shown: ShownWindow | null }>({
+}): {
+  shown: ShownWindow | null;
+  /** The shown window is the coarse step's, not a fine target's. */
+  shownIsCoarse: boolean;
+  imageError: string;
+  cellsError: string;
+} {
+  const [state, setState] = useState<{ levels: Level[] | null; shown: ShownWindow | null; coarse: boolean }>({
     levels: null,
     shown: null,
+    coarse: false,
   });
   const shown = state.levels === levels ? state.shown : null;
+  const shownIsCoarse = Boolean(shown) && state.coarse;
   const [failure, setFailure] = useState<{ key: string; image: string; cells: string } | null>(null);
 
   const key = targetKey(fine);
@@ -105,7 +113,7 @@ export function useShownWindow({
     const { fine: t, coarse: c, frame: f, shown: prev, chunkCache: cache, pausesPrefetch: pauses } = latest.current;
     if (!t) return;
     if (boxIsEmpty(t.box)) {
-      setState({ levels, shown: null });
+      setState({ levels, shown: null, coarse: false });
       return;
     }
     let live = true;
@@ -124,7 +132,7 @@ export function useShownWindow({
           const loaded = await loadWindow(step, base, f);
           if (!live) return;
           base = loaded.shown;
-          setState({ levels, shown: loaded.shown });
+          setState({ levels, shown: loaded.shown, coarse: !isFine });
           if (isFine) setFailure(loaded.cellsError ? { key, image: "", cells: loaded.cellsError } : null);
         } catch (err) {
           if (!live) return;
@@ -142,5 +150,5 @@ export function useShownWindow({
   }, [key, levels]);
 
   const current = failure && failure.key === key ? failure : null;
-  return { shown, imageError: current?.image ?? "", cellsError: current?.cells ?? "" };
+  return { shown, shownIsCoarse, imageError: current?.image ?? "", cellsError: current?.cells ?? "" };
 }

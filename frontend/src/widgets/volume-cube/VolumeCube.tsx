@@ -362,7 +362,7 @@ export function VolumeCube({
   }, [levels, labels, frame, cx, cy, window_size_um, coarseScale, coarseBudget, regionScale]);
   const labelsMismatch = Boolean(wantLabels && labels && target && !target.cells);
 
-  const { shown, imageError, cellsError } = useShownWindow({
+  const { shown, shownIsCoarse, imageError, cellsError } = useShownWindow({
     levels,
     frame,
     fine: target,
@@ -614,9 +614,10 @@ export function VolumeCube({
   const outside = target
     ? boxIsEmpty(regionScale ? windowBox(target.level, frame, cx, cy, window_size_um) : target.box)
     : false;
-  // A failed target with a coarser view already shown keeps that view; the error
-  // goes to the caller's title bar rather than over the canvas.
-  const refineFailed = Boolean(imageError && shown && target && shown.level.index !== target.level.index);
+  // A failed target with the coarse step's view already shown keeps that view;
+  // the error goes to the caller's title bar rather than over the canvas. Any
+  // other failure (no coarse step) is the canvas status, as before.
+  const refineFailed = Boolean(imageError && shownIsCoarse);
   const refineError = refineFailed ? `Could not refine: ${imageError}` : "";
   const settled = Boolean(shown && target && shown.level.index === target.level.index);
   const refining = !settled && !error && !imageError && !outside;

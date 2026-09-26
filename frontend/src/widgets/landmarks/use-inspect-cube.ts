@@ -52,12 +52,12 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     volumeCut ? { ...OPEN_CUT, z: [volumeCut[4], volumeCut[5]] } : OPEN_CUT,
   );
 
-  // Set by user placements (engine events), consumed by the settle commit.
-  const placedRef = useRef(false);
+  // The last user placement (engine events), consumed by the settle commit.
+  const placedRef = useRef<{ x: number; y: number } | null>(null);
   useEffect(() => {
     if (!engine || !hasVolume) return;
     return engine.subscribeInspect((e) => {
-      if (e.type === "place") placedRef.current = true;
+      if (e.type === "place" && e.x != null && e.y != null) placedRef.current = { x: e.x, y: e.y };
       patchCube({ open: e.type === "place" });
     });
   }, [engine, hasVolume, patchCube]);
@@ -79,8 +79,10 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     : [-Infinity, Infinity, -Infinity, Infinity, cube.cut.z[0], cube.cut.z[1]];
   const cutRanges = win && volume ? { x: win.x, y: win.y, z: volume.z } : null;
 
-  const latest = useRef({ rel: cube.cut, win, volume });
-  latest.current = { rel: cube.cut, win, volume };
+  const cx = lm.inspect_cx;
+  const cy = lm.inspect_cy;
+  const latest = useRef({ rel: cube.cut, win, volume, cx, cy });
+  latest.current = { rel: cube.cut, win, volume, cx, cy };
 
   // The last value this widget wrote, so its echo is not adopted as Python's.
   const writtenRef = useRef<string | null>(null);
@@ -119,19 +121,21 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     }
   });
 
-  // After the user moves the window, write the cut in its new place once.
+  // After the user moves the window, write the cut in its new place once. Only
+  // while the window is where the user placed it: a move from Python (no
+  // placement) cancels the pending write, so it never answers Python's write.
   const winKey = win ? `${win.x.join(",")},${win.y.join(",")}` : "";
   useEffect(() => {
-    if (!cube.open || !placedRef.current || !volume) return;
+    if (!cube.open || !volume || !atPlacement(placedRef.current, cx, cy)) return;
     const id = setTimeout(() => {
-      const { rel, win: w, volume: v } = latest.current;
-      if (!w || !v) return;
-      placedRef.current = false;
+      const { rel, win: w, volume: v, cx: x, cy: y } = latest.current;
+      if (!w || !v || !atPlacement(placedRef.current, x, y)) return;
+      placedRef.current = null;
       write(committedCut(rel, w, v));
     }, SETTLE_MS);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [winKey, cube.open, Boolean(volume), write]);
+  }, [winKey, cx, cy, cube.open, Boolean(volume), write]);
 
   const onCutLive = useCallback(
     (next: CubeCut) => {
@@ -164,4 +168,9 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   );
 
   return { hasVolume, cube, patchCube, cut, cutRanges, onCutLive, onCutCommit, onKeyDown };
+}
+
+/** Whether the window centre is the user's last placement (the model echoes it exactly). */
+function atPlacement(placed: { x: number; y: number } | null, cx: number | null, cy: number | null): boolean {
+  return placed != null && cx === placed.x && cy === placed.y;
 }
