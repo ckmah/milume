@@ -288,7 +288,11 @@ class LandmarksWidget(AnyWidget):
 
     Notebook API (synced on every edit): ``landmarks``, ``selections``,
     ``selected_kind``, ``selected_index``, plus ``inspect_cx`` / ``inspect_cy`` /
-    ``inspect_size_um`` for the volume-cube window. UI chrome state (mode, genes, color,
+    ``inspect_size_um`` for the Inspect window. The browser writes
+    ``inspect_size_um`` when a press places or commits the square (its side is a
+    fixed 160 screen px, so its µm size follows zoom); Python only reads it.
+    ``inspect_cx`` / ``inspect_cy`` follow the placed square and may also be set
+    from Python to move it. UI chrome state (mode, genes, color,
     neighborhoods) stays in the browser; raster bin features and probe scores
     are built client-side from the eager gene / embedding / category packs.
     Persist hits with ``get_obs_names`` / ``assign_obs_mask`` (via
@@ -303,7 +307,8 @@ class LandmarksWidget(AnyWidget):
     landmarks = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
     selected_kind = traitlets.Unicode("").tag(sync=True)
     selected_index = traitlets.Int(-1).tag(sync=True)
-    # Inspect mode: frozen 100 µm window for VolumeCubeWidget. None until the cursor moves.
+    # Inspect window centre (µm; None until a press places it) and side (µm, written by
+    # the browser at commit from the 160 px square at the current zoom; Python reads it).
     inspect_cx = traitlets.Float(allow_none=True, default_value=None).tag(sync=True)
     inspect_cy = traitlets.Float(allow_none=True, default_value=None).tag(sync=True)
     inspect_size_um = traitlets.Float(100.0).tag(sync=True)
