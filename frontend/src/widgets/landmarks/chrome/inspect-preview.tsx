@@ -12,6 +12,7 @@ import {
   PREVIEW_REGION_SCALE,
   axisSize,
   chunkRing,
+  fitsBudget,
   levelBox,
   matchingLevel,
   pickLevel,
@@ -32,8 +33,8 @@ const VolumeCube = lazy(() =>
 export const PREVIEW_PX = 240;
 /** The float's side: the cube plus its padding. */
 const FLOAT_PX = PREVIEW_PX + 8;
-/** Gap between the cursor and the float. */
-const CURSOR_GAP_PX = 24;
+/** Gap between the hover square's edge and the float. */
+const SQUARE_GAP_PX = 12;
 /** A recentred region leads the cursor by its velocity over this long. */
 const LEAD_MS = 150;
 /** Hover samples this recent make the velocity. */
@@ -79,11 +80,14 @@ function allChunks(source: ZarrSource): number[][] {
   return out;
 }
 
-/** The preview level for a square of `sizeUm`, and the level centre when the whole level fits the budget. */
+/**
+ * The preview level for a square of `sizeUm`, and the level centre when the
+ * whole level fits the budget (VolumeCube's rule for loading the whole level).
+ */
 function previewLevel(levels: Level[], frame: Frame, sizeUm: number, budget: number) {
   const level = pickLevel(levels, frame, sizeUm * PREVIEW_REGION_SCALE, budget);
   const box = levelBox(level);
-  if (voxels(box) > budget) return { level, centre: null };
+  if (!fitsBudget(box, budget)) return { level, centre: null };
   const [, sy, sx] = frame.voxelSize;
   const [, oy, ox] = frame.origin;
   const [, fy, fx] = level.factor;
@@ -97,9 +101,11 @@ function previewLevel(levels: Level[], frame: Frame, sizeUm: number, budget: num
  * in memory; near the region's edge the region recentres ahead of the cursor,
  * and each shown region prefetches the chunks around it (in the direction of
  * travel) into the widget's chunk cache. Mounted on the first hover and then
- * only hidden, so its WebGL context is reused. Never takes pointer input.
+ * only hidden (outside Inspect too), so its WebGL context is reused. Never
+ * takes pointer input.
  */
 export function InspectPreview({
+  active,
   lm,
   engine,
   rootEl,
@@ -109,6 +115,8 @@ export function InspectPreview({
   cache,
   budgets,
 }: {
+  /** In Inspect: outside it the float stays hidden and queues no prefetch. */
+  active: boolean;
   lm: LandmarksModel;
   engine: EngineHandle | null;
   /** The widget root: the float's container, and where the map canvas is found. */
@@ -138,11 +146,18 @@ export function InspectPreview({
   const samplesRef = useRef<{ t: number; x: number; y: number }[]>([]);
   const extentRef = useRef<Extent | null>(null);
   extentRef.current = extent;
-  const latest = useRef({ frame, budget: budgets.preview, rootEl, labels: settings.showLabels });
-  latest.current = { frame, budget: budgets.preview, rootEl, labels: settings.showLabels };
+  const latest = useRef({ active, frame, budget: budgets.preview, rootEl, labels: settings.showLabels });
+  latest.current = { active, frame, budget: budgets.preview, rootEl, labels: settings.showLabels };
 
-  // Leaving Inspect drops the preview's queued prefetches.
-  useEffect(() => () => cache.clearQueue(), [cache]);
+  // Leaving Inspect (or unmounting) drops the preview's queued prefetches.
+  useEffect(() => {
+    if (!active) {
+      samplesRef.current = [];
+      setHovering(false);
+      return;
+    }
+    return () => cache.clearQueue();
+  }, [active, cache]);
 
   const velocity = useCallback((): [number, number] => {
     const s = samplesRef.current;
@@ -212,7 +227,7 @@ export function InspectPreview({
       while (samples.length > 1 && now - samples[0]!.t > VELOCITY_MS) samples.shift();
       lastHoverRef.current = e;
 
-      // Beside the cursor, flipped to its left at the widget's right edge.
+      // Beside the hover square (never over it), flipped to its left at the widget's right edge.
       const root = latest.current.rootEl;
       const r = root?.getBoundingClientRect();
       const c = root?.querySelector("canvas.landmarks__webgl")?.getBoundingClientRect() ?? r;
@@ -220,8 +235,9 @@ export function InspectPreview({
       const ay = (c && r ? c.top - r.top : 0) + e.py;
       const width = r?.width ?? Infinity;
       const height = r?.height ?? Infinity;
-      let left = ax + CURSOR_GAP_PX;
-      if (left + FLOAT_PX > width) left = ax - CURSOR_GAP_PX - FLOAT_PX;
+      const offset = e.sizePx / 2 + SQUARE_GAP_PX;
+      let left = ax + offset;
+      if (left + FLOAT_PX > width) left = ax - offset - FLOAT_PX;
       const top = Math.max(0, Math.min(height - FLOAT_PX, ay - FLOAT_PX / 2));
 
       updateRegion(e.x, e.y, e.sizeUm);
@@ -262,7 +278,8 @@ export function InspectPreview({
       // Labels opening later prefetch theirs at the same region.
       const key = `${index}:${box.z0},${box.z1},${box.y0},${box.y1},${box.x0},${box.x1}:${latest.current.labels && pyramid?.labels ? 1 : 0}`;
       const r = regionRef.current;
-      if (key === prefetchedRef.current || !pyramid || !r) return;
+      // A load landing after Inspect ends queues nothing.
+      if (!latest.current.active || key === prefetchedRef.current || !pyramid || !r) return;
       prefetchedRef.current = key;
       const level = pyramid.levels[index];
       if (!level) return;
@@ -326,7 +343,7 @@ export function InspectPreview({
       last.hover.y >= extent.y[0] &&
       last.hover.y <= extent.y[1],
   );
-  const visible = hovering && inside && !failed;
+  const visible = active && hovering && inside && !failed;
   if (!last) return null;
   const { hover } = last;
 
@@ -336,7 +353,7 @@ export function InspectPreview({
       data-region={region ? `${region.cx},${region.cy}` : ""}
       aria-hidden
       hidden={!visible}
-      className={cn(FLOAT_PANEL, "landmarks__inspect-preview pointer-events-none absolute z-20 p-1")}
+      className={cn(FLOAT_PANEL, "landmarks__inspect-preview pointer-events-none absolute p-1")}
       style={{ left: last.left, top: last.top, width: FLOAT_PX }}
     >
       <Suspense fallback={null}>

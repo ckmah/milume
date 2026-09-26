@@ -198,6 +198,22 @@ test.describe("VolumeCubeWidget", () => {
     await expect(widget).toHaveAttribute("data-channels", "1");
   });
 
+  test("the first window shows a loading status until it arrives", async ({ page }) => {
+    const widget = volumeCubeWidget(page);
+    // Hold every image chunk: the volume opens (metadata only) but no window arrives.
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    await page.route(/\/toy\.ome\.zarr\/\d+(\/\d+)+$/, async (route) => {
+      await held;
+      await route.continue();
+    });
+    await page.reload();
+    await expect(widget.getByText("Loading window…")).toBeVisible();
+    release();
+    await expect(widget.getByText("Loading window…")).toHaveCount(0);
+    await expect(widget.locator("canvas").first()).toBeVisible();
+  });
+
   test("a failed image window fetch shows a status line", async ({ page }) => {
     const widget = volumeCubeWidget(page);
     await page.route(/\/toy\.ome\.zarr\/\d+(\/\d+)+$/, (route) => route.abort("connectionrefused"));

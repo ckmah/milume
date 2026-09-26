@@ -232,10 +232,13 @@ test.describe("LandmarksWidget", () => {
     await expect(page.getByTestId("context-inspect-no-volume")).toHaveText(
       "No 3D image: build the widget from a SpatialData with a 3D image",
     );
+    const before = await getModel(page, "selections");
     const box = await canvasBox(page);
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect.poll(async () => getModel(page, "inspect_cx")).not.toBeNull();
     await expect(page.getByRole("dialog", { name: "Cube" })).toHaveCount(0);
+    // Placement only: no inspect selection is committed.
+    expect(await getModel(page, "selections")).toEqual(before);
     await page.getByRole("radio", { name: "Select", exact: true }).click();
     await expect(page.getByTestId("context-inspect-no-volume")).toHaveCount(0);
   });

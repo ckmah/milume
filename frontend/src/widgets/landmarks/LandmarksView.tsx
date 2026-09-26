@@ -370,8 +370,10 @@ export function LandmarksView({
           />
         ) : null}
 
-        {hasVolume && inspecting ? (
+        {/* Kept mounted once there is a volume (hidden outside Inspect): no WebGL context churn. */}
+        {hasVolume ? (
           <InspectPreview
+            active={inspecting}
             lm={lm}
             engine={engine}
             rootEl={rootEl}

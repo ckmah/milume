@@ -23,10 +23,10 @@ import {
   type Level,
   type ZarrSource,
   LabelVolumeSource,
-  MAX_TEXTURE_AXIS,
   WINDOW_VOXEL_BUDGET,
   axisSize,
   boxIsEmpty,
+  fitsBudget,
   levelBox,
   matchingLevel,
   pickLevel,
@@ -656,6 +656,8 @@ export function VolumeCube({
   if (!image) status = error || "Loading volume…";
   else if (imageError && !refineFailed) status = `Could not load this window: ${imageError}`;
   else if (outside) status = "Inspect window is outside the volume";
+  // The image is open but no window has arrived yet: nothing is drawn.
+  else if (!shown) status = "Loading window…";
   else if (labelsMismatch) status = "Labels are on a different grid from the image";
   else if (showLabels && labelsFailure) status = `Could not load labels: ${labelsFailure}`;
 
@@ -741,12 +743,4 @@ export function VolumeCube({
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
-}
-
-/** Whether one box fits `budget` voxels and the 3D texture axis limit. */
-function fitsBudget(b: Box, budget: number): boolean {
-  const d = b.z1 - b.z0;
-  const h = b.y1 - b.y0;
-  const w = b.x1 - b.x0;
-  return d * h * w <= budget && Math.max(d, h, w) <= MAX_TEXTURE_AXIS;
 }

@@ -1171,6 +1171,11 @@
   z-index: 21;
 }
 
+/* Inspect preview: the dock's level (later in the DOM, so over it), under the top tools. */
+.landmarks__inspect-preview {
+  z-index: 21;
+}
+
 .landmarks__cube-resize {
   position: absolute;
   right: 2px;

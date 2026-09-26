@@ -18,6 +18,8 @@ button hides it.
 - The dock shows the preview level from the shared chunk cache first, then swaps to the finest level the window budget allows (`data-level`, `data-refining="true"` while loading); reopening an already-loaded window reads every chunk from the cache, with no new chunk requests
 - The Landmarks-hosted cube has no category legend — the right panel's category list already shows it; the standalone `VolumeCubeWidget` keeps its own
 - Drag pans the cube live (`data-pan` mirrors nonzero, then settles back to `0,0` once the refetch lands at the new window); moves save `inspect_cx`/`inspect_cy` at most every 40 ms and the release saves the final position, updating the focused entry's `window`
+- A press is a **move** only inside the focused inspect entry's square while the live square is within 10% of its `window.size_um`; after a zoom (or anywhere else) it starts a new entry at the live size. A move keeps the press offset (no jump), the entry's `id`, `size_um` and `cut`
+- The press's drag and release are heard on `window`: releasing over the dock, chrome or outside the widget still commits (new) or updates the entry (move); Esc between press and release cancels it (nothing committed)
 - Esc (while in Inspect) or the dialog's close button hides the cube; clicking again in Inspect reopens it; switching to another tool keeps it open
 - Inspect context toolbar (`data-testid="context-inspect-toolbar"`): camera presets (Top/Iso/Side), Additive/MIP, Palette, Labels switch, and Cuts/Image/Cells level-2 panels
 - Cuts (X, Y, Z range sliders in µm) render live and commit `volume_cut` on release; X/Y are window-relative (an untouched/open edge tracks the window as it moves) while Z is absolute
@@ -26,7 +28,7 @@ button hides it.
 - Highlight follows the Landmarks category panel: nothing focused colors every cell in the window by category, a focused category colors only its cells, a focused Selection colors its cells by category
 - Entering Inspect collapses both side docks (`data-collapsed="true"`, peek tabs stay); a panel reopened mid-Inspect stays open; leaving Inspect restores the docks as they were before entering (client-local, no trait)
 - Image panel: in Additive, Alpha scales each sample's opacity; in MIP the projection is opaque, so Alpha acts as brightness
-- No 3D image (`LandmarksWidget(adata)`, or a SpatialData without one): the square still places (`data-testid="context-inspect-no-volume"` pill, "No 3D image: build the widget from a SpatialData with a 3D image"), no cube opens
+- No 3D image (`LandmarksWidget(adata)`, or a SpatialData without one): the square still places (`data-testid="context-inspect-no-volume"` pill, "No 3D image: build the widget from a SpatialData with a 3D image"), no cube opens, and no inspect selection is committed
 
 ## How to get to it (user POV)
 
@@ -77,9 +79,13 @@ Model keys: `inspect_cx`, `inspect_cy`, `inspect_size_um`, `volume`,
 
 **Proof**
 
-- Functional: `"the square's µm size follows zoom"` — `inspect_size_um` (and the overlay's `sizeUm`) doubles when zooming out one step; the preview hears the same size on hover/zoom events.
+- Functional: `"the square's µm size follows zoom"` — the overlay's `sizeUm` (`getInspectOverlay()`) doubles when zooming out one step, and the `hover` events the preview hears carry the same size on hover and zoom (`inspect_size_um` itself is written by a press / commit, covered by the next test).
 - Functional: `"a click commits an inspect selection of the points in the square"` — the new `selections[i]` has `type: "inspect"`, `window.size_um` matching `inspect_size_um`, and `point_indices` matching a linear scan of the square; focus moves to it (`selected_kind`/`selected_index`).
 - Functional: `"dragging the focused square moves its entry; a press elsewhere adds one"`, `"drag pans the cube; Esc closes it"`, `"a quick drag saves the final window position on release"` — a drag on the focused square updates its `window.cx`/`cy` and `data-pan` settles to `0,0`; a press elsewhere adds a second entry and focuses it.
+- Functional: `"an off-centre drag moves the entry by the cursor delta, keeping its id, size and cut"` — a press away from the centre leaves `inspect_cx/cy` at the centre; the entry's `cx/cy` move by the cursor delta divided by `2 ** zoom`; `id`, `size_um` and a Z cut are unchanged.
+- Functional: `"after zooming, a press inside the old square adds a new entry at the new size"` — two zoom steps in, a click inside the focused entry's square adds a second entry (`size_um` a quarter of the first) and leaves the first where it was.
+- Functional: `"a release over the dock still commits; Esc mid-press commits nothing"` — a move and a new press, each released over the dock's title bar, update / add an entry at `inspect_cx`; Esc between press and release adds nothing, and later moves drag nothing.
+- Functional (no 3D image, `landmarks.spec.ts`, default harness): `"Inspect without a 3D image places the square and opens no cube"` — `inspect_cx` is set, no Cube dialog, `selections` unchanged.
 - Functional: `"the dock shows the coarse level first, then refines"` — `data-level` shows a coarser level before a finer one, and `data-refining` returns to `"false"` once it lands.
 - Functional: `"reopening the same window reads every chunk from the cache"` — closing and reopening the same window fires no `/s\d+/c/` chunk requests.
 - Functional: `"the hosted cube has no category legend"` — `getByLabel("Highlighted cells")` has zero count in the Landmarks-hosted dock.

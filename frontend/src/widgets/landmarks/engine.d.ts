@@ -1,7 +1,7 @@
-/** Events from `subscribeInspect`; positions in µm, `px, py` in canvas pixels. */
+/** Events from `subscribeInspect`; positions in µm, `px, py` in canvas pixels; `sizePx` is the square's screen side. */
 export type InspectEvent =
   | { type: "place"; x: number; y: number }
-  | { type: "hover"; x: number; y: number; sizeUm: number; px: number; py: number }
+  | { type: "hover"; x: number; y: number; sizeUm: number; sizePx: number; px: number; py: number }
   | { type: "hover-end" }
   | { type: "commit"; index: number }
   | { type: "close" };
@@ -83,7 +83,8 @@ export type EngineHandle = {
   /**
    * Inspect events: "place" on pointer down / drag (after `inspect_cx/cy` are set),
    * "hover" on hover moves and zoom, "hover-end" when the hover square goes,
-   * "commit" when a release creates or moves an inspect Selection, "close" on Esc.
+   * "commit" when a release (anywhere, not only over the map) creates or moves an
+   * inspect Selection (only with a 3D image), "close" on Esc (which also cancels a press).
    */
   subscribeInspect(fn: (evt: InspectEvent) => void): () => void;
   /** Keep the placed square drawn outside Inspect while the cube is open. */

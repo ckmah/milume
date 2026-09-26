@@ -3487,7 +3487,11 @@ export function mountEngine({ model, host }) {
   let volumeWindowVisible = false;
   /** The press in Inspect: `{ kind: "new" | "move", size, index?, dx, dy }`. */
   let inspectGesture = null;
+  /** Aborts the press's window `mousemove` / `mouseup` listeners (dragged and released anywhere). */
+  let inspectGestureAbort = null;
   const inspectListeners = new Set();
+  /** A move keeps the entry's size, so it is a move only while the live square is within this of it. */
+  const INSPECT_MOVE_SIZE_TOLERANCE = 0.1;
 
   function emitInspect(evt) {
     for (const fn of inspectListeners) fn(evt);
@@ -3503,7 +3507,7 @@ export function mountEngine({ model, host }) {
   function emitInspectHover() {
     if (!volumeHover) return;
     const { x, y, px, py } = volumeHover;
-    emitInspect({ type: "hover", x, y, sizeUm: liveSquareUm(), px, py });
+    emitInspect({ type: "hover", x, y, sizeUm: liveSquareUm(), sizePx: INSPECT_SQUARE_PX, px, py });
   }
 
   function clearInspectHover() {
@@ -3533,16 +3537,70 @@ export function mountEngine({ model, host }) {
     setDeckLayers();
   }
 
-  /** The focused inspect Selection whose square holds `pt`, as `{ index, entry }`. */
+  /** Whether there is a 3D image: without one, Inspect only places the square (no selections). */
+  function inspectHasVolume() {
+    return Boolean(model.get("volume")?.image_url);
+  }
+
+  /**
+   * The focused inspect Selection whose square holds `pt`, as `{ index, entry }`,
+   * while the live square is about the entry's size (after a zoom a press
+   * starts a new entry at the new size instead).
+   */
   function focusedInspectAt(pt) {
     if (model.get("selected_kind") !== "selection") return null;
     const index = Number(model.get("selected_index"));
     const entry = (model.get("selections") || [])[index];
     const w = entry?.type === "inspect" ? entry.window : null;
     if (!w) return null;
-    const half = Number(w.size_um) / 2;
+    const size = Number(w.size_um);
+    if (!(size > 0) || Math.abs(liveSquareUm() - size) > INSPECT_MOVE_SIZE_TOLERANCE * size) return null;
+    const half = size / 2;
     if (Math.abs(pt.x - w.cx) > half || Math.abs(pt.y - w.cy) > half) return null;
     return { index, entry };
+  }
+
+  /**
+   * Start an Inspect press. Its drag and release are heard on `window` (like
+   * pointer capture), so the square follows over the dock or chrome and the
+   * release commits wherever it lands.
+   */
+  function beginInspectGesture(gesture) {
+    endInspectGesture();
+    inspectGesture = gesture;
+    inspectGestureAbort = new AbortController();
+    const opts = { signal: inspectGestureAbort.signal };
+    window.addEventListener("mousemove", handleInspectDrag, opts);
+    window.addEventListener("mouseup", handleInspectRelease, opts);
+  }
+
+  function handleInspectDrag(event) {
+    if (!inspectGesture || !(event.buttons & 1)) return;
+    const pt = eventPoint(event);
+    if (!pt) return;
+    const x = pt.x - inspectGesture.dx;
+    const y = pt.y - inspectGesture.dy;
+    setVolumeWindow(x, y, inspectGesture.size, false);
+    emitInspect({ type: "place", x, y });
+  }
+
+  /** Drop the press (release, Esc, mode change, teardown) without committing. */
+  function endInspectGesture() {
+    inspectGesture = null;
+    inspectGestureAbort?.abort();
+    inspectGestureAbort = null;
+  }
+
+  function handleInspectRelease(event) {
+    if (event.button !== 0 || !inspectGesture) return;
+    const gesture = inspectGesture;
+    endInspectGesture();
+    if (currentMode !== "inspect" || !volumeWindow) return;
+    // Drag moves save at most every 40 ms: flush the final window position.
+    volumeWindowSavedAt = performance.now();
+    model.save_changes();
+    // Inspect stays active (no resetToSelectMode): the next press adds or moves another.
+    commitInspectGesture(gesture);
   }
 
   /** Points inside the axis-aligned square (every depth; the cut never changes membership). */
@@ -3558,7 +3616,7 @@ export function mountEngine({ model, host }) {
 
   /** Release of an Inspect press: commit a new inspect Selection, or move the focused one. */
   function commitInspectGesture(gesture) {
-    if (!volumeWindow) return;
+    if (!volumeWindow || !inspectHasVolume()) return;
     const { x: cx, y: cy } = volumeWindow;
     const selections = [...(model.get("selections") || [])];
     let index;
@@ -4903,10 +4961,11 @@ export function mountEngine({ model, host }) {
       webglCanvas.focus();
       const pt = eventPoint(event);
       if (!pt) return;
-      // A press inside the focused inspect square moves it (keeping the press
-      // offset, so it does not jump); anywhere else starts a new one.
-      const hit = focusedInspectAt(pt);
-      inspectGesture = hit
+      // A press inside the focused inspect square (at about its size) moves it,
+      // keeping the press offset so it does not jump; anywhere else starts a new
+      // one. Without a 3D image the press only places the square.
+      const hit = inspectHasVolume() ? focusedInspectAt(pt) : null;
+      const gesture = hit
         ? {
             kind: "move",
             index: hit.index,
@@ -4915,9 +4974,10 @@ export function mountEngine({ model, host }) {
             dy: pt.y - hit.entry.window.cy,
           }
         : { kind: "new", size: liveSquareUm(), dx: 0, dy: 0 };
-      const x = pt.x - inspectGesture.dx;
-      const y = pt.y - inspectGesture.dy;
-      setVolumeWindow(x, y, inspectGesture.size, true);
+      beginInspectGesture(gesture);
+      const x = pt.x - gesture.dx;
+      const y = pt.y - gesture.dy;
+      setVolumeWindow(x, y, gesture.size, true);
       emitInspect({ type: "place", x, y });
       return;
     }
@@ -5076,15 +5136,11 @@ export function mountEngine({ model, host }) {
 
     if (currentMode === "inspect") {
       webglCanvas.style.cursor = "crosshair";
+      // A press's drag is handled on `window` (handleInspectDrag).
       if (event.buttons === 0) {
         volumeHover = pt;
         setDeckLayers();
         emitInspectHover();
-      } else if (event.buttons === 1 && inspectGesture) {
-        const x = pt.x - inspectGesture.dx;
-        const y = pt.y - inspectGesture.dy;
-        setVolumeWindow(x, y, inspectGesture.size, false);
-        emitInspect({ type: "place", x, y });
       }
       return;
     }
@@ -5165,15 +5221,7 @@ export function mountEngine({ model, host }) {
 
   function handleMouseUp(event) {
     if (spacePan) return;
-    if (currentMode === "inspect" && volumeWindow && event.button === 0) {
-      // Drag moves save at most every 40 ms: flush the final window position.
-      volumeWindowSavedAt = performance.now();
-      model.save_changes();
-      const gesture = inspectGesture;
-      inspectGesture = null;
-      // Inspect stays active (no resetToSelectMode): the next press adds or moves another.
-      if (gesture) commitInspectGesture(gesture);
-    }
+    // An Inspect release is handled on `window` (handleInspectRelease).
     const vertexDragActive = vertexDragIndex >= 0 || vertexDragLandmarkIndex >= 0;
     if ((currentMode === "select" || currentMode === "node" || currentMode === "move" || currentMode === "probe" || currentMode === "inspect") && !isDragging && !vertexDragActive) return;
     const pt = eventPoint(event);
@@ -5579,6 +5627,8 @@ export function mountEngine({ model, host }) {
         return;
       }
       if (currentMode === "inspect") {
+        // Esc mid-press cancels it: the release commits nothing.
+        endInspectGesture();
         clearInspectHover();
         emitInspect({ type: "close" });
         setDeckLayers();
@@ -5894,7 +5944,7 @@ export function mountEngine({ model, host }) {
   onChange("mode", () => {
     currentMode = model.get("mode");
     if (currentMode === "pointer") currentMode = "select";
-    inspectGesture = null;
+    endInspectGesture();
     clearInspectHover();
     if (currentMode === "node") nodeInsertArmed = true;
     else {
@@ -6074,6 +6124,7 @@ export function mountEngine({ model, host }) {
   function destroy() {
     destroyed = true;
     abort.abort();
+    endInspectGesture();
     unsubs.forEach((fn) => fn());
     themeObserver.disconnect();
     resizeObserver?.disconnect();

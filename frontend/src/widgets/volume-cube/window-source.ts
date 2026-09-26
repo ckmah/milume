@@ -333,6 +333,14 @@ export function levelBox(level: Level): Box {
   };
 }
 
+/** Whether one box fits `budget` voxels and the 3D texture axis limit. */
+export function fitsBudget(b: Box, budget: number): boolean {
+  const d = b.z1 - b.z0;
+  const h = b.y1 - b.y0;
+  const w = b.x1 - b.x0;
+  return d * h * w <= budget && Math.max(d, h, w) <= MAX_TEXTURE_AXIS;
+}
+
 /** A square region of `sizeUm` around (cx, cy): the same box rule as a window. */
 export function regionBox(level: Level, frame: Frame, cx: number, cy: number, sizeUm: number): Box {
   return windowBox(level, frame, cx, cy, sizeUm);

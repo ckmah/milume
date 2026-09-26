@@ -134,6 +134,94 @@ test.describe("Landmarks inspect cube", () => {
     expect(await getModel(page, "selected_index")).toBe(1);
   });
 
+  test("an off-centre drag moves the entry by the cursor delta, keeping its id, size and cut", async ({ page }) => {
+    const box = await openCubeAtCentre(page);
+    await page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Cuts" }).click();
+    const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
+    await zHi.focus();
+    for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
+    const entry = async () => ((await getModel(page, "selections")) as any[])[0];
+    await expect.poll(async () => (await entry()).window.cut[5]).toBe(54);
+    const before = await entry();
+    const w = before.window;
+    const k = 2 ** (await page.evaluate(() => (window as any).__landmarksEngine.getViewState().zoom as number));
+    // Press a quarter of the square right and a fifth down from its centre.
+    const at = await screenAt(page, box, [w.cx + w.size_um / 4, w.cy + w.size_um / 5]);
+    const from = { x: Math.round(at.x), y: Math.round(at.y) };
+    const to = { x: from.x + 36, y: from.y + 18 };
+    await page.mouse.move(from.x, from.y);
+    await page.mouse.down();
+    // No jump on press: the square keeps its centre.
+    expect(Number(await getModel(page, "inspect_cx"))).toBeCloseTo(w.cx, 6);
+    expect(Number(await getModel(page, "inspect_cy"))).toBeCloseTo(w.cy, 6);
+    await page.mouse.move(to.x, to.y, { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(async () => (await entry()).window.cx).toBeCloseTo(w.cx + (to.x - from.x) / k, 3);
+    const after = await entry();
+    expect(after.window.cy).toBeCloseTo(w.cy + (to.y - from.y) / k, 3);
+    expect((await getModel(page, "selections")) as any[]).toHaveLength(1);
+    expect(after.id).toBe(before.id);
+    expect(after.window.size_um).toBe(w.size_um);
+    // The cut settles in the moved window: a Z-only cut is the same absolute cut.
+    await page.waitForTimeout(600); // past the settle commit
+    expect((await entry()).window.cut).toEqual(w.cut);
+  });
+
+  test("after zooming, a press inside the old square adds a new entry at the new size", async ({ page }) => {
+    const box = await openCubeAtCentre(page);
+    const first = ((await getModel(page, "selections")) as any[])[0];
+    await page.evaluate(() => (window as any).__landmarksEngine.zoomBy(2, { animate: false }));
+    await expect
+      .poll(async () => (await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay())).sizeUm)
+      .toBeCloseTo(first.window.size_um / 4, 3);
+    const p = await screenAt(page, box, [first.window.cx + first.window.size_um / 8, first.window.cy]);
+    await page.mouse.click(p.x, p.y);
+    await expect.poll(async () => ((await getModel(page, "selections")) as any[]).length).toBe(2);
+    const [kept, added] = (await getModel(page, "selections")) as any[];
+    expect([kept.window.cx, kept.window.cy, kept.window.size_um]).toEqual([
+      first.window.cx,
+      first.window.cy,
+      first.window.size_um,
+    ]);
+    expect(added.window.size_um).toBeCloseTo(first.window.size_um / 4, 3);
+    expect(await getModel(page, "selected_index")).toBe(1);
+  });
+
+  test("a release over the dock still commits; Esc mid-press commits nothing", async ({ page }) => {
+    const box = await openCubeAtCentre(page);
+    const sels = async () => (await getModel(page, "selections")) as any[];
+    const first = (await sels())[0];
+    const dock = (await cubeWindow(page).boundingBox())!;
+    const overDock = { x: dock.x + dock.width / 2, y: dock.y + 12 }; // its title bar
+    // Move: press on the focused square, release over the dock.
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await page.mouse.down();
+    await page.mouse.move(overDock.x, overDock.y, { steps: 6 });
+    await page.mouse.up();
+    await expect.poll(async () => (await sels())[0].window.cx).not.toBeCloseTo(first.window.cx, 1);
+    expect((await sels())[0].window.cx).toBeCloseTo(Number(await getModel(page, "inspect_cx")), 6);
+    expect(await sels()).toHaveLength(1);
+
+    // New: press elsewhere on the map, release over the dock.
+    await page.mouse.move(box.x + box.width * 0.15, box.y + box.height * 0.3);
+    await page.mouse.down();
+    await page.mouse.move(overDock.x, overDock.y, { steps: 6 });
+    await page.mouse.up();
+    await expect.poll(async () => (await sels()).length).toBe(2);
+    expect((await sels())[1].window.cx).toBeCloseTo(Number(await getModel(page, "inspect_cx")), 6);
+
+    // Esc between press and release: no entry, and later moves drag nothing.
+    await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.7);
+    await page.mouse.down();
+    await page.keyboard.press("Escape");
+    const cx = Number(await getModel(page, "inspect_cx"));
+    await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.7, { steps: 3 });
+    await page.mouse.up();
+    await page.waitForTimeout(200);
+    expect(await sels()).toHaveLength(2);
+    expect(Number(await getModel(page, "inspect_cx"))).toBe(cx);
+  });
+
   test("drag pans the cube; Esc closes it", async ({ page }) => {
     const box = await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
@@ -556,5 +644,78 @@ test.describe("Landmarks inspect cube", () => {
     await expect.poll(() => preview(page).getAttribute("data-region")).not.toBe(region);
     await page.mouse.move(box.x - 20, box.y - 20);
     await expect(preview(page)).toBeHidden();
+  });
+
+  test("the preview float sits beside the hover square, inside the widget, above the dock", async ({ page }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    await page.evaluate(() => {
+      const seen: any[] = [];
+      (window as any).__inspectEvents = seen;
+      (window as any).__landmarksEngine.subscribeInspect((e: any) => seen.push(e));
+    });
+    // One step in, the canvas's right edge is still over the volume.
+    await page.evaluate(() => (window as any).__landmarksEngine.zoomBy(1, { animate: false }));
+    const box = await canvasBox(page);
+    const root = (await page.locator(".landmarks").first().boundingBox())!;
+    const float = preview(page);
+    const right = Math.min(box.x + box.width - 100, (await screenAt(page, box, [240, 128])).x);
+    let half = 0;
+    for (const x of [box.x + box.width * 0.4, right]) {
+      const p = { x, y: box.y + box.height * 0.5 };
+      await page.mouse.move(p.x, p.y, { steps: 3 });
+      await expect(float).toBeVisible();
+      const hover = await page.evaluate(
+        () => ((window as any).__inspectEvents as any[]).filter((e) => e.type === "hover").at(-1),
+      );
+      half = hover.sizePx / 2;
+      const clear = async () => {
+        const r = (await float.boundingBox())!;
+        const apart =
+          r.x >= p.x + half || r.x + r.width <= p.x - half || r.y >= p.y + half || r.y + r.height <= p.y - half;
+        const inside =
+          r.x >= root.x - 0.5 &&
+          r.y >= root.y - 0.5 &&
+          r.x + r.width <= root.x + root.width + 0.5 &&
+          r.y + r.height <= root.y + root.height + 0.5;
+        return apart && inside;
+      };
+      await expect.poll(clear).toBe(true);
+    }
+    // At the right edge the float flips to the square's left.
+    const flipped = (await float.boundingBox())!;
+    expect(flipped.x + flipped.width).toBeLessThanOrEqual(right - half);
+
+    // With the dock open the float stacks above it (same layer, later in the DOM) and under the tools.
+    await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.5);
+    await expect(cubeWindow(page)).toBeVisible();
+    const stack = await page.evaluate(() => {
+      const z = (el: Element) => Number(getComputedStyle(el).zIndex);
+      const dock = document.querySelector(".landmarks__cube-window")!;
+      const f = document.querySelector('[data-testid="inspect-preview"]')!;
+      const tools = document.querySelector(".landmarks__chrome-tools")!;
+      const after = Boolean(dock.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING);
+      return { dock: z(dock), float: z(f), tools: z(tools), after };
+    });
+    expect(stack.float > stack.dock || (stack.float === stack.dock && stack.after)).toBe(true);
+    expect(stack.float).toBeLessThan(stack.tools);
+  });
+
+  test("leaving Inspect hides the preview but keeps its cube for the next hover", async ({ page }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5);
+    const view = preview(page).locator(".volume-cube__view");
+    await expect(preview(page)).toBeVisible();
+    await expect(view).not.toHaveAttribute("data-level", "-1");
+    await view.evaluate((el) => ((el as any).__kept = true));
+
+    await page.getByRole("radio", { name: "Select", exact: true }).click();
+    await expect(preview(page)).toBeHidden();
+    await expect(view).toHaveCount(1);
+
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.5, { steps: 3 });
+    await expect(preview(page)).toBeVisible();
+    expect(await view.evaluate((el) => Boolean((el as any).__kept))).toBe(true);
   });
 });
