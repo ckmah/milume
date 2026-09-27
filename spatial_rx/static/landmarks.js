@@ -5581,27 +5581,55 @@ export function mountEngine({ model, host }) {
   }
 
   let pointerInWidget = false;
+  /** `performance.now()` of the last pointer move over the widget, and of the last key typed into an editable outside it. */
+  let pointerMovedAt = 0;
+  let typedOutsideAt = 0;
+
+  /**
+   * Whether the pointer is over the widget. `:hover` holds before any pointer
+   * event reaches us (a fresh load, or a re-render under a still mouse).
+   */
+  function pointerOverWidget() {
+    try {
+      return container.matches(":hover");
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Whether a Space press arms the pan. Hovering the map is enough, with focus
+   * anywhere: a notebook often keeps it in a cell editor. From an editor outside
+   * the widget it pans only once the pointer has moved over the widget since the
+   * last key typed there, so typing with the mouse parked on the map keeps its spaces.
+   */
+  function spaceArmsPan(typing, inWidget) {
+    if (!typing) return inWidget || pointerOverWidget();
+    return pointerOverWidget() && pointerMovedAt > typedOutsideAt;
+  }
 
   function handleKeyDown(event) {
     // Marimo often keeps focus in the cell editor after clicking the widget.
     // Only treat typing as blocking when the editable is *inside* our chrome
     // (gene combobox, etc.); otherwise pointerInWidget / deep focus still win.
     const typing = isTypingTarget(event);
-    const inWidget = eventInWidget(event) || widgetHasFocus() || pointerInWidget;
-    if (!inWidget) return;
-    if (typing && eventInWidget(event)) return;
+    const inChrome = eventInWidget(event);
+    if (typing && inChrome) return;
+    const inWidget = inChrome || widgetHasFocus() || pointerInWidget;
 
     const mod = event.metaKey || event.ctrlKey;
     const key = event.key;
     const lower = key.length === 1 ? key.toLowerCase() : key;
 
-    // Hold Space to pan in any tool (never while typing, even outside our chrome).
-    if (key === " " && !mod && !event.altKey && !typing) {
+    // Hold Space to pan in any tool (never while typing inside our own chrome).
+    if (key === " " && !mod && !event.altKey && (spacePan || spaceArmsPan(typing, inWidget))) {
       event.preventDefault();
       event.stopPropagation();
       if (!event.repeat) setSpacePan(true);
       return;
     }
+    if (typing) typedOutsideAt = performance.now();
+    if (!inWidget) return;
 
     if (key === "Enter") {
       event.preventDefault();
@@ -5888,6 +5916,13 @@ export function mountEngine({ model, host }) {
       pointerInWidget = true;
     },
     { signal },
+  );
+  container.addEventListener(
+    "pointermove",
+    () => {
+      pointerMovedAt = performance.now();
+    },
+    { signal, passive: true },
   );
   // Document listeners see retargeted shadow hosts — use composedPath.
   document.addEventListener(

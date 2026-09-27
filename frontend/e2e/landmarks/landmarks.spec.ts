@@ -420,4 +420,51 @@ test.describe("LandmarksWidget", () => {
     await drag();
     expect(await target()).toEqual(settled);
   });
+
+  test("Space pans on the first try: pointer over the map, never clicked", async ({ page }) => {
+    const box = await canvasBox(page);
+    const target = () =>
+      page.evaluate(() => (window as any).__landmarksEngine.getViewState()?.target as number[]);
+    const cx = box.x + box.width * 0.5;
+    const cy = box.y + box.height * 0.5;
+    const spaceDrag = async () => {
+      await page.keyboard.down(" ");
+      await page.mouse.down();
+      await page.mouse.move(cx + 80, cy + 40, { steps: 6 });
+      await page.mouse.up();
+      await page.keyboard.up(" ");
+      await page.mouse.move(cx, cy);
+    };
+    const panned = (a: number[], b: number[]) => Math.abs(b[0]! - a[0]!) + Math.abs(b[1]! - a[1]!) > 0;
+
+    // Fresh load, focus on the page body: hovering the map is enough.
+    await page.mouse.move(cx, cy, { steps: 3 });
+    const t0 = await target();
+    await spaceDrag();
+    expect(panned(t0, await target())).toBe(true);
+
+    // Focus in an editor outside the widget (a notebook cell): the pointer over
+    // the map still wins, and the space is not typed.
+    const textarea = await page.evaluateHandle(() => {
+      const el = document.createElement("textarea");
+      el.setAttribute("aria-label", "Outside editor");
+      el.style.cssText = "position:fixed;left:0;top:0;width:60px;height:24px;z-index:9999";
+      document.body.append(el);
+      el.focus();
+      return el;
+    });
+    await page.mouse.move(cx + 4, cy + 4, { steps: 3 });
+    await page.mouse.move(cx, cy);
+    const t1 = await target();
+    await spaceDrag();
+    expect(panned(t1, await target())).toBe(true);
+    expect(await textarea.evaluate((el) => (el as HTMLTextAreaElement).value)).toBe("");
+
+    // Typing there with the pointer parked over the map types its spaces.
+    await textarea.evaluate((el) => (el as HTMLTextAreaElement).focus());
+    const t2 = await target();
+    await page.keyboard.type("a b");
+    expect(await textarea.evaluate((el) => (el as HTMLTextAreaElement).value)).toBe("a b");
+    expect(await target()).toEqual(t2);
+  });
 });
