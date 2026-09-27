@@ -1,3 +1,8 @@
+import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
+
+/** The Inspect window's side (µm), fixed in X/Y (the engine's default). */
+export const INSPECT_WINDOW_UM: number;
+
 /**
  * Events from `subscribeInspect`; positions in µm, `px, py` in canvas pixels.
  * `sizeUm` is the fixed window side; `sizePx` its on-screen side at this zoom.
@@ -100,6 +105,13 @@ export type EngineHandle = {
    * or null without a placed window or a 3D image.
    */
   saveInspect(): number | null;
+  /**
+   * The non-hidden landmarks as the map draws them: map (µm) coordinates,
+   * splines and shapes sampled as on the map, each landmark's colour (RGBA bytes).
+   */
+  getLandmarkGeometry(): CubeOverlay[];
+  /** Fires when the landmarks (or their visibility) change. */
+  subscribeLandmarks(fn: () => void): () => void;
   /** The hover / placed square centres and sizes (µm); `sizeUm` is the fixed window side. */
   getInspectOverlay(): {
     hover: [number, number] | null;

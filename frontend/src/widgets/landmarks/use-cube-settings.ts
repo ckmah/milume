@@ -32,7 +32,7 @@ export function useCubeSettings(
   const [settings, setSettings] = useState<CubeSettings>(() => ({
     open: false,
     mode: "additive",
-    preset: "iso",
+    preset: "top",
     resetTick: 0,
     showLabels: false,
     render: DEFAULT_RENDER,

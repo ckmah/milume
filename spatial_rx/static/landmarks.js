@@ -256,7 +256,7 @@ function cssColorToClear(color) {
 }
 
 /** The Inspect window's side (µm), fixed in X/Y: the dock loads it at full resolution. */
-const INSPECT_WINDOW_UM = 300;
+export const INSPECT_WINDOW_UM = 300;
 
 /**
  * `inspectWindowUm` overrides the Inspect window's side (harness only: the toy
@@ -3080,6 +3080,31 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       );
     }
     return layers;
+  }
+
+  const landmarkListeners = new Set();
+
+  /**
+   * The landmarks as the map draws them, for the Inspect cube: map (µm)
+   * coordinates, splines and shapes sampled as on the map, each in its
+   * landmark's colour. Hidden landmarks are left out.
+   */
+  function landmarkGeometry() {
+    const out = [];
+    (model.get("landmarks") || []).forEach((lm, i) => {
+      if (lm.hidden) return;
+      const hex = (typeof lm.color === "string" && lm.color) || COLORS[i % COLORS.length];
+      const color = hexToRgbaBytes(hex, 1);
+      if (lm.type === "point") {
+        const v = (lm.vertices || [])[0];
+        if (v) out.push({ kind: "point", coords: [[v[0], v[1]]], closed: false, color });
+        return;
+      }
+      const closed = lm.type === "shape";
+      const pts = landmarkPathData(lm);
+      if (pts.length >= (closed ? 3 : 2)) out.push({ kind: "path", coords: asPath(pts), closed, color });
+    });
+    return out;
   }
 
   function buildDraftLayers() {
@@ -5937,6 +5962,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     onChange(k, () => {
       setDeckLayers();
       updateUI();
+      if (k === "landmarks") for (const fn of landmarkListeners) fn();
     });
   });
   ["selected_index", "selected_kind"].forEach((k) => {
@@ -6338,6 +6364,12 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       setDeckLayers();
     },
     saveInspect,
+    getLandmarkGeometry: landmarkGeometry,
+    subscribeLandmarks(fn) {
+      if (typeof fn !== "function") return () => {};
+      landmarkListeners.add(fn);
+      return () => landmarkListeners.delete(fn);
+    },
     getInspectOverlay() {
       return {
         hover: volumeHover ? [volumeHover.x, volumeHover.y] : null,

@@ -115,9 +115,17 @@ test.describe("VolumeCubeWidget", () => {
 
   test("in-widget controls: camera presets, projection, and a committed Z cut", async ({ page }) => {
     const widget = volumeCubeWidget(page);
+    // The standalone cube opens oblique (the Landmarks dock opens top-down), with an axis legend.
+    await expect(widget.getByRole("radio", { name: "Oblique view" })).toHaveAttribute("data-state", "on");
+    const legend = widget.getByLabel("Axes");
+    await expect(legend).toBeVisible();
+    const zLength = async () => Number((await legend.getAttribute("data-lengths"))!.split(",")[2]);
+    expect(await zLength()).toBeGreaterThan(0.5);
     for (const name of ["Top view", "Side view", "Oblique view"]) {
       await widget.getByRole("radio", { name }).click();
       await expect(widget.getByRole("radio", { name })).toHaveAttribute("data-state", "on");
+      // From above, z points at the viewer.
+      if (name === "Top view") await expect.poll(zLength).toBeLessThan(0.05);
     }
     await widget.getByRole("radio", { name: "Maximum intensity" }).click();
     await expect(widget).toHaveAttribute("data-render", "mip");

@@ -1,8 +1,8 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { cn } from "@/lib/utils";
 import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
 import { CHUNK_CACHE_BYTES, type ChunkCache } from "@/widgets/volume-cube/chunk-cache";
+import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
 import type { CubeBounds, CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
 import {
   type Box,
@@ -22,7 +22,6 @@ import {
 import type { CubeSettings } from "../use-cube-settings";
 import type { EngineHandle, InspectEvent } from "../engine";
 import type { LandmarksModel } from "../use-landmarks-model";
-import { FLOAT_PANEL } from "./sections";
 
 // Lazy only in the dev harness (see cube-window.tsx).
 const VolumeCube = lazy(() =>
@@ -31,10 +30,12 @@ const VolumeCube = lazy(() =>
 
 /** The preview cube's side (CSS px). */
 export const PREVIEW_PX = 240;
-/** The float's side: the cube plus its padding. */
-const FLOAT_PX = PREVIEW_PX + 8;
+/** The float's side: the cube itself (no frame around it). */
+const FLOAT_PX = PREVIEW_PX;
 /** Gap between the hover square's edge and the float. */
 const SQUARE_GAP_PX = 12;
+/** Insets of a float pinned in a widget corner: clear of the top tools and the peek tabs. */
+const PIN_INSET = { top: 56, side: 48, bottom: 16 };
 /** A recentred region leads the cursor by its velocity over this long. */
 const LEAD_MS = 150;
 /** Hover samples this recent make the velocity. */
@@ -95,6 +96,29 @@ function previewLevel(levels: Level[], frame: Frame, sizeUm: number, budget: num
 }
 
 /**
+ * Where the float goes (its top-left, in widget px) for a cursor at (ax, ay)
+ * whose square is `sizePx` wide: beside the square, right or else left, when
+ * that side has room; otherwise (a square wider than the view) pinned in the
+ * widget corner farthest from the cursor. Always inside the widget.
+ */
+function placeFloat(
+  ax: number,
+  ay: number,
+  sizePx: number,
+  widget: { width: number; height: number },
+): { left: number; top: number } {
+  const { width, height } = widget;
+  const clamp = (v: number, max: number) => Math.max(0, Math.min(Math.max(0, max), v));
+  const offset = sizePx / 2 + SQUARE_GAP_PX;
+  const top = clamp(ay - FLOAT_PX / 2, height - FLOAT_PX);
+  if (ax + offset + FLOAT_PX <= width) return { left: ax + offset, top };
+  if (ax - offset - FLOAT_PX >= 0) return { left: ax - offset - FLOAT_PX, top };
+  const left = ax < width / 2 ? width - PIN_INSET.side - FLOAT_PX : PIN_INSET.side;
+  const pinnedTop = ay < height / 2 ? height - PIN_INSET.bottom - FLOAT_PX : PIN_INSET.top;
+  return { left: clamp(left, width - FLOAT_PX), top: clamp(pinnedTop, height - FLOAT_PX) };
+}
+
+/**
  * The live Inspect preview: while the pointer hovers the volume in Inspect, a
  * small fixed-camera MIP of the square floats beside the cursor. It draws from
  * a loaded region three squares wide, so the square slides over voxels already
@@ -114,6 +138,7 @@ export function InspectPreview({
   dark,
   cache,
   budgets,
+  overlays,
 }: {
   /** In Inspect: outside it the float stays hidden and queues no prefetch. */
   active: boolean;
@@ -126,6 +151,8 @@ export function InspectPreview({
   dark: boolean;
   cache: ChunkCache;
   budgets: { preview: number; dock: number };
+  /** The user's landmarks (µm), drawn on the cube's top face. */
+  overlays: CubeOverlay[] | null;
 }) {
   const volume = lm.volume ?? {};
   const voxelSizeUm = volume.voxel_size_um ?? VOXEL_ZYX;
@@ -227,18 +254,16 @@ export function InspectPreview({
       while (samples.length > 1 && now - samples[0]!.t > VELOCITY_MS) samples.shift();
       lastHoverRef.current = e;
 
-      // Beside the hover square (never over it), flipped to its left at the widget's right edge.
+      // Beside the hover square (never over it), or pinned in a far corner of the widget.
       const root = latest.current.rootEl;
       const r = root?.getBoundingClientRect();
       const c = root?.querySelector("canvas.landmarks__webgl")?.getBoundingClientRect() ?? r;
       const ax = (c && r ? c.left - r.left : 0) + e.px;
       const ay = (c && r ? c.top - r.top : 0) + e.py;
-      const width = r?.width ?? Infinity;
-      const height = r?.height ?? Infinity;
-      const offset = e.sizePx / 2 + SQUARE_GAP_PX;
-      let left = ax + offset;
-      if (left + FLOAT_PX > width) left = ax - offset - FLOAT_PX;
-      const top = Math.max(0, Math.min(height - FLOAT_PX, ay - FLOAT_PX / 2));
+      const { left, top } = placeFloat(ax, ay, e.sizePx, {
+        width: r?.width ?? Infinity,
+        height: r?.height ?? Infinity,
+      });
 
       updateRegion(e.x, e.y, e.sizeUm);
       setLast({ hover: e, left, top });
@@ -353,7 +378,8 @@ export function InspectPreview({
       data-region={region ? `${region.cx},${region.cy}` : ""}
       aria-hidden
       hidden={!visible}
-      className={cn(FLOAT_PANEL, "landmarks__inspect-preview pointer-events-none absolute p-1")}
+      // No panel around it: the cube floats on its own, as a passing glance.
+      className="landmarks__inspect-preview pointer-events-none absolute"
       style={{ left: last.left, top: last.top, width: FLOAT_PX }}
     >
       <Suspense fallback={null}>
@@ -368,7 +394,8 @@ export function InspectPreview({
           cut={OPEN_CUT}
           contrast={settings.contrast}
           mode="mip"
-          preset="iso"
+          preset="top"
+          home="top"
           resetTick={0}
           showLabels={settings.showLabels}
           groups={groups}
@@ -378,6 +405,8 @@ export function InspectPreview({
           region={region ? { scale: PREVIEW_REGION_SCALE, budget: budgets.preview, cx: region.cx, cy: region.cy } : null}
           interactive={false}
           showLegend={false}
+          background={false}
+          overlays={overlays}
           chunkCache={cache}
           onLevels={onLevels}
           onShown={onShown}

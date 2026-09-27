@@ -14,7 +14,7 @@ deleting the last one closes the dock.
 
 ## Sub-features
 
-- A borderless preview float (`data-testid="inspect-preview"`) follows the cursor beside the hover square (offset by half the square's `sizePx`, from the `hover` event, plus a gap; flipped to its left at the widget's right edge; never over the square; kept inside the widget), rendering the coarse level for a region 3× the square's side; it pans (`data-pan`) without a new fetch while inside the loaded region, and hides when the pointer leaves the volume's extent or the canvas
+- A frameless preview float (`data-testid="inspect-preview"`: no panel background, border or shadow; the cube's view is transparent, `VolumeCube background={false}`, keeping its wireframe) follows the cursor beside the hover square (offset by half the square's `sizePx`, from the `hover` event, plus a gap; to the right, else to the left when that side has room; never over the square). When neither side has room (the product's 300 µm square is wider than the canvas at the fitted zoom) it pins inside the widget in the corner farthest from the cursor, clear of the top tools and peek tabs; always inside the widget. It renders the coarse level top-down (MIP) for a region 3× the square's side; it pans (`data-pan`) without a new fetch while inside the loaded region, and hides when the pointer leaves the volume's extent or the canvas
 - The float stacks above the dock (same `z-index: 21`, later in the DOM) and under the top tools (22)
 - Once created the float stays mounted (hidden) outside Inspect, so its cube and WebGL context are reused on the next hover; leaving Inspect still clears the preview's queued prefetches
 - Moving past half the square's side from the region's edge recentres the preview at a new region led by the cursor's recent velocity; the old region keeps rendering, square clamped, until the new one swaps in
@@ -64,6 +64,8 @@ Model keys: `selections` (`type: "inspect"` entries with `window`),
 - Functional: `"hover shows a live coarse preview that slides without refetching"` — moving within the loaded region changes `data-pan` but fires no `/s\d+/c/` chunk requests, and the dock stays closed.
 - Functional: `"moving far recentres the preview region; leaving the map hides it"` — crossing the region's edge changes `data-region`; moving off-canvas hides the float.
 - Functional: `"the preview float sits beside the hover square, inside the widget, above the dock"` — at mid-canvas and near the right edge (flipped) the float's box never intersects the `sizePx` square around the cursor and stays inside the widget; with the dock open the float stacks above the dock and below `.landmarks__chrome-tools`.
+- Functional: `"at the product window the preview float stays inside the widget, clear of the cursor"` — at the default 300 µm window (no `?window=`), at the centre and near each corner the float is inside the widget and never under the cursor.
+- Functional: `"the preview is frameless: no panel chrome, a transparent cube"` — the float has a transparent background, no shadow and no border; its `.volume-cube__view` background is transparent.
 - Functional: `"leaving Inspect hides the preview but keeps its cube for the next hover"` — after Select and back to Inspect, the same `.volume-cube__view` element renders the next hover.
 
 ## Gotchas

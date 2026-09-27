@@ -743,6 +743,126 @@ test.describe("Landmarks inspect cube", () => {
     expect(stack.float).toBeLessThan(stack.tools);
   });
 
+  test("at the product window the preview float stays inside the widget, clear of the cursor", async ({ page }) => {
+    // The default 300 µm square is wider than the canvas: no side has room, so
+    // the float pins to the widget corner farthest from the cursor.
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    const root = (await page.locator(".landmarks").first().boundingBox())!;
+    const float = preview(page);
+    for (const [fx, fy] of [
+      [0.5, 0.5],
+      [0.15, 0.2],
+      [0.85, 0.8],
+      [0.9, 0.15],
+    ]) {
+      const p = { x: box.x + box.width * fx, y: box.y + box.height * fy };
+      await page.mouse.move(p.x, p.y, { steps: 3 });
+      await expect(float).toBeVisible();
+      const placed = async () => {
+        const r = (await float.boundingBox())!;
+        const inside =
+          r.x >= root.x - 0.5 &&
+          r.y >= root.y - 0.5 &&
+          r.x + r.width <= root.x + root.width + 0.5 &&
+          r.y + r.height <= root.y + root.height + 0.5;
+        const overCursor = p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
+        return inside && !overCursor;
+      };
+      await expect.poll(placed).toBe(true);
+    }
+  });
+
+  test("the preview is frameless: no panel chrome, a transparent cube", async ({ page }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await expect(preview(page)).toBeVisible();
+    const styles = await preview(page).evaluate((el) => {
+      const view = el.querySelector(".volume-cube__view")!;
+      const s = getComputedStyle(el);
+      return {
+        float: { bg: s.backgroundColor, shadow: s.boxShadow, border: s.borderTopWidth },
+        view: getComputedStyle(view).backgroundColor,
+      };
+    });
+    expect(styles.float).toEqual({ bg: "rgba(0, 0, 0, 0)", shadow: "none", border: "0px" });
+    expect(styles.view).toBe("rgba(0, 0, 0, 0)");
+  });
+
+  test("the dock and the preview open top-down; an axis legend turns with the camera", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const bar = page.getByTestId("context-inspect-toolbar");
+    await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "true");
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    const legend = view.getByLabel("Axes");
+    await expect(legend).toBeVisible();
+    // From above: x right, y down the screen (as on the map), z at the viewer.
+    const lengths = async (l: typeof legend) => (await l.getAttribute("data-lengths"))!.split(",").map(Number);
+    await expect.poll(async () => (await lengths(legend))[2]).toBeLessThan(0.05);
+    expect(await legend.getAttribute("data-axes")).toBe("0,-90,0");
+    const top = await legend.getAttribute("data-axes");
+
+    // Orbit the camera by dragging inside the dock: the legend turns.
+    const r = (await view.boundingBox())!;
+    await page.mouse.move(r.x + r.width * 0.5, r.y + r.height * 0.5);
+    await page.mouse.down();
+    await page.mouse.move(r.x + r.width * 0.65, r.y + r.height * 0.35, { steps: 6 });
+    await page.mouse.up();
+    await expect(legend).not.toHaveAttribute("data-axes", top!);
+    await expect.poll(async () => (await lengths(legend))[2]).toBeGreaterThan(0.1);
+    await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "false");
+
+    // Reset is the top-down home view.
+    await bar.getByRole("button", { name: "Reset view" }).click();
+    await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "true");
+    await expect(legend).toHaveAttribute("data-axes", top!);
+
+    // The hover preview is top-down too, with its own legend.
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5, { steps: 3 });
+    const previewLegend = preview(page).locator(".volume-cube__view").getByLabel("Axes");
+    await expect(previewLegend).toBeVisible();
+    await expect(previewLegend).toHaveAttribute("data-axes", top!);
+    expect((await lengths(previewLegend))[2]).toBeLessThan(0.05);
+  });
+
+  test("landmarks crossing the window are drawn in the cube; ones outside are not", async ({ page }) => {
+    const line = (id: string, vertices: [number, number][], extra: Record<string, unknown> = {}) => ({
+      id,
+      type: "line",
+      vertices,
+      line_style: "solid",
+      color: "#00e5ff",
+      ...extra,
+    });
+    // Across the toy volume (the window clamps to it), and wholly outside it.
+    await setModel(page, { landmarks: [line("across", [[20, 128], [240, 140]])] });
+    const geometry = await page.evaluate(() => (window as any).__landmarksEngine.getLandmarkGeometry());
+    expect(geometry).toEqual([
+      { kind: "path", coords: [[20, 128], [240, 140]], closed: false, color: [0, 229, 255, 255] },
+    ]);
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-overlays", "1");
+
+    await setModel(page, { landmarks: [line("outside", [[300, 300], [420, 380]])] });
+    await expect(view).toHaveAttribute("data-overlays", "0");
+    // A hidden landmark is not drawn either.
+    await setModel(page, { landmarks: [line("hidden", [[20, 128], [240, 140]], { hidden: true })] });
+    await expect(view).toHaveAttribute("data-overlays", "0");
+
+    // The hover preview draws them too.
+    await setModel(page, {
+      landmarks: [line("across", [[20, 128], [240, 140]]), { id: "p", type: "point", vertices: [[128, 100]] }],
+    });
+    await expect(view).toHaveAttribute("data-overlays", "2");
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5, { steps: 3 });
+    await expect(preview(page)).toBeVisible();
+    await expect(preview(page).locator(".volume-cube__view")).toHaveAttribute("data-overlays", "2");
+  });
+
   test("leaving Inspect hides the preview but keeps its cube for the next hover", async ({ page }) => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     const box = await canvasBox(page);

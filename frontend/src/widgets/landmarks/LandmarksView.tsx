@@ -5,7 +5,8 @@ import { cn } from "@/lib/utils";
 
 import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
 import { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
-import { PREVIEW_REGION_BUDGET, WINDOW_VOXEL_BUDGET } from "@/widgets/volume-cube/window-source";
+import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
+import { PREVIEW_REGION_BUDGET } from "@/widgets/volume-cube/window-source";
 
 import { decodeF32Base64, decodeI32Base64 } from "./binary";
 import {
@@ -27,7 +28,7 @@ import {
 import type { ChipSnapshot } from "./chrome/cube-window";
 import { FLOAT_PANEL } from "./chrome/sections";
 import { cubeHighlightGroups } from "./cube-highlight";
-import { mountEngine, type EngineHandle } from "./engine";
+import { INSPECT_WINDOW_UM, mountEngine, type EngineHandle } from "./engine";
 import {
   GEOMETRY_MODE_IDS,
   INTERACTION_MODE_IDS,
@@ -91,8 +92,10 @@ export function LandmarksView({
     const ids = new Set(lm.selections.map((s) => String(s.id)));
     for (const id of snapshots.keys()) if (!ids.has(id)) snapshots.delete(id);
   }, [lm.selections, snapshots]);
+  // The dock always loads level 0 for its window (only the 3D texture axis
+  // limit can make it coarser); the preview's budget sizes its first step.
   const budgets = useMemo(
-    () => cubeBudgets ?? { preview: PREVIEW_REGION_BUDGET, dock: WINDOW_VOXEL_BUDGET },
+    () => cubeBudgets ?? { preview: PREVIEW_REGION_BUDGET, dock: Number.POSITIVE_INFINITY },
     [cubeBudgets],
   );
   const { hasVolume, cube, patchCube } = inspectCube;
@@ -127,7 +130,7 @@ export function LandmarksView({
       colorBy: lm.color_by,
       focus: { kind: lm.selected_kind, index: lm.selected_index },
       selections: lm.selections,
-      window: { cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um || 100 },
+      window: { cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um || INSPECT_WINDOW_UM },
     });
   }, [
     cube.open,
@@ -147,6 +150,15 @@ export function LandmarksView({
     lm.inspect_size_um,
   ]);
   const inspecting = lm.mode === "inspect";
+
+  // The user's landmarks, drawn in the cube views for context.
+  const [landmarkGeometry, setLandmarkGeometry] = useState<CubeOverlay[] | null>(null);
+  useEffect(() => {
+    if (!engine || !hasVolume) return;
+    const read = () => setLandmarkGeometry(engine.getLandmarkGeometry());
+    read();
+    return engine.subscribeLandmarks(read);
+  }, [engine, hasVolume]);
 
   // Inspect clears the map: both docks collapse on entry (peek tabs stay, so
   // either can be reopened), and leaving restores the docks as they were.
@@ -370,6 +382,7 @@ export function LandmarksView({
             cache={chunkCache}
             budgets={budgets}
             snapshots={snapshots}
+            overlays={landmarkGeometry}
             onFocusEntry={inspectCube.focusEntry}
           />
         ) : null}
@@ -386,6 +399,7 @@ export function LandmarksView({
             dark={dark}
             cache={chunkCache}
             budgets={budgets}
+            overlays={landmarkGeometry}
           />
         ) : null}
 

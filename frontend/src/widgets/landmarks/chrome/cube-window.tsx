@@ -8,6 +8,9 @@ import type { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import type { CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
 import { PREVIEW_REGION_SCALE } from "@/widgets/volume-cube/window-source";
 
+import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
+
+import { INSPECT_WINDOW_UM } from "../engine";
 import { SELECTION_COLORS } from "../helpers";
 import type { CubeSettings, CubeSettingsPatch } from "../use-cube-settings";
 import { inspectWindowOf } from "../use-inspect-cube";
@@ -87,6 +90,7 @@ export function CubeWindow({
   cache,
   budgets,
   snapshots,
+  overlays,
   onFocusEntry,
 }: {
   lm: LandmarksModel;
@@ -102,6 +106,8 @@ export function CubeWindow({
   budgets: { preview: number; dock: number };
   /** History chip snapshots by selection id; kept across opens, never synced. */
   snapshots: Map<string, ChipSnapshot>;
+  /** The user's landmarks (µm), drawn on the cube's top face. */
+  overlays: CubeOverlay[] | null;
   /** A history chip: focus its entry and restore its window and cut. */
   onFocusEntry: (index: number) => void;
 }) {
@@ -205,7 +211,7 @@ export function CubeWindow({
   const gestureHandlers = { onPointerMove, onPointerUp, onPointerCancel: onPointerUp };
 
   const volume = lm.volume ?? {};
-  const size = lm.inspect_size_um || 100;
+  const size = lm.inspect_size_um || INSPECT_WINDOW_UM;
   const swatch = (index: number) => SELECTION_COLORS[index % SELECTION_COLORS.length];
 
   return (
@@ -265,6 +271,7 @@ export function CubeWindow({
             contrast={settings.contrast}
             mode={settings.mode}
             preset={settings.preset}
+            home="top"
             resetTick={settings.resetTick}
             showLabels={settings.showLabels}
             groups={groups}
@@ -272,6 +279,7 @@ export function CubeWindow({
             dark={dark}
             height="100%"
             showLegend={false}
+            overlays={overlays}
             coarse={{ scale: PREVIEW_REGION_SCALE, budget: budgets.preview }}
             budget={budgets.dock}
             chunkCache={cache}

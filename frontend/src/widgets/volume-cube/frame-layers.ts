@@ -3,6 +3,8 @@ import { LineLayer, TextLayer } from "@deck.gl/layers";
 import type { Matrix4 } from "@math.gl/core";
 import { VolumeView } from "@hms-dbmi/viv";
 
+import { type PlacedOverlays, overlayLayers, vivTag } from "./overlay-layers";
+
 /**
  * Wireframe and axes around the loaded window, drawn in Viv's own deck.
  *
@@ -25,9 +27,10 @@ export type CubeFrame = {
 type Segment = { from: number[]; to: number[]; color: number[] };
 type Tick = { position: number[]; text: string; color: number[]; size: number };
 
-const X_COLOR = [239, 68, 68];
-const Y_COLOR = [34, 197, 94];
-const Z_COLOR = [59, 130, 246];
+/** Axis colours (RGB), shared by the frame's axes and labels and the axis legend. */
+export const X_COLOR = [239, 68, 68];
+export const Y_COLOR = [34, 197, 94];
+export const Z_COLOR = [59, 130, 246];
 
 function niceStep(extent: number, target = 4): number {
   const raw = extent / target;
@@ -45,11 +48,6 @@ function ticks(lengthUm: number): number[] {
   const out: number[] = [];
   for (let t = 0; t <= lengthUm + 1e-6; t += step) out.push(Math.round(t * 1000) / 1000);
   return out;
-}
-
-/** VivViewer only draws layers whose id carries their view's tag (Viv's getVivId). */
-function vivTag(viewId: string): string {
-  return `-#${viewId}#`;
 }
 
 export function frameLayers(frame: CubeFrame, modelMatrix: Matrix4, viewId = "3d") {
@@ -148,10 +146,16 @@ export class FramedVolumeView extends VolumeView {
       { props },
     );
     const frame = props.cubeFrame as CubeFrame | undefined;
-    if (!frame) return layers;
     // The frame marks the requested window: it keeps its place while a loaded
     // window pans under it (`frameMatrix`), and otherwise shares the volume's.
+    // Overlays (already placed in the window) share it too.
     const matrix = (props.frameMatrix ?? props.modelMatrix) as Matrix4;
-    return [...layers, ...frameLayers(frame, matrix, (this as unknown as { id: string }).id)];
+    const id = (this as unknown as { id: string }).id;
+    const overlays = props.cubeOverlays as PlacedOverlays | null | undefined;
+    const extra = overlays ? overlayLayers(overlays, matrix, id) : [];
+    if (!frame) return [...layers, ...extra];
+    // Overlays go over the frame's lines and under its axis labels.
+    const [lines, labels] = frameLayers(frame, matrix, id);
+    return [...layers, lines, ...extra, labels];
   }
 }

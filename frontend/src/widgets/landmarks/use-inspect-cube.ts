@@ -10,7 +10,7 @@ import {
   shownCut,
   toRelativeCut,
 } from "./cube-cut";
-import type { EngineHandle } from "./engine";
+import { type EngineHandle, INSPECT_WINDOW_UM } from "./engine";
 import type { AnyModel, SelectionItem } from "./helpers";
 import { type CubeSettings, type CubeSettingsPatch, useCubeSettings } from "./use-cube-settings";
 import type { LandmarksModel } from "./use-landmarks-model";
@@ -98,7 +98,7 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   const win: CutWindow | null =
     lm.inspect_cx == null || lm.inspect_cy == null
       ? null
-      : cutWindow(lm.inspect_cx, lm.inspect_cy, lm.inspect_size_um || 100, { x: origin[2], y: origin[1] }, volume);
+      : cutWindow(lm.inspect_cx, lm.inspect_cy, lm.inspect_size_um || INSPECT_WINDOW_UM, { x: origin[2], y: origin[1] }, volume);
   const cut: CubeCut = win
     ? shownCut(cube.cut, win, volume?.z ?? null)
     : [-Infinity, Infinity, -Infinity, Infinity, cube.cut.z[0], cube.cut.z[1]];

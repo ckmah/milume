@@ -4,6 +4,7 @@ import { Matrix4 } from "@math.gl/core";
 import { VivViewer, loadOmeZarr } from "@hms-dbmi/viv";
 
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 import type { ChunkCache } from "./chunk-cache";
 import {
@@ -13,8 +14,10 @@ import {
   type RenderSettings,
   buildCellLut,
 } from "./cell-lut-extension";
+import { AxisLegend } from "./axis-legend";
 import type { Range, ViewPreset } from "./CubeControls";
 import { type CubeFrame, FramedVolumeView } from "./frame-layers";
+import { type CubeOverlay, placeOverlays } from "./overlay-layers";
 import { paletteLut } from "./palettes";
 import { type WindowTarget, levelVoxelSize, useShownWindow } from "./use-shown-window";
 import {
@@ -76,9 +79,11 @@ export type VolumeCubeProps = {
   cut: CubeCut;
   contrast: [number, number];
   mode: "additive" | "mip";
-  /** Applied when it changes. */
+  /** Applied when it changes: the preset's rotation, framed as its home view. */
   preset: ViewPreset | null;
-  /** Bump to reset the camera. */
+  /** The home view (first view and Reset). Default "iso". */
+  home?: ViewPreset;
+  /** Bump to reset the camera to the home view. */
   resetTick: number;
   showLabels: boolean;
   groups: HighlightGroup[];
@@ -100,6 +105,10 @@ export type VolumeCubeProps = {
   interactive?: boolean;
   /** Default true: the category Badge legend over the canvas. */
   showLegend?: boolean;
+  /** Default true: the dark view background. False leaves the view transparent (the preview). */
+  background?: boolean;
+  /** Map geometry (µm) drawn on the stack's top face, clipped to the window. */
+  overlays?: CubeOverlay[] | null;
   /** Decoded chunks shared across the widget's cubes. */
   chunkCache?: ChunkCache | null;
   /** Hold the cache's background prefetch while this cube's target loads. */
@@ -134,7 +143,10 @@ const PRESETS: Record<ViewPreset, { rotationX: number; rotationOrbit: number }> 
   iso: { rotationX: ISO_PITCH, rotationOrbit: 45 },
   side: { rotationX: 0, rotationOrbit: 0 },
 };
-const HOME_ZOOM_BACKOFF = 0.3;
+/** The iso home backs off its footprint; top and side fit their near face, so less. */
+const HOME_ZOOM_BACKOFF: Record<ViewPreset, number> = { iso: 0.3, top: 0.1, side: 0.1 };
+/** Viv's VolumeView is deck's OrbitView at its default field of view (degrees). */
+const FOVY = 50;
 const NO_GROUPS: HighlightGroup[] = [];
 /** Coalesce the separate window_cx / window_cy updates of one inspect click. */
 const WINDOW_DEBOUNCE_MS = 120;
@@ -170,14 +182,38 @@ function viewStatesEqual(a: ViewState, b: ViewState): boolean {
   );
 }
 
-/** Home camera frames the inspect window, in the window source's world units. */
-function isoHome(fit: { width: number; height: number }, view: { width: number; height: number }): ViewState {
-  const zoom = Math.log2(Math.min(view.width / fit.width, view.height / fit.height)) - HOME_ZOOM_BACKOFF;
+/**
+ * What a preset's view has to fit, in world units at the target: its screen
+ * width and height, and how far the face nearest the camera sits in front of
+ * the target (the perspective camera shows that face larger).
+ */
+type Fit = { width: number; height: number; near: number };
+
+/** Deck's orbit camera distance, in viewport heights (math.gl `fovyToAltitude`). */
+const ALTITUDE = 0.5 / Math.tan(((FOVY / 2) * Math.PI) / 180);
+
+/**
+ * The zoom at which `fit` fills the view. One world unit at the target is
+ * 2^zoom px, and a face `near` units closer is magnified by F / (F - near·2^zoom/H).
+ */
+function fitZoom(fit: Fit, view: { width: number; height: number }): number {
+  const scale = (extent: number, side: number) =>
+    (side * ALTITUDE) / (extent * ALTITUDE + (side * fit.near) / view.height);
+  return Math.log2(Math.min(scale(fit.width, view.width), scale(fit.height, view.height)));
+}
+
+/** The home camera for `preset`, framing the inspect window (the window source's world units). */
+function homeView(
+  preset: ViewPreset,
+  fits: Record<ViewPreset, Fit>,
+  view: { width: number; height: number },
+): ViewState {
+  const zoom = fitZoom(fits[preset], view) - HOME_ZOOM_BACKOFF[preset];
   return {
     id: "3d",
     target: [0, 0, 0],
     zoom,
-    ...PRESETS.iso,
+    ...PRESETS[preset],
     minZoom: zoom - 2,
     maxZoom: zoom + 5,
     minRotationX: MIN_PITCH,
@@ -228,6 +264,7 @@ export function VolumeCube({
   contrast,
   mode,
   preset,
+  home = "iso",
   resetTick,
   showLabels,
   groups,
@@ -242,6 +279,8 @@ export function VolumeCube({
   coarse = null,
   interactive = true,
   showLegend = true,
+  background = true,
+  overlays = null,
   chunkCache = null,
   pausesPrefetch = false,
   onRendered,
@@ -477,28 +516,37 @@ export function VolumeCube({
   fixedTargetRef.current = aimTarget;
 
   // Fit the nominal window (not the clamped box, so the zoom holds at edges) and
-  // the full stack height, which is what stands vertical on screen.
-  const fit = useMemo(() => {
+  // the full stack height, as each preset sees the box.
+  const fits = useMemo((): Record<ViewPreset, Fit> | null => {
     if (!level) return null;
     const wx = Math.min(axisSize(level.source, "x"), window_size_um / (sxUm * level.factor[2]));
     const wy = Math.min(axisSize(level.source, "y"), window_size_um / (syUm * level.factor[1])) * ry;
+    const depth = levelDepth * rz;
     // Screen footprint of the upright box at orbit 45 and ISO_PITCH: the horizontal
     // diagonal across, and the stack height foreshortened plus the tilted top face.
     const pitch = (ISO_PITCH * Math.PI) / 180;
     const diagonal = Math.hypot(wx, wy);
-    const height = levelDepth * rz * Math.cos(pitch) + diagonal * Math.sin(pitch);
+    const isoHeight = depth * Math.cos(pitch) + diagonal * Math.sin(pitch);
     // Room for the axis labels drawn just outside the box.
-    return { width: diagonal * 1.12, height: height * 1.12 };
+    const m = 1.12;
+    return {
+      iso: { width: diagonal * m, height: isoHeight * m, near: 0 },
+      // From above: the window's XY extent; its top face is half the stack nearer.
+      top: { width: wx * m, height: wy * m, near: depth / 2 },
+      // From the front: X across and the stack up; the front face is half the window nearer.
+      side: { width: wx * m, height: depth * m, near: wy / 2 },
+    };
   }, [level, window_size_um, sxUm, syUm, ry, levelDepth, rz]);
+  const framing = useLatest({ fits, box });
 
   useEffect(() => {
-    if (fit && !viewState) setViewState(isoHome(fit, box));
-  }, [fit, viewState, box]);
+    if (fits && !viewState) setViewState(homeView(home, fits, box));
+  }, [fits, viewState, box, home]);
   // A fixed camera (no controller) always frames the window: it follows the
   // window's size and the view's (a preview mounted hidden is measured later).
   useEffect(() => {
-    if (!interactive && fit) setViewState(isoHome(fit, box));
-  }, [interactive, fit, box]);
+    if (!interactive && fits) setViewState(homeView(home, fits, box));
+  }, [interactive, fits, box, home]);
 
   // World units are the shown level's X voxels, so a finer level is a bigger
   // world: a level swap (coarse to fine) zooms out by the factor ratio to keep
@@ -521,20 +569,27 @@ export function VolumeCube({
     return [{ ...viewState, id: "3d", target: aimTarget }];
   }, [viewState, aimTarget]);
 
-  // Reset reframes the window from the iso home; the first tick is the mount.
+  // Reset reframes the window from the home view; the first tick is the mount.
   const resetTickRef = useRef(resetTick);
   useEffect(() => {
     if (resetTickRef.current === resetTick) return;
     resetTickRef.current = resetTick;
-    if (fit) setViewState(isoHome(fit, box));
+    const { fits: f, box: b } = framing.current;
+    if (f) setViewState(homeView(home, f, b));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetTick]);
 
-  // A camera already at the preset is left alone, so echoing onPreset back
-  // (or orbiting to within a preset's tolerance) never snaps the camera.
+  // A preset frames the window as that preset's home view. A camera already at
+  // the preset is left alone, so echoing onPreset back (or orbiting to within a
+  // preset's tolerance) never snaps the camera.
   useEffect(() => {
     if (!preset) return;
-    setViewState((prev) => (prev && presetOf(prev) !== preset ? { ...prev, ...PRESETS[preset] } : prev));
+    const { fits: f, box: b } = framing.current;
+    setViewState((prev) => {
+      if (!prev || presetOf(prev) === preset) return prev;
+      return f ? homeView(preset, f, b) : { ...prev, ...PRESETS[preset] };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preset]);
 
   const cameraPreset = presetOf(viewState);
@@ -581,6 +636,21 @@ export function VolumeCube({
     [winW, winH, ry, rz, levelDepth, levelVoxel?.[2], ozUm, dark],
   );
 
+  // Map geometry on the stack's top face, placed in the requested window like
+  // the frame (so it slides with the window, as the volume does) and clipped to it.
+  const lvx = levelVoxel?.[2] ?? 1;
+  const lvy = levelVoxel?.[1] ?? 1;
+  const placedOverlays = useMemo(() => {
+    if (!overlays?.length || !liveBox || !cubeFrame) return null;
+    const { x0, y1 } = liveBox;
+    // Texture rows run reversed: the window's top edge (row y0) is at world y = height.
+    const toWorld = ([x, y]: [number, number]): [number, number] => [
+      (x - oxUm) / lvx - x0,
+      (y1 - (y - oyUm) / lvy) * ry,
+    ];
+    return placeOverlays(overlays, toWorld, { x0: 0, x1: winW, y0: 0, y1: winH * ry }, levelDepth * rz);
+  }, [overlays, liveBox, cubeFrame, oxUm, oyUm, lvx, lvy, ry, rz, winW, winH, levelDepth]);
+
   const views = useMemo(
     () => [new FramedVolumeView({ id: "3d", target: aimTarget, useFixedAxis: true, controller: interactive } as never)],
     [aimTarget, interactive],
@@ -615,6 +685,7 @@ export function VolumeCube({
               frameMatrix: Z_UP,
               clippingPlanes: [],
               cubeFrame,
+              cubeOverlays: placedOverlays,
             },
           ]
         : null,
@@ -633,6 +704,7 @@ export function VolumeCube({
       imagePalette,
       render,
       cubeFrame,
+      placedOverlays,
       volumeMatrix,
     ],
   );
@@ -699,7 +771,7 @@ export function VolumeCube({
   return (
     <div
       ref={hostRef}
-      className="volume-cube__view relative w-full overflow-hidden rounded-md bg-neutral-950"
+      className={cn("volume-cube__view relative w-full overflow-hidden rounded-md", background && "bg-neutral-950")}
       style={{ height }}
       data-labels={labelsState}
       data-channels={channels}
@@ -710,6 +782,7 @@ export function VolumeCube({
       data-image-gamma={render.imageGamma}
       data-level={shown?.level.index ?? -1}
       data-refining={String(refining)}
+      data-overlays={placedOverlays?.count ?? 0}
     >
       {layerProps && displayViewStates ? (
         <VivViewer
@@ -724,6 +797,9 @@ export function VolumeCube({
         />
       ) : null}
       {status ? <p className="p-4 text-sm text-neutral-400">{status}</p> : null}
+      {layerProps && viewState ? (
+        <AxisLegend rotationX={viewState.rotationX} rotationOrbit={viewState.rotationOrbit} />
+      ) : null}
       {legend.length ? (
         <div
           className="pointer-events-none absolute top-2 left-2 flex max-w-[60%] flex-wrap gap-1"
