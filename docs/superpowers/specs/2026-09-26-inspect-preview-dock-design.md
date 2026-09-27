@@ -46,7 +46,7 @@ While the live window equals a saved entry's window, the button reads **Saved**
 and is disabled.
 
 **History strip.** The strip runs along the dock's bottom edge, with one chip per
-inspect selection in commit order; it scrolls horizontally when full.
+inspect selection in save order; it scrolls horizontally when full.
 
 - A chip shows the selection's colour and number, plus a 64 px snapshot of the
   dock, captured after the fine level renders.

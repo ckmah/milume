@@ -54,6 +54,8 @@ export function IconBtn({
   children,
   testId,
   expandable,
+  ariaExpanded,
+  ariaHasPopup,
 }: {
   title: string;
   active?: boolean;
@@ -62,6 +64,9 @@ export function IconBtn({
   children: React.ReactNode;
   testId?: string;
   expandable?: boolean;
+  /** For a trigger that opens a panel: reflects the panel's open state. */
+  ariaExpanded?: boolean;
+  ariaHasPopup?: React.AriaAttributes["aria-haspopup"];
 }) {
   return (
     <ChromeTooltip label={title}>
@@ -71,6 +76,8 @@ export function IconBtn({
         size="icon-sm"
         aria-label={title}
         aria-pressed={active || false}
+        aria-expanded={ariaExpanded}
+        aria-haspopup={ariaHasPopup}
         disabled={disabled}
         data-testid={testId}
         className={expandable ? chromeHitWideClass : chromeHitClass}

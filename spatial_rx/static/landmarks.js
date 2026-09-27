@@ -5652,6 +5652,16 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         return;
       }
       if (currentMode === "inspect") {
+        // The Adjust panel owns Esc while it is open (closes only itself,
+        // never the cube): this handler runs on `window` before the panel's
+        // own React handler ever would, so it must defer explicitly.
+        const adjustTrigger = container.querySelector(
+          '[data-testid="context-cube-adjust-group"] [aria-haspopup="dialog"][aria-expanded="true"]',
+        );
+        if (adjustTrigger instanceof HTMLElement) {
+          adjustTrigger.click();
+          return;
+        }
         // Esc ends a press where it is: later moves drag nothing.
         endInspectPress();
         clearInspectHover();

@@ -185,7 +185,9 @@ export function CubeWindow({
 
   const onPointerDown = (kind: "move" | "resize") => (e: React.PointerEvent<HTMLElement>) => {
     if (e.button !== 0 || !rect) return;
-    if (kind === "move" && (e.target as HTMLElement).closest("button")) return;
+    // A disabled button (e.g. Saved) skips hit-testing in the browser, so a
+    // pointerdown over it lands on this wrapper: guard on it too.
+    if (kind === "move" && (e.target as HTMLElement).closest("button, [data-no-drag]")) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     gesture.current = { kind, x: e.clientX, y: e.clientY, start: rect };
@@ -253,20 +255,22 @@ export function CubeWindow({
         ) : refining ? (
           <span className="shrink-0 text-xs text-muted-foreground">refining</span>
         ) : null}
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          aria-label="Save window"
-          title={saved ? "This window is saved" : "Save this window as an inspect selection"}
-          data-saved={String(saved)}
-          disabled={saved || !placed}
-          className={cn(chromeHitTextClass, "gap-1 px-2")}
-          onClick={onSave}
-        >
-          {saved ? <BookmarkCheckIcon aria-hidden /> : <BookmarkPlusIcon aria-hidden />}
-          {saved ? "Saved" : "Save"}
-        </Button>
+        <span data-no-drag className="contents">
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            aria-label="Save window"
+            title={saved ? "This window is saved" : "Save this window as an inspect selection"}
+            data-saved={String(saved)}
+            disabled={saved || !placed}
+            className={cn(chromeHitTextClass, "gap-1 px-2")}
+            onClick={onSave}
+          >
+            {saved ? <BookmarkCheckIcon aria-hidden /> : <BookmarkPlusIcon aria-hidden />}
+            {saved ? "Saved" : "Save"}
+          </Button>
+        </span>
         <Button
           type="button"
           variant="ghost"

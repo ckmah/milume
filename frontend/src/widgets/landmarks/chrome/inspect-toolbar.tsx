@@ -195,7 +195,7 @@ export function InspectToolbar({
 
   // Image and Cells on the left, Cuts on the right: short enough to rise clear of the dock.
   const adjustPanel = (
-    <div className="landmarks-adjust" data-testid="context-cube-adjust">
+    <div className="landmarks-adjust" data-testid="context-cube-adjust" role="region" aria-label="Adjust">
       <div className="landmarks-adjust__cols">
         <div className="landmarks-adjust__col">
           <AdjustSection title="Image" onReset={() => onReset("image")}>
@@ -379,11 +379,28 @@ export function InspectToolbar({
             </Label>
           </div>
           <ToolbarDivider />
-          <ToolStack open={adjustOpen} align="end" panel={adjustPanel}>
-            <IconBtn title="Adjust" active={adjustOpen} expandable onClick={() => setAdjustOpen((o) => !o)}>
-              <SlidersHorizontalIcon className="size-4" />
-            </IconBtn>
-          </ToolStack>
+          <span
+            data-testid="context-cube-adjust-group"
+            className="contents"
+            onKeyDown={(e) => {
+              // Esc closes only the Adjust panel; the root Esc handler (which
+              // would otherwise close the whole cube) ignores this group.
+              if (e.key === "Escape" && adjustOpen) setAdjustOpen(false);
+            }}
+          >
+            <ToolStack open={adjustOpen} align="end" panel={adjustPanel}>
+              <IconBtn
+                title="Adjust"
+                active={adjustOpen}
+                expandable
+                ariaExpanded={adjustOpen}
+                ariaHasPopup="dialog"
+                onClick={() => setAdjustOpen((o) => !o)}
+              >
+                <SlidersHorizontalIcon className="size-4" />
+              </IconBtn>
+            </ToolStack>
+          </span>
           <ToolbarDivider />
           <IconBtn title="Reset view" onClick={() => patch({ resetTick: settings.resetTick + 1 })}>
             <RotateCcwIcon className="size-4" />

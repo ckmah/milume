@@ -263,8 +263,14 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key !== "Escape" || mode !== "inspect" || !open) return;
-      // Esc in an open menu only closes the menu.
-      if ((e.target as Element | null)?.closest?.('[role="menu"]')) return;
+      // Esc in an open menu, or the Adjust panel (which closes itself), only
+      // closes that — never the cube.
+      if (
+        (e.target as Element | null)?.closest?.(
+          '[role="menu"], [data-testid="context-cube-adjust-group"]',
+        )
+      )
+        return;
       patchCube({ open: false });
     },
     [mode, open, patchCube],
@@ -287,9 +293,14 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     const { rel, volume: v } = latest.current;
     const x = facade.get("inspect_cx") as number | null;
     const y = facade.get("inspect_cy") as number | null;
-    if (v && x != null && y != null && atPlacement(placedRef.current, x, y)) {
+    if (x == null || y == null) return;
+    const size = (facade.get("inspect_size_um") as number) || INSPECT_WINDOW_UM;
+    // The engine's own window can be stale here (e.g. Python moved inspect_cx/cy
+    // directly, with no press and no setInspectWindow call): sync it to the
+    // model's values first, so the saved entry always equals what the dock shows.
+    engine.setInspectWindow(x, y, size);
+    if (v && atPlacement(placedRef.current, x, y)) {
       placedRef.current = null;
-      const size = (facade.get("inspect_size_um") as number) || INSPECT_WINDOW_UM;
       write(committedCut(rel, cutWindow(x, y, size, { x: origin[2], y: origin[1] }, v), v));
     }
     engine.saveInspect();

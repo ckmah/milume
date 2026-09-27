@@ -243,6 +243,22 @@ test.describe("Landmarks inspect cube", () => {
     expect(await cutOf(page)).toEqual(sel.window.cut);
   });
 
+  test("Save after Python moves the window saves the new window, not a stale one", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const cx0 = Number(await getModel(page, "inspect_cx"));
+    const cy0 = Number(await getModel(page, "inspect_cy"));
+    // Python moves the window directly (no press, no engine.setInspectWindow
+    // call): the engine's own placed-window state is now stale next to the
+    // model, which is what the dock (and Save) must go by.
+    const nextCx = cx0 + 20;
+    await setModel(page, { inspect_cx: nextCx });
+    await expect(saveButton(page)).toBeEnabled();
+    const index = await save(page);
+    const sel = (await selectionsOf(page))[index];
+    expect(sel.window.cx).toBe(nextCx);
+    expect(sel.window.cy).toBe(cy0);
+  });
+
   test("presses move the live window, never a saved entry", async ({ page }) => {
     const box = await openCubeAtCentre(page);
     expect(await save(page)).toBe(0);
@@ -479,6 +495,23 @@ test.describe("Landmarks inspect cube", () => {
     await panel.getByRole("button", { name: "Reset all" }).click();
     expect(await values()).toEqual(initial);
     await expect.poll(async () => cutOf(page)).toEqual([0, 256, 0, 256, 0, 64]);
+  });
+
+  test("Adjust trigger a11y; Esc closes only the Adjust panel, not the cube", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const trigger = page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Adjust" });
+    await expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const panel = page.getByRole("region", { name: "Adjust" });
+    await expect(panel).toBeVisible();
+
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(cubeWindow(page)).toBeVisible();
   });
 
   test("partial X and Y cuts keep their place in a moved window; open edges stay open", async ({ page }) => {
