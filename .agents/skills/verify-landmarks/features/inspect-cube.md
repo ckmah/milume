@@ -15,23 +15,23 @@ pans it live; Esc or the close button hides it.
 ## Sub-features
 
 - Hover in Inspect draws the window square with no model writes, a fixed 300 µm side at any zoom (`hover` events carry `sizeUm: 300` and `sizePx = 300 × 2 ** zoom`); a click places the window (`inspect_size_um = 300`) and opens the Cube dialog, with no selection
-- The engine's `saveInspect()` (the dock's Save) creates an **inspect selection** (`type: "inspect"`, `point_indices` = the points in the square, `window: { cx, cy, size_um, cut }` with `cut` = `volume_cut`), focuses it and emits `commit`; it returns `null` with no placed window or no 3D image
+- The dock's title-bar **Save** (`aria-label="Save window"`) calls the engine's `saveInspect()`: it creates an **inspect selection** (`type: "inspect"`, `point_indices` = the points in the square, `window: { cx, cy, size_um, cut }` with `cut` = `volume_cut`), focuses it and emits `commit`; `saveInspect()` returns `null` with no placed window or no 3D image. Save first writes the live window's cut (flushing the pending settle write), so a Save right after a move stores the new window's cut. While the live window equals a saved entry's window the button reads **Saved**, disabled, `data-saved="true"`
 - The dock shows the preview level from the shared chunk cache first, then swaps to level 0 (s0) for the window: its budget is unlimited in the product (only the 3D texture axis limit, 2048, could make it coarser); the harness `?budgets=<preview>,<dock>` still forces a split on the toy pyramid (`data-level`, `data-refining="true"` while loading); reopening an already-loaded window reads every chunk from the cache, with no new chunk requests
-- The dock opens top-down (Top view checked; `settings.preset` defaults to `"top"`), and Reset returns to the top-down home, framed to the window's XY extent (the top face, allowing for perspective); a preset click frames the window as that preset's home view. The standalone `VolumeCubeWidget` still opens oblique
-- An XYZ axis legend (`getByLabel("Axes")`, bottom-left of every cube view, `pointer-events: none`) shows each data axis projected by the camera, coloured like the frame's axes; `data-axes` = each axis's screen angle (degrees, counter-clockwise from the right), `data-lengths` = projected lengths (0–1). Top-down: `data-axes="0,-90,0"` (x right, y down as on the map, z at the viewer, length 0)
+- The dock opens top-down (Top view checked; `settings.preset` defaults to `"top"`), and Reset returns to the top-down home, framed to the window's XY extent (the top face, allowing for perspective); a preset click frames the window as that preset's home view (`reframeOnPreset`, set by the dock and the preview only). The standalone `VolumeCubeWidget` still opens oblique, and its presets only turn the camera (the user's zoom stays; `data-zoom` on `.volume-cube__view`)
+- An XYZ axis legend (`getByLabel("Axes")`, bottom-right of every cube view, clear of the frame's axis labels, `pointer-events: none`) shows each data axis projected by the camera, coloured like the frame's axes; `data-axes` = each axis's screen angle (degrees, counter-clockwise from the right), `data-lengths` = projected lengths (0–1). Top-down: `data-axes="0,-90,0"` (x right, y down as on the map, z at the viewer, length 0)
 - The user's non-hidden landmarks (`engine.getLandmarkGeometry()`: map µm coordinates, sampled splines/shapes, the landmark's colour; `subscribeLandmarks` fires on change) are drawn in the dock and the preview on the stack's top face, clipped to the live window, over the volume and under the frame's axis labels; `data-overlays` on `.volume-cube__view` = the clipped feature count
 - The Landmarks-hosted cube has no category legend — the right panel's category list already shows it; the standalone `VolumeCubeWidget` keeps its own
 - Drag pans the cube live (`data-pan` mirrors nonzero, then settles back to `0,0` once the refetch lands at the new window); moves save `inspect_cx`/`inspect_cy` at most every 40 ms and the release saves the final position
 - A press always moves the live window, never a saved entry (saved inspect selections are fixed snapshots)
 - The press's drag and release are heard on `window`: releasing over the dock, chrome or outside the widget ends the press and saves the window where it is; Esc, a move with no button held (a lost release) or the page losing focus also end it
 - Esc (while in Inspect) or the dialog's close button hides the cube; clicking again in Inspect reopens it; switching to another tool keeps it open
-- Inspect context toolbar (`data-testid="context-inspect-toolbar"`): camera presets (Top/Iso/Side), Additive/MIP, Palette, Labels switch, and Cuts/Image/Cells level-2 panels
+- Inspect context toolbar (`data-testid="context-inspect-toolbar"`): camera presets (Top/Iso/Side), Additive/MIP, Palette, Labels switch, and one **Adjust** panel (`data-testid="context-cube-adjust"`, rising right-aligned above its button, short enough to clear the dock) with sections **Image** (Contrast, Image alpha, Image gamma), **Cells** (Cell alpha) and **Cuts** (X, Y, Z cut; `data-testid="context-cube-cuts"`), every capsule one width (10 rem). Each section's **Reset** (`Reset image` / `Reset cells` / `Reset cuts`) restores its sliders (contrast to the volume's `contrast_limits`, alphas and gamma to 1, cuts open and committed to `volume_cut` like a slider release); **Reset all** does all three
 - Cuts (X, Y, Z range sliders in µm) render live and commit `volume_cut` on release; X/Y are window-relative (an untouched/open edge tracks the window as it moves) while Z is absolute
 - An open Z (`volume_cut` set to `[]` from Python) shows the stack's edges in the Z readout, never ±Infinity
 - `volume_cut` also commits once, ~250ms after a window move settles, only while the cube is open
 - Highlight follows the Landmarks category panel: nothing focused colors every cell in the window by category, a focused category colors only its cells, a focused Selection colors its cells by category
 - Entering Inspect collapses both side docks (`data-collapsed="true"`, peek tabs stay); a panel reopened mid-Inspect stays open; leaving Inspect restores the docks as they were before entering (client-local, no trait)
-- Image panel: in Additive, Alpha scales each sample's opacity; in MIP the projection is opaque, so Alpha acts as brightness
+- Image section: in Additive, Alpha scales each sample's opacity; in MIP the projection is opaque, so Alpha acts as brightness
 - No 3D image (`LandmarksWidget(adata)`, or a SpatialData without one): the square still places (`data-testid="context-inspect-no-volume"` pill, "No 3D image: build the widget from a SpatialData with a 3D image"), no cube opens, and `saveInspect()` saves nothing
 
 ## How to get to it (user POV)
@@ -40,7 +40,7 @@ pans it live; Esc or the close button hides it.
 the same grid as its labels (see [`docs/adr/0006-landmarks-hosts-volume-cube.md`](../../../docs/adr/0006-landmarks-hosts-volume-cube.md)).
 Press **I** or click the cube icon to arm Inspect; the window square follows
 the cursor, a fixed 300 µm at any zoom. Click to place it and open **Cube**;
-drag to pan it live; Save keeps it as an inspect selection. Focus a category, Selection or an
+drag to pan it live; **Save** in its title bar keeps it as an inspect selection. Focus a category, Selection or an
 inspect-history chip in the side panel/dock to color or restore the cube;
 the bottom context toolbar shows the cube's controls while Inspect is active
 and the cube is open.
@@ -62,7 +62,7 @@ await expect(view).toHaveAttribute("data-channels", /1|2/);
 Cuts and the highlight:
 
 ```ts
-await page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Cuts" }).click();
+await page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Adjust" }).click();
 const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
 await zHi.focus();
 await page.keyboard.press("ArrowLeft");
@@ -85,13 +85,18 @@ Model keys: `inspect_cx`, `inspect_cy`, `inspect_size_um`, `volume`,
 
 - Functional: `"hover shows the window square without model writes; click opens the cube"` — a click sets `inspect_cx`, opens the dock, and leaves `selections` empty (no history strip).
 - Functional: `"the square is a fixed 300 µm at any zoom"` — `getInspectOverlay().sizeUm` stays 300 across a zoom step; `hover` events carry `sizeUm: 300` and `sizePx = 300 × 2 ** zoom` before and after; a click writes `inspect_size_um = 300` ("Cube · 300 µm").
-- Functional: `"Save creates an inspect selection of the points in the 300 µm square"` — `saveInspect()` is `null` before a placement; after one it returns 0 and `selections[0]` is `type: "inspect"`, `window` = `{ cx: inspect_cx, cy: inspect_cy, size_um: 300, cut: volume_cut }`, `point_indices` matching a linear scan (2 of the 3 toy cells); focus moves to it, a `commit` event fires, and chip "Inspect 1" is pressed.
+- Functional: `"Save creates an inspect selection of the points in the 300 µm square"` — `saveInspect()` is `null` before a placement; after one, the Save button makes `selections[0]` is `type: "inspect"`, `window` = `{ cx: inspect_cx, cy: inspect_cy, size_um: 300, cut: volume_cut }`, `point_indices` matching a linear scan (2 of the 3 toy cells); focus moves to it, a `commit` event fires, and chip "Inspect 1" is pressed.
+- Functional: `"the dock's Save adds one selection and chip, then reads Saved until the window moves"` (`?window=100`) — a click leaves `selections` empty; Save adds one entry and one chip and turns into a disabled "Saved" (`data-saved="true"`); a press elsewhere re-enables it and a second Save adds a second chip; clicking chip 1 restores its window, so the button reads "Saved" again.
+- Functional: `"Save right after a move stores the new window's cut"` (`?window=100`) — with an X trim, a move and a Save in one task (inside the ~250 ms settle): the entry's `window.cut` keeps the trim at the new window's edge, its open low edge is the volume's (0), and `volume_cut` equals it.
+- Functional: `"one Adjust panel: Image, Cells and Cuts sections, each with a Reset, and Reset all"` — headings in that order; defaults `[0, 48, 1, 0]` (contrast, alpha, log2 gamma), cell alpha 1, Z hi 64; every capsule the same ~160 px; after nudging every slider each section Reset restores only its own sliders (`aria-valuenow`), Reset cuts commits `volume_cut = [0, 256, 0, 256, 0, 64]`, and Reset all restores everything.
 - Functional: `"presses move the live window, never a saved entry"`, `"drag pans the cube; Esc closes it"`, `"a quick drag saves the final window position on release"` — a drag starting inside the saved square moves only `inspect_cx`; the entry is unchanged; `data-pan` settles to `0,0` after a move.
 - Functional: `"a release over the dock ends the press; Esc, a lost release or blur end it too"` — a release over the dock's title bar saves the last position (`change:inspect_cx`) and adds no selection; after Esc, a buttonless move, or a window `blur`, later moves drag nothing.
 - Functional (no 3D image, `landmarks.spec.ts`, default harness): `"Inspect without a 3D image places the square and opens no cube"` — `inspect_cx` is set, no Cube dialog, `selections` unchanged.
 - Functional: `"the dock shows the coarse level first, then refines"` — `data-level` shows a coarser level before a finer one, and `data-refining` returns to `"false"` once it lands.
 - Functional: `"the dock and the preview open top-down; an axis legend turns with the camera"` — Top view is checked on open; the dock's legend reads `0,-90,0` with z length < 0.05; a drag inside the dock changes `data-axes` and unchecks Top; Reset view restores it; the hover preview's legend is top-down too. Standalone: `volume-cube.spec.ts` `"in-widget controls: …"` checks the legend and that the standalone cube opens oblique.
 - Functional: `"landmarks crossing the window are drawn in the cube; ones outside are not"` — `getLandmarkGeometry()` returns the line as drawn; `data-overlays` is 1 for a line across the window, 0 for one wholly outside or hidden, 2 with a point added, in the dock and in the hover preview.
+- Functional: `"a window inside the volume draws only the landmarks crossing it, top edge included"` (`?window=100`, window at (128, 60), y 10–110) — a line across the window's top edge counts (1); one inside the volume but below the window, or beside it, does not. A Y flip in the overlay mapping fails it.
+- Functional: `"inspect toolbar: presets, MIP, palette, alpha/gamma, committed Z cut"` — the dock's Oblique preset reframes (`data-zoom` changes); standalone `volume-cube.spec.ts` `"in-widget controls: …"` checks that a preset keeps a wheel zoom.
 - Functional: `"reopening the same window reads every chunk from the cache"` — closing and reopening the same window fires no `/s\d+/c/` chunk requests.
 - Functional: `"the hosted cube has no category legend"` — `getByLabel("Highlighted cells")` has zero count in the Landmarks-hosted dock.
 - Functional (docks): `"Inspect hides both side panels; leaving restores them as they were"` — both docks `data-collapsed="true"` in Inspect, restored on leaving, pre-Inspect state wins over mid-Inspect edits.

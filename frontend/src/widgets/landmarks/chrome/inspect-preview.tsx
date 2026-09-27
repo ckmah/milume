@@ -99,7 +99,8 @@ function previewLevel(levels: Level[], frame: Frame, sizeUm: number, budget: num
  * Where the float goes (its top-left, in widget px) for a cursor at (ax, ay)
  * whose square is `sizePx` wide: beside the square, right or else left, when
  * that side has room; otherwise (a square wider than the view) pinned in the
- * widget corner farthest from the cursor. Always inside the widget.
+ * widget corner farthest from the cursor, or the next corner that does not
+ * cover it. Always inside the widget.
  */
 function placeFloat(
   ax: number,
@@ -113,9 +114,30 @@ function placeFloat(
   const top = clamp(ay - FLOAT_PX / 2, height - FLOAT_PX);
   if (ax + offset + FLOAT_PX <= width) return { left: ax + offset, top };
   if (ax - offset - FLOAT_PX >= 0) return { left: ax - offset - FLOAT_PX, top };
-  const left = ax < width / 2 ? width - PIN_INSET.side - FLOAT_PX : PIN_INSET.side;
-  const pinnedTop = ay < height / 2 ? height - PIN_INSET.bottom - FLOAT_PX : PIN_INSET.top;
-  return { left: clamp(left, width - FLOAT_PX), top: clamp(pinnedTop, height - FLOAT_PX) };
+  // Corner edges: [near, far] from the cursor, inset (clear of the chrome), then flush.
+  const edges = (low: number, high: number, cursorLow: boolean) => (cursorLow ? [low, high] : [high, low]);
+  const xs = [
+    edges(PIN_INSET.side, width - PIN_INSET.side - FLOAT_PX, ax < width / 2),
+    edges(0, width - FLOAT_PX, ax < width / 2),
+  ];
+  const ys = [
+    edges(PIN_INSET.top, height - PIN_INSET.bottom - FLOAT_PX, ay < height / 2),
+    edges(0, height - FLOAT_PX, ay < height / 2),
+  ];
+  // The far corner first, then the two beside it; inset, then flush for a
+  // widget too small for an inset corner to clear the cursor.
+  const corners = [0, 1].flatMap((k) =>
+    [
+      [1, 1],
+      [1, 0],
+      [0, 1],
+    ].map(([i, j]) => ({ left: clamp(xs[k]![i]!, width - FLOAT_PX), top: clamp(ys[k]![j]!, height - FLOAT_PX) })),
+  );
+  const covers = (p: { left: number; top: number }) =>
+    ax >= p.left && ax <= p.left + FLOAT_PX && ay >= p.top && ay <= p.top + FLOAT_PX;
+  // None clears it (a widget about the float's size): the one centred farthest away.
+  const dist = (p: { left: number; top: number }) => Math.hypot(p.left + FLOAT_PX / 2 - ax, p.top + FLOAT_PX / 2 - ay);
+  return corners.find((p) => !covers(p)) ?? corners.reduce((a, b) => (dist(b) > dist(a) ? b : a));
 }
 
 /**

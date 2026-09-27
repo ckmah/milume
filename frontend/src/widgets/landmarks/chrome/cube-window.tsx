@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useLayoutEffect, useReducer, useRef, useState } from "react";
-import { XIcon } from "lucide-react";
+import { BookmarkCheckIcon, BookmarkPlusIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ import { SELECTION_COLORS } from "../helpers";
 import type { CubeSettings, CubeSettingsPatch } from "../use-cube-settings";
 import { inspectWindowOf } from "../use-inspect-cube";
 import type { LandmarksModel } from "../use-landmarks-model";
-import { chromeHitClass } from "./primitives";
+import { chromeHitClass, chromeHitTextClass } from "./primitives";
 import { FLOAT_PANEL } from "./sections";
 
 // Lazy only in the dev harness: the widget build inlines dynamic imports
@@ -92,6 +92,7 @@ export function CubeWindow({
   snapshots,
   overlays,
   onFocusEntry,
+  onSave,
 }: {
   lm: LandmarksModel;
   settings: CubeSettings;
@@ -110,6 +111,8 @@ export function CubeWindow({
   overlays: CubeOverlay[] | null;
   /** A history chip: focus its entry and restore its window and cut. */
   onFocusEntry: (index: number) => void;
+  /** Save the live window as an inspect Selection. */
+  onSave: () => void;
 }) {
   const ref = useRef<HTMLElement>(null);
   const [rect, setRect] = useState<Rect | null>(null);
@@ -212,6 +215,11 @@ export function CubeWindow({
 
   const volume = lm.volume ?? {};
   const size = lm.inspect_size_um || INSPECT_WINDOW_UM;
+  // The live window is already a saved entry: nothing new to save.
+  const placed = lm.inspect_cx != null && lm.inspect_cy != null;
+  const saved = history.some(
+    (h) => h.win.cx === lm.inspect_cx && h.win.cy === lm.inspect_cy && h.win.size_um === lm.inspect_size_um,
+  );
   const swatch = (index: number) => SELECTION_COLORS[index % SELECTION_COLORS.length];
 
   return (
@@ -245,6 +253,20 @@ export function CubeWindow({
         ) : refining ? (
           <span className="shrink-0 text-xs text-muted-foreground">refining</span>
         ) : null}
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          aria-label="Save window"
+          title={saved ? "This window is saved" : "Save this window as an inspect selection"}
+          data-saved={String(saved)}
+          disabled={saved || !placed}
+          className={cn(chromeHitTextClass, "gap-1 px-2")}
+          onClick={onSave}
+        >
+          {saved ? <BookmarkCheckIcon aria-hidden /> : <BookmarkPlusIcon aria-hidden />}
+          {saved ? "Saved" : "Save"}
+        </Button>
         <Button
           type="button"
           variant="ghost"

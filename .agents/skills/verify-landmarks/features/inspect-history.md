@@ -2,9 +2,8 @@
 
 Hovering in Inspect shows a live coarse preview beside the window square,
 sliding with the cursor and recentring only when it nears the loaded region's
-edge. A click places the dock's window; saving it (the engine's
-`saveInspect()`, the dock's Save) keeps it as an inspect selection and adds a
-chip to the dock's history strip; chips restore their window and cut, and
+edge. A click places the dock's window; the dock's **Save** keeps it as an
+inspect selection and adds a chip to the dock's history strip; chips restore their window and cut, and
 deleting the last one closes the dock.
 
 **Spec:** `frontend/e2e/landmarks/landmarks-volume.spec.ts` — `"Landmarks inspect cube"` describe block
@@ -14,11 +13,11 @@ deleting the last one closes the dock.
 
 ## Sub-features
 
-- A frameless preview float (`data-testid="inspect-preview"`: no panel background, border or shadow; the cube's view is transparent, `VolumeCube background={false}`, keeping its wireframe) follows the cursor beside the hover square (offset by half the square's `sizePx`, from the `hover` event, plus a gap; to the right, else to the left when that side has room; never over the square). When neither side has room (the product's 300 µm square is wider than the canvas at the fitted zoom) it pins inside the widget in the corner farthest from the cursor, clear of the top tools and peek tabs; always inside the widget. It renders the coarse level top-down (MIP) for a region 3× the square's side; it pans (`data-pan`) without a new fetch while inside the loaded region, and hides when the pointer leaves the volume's extent or the canvas
+- A frameless preview float (`data-testid="inspect-preview"`: no panel background, border or shadow; the cube's view is transparent, `VolumeCube background={false}`, keeping its wireframe) follows the cursor beside the hover square (offset by half the square's `sizePx`, from the `hover` event, plus a gap; to the right, else to the left when that side has room; never over the square). When neither side has room (the product's 300 µm square is wider than the canvas at the fitted zoom) it pins inside the widget in the corner farthest from the cursor, clear of the top tools and peek tabs; if that corner still covers the cursor (a small widget) it takes the next corner that does not, inset and then flush with the widget's edges; always inside the widget. It renders the coarse level top-down (MIP) for a region 3× the square's side; it pans (`data-pan`) without a new fetch while inside the loaded region, and hides when the pointer leaves the volume's extent or the canvas
 - The float stacks above the dock (same `z-index: 21`, later in the DOM) and under the top tools (22)
 - Once created the float stays mounted (hidden) outside Inspect, so its cube and WebGL context are reused on the next hover; leaving Inspect still clears the preview's queued prefetches
 - Moving past half the square's side from the region's edge recentres the preview at a new region led by the cursor's recent velocity; the old region keeps rendering, square clamped, until the new one swaps in
-- Saving (`saveInspect()`) creates an inspect selection (`type: "inspect"`) and adds a chip to the dock's **Inspect history** strip (`getByLabel("Inspect history")`), labelled "Inspect \<n\>" in save order; a click alone adds nothing
+- Save creates an inspect selection (`type: "inspect"`) and adds a chip to the dock's **Inspect history** strip (`getByLabel("Inspect history")`), labelled "Inspect \<n\>" in save order; a click alone adds nothing
 - Saved entries are fixed snapshots: presses move only the live window, and a committed cut is written into the focused entry only while its window is the live one
 - Each chip carries a 64 px snapshot of the dock, captured once the fine level renders; snapshots are client-only (keyed by selection id), never synced, and re-taken when an id is reused after a delete
 - Clicking a chip (also the focused one, after the live window moved), or focusing an inspect selection anywhere in the UI, restores its `window` (centre, size, cut) in the dock; membership (`point_indices`) never changes because of the cut
@@ -43,8 +42,9 @@ await expect(preview).toBeVisible();
 await expect(preview.locator(".volume-cube__view")).not.toHaveAttribute("data-level", "-1");
 
 await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
-await page.evaluate(() => (window as any).__landmarksEngine.saveInspect());
-const strip = page.getByRole("dialog", { name: "Cube" }).getByLabel("Inspect history");
+const dock = page.getByRole("dialog", { name: "Cube" });
+await dock.getByRole("button", { name: "Save window" }).click();
+const strip = dock.getByLabel("Inspect history");
 await expect(strip.getByRole("button", { name: "Inspect 1" })).toHaveAttribute("aria-pressed", "true");
 ```
 
@@ -65,6 +65,7 @@ Model keys: `selections` (`type: "inspect"` entries with `window`),
 - Functional: `"moving far recentres the preview region; leaving the map hides it"` — crossing the region's edge changes `data-region`; moving off-canvas hides the float.
 - Functional: `"the preview float sits beside the hover square, inside the widget, above the dock"` — at mid-canvas and near the right edge (flipped) the float's box never intersects the `sizePx` square around the cursor and stays inside the widget; with the dock open the float stacks above the dock and below `.landmarks__chrome-tools`.
 - Functional: `"at the product window the preview float stays inside the widget, clear of the cursor"` — at the default 300 µm window (no `?window=`), at the centre and near each corner the float is inside the widget and never under the cursor.
+- Functional: `"in a small widget the pinned preview float still clears the cursor"` — at 560 px wide and the minimum 400 px height, where every inset corner covers the centre, the float stays inside the widget and off the cursor.
 - Functional: `"the preview is frameless: no panel chrome, a transparent cube"` — the float has a transparent background, no shadow and no border; its `.volume-cube__view` background is transparent.
 - Functional: `"leaving Inspect hides the preview but keeps its cube for the next hover"` — after Select and back to Inspect, the same `.volume-cube__view` element renders the next hover.
 

@@ -172,17 +172,23 @@ function ColorControl({
 export function ToolStack({
   open,
   panel,
+  align = "center",
   children,
 }: {
   open: boolean;
   panel: React.ReactNode;
+  /** "end" lines the panel's right edge up with the control's, so it extends left. */
+  align?: "center" | "end";
   children: React.ReactNode;
 }) {
   return (
     <div className="relative flex flex-col items-center">
       {open ? (
         <Rise
-          className="pointer-events-auto absolute bottom-[calc(100%+0.375rem)] z-10"
+          className={cn(
+            "pointer-events-auto absolute bottom-[calc(100%+0.375rem)] z-10",
+            align === "end" && "right-0",
+          )}
           data-testid="context-l2-anchor"
         >
           <div className={TOOLBAR_CLASS}>{panel}</div>

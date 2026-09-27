@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 
+import { DEFAULT_RENDER } from "@/widgets/volume-cube/palettes";
 import type { CubeCut } from "@/widgets/volume-cube/VolumeCube";
 
 import {
@@ -16,6 +17,9 @@ import { type CubeSettings, type CubeSettingsPatch, useCubeSettings } from "./us
 import type { LandmarksModel } from "./use-landmarks-model";
 
 type Range = [number, number];
+
+/** A section of the Inspect toolbar's Adjust panel, for its Reset. */
+export type AdjustSection = "image" | "cells" | "cuts";
 
 /** An inspect Selection's window: centre and side (µm), and its cut (absolute µm, or `[]`). */
 export type InspectWindow = { cx: number; cy: number; size_um: number; cut: number[] };
@@ -46,6 +50,10 @@ export type InspectCube = {
   onKeyDown: (e: React.KeyboardEvent) => void;
   /** Focus a saved inspect entry and restore its window and cut (a history chip). */
   focusEntry: (index: number) => void;
+  /** Save the live window, with its cut, as an inspect Selection (the dock's Save). */
+  save: () => void;
+  /** Back to defaults: one Adjust section, or all of them. Open cuts are committed like a slider release. */
+  resetAdjust: (section: AdjustSection | "all") => void;
 };
 
 /**
@@ -64,9 +72,10 @@ export type InspectCube = {
  */
 export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: EngineHandle | null): InspectCube {
   const hasVolume = Boolean(lm.volume?.image_url);
+  const defaultContrast = lm.volume?.contrast_limits ?? DEFAULT_CONTRAST;
   const volumeCut = lm.volume_cut?.length === 6 ? (lm.volume_cut as CubeCut) : null;
   const [cube, patchCube] = useCubeSettings(
-    lm.volume?.contrast_limits ?? DEFAULT_CONTRAST,
+    defaultContrast,
     volumeCut ? { ...OPEN_CUT, z: [volumeCut[4], volumeCut[5]] } : OPEN_CUT,
   );
 
@@ -270,7 +279,56 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     [select],
   );
 
-  return { hasVolume, cube, patchCube, cut, cutRanges, onCutLive, onCutCommit, onKeyDown, focusEntry };
+  // Save stores `volume_cut`, which after a move is only written once the window
+  // settles: write the live window's cut first, so the entry holds its own cut.
+  // The window is read from the model, which the engine sets before any render.
+  const save = useCallback(() => {
+    if (!engine) return;
+    const { rel, volume: v } = latest.current;
+    const x = facade.get("inspect_cx") as number | null;
+    const y = facade.get("inspect_cy") as number | null;
+    if (v && x != null && y != null && atPlacement(placedRef.current, x, y)) {
+      placedRef.current = null;
+      const size = (facade.get("inspect_size_um") as number) || INSPECT_WINDOW_UM;
+      write(committedCut(rel, cutWindow(x, y, size, { x: origin[2], y: origin[1] }, v), v));
+    }
+    engine.saveInspect();
+  }, [engine, facade, write, origin]);
+
+  const contrastLo = defaultContrast[0];
+  const contrastHi = defaultContrast[1];
+  const resetAdjust = useCallback(
+    (section: AdjustSection | "all") => {
+      const all = section === "all";
+      if (all || section === "image") {
+        patchCube({
+          contrast: [contrastLo, contrastHi],
+          render: { imageAlpha: DEFAULT_RENDER.imageAlpha, imageGamma: DEFAULT_RENDER.imageGamma },
+        });
+      }
+      if (all || section === "cells") patchCube({ render: { cellAlpha: DEFAULT_RENDER.cellAlpha } });
+      if (all || section === "cuts") {
+        patchCube({ cut: OPEN_CUT });
+        const { win: w, volume: v } = latest.current;
+        if (w && v) write(committedCut(OPEN_CUT, w, v));
+      }
+    },
+    [patchCube, write, contrastLo, contrastHi],
+  );
+
+  return {
+    hasVolume,
+    cube,
+    patchCube,
+    cut,
+    cutRanges,
+    onCutLive,
+    onCutCommit,
+    onKeyDown,
+    focusEntry,
+    save,
+    resetAdjust,
+  };
 }
 
 /** Whether the window centre is the user's last placement (the model echoes it exactly). */

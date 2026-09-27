@@ -364,6 +364,7 @@ export function LandmarksView({
             cutRanges={inspectCube.cutRanges}
             onCutLive={inspectCube.onCutLive}
             onCutCommit={inspectCube.onCutCommit}
+            onReset={inspectCube.resetAdjust}
           />
         ) : inspecting && !hasVolume ? (
           <InspectNoVolumePill />
@@ -384,6 +385,7 @@ export function LandmarksView({
             snapshots={snapshots}
             overlays={landmarkGeometry}
             onFocusEntry={inspectCube.focusEntry}
+            onSave={inspectCube.save}
           />
         ) : null}
 
