@@ -87,6 +87,7 @@ export function CubeWindow({
   cache,
   budgets,
   snapshots,
+  onFocusEntry,
 }: {
   lm: LandmarksModel;
   settings: CubeSettings;
@@ -101,6 +102,8 @@ export function CubeWindow({
   budgets: { preview: number; dock: number };
   /** History chip snapshots by selection id; kept across opens, never synced. */
   snapshots: Map<string, ChipSnapshot>;
+  /** A history chip: focus its entry and restore its window and cut. */
+  onFocusEntry: (index: number) => void;
 }) {
   const ref = useRef<HTMLElement>(null);
   const [rect, setRect] = useState<Rect | null>(null);
@@ -299,7 +302,7 @@ export function CubeWindow({
                 aria-pressed={h.index === focusedIndex}
                 title={`Inspect ${n + 1}`}
                 className={cn(chromeHitClass, "landmarks__inspect-chip")}
-                onClick={() => lm.select("selection", h.index)}
+                onClick={() => onFocusEntry(h.index)}
               >
                 {src ? (
                   <img src={src} alt="" width={SNAPSHOT.width} height={SNAPSHOT.height} className="rounded-sm" />

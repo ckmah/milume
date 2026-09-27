@@ -1,4 +1,7 @@
-/** Events from `subscribeInspect`; positions in µm, `px, py` in canvas pixels; `sizePx` is the square's screen side. */
+/**
+ * Events from `subscribeInspect`; positions in µm, `px, py` in canvas pixels.
+ * `sizeUm` is the fixed window side; `sizePx` its on-screen side at this zoom.
+ */
 export type InspectEvent =
   | { type: "place"; x: number; y: number }
   | { type: "hover"; x: number; y: number; sizeUm: number; sizePx: number; px: number; py: number }
@@ -83,15 +86,21 @@ export type EngineHandle = {
   /**
    * Inspect events: "place" on pointer down / drag (after `inspect_cx/cy` are set),
    * "hover" on hover moves and zoom, "hover-end" when the hover square goes,
-   * "commit" when a release (anywhere, not only over the map) creates or moves an
-   * inspect Selection (only with a 3D image), "close" on Esc (which also cancels a press).
+   * "commit" when `saveInspect` creates an inspect Selection, "close" on Esc
+   * (which also ends a press).
    */
   subscribeInspect(fn: (evt: InspectEvent) => void): () => void;
   /** Keep the placed square drawn outside Inspect while the cube is open. */
   setInspectWindowVisible(visible: boolean): void;
   /** Move the placed square (and `inspect_cx/cy/size_um`) without emitting events. */
   setInspectWindow(x: number, y: number, sizeUm: number): void;
-  /** The hover / placed square centres and sizes (µm); `sizeUm` is the live square at this zoom. */
+  /**
+   * Save the placed window as a new inspect Selection (its window, `volume_cut`
+   * and the points in the square), focus it and emit "commit". Returns its index,
+   * or null without a placed window or a 3D image.
+   */
+  saveInspect(): number | null;
+  /** The hover / placed square centres and sizes (µm); `sizeUm` is the fixed window side. */
   getInspectOverlay(): {
     hover: [number, number] | null;
     placed: [number, number] | null;
@@ -115,4 +124,6 @@ type AnyModel = {
 export function mountEngine(opts: {
   model: AnyModel;
   host: HTMLElement;
+  /** Harness only: the Inspect window's side (µm), default 300. */
+  inspectWindowUm?: number;
 }): EngineHandle;

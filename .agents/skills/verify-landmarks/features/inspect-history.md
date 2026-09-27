@@ -2,9 +2,10 @@
 
 Hovering in Inspect shows a live coarse preview beside the window square,
 sliding with the cursor and recentring only when it nears the loaded region's
-edge. Each click commits an inspect selection and adds a chip to the dock's
-history strip; chips restore their window and cut, and deleting the last one
-closes the dock.
+edge. A click places the dock's window; saving it (the engine's
+`saveInspect()`, the dock's Save) keeps it as an inspect selection and adds a
+chip to the dock's history strip; chips restore their window and cut, and
+deleting the last one closes the dock.
 
 **Spec:** `frontend/e2e/landmarks/landmarks-volume.spec.ts` — `"Landmarks inspect cube"` describe block
 (`E2E_HARNESS=landmarks-volume`, run via `npm run test:e2e:landmarks`)
@@ -17,16 +18,17 @@ closes the dock.
 - The float stacks above the dock (same `z-index: 21`, later in the DOM) and under the top tools (22)
 - Once created the float stays mounted (hidden) outside Inspect, so its cube and WebGL context are reused on the next hover; leaving Inspect still clears the preview's queued prefetches
 - Moving past half the square's side from the region's edge recentres the preview at a new region led by the cursor's recent velocity; the old region keeps rendering, square clamped, until the new one swaps in
-- A click commits an inspect selection (`type: "inspect"`) and adds a chip to the dock's **Inspect history** strip (`getByLabel("Inspect history")`), labelled "Inspect \<n\>" in commit order
-- Each chip carries a 64 px snapshot of the dock, captured once the fine level renders; snapshots are client-only (keyed by selection id), never synced, and re-taken when the entry's window moves or its id is reused after a delete
-- Clicking a chip, or focusing an inspect selection anywhere in the UI, restores its `window` (centre, size, cut) in the dock; membership (`point_indices`) never changes because of the cut
+- Saving (`saveInspect()`) creates an inspect selection (`type: "inspect"`) and adds a chip to the dock's **Inspect history** strip (`getByLabel("Inspect history")`), labelled "Inspect \<n\>" in save order; a click alone adds nothing
+- Saved entries are fixed snapshots: presses move only the live window, and a committed cut is written into the focused entry only while its window is the live one
+- Each chip carries a 64 px snapshot of the dock, captured once the fine level renders; snapshots are client-only (keyed by selection id), never synced, and re-taken when an id is reused after a delete
+- Clicking a chip (also the focused one, after the live window moved), or focusing an inspect selection anywhere in the UI, restores its `window` (centre, size, cut) in the dock; membership (`point_indices`) never changes because of the cut
 - Deleting an inspect selection removes its chip; deleting the last one closes the dock
 
 ## How to get to it (user POV)
 
 Press **I** to arm Inspect and move the cursor over the tissue: a small
 preview float shows a coarse view of what a click there would open. Click to
-commit it — the dock opens (or updates) and a numbered chip appears along its
+place it — the dock opens (or updates); Save adds a numbered chip along its
 bottom edge. Click an earlier chip, or focus its Selection in the side panel,
 to jump the dock back to that window and cut.
 
@@ -41,6 +43,7 @@ await expect(preview).toBeVisible();
 await expect(preview.locator(".volume-cube__view")).not.toHaveAttribute("data-level", "-1");
 
 await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+await page.evaluate(() => (window as any).__landmarksEngine.saveInspect());
 const strip = page.getByRole("dialog", { name: "Cube" }).getByLabel("Inspect history");
 await expect(strip.getByRole("button", { name: "Inspect 1" })).toHaveAttribute("aria-pressed", "true");
 ```
@@ -55,9 +58,9 @@ Model keys: `selections` (`type: "inspect"` entries with `window`),
 
 **Proof**
 
-- Functional: `"history chips restore each committed window and cut"` — a second click adds a second chip; clicking the first restores `inspect_cx` and `volume_cut` without changing that entry's `point_indices`.
+- Functional: `"history chips restore each saved window and cut; a saved entry keeps its cut"` — two saves with different Z cuts give two chips; a cut changed after moving off the focused entry stays out of it; each chip restores `inspect_cx` and `volume_cut`; clicking the focused chip after a press moved the live window restores it again; both entries end unchanged.
 - Functional: `"deleting an inspect selection removes its chip; the last one closes the dock"` — the dock closes once `selections` holds no inspect entries.
-- Functional: `"a chip's snapshot follows its entry's window: moved, or a reused id"` — the chip's `img[src]` changes once a drag settles, and again after a delete + recommit reuses the id.
+- Functional: `"a chip's snapshot follows its entry: a reused id re-snapshots"` (`?window=100`) — after a delete, a new save elsewhere reuses the id and the chip's `img[src]` changes.
 - Functional: `"hover shows a live coarse preview that slides without refetching"` — moving within the loaded region changes `data-pan` but fires no `/s\d+/c/` chunk requests, and the dock stays closed.
 - Functional: `"moving far recentres the preview region; leaving the map hides it"` — crossing the region's edge changes `data-region`; moving off-canvas hides the float.
 - Functional: `"the preview float sits beside the hover square, inside the widget, above the dock"` — at mid-canvas and near the right edge (flipped) the float's box never intersects the `sizePx` square around the cursor and stays inside the widget; with the dock open the float stacks above the dock and below `.landmarks__chrome-tools`.
@@ -65,5 +68,5 @@ Model keys: `selections` (`type: "inspect"` entries with `window`),
 
 ## Gotchas
 
-- Small toy pyramids can make every level fit the default voxel budgets; override with `?budgets=<preview>,<dock>` (goto `/?budgets=20000,300000`) to force a level split — see `"the dock shows the coarse level first, then refines"` (inspect-cube.md) and the two preview tests above.
+- Small toy pyramids can make every level fit the default voxel budgets; override with `?budgets=<preview>,<dock>` (goto `/?budgets=20000,300000&window=100`) to force a level split; `window=100` keeps the square smaller than the 256 µm toy volume and the canvas — see `"the dock shows the coarse level first, then refines"` (inspect-cube.md) and the two preview tests above.
 - The preview float has its own `.volume-cube__view` (`getByTestId("inspect-preview").locator(".volume-cube__view")`), separate from the dock's inside `getByRole("dialog", { name: "Cube" })` — scope selectors to the one under test, same rule as the dock vs. the standalone `VolumeCubeWidget` (see [verify-volume-cube features README](../../verify-volume-cube/features/README.md)).

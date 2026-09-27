@@ -288,12 +288,13 @@ class LandmarksWidget(AnyWidget):
 
     Notebook API (synced on every edit): ``landmarks``, ``selections``,
     ``selected_kind``, ``selected_index``, plus ``inspect_cx`` / ``inspect_cy`` /
-    ``inspect_size_um`` for the Inspect window. The browser writes
-    ``inspect_size_um`` when a press places or commits the square (its side is a
-    fixed 160 screen px, so its µm size follows zoom); Python only reads it.
-    ``inspect_cx`` / ``inspect_cy`` follow the placed square and may also be set
-    from Python to move it. UI chrome state (mode, genes, color,
-    neighborhoods) stays in the browser; raster bin features and probe scores
+    ``inspect_size_um`` for the Inspect window. The window is a fixed 300 µm
+    square; the browser writes ``inspect_size_um`` when a press places it, and
+    Python only reads it. ``inspect_cx`` / ``inspect_cy`` follow the placed
+    square and may also be set from Python to move it. A click only places the
+    window; saving it (the Cube dock) keeps it as an inspect Selection. UI
+    chrome state (mode, genes, color, neighborhoods) stays in the browser;
+    raster bin features and probe scores
     are built client-side from the eager gene / embedding / category packs.
     Persist hits with ``get_obs_names`` / ``assign_obs_mask`` (via
     ``selection_mask`` / ``point_indices``), not positional indices.
@@ -307,11 +308,11 @@ class LandmarksWidget(AnyWidget):
     landmarks = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
     selected_kind = traitlets.Unicode("").tag(sync=True)
     selected_index = traitlets.Int(-1).tag(sync=True)
-    # Inspect window centre (µm; None until a press places it) and side (µm, written by
-    # the browser at commit from the 160 px square at the current zoom; Python reads it).
+    # Inspect window centre (µm; None until a press places it) and side (a fixed 300 µm,
+    # written by the browser at placement; Python reads it).
     inspect_cx = traitlets.Float(allow_none=True, default_value=None).tag(sync=True)
     inspect_cy = traitlets.Float(allow_none=True, default_value=None).tag(sync=True)
-    inspect_size_um = traitlets.Float(100.0).tag(sync=True)
+    inspect_size_um = traitlets.Float(300.0).tag(sync=True)
     active_category = traitlets.Unicode("").tag(sync=True)
     # View-only gene selection (chrome ↔ engine); not a notebook analysis API.
     active_genes = traitlets.List(traitlets.Unicode(), default_value=[]).tag(sync=True)

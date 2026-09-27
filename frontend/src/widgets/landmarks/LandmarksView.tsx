@@ -56,6 +56,7 @@ export function LandmarksView({
   hostEl,
   defaultHeight = SHELL_HEIGHT,
   cubeBudgets,
+  inspectWindowUm,
 }: {
   hostEl: HTMLElement;
   model: AnyModel;
@@ -63,6 +64,8 @@ export function LandmarksView({
   defaultHeight?: number;
   /** Harness only: voxel budgets for the cube's coarse step (`preview`) and fine level (`dock`). */
   cubeBudgets?: { preview: number; dock: number };
+  /** Harness only: the Inspect window's side (µm); the toy volume is smaller than the default 300. */
+  inspectWindowUm?: number;
 }) {
   const dark = useNotebookTheme(hostEl.parentElement);
   const facade = useMemo(() => wrapLandmarksModel(model), [model]);
@@ -239,7 +242,7 @@ export function LandmarksView({
   useEffect(() => {
     const host = plotHostRef.current;
     if (!host) return;
-    const engine = mountEngine({ model: facade, host });
+    const engine = mountEngine({ model: facade, host, inspectWindowUm });
     engineRef.current = engine;
     setEngine(engine);
     return () => {
@@ -248,7 +251,7 @@ export function LandmarksView({
       setEngine(null);
     };
     // Remount when Vite HMR replaces mountEngine (landmarks.js changes).
-  }, [facade, mountEngine]);
+  }, [facade, mountEngine, inspectWindowUm]);
 
   const onResizePointerDown = useCallback(
     (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -367,6 +370,7 @@ export function LandmarksView({
             cache={chunkCache}
             budgets={budgets}
             snapshots={snapshots}
+            onFocusEntry={inspectCube.focusEntry}
           />
         ) : null}
 

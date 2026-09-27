@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 
 import type { CubeCut } from "@/widgets/volume-cube/VolumeCube";
 
@@ -44,6 +44,8 @@ export type InspectCube = {
   onCutCommit: (cut: CubeCut) => void;
   /** Esc anywhere in the widget closes the cube while in Inspect. */
   onKeyDown: (e: React.KeyboardEvent) => void;
+  /** Focus a saved inspect entry and restore its window and cut (a history chip). */
+  focusEntry: (index: number) => void;
 };
 
 /**
@@ -54,9 +56,11 @@ export type InspectCube = {
  * slider release, and once after the user moves the window (when it settles);
  * never in answer to Python's own `volume_cut` or inspect writes.
  *
- * Inspect Selections are the dock's history: focusing one restores its window
- * and cut and opens the dock, each committed cut is also written into the
- * focused entry, and removing the last one closes the dock.
+ * Inspect Selections are the dock's history, saved from the live window (the
+ * engine's `saveInspect`) as fixed snapshots: presses only move the live
+ * window. Focusing one restores its window and cut and opens the dock; a
+ * committed cut is also written into the focused entry while its window is
+ * the live one; removing the last one closes the dock.
  */
 export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: EngineHandle | null): InspectCube {
   const hasVolume = Boolean(lm.volume?.image_url);
@@ -71,7 +75,7 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   useEffect(() => {
     if (!engine || !hasVolume) return;
     return engine.subscribeInspect((e) => {
-      // Placements and commits open the cube and Esc closes it; hover leaves it be.
+      // Placements and saves open the cube and Esc closes it; hover leaves it be.
       if (e.type === "place") {
         placedRef.current = { x: e.x, y: e.y };
         patchCube({ open: true });
@@ -108,7 +112,8 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   // The last value this widget wrote, so its echo is not adopted as Python's.
   const writtenRef = useRef<string | null>(null);
   // Each committed cut also goes into the focused inspect entry's `window.cut`,
-  // in the same save. Only that entry's `window` changes, never its members.
+  // in the same save, while that entry is the live window (a snapshot elsewhere
+  // keeps its cut). Only that entry's `window` changes, never its members.
   const write = useCallback(
     (next: CubeCut) => {
       const key = next.join(",");
@@ -117,7 +122,12 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
       const sels = (facade.get("selections") as SelectionItem[] | null) ?? [];
       const index = facade.get("selected_kind") === "selection" ? Number(facade.get("selected_index")) : -1;
       const entry = inspectWindowOf(sels[index]);
-      const entryChanged = entry != null && (entry.cut ?? []).join(",") !== key;
+      const live =
+        entry != null &&
+        entry.cx === facade.get("inspect_cx") &&
+        entry.cy === facade.get("inspect_cy") &&
+        entry.size_um === facade.get("inspect_size_um");
+      const entryChanged = live && (entry.cut ?? []).join(",") !== key;
       if (!cutChanged && !entryChanged) return;
       if (cutChanged) {
         writtenRef.current = key;
@@ -160,9 +170,11 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   // Focusing an inspect entry opens the dock and, when its window is not the
   // current one, restores it: the engine moves the square (no events), and the
   // entry's cut is adopted as a Python-set cut. Keyed on the entry and its
-  // window, not `inspect_cx/cy`, so dragging the focused square (its entry is
-  // stale until release) never snaps it back; after a commit the entry equals
-  // the window, so nothing happens.
+  // window, not `inspect_cx/cy`, so a press that moves the live window away
+  // from the focused entry never snaps it back; after a save the entry equals
+  // the window, so nothing happens. A chip click on the focused entry restores
+  // it again (`restoreTick`).
+  const [restoreTick, requestRestore] = useReducer((n: number) => n + 1, 0);
   const focused = lm.selected_kind === "selection" ? lm.selections[lm.selected_index] : undefined;
   const focusedWin = inspectWindowOf(focused);
   const focusedId = focusedWin ? String(focused?.id ?? "") : null;
@@ -190,7 +202,7 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     }
     if (moved || newlyFocused) patchCube({ open: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engine, hasVolume, focusedId, focusedWin?.cx, focusedWin?.cy, focusedWin?.size_um]);
+  }, [engine, hasVolume, focusedId, focusedWin?.cx, focusedWin?.cy, focusedWin?.size_um, restoreTick]);
 
   // The dock closes when the last inspect entry goes (deleted anywhere). Only on
   // that transition: a window with no inspect entries (e.g. set from Python)
@@ -249,7 +261,16 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     [mode, open, patchCube],
   );
 
-  return { hasVolume, cube, patchCube, cut, cutRanges, onCutLive, onCutCommit, onKeyDown };
+  const select = lm.select;
+  const focusEntry = useCallback(
+    (index: number) => {
+      select("selection", index);
+      requestRestore();
+    },
+    [select],
+  );
+
+  return { hasVolume, cube, patchCube, cut, cutRanges, onCutLive, onCutCommit, onKeyDown, focusEntry };
 }
 
 /** Whether the window centre is the user's last placement (the model echoes it exactly). */

@@ -16,6 +16,8 @@ function budgetsFromUrl(): { preview: number; dock: number } | undefined {
   return preview && dock ? { preview, dock } : undefined;
 }
 const CUBE_BUDGETS = budgetsFromUrl();
+/** `?window=<µm>` shrinks the Inspect window below the toy volume (256 µm), so moved windows stay inside it. */
+const INSPECT_WINDOW_UM = Number(new URLSearchParams(location.search).get("window")) || undefined;
 
 /**
  * Landmarks over a toy SpatialData (`public/toy.sdata.zarr`): Inspect opens the
@@ -46,7 +48,13 @@ function LandmarksVolumeHarness() {
     <div className="dark min-h-screen bg-neutral-950 p-3 text-neutral-100">
       <div ref={setHostEl} className="w-full min-w-0">
         {hostEl && model ? (
-          <LandmarksView model={model} hostEl={hostEl} defaultHeight={820} cubeBudgets={CUBE_BUDGETS} />
+          <LandmarksView
+            model={model}
+            hostEl={hostEl}
+            defaultHeight={820}
+            cubeBudgets={CUBE_BUDGETS}
+            inspectWindowUm={INSPECT_WINDOW_UM}
+          />
         ) : (
           <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>
         )}
