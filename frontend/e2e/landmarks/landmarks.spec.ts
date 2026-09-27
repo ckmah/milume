@@ -549,5 +549,13 @@ test.describe("LandmarksWidget", () => {
     await page.keyboard.type("a b");
     expect(await textarea.evaluate((el) => (el as HTMLTextAreaElement).value)).toBe("a b");
     expect(await target()).toEqual(t2);
+
+    // Over a side panel (not the map) the space is typed, even after a move there.
+    const panel = (await page.locator(".landmarks__chrome-dock--right").boundingBox())!;
+    await page.mouse.move(panel.x + panel.width / 2, panel.y + panel.height / 2, { steps: 3 });
+    await page.mouse.move(panel.x + panel.width / 2 + 4, panel.y + panel.height / 2);
+    await page.keyboard.type(" c");
+    expect(await textarea.evaluate((el) => (el as HTMLTextAreaElement).value)).toBe("a b c");
+    expect(await target()).toEqual(t2);
   });
 });

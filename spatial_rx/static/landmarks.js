@@ -5551,17 +5551,19 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   }
 
   let pointerInWidget = false;
-  /** `performance.now()` of the last pointer move over the widget, and of the last key typed into an editable outside it. */
+  /** `performance.now()` of the last pointer move over the map, and of the last key typed into an editable outside the widget. */
   let pointerMovedAt = 0;
   let typedOutsideAt = 0;
 
   /**
-   * Whether the pointer is over the widget. `:hover` holds before any pointer
-   * event reaches us (a fresh load, or a re-render under a still mouse).
+   * Whether the pointer is over the map itself (the plot host), not the side
+   * panels, the Cube dock or other chrome floating over it. `:hover` holds
+   * before any pointer event reaches us (a fresh load, or a re-render under a
+   * still mouse).
    */
-  function pointerOverWidget() {
+  function pointerOverMap() {
     try {
-      return container.matches(":hover");
+      return host.matches(":hover");
     } catch {
       return false;
     }
@@ -5570,12 +5572,12 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   /**
    * Whether a Space press arms the pan. Hovering the map is enough, with focus
    * anywhere: a notebook often keeps it in a cell editor. From an editor outside
-   * the widget it pans only once the pointer has moved over the widget since the
+   * the widget it pans only once the pointer has moved over the map since the
    * last key typed there, so typing with the mouse parked on the map keeps its spaces.
    */
   function spaceArmsPan(typing, inWidget) {
-    if (!typing) return inWidget || pointerOverWidget();
-    return pointerOverWidget() && pointerMovedAt > typedOutsideAt;
+    if (!typing) return inWidget || pointerOverMap();
+    return pointerOverMap() && pointerMovedAt > typedOutsideAt;
   }
 
   function handleKeyDown(event) {
@@ -5887,7 +5889,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     },
     { signal },
   );
-  container.addEventListener(
+  host.addEventListener(
     "pointermove",
     () => {
       pointerMovedAt = performance.now();
