@@ -46,10 +46,11 @@ From a SpatialData, the widget finds the table, the labels element it
 annotates, a 3D image on the same grid, and their µm frame (override with
 `table=`, `image=`, `labels=`; `contrast_limits=` for the image). Press **I**
 (Inspect): hovering shows a live coarse preview of the tissue under the
-cursor, and a click docks a floating cube over that window, colored like the
-map, adding an **inspect selection** to the dock's history strip. Zoom sets
-the square's size in µm — larger out, smaller in. Read the inspected cells
-back with `w.get_obs_names(adata, "<inspect id>")` or `w.selections`. Hold
+cursor, and a click places a 300 µm window and docks a floating
+full-resolution cube of it, colored like the map, with your landmarks drawn on
+top. **Save** in the dock's title bar adds the window as an **inspect
+selection** to its history strip. Read the inspected cells back with
+`w.get_obs_names(adata, "<inspect id>")` or `w.selections`. Hold
 **Space** to pan in any tool.
 
 Read results back in Python:

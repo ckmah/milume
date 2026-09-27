@@ -83,11 +83,15 @@ in its own chrome:
 adds a live pyramid preview beside the window square and a history strip in
 the dock, without new traits:
 
-- A hover preview and the dock both load through `pickLevel`, prefetch-then-
-  swap (coarse from cache, then the finest level the budget allows).
+- The window is a fixed 300 µm square. The hover preview loads a coarse level
+  through `pickLevel`; the dock shows that level from cache, then always loads
+  level 0 for the window (only the 3D texture axis limit makes it coarser).
 - A decoded-chunk LRU is shared per widget instance between the preview and
   the dock, so recentres and reopens are cache reads, not re-fetches.
-- Each commit is an ordinary `selections` entry (`type: "inspect"`); the
-  history strip reads `selections`, it does not add a trait.
-- `inspect_size_um` flips to an output: the browser derives it from zoom and
-  writes it at commit; Python no longer sets it.
+- A click only places the window. The dock's **Save** makes an ordinary
+  `selections` entry (`type: "inspect"`); the history strip reads
+  `selections`, it does not add a trait.
+- `inspect_size_um` flips to an output: the browser writes 300 at placement;
+  Python no longer sets it.
+- Both cube views open top-down and draw the user's landmarks on the stack's
+  top face, with a small axis legend.
