@@ -1738,6 +1738,7 @@
   left: var(--lm-ruler-band);
   right: 0;
   height: var(--lm-ruler-band);
+  overflow: hidden;
   pointer-events: none;
   color: color-mix(in oklab, var(--muted-foreground) 85%, transparent);
   font-size: 9px;
@@ -1752,6 +1753,7 @@
   bottom: 0;
   left: 0;
   width: var(--lm-ruler-band);
+  overflow: hidden;
   pointer-events: none;
   color: color-mix(in oklab, var(--muted-foreground) 85%, transparent);
   font-size: 9px;
@@ -1760,13 +1762,13 @@
   border-right: 1px solid color-mix(in oklab, var(--border) 50%, transparent);
 }
 
+/* Labels centre on their grid line. */
 .landmarks-ruler--x .landmarks-ruler-tick {
   position: absolute;
   top: 0;
   transform: translateX(-50%);
   padding-top: 0.2rem;
-  border-left: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
-  padding-left: 0.2rem;
+  white-space: nowrap;
 }
 
 .landmarks-ruler--y .landmarks-ruler-tick {
@@ -1774,46 +1776,39 @@
   left: 0;
   transform: translateY(-50%);
   padding-left: 0.15rem;
-  border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent);
+  white-space: nowrap;
 }
 
-.landmarks-ruler-crosses {
+/* A thin full-length line at every tick, over the map (points, selections,
+ * squares, landmarks) and under the chrome. */
+.landmarks-ruler-grid {
   position: absolute;
   top: var(--lm-ruler-band);
   left: var(--lm-ruler-band);
   right: 0;
   bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
 }
 
-.landmarks-ruler-cross {
+.landmarks-ruler-grid-line {
   position: absolute;
-  width: 7px;
-  height: 7px;
-  transform: translate(-50%, -50%);
-  opacity: 0.35;
+  pointer-events: none;
+  background: color-mix(in oklab, var(--foreground) 16%, transparent);
 }
 
-.landmarks-ruler-cross::before,
-.landmarks-ruler-cross::after {
-  content: "";
-  position: absolute;
-  background: color-mix(in oklab, var(--muted-foreground) 70%, transparent);
-}
-
-.landmarks-ruler-cross::before {
-  left: 50%;
+.landmarks-ruler-grid-line--x {
   top: 0;
+  bottom: 0;
   width: 1px;
-  height: 100%;
-  transform: translateX(-50%);
+  transform: translateX(-0.5px);
 }
 
-.landmarks-ruler-cross::after {
-  top: 50%;
+.landmarks-ruler-grid-line--y {
   left: 0;
+  right: 0;
   height: 1px;
-  width: 100%;
-  transform: translateY(-50%);
+  transform: translateY(-0.5px);
 }
 
 /* Soft Float chrome shifts inward when rulers are on (cube-motion curve).
