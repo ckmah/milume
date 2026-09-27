@@ -16,7 +16,7 @@ import {
 } from "./cell-lut-extension";
 import { AxisLegend } from "./axis-legend";
 import type { Range, ViewPreset } from "./CubeControls";
-import { type CubeFrame, FramedVolumeView } from "./frame-layers";
+import { type CubeFrame, FramedVolumeView, labelPad } from "./frame-layers";
 import { type CubeOverlay, placeOverlays } from "./overlay-layers";
 import { paletteLut } from "./palettes";
 import { type WindowTarget, levelVoxelSize, useShownWindow } from "./use-shown-window";
@@ -79,10 +79,12 @@ export type VolumeCubeProps = {
   cut: CubeCut;
   contrast: [number, number];
   mode: "additive" | "mip";
-  /** Applied when it changes: the preset's rotation, framed as its home view. */
+  /** Applied when it changes: the preset's rotation (framed as its home view with `reframeOnPreset`). */
   preset: ViewPreset | null;
   /** The home view (first view and Reset). Default "iso". */
   home?: ViewPreset;
+  /** Default false: a preset keeps the user's zoom. True frames the window as the preset's home view. */
+  reframeOnPreset?: boolean;
   /** Bump to reset the camera to the home view. */
   resetTick: number;
   showLabels: boolean;
@@ -185,27 +187,32 @@ function viewStatesEqual(a: ViewState, b: ViewState): boolean {
 /**
  * What a preset's view has to fit, in world units at the target: its screen
  * width and height, and how far the face nearest the camera sits in front of
- * the target (the perspective camera shows that face larger).
+ * the target (the perspective camera shows that face larger). `marginPx` keeps
+ * that many px clear on each side (room for label text).
  */
-type Fit = { width: number; height: number; near: number };
+type Fit = { width: number; height: number; near: number; marginPx?: number };
 
 /** Deck's orbit camera distance, in viewport heights (math.gl `fovyToAltitude`). */
 const ALTITUDE = 0.5 / Math.tan(((FOVY / 2) * Math.PI) / 180);
 
 /**
- * The zoom at which `fit` fills the view. One world unit at the target is
- * 2^zoom px, and a face `near` units closer is magnified by F / (F - near·2^zoom/H).
+ * The largest zoom at which every fit fits the view. One world unit at the target
+ * is 2^zoom px, and a face `near` units closer is magnified by F / (F - near·2^zoom/H).
  */
-function fitZoom(fit: Fit, view: { width: number; height: number }): number {
-  const scale = (extent: number, side: number) =>
-    (side * ALTITUDE) / (extent * ALTITUDE + (side * fit.near) / view.height);
-  return Math.log2(Math.min(scale(fit.width, view.width), scale(fit.height, view.height)));
+function fitZoom(fits: Fit[], view: { width: number; height: number }): number {
+  const zoom = (fit: Fit) => {
+    const m = 2 * (fit.marginPx ?? 0);
+    const scale = (extent: number, side: number) =>
+      ((side - m) * ALTITUDE) / (extent * ALTITUDE + ((side - m) * fit.near) / view.height);
+    return Math.log2(Math.min(scale(fit.width, view.width), scale(fit.height, view.height)));
+  };
+  return Math.min(...fits.map(zoom));
 }
 
 /** The home camera for `preset`, framing the inspect window (the window source's world units). */
 function homeView(
   preset: ViewPreset,
-  fits: Record<ViewPreset, Fit>,
+  fits: Record<ViewPreset, Fit[]>,
   view: { width: number; height: number },
 ): ViewState {
   const zoom = fitZoom(fits[preset], view) - HOME_ZOOM_BACKOFF[preset];
@@ -265,6 +272,7 @@ export function VolumeCube({
   mode,
   preset,
   home = "iso",
+  reframeOnPreset = false,
   resetTick,
   showLabels,
   groups,
@@ -517,7 +525,7 @@ export function VolumeCube({
 
   // Fit the nominal window (not the clamped box, so the zoom holds at edges) and
   // the full stack height, as each preset sees the box.
-  const fits = useMemo((): Record<ViewPreset, Fit> | null => {
+  const fits = useMemo((): Record<ViewPreset, Fit[]> | null => {
     if (!level) return null;
     const wx = Math.min(axisSize(level.source, "x"), window_size_um / (sxUm * level.factor[2]));
     const wy = Math.min(axisSize(level.source, "y"), window_size_um / (syUm * level.factor[1])) * ry;
@@ -529,12 +537,16 @@ export function VolumeCube({
     const isoHeight = depth * Math.cos(pitch) + diagonal * Math.sin(pitch);
     // Room for the axis labels drawn just outside the box.
     const m = 1.12;
+    // From above, the Z ticks and "z µm" rise from the top-left corner toward
+    // the camera, so perspective spreads them past the box: fit them too.
+    const pad = labelPad([wx, wy, depth]);
+    const zLabels = { width: wx + 2 * pad, height: wy + 2 * pad, near: depth / 2 + 3 * pad, marginPx: 14 };
     return {
-      iso: { width: diagonal * m, height: isoHeight * m, near: 0 },
+      iso: [{ width: diagonal * m, height: isoHeight * m, near: 0 }],
       // From above: the window's XY extent; its top face is half the stack nearer.
-      top: { width: wx * m, height: wy * m, near: depth / 2 },
+      top: [{ width: wx * m, height: wy * m, near: depth / 2 }, zLabels],
       // From the front: X across and the stack up; the front face is half the window nearer.
-      side: { width: wx * m, height: depth * m, near: wy / 2 },
+      side: [{ width: wx * m, height: depth * m, near: wy / 2 }],
     };
   }, [level, window_size_um, sxUm, syUm, ry, levelDepth, rz]);
   const framing = useLatest({ fits, box });
@@ -579,15 +591,16 @@ export function VolumeCube({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetTick]);
 
-  // A preset frames the window as that preset's home view. A camera already at
-  // the preset is left alone, so echoing onPreset back (or orbiting to within a
-  // preset's tolerance) never snaps the camera.
+  // A preset turns the camera, or with `reframeOnPreset` frames the window as
+  // that preset's home view. A camera already at the preset is left alone, so
+  // echoing onPreset back (or orbiting to within a preset's tolerance) never
+  // snaps the camera.
   useEffect(() => {
     if (!preset) return;
     const { fits: f, box: b } = framing.current;
     setViewState((prev) => {
       if (!prev || presetOf(prev) === preset) return prev;
-      return f ? homeView(preset, f, b) : { ...prev, ...PRESETS[preset] };
+      return reframeOnPreset && f ? homeView(preset, f, b) : { ...prev, ...PRESETS[preset] };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preset]);
@@ -783,6 +796,7 @@ export function VolumeCube({
       data-level={shown?.level.index ?? -1}
       data-refining={String(refining)}
       data-overlays={placedOverlays?.count ?? 0}
+      data-zoom={viewState ? viewState.zoom.toFixed(2) : ""}
     >
       {layerProps && displayViewStates ? (
         <VivViewer

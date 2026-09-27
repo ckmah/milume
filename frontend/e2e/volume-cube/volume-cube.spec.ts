@@ -127,6 +127,19 @@ test.describe("VolumeCubeWidget", () => {
       // From above, z points at the viewer.
       if (name === "Top view") await expect.poll(zLength).toBeLessThan(0.05);
     }
+    // A preset only turns the standalone camera: the user's zoom stays.
+    const view = widget.locator(".volume-cube__view");
+    const zoom = async () => Number(await view.getAttribute("data-zoom"));
+    const r = (await view.boundingBox())!;
+    await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);
+    const z0 = await zoom();
+    await page.mouse.wheel(0, -400);
+    await expect.poll(zoom).toBeGreaterThan(z0 + 0.1);
+    const zoomed = await zoom();
+    await widget.getByRole("radio", { name: "Side view" }).click();
+    await expect(widget.getByRole("radio", { name: "Side view" })).toHaveAttribute("data-state", "on");
+    expect(await zoom()).toBeCloseTo(zoomed, 2);
+    await widget.getByRole("radio", { name: "Oblique view" }).click();
     await widget.getByRole("radio", { name: "Maximum intensity" }).click();
     await expect(widget).toHaveAttribute("data-render", "mip");
     await widget.getByRole("radio", { name: "Additive" }).click();

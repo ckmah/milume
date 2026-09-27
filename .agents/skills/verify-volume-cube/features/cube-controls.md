@@ -10,10 +10,12 @@ axes. Decision record: [ADR 0005](../../../../docs/adr/0005-widget-owns-renderin
 
 - **Top / Iso / Side** radios set the camera; tilt is clamped from 0° (head-on,
   perpendicular to Z) to 90° (straight down). Top at orbit 0 matches the
-  Landmarks map (x right, y down). A preset frames the window as that preset's
-  home view (top and side fit their near face, allowing for perspective);
-  Reset returns to the home view: oblique here (`VolumeCube home`, default
-  `"iso"`), top-down in the Landmarks dock and preview
+  Landmarks map (x right, y down). Here a preset only turns the camera (the
+  user's zoom stays; `data-zoom`); in the Landmarks dock and preview
+  (`reframeOnPreset`) it frames the window as that preset's home view (top and
+  side fit their near face, allowing for perspective; top also fits the Z tick
+  labels). Reset returns to the home view: oblique here (`VolumeCube home`,
+  default `"iso"`), top-down in the Landmarks dock and preview
 - **Additive / MIP** switches Viv's compositing extension (`data-render`)
 - **X / Y / Z cut** and **Contrast** range sliders render live and commit
   `slice_*` / `contrast_limits` once per gesture; X/Y are shown in µm from the
@@ -21,7 +23,7 @@ axes. Decision record: [ADR 0005](../../../../docs/adr/0005-widget-owns-renderin
 - Wireframe around the loaded window and x/y/z axes with µm ticks, drawn in
   Viv's deck (`FramedVolumeView`, layer ids tagged with the view's `-#3d#`)
 - Camera target is the window box centre, so cuts never move the cube
-- XYZ axis legend (`getByLabel("Axes")`, bottom-left, `pointer-events: none`):
+- XYZ axis legend (`getByLabel("Axes")`, bottom-right, clear of the frame's labels, `pointer-events: none`):
   each data axis projected by the camera and coloured like the frame's axes;
   `data-axes` = screen angles (degrees, counter-clockwise from the right),
   `data-lengths` = projected lengths (z ≈ 0 from the top)
@@ -48,7 +50,7 @@ await expect.poll(async () => Number(await getVolumeModel(page, "slice_z_max")))
 
 **Proof**
 
-- Functional: opens oblique with the axis legend (z length > 0.5); presets toggle (Top: z length < 0.05), projection attribute, keyboard-committed Z cut in the trait and readout.
+- Functional: opens oblique with the axis legend (z length > 0.5); presets toggle (Top: z length < 0.05), a preset keeps a wheel zoom (`data-zoom`), projection attribute, keyboard-committed Z cut in the trait and readout.
 - Visual: `rest` shows the wireframe and axes (Linux snapshots need regenerating).
 
 ## Gotchas

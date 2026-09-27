@@ -396,6 +396,7 @@ export function InspectPreview({
           mode="mip"
           preset="top"
           home="top"
+          reframeOnPreset
           resetTick={0}
           showLabels={settings.showLabels}
           groups={groups}

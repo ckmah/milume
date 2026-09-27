@@ -34,9 +34,10 @@ export function cameraDirection(
 }
 
 /**
- * A small XYZ orientation gizmo in the view's bottom-left corner: each data
- * axis as projected by the current camera, coloured like the frame's axes, so
- * the orientation reads even with the frame's own axes out of view.
+ * A small XYZ orientation gizmo in the view's bottom-right corner, clear of the
+ * frame's axis labels (along the frame's left and top): each data axis as
+ * projected by the current camera, coloured like the frame's axes, so the
+ * orientation reads even with the frame's own axes out of view.
  *
  * `data-axes` holds each axis's on-screen angle (degrees, counter-clockwise
  * from the right; 0 for an axis pointing at the viewer) and `data-lengths` its
@@ -59,7 +60,9 @@ export function AxisLegend({ rotationX, rotationOrbit }: { rotationX: number; ro
       width={SIZE}
       height={SIZE}
       viewBox={`0 0 ${SIZE} ${SIZE}`}
-      className="pointer-events-none absolute bottom-1.5 left-1.5 select-none"
+      // A label past a full-length arm may reach the edge; never clip it.
+      overflow="visible"
+      className="pointer-events-none absolute right-1.5 bottom-1.5 select-none"
       data-axes={arms.map((a) => a.angle).join(",")}
       data-lengths={arms.map((a) => Math.round(a.length * 100) / 100).join(",")}
     >

@@ -272,6 +272,7 @@ export function CubeWindow({
             mode={settings.mode}
             preset={settings.preset}
             home="top"
+            reframeOnPreset
             resetTick={settings.resetTick}
             showLabels={settings.showLabels}
             groups={groups}

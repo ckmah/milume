@@ -39,6 +39,11 @@ function niceStep(extent: number, target = 4): number {
   return unit * pow;
 }
 
+/** How far the axis labels sit outside the box (world units), for a box of `size`. */
+export function labelPad(size: readonly number[]): number {
+  return Math.max(...size) * 0.04;
+}
+
 function ticks(lengthUm: number): number[] {
   // An empty or degenerate axis (window outside the volume) has one tick; a zero
   // step would otherwise loop forever and take the page down with it.
@@ -78,7 +83,7 @@ export function frameLayers(frame: CubeFrame, modelMatrix: Matrix4, viewId = "3d
     { from: origin, to: [0, h, d], color: [...Z_COLOR, 230] },
   );
 
-  const pad = Math.max(w, h, d) * 0.04;
+  const pad = labelPad(frame.size);
   const labels: Tick[] = [];
   for (const t of ticks(w * u)) labels.push({ position: [t / u, h + pad, -pad], text: `${t}`, color: X_COLOR, size: 10 });
   for (const t of ticks(h * u)) labels.push({ position: [-pad, h - t / u, -pad], text: `${t}`, color: Y_COLOR, size: 10 });
