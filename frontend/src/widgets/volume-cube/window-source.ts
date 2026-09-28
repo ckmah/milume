@@ -114,6 +114,22 @@ export function boxIsEmpty(box: Box): boolean {
   return box.x1 <= box.x0 || box.y1 <= box.y0 || box.z1 <= box.z0;
 }
 
+/** One box of `source` in a single `zarr.get` (each chunk read once), `selection` on the other axes. */
+export function fetchBox(
+  source: ZarrSource,
+  box: Box,
+  selection: Record<string, number> = {},
+): Promise<zarr.Chunk<zarr.DataType>> {
+  const { z0, z1, y0, y1, x0, x1 } = box;
+  const index = source.labels.map((label) => {
+    if (label === "z") return zarr.slice(z0, z1);
+    if (label === "y") return zarr.slice(y0, y1);
+    if (label === "x") return zarr.slice(x0, x1);
+    return selection[label] ?? 0;
+  });
+  return zarr.get(source._data, index) as Promise<zarr.Chunk<zarr.DataType>>;
+}
+
 type Raster = { data: ArrayLike<number> & { subarray(a: number, b: number): unknown }; width: number; height: number };
 
 /**
@@ -175,14 +191,7 @@ export class WindowPixelSource {
       .join("/");
     let pending = this.blocks.get(key);
     if (!pending) {
-      const { z0, z1, y0, y1, x0, x1 } = this.box;
-      const index = this.labels.map((label) => {
-        if (label === "z") return zarr.slice(z0, z1);
-        if (label === "y") return zarr.slice(y0, y1);
-        if (label === "x") return zarr.slice(x0, x1);
-        return selection[label] ?? 0;
-      });
-      pending = zarr.get(this.base._data, index) as Promise<zarr.Chunk<zarr.DataType>>;
+      pending = fetchBox(this.base, this.box, selection);
       // A failed fetch must not poison later retries of the same window.
       pending.catch(() => this.blocks.delete(key));
       this.blocks.set(key, pending);
@@ -204,110 +213,6 @@ export class WindowPixelSource {
 
   async getTile(): Promise<never> {
     throw new Error("WindowPixelSource serves whole planes only (VolumeViewer)");
-  }
-
-  onTileError(err: Error): void {
-    throw err;
-  }
-}
-
-type Volume = Float32Array;
-
-/**
- * Signed label ids of a labels window: `id` inside a cell, `-id` on its surface
- * (a voxel with a differently labelled 6-neighbour, another cell or background).
- */
-export function signedLabelVolume(ids: ArrayLike<number>, width: number, height: number): Float32Array {
-  const plane = width * height;
-  const depth = Math.floor(ids.length / plane);
-  const out = new Float32Array(ids.length);
-  for (let z = 0; z < depth; z++) {
-    for (let y = 0; y < height; y++) {
-      const row = z * plane + y * width;
-      for (let x = 0; x < width; x++) {
-        const i = row + x;
-        const id = ids[i]!;
-        if (!id) continue;
-        const surface =
-          (x > 0 && ids[i - 1] !== id) ||
-          (x < width - 1 && ids[i + 1] !== id) ||
-          (y > 0 && ids[i - width] !== id) ||
-          (y < height - 1 && ids[i + width] !== id) ||
-          (z > 0 && ids[i - plane] !== id) ||
-          (z < depth - 1 && ids[i + plane] !== id);
-        out[i] = surface ? -id : id;
-      }
-    }
-  }
-  return out;
-}
-
-/**
- * The image window plus the labels window on the same grid, as one two-channel
- * source so Viv raycasts both together: channel 0 the image, channel 1 signed
- * label ids (see `signedLabelVolume`). Float32, so ids up to 2^24 are exact.
- *
- * Which cells show, and in what colour, is decided on the GPU from a lookup
- * texture (`cell-lut-extension.ts`), so this source, and the textures Viv builds
- * from it, depend only on the window.
- */
-export class LabelVolumeSource {
-  readonly labels: string[];
-  readonly tileSize: number;
-  readonly meta: WindowPixelSource["meta"];
-  private signed: Promise<Volume> | null = null;
-  private readonly imageHasC: boolean;
-
-  constructor(
-    private readonly image: WindowPixelSource,
-    private readonly cells: WindowPixelSource,
-  ) {
-    this.imageHasC = image.labels.includes("c");
-    this.labels = this.imageHasC ? image.labels : ["c", ...image.labels];
-    this.tileSize = image.tileSize;
-    this.meta = image.meta;
-  }
-
-  get shape(): number[] {
-    const shape = this.image.shape;
-    if (!this.imageHasC) return [2, ...shape];
-    return shape.map((s, i) => (this.image.labels[i] === "c" ? 2 : s));
-  }
-
-  get dtype(): string {
-    return "Float32";
-  }
-
-  private volume(): Promise<Volume> {
-    if (!this.signed) {
-      const pending = this.cells
-        .fetchBlock({})
-        .then((block) => signedLabelVolume(block.data as unknown as ArrayLike<number>, this.image.width, this.image.height));
-      pending.catch(() => {
-        this.signed = null;
-      });
-      this.signed = pending;
-    }
-    return this.signed;
-  }
-
-  async getRaster({ selection, signal }: { selection: Record<string, number>; signal?: AbortSignal }) {
-    const { c = 0, ...rest } = selection;
-    if (c === 0) {
-      return this.image.getRaster({ selection: this.imageHasC ? { ...rest, c: 0 } : rest, signal });
-    }
-    const volume = await this.volume();
-    const plane = this.image.width * this.image.height;
-    const z = rest.z ?? 0;
-    return {
-      data: volume.subarray(z * plane, (z + 1) * plane),
-      width: this.image.width,
-      height: this.image.height,
-    };
-  }
-
-  async getTile(): Promise<never> {
-    throw new Error("LabelVolumeSource serves whole planes only (VolumeViewer)");
   }
 
   onTileError(err: Error): void {

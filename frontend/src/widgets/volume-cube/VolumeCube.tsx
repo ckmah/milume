@@ -7,13 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 import type { ChunkCache } from "./chunk-cache";
-import {
-  CUBE_EXTENSIONS,
-  EMPTY_CELL_LUT,
-  type HighlightGroup,
-  type RenderSettings,
-  buildCellLut,
-} from "./cell-lut-extension";
+import { CUBE_EXTENSIONS, type HighlightGroup, type RenderSettings } from "./cell-lut-extension";
+import { type CellVolume, TOO_MANY_CELLS, markVivVolume } from "./cell-volume";
 import { AxisLegend } from "./axis-legend";
 import type { Range, ViewPreset } from "./CubeControls";
 import { type CubeFrame, FramedVolumeView, labelPad } from "./frame-layers";
@@ -25,7 +20,6 @@ import {
   type Frame,
   type Level,
   type ZarrSource,
-  LabelVolumeSource,
   WINDOW_VOXEL_BUDGET,
   axisSize,
   boxIsEmpty,
@@ -43,6 +37,7 @@ export type CubeCut = [number, number, number, number, number, number];
 
 export type CubeLoadState = {
   labels: "off" | "loading" | "on" | "error";
+  /** Volumes the raycast draws: 1 the image, 2 the image and the window's label texture. */
   channels: 1 | 2;
   pan: [number, number];
   /** The displayed level. */
@@ -153,7 +148,10 @@ const NO_GROUPS: HighlightGroup[] = [];
 /** Coalesce the separate window_cx / window_cy updates of one inspect click. */
 const WINDOW_DEBOUNCE_MS = 120;
 
-const IMAGE_COLOR: [number, number, number] = [220, 225, 230];
+const IMAGE_COLORS: [number, number, number][] = [[220, 225, 230]];
+/** Viv's per-channel props for the one image channel (stable, so Viv never refetches for them). */
+const ONE_CHANNEL = [{}];
+const ONE_CHANNEL_VISIBLE = [true];
 
 /**
  * Tissue Z points up the screen. Viv's orbit view spins about world Y, so rotating
@@ -452,14 +450,24 @@ export function VolumeCube({
   const ry = levelVoxel ? levelVoxel[1] / levelVoxel[2] : 1;
   const rz = levelVoxel ? levelVoxel[0] / levelVoxel[2] : 1;
 
-  // Viv is only handed sources whose fetch has resolved, so a new loader swaps
-  // in at once (VolumeLayer refetches per loader identity, from memory here).
-  const loader = useMemo(() => {
-    if (!shown) return null;
-    return shown.cells ? [new LabelVolumeSource(shown.image, shown.cells)] : [shown.image];
-  }, [shown]);
-  const hasCells = Boolean(shown?.cells);
-  const cellLut = useMemo(() => (showLabels ? buildCellLut(groups) : EMPTY_CELL_LUT), [showLabels, groups]);
+  // Viv is only handed the image, at its own dtype, and only once its fetch has
+  // resolved, so a new loader swaps in at once (VolumeLayer refetches per loader
+  // identity, from memory here). Labels arriving for the same window leave it be.
+  const shownImage = shown?.image ?? null;
+  const loader = useMemo(() => (shownImage ? [shownImage] : null), [shownImage]);
+  // Tags each volume Viv reads with its window, so the shader draws the labels
+  // of the image Viv is drawing (see CellVolume).
+  const onViewportLoad = useMemo(
+    () => (shownImage ? (volumes: { data: unknown }[]) => markVivVolume(volumes[0]?.data, shownImage) : undefined),
+    [shownImage],
+  );
+  const cells = shown?.cells ?? null;
+  const hasCells = Boolean(cells);
+  // The label texture a layer draws now (set from the draw, once uploaded).
+  const [gpuCells, setGpuCells] = useState<CellVolume | null>(null);
+  const onCellsBound = useCallback((c: CellVolume | null) => setGpuCells(c), []);
+  const cellsOnGpu = Boolean(cells && gpuCells === cells);
+  const cellGroups = showLabels ? groups : null;
   const imagePalette = useMemo(() => paletteLut(render.palette), [render.palette]);
 
   // Frame, camera and cuts live in the requested window; the shown volume pans
@@ -628,16 +636,10 @@ export function VolumeCube({
     [],
   );
 
-  // Channel 0 is the image; channel 1, once labels load, the signed label ids.
-  // The cube shader colours both (the image from `imagePalette`, cells from
-  // `cellLut`); `colors` is unused by it and only satisfies Viv's props.
-  const selections = useMemo(() => (hasCells ? [{ c: 0 }, { c: 1 }] : [{}]), [hasCells]);
-  const channelsVisible = useMemo(() => selections.map(() => true), [selections]);
-  const contrastLimits = useMemo(
-    () => [[contrast[0], contrast[1]], ...(hasCells ? [[0, 1]] : [])] as [number, number][],
-    [contrast[0], contrast[1], hasCells],
-  );
-  const colors = useMemo(() => [IMAGE_COLOR, ...(hasCells ? [[0, 0, 0]] : [])], [hasCells]);
+  // One channel, the image; cells come from the label texture beside it. The
+  // cube shader colours the image from `imagePalette`; `colors` is unused by it
+  // and only satisfies Viv's props.
+  const contrastLimits = useMemo(() => [[contrast[0], contrast[1]]] as [number, number][], [contrast[0], contrast[1]]);
 
   const cubeFrame: CubeFrame | null = useMemo(
     () =>
@@ -682,16 +684,19 @@ export function VolumeCube({
         ? [
             {
               loader,
+              onViewportLoad,
               contrastLimits,
-              colors,
-              channelsVisible,
-              selections,
+              colors: IMAGE_COLORS,
+              channelsVisible: ONE_CHANNEL_VISIBLE,
+              selections: ONE_CHANNEL,
               xSlice,
               ySlice,
               zSlice,
               resolution: 0,
               extensions: CUBE_EXTENSIONS[mode],
-              cellLut,
+              cellVolume: cells,
+              cellGroups,
+              onCellsBound,
               imagePalette,
               render,
               modelMatrix: volumeMatrix,
@@ -705,15 +710,15 @@ export function VolumeCube({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       loader,
+      onViewportLoad,
       contrastLimits,
-      colors,
-      channelsVisible,
-      selections,
       xSlice,
       ySlice,
       zSlice,
       mode,
-      cellLut,
+      cells,
+      cellGroups,
+      onCellsBound,
       imagePalette,
       render,
       cubeFrame,
@@ -744,6 +749,7 @@ export function VolumeCube({
   // The image is open but no window has arrived yet: nothing is drawn.
   else if (!shown) status = "Loading window…";
   else if (labelsMismatch) status = "Labels are on a different grid from the image";
+  else if (showLabels && labelsFailure === TOO_MANY_CELLS) status = TOO_MANY_CELLS;
   else if (showLabels && labelsFailure) status = `Could not load labels: ${labelsFailure}`;
 
   let labelsState: CubeLoadState["labels"] = "off";
@@ -753,7 +759,7 @@ export function VolumeCube({
   }
   const highlighted = showLabels && hasCells ? groups.filter((g) => g.labels.length > 0) : NO_GROUPS;
   const legend = showLegend ? highlighted : NO_GROUPS;
-  const channels = hasCells ? 2 : 1;
+  const channels = showLabels && cellsOnGpu ? 2 : 1;
   const levelIndex = level ? level.index : 0;
 
   const contrastMax = base && base.dtype === "Uint8" ? 255 : Math.max(255, Math.ceil(contrast[1] * 4));
@@ -788,6 +794,8 @@ export function VolumeCube({
       style={{ height }}
       data-labels={labelsState}
       data-channels={channels}
+      data-label-format={cellsOnGpu ? "rg8" : "none"}
+      data-label-cells={cells?.count ?? 0}
       data-highlight={highlighted.length}
       data-render={mode}
       data-pan={`${panX},${panY}`}

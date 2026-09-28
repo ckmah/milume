@@ -157,22 +157,25 @@ test.describe("VolumeCubeWidget", () => {
     const widget = volumeCubeWidget(page);
     const labels = page.getByRole("switch", { name: "Labels" });
     const legend = widget.getByLabel("Highlighted cells");
+    const view = widget.locator(".volume-cube__view");
     await expect(widget).toHaveAttribute("data-channels", "1");
 
-    // Highlighting from Python turns Labels on and loads the label channel once.
+    // Highlighting from Python turns Labels on and uploads the window's label texture once.
     await setVolumeModel(page, { highlight_groups: [{ name: "blob two", color: "#e377c2", labels: [2] }] });
     await expect(labels).toBeChecked();
     await expect(widget).toHaveAttribute("data-labels", "on");
     await expect(widget).toHaveAttribute("data-channels", "2");
+    await expect(view).toHaveAttribute("data-label-format", "rg8");
     await expect(widget).toHaveAttribute("data-highlight", "1");
     await expect(legend.getByText("blob two")).toBeVisible();
     await expect(widget.locator("canvas")).toHaveCount(1);
 
-    // Labels off hides the highlight too; the loaded volume stays for the next toggle.
+    // Labels off hides the highlight too; the label texture stays for the next toggle.
     await labels.click();
     await expect(widget).toHaveAttribute("data-labels", "off");
     await expect(widget).toHaveAttribute("data-highlight", "0");
-    await expect(widget).toHaveAttribute("data-channels", "2");
+    await expect(widget).toHaveAttribute("data-channels", "1");
+    await expect(view).toHaveAttribute("data-label-format", "rg8");
     await expect(legend).toHaveCount(0);
     await labels.click();
     await expect(widget).toHaveAttribute("data-highlight", "1");
@@ -182,28 +185,56 @@ test.describe("VolumeCubeWidget", () => {
     await expect(labels).toBeChecked();
   });
 
-  test("labels switch outlines cells as a second channel of the same volume", async ({
-    page,
-  }) => {
+  test("labels switch outlines cells from a compact label texture beside the image", async ({ page }) => {
     const widget = volumeCubeWidget(page);
+    const view = widget.locator(".volume-cube__view");
     const canvases = widget.locator("canvas");
     await expect(canvases).toHaveCount(1);
     await expect(widget).toHaveAttribute("data-labels", "off");
+    await expect(view).toHaveAttribute("data-label-format", "none");
 
     await page.getByRole("switch", { name: "Labels" }).click();
     await expect(page.getByRole("switch", { name: "Labels" })).toBeChecked();
-    // Boundaries composite into the image volume: still one canvas.
+    // The image and a two-byte label texture raycast together: still one canvas.
     await expect(widget).toHaveAttribute("data-labels", "on");
     await expect(widget).toHaveAttribute("data-channels", "2");
+    await expect(view).toHaveAttribute("data-label-format", "rg8");
+    // The boot window (X/Y 78–178) holds a part of each of the three toy cells.
+    await expect(view).toHaveAttribute("data-label-cells", "3");
     await expect(canvases).toHaveCount(1);
 
     await page.getByRole("switch", { name: "Labels" }).click();
     await expect(page.getByRole("switch", { name: "Labels" })).not.toBeChecked();
     await expect(widget).toHaveAttribute("data-labels", "off");
-    // Hidden, not unloaded: switching back is a colour-lookup change only.
-    await expect(widget).toHaveAttribute("data-channels", "2");
+    // Hidden, not unloaded: the image is drawn alone and switching back is a redraw.
+    await expect(widget).toHaveAttribute("data-channels", "1");
+    await expect(view).toHaveAttribute("data-label-format", "rg8");
     await expect(canvases).toHaveCount(1);
     await shot(page, "labels-off", widget);
+  });
+
+  test("a window with more cells than the label texture indexes shows a status, not labels", async ({ page }) => {
+    const widget = volumeCubeWidget(page);
+    const view = widget.locator(".volume-cube__view");
+    // Serve the toy labels as uint32 with a new id on every voxel: 640 k cells in the window.
+    await page.route(/\/toy\.ome\.zarr\/labels\/cells\/0\/\.zarray$/, async (route) => {
+      const meta = await (await route.fetch()).json();
+      await route.fulfill({ json: { ...meta, dtype: "<u4" } });
+    });
+    await page.route(/\/toy\.ome\.zarr\/labels\/cells\/0\/\d+\/\d+\/\d+$/, (route) => {
+      const [cz, cy, cx] = route.request().url().split("/").slice(-3).map(Number);
+      const n = 32 * 64 * 64;
+      const ids = new Uint32Array(n);
+      const first = 1 + ((cz! * 4 + cy!) * 4 + cx!) * n;
+      for (let i = 0; i < n; i++) ids[i] = first + i;
+      return route.fulfill({ body: Buffer.from(ids.buffer) });
+    });
+    await page.getByRole("switch", { name: "Labels" }).click();
+    await expect(widget).toHaveAttribute("data-labels", "error");
+    await expect(widget.getByText("Too many cells in this window for labels")).toBeVisible();
+    // The image keeps rendering on its own; nothing was uploaded for the labels.
+    await expect(widget).toHaveAttribute("data-channels", "1");
+    await expect(view).toHaveAttribute("data-label-format", "none");
   });
 
   test("a failed labels fetch ends in an error state, not loading", async ({ page }) => {
@@ -217,6 +248,7 @@ test.describe("VolumeCubeWidget", () => {
     await expect(widget.getByText(/Could not load labels/)).toBeVisible();
     // The image keeps rendering on its own.
     await expect(widget).toHaveAttribute("data-channels", "1");
+    await expect(widget.locator(".volume-cube__view")).toHaveAttribute("data-label-format", "none");
   });
 
   test("the first window shows a loading status until it arrives", async ({ page }) => {

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import { bootLandmarksVolumeHarness, canvasBox, getModel, setModel } from "../helpers";
 
@@ -47,6 +47,53 @@ async function cutTrim(page: Page, i: number, edge: number) {
   const t = await trim();
   expect(t).toBeLessThan(11);
   return t;
+}
+
+/** Toy category colours (fixture palette): type1 #1f77b4, type0 #ff7f0e. */
+const CATEGORY_HUES = { type1: 205, type0: 28 };
+
+/**
+ * Pixels that take on a category colour between two screenshots of the same
+ * view (`before`, `after`): hue within 15° of the category's, saturated and not
+ * dark, and not already that colour before. Counts and mean x (px) per
+ * category. Comparing the two leaves out the frame's axes and the axis legend.
+ */
+async function newCategoryPixels(page: Page, before: Buffer, after: Buffer) {
+  return page.evaluate(
+    async ({ before, after, hues }) => {
+      const pixels = async (png: string) => {
+        const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(bitmap, 0, 0);
+        return ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      };
+      const category = (data: Uint8ClampedArray, i: number) => {
+        const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
+        const max = Math.max(r, g, b);
+        const d = max - Math.min(r, g, b);
+        if (max < 40 || d / max < 0.4) return "";
+        let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        h = (h * 60 + 360) % 360;
+        for (const [k, hue] of Object.entries(hues)) if (Math.abs(((h - hue + 540) % 360) - 180) <= 15) return k;
+        return "";
+      };
+      const [was, now] = [await pixels(before), await pixels(after)];
+      const out = Object.fromEntries(Object.keys(hues).map((k) => [k, { count: 0, x: 0 }])) as Record<
+        keyof typeof hues,
+        { count: number; x: number }
+      >;
+      for (let i = 0; i < now.data.length; i += 4) {
+        const k = category(now.data, i) as keyof typeof hues | "";
+        if (!k || category(was.data, i) === k) continue;
+        out[k].count++;
+        out[k].x += (i / 4) % now.width;
+      }
+      for (const v of Object.values(out)) v.x = v.count ? v.x / v.count : 0;
+      return out;
+    },
+    { before: before.toString("base64"), after: after.toString("base64"), hues: CATEGORY_HUES },
+  );
 }
 
 type Box = { x: number; y: number; width: number; height: number };
@@ -717,6 +764,8 @@ test.describe("Landmarks inspect cube", () => {
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-labels", "on");
     await expect(view).toHaveAttribute("data-channels", "2");
+    await expect(view).toHaveAttribute("data-label-format", "rg8");
+    await expect(view).toHaveAttribute("data-label-cells", "3");
     // Nothing focused: every cell in the window, by category (type1 and type0).
     await expect(view).toHaveAttribute("data-highlight", "2");
 
@@ -734,6 +783,28 @@ test.describe("Landmarks inspect cube", () => {
 
     await setModel(page, { selected_kind: "", selected_index: -1 });
     await expect(view).toHaveAttribute("data-highlight", "2");
+  });
+
+  test("with Labels on each toy cell renders in its category colour in the dock", async ({ page }) => {
+    // The 300 µm square holds all three cells; the dock opens top-down (x right, y down).
+    await openCubeAtCentre(page, { at: [130, 170] });
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    // Maximum intensity puts cells in front of the image, so the deep cell 1 shows too.
+    const bar = page.getByTestId("context-inspect-toolbar");
+    await bar.getByRole("radio", { name: "Maximum intensity" }).click();
+    await expect(view).toHaveAttribute("data-render", "mip");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const off = await view.screenshot();
+
+    await bar.getByRole("switch", { name: "Labels" }).click();
+    await expect(view).toHaveAttribute("data-channels", "2");
+    await expect(view).toHaveAttribute("data-highlight", "2");
+    const on = await newCategoryPixels(page, off, await view.screenshot());
+    // Cells 1 and 3 (type1, blue) and cell 2 (type0, orange) all show...
+    expect(on.type1.count).toBeGreaterThan(200);
+    expect(on.type0.count).toBeGreaterThan(200);
+    // ...each where it is: cell 2 (x 160) right of cells 1 and 3 (x 70 and 100).
+    expect(on.type0.x).toBeGreaterThan(on.type1.x + 20);
   });
 
   test("the dock shows the coarse level first, then refines", async ({ page }) => {

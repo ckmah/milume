@@ -1,7 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 
 import type { ChunkCache } from "./chunk-cache";
-import { type Box, type Frame, type Level, type ZarrSource, WindowPixelSource, boxIsEmpty } from "./window-source";
+import { CellVolume, encodeLabels } from "./cell-volume";
+import {
+  type Box,
+  type Frame,
+  type Level,
+  type ZarrSource,
+  WindowPixelSource,
+  boxIsEmpty,
+  fetchBox,
+} from "./window-source";
 
 /** A voxel box of one level to load, with the labels level on the same grid (if wanted). */
 export type WindowTarget = { level: Level; box: Box; cells: ZarrSource | null };
@@ -11,7 +20,8 @@ export type ShownWindow = {
   level: Level;
   box: Box;
   image: WindowPixelSource;
-  cells: WindowPixelSource | null;
+  /** The window's labels as an RG8 texture (uploaded on first draw), when wanted and loaded. */
+  cells: CellVolume | null;
 };
 
 export function levelVoxelSize(frame: Frame, level: Level): [number, number, number] {
@@ -46,11 +56,18 @@ function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
+/** The labels of `image`'s box as a CellVolume; the decoded ids block is dropped once encoded. */
+async function loadCells(labels: ZarrSource, image: WindowPixelSource): Promise<CellVolume> {
+  const block = await fetchBox(labels, image.box);
+  const encoded = encodeLabels(block.data as unknown as ArrayLike<number>, image.width, image.height);
+  return new CellVolume(image, labels, encoded);
+}
+
 /**
  * Fetch `t` completely (image, and labels when wanted) before it is shown. The
- * image source of `prev` is reused when the window is the same, so turning
- * labels on only fetches the labels. A labels failure falls back to the image
- * alone; an image failure rejects.
+ * image source (and labels) of `prev` are reused when the window is the same,
+ * so turning labels on only fetches the labels. A labels failure falls back to
+ * the image alone; an image failure rejects.
  */
 async function loadWindow(
   t: WindowTarget,
@@ -60,11 +77,15 @@ async function loadWindow(
   const voxel = levelVoxelSize(frame, t.level);
   const same = prev && sameWindow(prev, t) ? prev : null;
   const image = same ? same.image : new WindowPixelSource(t.level.source, t.box, voxel);
-  const cells = t.cells ? (same?.cells ?? new WindowPixelSource(t.cells, t.box, voxel)) : null;
-  const [img, lab] = await Promise.allSettled([image.fetchBlock({}), cells ? cells.fetchBlock({}) : null]);
+  const reuse = same?.cells && same.cells.labels === t.cells ? same.cells : null;
+  const [img, lab] = await Promise.allSettled([
+    image.fetchBlock({}),
+    t.cells ? (reuse ?? loadCells(t.cells, image)) : null,
+  ]);
   if (img.status === "rejected") throw img.reason;
   const cellsError = lab.status === "rejected" ? errorText(lab.reason) : "";
-  return { shown: { level: t.level, box: t.box, image, cells: cellsError ? null : cells }, cellsError };
+  const cells = lab.status === "fulfilled" ? lab.value : null;
+  return { shown: { level: t.level, box: t.box, image, cells }, cellsError };
 }
 
 /**
@@ -148,6 +169,14 @@ export function useShownWindow({
       paused?.resume();
     };
   }, [key, levels]);
+
+  // A window's label texture lives while it is shown (and while a layer still
+  // draws it: see CellVolume); a swap or unmount retires it.
+  const shownCells = shown?.cells ?? null;
+  useEffect(() => {
+    if (!shownCells) return;
+    return () => shownCells.retire();
+  }, [shownCells]);
 
   const current = failure && failure.key === key ? failure : null;
   return { shown, shownIsCoarse, imageError: current?.image ?? "", cellsError: current?.cells ?? "" };
