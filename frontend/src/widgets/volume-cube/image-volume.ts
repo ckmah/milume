@@ -120,8 +120,14 @@ export class CubeXR3DLayer extends XR3DBase {
     // to the texels; rows of an odd-width window (A2: 667 B at r8) are not
     // 4-byte aligned, so the alignment is set for this upload only.
     const upload = () => texture.copyImageData({ data: texels });
-    if (device.withParametersWebGL) device.withParametersWebGL({ [GL_UNPACK_ALIGNMENT]: 1 }, upload);
-    else upload();
+    try {
+      if (device.withParametersWebGL) device.withParametersWebGL({ [GL_UNPACK_ALIGNMENT]: 1 }, upload);
+      else upload();
+    } catch (err) {
+      // Nothing holds the texture yet: free it rather than leak it.
+      texture.destroy();
+      throw err;
+    }
     imageTextures.set(texture, { format, scale });
     releaseVivVolume(data);
     return texture;

@@ -129,21 +129,41 @@ test.describe("VolumeCubeWidget", () => {
     await page.reload({ waitUntil: "networkidle" });
     const view = await settledView(page);
     await expect(view).toHaveAttribute("data-image-format", "r8unorm");
-    const log = await page.evaluate(() => {
-      const { storage, writes } = (window as any).__tex3d;
-      return {
-        storage: storage as number[][],
-        // Every image-sized write, and whether its array still holds its bytes.
-        writes: (writes as { data: ArrayBufferView; length: number }[])
-          .filter((w) => w.length === 100 * 100 * 64)
-          .map((w) => ({ length: w.length, now: w.data.byteLength, uint8: w.data instanceof Uint8Array })),
-      };
-    });
+    const textureLog = () =>
+      page.evaluate(() => {
+        const { storage, writes } = (window as any).__tex3d;
+        return {
+          storage: storage as number[][],
+          // Every image-sized write, and whether its array still holds its bytes.
+          writes: (writes as { data: ArrayBufferView; length: number }[])
+            .filter((w) => w.length === 100 * 100 * 64)
+            .map((w) => ({ length: w.length, now: w.data.byteLength, uint8: w.data instanceof Uint8Array })),
+        };
+      });
+    const log = await textureLog();
     // The boot window (X/Y 78–178, all 64 planes) as R8, and no float volume.
     expect(log.storage).toContainEqual([GL_R8, 100, 100, 64]);
     expect(log.storage.filter((s) => s[0] === GL_R32F)).toEqual([]);
     // The voxels went up once, as bytes; the array Viv laid out for it is released.
     expect(log.writes).toEqual([{ length: 640000, now: 0, uint8: true }]);
+
+    // Nothing but a new window uploads the image again: a re-upload of the
+    // released volume would throw (image-volume.ts) and leave the cube black.
+    const widget = volumeCubeWidget(page);
+    await widget.getByRole("radio", { name: "Maximum intensity" }).click();
+    await expect(view).toHaveAttribute("data-render", "mip");
+    await widget.getByRole("radio", { name: "Additive" }).click();
+    await expect(view).toHaveAttribute("data-render", "additive");
+    await widget.getByRole("radio", { name: "Top view" }).click();
+    await expect(widget.getByRole("radio", { name: "Top view" })).toHaveAttribute("data-state", "on");
+    const labels = page.getByRole("switch", { name: "Labels" });
+    await labels.click();
+    await expect(view).toHaveAttribute("data-label-format", "rg8");
+    await labels.click();
+    await expect(view).toHaveAttribute("data-labels", "off");
+    await page.waitForTimeout(500);
+    await expect(view).toHaveAttribute("data-image-format", "r8unorm");
+    expect((await textureLog()).writes).toEqual([{ length: 640000, now: 0, uint8: true }]);
   });
 
   test("a uint16 image draws as it did at float32, as r16unorm or as floats without norm16", async ({ page }) => {
