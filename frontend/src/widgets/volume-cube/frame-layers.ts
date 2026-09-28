@@ -3,6 +3,7 @@ import { LineLayer, TextLayer } from "@deck.gl/layers";
 import type { Matrix4 } from "@math.gl/core";
 import { VolumeView } from "@hms-dbmi/viv";
 
+import { CubeVolumeLayer } from "./image-volume";
 import { type PlacedOverlays, overlayLayers, vivTag } from "./overlay-layers";
 
 /**
@@ -145,17 +146,16 @@ export class FramedVolumeView extends VolumeView {
   }
 
   getLayers({ props }: { props: Record<string, unknown> }) {
-    // Viv's typings omit getLayers on VolumeView; it exists at runtime.
-    const layers = (VolumeView.prototype as unknown as { getLayers: (a: unknown) => unknown[] }).getLayers.call(
-      this,
-      { props },
-    );
+    const id = (this as unknown as { id: string }).id;
+    // Viv's VolumeView.getLayers, with the cube's VolumeLayer (the image at its
+    // own dtype, image-volume.ts) under Viv's own layer id.
+    const loader = props.loader as { type?: string };
+    const layers = [new CubeVolumeLayer(props, { id: `${loader.type}${vivTag(id)}` })];
     const frame = props.cubeFrame as CubeFrame | undefined;
     // The frame marks the requested window: it keeps its place while a loaded
     // window pans under it (`frameMatrix`), and otherwise shares the volume's.
     // Overlays (already placed in the window) share it too.
     const matrix = (props.frameMatrix ?? props.modelMatrix) as Matrix4;
-    const id = (this as unknown as { id: string }).id;
     const overlays = props.cubeOverlays as PlacedOverlays | null | undefined;
     const extra = overlays ? overlayLayers(overlays, matrix, id) : [];
     if (!frame) return [...layers, ...extra];

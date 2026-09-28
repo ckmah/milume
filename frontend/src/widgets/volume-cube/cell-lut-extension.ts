@@ -1,19 +1,21 @@
 import { ColorPalette3DExtensions } from "@hms-dbmi/viv";
 
 import { type CellVolume, type Device, vivVolumeImage } from "./cell-volume";
+import { type ImageFormat, imageTextureInfo } from "./image-volume";
 import { DEFAULT_RENDER, type RenderSettings, paletteLut } from "./palettes";
 
 /**
  * Viv volume rendering for an image, plus the window's cells from a second,
  * compact texture.
  *
- * Viv raycasts the image alone (`volume0`), coloured through a 256-texel
- * palette (`imagePalette`) with alpha and gamma from the `render` prop; with
- * `showImage` false the image adds nothing (a uniform, no refetch). Once
- * labels load, `labelVolume` (an RG8 3D texture on the same grid, see
- * `cell-volume.ts`) holds each voxel's local cell index and a surface flag. A
- * small RGBA lookup texture (`cellLut`) maps local index -> colour and fill
- * alpha; texel 0 is the colour and alpha of surfaces that are not highlighted.
+ * Viv raycasts the image alone (`volume0`, at its own dtype: image-volume.ts),
+ * coloured through a 256-texel palette (`imagePalette`) with alpha and gamma
+ * from the `render` prop; with `showImage` false the image adds nothing (a
+ * uniform, no refetch). Once labels load, `labelVolume` (an RG8 3D texture on
+ * the same grid, see `cell-volume.ts`) holds each voxel's local cell index and
+ * a surface flag. A small RGBA lookup texture (`cellLut`) maps local index ->
+ * colour and fill alpha; texel 0 is the colour and alpha of surfaces that are
+ * not highlighted.
  *
  * Showing, hiding or recolouring cells rewrites only the lookup texture (a few
  * KB), never the volume textures, so the Labels switch and a new highlight are
@@ -41,20 +43,38 @@ export { DEFAULT_RENDER, type RenderSettings } from "./palettes";
 /** A 256-texel image colour map from `paletteLut`. */
 export type ImagePalette = { data: Uint8Array; width: number; height: number };
 
+type CubeUniforms = Partial<RenderSettings> & { cellsOn?: number; imageOn?: number; imageScale?: number };
+
 // The module must not share a sampler's name: luma.gl keys a module's
 // uniforms by module name and would set that sampler's texture unit from them.
 const cubeRenderModule = {
   name: "cubeRender",
-  uniformTypes: { imageAlpha: "f32", imageGamma: "f32", cellAlpha: "f32", cellsOn: "f32", imageOn: "f32" },
-  defaultUniforms: { imageAlpha: 1, imageGamma: 1, cellAlpha: 1, cellsOn: 0, imageOn: 1 },
+  uniformTypes: {
+    imageAlpha: "f32",
+    imageGamma: "f32",
+    cellAlpha: "f32",
+    cellsOn: "f32",
+    imageOn: "f32",
+    imageScale: "f32",
+  },
+  defaultUniforms: { imageAlpha: 1, imageGamma: 1, cellAlpha: 1, cellsOn: 0, imageOn: 1, imageScale: 1 },
   // Only the numbers reach the uniform block; the palette is a texture.
-  getUniforms: (render: Partial<RenderSettings> & { cellsOn?: number; imageOn?: number } = {}) => ({
+  getUniforms: (render: CubeUniforms = {}) => ({
     imageAlpha: render.imageAlpha ?? DEFAULT_RENDER.imageAlpha,
     imageGamma: render.imageGamma ?? DEFAULT_RENDER.imageGamma,
     cellAlpha: render.cellAlpha ?? DEFAULT_RENDER.cellAlpha,
     cellsOn: render.cellsOn ?? 0,
     imageOn: render.imageOn ?? 1,
+    imageScale: render.imageScale ?? 1,
   }),
+  // Viv's contrast ramp on the raw value: a unorm image texture (r8unorm,
+  // r16unorm) samples as value / max, and imageScale (max; 1 for float)
+  // undoes that first, so contrast limits mean what they did at float32.
+  // Defined here, the hook replaces Viv's default ramp (XR3DLayer.getShaders).
+  inject: {
+    "fs:DECKGL_PROCESS_INTENSITY":
+      "intensity = apply_contrast_limits(intensity * cubeRender.imageScale, contrastLimits);",
+  },
   fs: `\
 uniform cubeRenderUniforms {
   float imageAlpha;
@@ -62,6 +82,7 @@ uniform cubeRenderUniforms {
   float cellAlpha;
   float cellsOn;
   float imageOn;
+  float imageScale;
 } cubeRender;
 
 // All 3D textures, the lookups one texel deep: luma.gl validates the program
@@ -161,6 +182,8 @@ type LayerLike = {
     showImage?: boolean;
     /** Called when the labels this layer draws change (null: none). */
     onCellsBound?: (cells: CellVolume | null) => void;
+    /** Called when the format of the image texture this layer draws changes (null: none yet). */
+    onImageBound?: (format: ImageFormat | null) => void;
     imagePalette?: ImagePalette | null;
     render?: RenderSettings | null;
     /** Set by Viv's VolumeLayer: `data[0]` is the image volume being drawn. */
@@ -175,6 +198,10 @@ type LayerLike = {
     /** What `cellLutTexture` was built for. */
     cellLutFor?: { cells: CellVolume | null; groups: readonly HighlightGroup[] | null } | null;
     boundCells?: CellVolume | null;
+    /** Format of the image texture last drawn. */
+    boundImage?: ImageFormat | null;
+    /** Set by Viv's XR3DLayer: `volume0` is the image texture it draws. */
+    textures?: { volume0?: unknown } | null;
     noCellsTexture?: Texture | null;
     paletteTexture?: Texture | null;
   };
@@ -182,9 +209,9 @@ type LayerLike = {
   setState(patch: Record<string, unknown>): void;
 };
 
-/** Only Viv's XR3DLayer draws; its VolumeLayer parent shares the extension. */
+/** Only the cube's XR3DLayer (image-volume.ts) draws; its VolumeLayer parent shares the extension. */
 function isRaycaster(layer: LayerLike): boolean {
-  return layer.constructor.layerName === "XR3DLayer";
+  return layer.constructor.layerName === "CubeXR3DLayer";
 }
 
 const NEAREST = {
@@ -290,7 +317,21 @@ abstract class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       imagePalette: paletteTexture,
     });
     const imageOn = layer.props.showImage === false ? 0 : 1;
-    model.shaderInputs.setProps({ cubeRender: { ...(layer.props.render ?? DEFAULT_RENDER), cellsOn, imageOn } });
+    // The image texture Viv binds for this draw: the one it last loaded.
+    const image = imageTextureInfo(layer.state.textures?.volume0);
+    const imageFormat = image?.format ?? null;
+    if (imageFormat !== (layer.state.boundImage ?? null)) {
+      // Plain state, as for boundCells.
+      layer.state.boundImage = imageFormat;
+      layer.props.onImageBound?.(imageFormat);
+    }
+    const uniforms: CubeUniforms = {
+      ...(layer.props.render ?? DEFAULT_RENDER),
+      cellsOn,
+      imageOn,
+      imageScale: image?.scale ?? 1,
+    };
+    model.shaderInputs.setProps({ cubeRender: uniforms });
   }
 
   finalizeState() {

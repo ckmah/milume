@@ -79,7 +79,8 @@ async function loadWindow(
   const image = same ? same.image : new WindowPixelSource(t.level.source, t.box, voxel);
   const reuse = same?.cells && same.cells.labels === t.cells ? same.cells : null;
   const [img, lab] = await Promise.allSettled([
-    image.fetchBlock({}),
+    // A window already shown has been read by Viv (and its block released).
+    same ? null : image.fetchBlock({}),
     t.cells ? (reuse ?? loadCells(t.cells, image)) : null,
   ]);
   if (img.status === "rejected") throw img.reason;

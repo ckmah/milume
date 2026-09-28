@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import {
   bootVolumeCubeHarness,
@@ -8,6 +8,100 @@ import {
   toyInspectBox,
   volumeCubeWidget,
 } from "../helpers";
+
+const GL_R8 = 0x8229;
+const GL_R16 = 0x822a;
+const GL_R32F = 0x822e;
+
+/**
+ * Before the page loads: record every 3D texture allocated (`texStorage3D`)
+ * and every array written to one (`texSubImage3D`, with its length then), on
+ * `window.__tex3d`. With `hideNorm16`, the context reports no
+ * EXT_texture_norm16 (as some GPUs do).
+ */
+async function recordTextures(page: Page, { hideNorm16 = false } = {}) {
+  await page.addInitScript((hide) => {
+    const log = { storage: [] as number[][], writes: [] as { data: ArrayBufferView; length: number }[] };
+    (window as any).__tex3d = log;
+    const proto = WebGL2RenderingContext.prototype;
+    const texStorage3D = proto.texStorage3D;
+    proto.texStorage3D = function (this: WebGL2RenderingContext, ...args: Parameters<typeof texStorage3D>) {
+      log.storage.push([args[2], args[3], args[4], args[5]]);
+      return texStorage3D.apply(this, args);
+    };
+    const texSubImage3D = proto.texSubImage3D as (...args: unknown[]) => void;
+    proto.texSubImage3D = function (this: WebGL2RenderingContext, ...args: unknown[]) {
+      const data = args[10];
+      if (ArrayBuffer.isView(data)) log.writes.push({ data, length: data.byteLength });
+      return texSubImage3D.apply(this, args);
+    } as typeof proto.texSubImage3D;
+    if (hide) {
+      const getExtension = proto.getExtension;
+      proto.getExtension = function (this: WebGL2RenderingContext, name: string) {
+        return name === "EXT_texture_norm16" ? null : getExtension.call(this, name);
+      } as typeof proto.getExtension;
+      const supported = proto.getSupportedExtensions;
+      proto.getSupportedExtensions = function (this: WebGL2RenderingContext) {
+        return (supported.call(this) ?? []).filter((n) => n !== "EXT_texture_norm16");
+      };
+    }
+  }, hideNorm16);
+}
+
+/** Serve the toy image (every level) as uint16, each uint8 voxel `v` as `v * 257`: the same image, 16 bits deep. */
+async function serveImageAsUint16(page: Page) {
+  await page.route(/\/toy\.ome\.zarr\/\d+\/\.zarray$/, async (route) => {
+    const meta = await (await route.fetch()).json();
+    await route.fulfill({ json: { ...meta, dtype: "<u2" } });
+  });
+  await page.route(/\/toy\.ome\.zarr\/\d+\/\d+\/\d+\/\d+$/, async (route) => {
+    const response = await route.fetch();
+    if (response.status() !== 200) return route.fulfill({ response });
+    const bytes = await response.body();
+    const wide = new Uint16Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) wide[i] = bytes[i]! * 257;
+    return route.fulfill({ body: Buffer.from(wide.buffer) });
+  });
+}
+
+/** Pixels that differ between two screenshots of the same size, and the largest channel difference. */
+async function pixelDiff(page: Page, a: Buffer, b: Buffer) {
+  return page.evaluate(
+    async ({ a, b }) => {
+      const pixels = async (png: string) => {
+        const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(bitmap, 0, 0);
+        return ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
+      };
+      const [x, y] = [await pixels(a), await pixels(b)];
+      let differing = 0;
+      let max = 0;
+      let lit = 0;
+      for (let i = 0; i < x.length; i += 4) {
+        let d = 0;
+        for (let c = 0; c < 4; c++) d = Math.max(d, Math.abs(x[i + c]! - y[i + c]!));
+        if (d) differing++;
+        max = Math.max(max, d);
+        if (Math.max(x[i]!, x[i + 1]!, x[i + 2]!) > 20) lit++;
+      }
+      return { differing, max, lit, sameSize: x.length === y.length };
+    },
+    { a: a.toString("base64"), b: b.toString("base64") },
+  );
+}
+
+/** The cube view once its window is on screen and still. */
+async function settledView(page: Page) {
+  const view = volumeCubeWidget(page).locator(".volume-cube__view");
+  await expect(view).toHaveAttribute("data-refining", "false");
+  await expect(view).toHaveAttribute("data-pan", "0,0");
+  await expect(view).not.toHaveAttribute("data-image-format", "none");
+  // A few frames after the upload.
+  await page.waitForTimeout(500);
+  return view;
+}
 
 /**
  * VolumeCube widget tier — functional coverage + 3 visual anchors:
@@ -28,6 +122,77 @@ test.describe("VolumeCubeWidget", () => {
     ).toBeVisible();
     await expect(widget.locator("canvas").first()).toBeVisible();
     await shot(page, "rest", widget);
+  });
+
+  test("a uint8 image reaches the GPU as one byte per voxel, with no CPU copy left", async ({ page }) => {
+    await recordTextures(page);
+    await page.reload({ waitUntil: "networkidle" });
+    const view = await settledView(page);
+    await expect(view).toHaveAttribute("data-image-format", "r8unorm");
+    const log = await page.evaluate(() => {
+      const { storage, writes } = (window as any).__tex3d;
+      return {
+        storage: storage as number[][],
+        // Every image-sized write, and whether its array still holds its bytes.
+        writes: (writes as { data: ArrayBufferView; length: number }[])
+          .filter((w) => w.length === 100 * 100 * 64)
+          .map((w) => ({ length: w.length, now: w.data.byteLength, uint8: w.data instanceof Uint8Array })),
+      };
+    });
+    // The boot window (X/Y 78–178, all 64 planes) as R8, and no float volume.
+    expect(log.storage).toContainEqual([GL_R8, 100, 100, 64]);
+    expect(log.storage.filter((s) => s[0] === GL_R32F)).toEqual([]);
+    // The voxels went up once, as bytes; the array Viv laid out for it is released.
+    expect(log.writes).toEqual([{ length: 640000, now: 0, uint8: true }]);
+  });
+
+  test("a uint16 image draws as it did at float32, as r16unorm or as floats without norm16", async ({ page }) => {
+    // The toy at 16 bits (v * 257), contrast scaled to match. With
+    // EXT_texture_norm16 it goes up as r16unorm and the shader scales each
+    // sample back to the raw value before Viv's contrast ramp; without it, as
+    // float32 (every uint16 is exact there), which is how Viv drew it before.
+    // Both draw the 8-bit original's pixels, up to how the GPU rounds while
+    // filtering: measured on SwiftShader (CI) and an NVIDIA GPU, at most 41
+    // pixels of ~100 k off, each by one level (a wrong scale moves them all).
+    await setVolumeModel(page, { contrast_limits: [10, 48] });
+    let view = await settledView(page);
+    await expect(view).toHaveAttribute("data-image-format", "r8unorm");
+    const bytes = await view.screenshot();
+
+    await recordTextures(page);
+    await serveImageAsUint16(page);
+    await page.reload({ waitUntil: "networkidle" });
+    await setVolumeModel(page, { contrast_limits: [10 * 257, 48 * 257] });
+    view = await settledView(page);
+    const norm16 = await page.evaluate(() =>
+      Boolean(document.createElement("canvas").getContext("webgl2")?.getExtension("EXT_texture_norm16")),
+    );
+    await expect(view).toHaveAttribute("data-image-format", norm16 ? "r16unorm" : "r32float");
+    let storage = (await page.evaluate(() => (window as any).__tex3d.storage)) as number[][];
+    expect(storage).toContainEqual([norm16 ? GL_R16 : GL_R32F, 100, 100, 64]);
+    const wide = await view.screenshot();
+
+    // No EXT_texture_norm16 (init scripts stay, so this goes last): floats.
+    await recordTextures(page, { hideNorm16: true });
+    await page.reload({ waitUntil: "networkidle" });
+    await setVolumeModel(page, { contrast_limits: [10 * 257, 48 * 257] });
+    view = await settledView(page);
+    await expect(view).toHaveAttribute("data-image-format", "r32float");
+    storage = (await page.evaluate(() => (window as any).__tex3d.storage)) as number[][];
+    expect(storage).toContainEqual([GL_R32F, 100, 100, 64]);
+    const float = await view.screenshot();
+
+    for (const [a, b] of [
+      [float, wide],
+      [bytes, wide],
+      [bytes, float],
+    ]) {
+      const d = await pixelDiff(page, a!, b!);
+      expect(d.sameSize).toBe(true);
+      expect(d.lit).toBeGreaterThan(10000);
+      expect(d.max).toBeLessThanOrEqual(1);
+      expect(d.differing).toBeLessThan(d.lit / 1000);
+    }
   });
 
   test("toy inspect drag updates synced window traits", async ({ page }) => {
@@ -192,6 +357,11 @@ test.describe("VolumeCubeWidget", () => {
     await expect(canvases).toHaveCount(1);
     await expect(widget).toHaveAttribute("data-labels", "off");
     await expect(view).toHaveAttribute("data-label-format", "none");
+    // Labels for the shown window fetch only labels: its image is already on the GPU.
+    const imageRequests: string[] = [];
+    page.on("request", (r) => {
+      if (/\/toy\.ome\.zarr\/\d+\//.test(r.url())) imageRequests.push(r.url());
+    });
 
     await page.getByRole("switch", { name: "Labels" }).click();
     await expect(page.getByRole("switch", { name: "Labels" })).toBeChecked();
@@ -202,6 +372,7 @@ test.describe("VolumeCubeWidget", () => {
     // The boot window (X/Y 78–178) holds a part of each of the three toy cells.
     await expect(view).toHaveAttribute("data-label-cells", "3");
     await expect(canvases).toHaveCount(1);
+    expect(imageRequests).toEqual([]);
 
     await page.getByRole("switch", { name: "Labels" }).click();
     await expect(page.getByRole("switch", { name: "Labels" })).not.toBeChecked();

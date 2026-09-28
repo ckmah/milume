@@ -81,8 +81,8 @@ Model keys: `labels_url` (must be set for the switch to enable).
   the labels of the image actually drawn (the VolumeLayer's `onViewportLoad`
   tags each volume with its window), and a retired window's label texture is
   destroyed once no layer draws it.
-- Viv 0.22 uploads every 3D texture as float32 (`getRenderingAttrs` casts), so
-  the image still costs 4 B/voxel on the GPU even at uint8.
+- The image is its own texture at its own dtype (r8unorm for uint8; see
+  [image-texture](image-texture.md)); Viv 0.22 alone would upload it as float32.
 - The lookup texture is a 2048-wide 3D texture (GPUs cap 3D axes at 2048).
 - luma.gl validates the program before assigning texture units: every sampler in
   the raycast must be a `sampler3D` (the lookups are one texel deep), each must be

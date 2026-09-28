@@ -8,7 +8,8 @@ import * as zarr from "zarrita";
  * would fetch gigabytes and exceed the GPU's 3D texture limit, so the cube
  * hands it a source that *is* the inspect window instead: a box cut from one
  * pyramid level, fetched with a single `zarr.get` so each Zarr chunk (or shard
- * chunk) is read once, then served to Viv plane by plane.
+ * chunk) is read once, then served to Viv plane by plane and released once
+ * Viv has read it all.
  */
 
 /** The subset of Viv's ZarrPixelSource this module relies on. */
@@ -197,6 +198,15 @@ export class WindowPixelSource {
       this.blocks.set(key, pending);
     }
     return pending;
+  }
+
+  /**
+   * Drop the fetched window once Viv has read it (its VolumeLayer lays out
+   * its own copy for the upload). A later read fetches it again, from the
+   * chunk cache when it still holds the chunks.
+   */
+  release(): void {
+    this.blocks.clear();
   }
 
   async getRaster({ selection }: { selection: Record<string, number>; signal?: AbortSignal }): Promise<Raster> {

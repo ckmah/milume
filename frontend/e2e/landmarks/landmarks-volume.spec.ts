@@ -831,14 +831,15 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("with Labels on each toy cell renders in its category colour in the dock", async ({ page }) => {
-    // Record the width of every RG8 3D texture allocated (the label textures).
+    // Record the width of every R8 (image) and RG8 (labels) 3D texture allocated.
     await page.addInitScript(() => {
-      const widths: number[] = [];
-      (window as any).__rg8Widths = widths;
+      const widths = { r8: [] as number[], rg8: [] as number[] };
+      (window as any).__tex3dWidths = widths;
       const proto = WebGL2RenderingContext.prototype;
       const texStorage3D = proto.texStorage3D;
       proto.texStorage3D = function (this: WebGL2RenderingContext, ...args: Parameters<typeof texStorage3D>) {
-        if (args[2] === this.RG8) widths.push(args[3]);
+        if (args[2] === this.R8) widths.r8.push(args[3]);
+        if (args[2] === this.RG8) widths.rg8.push(args[3]);
         return texStorage3D.apply(this, args);
       };
     });
@@ -849,7 +850,8 @@ test.describe("Landmarks inspect cube", () => {
     await openCubeAtCentre(page, { at: [130, 170] });
     const view = cubeWindow(page).locator(".volume-cube__view");
     // Half-µm centre: the level-0 box is X 80-181, Y 120-221, an odd 101 voxels
-    // wide (RG8 rows of 202 bytes, not 4-byte aligned, like A2's 667).
+    // wide (R8 image rows of 101 bytes and RG8 label rows of 202, not 4-byte
+    // aligned, like A2's 667).
     await setModel(page, { inspect_cx: 130.5, inspect_cy: 170.5 });
     // Maximum intensity puts cells in front of the image, so deep cells show too.
     const bar = page.getByTestId("context-inspect-toolbar");
@@ -857,13 +859,16 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-render", "mip");
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-pan", "0,0");
+    // The image at one byte per voxel.
+    await expect(view).toHaveAttribute("data-image-format", "r8unorm");
+    expect((await page.evaluate(() => (window as any).__tex3dWidths)).r8).toContain(101);
     const off = await view.screenshot();
 
     await toggleShow(page, "Show labels");
     await expect(view).toHaveAttribute("data-channels", "2");
     await expect(view).toHaveAttribute("data-label-cells", "2");
     await expect(view).toHaveAttribute("data-highlight", "2");
-    expect(await page.evaluate(() => (window as any).__rg8Widths)).toContain(101);
+    expect((await page.evaluate(() => (window as any).__tex3dWidths)).rg8).toContain(101);
     const on = await newCategoryPixels(page, off, await view.screenshot());
     // Cell 3 (type1, blue) and cell 2 (type0, orange) both show...
     expect(on.type1.count).toBeGreaterThan(200);

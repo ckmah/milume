@@ -10,6 +10,7 @@ import type { ChunkCache } from "./chunk-cache";
 import { CUBE_EXTENSIONS, type HighlightGroup, type RenderSettings } from "./cell-lut-extension";
 import { type CellVolume, TOO_MANY_CELLS, markVivVolume } from "./cell-volume";
 import { AxisLegend } from "./axis-legend";
+import type { ImageFormat } from "./image-volume";
 import type { Range, ViewPreset } from "./CubeControls";
 import { type CubeFrame, FramedVolumeView, labelPad } from "./frame-layers";
 import { type CubeOverlay, placeOverlays } from "./overlay-layers";
@@ -462,9 +463,16 @@ export function VolumeCube({
   const shownImage = shown?.image ?? null;
   const loader = useMemo(() => (shownImage ? [shownImage] : null), [shownImage]);
   // Tags each volume Viv reads with its window, so the shader draws the labels
-  // of the image Viv is drawing (see CellVolume).
+  // of the image Viv is drawing (see CellVolume). Viv has read the whole window
+  // by then (its own copy, laid out for upload), so the fetched block goes.
   const onViewportLoad = useMemo(
-    () => (shownImage ? (volumes: { data: unknown }[]) => markVivVolume(volumes[0]?.data, shownImage) : undefined),
+    () =>
+      shownImage
+        ? (volumes: { data: unknown }[]) => {
+            markVivVolume(volumes[0]?.data, shownImage);
+            shownImage.release();
+          }
+        : undefined,
     [shownImage],
   );
   const cells = shown?.cells ?? null;
@@ -472,6 +480,9 @@ export function VolumeCube({
   // The label texture a layer draws now (set from the draw, once uploaded).
   const [gpuCells, setGpuCells] = useState<CellVolume | null>(null);
   const onCellsBound = useCallback((c: CellVolume | null) => setGpuCells(c), []);
+  // The format of the image texture a layer draws now (image-volume.ts).
+  const [imageFormat, setImageFormat] = useState<ImageFormat | null>(null);
+  const onImageBound = useCallback((f: ImageFormat | null) => setImageFormat(f), []);
   const cellsOnGpu = Boolean(cells && gpuCells === cells);
   const cellGroups = showLabels ? groups : null;
   const imagePalette = useMemo(() => paletteLut(render.palette), [render.palette]);
@@ -713,6 +724,7 @@ export function VolumeCube({
               cellVolume: cells,
               cellGroups,
               onCellsBound,
+              onImageBound,
               imagePalette,
               render,
               showImage,
@@ -736,6 +748,7 @@ export function VolumeCube({
       cells,
       cellGroups,
       onCellsBound,
+      onImageBound,
       imagePalette,
       render,
       showImage,
@@ -813,6 +826,7 @@ export function VolumeCube({
       data-image={showImage ? "on" : "off"}
       data-labels={labelsState}
       data-channels={channels}
+      data-image-format={imageFormat ?? "none"}
       data-label-format={cellsOnGpu ? "rg8" : "none"}
       data-label-cells={cells?.count ?? 0}
       data-highlight={highlighted.length}
