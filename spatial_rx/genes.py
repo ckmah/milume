@@ -203,10 +203,166 @@ def encode_gene_bundle(
     return meta, base64.b64encode(packed.tobytes()).decode("ascii")
 
 
-# Warn when eager gene payload exceeds this many raw float32 bytes (~25 MiB).
+# Warn when the eager gene payload actually sent exceeds this many raw bytes (~25 MiB).
 GENE_MATRIX_WARN_BYTES = 25 * 1024 * 1024
 # Prefer CSC when nonzero density is below this (and matrix is non-empty).
 _GENE_SPARSE_DENSITY = 0.25
+
+
+def _b64(arr: "np.ndarray") -> str:
+    import numpy as np
+
+    # Encode from the array buffer; ``tobytes()`` would add a full-size copy.
+    return base64.b64encode(np.ascontiguousarray(arr).data).decode("ascii")
+
+
+def _sparse_column_range(stored: "np.ndarray", n_implicit: int) -> tuple[float, float]:
+    """``_normalize_column``'s ``(vmin, vmax)`` for a sparse column.
+
+    ``stored`` holds the explicit entries; ``n_implicit`` more rows are zero.
+    The 99th percentile is taken over the full virtual column (implicit zeros
+    included) without materializing it, using numpy's default linear method.
+    """
+    import numpy as np
+
+    finite = np.sort(stored[np.isfinite(stored)])
+    n = int(finite.size) + int(n_implicit)
+    if n == 0:
+        return 0.0, 1.0
+    split = int(np.searchsorted(finite, 0.0, side="left"))
+
+    def at(k: int) -> float:
+        # Sorted virtual column: finite[:split], n_implicit zeros, finite[split:].
+        if k < split:
+            return float(finite[k])
+        if k < split + n_implicit:
+            return 0.0
+        return float(finite[k - n_implicit])
+
+    vmin = at(0)
+    virtual = 0.99 * (n - 1)
+    lo = math.floor(virtual)
+    hi = min(lo + 1, n - 1)
+    gamma = virtual - lo
+    a, b = at(lo), at(hi)
+    diff = b - a
+    # Same lerp as numpy's percentile (``_lerp``) so vmax matches the dense path.
+    vmax = b - diff * (1.0 - gamma) if gamma >= 0.5 else a + diff * gamma
+    if not math.isfinite(vmax) or vmax <= vmin:
+        vmax = at(n - 1)
+    if not math.isfinite(vmax) or vmax <= vmin:
+        vmax = vmin + 1.0
+    return vmin, vmax
+
+
+def _scale_to_unit(vals: "np.ndarray", vmin: float, vmax: float) -> "np.ndarray":
+    """Same mapping as ``_normalize_column`` for a fixed ``(vmin, vmax)``."""
+    import numpy as np
+
+    norm = ((vals - vmin) / (vmax - vmin)).astype(np.float32)
+    return np.clip(np.nan_to_num(norm, nan=0.0), 0.0, 1.0)
+
+
+def _normalized_sparse_columns(
+    X: Any,
+    names: list[str],
+    adata: Any,
+    n_points: int,
+) -> tuple[list[dict[str, Any]], "np.ndarray", "np.ndarray", "np.ndarray"]:
+    """Normalize selected columns of scipy-sparse ``X`` straight into CSC arrays.
+
+    Never allocates the dense ``n_obs × n_genes`` matrix: work is per column over
+    the stored entries. Only a column whose implicit zeros map to a nonzero value
+    (negative ``vmin``) is materialized, one column at a time. Two passes (count,
+    then fill) let the output arrays be allocated once at their exact size.
+    """
+    import numpy as np
+    from scipy import sparse
+
+    n_obs = int(X.shape[0])
+    if n_obs != n_points:
+        raise ValueError(f"expr rows {n_obs} != n_points {n_points}")
+    idx = [_var_index(adata, name) for name in names]
+    csc = X if X.format == "csc" else sparse.csc_matrix(X)
+    if idx != list(range(csc.shape[1])):
+        csc = csc[:, idx]
+    if not csc.has_canonical_format:
+        # Never canonicalize the caller's matrix in place.
+        csc = csc.copy() if csc is X else csc
+        csc.sum_duplicates()
+
+    def column(j: int) -> tuple["np.ndarray", "np.ndarray", float, float]:
+        a, b = int(csc.indptr[j]), int(csc.indptr[j + 1])
+        rows = csc.indices[a:b]
+        stored = np.asarray(csc.data[a:b], dtype=np.float64)
+        n_implicit = n_obs - (b - a)
+        vmin, vmax = _sparse_column_range(stored, n_implicit)
+        norm = _scale_to_unit(stored, vmin, vmax)
+        zero_as = float(_scale_to_unit(np.zeros(1), vmin, vmax)[0])
+        if n_implicit and zero_as != 0.0:
+            full = np.full(n_obs, zero_as, dtype=np.float32)
+            full[rows] = norm
+            keep_rows = np.flatnonzero(full)
+            return keep_rows, full[keep_rows], vmin, vmax
+        keep = norm != 0.0
+        return rows[keep], norm[keep], vmin, vmax
+
+    meta: list[dict[str, Any]] = []
+    indptr = np.zeros(len(names) + 1, dtype=np.int64)
+    for j, name in enumerate(names):
+        keep_rows, _, vmin, vmax = column(j)
+        meta.append({"name": str(name), "vmin": vmin, "vmax": vmax})
+        indptr[j + 1] = indptr[j] + keep_rows.size
+
+    indices = np.empty(int(indptr[-1]), dtype=np.int32)
+    data = np.empty(int(indptr[-1]), dtype=np.float32)
+    for j in range(len(names)):
+        keep_rows, keep_vals, _, _ = column(j)
+        indices[indptr[j] : indptr[j + 1]] = keep_rows
+        data[indptr[j] : indptr[j + 1]] = keep_vals
+    return meta, indptr, indices, data
+
+
+def _warn_if_large(
+    sent_bytes: int, fmt: str, n_obs: int, n_vars: int, nnz: int
+) -> None:
+    import warnings
+
+    if sent_bytes <= GENE_MATRIX_WARN_BYTES:
+        return
+    detail = f"{fmt}, {n_obs} cells × {n_vars} genes"
+    if fmt == "csc":
+        detail += f", {nnz} nonzeros"
+    warnings.warn(
+        f"LandmarksWidget eager gene payload is {sent_bytes / (1024 ** 2):.1f} MiB "
+        f"({detail}). Pass genes= to restrict the catalog; sending anyway.",
+        UserWarning,
+        stacklevel=4,
+    )
+
+
+def _csc_payload(
+    indptr: "np.ndarray", indices: "np.ndarray", data: "np.ndarray"
+) -> dict[str, str]:
+    import numpy as np
+
+    return {
+        "gene_format": "csc",
+        "gene_values": "",
+        "gene_csc_indptr": _b64(np.asarray(indptr, dtype=np.int32)),
+        "gene_csc_indices": _b64(np.asarray(indices, dtype=np.int32)),
+        "gene_csc_data": _b64(np.asarray(data, dtype=np.float32)),
+    }
+
+
+def _dense_payload(mat: "np.ndarray") -> dict[str, str]:
+    return {
+        "gene_format": "dense",
+        "gene_values": _b64(mat.ravel(order="F")),
+        "gene_csc_indptr": "",
+        "gene_csc_indices": "",
+        "gene_csc_data": "",
+    }
 
 
 def pack_eager_gene_matrix(
@@ -229,16 +385,39 @@ def pack_eager_gene_matrix(
           "gene_csc_data": <b64 float32>,
         }
 
-    Emits a :class:`UserWarning` when the dense float32 footprint exceeds
+    A scipy-sparse ``adata.X`` is normalized straight into CSC arrays (density
+    from the normalized nonzero count) with no dense intermediate; the dense
+    matrix is built only when it is itself the payload. Dense ``X`` packs per
+    column as before.
+
+    Emits a :class:`UserWarning` when the raw bytes actually sent exceed
     :data:`GENE_MATRIX_WARN_BYTES`, but still packs the matrix.
     """
-    import warnings
-
     import numpy as np
     from scipy import sparse
 
     if not names:
         return [], {"gene_format": "dense", "gene_values": ""}
+
+    n_vars = len(names)
+    X = getattr(adata, "X", None)
+    if sparse.issparse(X):
+        meta, indptr, indices, data = _normalized_sparse_columns(
+            X, names, adata, n_points
+        )
+        n_obs = int(n_points)
+        nnz = int(data.size)
+        size = n_obs * n_vars
+        density = nnz / float(size) if size else 1.0
+        if density < _GENE_SPARSE_DENSITY and nnz > 0:
+            # int32 indptr + int32 indices + float32 data on the wire.
+            _warn_if_large(4 * (n_vars + 1) + 8 * nnz, "csc", n_obs, n_vars, nnz)
+            return meta, _csc_payload(indptr, indices, data)
+        mat = sparse.csc_matrix((data, indices, indptr), shape=(n_obs, n_vars)).toarray(
+            order="F"
+        )
+        _warn_if_large(int(mat.nbytes), "dense", n_obs, n_vars, nnz)
+        return meta, _dense_payload(mat)
 
     meta: list[dict[str, Any]] = []
     cols: list[np.ndarray] = []
@@ -251,39 +430,13 @@ def pack_eager_gene_matrix(
         cols.append(norm)
 
     mat = np.column_stack(cols).astype(np.float32, copy=False)
-    n_obs, n_vars = int(mat.shape[0]), int(mat.shape[1])
-    dense_bytes = int(mat.nbytes)
-    if dense_bytes > GENE_MATRIX_WARN_BYTES:
-        warnings.warn(
-            f"LandmarksWidget eager gene matrix is {dense_bytes / (1024 ** 2):.1f} MiB "
-            f"({n_obs} cells × {n_vars} genes). Pass genes= to restrict the catalog; "
-            "sending anyway.",
-            UserWarning,
-            stacklevel=2,
-        )
-
+    n_obs = int(mat.shape[0])
     nnz = int(np.count_nonzero(mat))
     density = nnz / float(mat.size) if mat.size else 1.0
     if density < _GENE_SPARSE_DENSITY and nnz > 0:
         csc = sparse.csc_matrix(mat)
-        return meta, {
-            "gene_format": "csc",
-            "gene_values": "",
-            "gene_csc_indptr": base64.b64encode(
-                np.asarray(csc.indptr, dtype=np.int32).tobytes()
-            ).decode("ascii"),
-            "gene_csc_indices": base64.b64encode(
-                np.asarray(csc.indices, dtype=np.int32).tobytes()
-            ).decode("ascii"),
-            "gene_csc_data": base64.b64encode(
-                np.asarray(csc.data, dtype=np.float32).tobytes()
-            ).decode("ascii"),
-        }
+        _warn_if_large(4 * (n_vars + 1) + 8 * nnz, "csc", n_obs, n_vars, nnz)
+        return meta, _csc_payload(csc.indptr, csc.indices, csc.data)
 
-    return meta, {
-        "gene_format": "dense",
-        "gene_values": base64.b64encode(mat.ravel(order="F").tobytes()).decode("ascii"),
-        "gene_csc_indptr": "",
-        "gene_csc_indices": "",
-        "gene_csc_data": "",
-    }
+    _warn_if_large(int(mat.nbytes), "dense", n_obs, n_vars, nnz)
+    return meta, _dense_payload(mat)

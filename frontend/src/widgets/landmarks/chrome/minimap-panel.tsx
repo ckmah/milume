@@ -103,6 +103,50 @@ function roundRectPath(
   ctx.closePath();
 }
 
+/** Points bitmap, rebuilt only when the points, size, bounds or theme change. */
+type PointsLayerCache = {
+  pointsB64: string;
+  key: string;
+  bitmap: HTMLCanvasElement | null;
+};
+
+/**
+ * Draw every point once into an offscreen canvas. Squares, not arcs: at 1–2 px
+ * they look the same, and one fillRect per point is far cheaper than a path
+ * (358k arcs took ~0.6 s per paint, and the minimap repaints on every view change).
+ */
+function pointsBitmap(
+  pointsB64: string,
+  w: number,
+  h: number,
+  layout: ReturnType<typeof mapLayout>,
+  dpr: number,
+  dark: boolean,
+): HTMLCanvasElement | null {
+  if (!pointsB64) return null;
+  const bitmap = document.createElement("canvas");
+  bitmap.width = w;
+  bitmap.height = h;
+  const ctx = bitmap.getContext("2d");
+  if (!ctx) return null;
+  try {
+    const pts = decodeF32Base64(pointsB64);
+    const n = Math.floor(pts.length / 4);
+    ctx.fillStyle = dark ? "rgba(160,160,160,0.55)" : "rgba(100,100,100,0.45)";
+    const size = Math.max(1.5 * dpr, 2);
+    const half = size / 2;
+    for (let i = 0; i < n; i++) {
+      const x = layout.x0 + ((pts[i * 4] + 1) / 2) * (layout.x1 - layout.x0);
+      const y = layout.y0 + ((pts[i * 4 + 1] + 1) / 2) * (layout.y1 - layout.y0);
+      const [cx, cy] = toCanvasXY(x, y, layout);
+      ctx.fillRect(cx - half, cy - half, size, size);
+    }
+  } catch {
+    /* ignore decode errors */
+  }
+  return bitmap;
+}
+
 function drawMinimap(
   canvas: HTMLCanvasElement,
   opts: {
@@ -111,9 +155,10 @@ function drawMinimap(
     yBounds: number[];
     viewport: WorldBounds | null;
     dark: boolean;
+    cache: PointsLayerCache;
   },
 ) {
-  const { pointsB64, xBounds, yBounds, viewport, dark } = opts;
+  const { pointsB64, xBounds, yBounds, viewport, dark, cache } = opts;
   const cssW = canvas.clientWidth;
   const cssH = canvas.clientHeight;
   // Skip until laid out — do not rewrite the bitmap into a 0×0 box.
@@ -134,24 +179,13 @@ function drawMinimap(
   ctx.fillStyle = dark ? "#141414" : "#e8e8e8";
   ctx.fillRect(0, 0, w, h);
 
-  if (pointsB64) {
-    try {
-      const pts = decodeF32Base64(pointsB64);
-      const n = Math.floor(pts.length / 4);
-      ctx.fillStyle = dark ? "rgba(160,160,160,0.55)" : "rgba(100,100,100,0.45)";
-      const r = Math.max(0.75 * dpr, 1);
-      for (let i = 0; i < n; i++) {
-        const x = layout.x0 + ((pts[i * 4] + 1) / 2) * (layout.x1 - layout.x0);
-        const y = layout.y0 + ((pts[i * 4 + 1] + 1) / 2) * (layout.y1 - layout.y0);
-        const [cx, cy] = toCanvasXY(x, y, layout);
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    } catch {
-      /* ignore decode errors */
-    }
+  const key = `${w}x${h}:${xBounds.join(",")}:${yBounds.join(",")}:${dark}`;
+  if (cache.pointsB64 !== pointsB64 || cache.key !== key) {
+    cache.pointsB64 = pointsB64;
+    cache.key = key;
+    cache.bitmap = pointsBitmap(pointsB64, w, h, layout, dpr, dark);
   }
+  if (cache.bitmap) ctx.drawImage(cache.bitmap, 0, 0);
 
   if (viewport) {
     const [vx0, vy0, vx1, vy1] = viewport;
@@ -199,6 +233,7 @@ export function MinimapPanel({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
+  const pointsCache = useRef<PointsLayerCache>({ pointsB64: "", key: "", bitmap: null });
 
   const paint = useCallback(() => {
     const canvas = canvasRef.current;
@@ -211,6 +246,7 @@ export function MinimapPanel({
       yBounds: lm.y_bounds || [0, 1],
       viewport: engine?.getViewportWorldBounds?.() ?? null,
       dark,
+      cache: pointsCache.current,
     });
   }, [lm.points_data, lm.x_bounds, lm.y_bounds, engine, dark]);
 

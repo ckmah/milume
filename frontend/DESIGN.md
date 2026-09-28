@@ -176,14 +176,15 @@ Framer-neutral greys.
 - Wide left dock: Layers fills remaining height and scrolls inside the card (multi-open accordion; no nested list max-heights)
 - Narrow stack: Info capped (~45%), Layers flex-fills and scrolls
 - Zoom lives in the top tool pill (in / out / reset), not a separate bottom cluster
-- Slider rows: single line — left label + capsule track; fill encodes value; numeral overlays the left of the capsule; thumb nearly invisible until hover/focus
+- Slider rows: single line — left caption + capsule track; fill encodes value; numeral overlays the left of the capsule; thumb nearly invisible until hover/focus. Range sliders (cuts, contrast) use the same capsule
+- Inspect collapses both side docks (peek tabs stay); leaving Inspect restores them
 
 ## Elevation & Depth
 
 - Widget body: soft offset shadow (not flat ring-only)
 - Shared float tokens (`--lm-float-bg`, `--lm-float-blur`, `--lm-float-shadow`) drive every floating chrome surface
 - **Shadow-only Soft Float:** panels and toolbars have no hairline border; elevation is fill + soft drop shadow (craft floor: declare elevation once). `--lm-float-border` stays transparent for token compatibility.
-- Slightly denser frosted fill (~80% card mix) so borderless glass still separates from busy tissue
+- Denser frosted fill (88% card mix, same in light and dark) so borderless glass separates from busy tissue and chrome text holds AA over it
 - Panels and toolbars share the same glass material; `--toolbar` is slightly rounder than `--panel`
 - Inner chrome stays quiet: slider capsules are fill-only (no inset rings); section dividers use spacing, not rules; segmented controls sit in muted trays without outline strokes
 - Tabs / segments: Soft Float sliding pill Tabs (lowercase category / genes / embed) are the Explore color control — `PILL_TABS_LIST` / `PILL_TABS_TRIGGER` in `chrome/sections.ts`.
@@ -235,6 +236,19 @@ Below 640px, Info (capped) then Layers (flex-fill + scroll) share one top-left d
 ### Shared float surface
 
 Tokens on `.landmarks`: `--lm-float-radius`, `--lm-float-border`, `--lm-float-bg`, `--lm-float-blur`, `--lm-float-shadow`. Class `landmarks-float` applies the material; `--panel` / `--toolbar` only change radius. Legacy `landmarks-float-panel` / `landmarks-float-toolbar` alias the same tokens.
+
+### Chrome tokens
+
+One set for the main tool pill, View CTA, context L1/L2, Inspect bar, cube title bar and peek tabs. Class constants in `chrome/primitives.tsx`; values on `.landmarks` in `landmarks.css`.
+
+| Role | Class / constant | Tokens |
+| --- | --- | --- |
+| Toolbar surface | `TOOLBAR_CLASS` (`landmarks-float--toolbar landmarks-toolbar`) | `--lm-toolbar-h` 2.5rem, `--lm-toolbar-pad` / `--lm-toolbar-gap` 0.25rem, `--lm-toolbar-divider` (fg 22%) |
+| Icon hit / toggle item | `chromeHitClass` (`landmarks-hit`), `--wide`, `--text` | `--lm-hit-size` 2rem, full radius, idle `--lm-hit-fg` (fg 72%), hover `--lm-hit-hover-bg` (fg 9%), disabled 0.4 |
+| On state | `aria-pressed="true"`, `data-state="on"`, or `chromeHitOnClass` | `--lm-hit-on-bg` foreground / `--lm-hit-on-fg` background, kept on hover (sliding Explore tabs use it too) |
+| Slider row | `SoftFloatSliderRow` / `SoftFloatCapsuleSlider` / `SoftFloatSignedSlider` | caption (`--lm-caption`) · 1.75rem capsule, readout inside left, neutral `--lm-slider-fill`; ranges are the same capsule with two thumbs |
+| Chip / badge | `CHIP_CLASS` (`landmarks-chip`) | `--lm-chip-bg` card, `--lm-chip-fg` foreground, `--lm-chip-border` (fg 50% into card, ≥3:1 on glass and muted trays) |
+| Swatch edge | `.landmarks-layer-swatch` | `--lm-swatch-ring` (light only, fg 55%) |
 
 ## Do's and Don'ts
 

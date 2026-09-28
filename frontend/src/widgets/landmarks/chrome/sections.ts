@@ -37,7 +37,7 @@ export const COMBO_INPUT =
 export const PILL_TABS_LIST =
   "landmarks-sliding-tabs relative h-8 w-full gap-0 rounded-[var(--lm-float-radius)] p-0.5";
 export const PILL_TABS_TRIGGER =
-  "landmarks-sliding-tab relative z-10 h-full flex-1 rounded-[calc(var(--lm-float-radius)-2px)] border-0 bg-transparent px-2 text-[11px] font-normal lowercase tracking-wide text-foreground/55 shadow-none transition-colors hover:bg-transparent hover:text-foreground/75 data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none dark:text-foreground/60 dark:hover:text-foreground/80 dark:data-[state=active]:bg-transparent dark:data-[state=active]:text-foreground";
+  "landmarks-sliding-tab relative z-10 h-full flex-1 rounded-[calc(var(--lm-float-radius)-2px)] border-0 bg-transparent px-2 text-[11px] font-medium lowercase tracking-wide text-foreground/72 shadow-none transition-colors duration-[var(--lm-tab-pill-dur)] hover:bg-transparent hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-background data-[state=active]:shadow-none dark:text-foreground/72 dark:hover:text-foreground dark:data-[state=active]:bg-transparent dark:data-[state=active]:text-background";
 /** @deprecated Use PILL_TABS_LIST. */
 export const SEGMENT_TRAY = PILL_TABS_LIST;
 /** @deprecated Use PILL_TABS_TRIGGER. */

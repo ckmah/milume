@@ -1,0 +1,111 @@
+{
+  "mode": "select",
+  "selections": [],
+  "landmarks": [],
+  "selected_kind": "",
+  "selected_index": -1,
+  "category_columns": [
+    {
+      "name": "cell_type",
+      "labels": [
+        "type1",
+        "type0"
+      ],
+      "palette": [
+        "#1f77b4",
+        "#ff7f0e"
+      ]
+    }
+  ],
+  "active_category": "cell_type",
+  "gene_columns": [
+    {
+      "name": "0",
+      "vmin": 1.0,
+      "vmax": 2.0
+    }
+  ],
+  "active_genes": [],
+  "gene_scale_mode": "independent",
+  "gene_log1p": false,
+  "gene_expression_logged": false,
+  "color_by": "categorical",
+  "legend_labels": [
+    "type1",
+    "type0"
+  ],
+  "legend_title": "cell_type",
+  "type_neighborhoods": [],
+  "default_buffer_width": 0.0,
+  "neighbor_radius_max": 7.3905886098469855,
+  "neighbor_k_max": 64,
+  "gene_format": "dense",
+  "gene_csc_indptr": "",
+  "gene_csc_indices": "",
+  "gene_csc_data": "",
+  "x_bounds": [
+    68.2,
+    161.8
+  ],
+  "y_bounds": [
+    77.8,
+    192.2
+  ],
+  "point_size": 28.844410203711917,
+  "points_data": "Yid2v2Indr8AAAAAAAAAAGIndj8HRIY+AACAPwAAAABCGqS+Yid2PwAAAAAAAAAA",
+  "point_palette": [
+    "#1f77b4",
+    "#ff7f0e"
+  ],
+  "category_codes": "AAAAAAEAAAAAAAAA",
+  "gene_values": "AAAAAAAAAAAAAAAA",
+  "color_vmin": 0.0,
+  "color_vmax": 1.0,
+  "render_mode": "points",
+  "raster_bin_size": 8.0,
+  "raster_window_radius": 24.0,
+  "raster_basis": "composition",
+  "raster_embedding_key": "",
+  "raster_embedding_keys": [],
+  "raster_embedding_dims": [],
+  "embedding_values": "",
+  "embedding_channel_labels": [],
+  "embedding_matrix": "",
+  "embedding_matrix_dim": 0,
+  "raster_obs_key": "",
+  "raster_gene_mode": "active",
+  "raster_origin_x": 0.0,
+  "raster_origin_y": 0.0,
+  "raster_similarity_enabled": false,
+  "raster_query_bin": -1,
+  "inspect_cx": null,
+  "inspect_cy": null,
+  "volume": {
+    "image_url": "/toy.sdata.zarr/images/mosaic/",
+    "labels_url": "/toy.sdata.zarr/labels/cells/",
+    "voxel_size_um": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "origin_um": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "contrast_limits": [
+      0.0,
+      48.0
+    ]
+  },
+  "volume_label_ids": "AQAAAAIAAAADAAAA",
+  "volume_cut": [
+    0.0,
+    256.0,
+    0.0,
+    256.0,
+    0.0,
+    64.0
+  ],
+  "inspect_size_um": 100.0
+}

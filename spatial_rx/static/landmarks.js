@@ -1216,6 +1216,8 @@ export function mountEngine({ model, host }) {
   let probePauseWorld = null; // {x,y} | null — park point after Esc
   let pinnedProbeWorld = null; // {x,y} | null
   let probeScrubSeq = 0;
+  /** Last scrubbed probe window held no cells (see scrubProbeAtWorld). */
+  let probeDiskWasEmpty = false;
   let pointDiskScoreCache = { key: "", scores: null };
   /** Spatial hash for fallback disk means when bin features are missing. */
   let pointSpatialIndex = { key: "", cellSize: 0, ox: 0, oy: 0, cells: null };
@@ -1506,6 +1508,30 @@ export function mountEngine({ model, host }) {
    * Mean of raw point features inside disk (x,y,R), using a spatial hash.
    * Fallback when packed bin features are unavailable.
    */
+  /** Any point inside the probe window at (x, y)? Bucket lookups only, no features. */
+  function probeDiskHasPoints(x, y) {
+    const pts = getPointsData();
+    const R = probeWindowRadius();
+    if (!(R > 0) || !pts.length) return false;
+    const R2 = R * R;
+    const index = pointSpatialCells(R);
+    const c0 = Math.floor((x - index.ox) / R);
+    const r0 = Math.floor((y - index.oy) / R);
+    for (let dc = -1; dc <= 1; dc++) {
+      for (let dr = -1; dr <= 1; dr++) {
+        const bucket = index.cells.get(`${c0 + dc},${r0 + dr}`);
+        if (!bucket) continue;
+        for (let b = 0; b < bucket.length; b++) {
+          const p = pts[bucket[b]];
+          const dx = p.x - x;
+          const dy = p.y - y;
+          if (dx * dx + dy * dy <= R2) return true;
+        }
+      }
+    }
+    return false;
+  }
+
   function meanRawFeaturesInDisk(x, y) {
     const pts = getPointsData();
     const n = pts.length;
@@ -1787,7 +1813,12 @@ export function mountEngine({ model, host }) {
         quantizeProbeWorld(hoverProbeWorld.x, hoverProbeWorld.y).x !== q.x ||
         quantizeProbeWorld(hoverProbeWorld.x, hoverProbeWorld.y).y !== q.y
       ) {
-        scoresChanged = true;
+        // Off tissue the window holds no cells and the field stays empty: after
+        // the first empty rebuild (which clears the colors), skip rebuilding the
+        // whole point layer until the window reaches cells again.
+        const empty = !probeDiskHasPoints(q.x, q.y);
+        scoresChanged = !(empty && probeDiskWasEmpty);
+        probeDiskWasEmpty = empty;
       }
     }
     // Cursor-aligned window disk (both views): radius = raster_window_radius.
@@ -1829,6 +1860,7 @@ export function mountEngine({ model, host }) {
       stopProbeSmooth();
       changed = true;
     }
+    probeDiskWasEmpty = false;
     if (changed) setDeckLayers();
   }
 
@@ -1879,7 +1911,9 @@ export function mountEngine({ model, host }) {
   }
 
   function similarityRgbaForPoint(i, opacity, probeField) {
-    const field = probeField || activePointProbeScores();
+    // Only an absent field is computed here. A hoisted `null` means "no probe
+    // scores" (e.g. the window holds no cells) and must not re-query per point.
+    const field = probeField === undefined ? activePointProbeScores() : probeField;
     if (!field || !field.scores) return null;
     let t;
     if (field.mode === "bin") {
@@ -2334,8 +2368,22 @@ export function mountEngine({ model, host }) {
     return { x, y, px, py };
   }
 
+  /** Space held: pan like Move in any tool, without changing the synced mode. */
+  let spacePan = false;
+
+  function panActive() {
+    return currentMode === "move" || spacePan;
+  }
+
+  function setSpacePan(on) {
+    if (spacePan === on) return;
+    spacePan = on;
+    webglCanvas.style.cursor = defaultCursor();
+    if (deckgl) deckgl.setProps({ controller: controllerProps() });
+  }
+
   function controllerProps() {
-    const pan = currentMode === "move";
+    const pan = panActive();
     return {
       dragPan: pan,
       scrollZoom: true,
@@ -2345,7 +2393,7 @@ export function mountEngine({ model, host }) {
   }
 
   function defaultCursor() {
-    if (currentMode === "move") return "grab";
+    if (panActive()) return "grab";
     if (currentMode === "select") return "default";
     if (currentMode === "node") return "default";
     if (currentMode === "probe") return "crosshair";
@@ -2590,10 +2638,20 @@ export function mountEngine({ model, host }) {
 
   function getPointsData() {
     const b64 = model.get("points_data") || "";
-    const [xMin, xMax] = model.get("x_bounds");
-    const [yMin, yMax] = model.get("y_bounds");
+    const xBounds = model.get("x_bounds");
+    const yBounds = model.get("y_bounds");
+    // Hot path: called per point by color accessors. Same model values (by
+    // reference) mean the same points, with no string work on a multi-MB pack.
+    if (b64 === pointsCache.b64 && xBounds === pointsCache.xBounds && yBounds === pointsCache.yBounds) {
+      return pointsCache.data;
+    }
+    const [xMin, xMax] = xBounds;
+    const [yMin, yMax] = yBounds;
     const key = `${b64.length}:${xMin}:${xMax}:${yMin}:${yMax}:${b64.slice(0, 32)}:${b64.slice(-32)}`;
-    if (key === pointsCache.key) return pointsCache.data;
+    if (key === pointsCache.key) {
+      pointsCache = { ...pointsCache, b64, xBounds, yBounds };
+      return pointsCache.data;
+    }
     const raw = decodeF32Base64(b64);
     const n = Math.floor(raw.length / 4);
     const data = new Array(n);
@@ -2606,7 +2664,7 @@ export function mountEngine({ model, host }) {
         valueA: raw[o + 2],
       };
     }
-    pointsCache = { key, data };
+    pointsCache = { key, data, b64, xBounds, yBounds };
     spatialIndex = buildSpatialIndex(data);
     return data;
   }
@@ -3416,12 +3474,19 @@ export function mountEngine({ model, host }) {
       buildInspectHaloLayer(),
       ...buildLandmarkLayers(),
       ...buildDraftLayers(),
-      buildVolumeWindowLayer(),
+      ...buildVolumeWindowLayers(),
     ].filter(Boolean);
   }
 
   let volumeWindow = null;
   let volumeWindowSavedAt = 0;
+  let volumeHover = null;
+  let volumeWindowVisible = false;
+  const inspectListeners = new Set();
+
+  function emitInspect(evt) {
+    for (const fn of inspectListeners) fn(evt);
+  }
 
   function setVolumeWindow(x, y, flush) {
     volumeWindow = { x, y };
@@ -3435,30 +3500,55 @@ export function mountEngine({ model, host }) {
     setDeckLayers();
   }
 
-  function buildVolumeWindowLayer() {
-    if (currentMode !== "inspect" || !volumeWindow || !deckModules) return null;
-    const { PolygonLayer } = deckModules;
+  function windowRing(x, y) {
     const size = Number(model.get("inspect_size_um") || 100);
     const half = size / 2;
-    const { x, y } = volumeWindow;
-    const ring = [
+    return [
       [x - half, y - half],
       [x + half, y - half],
       [x + half, y + half],
       [x - half, y + half],
     ];
-    return new PolygonLayer({
-      id: "volume-inspect-window",
-      data: [{ polygon: ring }],
-      getPolygon: (d) => d.polygon,
-      filled: true,
-      stroked: true,
-      getFillColor: [255, 255, 255, 36],
-      getLineColor: [255, 255, 255, 210],
-      getLineWidth: 2,
-      lineWidthUnits: "pixels",
-      pickable: false,
-    });
+  }
+
+  function buildVolumeWindowLayers() {
+    if (!deckModules) return [];
+    const { PolygonLayer } = deckModules;
+    const layers = [];
+    if (volumeWindow && (currentMode === "inspect" || volumeWindowVisible)) {
+      layers.push(
+        new PolygonLayer({
+          id: "volume-inspect-window",
+          data: [{ polygon: windowRing(volumeWindow.x, volumeWindow.y) }],
+          getPolygon: (d) => d.polygon,
+          filled: true,
+          stroked: true,
+          // Saturated blue reads at a glance over any categorical palette (white vanished on pale clusters).
+          getFillColor: [37, 99, 235, 46],
+          getLineColor: [37, 99, 235, 255],
+          getLineWidth: 2.5,
+          lineWidthUnits: "pixels",
+          pickable: false,
+        }),
+      );
+    }
+    if (currentMode === "inspect" && volumeHover) {
+      layers.push(
+        new PolygonLayer({
+          id: "volume-inspect-hover",
+          data: [{ polygon: windowRing(volumeHover.x, volumeHover.y) }],
+          getPolygon: (d) => d.polygon,
+          filled: true,
+          stroked: true,
+          getFillColor: [37, 99, 235, 20],
+          getLineColor: [37, 99, 235, 160],
+          getLineWidth: 1.5,
+          lineWidthUnits: "pixels",
+          pickable: false,
+        }),
+      );
+    }
+    return layers;
   }
 
   function computeDeckViewState(w, h) {
@@ -3699,6 +3789,7 @@ export function mountEngine({ model, host }) {
         getTooltip: deckTooltip,
         getCursor: ({ isDragging, isHovering }) => {
           if (isDragging) return "grabbing";
+          if (spacePan) return "grab";
           if (currentMode === "select" && isHovering) return "pointer";
           if (isLandmarkDrawMode(currentMode) && isHovering) return "pointer";
           return defaultCursor();
@@ -4711,7 +4802,7 @@ export function mountEngine({ model, host }) {
   }
 
   function handleMouseDown(event) {
-    if (currentMode === "move") return;
+    if (panActive()) return;
     if (currentMode === "inspect") {
       if (event.button !== 0) return;
       event.preventDefault();
@@ -4719,6 +4810,7 @@ export function mountEngine({ model, host }) {
       const pt = eventPoint(event);
       if (!pt) return;
       setVolumeWindow(pt.x, pt.y, true);
+      emitInspect({ type: "place", x: pt.x, y: pt.y });
       return;
     }
     // Right/middle clicks must not preventDefault — that blocks contextmenu.
@@ -4858,6 +4950,7 @@ export function mountEngine({ model, host }) {
   }
 
   function handleMouseMove(event) {
+    if (spacePan) return;
     const pt = eventPoint(event);
     if (!pt) return;
     if (isDragging && dragStart && dragIndex >= 0) {
@@ -4875,7 +4968,13 @@ export function mountEngine({ model, host }) {
 
     if (currentMode === "inspect") {
       webglCanvas.style.cursor = "crosshair";
-      if (event.buttons === 1) setVolumeWindow(pt.x, pt.y, false);
+      if (event.buttons === 0) {
+        volumeHover = pt;
+        setDeckLayers();
+      } else if (event.buttons === 1) {
+        setVolumeWindow(pt.x, pt.y, false);
+        emitInspect({ type: "place", x: pt.x, y: pt.y });
+      }
       return;
     }
 
@@ -4954,6 +5053,12 @@ export function mountEngine({ model, host }) {
   }
 
   function handleMouseUp(event) {
+    if (spacePan) return;
+    if (currentMode === "inspect" && volumeWindow && event.button === 0) {
+      // Drag moves save at most every 40 ms: flush the final window position.
+      volumeWindowSavedAt = performance.now();
+      model.save_changes();
+    }
     const vertexDragActive = vertexDragIndex >= 0 || vertexDragLandmarkIndex >= 0;
     if ((currentMode === "select" || currentMode === "node" || currentMode === "move" || currentMode === "probe" || currentMode === "inspect") && !isDragging && !vertexDragActive) return;
     const pt = eventPoint(event);
@@ -5114,6 +5219,10 @@ export function mountEngine({ model, host }) {
             plotStack.contains(into) ||
             container.contains(into)));
       if (!stillOnPlot) clearProbeHover();
+    }
+    if (volumeHover) {
+      volumeHover = null;
+      setDeckLayers();
     }
     if (isDragging) { isDragging = false; dragStart = null; }
     if (vertexDragIndex >= 0 || vertexDragLandmarkIndex >= 0) {
@@ -5326,6 +5435,14 @@ export function mountEngine({ model, host }) {
     const key = event.key;
     const lower = key.length === 1 ? key.toLowerCase() : key;
 
+    // Hold Space to pan in any tool (never while typing, even outside our chrome).
+    if (key === " " && !mod && !event.altKey && !typing) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!event.repeat) setSpacePan(true);
+      return;
+    }
+
     if (key === "Enter") {
       event.preventDefault();
       event.stopPropagation();
@@ -5347,6 +5464,12 @@ export function mountEngine({ model, host }) {
         resetDraft();
         model.set("mode", "select");
         model.save_changes();
+        return;
+      }
+      if (currentMode === "inspect") {
+        volumeHover = null;
+        emitInspect({ type: "close" });
+        setDeckLayers();
         return;
       }
       resetDraft();
@@ -5618,6 +5741,17 @@ export function mountEngine({ model, host }) {
     capture: true,
     signal,
   });
+  window.addEventListener(
+    "keyup",
+    (event) => {
+      if (event.key === " " && spacePan) {
+        event.preventDefault();
+        setSpacePan(false);
+      }
+    },
+    { capture: true, signal },
+  );
+  window.addEventListener("blur", () => setSpacePan(false), { signal });
   document.addEventListener("contextmenu", handleContextMenu, {
     capture: true,
     signal,
@@ -6012,6 +6146,21 @@ export function mountEngine({ model, host }) {
         return { kind, index };
       }
       return null;
+    },
+    subscribeInspect(fn) {
+      if (typeof fn !== "function") return () => {};
+      inspectListeners.add(fn);
+      return () => inspectListeners.delete(fn);
+    },
+    setInspectWindowVisible(v) {
+      volumeWindowVisible = Boolean(v);
+      setDeckLayers();
+    },
+    getInspectOverlay() {
+      return {
+        hover: volumeHover ? [volumeHover.x, volumeHover.y] : null,
+        placed: volumeWindow ? [volumeWindow.x, volumeWindow.y] : null,
+      };
     },
     destroy,
   };

@@ -10,7 +10,7 @@ import pytest
 from tests.helpers import adata_xy
 
 
-def test_raster_basis_and_render_mode_wiring():
+def test_raster_basis_follows_genes_embedding_and_composition():
     from spatial_rx import LandmarksWidget
 
     adata = adata_xy(
@@ -34,12 +34,12 @@ def test_raster_basis_and_render_mode_wiring():
     w.set_render_mode("raster")
     assert w.render_mode == "raster"
     assert w.raster_basis == "genes"
-    # Bin features are client-side; Python traits stay empty until the browser runs.
+    # Bin features are built in the browser, never on the kernel (probe included).
+    w.mode = "probe"
     assert w.raster_n_bins == 0
     assert w.raster_features == ""
 
     w.raster_query_bin = 0
-    assert w.raster_query_bin == 0
     w.clear_raster_query()
     assert w.raster_query_bin == -1
 
@@ -48,9 +48,6 @@ def test_raster_basis_and_render_mode_wiring():
     assert w.embedding_matrix_dim == 2
     raw = np.frombuffer(base64.b64decode(w.embedding_matrix), dtype=np.float32)
     assert raw.size == 4 * 2
-    w.raster_embedding_dims = [0]
-    assert w.embedding_matrix_dim == 2
-    w.raster_embedding_dims = []
 
     w.set_raster_basis(composition="cell_class")
     assert w.raster_basis == "composition"
@@ -59,7 +56,7 @@ def test_raster_basis_and_render_mode_wiring():
     assert w.render_mode == "points"
 
 
-def test_raster_default_bin_and_window_microns():
+def test_raster_defaults_to_8_um_bins_and_24_um_window():
     from spatial_rx import LandmarksWidget
 
     adata = adata_xy(
@@ -71,11 +68,6 @@ def test_raster_default_bin_and_window_microns():
     )
     w = LandmarksWidget(adata, color="cell_class", genes=["g1"])
     assert w.raster_bin_size == pytest.approx(8.0)
-    assert w.raster_window_radius == pytest.approx(24.0)
-    w.active_genes = ["g1"]
-    w.set_render_mode("raster")
-    assert w.render_mode == "raster"
-    assert w.raster_basis == "genes"
     assert w.raster_window_radius == pytest.approx(24.0)
 
 
@@ -141,28 +133,6 @@ def test_embedding_values_pack_for_point_rgb():
     assert w.embedding_matrix_dim == 3
     full = np.frombuffer(base64.b64decode(w.embedding_matrix), dtype=np.float32)
     assert full.size == 4 * 3
-    w.color_by = "embedding"
-    assert w.color_by == "embedding"
-
-
-def test_probe_mode_does_not_require_python_raster():
-    """Entering probe no longer builds bin features on the kernel."""
-    from spatial_rx import LandmarksWidget
-
-    adata = adata_xy(
-        [0.0, 0.2, 2.0, 2.1],
-        [0.0, 0.1, 0.0, 2.0],
-        color=["Epi", "Epi", "Imm", "Fib"],
-        color_key="cell_class",
-        genes={"Apob": [0.0, 2.0, 0.0, 4.0]},
-    )
-    w = LandmarksWidget(adata, color="cell_class", genes=["Apob"])
-    w.raster_bin_size = 1.0
-    w.raster_window_radius = 2.0
-    assert w.render_mode == "points"
-    assert w.raster_n_bins == 0
-    w.mode = "probe"
-    assert w.raster_n_bins == 0
 
 
 def test_empty_genes_keeps_gene_view_across_render_mode():

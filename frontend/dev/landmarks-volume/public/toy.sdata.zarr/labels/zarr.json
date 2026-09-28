@@ -1,0 +1,11 @@
+{
+  "attributes": {
+    "ome": {
+      "labels": [
+        "cells"
+      ]
+    }
+  },
+  "zarr_format": 3,
+  "node_type": "group"
+}

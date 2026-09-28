@@ -74,7 +74,7 @@ function SubcategoryAvatars({ col }: { col: CategoryColumn }) {
         />
       ))}
       {extra > 0 ? (
-        <span className="ml-0.5 text-[9px] font-medium text-foreground/55">
+        <span className="ml-0.5 text-[9px] font-medium text-foreground/75">
           +{extra}
         </span>
       ) : null}
@@ -189,7 +189,7 @@ function CategoryCollapsibleRow({
           <span className="min-w-0 flex-1 truncate">
             {col.name}
             <span
-              className="font-normal text-foreground/55"
+              className="font-normal text-foreground/70"
               title="Unique subcategories"
             >
               {" "}
@@ -289,7 +289,7 @@ export function CategoriesControls({
               <span className="min-w-0 flex-1 truncate">
                 {col.name}
                 <span
-                  className="font-normal text-foreground/55"
+                  className="font-normal text-foreground/70"
                   title="Unique subcategories"
                 >
                   {" "}

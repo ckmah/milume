@@ -2,7 +2,14 @@
 
 from .gallery import GalleryWidget
 from .landmarks import LandmarksWidget
-from .measure import along_positions, composition, distances, write_obs
+from .measure import (
+    along_positions,
+    composition,
+    distances,
+    enrichment,
+    nearest_distances,
+    write_obs,
+)
 from .spatialdata_landmarks import (
     geodataframe_to_landmarks,
     landmarks_to_geodataframe,
@@ -19,7 +26,9 @@ __all__ = [
     "along_positions",
     "composition",
     "distances",
+    "enrichment",
     "geodataframe_to_landmarks",
     "landmarks_to_geodataframe",
+    "nearest_distances",
     "write_obs",
 ]

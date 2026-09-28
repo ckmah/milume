@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -35,20 +36,17 @@ import {
   SoftFloatSliderReset,
 } from "./soft-float-slider";
 import {
+  CHIP_CLASS,
   ChromeTooltip,
   ColorSwatch,
+  TOOLBAR_CLASS,
   ToolbarDivider,
   chromeHitClass,
   chromeHitOnClass,
+  chromeHitWideClass,
 } from "./primitives";
 
-const toggleHitClass =
-  "size-8 min-w-8 rounded-full border-0 px-0 text-muted-foreground shadow-none hover:bg-muted hover:text-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-none data-[spacing=1]:rounded-full";
-
-const pillClass =
-  "landmarks-float landmarks-float--toolbar pointer-events-auto flex min-h-10 items-center gap-1 px-1.5 py-0.5 text-card-foreground";
-
-function IconBtn({
+export function IconBtn({
   title,
   active,
   onClick,
@@ -75,13 +73,7 @@ function IconBtn({
         aria-pressed={active || false}
         disabled={disabled}
         data-testid={testId}
-        className={cn(
-          chromeHitClass,
-          expandable && "w-auto gap-0.5 px-1.5",
-          active && chromeHitOnClass,
-          disabled && "opacity-40",
-          "active:scale-[0.97] transition-transform",
-        )}
+        className={expandable ? chromeHitWideClass : chromeHitClass}
         onClick={(e) => {
           e.stopPropagation();
           onClick();
@@ -117,23 +109,26 @@ function ColorControl({
       {LANDMARK_COLORS.map((c) => {
         const on = c.toLowerCase() === color.toLowerCase();
         return (
-          <button
+          <Button
             key={c}
             type="button"
+            variant="ghost"
+            size="icon-sm"
             title={c}
             aria-label={`Color ${c}`}
+            aria-pressed={on}
             onClick={(e) => {
               e.stopPropagation();
               onChange(c);
             }}
-            className={cn(chromeHitClass, "leading-none", on && chromeHitOnClass)}
+            className={chromeHitClass}
           >
             <ColorSwatch
               color={c}
               variant="landmark"
               className="!size-4 !min-h-4 !min-w-4 shrink-0"
             />
-          </button>
+          </Button>
         );
       })}
       <label
@@ -151,7 +146,12 @@ function ColorControl({
             className="!size-4 !min-h-4 !min-w-4 shrink-0"
           />
         ) : (
-          <span className="flex size-4 items-center justify-center rounded-full border border-dashed border-border text-[10px] font-semibold leading-none text-muted-foreground">
+          <span
+            className={cn(
+              CHIP_CLASS,
+              "flex size-4 items-center justify-center rounded-full border-dashed text-[10px] font-semibold leading-none",
+            )}
+          >
             +
           </span>
         )}
@@ -169,7 +169,7 @@ function ColorControl({
 }
 
 /** L2 stack anchored above a single L1 control (not the full toolbar). */
-function ToolStack({
+export function ToolStack({
   open,
   panel,
   children,
@@ -185,7 +185,7 @@ function ToolStack({
           className="pointer-events-auto absolute bottom-[calc(100%+0.375rem)] z-10"
           data-testid="context-l2-anchor"
         >
-          <div className={pillClass}>{panel}</div>
+          <div className={TOOLBAR_CLASS}>{panel}</div>
         </Rise>
       ) : null}
       {children}
@@ -222,7 +222,7 @@ function SignedBufferSlider({
     <div
       // Wide enough for signed capsule + Both + Reset so actions stay inside
       // the Soft Float `landmarks-float--toolbar` pill (not floating beside it).
-      className="flex min-w-[20rem] items-center gap-1 px-0.5"
+      className="landmarks-slider-row min-w-[22rem] px-0.5"
       data-testid="context-buffer-panel"
       title={
         isPoint
@@ -238,15 +238,17 @@ function SignedBufferSlider({
           step={max / 200 || 0.01}
           onValueChange={(v) => onSigned(v, both)}
           displayValue={display}
+          caption="Buffer"
           aria-label="Buffer radius"
           testId="context-buffer-width"
-          className="min-w-[180px]"
+          className="min-w-[15rem]"
           onReset={onReset}
           resetTitle="Reset buffer"
           resetTestId="context-buffer-reset"
         />
       ) : (
         <>
+          <Label className="landmarks-slider-caption">Buffer</Label>
           <SoftFloatSignedSlider
             value={signed}
             min={-max}
@@ -371,7 +373,7 @@ export function SelectionToolbar({
         onClick={(e) => e.stopPropagation()}
         onWheel={(e) => e.stopPropagation()}
       >
-        <div className={cn(pillClass, "pointer-events-auto")} data-testid="context-toolbar-l1">
+        <div className={TOOLBAR_CLASS} data-testid="context-toolbar-l1">
           {showLandmarkBar ? (
             <>
               <div className="flex items-center gap-1">
@@ -439,13 +441,11 @@ export function SelectionToolbar({
                     open={lmL2 === "tension"}
                     panel={
                       <div
-                        className="flex min-w-[180px] items-center gap-2 px-0.5"
+                        className="flex min-w-[15rem] px-0.5"
                         data-testid="context-tension"
                       >
-                        <span className="shrink-0 text-[0.6875rem] text-muted-foreground">
-                          Tension
-                        </span>
                         <SoftFloatCapsuleSlider
+                          caption="Tension"
                           value={Number(selectedLm?.tension ?? 0)}
                           min={0}
                           max={1}
@@ -621,7 +621,7 @@ export function SelectionToolbar({
                   value="radius"
                   aria-label="Radius neighborhood"
                   data-testid="context-hood-radius-mode"
-                  className={cn(toggleHitClass, "w-auto gap-0.5 px-1.5")}
+                  className={chromeHitWideClass}
                 >
                   <ChromeTooltip label="Radius neighborhood">
                     <span className="inline-flex items-center gap-0.5">
@@ -634,7 +634,7 @@ export function SelectionToolbar({
                   value="knn"
                   aria-label="k-NN neighborhood"
                   data-testid="context-hood-knn-mode"
-                  className={cn(toggleHitClass, "w-auto gap-0.5 px-1.5")}
+                  className={chromeHitWideClass}
                 >
                   <ChromeTooltip label="k-NN neighborhood">
                     <span className="inline-flex items-center gap-0.5">
@@ -647,9 +647,10 @@ export function SelectionToolbar({
               {hoodMode !== "off" ? (
                 <>
                   <ToolbarDivider />
-                  <div className="flex min-w-[140px] items-center gap-2 px-0.5">
+                  <div className="flex min-w-[13rem] items-center gap-1.5 px-0.5">
                     {hoodMode === "radius" ? (
                       <SoftFloatCapsuleSlider
+                        caption="r"
                         testId="context-hood-radius"
                         value={Math.min(
                           Number(hood?.neighborhood_radius || 0),
@@ -683,6 +684,7 @@ export function SelectionToolbar({
                       />
                     ) : (
                       <SoftFloatCapsuleSlider
+                        caption="k"
                         testId="context-hood-k"
                         value={Math.min(
                           Number(hood?.neighborhood_k || 12),

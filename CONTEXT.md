@@ -8,8 +8,8 @@ Point scatter, landmarks, selections, and drafts use deck.gl orthographic
 layers via `LandmarksWidget(adata, color=..., genes=...)`. AnnData is the
 analysis object: coordinates in `obsm["spatial"]`, labels in `obs`,
 expression in `X`. The widget holds a **reference** to the caller’s AnnData
-(no `obs.copy()`, no full-`X` densify beyond the eager gene pack for the
-browser). Gene names and expression pack at construct for view-only coloring
+(no `obs.copy()`, no dense copy of `X`; sparse expression packs straight to
+CSC). Gene names and expression pack at construct for view-only coloring
 (`genes=` restricts the catalog; large matrices warn but still send). Chrome
 follows the notebook cell width. Marker radius is derived from median
 nearest-neighbor distance; opacity and default buffer are fixed or computed
@@ -25,6 +25,13 @@ Synced on interaction: `landmarks`, `selections`, and selection focus. Other
 chrome state is client-local; hydrate payloads (points, genes, categories,
 embeddings) cross the wire at construct. Raster bin features and probe scores
 are built entirely in the browser.
+
+`LandmarksWidget(sdata)` also reads a SpatialData on disk: the table's labels
+element, a 3D image on the same grid, and their µm frame. **Inspect** opens a
+**cube** of the inspect window inside the widget; its rendering controls are
+client-local, and cells are colored from the category panel in the browser.
+Only `volume` (config), `volume_label_ids` and `volume_cut` are synced
+([ADR 0006](docs/adr/0006-landmarks-hosts-volume-cube.md)).
 
 ## Language
 

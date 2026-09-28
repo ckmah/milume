@@ -39,8 +39,21 @@ Keep **2–3 visual anchors per widget** for the biggest state changes. Everythi
 | `shared-chrome-rest` | Shared toolbar / docks / shadcn controls |
 
 Obsolete Soft Float assertions removed: Selection ModeToggle radio, Inspect pin chip, near-zero line click-click path.
+VolumeCube `labels-on` and `highlight-on` captures were dropped: they are not anchors and never had baselines.
+
+Prefer `expect.poll` / web-first `expect` over `waitForTimeout`. A fixed wait is only for a
+negative check that must outlast a debounce (e.g. "nothing written back" past the cube's
+settle commit) and should say so in a comment.
 
 Canonical platform: **Linux Chromium** (GitHub Actions). macOS soft-skips screenshots unless `E2E_SCREENSHOTS=1`.
+
+The Landmarks toolbar regroup (lasso/landmark dropdowns, cube icon), panel
+peek tabs, and the shared `VolumeCube` component all changed chrome pixels:
+regenerate the Landmarks `rest` snapshot, the core `shared-chrome-rest`
+snapshot, and the VolumeCube snapshots (`rest`, `window-on-sphere`,
+`labels-off`) on Linux/CI (`npm run test:e2e:update:landmarks` /
+`test:e2e:update:core` / `test:e2e:update:volume-cube`) rather than trusting a
+locally-generated baseline.
 
 ## Run locally
 
@@ -69,13 +82,18 @@ E2E_SCREENSHOTS=0 npm run test:e2e
 ```
 
 Harness: Vite per tier via `playwright.config.ts` `webServer` (`dev:landmarks` default;
-`E2E_HARNESS=volume-cube` for volume-cube tier).
+`E2E_HARNESS=volume-cube` for volume-cube tier; `E2E_HARNESS=landmarks-volume` for
+`landmarks-volume.spec.ts`, a Landmarks harness with a toy SpatialData that
+also has a 3D image, so its Inspect cube opens).
+
+`npm run test:e2e:landmarks` already runs both: the `landmarks-volume` harness
+against `landmarks-volume.spec.ts`, then the default `dev:landmarks` harness
+against the rest of `e2e/landmarks/`.
 
 Hooks:
 
 - Landmarks: `window.__landmarksEngine` / `__landmarksModel`
 - VolumeCube: `window.__volumeCubeModel` (harness exposes mock model)
-- Notebook link: both hooks + `data-testid="notebook-link-banner"` (`dev:notebook-link`)
 
 ## CI artifacts
 

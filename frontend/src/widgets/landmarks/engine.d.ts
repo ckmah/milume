@@ -72,6 +72,12 @@ export type EngineHandle = {
     }) => void,
   ): () => void;
   getInspectPin(): { kind: string; index: number } | null;
+  /** Inspect placements: "place" on pointer down / drag, "close" on Esc in Inspect. */
+  subscribeInspect(fn: (evt: { type: "place" | "close"; x?: number; y?: number }) => void): () => void;
+  /** Keep the placed square drawn outside Inspect while the cube is open. */
+  setInspectWindowVisible(visible: boolean): void;
+  /** Test probe: { hover: [x, y] | null, placed: [x, y] | null }. */
+  getInspectOverlay(): { hover: number[] | null; placed: number[] | null };
   destroy(): void;
 };
 

@@ -21,7 +21,11 @@ analysis markdown cell updates with the cell count and current Z slab.
 ## Driving it with Playwright
 
 Not fully automated in headless marimo today. Offline proof is pytest for
-``cells_in_inspect_window`` plus notebook-link for inspect → window sync.
+``cells_in_inspect_window``; the manual two-widget notebook link this demo
+cell depends on (`inspect_cx` copied onto a separate `VolumeCubeWidget`) has
+no Playwright coverage since the notebook-link harness and spec were removed
+— Landmarks' own inline cube ([`inspect-cube`](../../verify-landmarks/features/inspect-cube.md))
+is the Playwright-proved path today.
 
 **Proof**
 
@@ -30,5 +34,5 @@ Not fully automated in headless marimo today. Offline proof is pytest for
 
 ## Gotchas
 
-- Analysis cell is marimo-only; CI uses pytest + notebook-link harness.
+- Analysis cell is marimo-only; CI uses pytest only for this contract (no e2e harness left for the two-widget link).
 - Z slab default (64 planes) is set by ``VolumeCubeWidget.from_url`` for GPU safety.

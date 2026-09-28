@@ -2,7 +2,7 @@
 
 Patching `window_cx` / `window_cy` on the model updates the chrome readout without canvas interaction.
 
-**Spec:** `frontend/e2e/volume-cube/volume-cube.spec.ts` — `"model patch updates window readout without inspect drag"`
+**Spec:** `frontend/e2e/volume-cube/volume-cube.spec.ts` — `"model patches update the window and axis slice readout"` (window half)
 
 ## Sub-features
 
@@ -21,20 +21,16 @@ await bootVolumeCubeHarness(page);
 const widget = volumeCubeWidget(page);
 
 await setVolumeModel(page, { window_cx: 64, window_cy: 192 });
-await page.waitForTimeout(150);
-
-expect(Number(await getVolumeModel(page, "window_cx"))).toBeCloseTo(64, 0);
-expect(Number(await getVolumeModel(page, "window_cy"))).toBeCloseTo(192, 0);
-await expect(widget.getByText(/window 64, 192 · 100 µm · X 0–256 · Y 0–256 · Z 0–64/)).toBeVisible();
+await expect(widget.getByText(/window 64, 192 · 100 µm · X 14–114 · Y 142–242 · Z 0–64/)).toBeVisible();
 ```
 
-Helpers: `bootVolumeCubeHarness`, `setVolumeModel`, `getVolumeModel`, `volumeCubeWidget`.
+Helpers: `bootVolumeCubeHarness`, `setVolumeModel`, `volumeCubeWidget`.
 
 Model keys: `window_cx`, `window_cy`.
 
 **Proof**
 
-- Functional: model values and readout text match the patch.
+- Functional: readout text matches the patch.
 
 ## Gotchas
 

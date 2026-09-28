@@ -1,0 +1,2 @@
+# Zarr chunks are binary; keep line endings untouched.
+public/** -text

@@ -21,7 +21,7 @@ shape — only discrete clicks count.
 **Spline (negative drag, positive click path):**
 
 ```ts
-await page.getByRole("radio", { name: "Spline", exact: true }).click();
+await clickLandmarkTool(page, "Spline"); // landmark ▾ dropdown
 const beforeSpline = ((await getModel(page, "landmarks")) as unknown[]).length;
 
 // Drag must NOT commit:
@@ -41,14 +41,14 @@ await page.keyboard.press("Enter");
 **Shape (same pattern, three clicks):**
 
 ```ts
-await page.getByRole("radio", { name: "Shape", exact: true }).click();
+await clickLandmarkTool(page, "Shape"); // landmark ▾ dropdown
 // drag → no commit; Escape; three clicks; Enter
 // type "shape", vertices.length === 3
 ```
 
 Helpers: `bootLandmarksHarness`, `getModel`, `canvasBox`.
 
-Selectors: `getByRole("radio", { name: "Spline" \| "Shape", exact: true })`.
+Selectors: `clickLandmarkTool(page, "Spline" \| "Shape")` (helpers.ts; the landmark tools live in the landmark ▾ dropdown).
 
 Model keys: `landmarks`.
 

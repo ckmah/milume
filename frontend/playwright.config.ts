@@ -5,8 +5,8 @@ const webServerCommands: Record<string, string> = {
   landmarks: "npm run dev:landmarks -- --host 127.0.0.1 --port 5173 --strictPort",
   "volume-cube":
     "npm run dev:volume-cube -- --host 127.0.0.1 --port 5173 --strictPort",
-  "notebook-link":
-    "npm run dev:notebook-link -- --host 127.0.0.1 --port 5173 --strictPort",
+  "landmarks-volume":
+    "npm run dev:landmarks-volume -- --host 127.0.0.1 --port 5173 --strictPort",
 };
 const webServerCommand =
   webServerCommands[harness] ?? webServerCommands.landmarks;
@@ -14,6 +14,8 @@ const webServerCommand =
 /** Canonical visual snapshots: Linux Chromium (CI). Mac soft-skips unless E2E_SCREENSHOTS=1. */
 export default defineConfig({
   testDir: "./e2e",
+  // The inspect-cube spec needs the toy SpatialData served by its own harness.
+  testIgnore: harness === "landmarks-volume" ? undefined : "**/landmarks-volume.spec.ts",
   timeout: 90_000,
   expect: {
     timeout: 15_000,

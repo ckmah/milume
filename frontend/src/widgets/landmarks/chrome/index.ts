@@ -9,3 +9,6 @@ export { ViewCta } from "./view-cta";
 export { CanvasRulers } from "./canvas-rulers";
 export type { PanelSectionId } from "./sections";
 export { RightChromeStack } from "./right-stack";
+export { CubeWindow } from "./cube-window";
+export { InspectToolbar, InspectNoVolumePill } from "./inspect-toolbar";
+export { PanelCollapseButton, PanelPeekTab } from "./panel-peek";

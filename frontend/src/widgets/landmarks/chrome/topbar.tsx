@@ -1,144 +1,28 @@
 import {
-  ChevronDownIcon,
   Maximize2Icon,
   MaximizeIcon,
   MinimizeIcon,
   MinusIcon,
   PlusIcon,
 } from "lucide-react";
-import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 import {
   INTERACTION_MODE_IDS,
   GEOMETRY_MODE_IDS,
   LANDMARK_MODE_IDS,
-  MODE_LABELS,
-  MODE_SHORTCUTS,
-  isGeometryMode,
   interactionFromMode,
 } from "../helpers";
+import { ModeDropdown } from "./mode-dropdown";
 import {
   ChromeTooltip,
   ModeToggle,
+  TOOLBAR_CLASS,
   ToolbarDivider,
   chromeHitClass,
-  chromeHitOnClass,
-  chromeMenuClass,
-  modeIcon,
 } from "./primitives";
-
-function SelectionShapeMenu({
-  geometryModes,
-  mode,
-  onMode,
-}: {
-  geometryModes: string[];
-  mode: string;
-  onMode: (mode: string) => void;
-}) {
-  const [menuContainer, setMenuContainer] = useState<HTMLElement | null>(null);
-  const [open, setOpen] = useState(false);
-
-  if (!geometryModes.length) return null;
-  const active = isGeometryMode(mode);
-  const defaultMode = geometryModes.includes("lasso")
-    ? "lasso"
-    : geometryModes[0];
-  const current = active ? mode : defaultMode;
-  const Icon = modeIcon(current);
-  const label = MODE_LABELS[current] ?? "Lasso";
-
-  return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <div className="relative">
-        <ChromeTooltip
-          label={`${label} · right-click for shape`}
-          shortcut={MODE_SHORTCUTS[current]}
-        >
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className={cn(
-                chromeHitClass,
-                "w-auto gap-0.5 px-1.5",
-                active && chromeHitOnClass,
-              )}
-              aria-label={`${label}. Right-click for shape menu.`}
-              aria-pressed={active}
-              aria-haspopup="menu"
-              ref={(node) => {
-                setMenuContainer(
-                  node?.closest(
-                    ".spatial-rx-widget, .landmarks",
-                  ) as HTMLElement | null,
-                );
-              }}
-              onPointerDown={(e) => {
-                // Left click: activate geometry mode only (do not open menu).
-                if (e.button === 0) {
-                  e.preventDefault();
-                  if (!active) onMode(defaultMode);
-                }
-              }}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                setOpen(true);
-              }}
-            >
-              <Icon className="size-4" />
-              <ChevronDownIcon className="size-2.5 shrink-0 opacity-70" />
-            </Button>
-          </DropdownMenuTrigger>
-        </ChromeTooltip>
-        <DropdownMenuContent
-          align="start"
-          sideOffset={8}
-          container={menuContainer}
-          className={chromeMenuClass}
-          onCloseAutoFocus={(e) => e.preventDefault()}
-        >
-          {geometryModes.map((id) => {
-            const ItemIcon = modeIcon(id);
-            const itemLabel = MODE_LABELS[id] ?? id;
-            const isActive = mode === id;
-            return (
-              <DropdownMenuItem
-                key={id}
-                className={cn(
-                  "gap-2 py-1 text-xs",
-                  isActive &&
-                    "bg-accent text-accent-foreground focus:bg-accent focus:text-accent-foreground",
-                )}
-                onSelect={() => onMode(id)}
-              >
-                <ItemIcon className="size-3.5" />
-                <span className="flex-1">{itemLabel}</span>
-                {MODE_SHORTCUTS[id] ? (
-                  <span className="text-[10px] text-muted-foreground tabular-nums">
-                    {MODE_SHORTCUTS[id]}
-                  </span>
-                ) : null}
-              </DropdownMenuItem>
-            );
-          })}
-        </DropdownMenuContent>
-      </div>
-    </DropdownMenu>
-  );
-}
 
 export function Topbar({
   modes,
@@ -171,7 +55,7 @@ export function Topbar({
   return (
     <TooltipProvider delayDuration={80} skipDelayDuration={0}>
       <div
-        className="landmarks-float landmarks-float--toolbar pointer-events-auto flex min-h-10 items-center gap-1 px-1.5 py-1 text-card-foreground"
+        className={TOOLBAR_CLASS}
         role="toolbar"
         aria-label="Drawing tools"
         onMouseDown={(e) => e.stopPropagation()}
@@ -184,21 +68,26 @@ export function Topbar({
             onChange={onMode}
           />
         ) : null}
+        {geometryModes.length || landmarkModes.length ? (
+          <ToolbarDivider />
+        ) : null}
         {geometryModes.length ? (
-          <>
-            <ToolbarDivider />
-            <SelectionShapeMenu
-              geometryModes={geometryModes}
-              mode={mode}
-              onMode={onMode}
-            />
-          </>
+          <ModeDropdown
+            modes={geometryModes}
+            mode={mode}
+            onMode={onMode}
+            fallbackLabel="Lasso"
+            menuNoun="shape"
+          />
         ) : null}
         {landmarkModes.length ? (
-          <>
-            <ToolbarDivider />
-            <ModeToggle modes={landmarkModes} value={mode} onChange={onMode} />
-          </>
+          <ModeDropdown
+            modes={landmarkModes}
+            mode={mode}
+            onMode={onMode}
+            fallbackLabel="Point"
+            menuNoun="landmark"
+          />
         ) : null}
         <ToolbarDivider />
         <ChromeTooltip label="Zoom in" shortcut="=">

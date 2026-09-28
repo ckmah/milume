@@ -47,9 +47,36 @@
   /* Shared Soft Float surface — panels + toolbars (shadow-only elevation) */
   --lm-float-radius: calc(var(--radius) + 0.25rem);
   --lm-float-border: transparent;
-  --lm-float-bg: color-mix(in oklab, var(--card) 80%, transparent);
+  /* One fill for every theme: dense enough that chrome text holds AA over tissue. */
+  --lm-float-bg: color-mix(in oklab, var(--card) 88%, transparent);
   --lm-float-blur: blur(14px) saturate(1.05);
   --lm-float-shadow: 0 4px 12px color-mix(in srgb, #000 8%, transparent);
+
+  /*
+   * Shared chrome tokens — every toolbar (main, view, context L1/L2, Inspect,
+   * cube title bar), every icon hit / segmented toggle, every slider row and
+   * every chip read these. See DESIGN.md "Chrome tokens".
+   */
+  --lm-toolbar-h: 2.5rem;
+  --lm-toolbar-pad: 0.25rem;
+  --lm-toolbar-gap: 0.25rem;
+  --lm-toolbar-divider: color-mix(in oklab, var(--foreground) 22%, transparent);
+  --lm-hit-size: 2rem;
+  --lm-hit-radius: 9999px;
+  --lm-hit-fg: color-mix(in oklab, var(--foreground) 72%, transparent);
+  --lm-hit-hover-bg: color-mix(in oklab, var(--foreground) 9%, transparent);
+  --lm-hit-hover-fg: var(--foreground);
+  --lm-hit-on-bg: var(--foreground);
+  --lm-hit-on-fg: var(--background);
+  --lm-hit-disabled-opacity: 0.4;
+  --lm-caption: color-mix(in oklab, var(--foreground) 72%, transparent);
+  /* Chips / badges / readout pills: opaque card fill + a 3:1 edge. */
+  --lm-chip-bg: var(--card);
+  --lm-chip-fg: var(--foreground);
+  --lm-chip-border: color-mix(in oklab, var(--foreground) 50%, var(--card));
+  /* Outer ring on layer / colour swatches (light only: neon on white needs an edge). */
+  --lm-swatch-ring: transparent;
+  --lm-switch-off: color-mix(in oklab, var(--foreground) 50%, transparent);
 
   /* transitions.dev motion tokens — scoped to widget (Soft Float Operate) */
   --duration-stagger: 40ms;
@@ -115,7 +142,6 @@
     --lm-halo: #ffffff;
     /* Opaque radius-neighborhood wash (~30% #00e5cc on black). */
     --lm-neigh-fill: #00453d;
-    --lm-float-bg: color-mix(in oklab, var(--card) 78%, transparent);
     --lm-float-border: transparent;
     --lm-float-shadow:
       0 1px 0 rgb(255 255 255 / 5%) inset,
@@ -137,7 +163,6 @@
   --lm-tooltip-text: #0f172a;
   --lm-halo: #ffffff;
   --lm-neigh-fill: #00453d;
-  --lm-float-bg: color-mix(in oklab, var(--card) 78%, transparent);
   --lm-float-border: transparent;
   --lm-float-shadow:
     0 1px 0 rgb(255 255 255 / 5%) inset,
@@ -154,9 +179,9 @@
   --lm-tooltip-text: #f8fafc;
   --lm-halo: #ffffff;
   --lm-neigh-fill: #b3f2e8;
-  --lm-float-bg: color-mix(in oklab, var(--card) 82%, transparent);
   --lm-float-border: transparent;
   --lm-float-shadow: 0 4px 12px color-mix(in srgb, #000 7%, transparent);
+  --lm-swatch-ring: color-mix(in oklab, var(--foreground) 55%, transparent);
 }
 
 .landmarks__body {
@@ -496,8 +521,143 @@
   background: transparent;
 }
 
-.landmarks-mode-toggle [data-slot="toggle-group-item"] {
+/*
+ * One toolbar: main tools, View CTA, context L1 + L2, Inspect bar and the
+ * "no 3D image" pill all use `.landmarks-toolbar` on the float surface
+ * (`TOOLBAR_CLASS` in chrome/primitives.tsx). Unlayered, so it beats Tailwind.
+ */
+.landmarks-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--lm-toolbar-gap);
+  min-height: var(--lm-toolbar-h);
+  padding: var(--lm-toolbar-pad);
+  box-sizing: border-box;
+  color: var(--card-foreground);
+}
+
+/* Text-only toolbar (status pill): wider inline pad. */
+.landmarks-toolbar.landmarks-toolbar--text {
+  gap: 0.375rem;
+  padding-inline: 0.75rem;
+}
+
+.landmarks-toolbar-divider[data-slot="separator"] {
+  flex: none;
+  align-self: center;
+  width: 1px;
+  height: 1.25rem;
+  margin-inline: 0.125rem;
+  background: var(--lm-toolbar-divider);
+}
+
+/*
+ * One hit target: every icon button, dropdown trigger, segmented toggle item
+ * and the peek / collapse tabs (`chromeHitClass`). On = pressed / checked
+ * toggle item, inverted in both themes and kept on hover.
+ */
+.landmarks-hit {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  box-sizing: border-box;
+  width: var(--lm-hit-size);
+  min-width: var(--lm-hit-size);
+  height: var(--lm-hit-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--lm-hit-radius);
+  background: transparent;
+  color: var(--lm-hit-fg);
   box-shadow: none;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-quick) var(--ease-out),
+    color var(--duration-quick) var(--ease-out),
+    transform var(--duration-micro) var(--ease-out);
+}
+
+.landmarks-hit:hover {
+  background: var(--lm-hit-hover-bg);
+  color: var(--lm-hit-hover-fg);
+}
+
+.landmarks-hit:active {
+  transform: scale(0.97);
+}
+
+.landmarks-hit:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+/* Icon + chevron (dropdown / L2 openers, palette). */
+.landmarks-hit--wide {
+  width: auto;
+  padding-inline: 0.375rem;
+}
+
+/* Text segment (camera presets, projection). */
+.landmarks-hit--text {
+  width: auto;
+  padding-inline: 0.625rem;
+}
+
+.landmarks-hit[aria-pressed="true"],
+.landmarks-hit[data-state="on"],
+.landmarks-hit.landmarks-hit--on,
+.landmarks-hit[aria-pressed="true"]:hover,
+.landmarks-hit[data-state="on"]:hover,
+.landmarks-hit.landmarks-hit--on:hover {
+  background: var(--lm-hit-on-bg);
+  color: var(--lm-hit-on-fg);
+}
+
+.landmarks-hit:disabled,
+.landmarks-hit[data-disabled] {
+  opacity: var(--lm-hit-disabled-opacity);
+  pointer-events: none;
+}
+
+.landmarks-hit svg {
+  flex: none;
+}
+
+/* Hit on its own float (peek / collapse tabs): same states, glass at rest. */
+.landmarks-float.landmarks-hit {
+  background: var(--lm-float-bg);
+}
+
+.landmarks-float.landmarks-hit:hover {
+  background: color-mix(in oklab, var(--lm-float-bg), var(--foreground) 9%);
+}
+
+/* Toolbar captions (Labels switch, slider captions). */
+.landmarks-toolbar-caption {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--lm-caption);
+}
+
+/* Off switches need a visible track on glass (shadcn --input is ~1.4:1). */
+.landmarks-toolbar [data-slot="switch"][data-unchecked] {
+  background: var(--lm-switch-off);
+}
+
+/*
+ * Chips — gene chips, readout pills, the "+" custom colour well. Opaque card
+ * fill, foreground text, 3:1 edge against glass and muted trays.
+ */
+.landmarks-chip {
+  border: 1px solid var(--lm-chip-border);
+  background: var(--lm-chip-bg);
+  color: var(--lm-chip-fg);
 }
 
 /*
@@ -708,6 +868,8 @@
   min-height: var(--lm-layer-swatch);
   line-height: 0;
   vertical-align: middle;
+  /* 3:1 edge for neon / slate swatches on light glass (transparent in dark). */
+  box-shadow: 0 0 0 1px var(--lm-swatch-ring);
 }
 
 /* Leading glyphs in a layer row (chevron) — square, container-bound. */
@@ -821,14 +983,15 @@
 }
 
 .landmarks--dark .landmarks-slider-control {
-  background: color-mix(in oklab, var(--muted) 45%, transparent);
-  --lm-slider-fill: color-mix(in oklab, var(--foreground) 22%, var(--card));
+  /* Empty track must read against dark glass (muted alone is ~1.1:1). */
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+  --lm-slider-fill: color-mix(in oklab, var(--foreground) 26%, var(--card));
   --lm-slider-thumb: color-mix(in oklab, var(--foreground) 70%, var(--muted-foreground));
 }
 
 .landmarks--light .landmarks-slider-control {
   background: color-mix(in oklab, var(--muted) 65%, transparent);
-  --lm-slider-fill: color-mix(in oklab, var(--popover) 88%, var(--foreground));
+  --lm-slider-fill: color-mix(in oklab, var(--popover) 80%, var(--foreground));
 }
 
 /* Capsule value slider — inner track fills the control; range flush to track. */
@@ -929,6 +1092,40 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 45%, transparent);
 }
 
+/*
+ * One slider row for every slider in the chrome (single, range, signed):
+ * caption · capsule (readout inside, left) · optional trailing actions.
+ * `SoftFloatSliderRow` in chrome/soft-float-slider.tsx.
+ */
+.landmarks-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.landmarks-slider-caption {
+  flex: none;
+  min-width: var(--lm-slider-caption-w, auto);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--lm-caption);
+  white-space: nowrap;
+}
+
+/* Stacked rows (Cuts / Image / Cells): captions share one column. */
+.landmarks-slider-stack {
+  --lm-slider-caption-w: 3.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.125rem 0.25rem;
+}
+
+.landmarks-slider-row .landmarks-slider-control {
+  min-width: 7.5rem;
+}
+
 /* Signed-only: 0 snap mark (regular sliders omit this). */
 .landmarks-slider-center {
   pointer-events: none;
@@ -967,6 +1164,55 @@
 
 .landmarks__chrome-view > * {
   pointer-events: auto;
+}
+
+/* Inspect cube: floating over the map (and the docks), under the top tools. */
+.landmarks__cube-window {
+  z-index: 21;
+}
+
+.landmarks__cube-resize {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  cursor: nwse-resize;
+  touch-action: none;
+  background: transparent;
+}
+
+.landmarks__cube-resize::after {
+  content: "";
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--lm-text-muted);
+  border-bottom: 2px solid var(--lm-text-muted);
+  border-bottom-right-radius: 3px;
+  opacity: 0.5;
+  transition: opacity var(--duration-quick) var(--ease-out);
+}
+
+.landmarks__cube-resize:hover::after {
+  opacity: 0.9;
+}
+
+/* Cube title bar: same height, pad and gap as every toolbar. */
+.landmarks__cube-titlebar {
+  display: flex;
+  align-items: center;
+  gap: var(--lm-toolbar-gap);
+  min-height: var(--lm-toolbar-h);
+  padding: var(--lm-toolbar-pad);
+  padding-inline-start: 0.75rem;
+  box-sizing: border-box;
+  touch-action: none;
 }
 
 .landmarks--fs .landmarks__chrome-context,
@@ -1337,8 +1583,8 @@
   z-index: 0;
   height: calc(100% - 4px);
   border-radius: calc(var(--lm-float-radius) - 2px);
-  /* Same wash as category / selection / landmark active rows. */
-  background: var(--lm-layer-active-bg, color-mix(in srgb, var(--accent) 55%, transparent));
+  /* Same on state as every chrome toggle: inverted, 3:1+ against the glass. */
+  background: var(--lm-hit-on-bg);
   box-shadow: none;
   transition:
     transform var(--lm-tab-pill-dur) var(--ease-smooth-out),
@@ -1348,11 +1594,7 @@
   pointer-events: none;
 }
 
-.dark .landmarks-sliding-tabs__pill,
-.landmarks--dark .landmarks-sliding-tabs__pill {
-  background: var(--lm-layer-active-bg, color-mix(in srgb, var(--accent) 55%, transparent));
-  box-shadow: none;
-}
+
 
 @media (prefers-reduced-motion: reduce) {
   .landmarks-sliding-tabs__pill {
@@ -1563,7 +1805,37 @@
     right 400ms cubic-bezier(0.2, 0, 0, 1),
     bottom 400ms cubic-bezier(0.2, 0, 0, 1),
     margin 400ms cubic-bezier(0.2, 0, 0, 1),
-    transform 400ms cubic-bezier(0.2, 0, 0, 1);
+    transform 180ms ease,
+    opacity 180ms ease;
+}
+
+/* Dock collapses off-screen to its outer edge; the peek tab takes over. */
+.landmarks__chrome-dock--left.landmarks__chrome-dock--collapsed {
+  transform: translateX(calc(-100% - var(--lm-chrome-inset)));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.landmarks__chrome-dock--right.landmarks__chrome-dock--collapsed {
+  transform: translateX(calc(100% + var(--lm-chrome-inset)));
+  opacity: 0;
+  pointer-events: none;
+}
+
+.landmarks__peek-tab {
+  position: absolute;
+  top: calc(var(--lm-chrome-band) + var(--lm-chrome-gap));
+  z-index: 17;
+}
+
+.landmarks__peek-tab--left {
+  left: 0;
+  border-radius: 0 9999px 9999px 0;
+}
+
+.landmarks__peek-tab--right {
+  right: 0;
+  border-radius: 9999px 0 0 9999px;
 }
 
 .landmarks--rulers .landmarks__chrome-tools {

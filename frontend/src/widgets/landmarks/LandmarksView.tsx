@@ -3,6 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNotebookTheme } from "@/hooks/use-notebook-theme";
 import { cn } from "@/lib/utils";
 
+import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
+
+import { decodeF32Base64, decodeI32Base64 } from "./binary";
 import {
   LayersPanel,
   MinimapPanel,
@@ -12,8 +15,14 @@ import {
   ViewCta,
   RightChromeStack,
   CanvasRulers,
+  CubeWindow,
+  InspectToolbar,
+  InspectNoVolumePill,
+  PanelCollapseButton,
+  PanelPeekTab,
 } from "./chrome";
 import { FLOAT_PANEL } from "./chrome/sections";
+import { cubeHighlightGroups } from "./cube-highlight";
 import { mountEngine, type EngineHandle } from "./engine";
 import {
   GEOMETRY_MODE_IDS,
@@ -22,6 +31,7 @@ import {
   type AnyModel,
 } from "./helpers";
 import { wrapLandmarksModel } from "./model";
+import { useInspectCube } from "./use-inspect-cube";
 import { useLandmarksModel } from "./use-landmarks-model";
 import { useWidgetFullscreen } from "./use-widget-fullscreen";
 
@@ -29,6 +39,8 @@ const SHELL_HEIGHT = 550;
 const MIN_HEIGHT = 400;
 const MAX_HEIGHT = 1400;
 const NARROW_BREAKPOINT = 640;
+const NO_GROUPS: HighlightGroup[] = [];
+
 const ALL_MODES = [
   ...INTERACTION_MODE_IDS,
   ...GEOMETRY_MODE_IDS,
@@ -55,8 +67,79 @@ export function LandmarksView({
   const [engine, setEngine] = useState<EngineHandle | null>(null);
   const [shellHeight, setShellHeight] = useState(defaultHeight);
   const [narrow, setNarrow] = useState(false);
+  const [collapsed, setCollapsed] = useState({ left: false, right: false });
   const savedHeightRef = useRef<number | null>(null);
   const wasFullscreenRef = useRef(false);
+
+  const inspectCube = useInspectCube(facade, lm, engine);
+  const { hasVolume, cube, patchCube } = inspectCube;
+
+  // Decode each packed buffer once per string, and only when there is a cube.
+  const points = useMemo(
+    () => (hasVolume ? decodeF32Base64(lm.points_data) : null),
+    [hasVolume, lm.points_data],
+  );
+  const labelIds = useMemo(
+    () => (hasVolume && lm.volume_label_ids ? decodeI32Base64(lm.volume_label_ids) : null),
+    [hasVolume, lm.volume_label_ids],
+  );
+  const codes = useMemo(
+    () => (hasVolume && lm.category_codes ? decodeI32Base64(lm.category_codes) : null),
+    [hasVolume, lm.category_codes],
+  );
+  const groups = useMemo(() => {
+    if (!cube.open || !points || lm.inspect_cx == null || lm.inspect_cy == null) return NO_GROUPS;
+    return cubeHighlightGroups({
+      points,
+      xBounds: lm.x_bounds,
+      yBounds: lm.y_bounds,
+      labelIds,
+      codes,
+      columns: lm.category_columns.map((c) => ({
+        name: c.name,
+        labels: c.labels ?? [],
+        palette: c.palette ?? [],
+      })),
+      activeCategory: lm.active_category,
+      colorBy: lm.color_by,
+      focus: { kind: lm.selected_kind, index: lm.selected_index },
+      selections: lm.selections,
+      window: { cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um || 100 },
+    });
+  }, [
+    cube.open,
+    points,
+    lm.x_bounds,
+    lm.y_bounds,
+    labelIds,
+    codes,
+    lm.category_columns,
+    lm.active_category,
+    lm.color_by,
+    lm.selected_kind,
+    lm.selected_index,
+    lm.selections,
+    lm.inspect_cx,
+    lm.inspect_cy,
+    lm.inspect_size_um,
+  ]);
+  const inspecting = lm.mode === "inspect";
+
+  // Inspect clears the map: both docks collapse on entry (peek tabs stay, so
+  // either can be reopened), and leaving restores the docks as they were.
+  // Client-local, like the rest of the collapse state.
+  const collapsedRef = useRef(collapsed);
+  collapsedRef.current = collapsed;
+  const preInspectRef = useRef<typeof collapsed | null>(null);
+  useEffect(() => {
+    if (inspecting) {
+      preInspectRef.current = collapsedRef.current;
+      setCollapsed({ left: true, right: true });
+    } else if (preInspectRef.current) {
+      setCollapsed(preInspectRef.current);
+      preInspectRef.current = null;
+    }
+  }, [inspecting]);
 
   const syncEngineLayout = useCallback(() => {
     engineRef.current?.resize();
@@ -89,6 +172,29 @@ export function LandmarksView({
     ro.observe(el);
     setNarrow(el.clientWidth < NARROW_BREAKPOINT);
     return () => ro.disconnect();
+  }, []);
+
+  // "[" / "]" toggle the left / right dock's collapsed state. Ignore key
+  // events aimed at text entry so shortcuts don't fire while typing.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "[" && e.key !== "]") return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName;
+      const editable =
+        tag === "INPUT" ||
+        tag === "TEXTAREA" ||
+        target?.isContentEditable ||
+        Boolean(target?.closest?.("[contenteditable]"));
+      if (editable) return;
+      e.preventDefault();
+      const side = e.key === "[" ? "left" : "right";
+      setCollapsed((c) => ({ ...c, [side]: !c[side] }));
+    };
+    el.addEventListener("keydown", onKeyDown);
+    return () => el.removeEventListener("keydown", onKeyDown);
   }, []);
 
   useEffect(() => {
@@ -169,6 +275,7 @@ export function LandmarksView({
         lm.show_rulers && "landmarks--rulers",
       )}
       data-rulers={lm.show_rulers ? "on" : "off"}
+      onKeyDown={inspectCube.onKeyDown}
     >
       <div
         className="landmarks__body"
@@ -213,7 +320,32 @@ export function LandmarksView({
           />
         </div>
 
-        <SelectionToolbar lm={lm} engine={engine} />
+        {inspecting && hasVolume && cube.open ? (
+          <InspectToolbar
+            settings={cube}
+            patch={patchCube}
+            labelsAvailable={Boolean(lm.volume?.labels_url)}
+            cut={inspectCube.cut}
+            cutRanges={inspectCube.cutRanges}
+            onCutLive={inspectCube.onCutLive}
+            onCutCommit={inspectCube.onCutCommit}
+          />
+        ) : inspecting && !hasVolume ? (
+          <InspectNoVolumePill />
+        ) : (
+          <SelectionToolbar lm={lm} engine={engine} />
+        )}
+
+        {hasVolume && cube.open ? (
+          <CubeWindow
+            lm={lm}
+            settings={cube}
+            patch={patchCube}
+            cut={inspectCube.cut}
+            dark={dark}
+            groups={groups}
+          />
+        ) : null}
 
         <div
           className="landmarks__chrome-view"
@@ -224,36 +356,77 @@ export function LandmarksView({
         </div>
 
         {narrow ? (
-          <div
-            className="landmarks__chrome-dock landmarks__chrome-dock--left landmarks__chrome-dock--narrow-stack"
-            onMouseDown={(e) => e.stopPropagation()}
-            onWheel={(e) => e.stopPropagation()}
-          >
+          <>
             <div
               className={cn(
-                FLOAT_PANEL,
-                "flex h-full min-h-0 max-h-full flex-1 flex-col",
+                "landmarks__chrome-dock landmarks__chrome-dock--left landmarks__chrome-dock--narrow-stack",
+                collapsed.left && "landmarks__chrome-dock--collapsed",
               )}
-              data-testid="info-explore-stack"
+              data-collapsed={collapsed.left ? "true" : "false"}
+              inert={collapsed.left}
+              onMouseDown={(e) => e.stopPropagation()}
+              onWheel={(e) => e.stopPropagation()}
             >
-              <RightChromeStack lm={lm} engine={engine} />
+              <PanelCollapseButton
+                side="left"
+                onCollapse={() => setCollapsed((c) => ({ ...c, left: true }))}
+              />
+              <div
+                className={cn(
+                  FLOAT_PANEL,
+                  "flex h-full min-h-0 max-h-full flex-1 flex-col",
+                )}
+                data-testid="info-explore-stack"
+              >
+                <RightChromeStack lm={lm} engine={engine} />
+              </div>
+              <LayersPanel lm={lm} />
             </div>
-            <LayersPanel lm={lm} />
-          </div>
+            {collapsed.left ? (
+              <PanelPeekTab
+                side="left"
+                onExpand={() => setCollapsed((c) => ({ ...c, left: false }))}
+              />
+            ) : null}
+          </>
         ) : (
           <>
             <div
-              className="landmarks__chrome-dock landmarks__chrome-dock--left"
+              className={cn(
+                "landmarks__chrome-dock landmarks__chrome-dock--left",
+                collapsed.left && "landmarks__chrome-dock--collapsed",
+              )}
+              data-collapsed={collapsed.left ? "true" : "false"}
+              inert={collapsed.left}
               onMouseDown={(e) => e.stopPropagation()}
               onWheel={(e) => e.stopPropagation()}
             >
+              <PanelCollapseButton
+                side="left"
+                onCollapse={() => setCollapsed((c) => ({ ...c, left: true }))}
+              />
               <LayersPanel lm={lm} />
             </div>
+            {collapsed.left ? (
+              <PanelPeekTab
+                side="left"
+                onExpand={() => setCollapsed((c) => ({ ...c, left: false }))}
+              />
+            ) : null}
             <div
-              className="landmarks__chrome-dock landmarks__chrome-dock--right"
+              className={cn(
+                "landmarks__chrome-dock landmarks__chrome-dock--right",
+                collapsed.right && "landmarks__chrome-dock--collapsed",
+              )}
+              data-collapsed={collapsed.right ? "true" : "false"}
+              inert={collapsed.right}
               onMouseDown={(e) => e.stopPropagation()}
               onWheel={(e) => e.stopPropagation()}
             >
+              <PanelCollapseButton
+                side="right"
+                onCollapse={() => setCollapsed((c) => ({ ...c, right: true }))}
+              />
               <div
                 className={cn(
                   FLOAT_PANEL,
@@ -264,6 +437,12 @@ export function LandmarksView({
                 <RightChromeStack lm={lm} engine={engine} />
               </div>
             </div>
+            {collapsed.right ? (
+              <PanelPeekTab
+                side="right"
+                onExpand={() => setCollapsed((c) => ({ ...c, right: false }))}
+              />
+            ) : null}
             <div
               className="landmarks__chrome-minimap"
               onMouseDown={(e) => e.stopPropagation()}

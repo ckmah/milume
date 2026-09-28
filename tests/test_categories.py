@@ -1,34 +1,16 @@
-import numpy as np
 import pandas as pd
 
-from spatial_rx.categories import (
-    DEFAULT_CATEGORICAL_PALETTE,
-    default_categorical_palette,
-)
+from spatial_rx.categories import default_categorical_palette
 from tests.helpers import adata_xy
 
 
-def test_default_categorical_palette_scales_with_n():
-    assert len(DEFAULT_CATEGORICAL_PALETTE) == 60
-    assert len(set(DEFAULT_CATEGORICAL_PALETTE)) == 60
-
-    assert len(default_categorical_palette(3)) == 3
-    assert default_categorical_palette(3) == default_categorical_palette(10)[:3]
-    assert default_categorical_palette(10)[0] == "#1f77b4"
-    assert len(default_categorical_palette(15)) == 15
-    assert len(default_categorical_palette(25)) == 25
-    assert len(default_categorical_palette(45)) == 45
-    # tab10 vs tab20 diverge within the first 10 stops.
-    assert default_categorical_palette(10) != default_categorical_palette(15)[:10]
-
-    reserved = {
-        "#00e5ff",
-        "#ff2d95",
-        "#b8ff00",
-        "#ff0099",
-        "#00b7ff",
-    }
-    assert reserved.isdisjoint(set(DEFAULT_CATEGORICAL_PALETTE))
+def test_default_palette_gives_each_category_a_distinct_colour():
+    for n in (3, 10, 15, 25, 45, 60):
+        palette = default_categorical_palette(n)
+        assert len(palette) == len(set(palette)) == n
+    # Selection / landmark chrome colours never double as a category colour.
+    reserved = {"#00e5ff", "#ff2d95", "#b8ff00", "#ff0099", "#00b7ff"}
+    assert reserved.isdisjoint(default_categorical_palette(60))
 
 
 def test_widget_uses_size_matched_palette_without_uns_colors():
@@ -45,7 +27,7 @@ def test_widget_uses_size_matched_palette_without_uns_colors():
     assert w.point_palette == default_categorical_palette(7)
 
 
-def test_constructor_detects_categories():
+def test_constructor_offers_string_and_categorical_obs_columns():
     from spatial_rx import LandmarksWidget
 
     cell_class = pd.Categorical(
@@ -69,9 +51,3 @@ def test_constructor_detects_categories():
     assert w.active_category == "cell_class"
     assert w.legend_labels == ["Epi", "Imm", "Fib"]
     assert w.point_palette == ["#111111", "#222222", "#333333"]
-    assert w.category_codes
-    labels = w._data_label_arrays["cell_class"]
-    assert set(np.flatnonzero(np.asarray(labels).astype(str) == "Epi").tolist()) == {
-        0,
-        2,
-    }

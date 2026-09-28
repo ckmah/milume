@@ -10,6 +10,14 @@ VolumeCube harness loads the toy OME-Zarr and renders an isometric Viv volume wi
 - `.volume-cube` shell mounts with Reset, Labels switch
 - Default window readout at center (128, 128) · 100 µm with full-volume slice ranges
 - WebGL canvas visible inside the volume host
+- Z is the vertical axis (`Z_UP` model matrix): the orbit spins around the stack and
+  Z slicing cuts horizontal slabs
+- Home camera (load + Reset) frames the upright `window_size_um` inspect window box
+  (horizontal diagonal × foreshortened stack height), not the whole volume
+- Image display range from the `contrast_limits` trait (default `[0, 48]`)
+- Only the inspect window is loaded (`window-source.ts`): one box cut from the
+  finest pyramid level within a 64 M voxel budget, fetched once and served to
+  Viv plane by plane; the readout appends `· level N` when above level 0
 
 ## How to get to it (user POV)
 
@@ -36,7 +44,8 @@ Helpers: `bootVolumeCubeHarness`, `volumeCubeWidget`, `shot`.
 
 Selectors: `.volume-cube`, `getByRole("button", { name: "Reset" })`.
 
-Model keys: `image_url`, `window_cx`, `window_cy`, `window_size_um`.
+Model keys: `image_url`, `window_cx`, `window_cy`, `window_size_um`, `contrast_limits`,
+`voxel_size_um`, `origin_um`.
 
 **Proof**
 
@@ -46,4 +55,5 @@ Model keys: `image_url`, `window_cx`, `window_cy`, `window_size_um`.
 ## Gotchas
 
 - Wait for OME-Zarr load via `bootVolumeCubeHarness` — do not snapshot while `"Loading volume…"` is shown.
+- Harness models omit `contrast_limits`; the view falls back to `[0, 48]`.
 - Playwright must set `E2E_HARNESS=volume-cube` (via `npm run test:e2e:volume-cube`) so the correct Vite root starts.

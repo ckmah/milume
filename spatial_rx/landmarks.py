@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import base64
 import math
+import warnings
 from typing import TYPE_CHECKING, Any
 
+import numpy as np
 import traitlets
 from anndata import AnnData
 from anywidget import AnyWidget
@@ -395,26 +397,39 @@ class LandmarksWidget(AnyWidget):
     raster_threshold = traitlets.Float(0.0).tag(sync=True)
     raster_status = traitlets.Unicode("").tag(sync=True)
 
+    # 3D cube (LandmarksWidget(sdata)): Python-set config, per-cell label ids, and
+    # the cut box the widget writes on slider release. Rendering controls are
+    # client-local (ADR 0005 / 0006).
+    volume = traitlets.Dict(default_value={}).tag(sync=True)
+    volume_label_ids = traitlets.Unicode("").tag(sync=True)  # base64 int32, table order
+    volume_cut = traitlets.List(traitlets.Float(), default_value=[]).tag(sync=True)
+
     def __init__(
         self,
-        adata: AnnData,
+        adata: AnnData | Any,
         *,
         spatial_key: str = "spatial",
         color: str | None = None,
         genes: str | list[str] | None = None,
+        table: str | None = None,
+        image: str | bool | None = None,
+        labels: str | bool | None = None,
+        contrast_limits: tuple[float, float] | None = None,
     ) -> None:
-        """Build from AnnData.
-
-        Coordinates in ``obsm[spatial_key]``. Neighborhood expand is client-side
-        (no ``obsp`` graphs). Expression for the gene picker is packed eagerly::
+        """Build from AnnData, or from a SpatialData (cube inferred).
 
             w = LandmarksWidget(adata, color="cell_type")
-            w = LandmarksWidget(adata, color="cell_type", genes=["GeneA", "GeneB"])
+            w = LandmarksWidget(sdata)  # table, labels, 3D image and frame inferred
         """
         import numpy as np
 
+        volume_source = None
+        if not isinstance(adata, AnnData) and hasattr(adata, "tables"):
+            from .volume_source import resolve_volume
+
+            adata, volume_source = resolve_volume(adata, table=table, image=image, labels=labels)
         if not isinstance(adata, AnnData):
-            raise TypeError("LandmarksWidget(adata) requires an AnnData")
+            raise TypeError("LandmarksWidget(data) requires an AnnData or a SpatialData")
 
         if spatial_key not in adata.obsm:
             raise ValueError(f"adata.obsm[{spatial_key!r}] is required")
@@ -570,6 +585,33 @@ class LandmarksWidget(AnyWidget):
             self.set_color(gene_color, legend_title=str(color))
         self._pack_embedding_values()
         self._pack_embedding_matrix()
+
+        self._volume_server = None
+        if volume_source is not None:
+            self._attach_volume(volume_source, contrast_limits)
+
+    def _attach_volume(self, src: Any, contrast_limits: tuple[float, float] | None) -> None:
+        from .volume_cube import DEFAULT_CONTRAST_LIMITS, serve_directory
+
+        # Only the cube's image and labels: the rest of the store (tables,
+        # expression) stays off the loopback server.
+        allow = (f"images/{src.image}/",) + ((f"labels/{src.labels}/",) if src.labels else ())
+        server, base = serve_directory(src.root, allow_prefixes=allow)
+        self._volume_server = server
+        (sz, sy, sx), (oz, oy, ox), (d, h, w) = src.voxel_size_um, src.origin_um, src.shape_zyx
+        self.volume = {
+            "image_url": f"{base}/images/{src.image}/",
+            "labels_url": f"{base}/labels/{src.labels}/" if src.labels else "",
+            "voxel_size_um": [sz, sy, sx],
+            "origin_um": [oz, oy, ox],
+            "contrast_limits": [float(v) for v in (contrast_limits or DEFAULT_CONTRAST_LIMITS)],
+        }
+        if src.label_ids is not None:
+            ids = np.asarray(src.label_ids, dtype=np.int32)
+            if ids.size and int(ids.max()) >= 2**22:  # 2048 x 2048 lookup texels
+                warnings.warn("label ids above 4,194,303 are not coloured in the cube", UserWarning, stacklevel=3)
+            self.volume_label_ids = base64.b64encode(ids.tobytes()).decode("ascii")
+        self.volume_cut = [ox, ox + w * sx, oy, oy + h * sy, oz, oz + d * sz]
 
     def set_neighbor_graphs(self, *args: Any, **kwargs: Any) -> None:
         """Removed: neighborhood expand is client-side.
@@ -882,6 +924,21 @@ class LandmarksWidget(AnyWidget):
             legend_title=legend_title,
             continuous_range=continuous_range,
         )
+
+    def category_colors(self, column: str | None = None) -> dict[str, str]:
+        """Label -> hex colour of a categorical column, as the map draws it.
+
+        Defaults to the active category. Use it to colour other views (plots,
+        ``VolumeCubeWidget.highlight_cells``) the same way as the points.
+        """
+        name = column or self.active_category
+        for meta in self.category_columns:
+            if meta.get("name") == name:
+                return {
+                    str(label): str(color)
+                    for label, color in zip(meta["labels"], meta["palette"])
+                }
+        raise KeyError(f"{name!r} is not a categorical column of this widget")
 
     def clear_selections(self) -> None:
         self.selections = []

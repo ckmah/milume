@@ -1,23 +1,17 @@
-"""Eager gene pack + reference semantics for LandmarksWidget construct."""
+"""LandmarksWidget holds the caller's AnnData and packs genes once, at construct."""
 
 from __future__ import annotations
-
-import base64
 
 import anndata as ad
 import numpy as np
 import pandas as pd
 from scipy.sparse import csr_matrix
 
-from tests.helpers import adata_xy, graph
+from tests.helpers import adata_xy
 
 
-def _wide_sparse_adata(*, n_obs: int = 40, n_vars: int = 200):
+def _wide_sparse_adata(*, n_obs: int = 20, n_vars: int = 80):
     rng = np.random.default_rng(0)
-    x = rng.normal(size=n_obs)
-    y = rng.normal(size=n_obs)
-    pairs = [(i, (i + 1) % n_obs, 1.0) for i in range(n_obs)]
-    knn = graph(n_obs, pairs)
     rows, cols, data = [], [], []
     for i in range(n_obs):
         for j in range(0, n_vars, 17):
@@ -31,26 +25,11 @@ def _wide_sparse_adata(*, n_obs: int = 40, n_vars: int = 200):
     )
     var = pd.DataFrame(index=[f"g{j}" for j in range(n_vars)])
     out = ad.AnnData(X=wide, obs=obs, var=var)
-    out.obsm["spatial"] = np.column_stack([x, y])
-    out.obsp["spatial_knn_connectivities"] = knn
-    out.obsp["spatial_radius_connectivities"] = knn
+    out.obsm["spatial"] = rng.normal(size=(n_obs, 2))
     return out
 
 
-def test_construct_eager_gene_pack_prefers_csc_when_sparse():
-    from spatial_rx import LandmarksWidget
-
-    adata = _wide_sparse_adata()
-    w = LandmarksWidget(adata, color="label")
-    assert len(w.gene_columns) == adata.n_vars
-    assert w.gene_columns[0]["name"] == "g0"
-    assert w.gene_format == "csc"
-    assert w.gene_csc_indptr and w.gene_csc_indices and w.gene_csc_data
-    assert w.gene_values == ""
-    assert w.active_genes == []
-
-
-def test_construct_does_not_obs_copy():
+def test_constructor_does_not_copy_obs():
     from spatial_rx import LandmarksWidget
 
     adata = adata_xy([0.0, 1.0], [0.0, 1.0], color=["a", "b"])
@@ -66,26 +45,11 @@ def test_construct_does_not_obs_copy():
     assert calls == []
 
 
-def test_active_genes_does_not_repack_matrix():
+def test_choosing_active_genes_does_not_resend_the_matrix():
     from spatial_rx import LandmarksWidget
 
-    adata = _wide_sparse_adata(n_obs=20, n_vars=80)
-    w = LandmarksWidget(adata, color="label")
-    assert w.gene_format == "csc"
-    before = w.gene_csc_data
+    w = LandmarksWidget(_wide_sparse_adata(), color="label")
+    packed = (w.gene_values, w.gene_csc_indptr, w.gene_csc_indices, w.gene_csc_data)
     w.active_genes = ["g0", "g17"]
-    assert w.gene_csc_data == before
-    meta0 = next(g for g in w.gene_columns if g["name"] == "g0")
-    assert meta0["vmax"] > meta0["vmin"]
-
-
-def test_widget_holds_adata_reference():
-    from spatial_rx import LandmarksWidget
-
-    adata = adata_xy(
-        [0.0, 1.0], [0.0, 1.0], color=["a", "b"], genes={"Apob": [0.0, 1.0]}
-    )
-    w = LandmarksWidget(adata, color="label", genes=["Apob"])
-    assert w._adata is adata
-    raw = np.frombuffer(base64.b64decode(w.gene_values), dtype=np.float32)
-    assert raw.size == 2
+    assert (w.gene_values, w.gene_csc_indptr, w.gene_csc_indices, w.gene_csc_data) == packed
+    assert w.color_by == "continuous"

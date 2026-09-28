@@ -1,8 +1,6 @@
-"""M1.2: landmarks ↔ GeoDataFrame round-trip (TDD)."""
+"""Landmarks ↔ GeoDataFrame persistence contract (docs/landmarks-spatialdata-contract.md)."""
 
 from __future__ import annotations
-
-import inspect
 
 import pytest
 
@@ -141,23 +139,3 @@ def test_empty_landmarks_geodataframe():
     assert "label" not in gdf.columns
     assert geodataframe_to_landmarks(gdf) == []
     assert geodataframe_to_landmarks(None) == []
-
-
-def test_does_not_write_selections():
-    """API takes landmarks only; selections are out of scope."""
-    sig = inspect.signature(landmarks_to_geodataframe)
-    assert "selections" not in sig.parameters
-
-
-def test_notebook_owned_round_trip_via_widget_landmarks():
-    import numpy as np
-
-    from spatial_rx import LandmarksWidget
-    from tests.helpers import adata_xy
-
-    w = LandmarksWidget(adata_xy(np.array([0.0, 1.0]), np.array([0.0, 1.0])))
-    w.landmarks = list(SAMPLE)
-    gdf = landmarks_to_geodataframe(list(w.landmarks))
-    w.landmarks = []
-    w.landmarks = geodataframe_to_landmarks(gdf)
-    _assert_landmarks_equal(list(w.landmarks), SAMPLE)

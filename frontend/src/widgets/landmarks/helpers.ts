@@ -3,6 +3,9 @@ export const KEYBOARD_SHORTCUTS: { action: string; keys: string }[] = [
   { action: "Select", keys: "V" },
   { action: "Node", keys: "N" },
   { action: "Move", keys: "H" },
+  { action: "Pan while held (any tool)", keys: "Space" },
+  { action: "Inspect", keys: "I" },
+  { action: "Collapse left / right panel", keys: "[ / ]" },
   { action: "Probe", keys: "P" },
   { action: "Lasso", keys: "L" },
   { action: "Square", keys: "R" },
@@ -112,7 +115,7 @@ export const MODE_LABELS: Record<string, string> = {
 };
 
 /** Top-level interaction tools (left ToggleGroup). */
-export const INTERACTION_MODE_IDS = ["select", "node", "move", "probe", "inspect"];
+export const INTERACTION_MODE_IDS = ["select", "move", "inspect", "probe", "node"];
 /** Selection geometry modes (lasso dropdown on Topbar). */
 export const GEOMETRY_MODE_IDS = ["lasso", "rectangle", "ellipse", "polygon"];
 export const LANDMARK_MODE_IDS = ["point", "line", "spline", "shape"];

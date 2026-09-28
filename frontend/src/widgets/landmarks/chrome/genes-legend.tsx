@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
 import { GENE_COLORS, MAX_ACTIVE_GENES } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { colorSignal } from "./coloring";
-import { ChromeTooltip, ColorSwatch } from "./primitives";
+import { CHIP_CLASS, ChromeTooltip, ColorSwatch } from "./primitives";
 import { MUTED_CONTROL } from "./sections";
 import { useWidgetPortalContainer } from "./use-widget-portal";
 
@@ -116,7 +116,7 @@ export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
           >
             <ComboboxValue>
               {selected.map((name, i) => (
-                <ComboboxChip key={name} className="max-w-full gap-1 truncate rounded-md bg-background/80 text-[10px]">
+                <ComboboxChip key={name} className={cn(CHIP_CLASS, "max-w-full gap-1 truncate rounded-md text-[10px]")}>
                   <ColorSwatch color={GENE_COLORS[i % GENE_COLORS.length]} />
                   {name}
                 </ComboboxChip>

@@ -28,7 +28,7 @@ const singleWidget = Object.keys(entries).length === 1;
 const devWidget = process.env.DEV_WIDGET;
 const harnessRoots: Record<string, string> = {
   "volume-cube": path.resolve(devDir, "volume-cube"),
-  "notebook-link": path.resolve(devDir, "notebook-link"),
+  "landmarks-volume": path.resolve(devDir, "landmarks-volume"),
 };
 const harnessRoot = harnessRoots[devWidget ?? ""] ?? devDir;
 
@@ -74,35 +74,38 @@ const sharedServer = {
   fs: { allow: [repoRoot] },
 };
 
-function serveNotebookLinkFixture() {
+function serveLandmarksVolumeFixture() {
   return {
-    name: "serve-notebook-link-fixture",
+    name: "serve-landmarks-volume-fixture",
     configureServer(server: { middlewares: { use: Function } }) {
-      if (devWidget !== "notebook-link") return;
+      if (devWidget !== "landmarks-volume") return;
       server.middlewares.use("/fixture.json", (_req, res) => {
         res.setHeader("Content-Type", "application/json");
         fs.createReadStream(
-          path.resolve(devDir, "volume-cube-fixture.json"),
+          path.resolve(devDir, "landmarks-volume-fixture.json"),
         ).pipe(res);
       });
     },
   };
 }
 
-const usesViv = devWidget === "volume-cube" || devWidget === "notebook-link";
+const usesViv = devWidget === "volume-cube" || devWidget === "landmarks-volume";
 
 export default defineConfig(({ command }) => {
   if (command === "serve") {
     return {
       root: harnessRoot,
+      // One dep cache per harness: they pre-bundle different deps (Viv or not), and a
+      // shared cache reused by another harness re-optimizes mid-test and reloads the page.
+      cacheDir: path.resolve(rootDir, "node_modules/.vite", devWidget ?? "landmarks"),
       // Missing OME-Zarr keys must 404. SPA fallback serves index.html (200),
       // and zarrita then fails to parse it instead of opening the v2 store.
       appType: usesViv ? "mpa" : "spa",
       publicDir:
-        devWidget === "notebook-link"
-          ? path.resolve(devDir, "volume-cube/public")
+        devWidget === "landmarks-volume"
+          ? path.resolve(devDir, "landmarks-volume/public")
           : undefined,
-      plugins: [react(), tailwindcss(), serveNotebookLinkFixture()],
+      plugins: [react(), tailwindcss(), serveLandmarksVolumeFixture()],
       resolve: sharedResolve,
       // Viv harnesses need default dep optimization; landmarks excludes Viv.
       optimizeDeps: usesViv ? undefined : { exclude: ["@hms-dbmi/viv"] },

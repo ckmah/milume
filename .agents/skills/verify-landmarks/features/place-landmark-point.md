@@ -23,7 +23,7 @@ await bootLandmarksHarness(page);
 const widget = page.locator(".landmarks").first();
 const before = ((await getModel(page, "landmarks")) as unknown[]).length;
 
-await page.getByRole("radio", { name: "Point", exact: true }).click();
+await clickLandmarkTool(page, "Point"); // landmark ▾ dropdown
 await page.waitForTimeout(150);
 
 const box = await canvasBox(page);
@@ -40,7 +40,7 @@ await shot(page, "after-place-point", widget);
 
 Helpers: `bootLandmarksHarness`, `getModel`, `canvasBox`, `shot`.
 
-Selectors: `getByRole("radio", { name: "Point", exact: true })`.
+Selectors: `clickLandmarkTool(page, "Point")` (helpers.ts; the landmark tools live in the landmark ▾ dropdown).
 
 Model keys: `landmarks` (array of Landmark objects with `type`, `vertices`).
 

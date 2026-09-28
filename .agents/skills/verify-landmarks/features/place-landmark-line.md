@@ -21,7 +21,7 @@ second location, and release. A line Landmark with two vertices is created.
 await bootLandmarksHarness(page);
 const before = ((await getModel(page, "landmarks")) as unknown[]).length;
 
-await page.getByRole("radio", { name: "Line", exact: true }).click();
+await clickLandmarkTool(page, "Line"); // landmark ▾ dropdown
 await page.waitForTimeout(150);
 
 const box = await canvasBox(page);
@@ -44,7 +44,7 @@ const landmarks = (await getModel(page, "landmarks")) as any[];
 
 Helpers: `bootLandmarksHarness`, `getModel`, `canvasBox`.
 
-Selectors: `getByRole("radio", { name: "Line", exact: true })`.
+Selectors: `clickLandmarkTool(page, "Line")` (helpers.ts; the landmark tools live in the landmark ▾ dropdown).
 
 Model keys: `landmarks`.
 

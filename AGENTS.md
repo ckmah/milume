@@ -55,6 +55,9 @@ Durable do/don't rules for agents. Prefer short tables over prose; vocabulary ma
 | Landmark persistence via `landmarks_to_geodataframe` / `geodataframe_to_landmarks` | Treating selections as SpatialData geometry export (M1 contract) |
 | Selection hits via `obs_names` / `get_obs_names` / `assign_obs_mask` | Positional indices for selection membership |
 | Neighborhood expand in the browser from coordinates | Required or synced `obsp` neighbor graphs |
+| `LandmarksWidget(sdata)` infers table / labels / 3D image / frame (`volume_source.py`); test with `tests.helpers.toy_spatialdata` | Asking callers for paths or keys the SpatialData metadata already holds |
+| New synced traits only for values Python reads or sets; one compact trait per concern (base64 arrays, one config dict) | A trait per rendering control, or re-sending per-cell data on interaction |
+| Loopback serving scoped to the element dirs the browser needs (`serve_directory(..., allow_prefixes=)`) | Serving a whole store (tables, expression) to any local page |
 
 ### Chrome and packaging
 
@@ -86,6 +89,8 @@ Durable do/don't rules for agents. Prefer short tables over prose; vocabulary ma
 | Named traitlets as the widget contract ([ADR 0002](docs/adr/0002-named-traitlets-as-widget-contract.md)) | Single generic `data` JSON blob for library widgets |
 | One deck.gl orthographic `Deck` for all geometry ([ADR 0003](docs/adr/0003-deckgl-landmarks-renderer.md)) | A second 2D canvas camera that drifts from the deck.gl viewport |
 | Client-side neighborhood overlay from coordinates ([ADR 0004](docs/adr/0004-neighborhood-visuals.md)) | Syncing or requiring `obsp` CSR graphs for expand visuals |
+| Rendering controls in widget chrome; sync a trait only when Python reads/sets it; commit on release ([ADR 0005](docs/adr/0005-widget-owns-rendering-controls.md)) | Notebook sliders as a widget's control panel; two owners for one trait |
+| `LandmarksWidget(sdata)` infers and renders its own volume cube, sharing `VolumeCube` with the standalone widget ([ADR 0006](docs/adr/0006-landmarks-hosts-volume-cube.md)) | A notebook glue cell linking two widgets' traits for one gesture |
 
 ## Widgets
 
@@ -118,8 +123,27 @@ ANYWIDGET_HMR=1 uv run --extra demo marimo edit demos/<demo>.py
 VolumeCube harness (Playwright / manual):
 
 ```bash
-cd frontend && npm run dev:notebook-link
+cd frontend && npm run dev:volume-cube
 ```
+
+Landmarks-with-a-cube harness (Playwright / manual, toy SpatialData with a 3D image):
+
+```bash
+cd frontend && npm run dev:landmarks-volume
+```
+
+### Working efficiently here (lessons from past sessions)
+
+| Situation | Do |
+| --- | --- |
+| Windows shell | npm scripts use `VAR=x`: `export npm_config_script_shell="C:/Program Files/Git/bin/bash.exe"` first; build one widget with `SPATIAL_RX_BUILD_WIDGET=<name> npx vite build`, **landmarks last** (it rewrites the shared `widgets.css`). Bundles are git-ignored. |
+| Checking a real notebook | Rebuild bundles, then start your **own** `marimo run --headless --port <free>` (a running kernel keeps the old `_esm`). Never stop other marimo / napari processes. |
+| Reading widget DOM | anywidgets render in shadow roots: query recursively through `shadowRoot`; e2e reads `data-*` state attributes (scope cube selectors to `.volume-cube__view`). |
+| Timing renders in the browser pane | A hidden pane throttles `requestAnimationFrame` to ~1 Hz. Time `deck.redraw()` + `gl.readPixels`, not rAF. |
+| Viv / luma shaders | All raycast samplers `sampler3D`; module name ≠ sampler name; 3D texture axes ≤ 2048; separate extension classes per mode ([`verify-volume-cube/features/labels-toggle.md`](.agents/skills/verify-volume-cube/features/labels-toggle.md) Gotchas). |
+| marimo reactivity | A cell reading a UI element re-runs when it changes: define controls in the cell that displays them, or better, in the widget (ADR 0005). |
+| Screenshots | Linux CI only: run the `frontend-e2e` workflow with `update_snapshots=true` on the pushed branch, download the artifacts, commit them. |
+| Tests | Keep tests that pin a feature, API contract or fixed regression; skip tests of private constants or internal call shapes. |
 
 ## deck.gl / luma.gl (frontend)
 
@@ -133,8 +157,9 @@ runtime Deck instance. Path `_esm` is loaded via blob URL — no sibling chunk i
 Vite aliases all `@deck.gl/*` and `@luma.gl/*` imports to the root copies during every
 widget build (`frontend/vite.config.ts`).
 
-Viv dev harnesses (`dev:volume-cube`, `dev:notebook-link`) use default Vite
-`optimizeDeps`; the landmarks harness excludes `@hms-dbmi/viv` from pre-bundling.
+Viv dev harnesses (`dev:volume-cube`, `dev:landmarks-volume`) use default Vite
+`optimizeDeps`; the plain landmarks harness (`dev:landmarks`, no 3D image) excludes
+`@hms-dbmi/viv` from pre-bundling, since it never opens a cube.
 
 `_esm` must remain a `pathlib.Path` to the bundled `.mjs` — see
 [Chrome and packaging](#chrome-and-packaging) and [`docs/widget-packaging.md`](docs/widget-packaging.md).

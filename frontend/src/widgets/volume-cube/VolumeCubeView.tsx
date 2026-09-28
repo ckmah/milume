@@ -1,17 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  ColorPalette3DExtensions,
-  VolumeViewer,
-  getDefaultInitialViewState,
-  loadOmeZarr,
-} from "@hms-dbmi/viv";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { useNotebookTheme } from "@/hooks/use-notebook-theme";
 import { useModel } from "@/hooks/use-model";
 import { cn } from "@/lib/utils";
+
+import { DEFAULT_RENDER, type HighlightGroup } from "./cell-lut-extension";
+import { CubeControls, type RenderMode, type ViewPreset, useLiveRange } from "./CubeControls";
+import { type CubeBounds, type CubeCut, type CubeLoadState, VolumeCube, clampRange } from "./VolumeCube";
 
 type VolumeCubeModel = {
   image_url: string;
@@ -25,95 +20,27 @@ type VolumeCubeModel = {
   slice_y_max: number;
   slice_z_min: number;
   slice_z_max: number;
+  contrast_limits: [number, number];
+  voxel_size_um: [number, number, number];
+  origin_um: [number, number, number];
+  highlight_groups: HighlightGroup[];
 };
 
-type Loader = {
-  shape: number[];
-  labels: string[];
+const DEFAULT_CONTRAST: [number, number] = [0, 48];
+const DEFAULT_VOXEL_SIZE: [number, number, number] = [1, 1, 1];
+const DEFAULT_ORIGIN: [number, number, number] = [0, 0, 0];
+const NO_GROUPS: HighlightGroup[] = [];
+const INITIAL_LOAD: CubeLoadState = { labels: "off", channels: 1, pan: [0, 0], level: 0 };
+
+type AnyModel = {
+  get(key: string): unknown;
+  set(key: string, value: unknown): void;
+  save_changes(): void;
+  on(event: string, callback: () => void): void;
+  off?(event: string, callback: () => void): void;
 };
 
-type ViewState = {
-  id: string;
-  target: number[];
-  zoom: number;
-  rotationX: number;
-  rotationOrbit: number;
-  minZoom: number;
-  maxZoom: number;
-};
-
-const ISO_PITCH = 35;
-
-/** Viv volume raycast: additive compositing (not maximum-intensity projection). */
-const VOLUME_EXTENSIONS = [new ColorPalette3DExtensions.AdditiveBlendExtension()];
-
-function absoluteUrl(url: string): string {
-  if (!url) return url;
-  return new URL(url, window.location.href).href;
-}
-
-function axisSize(loader: Loader, axis: string): number {
-  const i = loader.labels.indexOf(axis);
-  return i >= 0 ? loader.shape[i]! : 1;
-}
-
-function orderedSlice(min: number, max: number, limit: number): [number, number] {
-  const lo = Math.max(0, Math.min(min, max));
-  const hi = Math.min(limit, Math.max(min, max));
-  return [lo, hi];
-}
-
-function windowAxisSlice(center: number, sizeUm: number, limit: number): [number, number] {
-  const half = sizeUm / 2;
-  return orderedSlice(center - half, center + half, limit);
-}
-
-function windowTarget(cx: number, cy: number, zSlice: [number, number]): number[] {
-  return [Math.round(cx), Math.round(cy), (zSlice[0] + zSlice[1]) / 2];
-}
-
-function viewStatesEqual(a: ViewState, b: ViewState): boolean {
-  return (
-    a.zoom === b.zoom &&
-    a.rotationOrbit === b.rotationOrbit &&
-    a.rotationX === b.rotationX &&
-    a.minZoom === b.minZoom &&
-    a.maxZoom === b.maxZoom &&
-    a.target[0] === b.target[0] &&
-    a.target[1] === b.target[1] &&
-    a.target[2] === b.target[2]
-  );
-}
-
-function isoHome(loader: Loader, view: { width: number; height: number }): ViewState {
-  const base = getDefaultInitialViewState(loader, view, 0.35, true) as {
-    target: number[];
-    zoom: number;
-  };
-  return {
-    id: "3d",
-    target: base.target,
-    zoom: base.zoom,
-    rotationX: ISO_PITCH,
-    rotationOrbit: 45,
-    minZoom: base.zoom - 2,
-    maxZoom: base.zoom + 4,
-  };
-}
-
-export function VolumeCubeView({
-  model,
-  hostEl,
-}: {
-  hostEl: HTMLElement;
-  model: {
-    get(key: string): unknown;
-    set(key: string, value: unknown): void;
-    save_changes(): void;
-    on(event: string, callback: () => void): void;
-    off?(event: string, callback: () => void): void;
-  };
-}) {
+export function VolumeCubeView({ model, hostEl }: { hostEl: HTMLElement; model: AnyModel }) {
   const dark = useNotebookTheme(hostEl.parentElement);
   const {
     image_url,
@@ -127,6 +54,10 @@ export function VolumeCubeView({
     slice_y_max,
     slice_z_min,
     slice_z_max,
+    contrast_limits,
+    voxel_size_um,
+    origin_um,
+    highlight_groups,
   } = useModel<VolumeCubeModel>(model, [
     "image_url",
     "labels_url",
@@ -139,223 +70,161 @@ export function VolumeCubeView({
     "slice_y_max",
     "slice_z_min",
     "slice_z_max",
+    "contrast_limits",
+    "voxel_size_um",
+    "origin_um",
+    "highlight_groups",
   ]);
 
-  const hostRef = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState({ width: 640, height: 520 });
-  const boxRef = useRef(box);
-  boxRef.current = box;
-  const [image, setImage] = useState<Loader[] | null>(null);
-  const [labels, setLabels] = useState<Loader[] | null>(null);
-  const [error, setError] = useState("");
-  const [showLabels, setShowLabels] = useState(false);
-  const [viewState, setViewState] = useState<ViewState | null>(null);
-  /** Pan must not drift the cube; slice traits move the visible content instead. */
-  const fixedTargetRef = useRef<number[] | null>(null);
-
-  useEffect(() => {
-    const node = hostRef.current;
-    if (!node) return;
-    let raf = 0;
-    const apply = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const rect = node.getBoundingClientRect();
-        const width = Math.max(320, Math.round(rect.width));
-        const height = Math.max(360, Math.round(rect.height));
-        setBox((prev) =>
-          prev.width === width && prev.height === height ? prev : { width, height },
-        );
-      });
-    };
-    apply();
-    const obs = new ResizeObserver(apply);
-    obs.observe(node);
-    return () => {
-      cancelAnimationFrame(raf);
-      obs.disconnect();
-    };
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    setError("");
-    setImage(null);
-    if (!image_url) return;
-    (async () => {
-      try {
-        const loaded = await loadOmeZarr(absoluteUrl(image_url), { type: "multiscales" });
-        if (cancelled) return;
-        const pyramid = loaded.data as Loader[];
-        const zMid = (slice_z_min + slice_z_max) / 2;
-        const target = [Math.round(window_cx), Math.round(window_cy), zMid];
-        fixedTargetRef.current = target;
-        const home = isoHome(pyramid[0]!, boxRef.current);
-        setImage(pyramid);
-        setViewState({ ...home, target });
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [image_url]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!showLabels || !labels_url) {
-      setLabels(null);
-      return;
-    }
-    (async () => {
-      try {
-        const lab = await loadOmeZarr(absoluteUrl(labels_url), { type: "multiscales" });
-        if (!cancelled) setLabels(lab.data as Loader[]);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [showLabels, labels_url]);
-
-  const source = image?.[0];
-  const width = source ? axisSize(source, "x") : 1;
-  const height = source ? axisSize(source, "y") : 1;
-  const depth = source ? axisSize(source, "z") : 1;
-  const winX = Math.round(window_cx);
-  const winY = Math.round(window_cy);
-  const xSlice = useMemo(
-    () => windowAxisSlice(winX, window_size_um, width),
-    [winX, window_size_um, width],
-  );
-  const ySlice = useMemo(
-    () => windowAxisSlice(winY, window_size_um, height),
-    [winY, window_size_um, height],
-  );
-  const zSlice = useMemo(
-    () => orderedSlice(slice_z_min, slice_z_max, depth),
-    [slice_z_min, slice_z_max, depth],
-  );
-
-  const aimTarget = useMemo(
-    () => windowTarget(winX, winY, zSlice),
-    [winX, winY, zSlice[0], zSlice[1]],
-  );
-  fixedTargetRef.current = aimTarget;
-
-  const displayViewStates = useMemo(() => {
-    if (!viewState) return undefined;
-    return [{ ...viewState, id: "3d", target: aimTarget, rotationX: ISO_PITCH }];
-  }, [viewState, aimTarget]);
-
-  const resetView = useCallback(() => {
-    if (!source) return;
-    fixedTargetRef.current = aimTarget;
-    const home = isoHome(source, box);
-    setViewState({ ...home, target: aimTarget });
-  }, [source, box, aimTarget]);
-
-  // New array identities make VolumeLayer refetch the whole OME-Zarr.
-  const selections = useMemo(() => [{}], []);
-  const channelsVisible = useMemo(() => [true], []);
-  const imageContrast = useMemo(() => [[0, 48]] as [number, number][], []);
-  const imageColors = useMemo(() => [[220, 225, 230]] as [number, number, number][], []);
-  const labelContrast = useMemo(() => [[0, 3]] as [number, number][], []);
-  const labelColors = useMemo(() => [[255, 96, 48]] as [number, number, number][], []);
-
-  const onViewStateChange = useCallback(
-    ({
-      viewState: next,
-    }: {
-      viewId: string;
-      viewState: ViewState;
-      interactionState?: Record<string, unknown>;
-      oldViewState?: ViewState;
-    }) => {
-      const fixedTarget = fixedTargetRef.current;
-      const clamped: ViewState = {
-        ...next,
-        id: "3d",
-        target: fixedTarget ?? next.target,
-        rotationX: ISO_PITCH,
-      };
-      setViewState((prev) => (prev && viewStatesEqual(prev, clamped) ? prev : clamped));
-      return clamped;
+  const commit = useCallback(
+    (patch: Record<string, unknown>) => {
+      for (const [k, v] of Object.entries(patch)) model.set(k, v);
+      model.save_changes();
     },
-    [],
+    [model],
   );
 
-  const sharedView = useMemo(
-    () => ({
-      channelsVisible,
-      selections,
-      extensions: VOLUME_EXTENSIONS,
-      useFixedAxis: true,
-      xSlice,
-      ySlice,
-      zSlice,
-      height: box.height,
-      width: box.width,
-      viewStates: displayViewStates,
-      onViewStateChange,
-    }),
-    [
-      box.height,
-      box.width,
-      displayViewStates,
-      onViewStateChange,
-      xSlice,
-      ySlice,
-      zSlice,
-    ],
-  );
+  const [showLabels, setShowLabels] = useState(false);
+  const [mode, setMode] = useState<RenderMode>("additive");
+  /** Follows the camera (onPreset); a toolbar pick changes it and the cube applies it. */
+  const [preset, setPreset] = useState<ViewPreset | null>(null);
+  const [resetTick, setResetTick] = useState(0);
+  const [loadState, setLoadState] = useState<CubeLoadState>(INITIAL_LOAD);
+  const [reportedBounds, setReportedBounds] = useState<CubeBounds | null>(null);
 
-  const sliceReadout = `X ${Math.round(xSlice[0])}–${Math.round(xSlice[1])} · Y ${Math.round(ySlice[0])}–${Math.round(ySlice[1])} · Z ${Math.round(zSlice[0])}–${Math.round(zSlice[1])}`;
+  const groups = highlight_groups ?? NO_GROUPS;
+  // Python highlighting cells is a request to see them: turn Labels on.
+  useEffect(() => {
+    if (groups.length > 0 && labels_url) setShowLabels(true);
+  }, [groups, labels_url]);
+
+  const voxelSize = voxel_size_um ?? DEFAULT_VOXEL_SIZE;
+  const origin = origin_um ?? DEFAULT_ORIGIN;
+  const [ozUm, oyUm, oxUm] = origin;
+  const half = window_size_um / 2;
+  const [contrastLo, contrastHi] = contrast_limits ?? DEFAULT_CONTRAST;
+  // Until the cube reports its bounds (the image is still loading) the volume has no extent.
+  const bounds: CubeBounds = reportedBounds ?? {
+    winX: clampRange(window_cx - half, window_cx + half, oxUm, oxUm),
+    winY: clampRange(window_cy - half, window_cy + half, oyUm, oyUm),
+    stackZ: [ozUm, ozUm],
+    volumeX: [oxUm, oxUm],
+    volumeY: [oyUm, oyUm],
+    contrastMax: Math.max(255, Math.ceil(contrastHi * 4)),
+  };
+  const { winX, winY, stackZ } = bounds;
+
+  // X/Y cuts follow the window: a full cut stays full, a partial one keeps its
+  // place relative to the window's edge. The widget writes the new traits once.
+  const prevWindowRef = useRef<{ x0: number; y0: number } | null>(null);
+  useEffect(() => {
+    const prev = prevWindowRef.current;
+    const x0 = window_cx - half;
+    const y0 = window_cy - half;
+    prevWindowRef.current = { x0, y0 };
+    if (!prev || (prev.x0 === x0 && prev.y0 === y0)) return;
+    const follow = (lo: number, hi: number, p0: number, n0: number): [number, number] =>
+      lo <= p0 + 1e-6 && hi >= p0 + window_size_um - 1e-6 ? [n0, n0 + window_size_um] : [lo - p0 + n0, hi - p0 + n0];
+    const [xl, xh] = follow(slice_x_min, slice_x_max, prev.x0, x0);
+    const [yl, yh] = follow(slice_y_min, slice_y_max, prev.y0, y0);
+    commit({ slice_x_min: xl, slice_x_max: xh, slice_y_min: yl, slice_y_max: yh });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [window_cx, window_cy, window_size_um]);
+
+  // Live mirrors: sliders render every frame and commit to the traits on release.
+  const [xLive, setXLive] = useLiveRange([slice_x_min, slice_x_max]);
+  const [yLive, setYLive] = useLiveRange([slice_y_min, slice_y_max]);
+  const [zLive, setZLive] = useLiveRange([slice_z_min, slice_z_max]);
+  const [cLive, setCLive] = useLiveRange([contrastLo, contrastHi]);
+  const xShown = clampRange(xLive[0], xLive[1], winX[0], winX[1]);
+  const yShown = clampRange(yLive[0], yLive[1], winY[0], winY[1]);
+  const zShown = clampRange(zLive[0], zLive[1], stackZ[0], stackZ[1]);
+  const cut: CubeCut = [xLive[0], xLive[1], yLive[0], yLive[1], zLive[0], zLive[1]];
+
+  // The cube sizes the contrast range from the contrast it draws, which leads
+  // the trait during a drag. Hold the range until the drag commits, so it only
+  // follows the committed trait (a moving max under the thumb would run away).
+  const contrastDragging = cLive[0] !== contrastLo || cLive[1] !== contrastHi;
+  const contrastMaxRef = useRef(bounds.contrastMax);
+  if (!contrastDragging) contrastMaxRef.current = bounds.contrastMax;
+  const contrastMax = contrastMaxRef.current;
+
+  const readZ = clampRange(slice_z_min, slice_z_max, stackZ[0], stackZ[1]);
+  const readX = clampRange(slice_x_min, slice_x_max, winX[0], winX[1]);
+  const readY = clampRange(slice_y_min, slice_y_max, winY[0], winY[1]);
+  const sliceReadout = `X ${Math.round(readX[0])}–${Math.round(readX[1])} · Y ${Math.round(readY[0])}–${Math.round(readY[1])} · Z ${Math.round(readZ[0])}–${Math.round(readZ[1])}`;
+  const highlighted = showLabels && loadState.channels === 2 ? groups.filter((g) => g.labels.length > 0).length : 0;
 
   return (
-    <div className={cn("spatial-rx-widget volume-cube relative min-w-0 w-full", dark && "dark")}>
-      <div ref={hostRef} className="relative h-[520px] w-full overflow-hidden rounded-md bg-neutral-950">
-        {image ? (
-          <VolumeViewer
-            loader={image}
-            contrastLimits={imageContrast}
-            colors={imageColors}
-            {...sharedView}
-          />
-        ) : (
-          <p className="p-4 text-sm text-neutral-400">{error || "Loading volume…"}</p>
-        )}
-        {showLabels && labels && image ? (
-          <div className="pointer-events-none absolute inset-0">
-            <VolumeViewer
-              loader={labels}
-              contrastLimits={labelContrast}
-              colors={labelColors}
-              {...sharedView}
-            />
-          </div>
-        ) : null}
-      </div>
-      <div className="mt-2 flex flex-wrap items-center gap-3">
-        <Button type="button" size="sm" variant="outline" onClick={resetView}>
-          Reset
-        </Button>
-        <div className="flex items-center gap-2">
-          <Switch
-            id="volume-cube-labels"
-            size="sm"
-            checked={showLabels}
-            onCheckedChange={setShowLabels}
-          />
-          <Label htmlFor="volume-cube-labels">Labels</Label>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          window {Math.round(window_cx)}, {Math.round(window_cy)} · {window_size_um} µm · {sliceReadout}
-        </p>
-      </div>
+    <div
+      className={cn("spatial-rx-widget volume-cube relative min-w-0 w-full", dark && "dark")}
+      data-labels={loadState.labels}
+      data-channels={loadState.channels}
+      data-highlight={highlighted}
+      data-render={mode}
+      data-pan={`${loadState.pan[0]},${loadState.pan[1]}`}
+    >
+      <VolumeCube
+        imageUrl={image_url}
+        labelsUrl={labels_url}
+        voxelSizeUm={voxelSize}
+        originUm={origin}
+        windowCx={window_cx}
+        windowCy={window_cy}
+        windowSizeUm={window_size_um}
+        cut={cut}
+        contrast={cLive}
+        mode={mode}
+        preset={preset}
+        resetTick={resetTick}
+        showLabels={showLabels}
+        groups={groups}
+        render={DEFAULT_RENDER}
+        dark={dark}
+        onLoadState={setLoadState}
+        onBounds={setReportedBounds}
+        onPreset={setPreset}
+      />
+      <CubeControls
+        preset={preset}
+        onPreset={setPreset}
+        onReset={() => setResetTick((t) => t + 1)}
+        mode={mode}
+        onMode={setMode}
+        labelsAvailable={Boolean(labels_url)}
+        showLabels={showLabels}
+        onShowLabels={setShowLabels}
+        cuts={{
+          x: {
+            bounds: winX,
+            value: xShown,
+            onLive: setXLive,
+            onCommit: (v) => commit({ slice_x_min: v[0], slice_x_max: v[1] }),
+          },
+          y: {
+            bounds: winY,
+            value: yShown,
+            onLive: setYLive,
+            onCommit: (v) => commit({ slice_y_min: v[0], slice_y_max: v[1] }),
+          },
+          z: {
+            bounds: stackZ,
+            value: zShown,
+            onLive: setZLive,
+            onCommit: (v) => commit({ slice_z_min: v[0], slice_z_max: v[1] }),
+          },
+        }}
+        contrast={{
+          max: contrastMax,
+          value: cLive,
+          onLive: setCLive,
+          onCommit: (v) => commit({ contrast_limits: v }),
+        }}
+      />
+      <p className="mt-1 text-xs text-muted-foreground">
+        window {Math.round(window_cx)}, {Math.round(window_cy)} · {window_size_um} µm · {sliceReadout}
+        {loadState.level > 0 ? ` · level ${loadState.level}` : ""}
+      </p>
     </div>
   );
 }

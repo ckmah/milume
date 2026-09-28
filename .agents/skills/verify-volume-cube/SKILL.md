@@ -44,21 +44,15 @@ Run a single spec or test grep:
 ```bash
 cd frontend
 npx playwright test e2e/volume-cube/volume-cube.spec.ts -g "harness boots"
-npx playwright test e2e/volume-cube/notebook-link.spec.ts -g "Landmarks inspect"
 ```
 
-Notebook link (Landmarks Inspect → cube window):
+For the Landmarks Inspect → cube path (its own product surface now, not a
+second linked widget), use `E2E_HARNESS=landmarks-volume` and
+[verify-landmarks's `inspect-cube` feature](../verify-landmarks/features/inspect-cube.md):
 
 ```bash
 cd frontend
-E2E_HARNESS=notebook-link npx playwright test e2e/volume-cube/notebook-link.spec.ts
-# or npm run test:e2e:volume-cube (runs both volume-cube + notebook-link tiers)
-```
-
-Manual harness mirroring `demos/volume-cube.py`:
-
-```bash
-cd frontend && npm run dev:notebook-link
+E2E_HARNESS=landmarks-volume npx playwright test e2e/landmarks/landmarks-volume.spec.ts
 ```
 
 CI path: `frontend/e2e/volume-cube/` (see [`frontend/e2e/README.md`](../../frontend/e2e/README.md)).
@@ -110,22 +104,20 @@ Common selectors:
 
 ## Landmarks inspect-window contract (cross-widget)
 
-In notebooks (`demos/volume-cube.py`), Landmarks **Inspect** mode writes
-`inspect_cx`, `inspect_cy`, and `inspect_size_um` on `LandmarksWidget`; Python
-(or marimo reactive cells) copy those into `VolumeCubeWidget.window_cx`,
-`window_cy`, and `window_size_um`. VolumeCube does **not** read Landmarks
-traitlets directly.
+`LandmarksWidget(sdata)` renders its own floating Cube from `inspect_cx`,
+`inspect_cy`, and `inspect_size_um` directly — no second widget, no glue
+cell. That path is proved under verify-landmarks
+([`inspect-cube`](../verify-landmarks/features/inspect-cube.md),
+`E2E_HARNESS=landmarks-volume`), since it is Landmarks' own product surface
+(see [ADR 0006](../../docs/adr/0006-landmarks-hosts-volume-cube.md)).
 
-The Playwright harness simulates that one-way feed with **Toy inspect** (drag a
-100 µm square) in `dev/volume-cube/`. Prove window placement via
+Manually copying `inspect_cx`/`inspect_cy` onto a separate standalone
+`VolumeCubeWidget`'s `window_cx`/`window_cy` (as `demos/volume-cube.py` still
+shows) remains possible but has no Playwright coverage — the notebook-link
+harness and its spec are gone. The Playwright harness here simulates only the
+standalone widget's own window placement with **Toy inspect** (drag a 100 µm
+square) in `dev/volume-cube/`; prove that via
 [`features/inspect-window-placement.md`](features/inspect-window-placement.md).
-
-For the full Landmarks Inspect → cube path (same as `demos/volume-cube.py`), use
-[`features/landmarks-inspect-drives-cube.md`](features/landmarks-inspect-drives-cube.md)
-and `e2e/volume-cube/notebook-link.spec.ts` with `dev:notebook-link`.
-
-Landmarks Inspect chrome itself is not duplicated under verify-landmarks until it
-has dedicated landmarks-tier e2e beyond the notebook-link proof.
 
 ## Evidence
 

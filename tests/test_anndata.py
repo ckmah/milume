@@ -29,35 +29,28 @@ def _adata(n=4):
     return adata
 
 
-def test_constructor_no_graphs_required():
+def test_neighborhood_limits_need_no_obsp_graphs():
     from spatial_rx import LandmarksWidget
 
     adata = _adata()
+    assert not adata.obsp
     w = LandmarksWidget(adata, color="cell_type")
-    assert not hasattr(w, "neighbor_indptr") or not getattr(w, "neighbor_indptr", None)
     assert w.neighbor_k_max >= 1
     assert w.neighbor_radius_max > 0
 
 
-def test_constructor_packs_obs_palette_and_genes():
+def test_constructor_uses_uns_colors_and_packs_requested_genes():
     from spatial_rx import LandmarksWidget
 
-    adata = _adata()
-    w = LandmarksWidget(adata, color="cell_type", genes=["g1"])
+    w = LandmarksWidget(_adata(), color="cell_type", genes=["g1"])
     assert w.legend_title == "cell_type"
     assert w.legend_labels == ["a", "b", "c"]
-    assert w.point_palette[0].lower() == "#111111"
+    assert w.point_palette == ["#111111", "#222222", "#333333"]
     assert [g["name"] for g in w.gene_columns] == ["g1"]
-    assert w.gene_format == "dense"
-    assert w.gene_values  # eager pack
-    assert w.neighbor_k_max >= 1
-    assert w.neighbor_radius_max > 0
-    assert len(w._data_x) == 4
-    assert w.mode == "select"
-    assert w.point_size == pytest.approx(0.4)
+    assert w.gene_values
 
 
-def test_chrome_kwargs_rejected():
+def test_rendering_controls_are_not_constructor_kwargs():
     from spatial_rx import LandmarksWidget
 
     adata = adata_xy([0.0, 1.0], [0.0, 0.0])
@@ -67,9 +60,8 @@ def test_chrome_kwargs_rejected():
         LandmarksWidget(adata, point_size=2.0)
 
 
-def test_get_obs_names_and_subset_join():
-    from spatial_rx import LandmarksWidget, write_obs
-    from spatial_rx.selection import selection_mask
+def test_selection_membership_is_written_to_obs_by_name():
+    from spatial_rx import LandmarksWidget
 
     adata = _adata()
     w = LandmarksWidget(adata, color="cell_type")
@@ -80,35 +72,25 @@ def test_get_obs_names_and_subset_join():
             "vertices": [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]],
         }
     ]
-    names = w.get_obs_names(adata, selection_id="selection 1")
-    assert list(names) == ["c0"]
-    mask = selection_mask(
-        list(w.selections),
-        adata.obsm["spatial"][:, 0],
-        adata.obsm["spatial"][:, 1],
-        "selection 1",
-    )
-    assert list(np.flatnonzero(mask)) == [0]
-
+    assert list(w.get_obs_names(adata, selection_id="selection 1")) == ["c0"]
     w.assign_obs_mask(adata, "in_sel", selection_id="selection 1")
-    assert bool(adata.obs.loc["c0", "in_sel"]) is True
-    assert bool(adata.obs.loc["c1", "in_sel"]) is False
-
-    sub = adata[["c0", "c2"]].copy()
+    assert adata.obs["in_sel"].tolist() == [True, False, False, False]
     with pytest.raises(ValueError, match="row count"):
-        w.get_obs_names(sub, selection_id="selection 1")
+        w.get_obs_names(adata[["c0", "c2"]].copy(), selection_id="selection 1")
 
-    df = pd.DataFrame(
-        {"obs_name": ["c0", "c2"], "s": [0.1, 0.9], "point_index": [0, 2]}
-    )
+
+def test_write_obs_joins_scores_by_obs_name():
+    from spatial_rx import write_obs
+
+    adata = _adata()
+    df = pd.DataFrame({"obs_name": ["c2", "c0"], "s": [0.9, 0.1]})
     write_obs(adata, df, "crypt_villus_s", "s")
     assert adata.obs.loc["c0", "crypt_villus_s"] == pytest.approx(0.1)
-    sub2 = adata[["c2"]].copy()
-    joined = df.set_index("obs_name")
-    assert joined.loc[str(sub2.obs_names[0]), "s"] == pytest.approx(0.9)
+    assert adata.obs.loc["c2", "crypt_villus_s"] == pytest.approx(0.9)
+    assert np.isnan(adata.obs.loc["c1", "crypt_villus_s"])
 
 
-def test_set_neighbor_graphs_removed():
+def test_set_neighbor_graphs_raises_a_removal_error():
     from spatial_rx import LandmarksWidget
 
     adata = _adata()

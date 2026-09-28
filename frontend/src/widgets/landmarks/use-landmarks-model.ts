@@ -41,6 +41,15 @@ import {
   toggleSelectionHidden as toggleSelectionHiddenTrait,
 } from "./state";
 
+/** The inferred 3D image of a SpatialData (`{}` without one). Frames are z, y, x. */
+export type LandmarksVolume = {
+  image_url?: string;
+  labels_url?: string;
+  voxel_size_um?: [number, number, number];
+  origin_um?: [number, number, number];
+  contrast_limits?: [number, number];
+};
+
 export type LandmarksState = {
   mode: string;
   selections: SelectionItem[];
@@ -88,6 +97,14 @@ export type LandmarksState = {
   raster_status: string;
   raster_n_bins: number;
   raster_similarity_enabled: boolean;
+  volume: LandmarksVolume;
+  /** Base64 int32 label id per table row (0 = none). */
+  volume_label_ids: string;
+  /** x0, x1, y0, y1, z0, z1 in µm; `[]` before a cut exists. */
+  volume_cut: number[];
+  inspect_cx: number | null;
+  inspect_cy: number | null;
+  inspect_size_um: number;
 };
 
 const MODEL_KEYS: (keyof LandmarksState)[] = [
@@ -137,6 +154,12 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
   "raster_status",
   "raster_n_bins",
   "raster_similarity_enabled",
+  "volume",
+  "volume_label_ids",
+  "volume_cut",
+  "inspect_cx",
+  "inspect_cy",
+  "inspect_size_um",
 ];
 
 export type LandmarksModel = LandmarksState & {

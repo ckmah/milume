@@ -28,6 +28,12 @@ function Slider({
           : [min],
     [value, resolvedDefault, min]
   )
+  // Radix names thumbs from their own props only; name them after the slider.
+  const label = props["aria-label"]
+  const thumbLabel = (index: number) =>
+    label && _values.length === 2
+      ? `${label}, ${index === 0 ? "minimum" : "maximum"}`
+      : label
 
   return (
     <SliderPrimitive.Root
@@ -64,6 +70,7 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
+          aria-label={thumbLabel(index)}
           className={cn(
             "block shrink-0 rounded-full border-0 bg-foreground shadow-none outline-hidden",
             /* Fixed 2px line; height only on hover — never change width */

@@ -24,6 +24,9 @@ buffer_side
 Other export columns (`vertices`, `tension`, `radius`) are ignored by measure;
 they matter for widget round-trip only. See
 `docs/landmarks-spatialdata-contract.md`.
+
+Selection measures (`enrichment`, `nearest_distances`) take cell ids instead,
+e.g. `widget.get_obs_names(adata, selection_id)`.
 """
 
 from __future__ import annotations
@@ -387,3 +390,121 @@ def along_positions(
                 }
             )
     return pd.DataFrame(rows)
+
+
+def enrichment(
+    adata: AnnData,
+    obs_names: Sequence[str],
+    *,
+    obs_key: str,
+    background: Sequence[str] | None = None,
+) -> pd.DataFrame:
+    """Composition of a cell subset against a background, per `obs_key` group.
+
+    Typical subset: a Selection's cells (`widget.get_obs_names(adata, id)`),
+    e.g. a cell type's promoted neighborhood. `log2_enrichment` > 0 means the
+    group is over-represented in the subset relative to the background.
+
+    Args:
+        adata: AnnData with `obs[obs_key]` labels.
+        obs_names: Cells in the subset.
+        obs_key: Categorical `obs` column whose levels become `group`.
+        background: Cells to compare against. None uses all cells.
+
+    Returns:
+        One row per group present in the subset, most enriched first:
+        `group`, `count`, `proportion`, `background_proportion`,
+        `log2_enrichment`.
+    """
+    names = np.asarray(adata.obs_names.astype(str))
+    groups = np.asarray(adata.obs[obs_key]).astype(str)
+    subset = groups[_subset_indices(names, obs_names)]
+    base = groups[_subset_indices(names, background)]
+    if subset.size == 0 or base.size == 0:
+        return pd.DataFrame(
+            columns=["group", "count", "proportion", "background_proportion", "log2_enrichment"]
+        )
+    values, counts = np.unique(subset, return_counts=True)
+    base_values, base_counts = np.unique(base, return_counts=True)
+    base_prop = dict(zip(base_values, base_counts / base.size, strict=True))
+    proportion = counts / subset.size
+    background_proportion = np.asarray([base_prop.get(v, 0.0) for v in values])
+    with np.errstate(divide="ignore"):
+        log2 = np.log2(proportion / background_proportion)
+    out = pd.DataFrame(
+        {
+            "group": values,
+            "count": counts.astype(int),
+            "proportion": proportion,
+            "background_proportion": background_proportion,
+            "log2_enrichment": log2,
+        }
+    )
+    return out.sort_values("log2_enrichment", ascending=False, ignore_index=True)
+
+
+def nearest_distances(
+    adata: AnnData,
+    seeds: Sequence[str],
+    *,
+    obs_key: str,
+    spatial_key: str = "spatial",
+    obs_names: Sequence[str] | None = None,
+) -> pd.DataFrame:
+    """Distance from each cell to its nearest seed cell, in XY and in XYZ.
+
+    For thick sections: a cell next to a seed on the 2D map (small
+    `distance_xy`) can lie far above or below it (large `dz`, large
+    `distance_xyz`). Neighborhood expand in LandmarksWidget works on the map,
+    so this measures how much of a 2D neighborhood holds up in 3D. A seed's
+    own distance is to the nearest *other* seed.
+
+    Args:
+        adata: AnnData with `obsm[spatial_key]` as (n, 3) x, y, z and
+            `obs[obs_key]` labels.
+        seeds: Cells to measure to (e.g. one cell type in a Selection).
+        obs_key: `obs` column copied into `group`.
+        spatial_key: `obsm` key for coordinates (default "spatial").
+        obs_names: Cells to measure. None uses all cells.
+
+    Returns:
+        One row per measured cell: `obs_name`, `point_index`, `group`,
+        `seed`, `distance_xy`, `dz` (|z offset| to the seed nearest in XY),
+        `distance_xyz` (to the seed nearest in XYZ).
+    """
+    from scipy.spatial import cKDTree
+
+    xyz = np.asarray(adata.obsm[spatial_key], dtype=float)
+    if xyz.ndim != 2 or xyz.shape[1] < 3:
+        raise ValueError(f"adata.obsm[{spatial_key!r}] must be (n, 3) x, y, z")
+    names = np.asarray(adata.obs_names.astype(str))
+    groups = np.asarray(adata.obs[obs_key]).astype(str)
+    seed_idx = _subset_indices(names, seeds)
+    cells = _subset_indices(names, obs_names)
+    columns = ["obs_name", "point_index", "group", "seed", "distance_xy", "dz", "distance_xyz"]
+    if seed_idx.size == 0 or cells.size == 0:
+        return pd.DataFrame(columns=columns)
+    is_seed = np.zeros(names.shape[0], dtype=bool)
+    is_seed[seed_idx] = True
+    # Two neighbours so a seed can skip itself.
+    k = min(2, seed_idx.size)
+    tree_xy = cKDTree(xyz[seed_idx, :2])
+    tree_xyz = cKDTree(xyz[seed_idx, :3])
+    d_xy, j_xy = tree_xy.query(xyz[cells, :2], k=k)
+    d_xyz, _ = tree_xyz.query(xyz[cells, :3], k=k)
+    d_xy, j_xy, d_xyz = (np.asarray(a).reshape(cells.size, k) for a in (d_xy, j_xy, d_xyz))
+    pick = np.where(is_seed[cells] & (k > 1), 1, 0)
+    rows = np.arange(cells.size)
+    nearest = seed_idx[j_xy[rows, pick]]
+    dz = np.abs(xyz[cells, 2] - xyz[nearest, 2])
+    return pd.DataFrame(
+        {
+            "obs_name": names[cells],
+            "point_index": cells.astype(int),
+            "group": groups[cells],
+            "seed": is_seed[cells],
+            "distance_xy": d_xy[rows, pick],
+            "dz": dz,
+            "distance_xyz": d_xyz[rows, pick],
+        }
+    )

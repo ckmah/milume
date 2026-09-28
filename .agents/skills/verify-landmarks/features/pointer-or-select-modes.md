@@ -10,6 +10,9 @@ Interaction modes (Select, Node, Move, Probe) and lasso selection entry update t
 - Lasso button starts selection geometry (not a "Selection" ModeToggle radio)
 - Each mode switch writes expected `mode` value
 - Lasso click sets `mode === "lasso"`
+- Hold **Space** to pan in any tool (deck.gl drag-pan while held); the synced
+  `mode` does not change and a lasso drag with Space held draws nothing
+  (`landmarks.spec.ts` — `"hold Space to pan in any tool without changing the mode"`)
 
 ## How to get to it (user POV)
 

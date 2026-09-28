@@ -83,7 +83,7 @@ Common selectors:
 - Widget shell: `page.locator(".landmarks").first()`
 - Canvas: `page.locator("canvas.landmarks__webgl").first()`
 - Zoom: `getByRole("button", { name: "Zoom in" \| "Zoom out" \| "Reset view" })`
-- Authoring radios: `getByRole("radio", { name: "Point" \| "Line" \| "Spline" \| "Shape", exact: true })`
+- Authoring tools: `clickLandmarkTool(page, "Point" \| "Line" \| "Spline" \| "Shape")` (landmark ▾ dropdown)
 - Interaction modes: `getByRole("radio", { name: "Select" \| "Node" \| "Move" \| "Probe", exact: true })`
 - Selection tool: `getByRole("button", { name: /Lasso/i })` (geometry is a menu, not a ModeToggle radio)
 

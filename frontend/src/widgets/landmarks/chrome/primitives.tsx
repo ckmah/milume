@@ -8,6 +8,7 @@ import {
   type Ref,
 } from "react";
 import {
+  BoxIcon,
   CircleIcon,
   EllipsisIcon,
   EyeIcon,
@@ -15,7 +16,6 @@ import {
   HandIcon,
   LassoIcon,
   LocateIcon,
-  ScanIcon,
   MousePointer2Icon,
   PencilIcon,
   PentagonIcon,
@@ -31,6 +31,7 @@ import { Tooltip as TooltipPrimitive } from "radix-ui";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,7 +53,7 @@ const MODE_ICONS: Record<string, ComponentType<LucideProps>> = {
   node: SplinePointerIcon,
   move: HandIcon,
   probe: LocateIcon,
-  inspect: ScanIcon,
+  inspect: BoxIcon,
   selection: LassoIcon,
   lasso: LassoIcon,
   polygon: PentagonIcon,
@@ -68,12 +69,33 @@ export function modeIcon(mode: string) {
   return MODE_ICONS[mode] ?? ShapesIcon;
 }
 
-/** Shared toolbar hit target — top, bottom, and mobile chrome. */
-export const chromeHitClass =
-  "inline-flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground";
+/*
+ * Chrome tokens (one set for every toolbar). Colours, sizes and states live on
+ * `.landmarks` / `.landmarks-toolbar` / `.landmarks-hit` / `.landmarks-chip` in
+ * `landmarks.css`; these constants are the only way components opt in.
+ */
 
-export const chromeHitOnClass =
-  "bg-foreground text-background hover:bg-foreground hover:text-background";
+/** Every toolbar surface: main tools, View CTA, context L1/L2, Inspect bar. */
+export const TOOLBAR_CLASS =
+  "landmarks-float landmarks-float--toolbar landmarks-toolbar pointer-events-auto";
+
+/** Every icon button / dropdown trigger / toggle item in the chrome. */
+export const chromeHitClass = "landmarks-hit";
+
+/** Force the on state (for controls without aria-pressed / data-state="on"). */
+export const chromeHitOnClass = "landmarks-hit--on";
+
+/** Icon + chevron hit (dropdown and L2 openers, palette). */
+export const chromeHitWideClass = "landmarks-hit landmarks-hit--wide";
+
+/** Text segment hit (camera presets, projection). */
+export const chromeHitTextClass = "landmarks-hit landmarks-hit--text";
+
+/** Chips, badges and readout pills: opaque fill + 3:1 edge. */
+export const CHIP_CLASS = "landmarks-chip";
+
+/** Caption beside a toolbar control (Labels switch). */
+export const TOOLBAR_CAPTION = "landmarks-toolbar-caption";
 
 /** Inverted chrome tooltip (opposite of theme surface). */
 const chromeTooltipClass =
@@ -85,9 +107,10 @@ export const chromeMenuClass =
 
 export function ToolbarDivider() {
   return (
-    <span
-      aria-hidden
-      className="mx-0.5 h-5 w-px shrink-0 bg-foreground/30"
+    <Separator
+      orientation="vertical"
+      decorative
+      className="landmarks-toolbar-divider"
     />
   );
 }
@@ -245,7 +268,7 @@ export function ModeToggle({
             key={mode}
             value={mode}
             aria-label={label}
-            className="size-8 min-w-8 rounded-full border-0 px-0 text-muted-foreground shadow-none hover:bg-muted hover:text-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-none data-[spacing=1]:rounded-full"
+            className={chromeHitClass}
           >
             <ChromeTooltip label={label} shortcut={MODE_SHORTCUTS[mode]}>
               <span className="inline-flex size-full items-center justify-center">

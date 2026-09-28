@@ -9,6 +9,7 @@
 import { RotateCcwIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
@@ -35,12 +36,7 @@ export function SoftFloatSliderReset({
         aria-label={title}
         disabled={disabled}
         data-testid={testId}
-        className={cn(
-          chromeHitClass,
-          "shrink-0",
-          disabled && "opacity-40",
-          "active:scale-[0.97] transition-transform",
-        )}
+        className={chromeHitClass}
         onClick={(e) => {
           e.stopPropagation();
           onClick();
@@ -52,7 +48,71 @@ export function SoftFloatSliderReset({
   );
 }
 
-/** Unidirectional Soft Float capsule (tension, neighborhood radius/k, point buffer). */
+/**
+ * The one slider row: caption · Soft Float capsule (readout inside, left) ·
+ * trailing actions. One value is a single slider; two values are a range whose
+ * thumbs Radix names "<aria-label>, minimum" / ", maximum".
+ */
+export function SoftFloatSliderRow({
+  caption,
+  value,
+  min,
+  max,
+  step,
+  onValueChange,
+  onValueCommit,
+  readout,
+  "aria-label": ariaLabel,
+  testId,
+  className,
+  children,
+}: {
+  /** Visible label left of the capsule (omit for a bare capsule). */
+  caption?: React.ReactNode;
+  value: number[];
+  min: number;
+  max: number;
+  step?: number;
+  onValueChange: (v: number[]) => void;
+  /** Fires once on release (live/commit split for synced traits). */
+  onValueCommit?: (v: number[]) => void;
+  /** Readout shown inside the capsule. */
+  readout: React.ReactNode;
+  "aria-label"?: string;
+  /** On the capsule (`.landmarks-slider-control`). */
+  testId?: string;
+  className?: string;
+  /** Trailing actions (reset, Both, promote). */
+  children?: React.ReactNode;
+}) {
+  const span = Math.max(max - min, 1e-9);
+  return (
+    <div className={cn("landmarks-slider-row min-w-0 flex-1", className)}>
+      {caption != null ? (
+        <Label className="landmarks-slider-caption">{caption}</Label>
+      ) : null}
+      <div className="landmarks-slider-control" data-testid={testId}>
+        <span className="landmarks-slider-value" aria-hidden>
+          {readout}
+        </span>
+        <Slider
+          min={min}
+          max={max}
+          step={step ?? (span / 200 || 0.01)}
+          value={value}
+          minStepsBetweenThumbs={value.length > 1 ? 0 : undefined}
+          onValueChange={onValueChange}
+          onValueCommit={onValueCommit}
+          aria-label={ariaLabel}
+          className="w-full"
+        />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/** Unidirectional Soft Float capsule (tension, neighborhood radius/k, point buffer, alpha, gamma). */
 export function SoftFloatCapsuleSlider({
   value,
   min,
@@ -60,12 +120,14 @@ export function SoftFloatCapsuleSlider({
   step,
   onValueChange,
   displayValue,
+  caption,
   "aria-label": ariaLabel,
   testId,
   className,
   onReset,
   resetTitle = "Reset",
   resetTestId,
+  children,
 }: {
   value: number;
   min: number;
@@ -73,6 +135,7 @@ export function SoftFloatCapsuleSlider({
   step?: number;
   onValueChange: (v: number) => void;
   displayValue: string | number;
+  caption?: React.ReactNode;
   "aria-label"?: string;
   testId?: string;
   className?: string;
@@ -80,45 +143,31 @@ export function SoftFloatCapsuleSlider({
   onReset?: () => void;
   resetTitle?: string;
   resetTestId?: string;
+  /** Extra trailing actions after the reset. */
+  children?: React.ReactNode;
 }) {
-  const span = Math.max(max - min, 1e-9);
-  const capsule = (
-    <div
-      className={cn(
-        "landmarks-slider-control min-w-[120px] flex-1",
-        !onReset && className,
-      )}
-      data-testid={testId}
-    >
-      <span className="landmarks-slider-value" aria-hidden>
-        {displayValue}
-      </span>
-      <Slider
-        min={min}
-        max={max}
-        step={step ?? (span / 200 || 0.01)}
-        value={[value]}
-        onValueChange={(v) => onValueChange(v[0] ?? min)}
-        aria-label={ariaLabel}
-        className="w-full"
-      />
-    </div>
-  );
-  if (!onReset) return capsule;
   return (
-    <div
-      className={cn(
-        "flex min-w-[120px] flex-1 items-center gap-1.5",
-        className,
-      )}
+    <SoftFloatSliderRow
+      caption={caption}
+      value={[value]}
+      min={min}
+      max={max}
+      step={step}
+      onValueChange={(v) => onValueChange(v[0] ?? min)}
+      readout={displayValue}
+      aria-label={ariaLabel}
+      testId={testId}
+      className={className}
     >
-      {capsule}
-      <SoftFloatSliderReset
-        title={resetTitle}
-        testId={resetTestId}
-        onClick={onReset}
-      />
-    </div>
+      {onReset ? (
+        <SoftFloatSliderReset
+          title={resetTitle}
+          testId={resetTestId}
+          onClick={onReset}
+        />
+      ) : null}
+      {children}
+    </SoftFloatSliderRow>
   );
 }
 

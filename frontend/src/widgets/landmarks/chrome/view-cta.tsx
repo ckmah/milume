@@ -7,7 +7,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import type { LandmarksModel } from "../use-landmarks-model";
-import { ChromeTooltip, chromeHitClass, chromeHitOnClass } from "./primitives";
+import {
+  ChromeTooltip,
+  TOOLBAR_CLASS,
+  chromeHitClass,
+  chromeHitOnClass,
+} from "./primitives";
 
 /**
  * Soft Float View CTA — top-right. Points↔Raster toggle + rulers toggle.
@@ -25,7 +30,7 @@ export function ViewCta({ lm }: { lm: LandmarksModel }) {
   return (
     <TooltipProvider delayDuration={80} skipDelayDuration={0}>
       <div
-        className="landmarks-float landmarks-float--toolbar pointer-events-auto flex items-center gap-0.5 p-1 text-card-foreground"
+        className={TOOLBAR_CLASS}
         data-testid="view-cta"
       >
         <ChromeTooltip label="Canvas rulers">
@@ -38,11 +43,7 @@ export function ViewCta({ lm }: { lm: LandmarksModel }) {
             aria-label="Canvas rulers"
             data-testid="toggle-rulers"
             onClick={() => lm.setShowRulers(!rulersOn)}
-            className={cn(
-              chromeHitClass,
-              "rounded-full text-foreground/70 active:scale-[0.97]",
-              rulersOn && chromeHitOnClass,
-            )}
+            className={cn(chromeHitClass, rulersOn && chromeHitOnClass)}
           >
             <Ruler className="size-4" />
           </Button>
@@ -56,11 +57,8 @@ export function ViewCta({ lm }: { lm: LandmarksModel }) {
             aria-checked={rasterOn}
             aria-label="points/raster"
             onClick={onToggle}
-            className={cn(
-              "landmarks-view-cta rounded-full text-foreground/70",
-              "hover:bg-foreground/10 hover:text-foreground",
-              "active:scale-[0.97]",
-            )}
+            // A flip, not a latch: the icon shows the mode, so no on state.
+            className={cn(chromeHitClass, "landmarks-view-cta")}
           >
             <Morph
               key={popNonce || "idle"}
