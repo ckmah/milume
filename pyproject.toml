@@ -33,11 +33,11 @@ dependencies = [
 
 [project.optional-dependencies]
 demo = [
-    "altair>=6.2.2",
-    "cmcrameri>=1.10",
-    "fsspec>=2024.0",
+    "huggingface-hub>=0.30",
+    "igraph>=0.11",
     "marimo>=0.24.0",
     "scanpy>=1.10",
+    "spatialdata>=0.2",
 ]
 test = [
     "geopandas>=1.1.4",

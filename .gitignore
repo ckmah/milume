@@ -11,9 +11,6 @@ build/
 demos/__marimo__/
 demos/*.lock
 frontend/node_modules/
-frontend/dev/fixture-ileum.json
-# Accidental root dumps from local ileum exports (demo data lives under demos/data/).
-/ileum.h5ad
 spatial_rx/static/bundled/
 .playwright-mcp/
 
