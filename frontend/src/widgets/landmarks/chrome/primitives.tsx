@@ -94,7 +94,7 @@ export const chromeHitTextClass = "landmarks-hit landmarks-hit--text";
 /** Chips, badges and readout pills: opaque fill + 3:1 edge. */
 export const CHIP_CLASS = "landmarks-chip";
 
-/** Caption beside a toolbar control (Labels switch). */
+/** Caption beside a toolbar control (Adjust section titles, slider captions). */
 export const TOOLBAR_CAPTION = "landmarks-toolbar-caption";
 
 /** Inverted chrome tooltip (opposite of theme surface). */

@@ -1227,12 +1227,26 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-pitch", "35");
     await expect(bar.getByRole("radio", { name: "Oblique view" })).toHaveAttribute("aria-checked", "true");
 
-    // Reopened, the dock is top-down again, whatever it showed when it closed.
+    // Reopened, the dock opens in the toolbar's preset (still Oblique).
     await cubeWindow(page).getByRole("button", { name: "Close cube" }).click();
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(view).toHaveAttribute("data-refining", "false");
-    await expect(view).toHaveAttribute("data-pitch", "90");
-    await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "true");
+    await expect(view).toHaveAttribute("data-pitch", "35");
+    await expect(bar.getByRole("radio", { name: "Oblique view" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("a preset picked on the bar before placing is the dock's first view", async ({ page }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const bar = page.getByTestId("context-inspect-toolbar");
+    await bar.getByRole("radio", { name: "Oblique view" }).click();
+    await expect(cubeWindow(page)).toHaveCount(0);
+
+    const box = await canvasBox(page);
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-pitch", "35");
+    await expect(bar.getByRole("radio", { name: "Oblique view" })).toHaveAttribute("aria-checked", "true");
   });
 
   test("Show image off hides the image in the dock and the preview; labels still draw", async ({ page }) => {

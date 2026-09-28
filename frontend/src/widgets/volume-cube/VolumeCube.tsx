@@ -574,8 +574,7 @@ export function VolumeCube({
     const first = homeView(home, fits, box);
     if (want === home) setViewState(first);
     else setViewState(reframeOnPreset ? homeView(want, fits, box) : { ...first, ...PRESETS[want] });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fits, viewState, box, home]);
+  }, [fits, viewState, box, home, reframeOnPreset, presetRef]);
   // A fixed camera (no controller) always frames the window: it follows the
   // window's size and the view's (a preview mounted hidden is measured later).
   useEffect(() => {

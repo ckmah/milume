@@ -637,7 +637,7 @@
   background: color-mix(in oklab, var(--lm-float-bg), var(--foreground) 9%);
 }
 
-/* Toolbar captions (Labels switch, slider captions). */
+/* Toolbar captions (Adjust section titles, slider captions). */
 .landmarks-toolbar-caption {
   font-size: 0.6875rem;
   font-weight: 500;
