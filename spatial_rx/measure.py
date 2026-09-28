@@ -25,6 +25,13 @@ Other export columns (`vertices`, `tension`, `radius`) are ignored by measure;
 they matter for widget round-trip only. See
 `docs/landmarks-spatialdata-contract.md`.
 
+Depth
+-----
+Landmarks are 2D: geometry is measured in XY and extends through the section.
+When `obsm[spatial_key]` holds x, y, z, `distances` / `along_positions` add
+each cell's `z` and `z_bin`, and `composition` counts per `z_bin`
+(`z_bin_size`, default 1 coordinate unit, i.e. 1 µm; None turns it off).
+
 Selection measures (`enrichment`, `nearest_distances`) take cell ids instead,
 e.g. `widget.get_obs_names(adata, selection_id)`.
 """
@@ -33,9 +40,9 @@ from __future__ import annotations
 
 from typing import Iterator, Sequence
 
-import geopandas as gpd
 import numpy as np
 import pandas as pd
+import shapely
 from anndata import AnnData
 from geopandas import GeoDataFrame
 
@@ -199,6 +206,26 @@ def _xy_groups(adata: AnnData, obs_key: str, spatial_key: str):
     return xy[:, 0], xy[:, 1], names, groups
 
 
+def _z_column(
+    adata: AnnData, spatial_key: str, z_bin_size: float | None
+) -> np.ndarray | None:
+    """Each cell's z, or None for 2D coordinates or when binning is off."""
+    if z_bin_size is None:
+        return None
+    if float(z_bin_size) <= 0:
+        raise ValueError(f"z_bin_size must be > 0, got {z_bin_size!r}")
+    coords = np.asarray(adata.obsm[spatial_key])
+    if coords.ndim != 2 or coords.shape[1] < 3:
+        return None
+    return coords[:, 2].astype(float)
+
+
+def _z_bins(z: np.ndarray, z_bin_size: float) -> np.ndarray:
+    """Lower edge of each value's `z_bin_size`-wide bin."""
+    size = float(z_bin_size)
+    return np.floor(z / size) * size
+
+
 def _subset_indices(names: np.ndarray, obs_names: Sequence[str] | None) -> np.ndarray:
     if obs_names is None:
         return np.arange(names.shape[0], dtype=int)
@@ -208,6 +235,39 @@ def _subset_indices(names: np.ndarray, obs_names: Sequence[str] | None) -> np.nd
     )
 
 
+def _cell_rows(
+    lid: str,
+    ltype: str,
+    idx: np.ndarray,
+    names: np.ndarray,
+    groups: np.ndarray,
+    z: np.ndarray | None,
+    z_bin_size: float | None,
+    **values: np.ndarray,
+) -> pd.DataFrame:
+    """One row per cell in `idx` for one landmark, with z / z_bin when 3D."""
+    out = pd.DataFrame(
+        {
+            "obs_name": names[idx],
+            "point_index": idx.astype(int),
+            "landmark_id": lid,
+            "landmark_type": ltype,
+            "group": groups[idx],
+            **values,
+        }
+    )
+    if z is not None:
+        out["z"] = z[idx]
+        out["z_bin"] = _z_bins(z[idx], z_bin_size)
+    return out
+
+
+def _concat(frames: list[pd.DataFrame], columns: list[str]) -> pd.DataFrame:
+    if not frames:
+        return pd.DataFrame(columns=columns)
+    return pd.concat(frames, ignore_index=True)
+
+
 def distances(
     adata: AnnData,
     landmarks: GeoDataFrame,
@@ -215,16 +275,23 @@ def distances(
     obs_key: str,
     spatial_key: str = "spatial",
     obs_names: Sequence[str] | None = None,
+    z_bin_size: float | None = 1.0,
 ) -> pd.DataFrame:
     """Per-cell distance to landmark geometry in tissue coordinates.
 
-    Distance is Euclidean to each row's `geometry` (point, line, densified
-    spline, or shape polygon). When a line/spline has `buffer_width` > 0, only
-    cells inside that band are returned. Pair with `write_obs` to store a
-    column such as `dist_<landmark_id>`.
+    Distance is Euclidean in XY to each row's `geometry` (point, line,
+    densified spline, or shape polygon). When a line/spline has
+    `buffer_width` > 0, only cells inside that band are returned. Pair with
+    `write_obs` to store a column such as `dist_<landmark_id>`.
+
+    Landmarks are drawn on the map, so they extend through the whole depth of
+    a thick section. When `obsm[spatial_key]` holds x, y, z, each row also
+    carries the cell's `z` and its `z_bin`, so the same XY measure can be
+    grouped by depth.
 
     Args:
-        adata: AnnData with `obsm[spatial_key]` xy and `obs[obs_key]` labels.
+        adata: AnnData with `obsm[spatial_key]` xy (or xyz) and
+            `obs[obs_key]` labels.
         landmarks: Landmarks GeoDataFrame. Required: `geometry`, `id`,
             `type`. Optional: `buffer_width`, `buffer_side` (see module
             docstring).
@@ -232,36 +299,31 @@ def distances(
         spatial_key: `obsm` key for coordinates (default "spatial").
         obs_names: Optional cell subset (e.g. `widget.get_obs_names(...)`).
             None uses all cells.
+        z_bin_size: z bin width in coordinate units (default 1, i.e. 1 µm).
+            None leaves out the z columns. Ignored for 2D coordinates.
 
     Returns:
         One row per included cell: `obs_name`, `point_index`, `landmark_id`,
-        `landmark_type`, `group`, `distance`.
+        `landmark_type`, `group`, `distance`, plus `z` and `z_bin` (lower
+        bin edge) for 3D coordinates.
     """
     x, y, names, groups = _xy_groups(adata, obs_key, spatial_key)
+    z = _z_column(adata, spatial_key, z_bin_size)
     indices = _subset_indices(names, obs_names)
-    points = gpd.GeoSeries(gpd.points_from_xy(x, y))
-    rows = []
+    points = shapely.points(x[indices], y[indices])
+    frames = []
     for lid, ltype, geom, width, side in _landmark_rows(landmarks):
-        dist = points.distance(geom).to_numpy()
+        dist = shapely.distance(points, geom)
         poly = buffer_polygon(geom, ltype, buffer_width=width, buffer_side=side)
-        if poly is not None:
-            inside = points.intersects(poly).to_numpy()
-        else:
-            inside = np.ones(len(points), dtype=bool)
-        for i in indices:
-            if not inside[i]:
-                continue
-            rows.append(
-                {
-                    "obs_name": names[i],
-                    "point_index": int(i),
-                    "landmark_id": lid,
-                    "landmark_type": ltype,
-                    "group": groups[i],
-                    "distance": float(dist[i]),
-                }
+        keep = shapely.intersects(points, poly) if poly is not None else slice(None)
+        frames.append(
+            _cell_rows(
+                lid, ltype, indices[keep], names, groups, z, z_bin_size,
+                distance=dist[keep],
             )
-    return pd.DataFrame(rows)
+        )
+    columns = ["obs_name", "point_index", "landmark_id", "landmark_type", "group", "distance"]
+    return _concat(frames, columns)
 
 
 def composition(
@@ -271,13 +333,19 @@ def composition(
     obs_key: str,
     spatial_key: str = "spatial",
     obs_names: Sequence[str] | None = None,
+    z_bin_size: float | None = 1.0,
 ) -> pd.DataFrame:
     """Cell-type composition inside a shape or line/spline buffer.
 
-    For `shape` landmarks, counts cells whose coordinates fall in the polygon
-    `geometry`. For line/spline landmarks, requires `buffer_width` > 0 and
-    counts cells inside that band. Returns tidy counts and proportions per
+    For `shape` landmarks, counts cells whose XY coordinates fall in the
+    polygon `geometry`. For line/spline landmarks, requires `buffer_width` > 0
+    and counts cells inside that band. Returns tidy counts and proportions per
     `obs_key` group.
+
+    When `obsm[spatial_key]` holds x, y, z, the region is the XY footprint
+    extruded through the section and composition is computed per `z_bin`:
+    `count`, `proportion` and `n_total` are within that depth bin. Sum
+    `count` over bins for the whole-depth composition.
 
     Args:
         adata: AnnData with `obsm[spatial_key]` and `obs[obs_key]`.
@@ -287,17 +355,20 @@ def composition(
         obs_key: Categorical `obs` column whose levels become `group`.
         spatial_key: `obsm` key for coordinates (default "spatial").
         obs_names: Optional cell subset. None uses all cells.
+        z_bin_size: z bin width in coordinate units (default 1, i.e. 1 µm).
+            None pools all depths. Ignored for 2D coordinates.
 
     Returns:
-        Columns: `landmark_id`, `group`, `count`, `proportion`, `n_total`.
-        Empty when no landmark covers any selected cells.
+        Columns: `landmark_id`, `group`, `count`, `proportion`, `n_total`,
+        plus `z_bin` (lower bin edge, first column after `landmark_id`) for
+        3D coordinates. Empty when no landmark covers any selected cells.
     """
     x, y, names, groups = _xy_groups(adata, obs_key, spatial_key)
+    z = _z_column(adata, spatial_key, z_bin_size)
     indices = _subset_indices(names, obs_names)
-    points = gpd.GeoSeries(gpd.points_from_xy(x, y))
-    cand = np.zeros(len(x), dtype=bool)
-    cand[indices] = True
-    rows = []
+    points = shapely.points(x[indices], y[indices])
+    keys = ["landmark_id", "group"] if z is None else ["landmark_id", "z_bin", "group"]
+    frames = []
     for lid, ltype, geom, width, side in _landmark_rows(landmarks):
         if ltype == "shape":
             region = geom
@@ -305,23 +376,19 @@ def composition(
             region = buffer_polygon(geom, ltype, buffer_width=width, buffer_side=side)
             if region is None:
                 continue
-        mask = cand & points.intersects(region).to_numpy()
-        subset = groups[mask]
-        n = int(mask.sum())
-        if n == 0:
+        idx = indices[shapely.intersects(points, region)]
+        if idx.size == 0:
             continue
-        values, counts = np.unique(subset, return_counts=True)
-        for value, count in zip(values, counts, strict=True):
-            rows.append(
-                {
-                    "landmark_id": lid,
-                    "group": value,
-                    "count": int(count),
-                    "proportion": float(count) / n,
-                    "n_total": n,
-                }
-            )
-    return pd.DataFrame(rows)
+        cells = pd.DataFrame({"landmark_id": lid, "group": groups[idx]})
+        if z is not None:
+            cells["z_bin"] = _z_bins(z[idx], z_bin_size)
+        counts = cells.groupby(keys, sort=True).size().rename("count").reset_index()
+        n = counts.groupby(keys[:-1])["count"].transform("sum")
+        counts["count"] = counts["count"].astype(int)
+        counts["proportion"] = counts["count"] / n
+        counts["n_total"] = n.astype(int)
+        frames.append(counts)
+    return _concat(frames, [*keys, "count", "proportion", "n_total"])
 
 
 def along_positions(
@@ -332,14 +399,16 @@ def along_positions(
     spatial_key: str = "spatial",
     obs_names: Sequence[str] | None = None,
     radius: float | None = None,
+    z_bin_size: float | None = 1.0,
 ) -> pd.DataFrame:
     """Project cells onto a line/spline as a normalized arc coordinate `s`.
 
     Each included cell gets `s` in [0, 1] along the landmark (start → end),
-    plus perpendicular `distance`. Membership: if `buffer_width` > 0, cells
+    plus perpendicular XY `distance`. Membership: if `buffer_width` > 0, cells
     inside the buffer band; otherwise cells within `radius` of the centerline
     (default ~5% of the larger spatial span). Pair with `write_obs` to store
-    `s` on `adata.obs`.
+    `s` on `adata.obs`. For 3D coordinates each row also carries `z` and
+    `z_bin`, as in `distances`.
 
     Args:
         adata: AnnData with `obsm[spatial_key]` and `obs[obs_key]`.
@@ -351,45 +420,38 @@ def along_positions(
         obs_names: Optional cell subset. None uses all cells.
         radius: Fallback inclusion radius when the landmark has no buffer.
             None derives a span-based default.
+        z_bin_size: z bin width in coordinate units (default 1, i.e. 1 µm).
+            None leaves out the z columns. Ignored for 2D coordinates.
 
     Returns:
         Columns: `obs_name`, `point_index`, `landmark_id`, `landmark_type`,
-        `group`, `s`, `distance`.
+        `group`, `s`, `distance`, plus `z` and `z_bin` for 3D coordinates.
     """
     x, y, names, groups = _xy_groups(adata, obs_key, spatial_key)
+    z = _z_column(adata, spatial_key, z_bin_size)
     indices = _subset_indices(names, obs_names)
-    points = gpd.GeoSeries(gpd.points_from_xy(x, y))
+    points = shapely.points(x[indices], y[indices])
     default_radius = (
         float(radius)
         if radius is not None
         else 0.05 * max(float(np.ptp(x) or 1.0), float(np.ptp(y) or 1.0))
     )
-    rows = []
+    frames = []
     for lid, ltype, geom, width, side in _landmark_rows(landmarks):
         if ltype not in ("line", "spline") or geom.geom_type != "LineString":
             continue
-        dist = points.distance(geom).to_numpy()
+        dist = shapely.distance(points, geom)
         poly = buffer_polygon(geom, ltype, buffer_width=width, buffer_side=side)
-        if poly is not None:
-            inside = points.intersects(poly).to_numpy()
-        else:
-            inside = dist <= default_radius
-        for i in indices:
-            if not inside[i]:
-                continue
-            s = float(geom.project(points.iloc[i], normalized=True))
-            rows.append(
-                {
-                    "obs_name": names[i],
-                    "point_index": int(i),
-                    "landmark_id": lid,
-                    "landmark_type": ltype,
-                    "group": groups[i],
-                    "s": s,
-                    "distance": float(dist[i]),
-                }
+        keep = shapely.intersects(points, poly) if poly is not None else dist <= default_radius
+        s = shapely.line_locate_point(geom, points[keep], normalized=True)
+        frames.append(
+            _cell_rows(
+                lid, ltype, indices[keep], names, groups, z, z_bin_size,
+                s=s, distance=dist[keep],
             )
-    return pd.DataFrame(rows)
+        )
+    columns = ["obs_name", "point_index", "landmark_id", "landmark_type", "group", "s", "distance"]
+    return _concat(frames, columns)
 
 
 def enrichment(

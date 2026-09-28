@@ -147,3 +147,79 @@ def test_nearest_distances_needs_z():
 
     with pytest.raises(ValueError, match="x, y, z"):
         nearest_distances(_adata(), ["c0"], obs_key="cell_type")
+
+
+def _adata_z():
+    import anndata as ad
+
+    obs = pd.DataFrame(
+        {"cell_type": ["a", "b", "a", "b"]},
+        index=["c0", "c1", "c2", "c3"],
+    )
+    adata = ad.AnnData(np.ones((4, 1)), obs=obs)
+    # Same XY as _adata(); c0 and c1 share the 10–11 µm bin, c2 and c3 sit at 12 µm.
+    adata.obsm["spatial"] = np.array(
+        [[0.0, 0.0, 10.2], [1.0, 0.0, 10.9], [0.0, 1.0, 12.5], [1.0, 1.0, 12.0]]
+    )
+    return adata
+
+
+def _line(**extra):
+    return _gdf(
+        [
+            {
+                "id": "path",
+                "type": "line",
+                "vertices": [[-1.0, 0.0], [2.0, 0.0]],
+                "buffer_width": 2.0,
+                **extra,
+            }
+        ]
+    )
+
+
+def test_distances_add_z_bins_and_keep_the_xy_distance():
+    from spatial_rx.measure import distances
+
+    df = distances(_adata_z(), _line(), obs_key="cell_type").set_index("obs_name")
+    assert df["distance"].to_dict() == pytest.approx({"c0": 0.0, "c1": 0.0, "c2": 1.0, "c3": 1.0})
+    assert df["z"].to_dict() == pytest.approx({"c0": 10.2, "c1": 10.9, "c2": 12.5, "c3": 12.0})
+    assert df["z_bin"].to_dict() == {"c0": 10.0, "c1": 10.0, "c2": 12.0, "c3": 12.0}
+
+
+def test_z_bin_size_sets_the_bin_width_and_none_turns_it_off():
+    from spatial_rx.measure import along_positions, distances
+
+    wide = distances(_adata_z(), _line(), obs_key="cell_type", z_bin_size=5.0)
+    assert set(wide["z_bin"]) == {10.0}
+    flat = along_positions(_adata_z(), _line(), obs_key="cell_type", z_bin_size=None)
+    assert "z_bin" not in flat.columns and "z" not in flat.columns
+    assert flat["s"].tolist() == pytest.approx([1 / 3, 2 / 3, 1 / 3, 2 / 3])
+
+
+def test_along_positions_add_z_bins():
+    from spatial_rx.measure import along_positions
+
+    df = along_positions(_adata_z(), _line(), obs_key="cell_type")
+    assert df["z_bin"].tolist() == [10.0, 10.0, 12.0, 12.0]
+
+
+def test_2d_coordinates_have_no_z_columns():
+    from spatial_rx.measure import along_positions, composition, distances
+
+    adata = _adata()
+    for fn in (distances, along_positions, composition):
+        df = fn(adata, _line(), obs_key="cell_type")
+        assert not df.empty
+        assert "z_bin" not in df.columns
+
+
+def test_composition_per_z_bin():
+    from spatial_rx.measure import composition
+
+    df = composition(_adata_z(), _line(), obs_key="cell_type", obs_names=["c0", "c1", "c2"])
+    assert df[["z_bin", "group", "count", "proportion", "n_total"]].to_dict("records") == [
+        {"z_bin": 10.0, "group": "a", "count": 1, "proportion": 0.5, "n_total": 2},
+        {"z_bin": 10.0, "group": "b", "count": 1, "proportion": 0.5, "n_total": 2},
+        {"z_bin": 12.0, "group": "a", "count": 1, "proportion": 1.0, "n_total": 1},
+    ]
