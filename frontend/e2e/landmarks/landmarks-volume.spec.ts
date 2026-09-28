@@ -102,6 +102,42 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
   });
 
+  test("the Inspect toolbar shows before a window is placed; cut sliders wait for ranges without a crash", async ({
+    page,
+  }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const bar = page.getByTestId("context-inspect-toolbar");
+    await expect(bar).toBeVisible();
+    await expect(cubeWindow(page)).toHaveCount(0);
+
+    // Cuts need the dock's bounds: a placeholder, not a slider with no range.
+    await openAdjust(page);
+    const cuts = page.getByTestId("context-cube-cuts");
+    await expect(cuts).toContainText("Loading volume");
+    await expect(cuts.getByRole("slider")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+
+    // Camera, projection, palette and Labels do not need the cube open.
+    await bar.getByRole("radio", { name: "Top view" }).click();
+    await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("a palette change before placing reaches the hover preview, then the dock", async ({ page }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const bar = page.getByTestId("context-inspect-toolbar");
+    await bar.getByRole("button", { name: "Palette" }).click();
+    await page.getByRole("menuitemradio", { name: "viridis" }).click();
+
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5, { steps: 3 });
+    await expect(preview(page)).toBeVisible();
+    await expect(preview(page).locator(".volume-cube__view")).toHaveAttribute("data-palette", "viridis");
+
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await expect(cubeWindow(page)).toBeVisible();
+    await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-palette", "viridis");
+  });
+
   test("the square is a fixed 300 µm at any zoom", async ({ page }) => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     await page.evaluate(() => {
@@ -1018,6 +1054,24 @@ test.describe("Landmarks inspect cube", () => {
     await expect(previewLegend).toBeVisible();
     await expect(previewLegend).toHaveAttribute("data-axes", top!);
     expect((await lengths(previewLegend))[2]).toBeLessThan(0.05);
+  });
+
+  test("the camera dips 45° below level, not further", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const bar = page.getByTestId("context-inspect-toolbar");
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    // Let the initial load settle before the first toolbar click.
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await bar.getByRole("radio", { name: "Side view" }).click();
+    await expect(view).toHaveAttribute("data-pitch", "0");
+
+    // Drag far past level: the pitch clamps at -45 rather than continuing to orbit.
+    const r = (await view.boundingBox())!;
+    await page.mouse.move(r.x + r.width * 0.5, r.y + r.height * 0.5);
+    await page.mouse.down();
+    await page.mouse.move(r.x + r.width * 0.5, r.y + r.height * 0.1, { steps: 20 });
+    await page.mouse.up();
+    await expect(view).toHaveAttribute("data-pitch", "-45");
   });
 
   test("landmarks crossing the window are drawn in the cube; ones outside are not", async ({ page }) => {

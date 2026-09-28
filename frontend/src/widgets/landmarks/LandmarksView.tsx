@@ -355,7 +355,7 @@ export function LandmarksView({
           />
         </div>
 
-        {inspecting && hasVolume && cube.open ? (
+        {inspecting && hasVolume ? (
           <InspectToolbar
             settings={cube}
             patch={patchCube}

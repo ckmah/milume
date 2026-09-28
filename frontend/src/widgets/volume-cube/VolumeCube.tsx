@@ -136,8 +136,8 @@ type ViewState = {
 };
 
 const ISO_PITCH = 35;
-/** Camera tilt runs from head-on (0°, perpendicular to Z) to straight down (90°). */
-const MIN_PITCH = 0;
+/** Camera tilt runs from 45° below level (looking slightly up) to straight down (90°). */
+const MIN_PITCH = -45;
 const MAX_PITCH = 90;
 const PRESETS: Record<ViewPreset, { rotationX: number; rotationOrbit: number }> = {
   // Orbit 0 from above shows x right and y down, the same as the Landmarks map.
@@ -797,6 +797,7 @@ export function VolumeCube({
       data-refining={String(refining)}
       data-overlays={placedOverlays?.count ?? 0}
       data-zoom={viewState ? viewState.zoom.toFixed(2) : ""}
+      data-pitch={viewState ? Math.round(viewState.rotationX) : ""}
     >
       {layerProps && displayViewStates ? (
         <VivViewer
