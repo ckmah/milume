@@ -55,7 +55,7 @@ const CATEGORY_HUES = { type1: 205, type0: 28 };
 /**
  * Pixels that take on a category colour between two screenshots of the same
  * view (`before`, `after`): hue within 15° of the category's, saturated and not
- * dark, and not already that colour before. Counts and mean x (px) per
+ * dark, and not already that colour before. Counts and mean x, y (px) per
  * category. Comparing the two leaves out the frame's axes and the axis legend.
  */
 async function newCategoryPixels(page: Page, before: Buffer, after: Buffer) {
@@ -79,17 +79,21 @@ async function newCategoryPixels(page: Page, before: Buffer, after: Buffer) {
         return "";
       };
       const [was, now] = [await pixels(before), await pixels(after)];
-      const out = Object.fromEntries(Object.keys(hues).map((k) => [k, { count: 0, x: 0 }])) as Record<
+      const out = Object.fromEntries(Object.keys(hues).map((k) => [k, { count: 0, x: 0, y: 0 }])) as Record<
         keyof typeof hues,
-        { count: number; x: number }
+        { count: number; x: number; y: number }
       >;
       for (let i = 0; i < now.data.length; i += 4) {
         const k = category(now.data, i) as keyof typeof hues | "";
         if (!k || category(was.data, i) === k) continue;
         out[k].count++;
         out[k].x += (i / 4) % now.width;
+        out[k].y += Math.floor(i / 4 / now.width);
       }
-      for (const v of Object.values(out)) v.x = v.count ? v.x / v.count : 0;
+      for (const v of Object.values(out)) {
+        v.x = v.count ? v.x / v.count : 0;
+        v.y = v.count ? v.y / v.count : 0;
+      }
       return out;
     },
     { before: before.toString("base64"), after: after.toString("base64"), hues: CATEGORY_HUES },
@@ -786,25 +790,46 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("with Labels on each toy cell renders in its category colour in the dock", async ({ page }) => {
-    // The 300 µm square holds all three cells; the dock opens top-down (x right, y down).
+    // Record the width of every RG8 3D texture allocated (the label textures).
+    await page.addInitScript(() => {
+      const widths: number[] = [];
+      (window as any).__rg8Widths = widths;
+      const proto = WebGL2RenderingContext.prototype;
+      const texStorage3D = proto.texStorage3D;
+      proto.texStorage3D = function (this: WebGL2RenderingContext, ...args: Parameters<typeof texStorage3D>) {
+        if (args[2] === this.RG8) widths.push(args[3]);
+        return texStorage3D.apply(this, args);
+      };
+    });
+    // A 100 µm window over cells 2 (type0, at 160, 150) and 3 (type1, at 100, 190)
+    // and not cell 1: the first cell encoded is global 2, so local index 1 is
+    // global 2 and a local/global mix-up changes the colours.
+    await reloadWith(page, "window=100");
     await openCubeAtCentre(page, { at: [130, 170] });
     const view = cubeWindow(page).locator(".volume-cube__view");
-    // Maximum intensity puts cells in front of the image, so the deep cell 1 shows too.
+    // Half-µm centre: the level-0 box is X 80-181, Y 120-221, an odd 101 voxels
+    // wide (RG8 rows of 202 bytes, not 4-byte aligned, like A2's 667).
+    await setModel(page, { inspect_cx: 130.5, inspect_cy: 170.5 });
+    // Maximum intensity puts cells in front of the image, so deep cells show too.
     const bar = page.getByTestId("context-inspect-toolbar");
     await bar.getByRole("radio", { name: "Maximum intensity" }).click();
     await expect(view).toHaveAttribute("data-render", "mip");
     await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-pan", "0,0");
     const off = await view.screenshot();
 
     await bar.getByRole("switch", { name: "Labels" }).click();
     await expect(view).toHaveAttribute("data-channels", "2");
+    await expect(view).toHaveAttribute("data-label-cells", "2");
     await expect(view).toHaveAttribute("data-highlight", "2");
+    expect(await page.evaluate(() => (window as any).__rg8Widths)).toContain(101);
     const on = await newCategoryPixels(page, off, await view.screenshot());
-    // Cells 1 and 3 (type1, blue) and cell 2 (type0, orange) all show...
+    // Cell 3 (type1, blue) and cell 2 (type0, orange) both show...
     expect(on.type1.count).toBeGreaterThan(200);
     expect(on.type0.count).toBeGreaterThan(200);
-    // ...each where it is: cell 2 (x 160) right of cells 1 and 3 (x 70 and 100).
+    // ...each where it is (top-down: x right, y down): cell 2 right of and above cell 3.
     expect(on.type0.x).toBeGreaterThan(on.type1.x + 20);
+    expect(on.type0.y).toBeLessThan(on.type1.y - 20);
   });
 
   test("the dock shows the coarse level first, then refines", async ({ page }) => {

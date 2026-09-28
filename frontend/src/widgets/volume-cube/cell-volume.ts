@@ -89,7 +89,8 @@ export function encodeLabels(ids: Ids, width: number, height: number): { data: U
 export type Texture = { destroy(): void; copyImageData(options: { data: ArrayBufferView }): void };
 export type Device = {
   createTexture(props: Record<string, unknown>): Texture;
-  setParametersWebGL?(parameters: Record<number, unknown>): void;
+  /** Sets WebGL parameters around `fn` and restores the previous values. */
+  withParametersWebGL?(parameters: Record<number, unknown>, fn: () => void): void;
 };
 
 const GL_UNPACK_ALIGNMENT = 3317;
@@ -153,10 +154,13 @@ export class CellVolume {
           addressModeW: "clamp-to-edge",
         },
       });
-      // Rows of an odd-width window are not 4-byte aligned. Written after
+      // Rows of an odd-width window (A2: 667 texels, 1334 bytes) are not 4-byte
+      // aligned; the alignment is set for this upload only. Written after
       // creation (not as `data`), so luma.gl keeps no reference to the texels.
-      device.setParametersWebGL?.({ [GL_UNPACK_ALIGNMENT]: 1 });
-      tex.copyImageData({ data: this.texels });
+      const texels = this.texels;
+      const upload = () => tex.copyImageData({ data: texels });
+      if (device.withParametersWebGL) device.withParametersWebGL({ [GL_UNPACK_ALIGNMENT]: 1 }, upload);
+      else upload();
       this.tex = tex;
       this.texels = null;
     }

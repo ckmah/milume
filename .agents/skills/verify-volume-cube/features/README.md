@@ -14,7 +14,7 @@ capability** to existing Playwright coverage — not a product roadmap.
 | [harness-boots-volume](harness-boots-volume.md) | `volume-cube.spec.ts` — `"harness boots and OME-Zarr volume renders"` | `rest` |
 | [inspect-window-placement](inspect-window-placement.md) | `volume-cube.spec.ts` — `"toy inspect drag updates synced window traits"` | `window-on-sphere` |
 | [window-trait-readout](window-trait-readout.md) | `volume-cube.spec.ts` — `"model patches update the window and axis slice readout"` | — |
-| [labels-toggle](labels-toggle.md) | `volume-cube.spec.ts` — `"labels switch outlines cells from a compact label texture beside the image"`, `"a window with more cells than the label texture indexes shows a status, not labels"` | `labels-off` |
+| [labels-toggle](labels-toggle.md) | `volume-cube.spec.ts` — `"labels switch outlines cells from a compact label texture beside the image"`, `"a window with more cells than the label texture indexes shows a status, not labels"`, `"label texels follow the texel order Viv gives the image (odd, non-square windows)"` | `labels-off` |
 | [fetch-errors](fetch-errors.md) | `volume-cube.spec.ts` — `"a failed labels fetch ends in an error state, not loading"`, `"a failed image window fetch shows a status line"`; `test_serve_directory_takes_a_burst_of_parallel_reads` | — |
 | [cube-controls](cube-controls.md) | `volume-cube.spec.ts` — `"in-widget controls: camera presets, projection, and a committed Z cut"` | `rest` |
 | [highlight-groups](highlight-groups.md) | `volume-cube.spec.ts` — `"highlight_groups colour chosen cells and follow the Labels switch"` | — |

@@ -237,6 +237,20 @@ test.describe("VolumeCubeWidget", () => {
     await expect(view).toHaveAttribute("data-label-format", "none");
   });
 
+  test("label texels follow the texel order Viv gives the image (odd, non-square windows)", async ({ page }) => {
+    // Viv's VolumeLayer lays out a labels raster; encodeLabels must put each id
+    // at the same texel (cell-volume.ts `vivRow` copies Viv's row order). A Viv
+    // upgrade that changes that order fails here: update `vivRow` to match.
+    const results = await page.evaluate(async () => {
+      const probe = await import(/* @vite-ignore */ "/viv-layout-probe.ts");
+      return [await probe.vivLayoutMismatches(5, 3, 2), await probe.vivLayoutMismatches(13, 7, 3)];
+    });
+    for (const r of results) {
+      expect(r.texels).toBeGreaterThan(0);
+      expect(r.mismatches).toBe(0);
+    }
+  });
+
   test("a failed labels fetch ends in an error state, not loading", async ({ page }) => {
     const widget = volumeCubeWidget(page);
     // A server error (not a missing-chunk 404, which reads as fill) on every labels chunk.

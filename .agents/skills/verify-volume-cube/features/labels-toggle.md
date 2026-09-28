@@ -3,7 +3,7 @@
 The Labels switch loads the OME-Zarr labels on the image's grid on first use and
 shows each cell's surface, plus any `highlight_groups` fills, in the same volume.
 
-**Spec:** `frontend/e2e/volume-cube/volume-cube.spec.ts` — `"labels switch outlines cells from a compact label texture beside the image"`, `"a window with more cells than the label texture indexes shows a status, not labels"`
+**Spec:** `frontend/e2e/volume-cube/volume-cube.spec.ts` — `"labels switch outlines cells from a compact label texture beside the image"`, `"a window with more cells than the label texture indexes shows a status, not labels"`, `"label texels follow the texel order Viv gives the image (odd, non-square windows)"`
 
 ## Sub-features
 
@@ -24,6 +24,9 @@ shows each cell's surface, plus any `highlight_groups` fills, in the same volume
 - More than 32767 cells in one window: `data-labels="error"`, status "Too many
   cells in this window for labels", image alone (`data-channels="1"`,
   `data-label-format="none"`). No fallback encoding
+- Label texels in Viv's texel order: the harness probe `dev/volume-cube/viv-layout-probe.ts`
+  runs the installed Viv's `VolumeLayer` load step on a 5×3×2 and a 13×7×3 raster
+  (odd, non-square) and compares its layout with `encodeLabels` (0 mismatches)
 - Labels on a different grid from the image: `data-labels="error"` and a status line
   (`from_ome_zarr(labels_path=...)` rejects it up front)
 
@@ -58,7 +61,8 @@ Model keys: `labels_url` (must be set for the switch to enable).
 **Proof**
 
 - Functional: `data-labels` follows the switch; one canvas throughout; the label
-  texture stays on the GPU once used; the cell limit shows its status.
+  texture stays on the GPU once used; the cell limit shows its status; the label
+  layout matches the installed Viv's (probe, 0 mismatches).
 - Pixels: the Landmarks dock test `"with Labels on each toy cell renders in its
   category colour in the dock"` (verify-landmarks `inspect-cube`).
 - Visual: `labels-off`.
@@ -71,7 +75,8 @@ Model keys: `labels_url` (must be set for the switch to enable).
   size (uint32 or wider), since only the lookup sees them.
 - The RG8 texels are written in Viv's own texel order (`getVolume` in
   `@vivjs/layers`: rows reversed, with its `%`-on-negative quirk), so labels and
-  image line up voxel for voxel.
+  image line up voxel for voxel. The texel-order test runs Viv's own load step
+  on a raster, so a Viv upgrade that changes the order fails it: fix `vivRow`.
 - Viv keeps drawing the old image while it copies a new window; the shader binds
   the labels of the image actually drawn (the VolumeLayer's `onViewportLoad`
   tags each volume with its window), and a retired window's label texture is
@@ -86,3 +91,6 @@ Model keys: `labels_url` (must be set for the switch to enable).
 - A texture created with `data` keeps a reference to it in luma.gl's props; the
   label texture is written with `copyImageData` after creation so its CPU texels
   can be freed.
+- Odd-width windows (A2: 667) give RG8 rows that are not 4-byte aligned: the
+  upload sets `UNPACK_ALIGNMENT = 1` only around `copyImageData`
+  (`device.withParametersWebGL`), restoring the previous value.
