@@ -1,37 +1,40 @@
 import { ColorPalette3DExtensions } from "@hms-dbmi/viv";
 
+import { type CellVolume, type Device, vivVolumeImage } from "./cell-volume";
+import { type ImageFormat, imageTextureInfo } from "./image-volume";
 import { DEFAULT_RENDER, type RenderSettings, paletteLut } from "./palettes";
 
 /**
- * Viv volume rendering for an image, plus one label channel coloured per cell.
+ * Viv volume rendering for an image, plus the window's cells from a second,
+ * compact texture.
  *
- * Channel 0 is the image, coloured through a 256-texel palette (`imagePalette`)
- * with alpha and gamma from the `render` prop. Channel 1, once labels load,
- * holds each voxel's label id, negated on the cell's surface (a voxel with a
- * differently labelled 6-neighbour). A small
- * RGBA lookup texture (`cellLut`) maps id -> colour and fill alpha; texel 0 is
- * the colour and alpha of surfaces that are not highlighted.
+ * Viv raycasts the image alone (`volume0`, at its own dtype: image-volume.ts),
+ * coloured through a 256-texel palette (`imagePalette`) with alpha and gamma
+ * from the `render` prop; with `showImage` false the image adds nothing (a
+ * uniform, no refetch). Once labels load, `labelVolume` (an RG8 3D texture on
+ * the same grid, see `cell-volume.ts`) holds each voxel's local cell index and
+ * a surface flag. A small RGBA lookup texture (`cellLut`) maps local index ->
+ * colour and fill alpha; texel 0 is the colour and alpha of surfaces that are
+ * not highlighted.
  *
  * Showing, hiding or recolouring cells rewrites only the lookup texture (a few
- * MB at most), never the volume textures, so the Labels switch and a new
- * highlight are one redraw instead of a refetch and re-upload of the window.
+ * KB), never the volume textures, so the Labels switch and a new highlight are
+ * one redraw instead of a refetch and re-upload of the window.
  *
- * The label channel is read with texelFetch: Viv filters its 3D textures
- * linearly, which would blend neighbouring ids into ids of unrelated cells.
+ * The label texture is sampled at the same ray position as the image, so it
+ * shares the volume's model matrix (and pan) by construction. It is read with
+ * texelFetch: filtering would blend neighbouring indices into unrelated cells.
  */
 
 /**
- * Width of the lookup texture; ids wrap onto rows. It is a 3D texture, and
- * desktop GPUs cap each 3D axis at 2048, so 2048 x 2048 ids (4M) fit.
+ * Width of the lookup texture; indices wrap onto rows. It is a 3D texture, and
+ * desktop GPUs cap each 3D axis at 2048.
  */
 export const CELL_LUT_WIDTH = 2048;
 
-/** Largest id a float32 channel holds exactly. */
-export const MAX_EXACT_LABEL = 2 ** 24;
-
 export type CellLut = { data: Uint8Array; width: number; height: number };
 
-/** Nothing drawn for any cell: used while Labels is off. */
+/** Nothing drawn for any cell: used while Labels is off or no labels are bound. */
 export const EMPTY_CELL_LUT: CellLut = { data: new Uint8Array(4), width: 1, height: 1 };
 
 // Defined beside the palettes so chrome can use them without importing Viv.
@@ -40,85 +43,102 @@ export { DEFAULT_RENDER, type RenderSettings } from "./palettes";
 /** A 256-texel image colour map from `paletteLut`. */
 export type ImagePalette = { data: Uint8Array; width: number; height: number };
 
+type CubeUniforms = Partial<RenderSettings> & { cellsOn?: number; imageOn?: number; imageScale?: number };
+
 // The module must not share a sampler's name: luma.gl keys a module's
 // uniforms by module name and would set that sampler's texture unit from them.
 const cubeRenderModule = {
   name: "cubeRender",
-  uniformTypes: { imageAlpha: "f32", imageGamma: "f32", cellAlpha: "f32" },
-  defaultUniforms: { imageAlpha: 1, imageGamma: 1, cellAlpha: 1 },
+  uniformTypes: {
+    imageAlpha: "f32",
+    imageGamma: "f32",
+    cellAlpha: "f32",
+    cellsOn: "f32",
+    imageOn: "f32",
+    imageScale: "f32",
+  },
+  defaultUniforms: { imageAlpha: 1, imageGamma: 1, cellAlpha: 1, cellsOn: 0, imageOn: 1, imageScale: 1 },
   // Only the numbers reach the uniform block; the palette is a texture.
-  getUniforms: (render: Partial<RenderSettings> = {}) => ({
+  getUniforms: (render: CubeUniforms = {}) => ({
     imageAlpha: render.imageAlpha ?? DEFAULT_RENDER.imageAlpha,
     imageGamma: render.imageGamma ?? DEFAULT_RENDER.imageGamma,
     cellAlpha: render.cellAlpha ?? DEFAULT_RENDER.cellAlpha,
+    cellsOn: render.cellsOn ?? 0,
+    imageOn: render.imageOn ?? 1,
+    imageScale: render.imageScale ?? 1,
   }),
+  // Viv's contrast ramp on the raw value: a unorm image texture (r8unorm,
+  // r16unorm) samples as value / max, and imageScale (max; 1 for float)
+  // undoes that first, so contrast limits mean what they did at float32.
+  // Defined here, the hook replaces Viv's default ramp (XR3DLayer.getShaders).
+  inject: {
+    "fs:DECKGL_PROCESS_INTENSITY":
+      "intensity = apply_contrast_limits(intensity * cubeRender.imageScale, contrastLimits);",
+  },
   fs: `\
 uniform cubeRenderUniforms {
   float imageAlpha;
   float imageGamma;
   float cellAlpha;
+  float cellsOn;
+  float imageOn;
+  float imageScale;
 } cubeRender;
 
-// One-deep 3D textures: luma.gl validates the program before it assigns
-// texture units, and a sampler2D beside Viv's sampler3Ds (all on unit 0 then)
-// fails that validation.
+// All 3D textures, the lookups one texel deep: luma.gl validates the program
+// before it assigns texture units, and a sampler2D beside Viv's sampler3Ds (all
+// on unit 0 then) fails that validation.
 uniform highp sampler3D imagePalette;
-// The image-only program declares no cell sampler (it would be left unbound);
-// Viv defines NUM_CHANNELS and luma.gl puts defines ahead of module code.
-#if NUM_CHANNELS > 1
 uniform highp sampler3D cellLut;
-#endif
+// RG8 per voxel: local cell index r + 256 * (g & 127), surface flag g & 128.
+uniform highp sampler3D labelVolume;
 
 vec3 srgbToLinear(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
 
-// Image value after contrast -> (linear rgb, per-sample alpha).
+// Image value after contrast -> (linear rgb, per-sample alpha); clear with the image off.
 vec4 imageSample(float v) {
   float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
   vec3 c = srgbToLinear(texelFetch(imagePalette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
-  return vec4(c, g * cubeRender.imageAlpha);
+  return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
-#if NUM_CHANNELS > 1
-// Colour (linear RGB) and per-sample alpha of the voxel with label value v.
-vec4 cellColor(float v) {
-  if (v == 0.0) return vec4(0.0);
+// Colour (linear RGB) and per-sample alpha of the label voxel at texel q.
+vec4 cellColor(ivec3 q) {
+  ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
+  int idx = b.x + 256 * (b.y & 127);
+  if (idx == 0) return vec4(0.0);
+  bool surface = b.y >= 128;
   ivec2 size = textureSize(cellLut, 0).xy;
-  int id = int(abs(v) + 0.5);
   vec4 own = vec4(0.0);
-  if (id < size.x * size.y) own = texelFetch(cellLut, ivec3(id % size.x, id / size.x, 0), 0);
+  if (idx < size.x * size.y) own = texelFetch(cellLut, ivec3(idx % size.x, idx / size.x, 0), 0);
   vec4 c;
-  if (v > 0.0) c = own;
+  if (!surface) c = own;
   // Surface voxel: a highlighted cell's own colour, otherwise the shared outline.
   else if (own.a > 0.0) c = vec4(own.rgb, 0.9);
   else c = texelFetch(cellLut, ivec3(0), 0);
   return vec4(c.rgb, c.a * cubeRender.cellAlpha);
 }
-#endif
 `,
 };
 
-// The label channel (volume1) exists only once labels load; with the image
-// alone every cell line is compiled out. No channel placeholders anywhere, so
-// Viv does not repeat these lines per channel.
+// No channel placeholders anywhere, so Viv does not repeat these lines per
+// channel. With no labels bound, or Labels off, cellsOn skips the label fetch.
 const CELL_SETUP = `
-#if NUM_CHANNELS > 1
-  ivec3 cellSize = textureSize(volume1, 0);
-#endif`;
+  ivec3 cellSize = textureSize(labelVolume, 0);
+  bool cellsOn = cubeRender.cellsOn > 0.5;`;
 
 const CELL_SAMPLE = `
-    vec4 cell = canShow * cellColor(
-      texelFetch(volume1, clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1), 0).r
-    );`;
+    vec4 cell = canShow * cellColor(clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1));`;
 
 const ADDITIVE = {
   _BEFORE_RENDER: CELL_SETUP,
   _RENDER: `
-#if NUM_CHANNELS > 1
-    // Cell first, so a coloured cell reads in its own colour over bright stain.
-    ${CELL_SAMPLE}
-    color.rgb += (1.0 - color.a) * cell.a * cell.rgb;
-    color.a += (1.0 - color.a) * cell.a;
-#endif
+    if (cellsOn) {
+      // Cell first, so a coloured cell reads in its own colour over bright stain.
+      ${CELL_SAMPLE}
+      color.rgb += (1.0 - color.a) * cell.a * cell.rgb;
+      color.a += (1.0 - color.a) * cell.a;
+    }
     vec4 im = imageSample(intensityValue0);
     color.rgb += (1.0 - color.a) * im.a * im.rgb;
     color.a += (1.0 - color.a) * im.a;
@@ -134,42 +154,73 @@ const MIP = {
   vec4 cells = vec4(0.0);`,
   _RENDER: `
     maxImage = max(maxImage, intensityValue0);
-#if NUM_CHANNELS > 1
-    if (cells.a < 0.95) {
+    if (cellsOn && cells.a < 0.95) {
       ${CELL_SAMPLE}
       cells.rgb += (1.0 - cells.a) * cell.a * cell.rgb;
       cells.a += (1.0 - cells.a) * cell.a;
-    }
-#endif`,
+    }`,
   _AFTER_RENDER: `
   // Cells in front, composited over the image's maximum-intensity projection.
   // The projection is opaque: weighting it by the sample alpha (g) as well
-  // would square the ramp and darken everything below full intensity.
+  // would square the ramp and darken everything below full intensity. With
+  // the image off only the cells remain, at their own alpha (as in Additive).
   vec4 im = imageSample(maxImage);
-  color = vec4(cells.rgb + (1.0 - cells.a) * im.rgb * cubeRender.imageAlpha, 1.0);`,
+  float imageOn = cubeRender.imageOn;
+  color = vec4(cells.rgb + (1.0 - cells.a) * im.rgb * cubeRender.imageAlpha * imageOn, mix(cells.a, 1.0, imageOn));`,
 };
+
+type Texture = { destroy(): void };
 
 type LayerLike = {
   constructor: { layerName?: string };
-  props: { cellLut?: CellLut | null; imagePalette?: ImagePalette | null; render?: RenderSettings | null };
+  props: {
+    /** The shown window's labels, or null. */
+    cellVolume?: CellVolume | null;
+    /** Highlight groups while Labels is on; null hides every cell. */
+    cellGroups?: readonly HighlightGroup[] | null;
+    /** Default true; false: the image adds nothing to the ray (labels still draw). */
+    showImage?: boolean;
+    /** Called when the labels this layer draws change (null: none). */
+    onCellsBound?: (cells: CellVolume | null) => void;
+    /** Called when the format of the image texture this layer draws changes (null: none yet). */
+    onImageBound?: (format: ImageFormat | null) => void;
+    imagePalette?: ImagePalette | null;
+    render?: RenderSettings | null;
+    /** Set by Viv's VolumeLayer: `data[0]` is the image volume being drawn. */
+    channelData?: { data?: unknown[] } | null;
+  };
   state: {
     model?: {
       setBindings(b: Record<string, unknown>): void;
       shaderInputs: { setProps(p: Record<string, unknown>): void };
     } | null;
     cellLutTexture?: Texture | null;
+    /** What `cellLutTexture` was built for. */
+    cellLutFor?: { cells: CellVolume | null; groups: readonly HighlightGroup[] | null } | null;
+    boundCells?: CellVolume | null;
+    /** Format of the image texture last drawn. */
+    boundImage?: ImageFormat | null;
+    /** Set by Viv's XR3DLayer: `volume0` is the image texture it draws. */
+    textures?: { volume0?: unknown } | null;
+    noCellsTexture?: Texture | null;
     paletteTexture?: Texture | null;
   };
-  context: { device: { createTexture(props: Record<string, unknown>): Texture } };
-  getNumChannels(): number;
+  context: { device: Device };
   setState(patch: Record<string, unknown>): void;
 };
-type Texture = { destroy(): void };
 
-/** Only Viv's XR3DLayer draws; its VolumeLayer parent shares the extension. */
+/** Only the cube's XR3DLayer (image-volume.ts) draws; its VolumeLayer parent shares the extension. */
 function isRaycaster(layer: LayerLike): boolean {
-  return layer.constructor.layerName === "XR3DLayer";
+  return layer.constructor.layerName === "CubeXR3DLayer";
 }
+
+const NEAREST = {
+  minFilter: "nearest",
+  magFilter: "nearest",
+  addressModeU: "clamp-to-edge",
+  addressModeV: "clamp-to-edge",
+  addressModeW: "clamp-to-edge",
+};
 
 /** A one-deep, unfiltered RGBA8 3D texture (see the module's sampler note). */
 function lookupTexture(layer: LayerLike, lut: CellLut | ImagePalette): Texture {
@@ -181,14 +232,31 @@ function lookupTexture(layer: LayerLike, lut: CellLut | ImagePalette): Texture {
     format: "rgba8unorm",
     data: lut.data,
     mipmaps: false,
-    sampler: {
-      minFilter: "nearest",
-      magFilter: "nearest",
-      addressModeU: "clamp-to-edge",
-      addressModeV: "clamp-to-edge",
-      addressModeW: "clamp-to-edge",
-    },
+    sampler: NEAREST,
   });
+}
+
+/**
+ * The labels to draw with the image Viv draws now: the shown window's once
+ * Viv's image is that window's; until then, the labels already bound (Viv
+ * copies a new window for a while after it is handed over, and draws the old
+ * one meanwhile).
+ */
+function bindCells(layer: LayerLike): CellVolume | null {
+  const drawn = vivVolumeImage(layer.props.channelData?.data?.[0]);
+  const next = layer.props.cellVolume ?? null;
+  const bound = layer.state.boundCells ?? null;
+  let want: CellVolume | null = null;
+  if (next && !next.destroyed && next.image === drawn) want = next;
+  else if (bound && !bound.destroyed && bound.image === drawn) want = bound;
+  if (want !== bound) {
+    want?.use();
+    bound?.unuse();
+    // Plain state: set while drawing, so it must not ask for a layer update.
+    layer.state.boundCells = want;
+    layer.props.onCellsBound?.(want);
+  }
+  return want;
 }
 
 abstract class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
@@ -204,33 +272,75 @@ abstract class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
     const layer = this as unknown as LayerLike;
     const { props, oldProps } = update as { props: LayerLike["props"]; oldProps: LayerLike["props"] };
     if (!isRaycaster(layer)) return;
-    if (!layer.state.cellLutTexture || props.cellLut !== oldProps.cellLut) {
-      layer.state.cellLutTexture?.destroy();
-      layer.setState({ cellLutTexture: lookupTexture(layer, props.cellLut ?? EMPTY_CELL_LUT) });
-    }
     if (!layer.state.paletteTexture || props.imagePalette !== oldProps.imagePalette) {
       layer.state.paletteTexture?.destroy();
       const palette = props.imagePalette ?? paletteLut(props.render?.palette ?? DEFAULT_RENDER.palette);
       layer.setState({ paletteTexture: lookupTexture(layer, palette) });
+    }
+    // Bound in place of a window's labels when there are none: every sampler must be.
+    if (!layer.state.noCellsTexture) {
+      const noCells = layer.context.device.createTexture({
+        dimension: "3d",
+        width: 1,
+        height: 1,
+        depth: 1,
+        format: "rg8unorm",
+        data: new Uint8Array(2),
+        mipmaps: false,
+        sampler: NEAREST,
+      });
+      layer.setState({ noCellsTexture: noCells });
     }
   }
 
   draw() {
     const layer = this as unknown as LayerLike;
     if (!isRaycaster(layer)) return;
-    const { model, cellLutTexture, paletteTexture } = layer.state;
-    if (!model || !cellLutTexture || !paletteTexture) return;
-    // With the image alone the shader declares no cellLut; binding it anyway
-    // would make luma.gl warn about an unknown binding on every frame.
-    const cells = layer.getNumChannels() > 1 ? { cellLut: cellLutTexture } : {};
-    model.setBindings({ ...cells, imagePalette: paletteTexture });
-    model.shaderInputs.setProps({ cubeRender: layer.props.render ?? DEFAULT_RENDER });
+    const { model, paletteTexture, noCellsTexture } = layer.state;
+    if (!model || !paletteTexture || !noCellsTexture) return;
+    const cells = bindCells(layer);
+    const groups = layer.props.cellGroups ?? null;
+    // The lookup follows the labels actually bound, so a window Viv is still
+    // replacing keeps its own colours.
+    const lutFor = layer.state.cellLutFor;
+    if (!layer.state.cellLutTexture || !lutFor || lutFor.cells !== cells || lutFor.groups !== groups) {
+      layer.state.cellLutTexture?.destroy();
+      const lut = cells && groups ? buildCellLut(groups, cells.cells) : EMPTY_CELL_LUT;
+      layer.state.cellLutTexture = lookupTexture(layer, lut);
+      layer.state.cellLutFor = { cells, groups };
+    }
+    const labelVolume = cells?.texture(layer.context.device) ?? null;
+    const cellsOn = labelVolume && groups ? 1 : 0;
+    model.setBindings({
+      labelVolume: labelVolume ?? noCellsTexture,
+      cellLut: layer.state.cellLutTexture,
+      imagePalette: paletteTexture,
+    });
+    const imageOn = layer.props.showImage === false ? 0 : 1;
+    // The image texture Viv binds for this draw: the one it last loaded.
+    const image = imageTextureInfo(layer.state.textures?.volume0);
+    const imageFormat = image?.format ?? null;
+    if (imageFormat !== (layer.state.boundImage ?? null)) {
+      // Plain state, as for boundCells.
+      layer.state.boundImage = imageFormat;
+      layer.props.onImageBound?.(imageFormat);
+    }
+    const uniforms: CubeUniforms = {
+      ...(layer.props.render ?? DEFAULT_RENDER),
+      cellsOn,
+      imageOn,
+      imageScale: image?.scale ?? 1,
+    };
+    model.shaderInputs.setProps({ cubeRender: uniforms });
   }
 
   finalizeState() {
     const layer = this as unknown as LayerLike;
     if (!isRaycaster(layer)) return;
+    layer.state.boundCells?.unuse();
+    layer.state.boundCells = null;
     layer.state.cellLutTexture?.destroy();
+    layer.state.noCellsTexture?.destroy();
     layer.state.paletteTexture?.destroy();
   }
 }
@@ -247,7 +357,7 @@ class CubeMipExtension extends CubeExtension {
   rendering = MIP;
 }
 
-/** The cube's raycast for either channel count: additive compositing or maximum-intensity projection. */
+/** The cube's raycast, with or without labels: additive compositing or maximum-intensity projection. */
 export const CUBE_EXTENSIONS: Record<"additive" | "mip", unknown[]> = {
   additive: [new CubeAdditiveExtension()],
   mip: [new CubeMipExtension()],
@@ -278,26 +388,28 @@ const FILL_ALPHA = 0.45;
 /** Outlines of other cells: clear with nothing highlighted, faint behind highlights. */
 const OUTLINE = { color: "#f97316", alpha: 0.5, behindHighlight: 0.08 };
 
-/** Lookup texture for the given highlight groups (texel 0: shared outline). */
-export function buildCellLut(groups: readonly HighlightGroup[]): CellLut {
-  let maxId = 0;
-  // Ids past the texture (or past float32's exact range) stay uncoloured.
-  const limit = Math.min(MAX_EXACT_LABEL, CELL_LUT_WIDTH * CELL_LUT_WIDTH);
-  for (const g of groups) for (const id of g.labels) if (id > maxId && id < limit) maxId = id;
-  const n = maxId + 1;
+/**
+ * Lookup texture for one window's cells (`cells[i]`: the global id of local
+ * index i) under the given highlight groups. Texel 0: the shared outline;
+ * texel i: cell i's fill, or clear when it is in no group (a later group wins).
+ */
+export function buildCellLut(groups: readonly HighlightGroup[], cells: readonly number[]): CellLut {
+  const n = Math.max(1, cells.length);
   const width = Math.min(CELL_LUT_WIDTH, n);
   const height = Math.ceil(n / width);
   const data = new Uint8Array(width * height * 4);
   const outline = hexToLinear(OUTLINE.color)!;
   data.set([...outline, Math.round(255 * (groups.length ? OUTLINE.behindHighlight : OUTLINE.alpha))], 0);
   const fill = Math.round(255 * FILL_ALPHA);
+  const colour = new Map<number, [number, number, number]>();
   for (const g of groups) {
     const rgb = hexToLinear(g.color);
     if (!rgb) continue;
-    for (const id of g.labels) {
-      if (id <= 0 || id > maxId) continue;
-      data.set([rgb[0], rgb[1], rgb[2], fill], id * 4);
-    }
+    for (const id of g.labels) if (id > 0) colour.set(id, rgb);
+  }
+  for (let i = 1; i < cells.length; i++) {
+    const rgb = colour.get(cells[i]!);
+    if (rgb) data.set([rgb[0], rgb[1], rgb[2], fill], i * 4);
   }
   return { data, width, height };
 }

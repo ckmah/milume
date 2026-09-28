@@ -13,6 +13,14 @@ Interaction modes (Select, Node, Move, Probe) and lasso selection entry update t
 - Hold **Space** to pan in any tool (deck.gl drag-pan while held); the synced
   `mode` does not change and a lasso drag with Space held draws nothing
   (`landmarks.spec.ts` — `"hold Space to pan in any tool without changing the mode"`)
+- Space pans on the first try with the pointer over the map and no click yet
+  (`:hover`), and with focus in an editor outside the widget (a notebook cell)
+  once the pointer has moved over the map since the last key typed there —
+  typing with the mouse parked on the map keeps its spaces; Space never pans
+  while typing in the widget's own chrome. The hover gate is the map (the plot
+  host), not the whole widget: with an outside editor focused, a space typed
+  with the pointer over a side panel or the Cube dock is typed, not swallowed
+  (`landmarks.spec.ts` — `"Space pans on the first try: pointer over the map, never clicked"`)
 
 ## How to get to it (user POV)
 

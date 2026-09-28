@@ -232,10 +232,13 @@ test.describe("LandmarksWidget", () => {
     await expect(page.getByTestId("context-inspect-no-volume")).toHaveText(
       "No 3D image: build the widget from a SpatialData with a 3D image",
     );
+    const before = await getModel(page, "selections");
     const box = await canvasBox(page);
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect.poll(async () => getModel(page, "inspect_cx")).not.toBeNull();
     await expect(page.getByRole("dialog", { name: "Cube" })).toHaveCount(0);
+    // Placement only: no inspect selection is committed.
+    expect(await getModel(page, "selections")).toEqual(before);
     await page.getByRole("radio", { name: "Select", exact: true }).click();
     await expect(page.getByTestId("context-inspect-no-volume")).toHaveCount(0);
   });
@@ -416,5 +419,143 @@ test.describe("LandmarksWidget", () => {
     const settled = await target();
     await drag();
     expect(await target()).toEqual(settled);
+  });
+
+  test("rulers: labels sit on the data and follow a pan; a grid line at every tick above the map", async ({
+    page,
+  }) => {
+    await setModel(page, { show_rulers: true });
+    const rulers = page.getByTestId("canvas-rulers");
+    const yTicks = rulers.locator(".landmarks-ruler--y .landmarks-ruler-tick");
+    const xTicks = rulers.locator(".landmarks-ruler--x .landmarks-ruler-tick");
+    await expect(yTicks.first()).toBeVisible();
+    const box = await canvasBox(page);
+    /** Each tick label's value and its centre, next to where the view puts that value. */
+    const layout = () =>
+      page.evaluate(
+        ({ b }) => {
+          const vs = (window as any).__landmarksEngine.getViewState();
+          const k = 2 ** vs.zoom;
+          const read = (sel: string, axis: 0 | 1) =>
+            [...document.querySelectorAll(sel)].map((el) => {
+              const r = el.getBoundingClientRect();
+              const value = Number(el.getAttribute("data-value"));
+              const at = axis
+                ? b.y + b.height / 2 + (value - vs.target[1]) * k
+                : b.x + b.width / 2 + (value - vs.target[0]) * k;
+              return { value, centre: axis ? r.y + r.height / 2 : r.x + r.width / 2, at };
+            });
+          return {
+            x: read(".landmarks-ruler--x .landmarks-ruler-tick", 0),
+            y: read(".landmarks-ruler--y .landmarks-ruler-tick", 1),
+          };
+        },
+        { b: box },
+      );
+    const onData = (ticks: { centre: number; at: number }[]) =>
+      ticks.every((t) => Math.abs(t.centre - t.at) < 2);
+    // Once the rulers have risen in.
+    await expect.poll(async () => { const l = await layout(); return onData(l.x) && onData(l.y); }).toBe(true);
+    const before = await layout();
+
+    // Pan down: the data moves down, and so does each Y label.
+    await page.getByRole("radio", { name: "Move", exact: true }).click();
+    const cx = box.x + box.width * 0.5;
+    const cy = box.y + box.height * 0.5;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.mouse.move(cx, cy + 60, { steps: 6 });
+    await page.mouse.up();
+    const after = await layout();
+    expect(onData(after.y)).toBe(true);
+    // Per value kept on screen: how far its label and its data point moved.
+    const moved = before.y.flatMap((t) => {
+      const same = after.y.find((u) => u.value === t.value);
+      return same ? [{ label: same.centre - t.centre, data: same.at - t.at }] : [];
+    });
+    expect(moved.length).toBeGreaterThan(0);
+    for (const m of moved) {
+      expect(m.data).toBeGreaterThan(10);
+      expect(Math.abs(m.label - m.data)).toBeLessThan(2);
+    }
+
+    // One full-length grid line per tick, over the map, never hit by the pointer.
+    const grid = rulers.locator(".landmarks-ruler-grid");
+    await expect(grid.locator(".landmarks-ruler-grid-line--x")).toHaveCount(await xTicks.count());
+    await expect(grid.locator(".landmarks-ruler-grid-line--y")).toHaveCount(await yTicks.count());
+    const stack = await page.evaluate(() => {
+      const canvas = document.querySelector("canvas.landmarks__webgl")!;
+      const g = document.querySelector(".landmarks-ruler-grid")!;
+      const line = g.querySelector(".landmarks-ruler-grid-line--y")!;
+      const overlay = g.closest("[data-testid=canvas-rulers]")!;
+      const host = canvas.closest(".landmarks__plot-host")!;
+      return {
+        after: Boolean(canvas.compareDocumentPosition(g) & Node.DOCUMENT_POSITION_FOLLOWING),
+        above: Number(getComputedStyle(overlay).zIndex) > (Number(getComputedStyle(host).zIndex) || 0),
+        pointer: getComputedStyle(line).pointerEvents,
+        width: line.getBoundingClientRect().width,
+        gridWidth: g.getBoundingClientRect().width,
+      };
+    });
+    expect(stack.after).toBe(true);
+    expect(stack.above).toBe(true);
+    expect(stack.pointer).toBe("none");
+    expect(stack.width).toBeCloseTo(stack.gridWidth, 0);
+    await expect(rulers.locator(".landmarks-ruler-cross")).toHaveCount(0);
+  });
+
+  test("Space pans on the first try: pointer over the map, never clicked", async ({ page }) => {
+    const box = await canvasBox(page);
+    const target = () =>
+      page.evaluate(() => (window as any).__landmarksEngine.getViewState()?.target as number[]);
+    const cx = box.x + box.width * 0.5;
+    const cy = box.y + box.height * 0.5;
+    const spaceDrag = async () => {
+      await page.keyboard.down(" ");
+      await page.mouse.down();
+      await page.mouse.move(cx + 80, cy + 40, { steps: 6 });
+      await page.mouse.up();
+      await page.keyboard.up(" ");
+      await page.mouse.move(cx, cy);
+    };
+    const panned = (a: number[], b: number[]) => Math.abs(b[0]! - a[0]!) + Math.abs(b[1]! - a[1]!) > 0;
+
+    // Fresh load, focus on the page body: hovering the map is enough.
+    await page.mouse.move(cx, cy, { steps: 3 });
+    const t0 = await target();
+    await spaceDrag();
+    expect(panned(t0, await target())).toBe(true);
+
+    // Focus in an editor outside the widget (a notebook cell): the pointer over
+    // the map still wins, and the space is not typed.
+    const textarea = await page.evaluateHandle(() => {
+      const el = document.createElement("textarea");
+      el.setAttribute("aria-label", "Outside editor");
+      el.style.cssText = "position:fixed;left:0;top:0;width:60px;height:24px;z-index:9999";
+      document.body.append(el);
+      el.focus();
+      return el;
+    });
+    await page.mouse.move(cx + 4, cy + 4, { steps: 3 });
+    await page.mouse.move(cx, cy);
+    const t1 = await target();
+    await spaceDrag();
+    expect(panned(t1, await target())).toBe(true);
+    expect(await textarea.evaluate((el) => (el as HTMLTextAreaElement).value)).toBe("");
+
+    // Typing there with the pointer parked over the map types its spaces.
+    await textarea.evaluate((el) => (el as HTMLTextAreaElement).focus());
+    const t2 = await target();
+    await page.keyboard.type("a b");
+    expect(await textarea.evaluate((el) => (el as HTMLTextAreaElement).value)).toBe("a b");
+    expect(await target()).toEqual(t2);
+
+    // Over a side panel (not the map) the space is typed, even after a move there.
+    const panel = (await page.locator(".landmarks__chrome-dock--right").boundingBox())!;
+    await page.mouse.move(panel.x + panel.width / 2, panel.y + panel.height / 2, { steps: 3 });
+    await page.mouse.move(panel.x + panel.width / 2 + 4, panel.y + panel.height / 2);
+    await page.keyboard.type(" c");
+    expect(await textarea.evaluate((el) => (el as HTMLTextAreaElement).value)).toBe("a b c");
+    expect(await target()).toEqual(t2);
   });
 });

@@ -15,9 +15,19 @@ function niceStep(span: number) {
   return f * pow;
 }
 
+type Tick = { value: number; label: string; pct: number };
+
 /**
- * Edge rulers framing the canvas (top + left axes) + faint crosses at ticks.
- * Chrome docks shift via `.landmarks--rulers` (cube-motion curve).
+ * A tick at `pct` of the whole canvas, placed in a strip that starts one ruler
+ * band in (the rulers' corner), so labels and grid lines sit on the data.
+ */
+const along = (pct: number) => `calc((100% + var(--lm-ruler-band)) * ${pct / 100} - var(--lm-ruler-band))`;
+
+/**
+ * Edge rulers framing the canvas (top + left axes) and a thin grid line at
+ * every tick, over the map and under the chrome (pointer-events none).
+ * The map's Y runs down, like the screen. Chrome docks shift via
+ * `.landmarks--rulers` (cube-motion curve).
  */
 export function CanvasRulers({
   lm,
@@ -46,32 +56,19 @@ export function CanvasRulers({
   }, [show, engine]);
 
   const ticks = useMemo(() => {
-    if (!bounds) {
-      return {
-        x: [] as { label: string; pct: number }[],
-        y: [] as { label: string; pct: number }[],
-      };
-    }
+    if (!bounds) return { x: [] as Tick[], y: [] as Tick[] };
     const [x0, y0, x1, y1] = bounds;
-    const sx = niceStep(x1 - x0);
-    const sy = niceStep(y1 - y0);
-    const xTicks: { label: string; pct: number }[] = [];
-    const startX = Math.ceil(x0 / sx) * sx;
-    for (let x = startX; x <= x1; x += sx) {
-      xTicks.push({
-        label: formatParam(x, String(x)),
-        pct: ((x - x0) / (x1 - x0)) * 100,
-      });
-    }
-    const yTicks: { label: string; pct: number }[] = [];
-    const startY = Math.ceil(y0 / sy) * sy;
-    for (let y = startY; y <= y1; y += sy) {
-      yTicks.push({
-        label: formatParam(y, String(y)),
-        pct: ((y1 - y) / (y1 - y0)) * 100,
-      });
-    }
-    return { x: xTicks, y: yTicks };
+    const axis = (lo: number, hi: number): Tick[] => {
+      const step = niceStep(hi - lo);
+      const out: Tick[] = [];
+      // Multiples of the step (no accumulated float error).
+      for (let i = Math.ceil(lo / step); i * step <= hi; i++) {
+        const v = i * step;
+        out.push({ value: v, label: formatParam(v, String(v)), pct: ((v - lo) / (hi - lo)) * 100 });
+      }
+      return out;
+    };
+    return { x: axis(x0, x1), y: axis(y0, y1) };
   }, [bounds]);
 
   return (
@@ -81,23 +78,29 @@ export function CanvasRulers({
       data-testid="canvas-rulers"
       aria-hidden={!show}
     >
-      <div className="landmarks-ruler-crosses">
-        {ticks.x.flatMap((xt) =>
-          ticks.y.map((yt) => (
-            <span
-              key={`${xt.pct}-${yt.pct}`}
-              className="landmarks-ruler-cross"
-              style={{ left: `${xt.pct}%`, top: `${yt.pct}%` }}
-            />
-          )),
-        )}
+      <div className="landmarks-ruler-grid">
+        {ticks.x.map((t) => (
+          <span
+            key={`gx-${t.value}`}
+            className="landmarks-ruler-grid-line landmarks-ruler-grid-line--x"
+            style={{ left: along(t.pct) }}
+          />
+        ))}
+        {ticks.y.map((t) => (
+          <span
+            key={`gy-${t.value}`}
+            className="landmarks-ruler-grid-line landmarks-ruler-grid-line--y"
+            style={{ top: along(t.pct) }}
+          />
+        ))}
       </div>
       <div className="landmarks-ruler landmarks-ruler--x">
         {ticks.x.map((t) => (
           <span
-            key={`x-${t.label}-${t.pct}`}
+            key={`x-${t.value}`}
             className="landmarks-ruler-tick"
-            style={{ left: `${t.pct}%` }}
+            data-value={t.value}
+            style={{ left: along(t.pct) }}
           >
             {t.label}
           </span>
@@ -106,9 +109,10 @@ export function CanvasRulers({
       <div className="landmarks-ruler landmarks-ruler--y">
         {ticks.y.map((t) => (
           <span
-            key={`y-${t.label}-${t.pct}`}
+            key={`y-${t.value}`}
             className="landmarks-ruler-tick"
-            style={{ top: `${t.pct}%` }}
+            data-value={t.value}
+            style={{ top: along(t.pct) }}
           >
             {t.label}
           </span>

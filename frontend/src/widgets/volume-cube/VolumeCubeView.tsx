@@ -30,7 +30,7 @@ const DEFAULT_CONTRAST: [number, number] = [0, 48];
 const DEFAULT_VOXEL_SIZE: [number, number, number] = [1, 1, 1];
 const DEFAULT_ORIGIN: [number, number, number] = [0, 0, 0];
 const NO_GROUPS: HighlightGroup[] = [];
-const INITIAL_LOAD: CubeLoadState = { labels: "off", channels: 1, pan: [0, 0], level: 0 };
+const INITIAL_LOAD: CubeLoadState = { labels: "off", channels: 1, pan: [0, 0], level: 0, refining: false };
 
 type AnyModel = {
   get(key: string): unknown;

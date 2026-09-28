@@ -3,7 +3,7 @@
 A window fetch that fails (a server error or a refused connection, not a missing
 chunk) ends in an error state with a status line, never an endless "loading".
 
-**Spec:** `frontend/e2e/volume-cube/volume-cube.spec.ts` — `"a failed labels fetch ends in an error state, not loading"`, `"a failed image window fetch shows a status line"`
+**Spec:** `frontend/e2e/volume-cube/volume-cube.spec.ts` — `"a failed labels fetch ends in an error state, not loading"`, `"a failed image window fetch shows a status line"`, `"the first window shows a loading status until it arrives"`
 
 ## Sub-features
 
@@ -13,6 +13,9 @@ chunk) ends in an error state with a status line, never an endless "loading".
   `data-labels="error"` (labels only show over the image)
 - A labels OME-Zarr that fails to open (`loadOmeZarr`) also gives `data-labels="error"`
 - A new window is a new fetch, so moving the window retries and clears the error
+- Before the first window arrives (image open, nothing shown yet) the viewport shows
+  "Loading window…" instead of an empty box; it goes once the window renders (not
+  shown for an outside window or an error, which have their own status)
 - Missing chunks (HTTP 404) are not errors: zarrita reads them as the fill value
   (all-background label chunks are never written)
 
@@ -39,6 +42,7 @@ window so the image refetches under the route).
 **Proof**
 
 - Functional: `data-labels="error"` and the status text under a failing route.
+- Functional: `"the first window shows a loading status until it arrives"` — with every image chunk held by a route, a reload shows "Loading window…"; releasing the chunks removes it and a canvas renders.
 - Visual: none.
 
 ## Gotchas

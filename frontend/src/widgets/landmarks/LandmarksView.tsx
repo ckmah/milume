@@ -4,6 +4,9 @@ import { useNotebookTheme } from "@/hooks/use-notebook-theme";
 import { cn } from "@/lib/utils";
 
 import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
+import { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
+import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
+import { PREVIEW_REGION_BUDGET } from "@/widgets/volume-cube/window-source";
 
 import { decodeF32Base64, decodeI32Base64 } from "./binary";
 import {
@@ -16,14 +19,16 @@ import {
   RightChromeStack,
   CanvasRulers,
   CubeWindow,
+  InspectPreview,
   InspectToolbar,
   InspectNoVolumePill,
   PanelCollapseButton,
   PanelPeekTab,
 } from "./chrome";
+import type { ChipSnapshot } from "./chrome/cube-window";
 import { FLOAT_PANEL } from "./chrome/sections";
 import { cubeHighlightGroups } from "./cube-highlight";
-import { mountEngine, type EngineHandle } from "./engine";
+import { INSPECT_WINDOW_UM, mountEngine, type EngineHandle } from "./engine";
 import {
   GEOMETRY_MODE_IDS,
   INTERACTION_MODE_IDS,
@@ -35,7 +40,7 @@ import { useInspectCube } from "./use-inspect-cube";
 import { useLandmarksModel } from "./use-landmarks-model";
 import { useWidgetFullscreen } from "./use-widget-fullscreen";
 
-const SHELL_HEIGHT = 550;
+const SHELL_HEIGHT = 720;
 const MIN_HEIGHT = 400;
 const MAX_HEIGHT = 1400;
 const NARROW_BREAKPOINT = 640;
@@ -51,11 +56,17 @@ export function LandmarksView({
   model,
   hostEl,
   defaultHeight = SHELL_HEIGHT,
+  cubeBudgets,
+  inspectWindowUm,
 }: {
   hostEl: HTMLElement;
   model: AnyModel;
-  /** Dev harness can pass a taller initial shell height; notebooks keep 550px default. */
+  /** Dev harness can pass a taller initial shell height; notebooks keep the 720px default. */
   defaultHeight?: number;
+  /** Harness only: voxel budgets for the cube's coarse step (`preview`) and fine level (`dock`). */
+  cubeBudgets?: { preview: number; dock: number };
+  /** Harness only: the Inspect window's side (µm); the toy volume is smaller than the default 300. */
+  inspectWindowUm?: number;
 }) {
   const dark = useNotebookTheme(hostEl.parentElement);
   const facade = useMemo(() => wrapLandmarksModel(model), [model]);
@@ -72,6 +83,21 @@ export function LandmarksView({
   const wasFullscreenRef = useRef(false);
 
   const inspectCube = useInspectCube(facade, lm, engine);
+  // One decoded-chunk cache per widget, kept across cube opens.
+  const chunkCache = useMemo(() => new ChunkCache(), []);
+  // Inspect history chip snapshots by selection id, kept across cube opens (never synced).
+  const snapshots = useMemo(() => new Map<string, ChipSnapshot>(), []);
+  // Drop snapshots of deleted selections (ids are reused).
+  useEffect(() => {
+    const ids = new Set(lm.selections.map((s) => String(s.id)));
+    for (const id of snapshots.keys()) if (!ids.has(id)) snapshots.delete(id);
+  }, [lm.selections, snapshots]);
+  // The dock always loads level 0 for its window (only the 3D texture axis
+  // limit can make it coarser); the preview's budget sizes its first step.
+  const budgets = useMemo(
+    () => cubeBudgets ?? { preview: PREVIEW_REGION_BUDGET, dock: Number.POSITIVE_INFINITY },
+    [cubeBudgets],
+  );
   const { hasVolume, cube, patchCube } = inspectCube;
 
   // Decode each packed buffer once per string, and only when there is a cube.
@@ -104,7 +130,7 @@ export function LandmarksView({
       colorBy: lm.color_by,
       focus: { kind: lm.selected_kind, index: lm.selected_index },
       selections: lm.selections,
-      window: { cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um || 100 },
+      window: { cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um || INSPECT_WINDOW_UM },
     });
   }, [
     cube.open,
@@ -124,6 +150,15 @@ export function LandmarksView({
     lm.inspect_size_um,
   ]);
   const inspecting = lm.mode === "inspect";
+
+  // The user's landmarks, drawn in the cube views for context.
+  const [landmarkGeometry, setLandmarkGeometry] = useState<CubeOverlay[] | null>(null);
+  useEffect(() => {
+    if (!engine || !hasVolume) return;
+    const read = () => setLandmarkGeometry(engine.getLandmarkGeometry());
+    read();
+    return engine.subscribeLandmarks(read);
+  }, [engine, hasVolume]);
 
   // Inspect clears the map: both docks collapse on entry (peek tabs stay, so
   // either can be reopened), and leaving restores the docks as they were.
@@ -219,7 +254,7 @@ export function LandmarksView({
   useEffect(() => {
     const host = plotHostRef.current;
     if (!host) return;
-    const engine = mountEngine({ model: facade, host });
+    const engine = mountEngine({ model: facade, host, inspectWindowUm });
     engineRef.current = engine;
     setEngine(engine);
     return () => {
@@ -228,7 +263,7 @@ export function LandmarksView({
       setEngine(null);
     };
     // Remount when Vite HMR replaces mountEngine (landmarks.js changes).
-  }, [facade, mountEngine]);
+  }, [facade, mountEngine, inspectWindowUm]);
 
   const onResizePointerDown = useCallback(
     (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -320,7 +355,7 @@ export function LandmarksView({
           />
         </div>
 
-        {inspecting && hasVolume && cube.open ? (
+        {inspecting && hasVolume ? (
           <InspectToolbar
             settings={cube}
             patch={patchCube}
@@ -329,6 +364,7 @@ export function LandmarksView({
             cutRanges={inspectCube.cutRanges}
             onCutLive={inspectCube.onCutLive}
             onCutCommit={inspectCube.onCutCommit}
+            onReset={inspectCube.resetAdjust}
           />
         ) : inspecting && !hasVolume ? (
           <InspectNoVolumePill />
@@ -344,6 +380,28 @@ export function LandmarksView({
             cut={inspectCube.cut}
             dark={dark}
             groups={groups}
+            cache={chunkCache}
+            budgets={budgets}
+            snapshots={snapshots}
+            overlays={landmarkGeometry}
+            onFocusEntry={inspectCube.focusEntry}
+            onSave={inspectCube.save}
+          />
+        ) : null}
+
+        {/* Kept mounted once there is a volume (hidden outside Inspect): no WebGL context churn. */}
+        {hasVolume ? (
+          <InspectPreview
+            active={inspecting}
+            lm={lm}
+            engine={engine}
+            rootEl={rootEl}
+            settings={cube}
+            groups={groups}
+            dark={dark}
+            cache={chunkCache}
+            budgets={budgets}
+            overlays={landmarkGeometry}
           />
         ) : null}
 

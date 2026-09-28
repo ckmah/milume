@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import {
   bootVolumeCubeHarness,
@@ -8,6 +8,100 @@ import {
   toyInspectBox,
   volumeCubeWidget,
 } from "../helpers";
+
+const GL_R8 = 0x8229;
+const GL_R16 = 0x822a;
+const GL_R32F = 0x822e;
+
+/**
+ * Before the page loads: record every 3D texture allocated (`texStorage3D`)
+ * and every array written to one (`texSubImage3D`, with its length then), on
+ * `window.__tex3d`. With `hideNorm16`, the context reports no
+ * EXT_texture_norm16 (as some GPUs do).
+ */
+async function recordTextures(page: Page, { hideNorm16 = false } = {}) {
+  await page.addInitScript((hide) => {
+    const log = { storage: [] as number[][], writes: [] as { data: ArrayBufferView; length: number }[] };
+    (window as any).__tex3d = log;
+    const proto = WebGL2RenderingContext.prototype;
+    const texStorage3D = proto.texStorage3D;
+    proto.texStorage3D = function (this: WebGL2RenderingContext, ...args: Parameters<typeof texStorage3D>) {
+      log.storage.push([args[2], args[3], args[4], args[5]]);
+      return texStorage3D.apply(this, args);
+    };
+    const texSubImage3D = proto.texSubImage3D as (...args: unknown[]) => void;
+    proto.texSubImage3D = function (this: WebGL2RenderingContext, ...args: unknown[]) {
+      const data = args[10];
+      if (ArrayBuffer.isView(data)) log.writes.push({ data, length: data.byteLength });
+      return texSubImage3D.apply(this, args);
+    } as typeof proto.texSubImage3D;
+    if (hide) {
+      const getExtension = proto.getExtension;
+      proto.getExtension = function (this: WebGL2RenderingContext, name: string) {
+        return name === "EXT_texture_norm16" ? null : getExtension.call(this, name);
+      } as typeof proto.getExtension;
+      const supported = proto.getSupportedExtensions;
+      proto.getSupportedExtensions = function (this: WebGL2RenderingContext) {
+        return (supported.call(this) ?? []).filter((n) => n !== "EXT_texture_norm16");
+      };
+    }
+  }, hideNorm16);
+}
+
+/** Serve the toy image (every level) as uint16, each uint8 voxel `v` as `v * 257`: the same image, 16 bits deep. */
+async function serveImageAsUint16(page: Page) {
+  await page.route(/\/toy\.ome\.zarr\/\d+\/\.zarray$/, async (route) => {
+    const meta = await (await route.fetch()).json();
+    await route.fulfill({ json: { ...meta, dtype: "<u2" } });
+  });
+  await page.route(/\/toy\.ome\.zarr\/\d+\/\d+\/\d+\/\d+$/, async (route) => {
+    const response = await route.fetch();
+    if (response.status() !== 200) return route.fulfill({ response });
+    const bytes = await response.body();
+    const wide = new Uint16Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) wide[i] = bytes[i]! * 257;
+    return route.fulfill({ body: Buffer.from(wide.buffer) });
+  });
+}
+
+/** Pixels that differ between two screenshots of the same size, and the largest channel difference. */
+async function pixelDiff(page: Page, a: Buffer, b: Buffer) {
+  return page.evaluate(
+    async ({ a, b }) => {
+      const pixels = async (png: string) => {
+        const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(bitmap, 0, 0);
+        return ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
+      };
+      const [x, y] = [await pixels(a), await pixels(b)];
+      let differing = 0;
+      let max = 0;
+      let lit = 0;
+      for (let i = 0; i < x.length; i += 4) {
+        let d = 0;
+        for (let c = 0; c < 4; c++) d = Math.max(d, Math.abs(x[i + c]! - y[i + c]!));
+        if (d) differing++;
+        max = Math.max(max, d);
+        if (Math.max(x[i]!, x[i + 1]!, x[i + 2]!) > 20) lit++;
+      }
+      return { differing, max, lit, sameSize: x.length === y.length };
+    },
+    { a: a.toString("base64"), b: b.toString("base64") },
+  );
+}
+
+/** The cube view once its window is on screen and still. */
+async function settledView(page: Page) {
+  const view = volumeCubeWidget(page).locator(".volume-cube__view");
+  await expect(view).toHaveAttribute("data-refining", "false");
+  await expect(view).toHaveAttribute("data-pan", "0,0");
+  await expect(view).not.toHaveAttribute("data-image-format", "none");
+  // A few frames after the upload.
+  await page.waitForTimeout(500);
+  return view;
+}
 
 /**
  * VolumeCube widget tier — functional coverage + 3 visual anchors:
@@ -28,6 +122,97 @@ test.describe("VolumeCubeWidget", () => {
     ).toBeVisible();
     await expect(widget.locator("canvas").first()).toBeVisible();
     await shot(page, "rest", widget);
+  });
+
+  test("a uint8 image reaches the GPU as one byte per voxel, with no CPU copy left", async ({ page }) => {
+    await recordTextures(page);
+    await page.reload({ waitUntil: "networkidle" });
+    const view = await settledView(page);
+    await expect(view).toHaveAttribute("data-image-format", "r8unorm");
+    const textureLog = () =>
+      page.evaluate(() => {
+        const { storage, writes } = (window as any).__tex3d;
+        return {
+          storage: storage as number[][],
+          // Every image-sized write, and whether its array still holds its bytes.
+          writes: (writes as { data: ArrayBufferView; length: number }[])
+            .filter((w) => w.length === 100 * 100 * 64)
+            .map((w) => ({ length: w.length, now: w.data.byteLength, uint8: w.data instanceof Uint8Array })),
+        };
+      });
+    const log = await textureLog();
+    // The boot window (X/Y 78–178, all 64 planes) as R8, and no float volume.
+    expect(log.storage).toContainEqual([GL_R8, 100, 100, 64]);
+    expect(log.storage.filter((s) => s[0] === GL_R32F)).toEqual([]);
+    // The voxels went up once, as bytes; the array Viv laid out for it is released.
+    expect(log.writes).toEqual([{ length: 640000, now: 0, uint8: true }]);
+
+    // Nothing but a new window uploads the image again: a re-upload of the
+    // released volume would throw (image-volume.ts) and leave the cube black.
+    const widget = volumeCubeWidget(page);
+    await widget.getByRole("radio", { name: "Maximum intensity" }).click();
+    await expect(view).toHaveAttribute("data-render", "mip");
+    await widget.getByRole("radio", { name: "Additive" }).click();
+    await expect(view).toHaveAttribute("data-render", "additive");
+    await widget.getByRole("radio", { name: "Top view" }).click();
+    await expect(widget.getByRole("radio", { name: "Top view" })).toHaveAttribute("data-state", "on");
+    const labels = page.getByRole("switch", { name: "Labels" });
+    await labels.click();
+    await expect(view).toHaveAttribute("data-label-format", "rg8");
+    await labels.click();
+    await expect(view).toHaveAttribute("data-labels", "off");
+    await page.waitForTimeout(500);
+    await expect(view).toHaveAttribute("data-image-format", "r8unorm");
+    expect((await textureLog()).writes).toEqual([{ length: 640000, now: 0, uint8: true }]);
+  });
+
+  test("a uint16 image draws as it did at float32, as r16unorm or as floats without norm16", async ({ page }) => {
+    // The toy at 16 bits (v * 257), contrast scaled to match. With
+    // EXT_texture_norm16 it goes up as r16unorm and the shader scales each
+    // sample back to the raw value before Viv's contrast ramp; without it, as
+    // float32 (every uint16 is exact there), which is how Viv drew it before.
+    // Both draw the 8-bit original's pixels, up to how the GPU rounds while
+    // filtering: measured on SwiftShader (CI) and an NVIDIA GPU, at most 41
+    // pixels of ~100 k off, each by one level (a wrong scale moves them all).
+    await setVolumeModel(page, { contrast_limits: [10, 48] });
+    let view = await settledView(page);
+    await expect(view).toHaveAttribute("data-image-format", "r8unorm");
+    const bytes = await view.screenshot();
+
+    await recordTextures(page);
+    await serveImageAsUint16(page);
+    await page.reload({ waitUntil: "networkidle" });
+    await setVolumeModel(page, { contrast_limits: [10 * 257, 48 * 257] });
+    view = await settledView(page);
+    const norm16 = await page.evaluate(() =>
+      Boolean(document.createElement("canvas").getContext("webgl2")?.getExtension("EXT_texture_norm16")),
+    );
+    await expect(view).toHaveAttribute("data-image-format", norm16 ? "r16unorm" : "r32float");
+    let storage = (await page.evaluate(() => (window as any).__tex3d.storage)) as number[][];
+    expect(storage).toContainEqual([norm16 ? GL_R16 : GL_R32F, 100, 100, 64]);
+    const wide = await view.screenshot();
+
+    // No EXT_texture_norm16 (init scripts stay, so this goes last): floats.
+    await recordTextures(page, { hideNorm16: true });
+    await page.reload({ waitUntil: "networkidle" });
+    await setVolumeModel(page, { contrast_limits: [10 * 257, 48 * 257] });
+    view = await settledView(page);
+    await expect(view).toHaveAttribute("data-image-format", "r32float");
+    storage = (await page.evaluate(() => (window as any).__tex3d.storage)) as number[][];
+    expect(storage).toContainEqual([GL_R32F, 100, 100, 64]);
+    const float = await view.screenshot();
+
+    for (const [a, b] of [
+      [float, wide],
+      [bytes, wide],
+      [bytes, float],
+    ]) {
+      const d = await pixelDiff(page, a!, b!);
+      expect(d.sameSize).toBe(true);
+      expect(d.lit).toBeGreaterThan(10000);
+      expect(d.max).toBeLessThanOrEqual(1);
+      expect(d.differing).toBeLessThan(d.lit / 1000);
+    }
   });
 
   test("toy inspect drag updates synced window traits", async ({ page }) => {
@@ -115,10 +300,31 @@ test.describe("VolumeCubeWidget", () => {
 
   test("in-widget controls: camera presets, projection, and a committed Z cut", async ({ page }) => {
     const widget = volumeCubeWidget(page);
+    // The standalone cube opens oblique (the Landmarks dock opens top-down), with an axis legend.
+    await expect(widget.getByRole("radio", { name: "Oblique view" })).toHaveAttribute("data-state", "on");
+    const legend = widget.getByLabel("Axes");
+    await expect(legend).toBeVisible();
+    const zLength = async () => Number((await legend.getAttribute("data-lengths"))!.split(",")[2]);
+    expect(await zLength()).toBeGreaterThan(0.5);
     for (const name of ["Top view", "Side view", "Oblique view"]) {
       await widget.getByRole("radio", { name }).click();
       await expect(widget.getByRole("radio", { name })).toHaveAttribute("data-state", "on");
+      // From above, z points at the viewer.
+      if (name === "Top view") await expect.poll(zLength).toBeLessThan(0.05);
     }
+    // A preset only turns the standalone camera: the user's zoom stays.
+    const view = widget.locator(".volume-cube__view");
+    const zoom = async () => Number(await view.getAttribute("data-zoom"));
+    const r = (await view.boundingBox())!;
+    await page.mouse.move(r.x + r.width / 2, r.y + r.height / 2);
+    const z0 = await zoom();
+    await page.mouse.wheel(0, -400);
+    await expect.poll(zoom).toBeGreaterThan(z0 + 0.1);
+    const zoomed = await zoom();
+    await widget.getByRole("radio", { name: "Side view" }).click();
+    await expect(widget.getByRole("radio", { name: "Side view" })).toHaveAttribute("data-state", "on");
+    expect(await zoom()).toBeCloseTo(zoomed, 2);
+    await widget.getByRole("radio", { name: "Oblique view" }).click();
     await widget.getByRole("radio", { name: "Maximum intensity" }).click();
     await expect(widget).toHaveAttribute("data-render", "mip");
     await widget.getByRole("radio", { name: "Additive" }).click();
@@ -136,22 +342,25 @@ test.describe("VolumeCubeWidget", () => {
     const widget = volumeCubeWidget(page);
     const labels = page.getByRole("switch", { name: "Labels" });
     const legend = widget.getByLabel("Highlighted cells");
+    const view = widget.locator(".volume-cube__view");
     await expect(widget).toHaveAttribute("data-channels", "1");
 
-    // Highlighting from Python turns Labels on and loads the label channel once.
+    // Highlighting from Python turns Labels on and uploads the window's label texture once.
     await setVolumeModel(page, { highlight_groups: [{ name: "blob two", color: "#e377c2", labels: [2] }] });
     await expect(labels).toBeChecked();
     await expect(widget).toHaveAttribute("data-labels", "on");
     await expect(widget).toHaveAttribute("data-channels", "2");
+    await expect(view).toHaveAttribute("data-label-format", "rg8");
     await expect(widget).toHaveAttribute("data-highlight", "1");
     await expect(legend.getByText("blob two")).toBeVisible();
     await expect(widget.locator("canvas")).toHaveCount(1);
 
-    // Labels off hides the highlight too; the loaded volume stays for the next toggle.
+    // Labels off hides the highlight too; the label texture stays for the next toggle.
     await labels.click();
     await expect(widget).toHaveAttribute("data-labels", "off");
     await expect(widget).toHaveAttribute("data-highlight", "0");
-    await expect(widget).toHaveAttribute("data-channels", "2");
+    await expect(widget).toHaveAttribute("data-channels", "1");
+    await expect(view).toHaveAttribute("data-label-format", "rg8");
     await expect(legend).toHaveCount(0);
     await labels.click();
     await expect(widget).toHaveAttribute("data-highlight", "1");
@@ -161,28 +370,76 @@ test.describe("VolumeCubeWidget", () => {
     await expect(labels).toBeChecked();
   });
 
-  test("labels switch outlines cells as a second channel of the same volume", async ({
-    page,
-  }) => {
+  test("labels switch outlines cells from a compact label texture beside the image", async ({ page }) => {
     const widget = volumeCubeWidget(page);
+    const view = widget.locator(".volume-cube__view");
     const canvases = widget.locator("canvas");
     await expect(canvases).toHaveCount(1);
     await expect(widget).toHaveAttribute("data-labels", "off");
+    await expect(view).toHaveAttribute("data-label-format", "none");
+    // Labels for the shown window fetch only labels: its image is already on the GPU.
+    const imageRequests: string[] = [];
+    page.on("request", (r) => {
+      if (/\/toy\.ome\.zarr\/\d+\//.test(r.url())) imageRequests.push(r.url());
+    });
 
     await page.getByRole("switch", { name: "Labels" }).click();
     await expect(page.getByRole("switch", { name: "Labels" })).toBeChecked();
-    // Boundaries composite into the image volume: still one canvas.
+    // The image and a two-byte label texture raycast together: still one canvas.
     await expect(widget).toHaveAttribute("data-labels", "on");
     await expect(widget).toHaveAttribute("data-channels", "2");
+    await expect(view).toHaveAttribute("data-label-format", "rg8");
+    // The boot window (X/Y 78–178) holds a part of each of the three toy cells.
+    await expect(view).toHaveAttribute("data-label-cells", "3");
     await expect(canvases).toHaveCount(1);
+    expect(imageRequests).toEqual([]);
 
     await page.getByRole("switch", { name: "Labels" }).click();
     await expect(page.getByRole("switch", { name: "Labels" })).not.toBeChecked();
     await expect(widget).toHaveAttribute("data-labels", "off");
-    // Hidden, not unloaded: switching back is a colour-lookup change only.
-    await expect(widget).toHaveAttribute("data-channels", "2");
+    // Hidden, not unloaded: the image is drawn alone and switching back is a redraw.
+    await expect(widget).toHaveAttribute("data-channels", "1");
+    await expect(view).toHaveAttribute("data-label-format", "rg8");
     await expect(canvases).toHaveCount(1);
     await shot(page, "labels-off", widget);
+  });
+
+  test("a window with more cells than the label texture indexes shows a status, not labels", async ({ page }) => {
+    const widget = volumeCubeWidget(page);
+    const view = widget.locator(".volume-cube__view");
+    // Serve the toy labels as uint32 with a new id on every voxel: 640 k cells in the window.
+    await page.route(/\/toy\.ome\.zarr\/labels\/cells\/0\/\.zarray$/, async (route) => {
+      const meta = await (await route.fetch()).json();
+      await route.fulfill({ json: { ...meta, dtype: "<u4" } });
+    });
+    await page.route(/\/toy\.ome\.zarr\/labels\/cells\/0\/\d+\/\d+\/\d+$/, (route) => {
+      const [cz, cy, cx] = route.request().url().split("/").slice(-3).map(Number);
+      const n = 32 * 64 * 64;
+      const ids = new Uint32Array(n);
+      const first = 1 + ((cz! * 4 + cy!) * 4 + cx!) * n;
+      for (let i = 0; i < n; i++) ids[i] = first + i;
+      return route.fulfill({ body: Buffer.from(ids.buffer) });
+    });
+    await page.getByRole("switch", { name: "Labels" }).click();
+    await expect(widget).toHaveAttribute("data-labels", "error");
+    await expect(widget.getByText("Too many cells in this window for labels")).toBeVisible();
+    // The image keeps rendering on its own; nothing was uploaded for the labels.
+    await expect(widget).toHaveAttribute("data-channels", "1");
+    await expect(view).toHaveAttribute("data-label-format", "none");
+  });
+
+  test("label texels follow the texel order Viv gives the image (odd, non-square windows)", async ({ page }) => {
+    // Viv's VolumeLayer lays out a labels raster; encodeLabels must put each id
+    // at the same texel (cell-volume.ts `vivRow` copies Viv's row order). A Viv
+    // upgrade that changes that order fails here: update `vivRow` to match.
+    const results = await page.evaluate(async () => {
+      const probe = await import(/* @vite-ignore */ "/viv-layout-probe.ts");
+      return [await probe.vivLayoutMismatches(5, 3, 2), await probe.vivLayoutMismatches(13, 7, 3)];
+    });
+    for (const r of results) {
+      expect(r.texels).toBeGreaterThan(0);
+      expect(r.mismatches).toBe(0);
+    }
   });
 
   test("a failed labels fetch ends in an error state, not loading", async ({ page }) => {
@@ -196,6 +453,23 @@ test.describe("VolumeCubeWidget", () => {
     await expect(widget.getByText(/Could not load labels/)).toBeVisible();
     // The image keeps rendering on its own.
     await expect(widget).toHaveAttribute("data-channels", "1");
+    await expect(widget.locator(".volume-cube__view")).toHaveAttribute("data-label-format", "none");
+  });
+
+  test("the first window shows a loading status until it arrives", async ({ page }) => {
+    const widget = volumeCubeWidget(page);
+    // Hold every image chunk: the volume opens (metadata only) but no window arrives.
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    await page.route(/\/toy\.ome\.zarr\/\d+(\/\d+)+$/, async (route) => {
+      await held;
+      await route.continue();
+    });
+    await page.reload();
+    await expect(widget.getByText("Loading window…")).toBeVisible();
+    release();
+    await expect(widget.getByText("Loading window…")).toHaveCount(0);
+    await expect(widget.locator("canvas").first()).toBeVisible();
   });
 
   test("a failed image window fetch shows a status line", async ({ page }) => {

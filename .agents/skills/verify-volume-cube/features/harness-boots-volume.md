@@ -17,7 +17,8 @@ VolumeCube harness loads the toy OME-Zarr and renders an isometric Viv volume wi
 - Image display range from the `contrast_limits` trait (default `[0, 48]`)
 - Only the inspect window is loaded (`window-source.ts`): one box cut from the
   finest pyramid level within a 64 M voxel budget, fetched once and served to
-  Viv plane by plane; the readout appends `· level N` when above level 0
+  Viv plane by plane (and released once Viv has read it, see
+  [image-texture](image-texture.md)); the readout appends `· level N` when above level 0
 
 ## How to get to it (user POV)
 

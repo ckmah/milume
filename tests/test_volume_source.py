@@ -53,3 +53,13 @@ def test_a_table_with_several_regions_is_not_the_linked_one(sdata):
     other.uns["spatialdata_attrs"] = {**other.uns["spatialdata_attrs"], "region": ["cells", "nuclei"]}
     adata, src = resolve_volume(sdata)
     assert src.table_name == "table" and adata is sdata.tables["table"]
+
+
+def test_toy_pyramid_levels_share_grids(sdata):
+    import zarr
+
+    root = zarr.open_group(str(sdata.path), mode="r")
+    image = [root[f"images/mosaic/s{i}"].shape[-3:] for i in range(3)]
+    labels = [root[f"labels/cells/s{i}"].shape for i in range(3)]
+    assert image == [(64, 256, 256), (32, 128, 128), (16, 64, 64)]
+    assert labels == image

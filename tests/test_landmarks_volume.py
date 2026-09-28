@@ -65,3 +65,13 @@ def test_volume_contract_is_three_synced_traits():
     synced = {n for n, t in LandmarksWidget.class_traits().items() if t.metadata.get("sync")}
     assert NEW_TRAITS <= synced
     assert not {n for n in synced if n.startswith(("volume", "cube_"))} - NEW_TRAITS
+
+
+def test_inspect_selection_round_trips_through_get_obs_names(sdata):
+    w = LandmarksWidget(sdata, color="cell_type")
+    w.selections = [
+        {"id": "inspect-1", "type": "inspect", "point_indices": [0, 2],
+         "window": {"cx": 100.0, "cy": 120.0, "size_um": 80.0, "cut": []}},
+    ]
+    names = list(w.get_obs_names(w._adata, "inspect-1"))
+    assert names == [str(w._obs_names[0]), str(w._obs_names[2])]

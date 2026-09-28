@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { BoxIcon, ChevronDownIcon, CircleDotIcon, RotateCcwIcon, ScissorsIcon, SunMediumIcon } from "lucide-react";
+import { BoxIcon, ChevronDownIcon, RotateCcwIcon, SlidersHorizontalIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +9,6 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,6 +18,7 @@ import { PALETTES, type PaletteName, paletteLut } from "@/widgets/volume-cube/pa
 import type { CubeCut } from "@/widgets/volume-cube/VolumeCube";
 
 import type { CubeSettings, CubeSettingsPatch } from "../use-cube-settings";
+import type { AdjustSection as Section } from "../use-inspect-cube";
 import {
   CHIP_CLASS,
   ChromeTooltip,
@@ -34,8 +34,6 @@ import { SoftFloatCapsuleSlider, SoftFloatSliderRow } from "./soft-float-slider"
 
 
 const GAMMA_LOG2 = 2.32;
-
-type Panel = "cuts" | "image" | "cells";
 
 function gradientCss(name: PaletteName): string {
   const { data } = paletteLut(name);
@@ -100,10 +98,65 @@ function RangeRow({
   );
 }
 
+/** A section's Show switch, beside its title ("Show image", "Show labels"). */
+type ShowSwitch = { checked: boolean; disabled?: boolean; onChange: (on: boolean) => void };
+
 /**
- * Context bar while Inspect has a cube open: camera, projection, palette,
- * labels, then Cuts / Image / Cells panels that rise above their buttons.
- * Cuts render live and commit `volume_cut` on release (`onCutCommit`).
+ * One titled group of the Adjust panel, with a Reset for its sliders and, for
+ * Image and Labels, a Show switch after the title. Reset leaves the switch be.
+ */
+function AdjustSection({
+  title,
+  show,
+  onReset,
+  testId,
+  children,
+}: {
+  title: string;
+  show?: ShowSwitch;
+  onReset: () => void;
+  testId?: string;
+  children: React.ReactNode;
+}) {
+  const id = useId();
+  return (
+    <section aria-labelledby={id} data-testid={testId}>
+      <div className="landmarks-adjust__head">
+        <div className="flex items-center gap-1.5">
+          <h3 id={id} className={cn(TOOLBAR_CAPTION, "m-0")}>
+            {title}
+          </h3>
+          {show ? (
+            <Switch
+              size="sm"
+              aria-label={`Show ${title.toLowerCase()}`}
+              checked={show.checked}
+              disabled={show.disabled}
+              onCheckedChange={show.onChange}
+            />
+          ) : null}
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          aria-label={`Reset ${title.toLowerCase()}`}
+          className={cn(chromeHitTextClass, "landmarks-adjust__reset")}
+          onClick={onReset}
+        >
+          Reset
+        </Button>
+      </div>
+      <div className="landmarks-slider-stack">{children}</div>
+    </section>
+  );
+}
+
+/**
+ * Context bar while Inspect has a cube open: camera, projection, palette, then
+ * one Adjust panel (Image, Labels, Cuts sections; Image and Labels each with a
+ * Show switch) that rises above its button. Cuts render live and commit
+ * `volume_cut` on release (`onCutCommit`).
  */
 export function InspectToolbar({
   settings,
@@ -113,6 +166,7 @@ export function InspectToolbar({
   cutRanges,
   onCutLive,
   onCutCommit,
+  onReset,
 }: {
   settings: CubeSettings;
   patch: (p: CubeSettingsPatch) => void;
@@ -123,15 +177,15 @@ export function InspectToolbar({
   cutRanges: { x: Range; y: Range; z: Range } | null;
   onCutLive: (cut: CubeCut) => void;
   onCutCommit: (cut: CubeCut) => void;
+  /** Back to defaults: one Adjust section's sliders, or all of them. */
+  onReset: (section: Section | "all") => void;
 }) {
-  const labelsId = useId();
-  const [panel, setPanel] = useState<Panel | null>(null);
+  const [adjustOpen, setAdjustOpen] = useState(false);
   const [menuContainer, setMenuContainer] = useState<HTMLElement | null>(null);
   // The cube sizes the contrast range from the contrast it draws; hold the max
   // from pointer down to commit so it cannot run away under the dragged thumb.
   const [heldContrastMax, setHeldContrastMax] = useState<number | null>(null);
   const { bounds, render } = settings;
-  const toggle = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
 
   const withAxis = (axis: 0 | 1 | 2, v: Range): CubeCut => {
     const next = [...cut] as CubeCut;
@@ -156,6 +210,102 @@ export function InspectToolbar({
   const contrastMax =
     heldContrastMax ?? bounds?.contrastMax ?? Math.max(255, Math.ceil(settings.contrast[1] * 4));
   const gammaLog2 = Math.log2(render.imageGamma);
+
+  // Image and Labels on the left, Cuts on the right: short enough to rise clear of the dock.
+  const adjustPanel = (
+    <div className="landmarks-adjust" data-testid="context-cube-adjust" role="region" aria-label="Adjust">
+      <div className="landmarks-adjust__cols">
+        <div className="landmarks-adjust__col">
+          <AdjustSection
+            title="Image"
+            show={{ checked: settings.showImage, onChange: (on) => patch({ showImage: on }) }}
+            onReset={() => onReset("image")}
+          >
+            <div
+              onPointerDownCapture={() => setHeldContrastMax(contrastMax)}
+              onLostPointerCapture={() => setHeldContrastMax(null)}
+            >
+              <RangeRow
+                label="Contrast"
+                unit=""
+                min={0}
+                max={contrastMax}
+                step={1}
+                value={settings.contrast}
+                onLive={(v) => patch({ contrast: v })}
+                onCommit={(v) => {
+                  patch({ contrast: v });
+                  setHeldContrastMax(null);
+                }}
+              />
+            </div>
+            <SoftFloatCapsuleSlider
+              aria-label="Image alpha"
+              caption="Alpha"
+              min={0}
+              max={1}
+              step={0.05}
+              value={render.imageAlpha}
+              displayValue={render.imageAlpha.toFixed(2)}
+              onValueChange={(v) => patch({ render: { imageAlpha: v } })}
+            />
+            <SoftFloatCapsuleSlider
+              aria-label="Image gamma"
+              caption="Gamma"
+              min={-GAMMA_LOG2}
+              max={GAMMA_LOG2}
+              step={0.05}
+              value={gammaLog2}
+              displayValue={(2 ** gammaLog2).toFixed(2)}
+              onValueChange={(v) => patch({ render: { imageGamma: 2 ** v } })}
+            />
+          </AdjustSection>
+          <AdjustSection
+            title="Labels"
+            show={{
+              checked: settings.showLabels,
+              disabled: !labelsAvailable,
+              onChange: (on) => patch({ showLabels: on }),
+            }}
+            onReset={() => onReset("labels")}
+          >
+            <SoftFloatCapsuleSlider
+              aria-label="Label alpha"
+              caption="Alpha"
+              min={0}
+              max={1}
+              step={0.05}
+              value={render.cellAlpha}
+              displayValue={render.cellAlpha.toFixed(2)}
+              onValueChange={(v) => patch({ render: { cellAlpha: v } })}
+            />
+          </AdjustSection>
+        </div>
+        <AdjustSection title="Cuts" testId="context-cube-cuts" onReset={() => onReset("cuts")}>
+          {cutRanges ? (
+            <>
+              {cutRow(0, "X cut", cutRanges.x, true)}
+              {cutRow(1, "Y cut", cutRanges.y, true)}
+              {cutRow(2, "Z cut", cutRanges.z, false)}
+            </>
+          ) : (
+            <p className={cn(TOOLBAR_CAPTION, "m-0 py-1")}>Loading volume…</p>
+          )}
+        </AdjustSection>
+      </div>
+      <div className="landmarks-adjust__foot">
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          className={cn(chromeHitTextClass, "landmarks-adjust__reset")}
+          onClick={() => onReset("all")}
+        >
+          Reset all
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <TooltipProvider delayDuration={80} skipDelayDuration={0}>
@@ -245,110 +395,29 @@ export function InspectToolbar({
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          <div className="flex items-center gap-1.5 px-1.5">
-            <Switch
-              id={labelsId}
-              size="sm"
-              aria-label="Labels"
-              checked={settings.showLabels}
-              disabled={!labelsAvailable}
-              onCheckedChange={(on) => patch({ showLabels: on })}
-            />
-            <Label htmlFor={labelsId} className={TOOLBAR_CAPTION}>
-              Labels
-            </Label>
-          </div>
           <ToolbarDivider />
-          <ToolStack
-            open={panel === "cuts"}
-            panel={
-              <div className="landmarks-slider-stack w-80" data-testid="context-cube-cuts">
-                {cutRanges ? (
-                  <>
-                    {cutRow(0, "X cut", cutRanges.x, true)}
-                    {cutRow(1, "Y cut", cutRanges.y, true)}
-                    {cutRow(2, "Z cut", cutRanges.z, false)}
-                  </>
-                ) : (
-                  <p className={cn(TOOLBAR_CAPTION, "m-0 py-1")}>Loading volume…</p>
-                )}
-              </div>
-            }
+          <span
+            data-testid="context-cube-adjust-group"
+            className="contents"
+            onKeyDown={(e) => {
+              // Esc closes only the Adjust panel; the root Esc handler (which
+              // would otherwise close the whole cube) ignores this group.
+              if (e.key === "Escape" && adjustOpen) setAdjustOpen(false);
+            }}
           >
-            <IconBtn title="Cuts" active={panel === "cuts"} expandable onClick={() => toggle("cuts")}>
-              <ScissorsIcon className="size-4" />
-            </IconBtn>
-          </ToolStack>
-          <ToolStack
-            open={panel === "image"}
-            panel={
-              <div className="landmarks-slider-stack w-80" data-testid="context-cube-image">
-                <div
-                  onPointerDownCapture={() => setHeldContrastMax(contrastMax)}
-                  onLostPointerCapture={() => setHeldContrastMax(null)}
-                >
-                  <RangeRow
-                    label="Contrast"
-                    unit=""
-                    min={0}
-                    max={contrastMax}
-                    step={1}
-                    value={settings.contrast}
-                    onLive={(v) => patch({ contrast: v })}
-                    onCommit={(v) => {
-                      patch({ contrast: v });
-                      setHeldContrastMax(null);
-                    }}
-                  />
-                </div>
-                <SoftFloatCapsuleSlider
-                  aria-label="Image alpha"
-                  caption="Alpha"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={render.imageAlpha}
-                  displayValue={render.imageAlpha.toFixed(2)}
-                  onValueChange={(v) => patch({ render: { imageAlpha: v } })}
-                />
-                <SoftFloatCapsuleSlider
-                  aria-label="Image gamma"
-                  caption="Gamma"
-                  min={-GAMMA_LOG2}
-                  max={GAMMA_LOG2}
-                  step={0.05}
-                  value={gammaLog2}
-                  displayValue={(2 ** gammaLog2).toFixed(2)}
-                  onValueChange={(v) => patch({ render: { imageGamma: 2 ** v } })}
-                />
-              </div>
-            }
-          >
-            <IconBtn title="Image" active={panel === "image"} expandable onClick={() => toggle("image")}>
-              <SunMediumIcon className="size-4" />
-            </IconBtn>
-          </ToolStack>
-          <ToolStack
-            open={panel === "cells"}
-            panel={
-              <div className="landmarks-slider-stack w-80" data-testid="context-cube-cells">
-                <SoftFloatCapsuleSlider
-                  aria-label="Cell alpha"
-                  caption="Alpha"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={render.cellAlpha}
-                  displayValue={render.cellAlpha.toFixed(2)}
-                  onValueChange={(v) => patch({ render: { cellAlpha: v } })}
-                />
-              </div>
-            }
-          >
-            <IconBtn title="Cells" active={panel === "cells"} expandable onClick={() => toggle("cells")}>
-              <CircleDotIcon className="size-4" />
-            </IconBtn>
-          </ToolStack>
+            <ToolStack open={adjustOpen} align="end" panel={adjustPanel}>
+              <IconBtn
+                title="Adjust"
+                active={adjustOpen}
+                expandable
+                ariaExpanded={adjustOpen}
+                ariaHasPopup="dialog"
+                onClick={() => setAdjustOpen((o) => !o)}
+              >
+                <SlidersHorizontalIcon className="size-4" />
+              </IconBtn>
+            </ToolStack>
+          </span>
           <ToolbarDivider />
           <IconBtn title="Reset view" onClick={() => patch({ resetTick: settings.resetTick + 1 })}>
             <RotateCcwIcon className="size-4" />

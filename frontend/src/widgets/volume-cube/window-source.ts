@@ -8,7 +8,8 @@ import * as zarr from "zarrita";
  * would fetch gigabytes and exceed the GPU's 3D texture limit, so the cube
  * hands it a source that *is* the inspect window instead: a box cut from one
  * pyramid level, fetched with a single `zarr.get` so each Zarr chunk (or shard
- * chunk) is read once, then served to Viv plane by plane.
+ * chunk) is read once, then served to Viv plane by plane and released once
+ * Viv has read it all.
  */
 
 /** The subset of Viv's ZarrPixelSource this module relies on. */
@@ -40,6 +41,10 @@ export type Level = {
 export const WINDOW_VOXEL_BUDGET = 64 * 1024 * 1024;
 /** WebGL2 guarantees 256 per 3D texture axis; desktop GPUs report 2048. */
 export const MAX_TEXTURE_AXIS = 2048;
+/** Loaded preview region: this many times the square's side. */
+export const PREVIEW_REGION_SCALE = 3;
+/** Voxels one preview region may load. */
+export const PREVIEW_REGION_BUDGET = 8 * 1024 * 1024;
 
 export function axisSize(source: { shape: number[]; labels: string[] }, axis: string): number {
   const i = source.labels.indexOf(axis);
@@ -67,14 +72,14 @@ function windowVoxels0(base: ZarrSource, frame: Frame, sizeUm: number): [number,
 }
 
 /** Finest level whose window fits the voxel budget and the texture axis limit. */
-export function pickLevel(levels: Level[], frame: Frame, sizeUm: number): Level {
+export function pickLevel(levels: Level[], frame: Frame, sizeUm: number, budget = WINDOW_VOXEL_BUDGET): Level {
   const [d0, h0, w0] = windowVoxels0(levels[0]!.source, frame, sizeUm);
   for (const level of levels) {
     const [fz, fy, fx] = level.factor;
     const d = Math.ceil(d0 / fz);
     const h = Math.ceil(h0 / fy);
     const w = Math.ceil(w0 / fx);
-    if (d * h * w <= WINDOW_VOXEL_BUDGET && Math.max(d, h, w) <= MAX_TEXTURE_AXIS) {
+    if (d * h * w <= budget && Math.max(d, h, w) <= MAX_TEXTURE_AXIS) {
       return level;
     }
   }
@@ -108,6 +113,22 @@ export function windowBox(
 
 export function boxIsEmpty(box: Box): boolean {
   return box.x1 <= box.x0 || box.y1 <= box.y0 || box.z1 <= box.z0;
+}
+
+/** One box of `source` in a single `zarr.get` (each chunk read once), `selection` on the other axes. */
+export function fetchBox(
+  source: ZarrSource,
+  box: Box,
+  selection: Record<string, number> = {},
+): Promise<zarr.Chunk<zarr.DataType>> {
+  const { z0, z1, y0, y1, x0, x1 } = box;
+  const index = source.labels.map((label) => {
+    if (label === "z") return zarr.slice(z0, z1);
+    if (label === "y") return zarr.slice(y0, y1);
+    if (label === "x") return zarr.slice(x0, x1);
+    return selection[label] ?? 0;
+  });
+  return zarr.get(source._data, index) as Promise<zarr.Chunk<zarr.DataType>>;
 }
 
 type Raster = { data: ArrayLike<number> & { subarray(a: number, b: number): unknown }; width: number; height: number };
@@ -171,19 +192,21 @@ export class WindowPixelSource {
       .join("/");
     let pending = this.blocks.get(key);
     if (!pending) {
-      const { z0, z1, y0, y1, x0, x1 } = this.box;
-      const index = this.labels.map((label) => {
-        if (label === "z") return zarr.slice(z0, z1);
-        if (label === "y") return zarr.slice(y0, y1);
-        if (label === "x") return zarr.slice(x0, x1);
-        return selection[label] ?? 0;
-      });
-      pending = zarr.get(this.base._data, index) as Promise<zarr.Chunk<zarr.DataType>>;
+      pending = fetchBox(this.base, this.box, selection);
       // A failed fetch must not poison later retries of the same window.
       pending.catch(() => this.blocks.delete(key));
       this.blocks.set(key, pending);
     }
     return pending;
+  }
+
+  /**
+   * Drop the fetched window once Viv has read it (its VolumeLayer lays out
+   * its own copy for the upload). A later read fetches it again, from the
+   * chunk cache when it still holds the chunks.
+   */
+  release(): void {
+    this.blocks.clear();
   }
 
   async getRaster({ selection }: { selection: Record<string, number>; signal?: AbortSignal }): Promise<Raster> {
@@ -207,112 +230,56 @@ export class WindowPixelSource {
   }
 }
 
-type Volume = Float32Array;
-
-/**
- * Signed label ids of a labels window: `id` inside a cell, `-id` on its surface
- * (a voxel with a differently labelled 6-neighbour, another cell or background).
- */
-export function signedLabelVolume(ids: ArrayLike<number>, width: number, height: number): Float32Array {
-  const plane = width * height;
-  const depth = Math.floor(ids.length / plane);
-  const out = new Float32Array(ids.length);
-  for (let z = 0; z < depth; z++) {
-    for (let y = 0; y < height; y++) {
-      const row = z * plane + y * width;
-      for (let x = 0; x < width; x++) {
-        const i = row + x;
-        const id = ids[i]!;
-        if (!id) continue;
-        const surface =
-          (x > 0 && ids[i - 1] !== id) ||
-          (x < width - 1 && ids[i + 1] !== id) ||
-          (y > 0 && ids[i - width] !== id) ||
-          (y < height - 1 && ids[i + width] !== id) ||
-          (z > 0 && ids[i - plane] !== id) ||
-          (z < depth - 1 && ids[i + plane] !== id);
-        out[i] = surface ? -id : id;
-      }
-    }
-  }
-  return out;
-}
-
-/**
- * The image window plus the labels window on the same grid, as one two-channel
- * source so Viv raycasts both together: channel 0 the image, channel 1 signed
- * label ids (see `signedLabelVolume`). Float32, so ids up to 2^24 are exact.
- *
- * Which cells show, and in what colour, is decided on the GPU from a lookup
- * texture (`cell-lut-extension.ts`), so this source, and the textures Viv builds
- * from it, depend only on the window.
- */
-export class LabelVolumeSource {
-  readonly labels: string[];
-  readonly tileSize: number;
-  readonly meta: WindowPixelSource["meta"];
-  private signed: Promise<Volume> | null = null;
-  private readonly imageHasC: boolean;
-
-  constructor(
-    private readonly image: WindowPixelSource,
-    private readonly cells: WindowPixelSource,
-  ) {
-    this.imageHasC = image.labels.includes("c");
-    this.labels = this.imageHasC ? image.labels : ["c", ...image.labels];
-    this.tileSize = image.tileSize;
-    this.meta = image.meta;
-  }
-
-  get shape(): number[] {
-    const shape = this.image.shape;
-    if (!this.imageHasC) return [2, ...shape];
-    return shape.map((s, i) => (this.image.labels[i] === "c" ? 2 : s));
-  }
-
-  get dtype(): string {
-    return "Float32";
-  }
-
-  private volume(): Promise<Volume> {
-    if (!this.signed) {
-      const pending = this.cells
-        .fetchBlock({})
-        .then((block) => signedLabelVolume(block.data as unknown as ArrayLike<number>, this.image.width, this.image.height));
-      pending.catch(() => {
-        this.signed = null;
-      });
-      this.signed = pending;
-    }
-    return this.signed;
-  }
-
-  async getRaster({ selection, signal }: { selection: Record<string, number>; signal?: AbortSignal }) {
-    const { c = 0, ...rest } = selection;
-    if (c === 0) {
-      return this.image.getRaster({ selection: this.imageHasC ? { ...rest, c: 0 } : rest, signal });
-    }
-    const volume = await this.volume();
-    const plane = this.image.width * this.image.height;
-    const z = rest.z ?? 0;
-    return {
-      data: volume.subarray(z * plane, (z + 1) * plane),
-      width: this.image.width,
-      height: this.image.height,
-    };
-  }
-
-  async getTile(): Promise<never> {
-    throw new Error("LabelVolumeSource serves whole planes only (VolumeViewer)");
-  }
-
-  onTileError(err: Error): void {
-    throw err;
-  }
-}
-
 /** The labels level on exactly the image level's (z, y, x) grid, if any. */
 export function matchingLevel(pyramid: ZarrSource[], level: Level): ZarrSource | null {
   const want = ["z", "y", "x"].map((a) => axisSize(level.source, a)).join(",");
   return pyramid.find((s) => ["z", "y", "x"].map((a) => axisSize(s, a)).join(",") === want) ?? null;
+}
+
+/** The whole level as one box. */
+export function levelBox(level: Level): Box {
+  return {
+    z0: 0,
+    z1: axisSize(level.source, "z"),
+    y0: 0,
+    y1: axisSize(level.source, "y"),
+    x0: 0,
+    x1: axisSize(level.source, "x"),
+  };
+}
+
+/** Whether one box fits `budget` voxels and the 3D texture axis limit. */
+export function fitsBudget(b: Box, budget: number): boolean {
+  const d = b.z1 - b.z0;
+  const h = b.y1 - b.y0;
+  const w = b.x1 - b.x0;
+  return d * h * w <= budget && Math.max(d, h, w) <= MAX_TEXTURE_AXIS;
+}
+
+/** A square region of `sizeUm` around (cx, cy): the same box rule as a window. */
+export function regionBox(level: Level, frame: Frame, cx: number, cy: number, sizeUm: number): Box {
+  return windowBox(level, frame, cx, cy, sizeUm);
+}
+
+/** Chunk coordinates one chunk outside `box` in Y and X (full Z), in `source.labels` order. */
+export function chunkRing(source: ZarrSource, box: Box): number[][] {
+  const chunks = source._data.chunks;
+  const at = (axis: string) => source.labels.indexOf(axis);
+  const [iz, iy, ix] = [at("z"), at("y"), at("x")];
+  const span = (lo: number, hi: number, i: number) => [Math.floor(lo / chunks[i]!), Math.ceil(hi / chunks[i]!) - 1];
+  const [zy0, zy1] = span(box.z0, box.z1, iz);
+  const [cy0, cy1] = span(box.y0, box.y1, iy);
+  const [cx0, cx1] = span(box.x0, box.x1, ix);
+  const maxY = Math.ceil(axisSize(source, "y") / chunks[iy]!) - 1;
+  const maxX = Math.ceil(axisSize(source, "x") / chunks[ix]!) - 1;
+  const out: number[][] = [];
+  for (let y = Math.max(0, cy0 - 1); y <= Math.min(maxY, cy1 + 1); y++) {
+    for (let x = Math.max(0, cx0 - 1); x <= Math.min(maxX, cx1 + 1); x++) {
+      if (y >= cy0 && y <= cy1 && x >= cx0 && x <= cx1) continue;
+      for (let z = zy0; z <= zy1; z++) {
+        out.push(source.labels.map((_, i) => (i === iz ? z : i === iy ? y : i === ix ? x : 0)));
+      }
+    }
+  }
+  return out;
 }

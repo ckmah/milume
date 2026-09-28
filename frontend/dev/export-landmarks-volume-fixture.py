@@ -86,7 +86,6 @@ def main() -> None:
     sdata = toy_spatialdata(STORE)
     widget = LandmarksWidget(sdata, color="cell_type")
     widget.set_render_mode("points")
-    widget.inspect_size_um = 100.0
     payload = {key: getattr(widget, key) for key in FIXTURE_KEYS + VOLUME_KEYS}
     # Served by Vite from the harness public dir instead of the widget's local server.
     payload["volume"] = {

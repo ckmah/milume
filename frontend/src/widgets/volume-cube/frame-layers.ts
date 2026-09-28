@@ -1,7 +1,10 @@
-import { COORDINATE_SYSTEM } from "@deck.gl/core";
+import { COORDINATE_SYSTEM, OrbitView } from "@deck.gl/core";
 import { LineLayer, TextLayer } from "@deck.gl/layers";
 import type { Matrix4 } from "@math.gl/core";
 import { VolumeView } from "@hms-dbmi/viv";
+
+import { CubeVolumeLayer } from "./image-volume";
+import { type PlacedOverlays, overlayLayers, vivTag } from "./overlay-layers";
 
 /**
  * Wireframe and axes around the loaded window, drawn in Viv's own deck.
@@ -25,15 +28,21 @@ export type CubeFrame = {
 type Segment = { from: number[]; to: number[]; color: number[] };
 type Tick = { position: number[]; text: string; color: number[]; size: number };
 
-const X_COLOR = [239, 68, 68];
-const Y_COLOR = [34, 197, 94];
-const Z_COLOR = [59, 130, 246];
+/** Axis colours (RGB), shared by the frame's axes and labels and the axis legend. */
+export const X_COLOR = [239, 68, 68];
+export const Y_COLOR = [34, 197, 94];
+export const Z_COLOR = [59, 130, 246];
 
 function niceStep(extent: number, target = 4): number {
   const raw = extent / target;
   const pow = 10 ** Math.floor(Math.log10(raw));
   const unit = [1, 2, 5, 10].find((m) => m * pow >= raw) ?? 10;
   return unit * pow;
+}
+
+/** How far the axis labels sit outside the box (world units), for a box of `size`. */
+export function labelPad(size: readonly number[]): number {
+  return Math.max(...size) * 0.04;
 }
 
 function ticks(lengthUm: number): number[] {
@@ -45,11 +54,6 @@ function ticks(lengthUm: number): number[] {
   const out: number[] = [];
   for (let t = 0; t <= lengthUm + 1e-6; t += step) out.push(Math.round(t * 1000) / 1000);
   return out;
-}
-
-/** VivViewer only draws layers whose id carries their view's tag (Viv's getVivId). */
-function vivTag(viewId: string): string {
-  return `-#${viewId}#`;
 }
 
 export function frameLayers(frame: CubeFrame, modelMatrix: Matrix4, viewId = "3d") {
@@ -80,7 +84,7 @@ export function frameLayers(frame: CubeFrame, modelMatrix: Matrix4, viewId = "3d
     { from: origin, to: [0, h, d], color: [...Z_COLOR, 230] },
   );
 
-  const pad = Math.max(w, h, d) * 0.04;
+  const pad = labelPad(frame.size);
   const labels: Tick[] = [];
   for (const t of ticks(w * u)) labels.push({ position: [t / u, h + pad, -pad], text: `${t}`, color: X_COLOR, size: 10 });
   for (const t of ticks(h * u)) labels.push({ position: [-pad, h - t / u, -pad], text: `${t}`, color: Y_COLOR, size: 10 });
@@ -127,17 +131,36 @@ export function frameLayers(frame: CubeFrame, modelMatrix: Matrix4, viewId = "3d
 
 /** Viv's VolumeView plus the frame, so both share one deck and one camera. */
 export class FramedVolumeView extends VolumeView {
+  private readonly controller: boolean;
+
+  /** Viv's VolumeView always makes a controller; `controller: false` fixes the camera. */
+  constructor({ controller = true, ...args }: { controller?: boolean } & ConstructorParameters<typeof VolumeView>[0]) {
+    super(args as ConstructorParameters<typeof VolumeView>[0]);
+    this.controller = controller;
+  }
+
+  getDeckGlView() {
+    const view = super.getDeckGlView() as unknown as OrbitView;
+    if (this.controller) return view;
+    return new OrbitView({ ...(view.props as ConstructorParameters<typeof OrbitView>[0]), controller: false });
+  }
+
   getLayers({ props }: { props: Record<string, unknown> }) {
-    // Viv's typings omit getLayers on VolumeView; it exists at runtime.
-    const layers = (VolumeView.prototype as unknown as { getLayers: (a: unknown) => unknown[] }).getLayers.call(
-      this,
-      { props },
-    );
+    const id = (this as unknown as { id: string }).id;
+    // Viv's VolumeView.getLayers, with the cube's VolumeLayer (the image at its
+    // own dtype, image-volume.ts) under Viv's own layer id.
+    const loader = props.loader as { type?: string };
+    const layers = [new CubeVolumeLayer(props, { id: `${loader.type}${vivTag(id)}` })];
     const frame = props.cubeFrame as CubeFrame | undefined;
-    if (!frame) return layers;
     // The frame marks the requested window: it keeps its place while a loaded
     // window pans under it (`frameMatrix`), and otherwise shares the volume's.
+    // Overlays (already placed in the window) share it too.
     const matrix = (props.frameMatrix ?? props.modelMatrix) as Matrix4;
-    return [...layers, ...frameLayers(frame, matrix, (this as unknown as { id: string }).id)];
+    const overlays = props.cubeOverlays as PlacedOverlays | null | undefined;
+    const extra = overlays ? overlayLayers(overlays, matrix, id) : [];
+    if (!frame) return [...layers, ...extra];
+    // Overlays go over the frame's lines and under its axis labels.
+    const [lines, labels] = frameLayers(frame, matrix, id);
+    return [...layers, lines, ...extra, labels];
   }
 }

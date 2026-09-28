@@ -255,7 +255,14 @@ function cssColorToClear(color) {
   return [r / 255, g / 255, b / 255, a / 255 || 1];
 }
 
-export function mountEngine({ model, host }) {
+/** The Inspect window's side (µm), fixed in X/Y: the dock loads it at full resolution. */
+export const INSPECT_WINDOW_UM = 300;
+
+/**
+ * `inspectWindowUm` overrides the Inspect window's side (harness only: the toy
+ * volume is smaller than the product window).
+ */
+export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }) {
   if (!host) throw new Error("mountEngine: host element is required");
 
   const container = host.closest(".landmarks");
@@ -3075,6 +3082,31 @@ export function mountEngine({ model, host }) {
     return layers;
   }
 
+  const landmarkListeners = new Set();
+
+  /**
+   * The landmarks as the map draws them, for the Inspect cube: map (µm)
+   * coordinates, splines and shapes sampled as on the map, each in its
+   * landmark's colour. Hidden landmarks are left out.
+   */
+  function landmarkGeometry() {
+    const out = [];
+    (model.get("landmarks") || []).forEach((lm, i) => {
+      if (lm.hidden) return;
+      const hex = (typeof lm.color === "string" && lm.color) || COLORS[i % COLORS.length];
+      const color = hexToRgbaBytes(hex, 1);
+      if (lm.type === "point") {
+        const v = (lm.vertices || [])[0];
+        if (v) out.push({ kind: "point", coords: [[v[0], v[1]]], closed: false, color });
+        return;
+      }
+      const closed = lm.type === "shape";
+      const pts = landmarkPathData(lm);
+      if (pts.length >= (closed ? 3 : 2)) out.push({ kind: "path", coords: asPath(pts), closed, color });
+    });
+    return out;
+  }
+
   function buildDraftLayers() {
     if (!deckModules) return [];
     const { PathLayer, PolygonLayer, ScatterplotLayer, PathStyleExtension } = deckModules;
@@ -3478,20 +3510,52 @@ export function mountEngine({ model, host }) {
     ].filter(Boolean);
   }
 
+  /** The placed window `{ x, y, size }` (µm); the hover square is `{ x, y, px, py }`. */
   let volumeWindow = null;
   let volumeWindowSavedAt = 0;
   let volumeHover = null;
   let volumeWindowVisible = false;
+  /** The press in Inspect: it places the live window and drags it until release. */
+  let inspectGesture = null;
+  /** Aborts the press's window `mousemove` / `mouseup` / `blur` listeners (dragged and released anywhere). */
+  let inspectGestureAbort = null;
   const inspectListeners = new Set();
 
   function emitInspect(evt) {
     for (const fn of inspectListeners) fn(evt);
   }
 
-  function setVolumeWindow(x, y, flush) {
-    volumeWindow = { x, y };
+  /** The square's current on-screen side (px): the fixed window at this zoom. */
+  function inspectSquarePx() {
+    const z = currentViewState?.zoom;
+    const zoom = Array.isArray(z) ? z[0] : z;
+    return inspectWindowUm * Math.pow(2, zoom ?? 0);
+  }
+
+  function emitInspectHover() {
+    if (!volumeHover) return;
+    const { x, y, px, py } = volumeHover;
+    emitInspect({ type: "hover", x, y, sizeUm: inspectWindowUm, sizePx: inspectSquarePx(), px, py });
+  }
+
+  function clearInspectHover() {
+    if (!volumeHover) return false;
+    volumeHover = null;
+    emitInspect({ type: "hover-end" });
+    return true;
+  }
+
+  /** On zoom the hover square keeps its µm size: re-announce its screen size (the preview sits beside it). */
+  function inspectHoverOnView() {
+    if (currentMode !== "inspect" || !volumeHover) return;
+    emitInspectHover();
+  }
+
+  function setVolumeWindow(x, y, size, flush) {
+    volumeWindow = { x, y, size };
     model.set("inspect_cx", x);
     model.set("inspect_cy", y);
+    model.set("inspect_size_um", size);
     const now = performance.now();
     if (flush || now - volumeWindowSavedAt > 40) {
       volumeWindowSavedAt = now;
@@ -3500,8 +3564,102 @@ export function mountEngine({ model, host }) {
     setDeckLayers();
   }
 
-  function windowRing(x, y) {
-    const size = Number(model.get("inspect_size_um") || 100);
+  /** Whether there is a 3D image: without one, Inspect only places the square (nothing is saved). */
+  function inspectHasVolume() {
+    return Boolean(model.get("volume")?.image_url);
+  }
+
+  /**
+   * Start an Inspect press. Its drag and release are heard on `window` (like
+   * pointer capture), so the square follows over the dock or chrome and the
+   * release flushes the final position wherever it lands.
+   */
+  function beginInspectGesture() {
+    endInspectGesture();
+    inspectGesture = {};
+    inspectGestureAbort = new AbortController();
+    const opts = { signal: inspectGestureAbort.signal };
+    window.addEventListener("mousemove", handleInspectDrag, opts);
+    window.addEventListener("mouseup", handleInspectRelease, opts);
+    // A lost release (focus left the page mid-press) ends the press too.
+    window.addEventListener("blur", endInspectPress, opts);
+  }
+
+  function handleInspectDrag(event) {
+    if (!inspectGesture) return;
+    // No button held: the release was lost (outside the page). End the press.
+    if (!(event.buttons & 1)) {
+      endInspectPress();
+      return;
+    }
+    const pt = eventPoint(event);
+    if (!pt) return;
+    setVolumeWindow(pt.x, pt.y, inspectWindowUm, false);
+    emitInspect({ type: "place", x: pt.x, y: pt.y });
+  }
+
+  /** Drop the press (Esc, mode change, teardown) without flushing. */
+  function endInspectGesture() {
+    inspectGesture = null;
+    inspectGestureAbort?.abort();
+    inspectGestureAbort = null;
+  }
+
+  /** End the press and save the window where it is (drag moves save at most every 40 ms). */
+  function endInspectPress() {
+    if (!inspectGesture) return;
+    endInspectGesture();
+    if (!volumeWindow) return;
+    volumeWindowSavedAt = performance.now();
+    model.save_changes();
+  }
+
+  function handleInspectRelease(event) {
+    if (event.button !== 0) return;
+    endInspectPress();
+  }
+
+  /** Points inside the axis-aligned square (every depth; the cut never changes membership). */
+  function inspectMemberIndices(cx, cy, size) {
+    const pts = getPointsData();
+    const half = size / 2;
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      if (Math.abs(pts[i].x - cx) <= half && Math.abs(pts[i].y - cy) <= half) out.push(i);
+    }
+    return out;
+  }
+
+  /**
+   * Save the placed window as a new inspect Selection (a fixed snapshot of the
+   * window, its cut and the points in the square) and focus it. Returns its
+   * index, or null without a placed window or a 3D image.
+   */
+  function saveInspect() {
+    if (!volumeWindow || !inspectHasVolume()) return null;
+    const { x: cx, y: cy, size } = volumeWindow;
+    const raw = model.get("volume_cut");
+    const cut =
+      Array.isArray(raw) && raw.length === 6 && raw.every((v) => typeof v === "number") ? [...raw] : [];
+    const selections = [...(model.get("selections") || [])];
+    selections.push(
+      withHood({
+        id: nextSelectionId(selections),
+        type: "inspect",
+        point_indices: inspectMemberIndices(cx, cy, size),
+        window: { cx, cy, size_um: size, cut },
+      }),
+    );
+    const index = selections.length - 1;
+    model.set("selections", selections);
+    model.set("selected_kind", "selection");
+    model.set("selected_index", index);
+    model.save_changes();
+    emitInspect({ type: "commit", index });
+    return index;
+  }
+
+  function windowRing(x, y, size) {
     const half = size / 2;
     return [
       [x - half, y - half],
@@ -3519,7 +3677,7 @@ export function mountEngine({ model, host }) {
       layers.push(
         new PolygonLayer({
           id: "volume-inspect-window",
-          data: [{ polygon: windowRing(volumeWindow.x, volumeWindow.y) }],
+          data: [{ polygon: windowRing(volumeWindow.x, volumeWindow.y, volumeWindow.size) }],
           getPolygon: (d) => d.polygon,
           filled: true,
           stroked: true,
@@ -3536,7 +3694,7 @@ export function mountEngine({ model, host }) {
       layers.push(
         new PolygonLayer({
           id: "volume-inspect-hover",
-          data: [{ polygon: windowRing(volumeHover.x, volumeHover.y) }],
+          data: [{ polygon: windowRing(volumeHover.x, volumeHover.y, inspectWindowUm) }],
           getPolygon: (d) => d.polygon,
           filled: true,
           stroked: true,
@@ -3625,6 +3783,7 @@ export function mountEngine({ model, host }) {
     }
     currentViewState = vs;
     deckgl.setProps({ viewState: vs });
+    inspectHoverOnView();
     for (const fn of viewStateListeners) {
       try {
         fn(vs);
@@ -3803,6 +3962,7 @@ export function mountEngine({ model, host }) {
           };
           currentViewState = vs;
           deckgl.setProps({ viewState: vs });
+          inspectHoverOnView();
           for (const fn of viewStateListeners) {
             try {
               fn(vs);
@@ -4809,7 +4969,10 @@ export function mountEngine({ model, host }) {
       webglCanvas.focus();
       const pt = eventPoint(event);
       if (!pt) return;
-      setVolumeWindow(pt.x, pt.y, true);
+      // A press places the live window under the pointer and drags it; saved
+      // inspect Selections are snapshots and never move (Save adds one).
+      beginInspectGesture();
+      setVolumeWindow(pt.x, pt.y, inspectWindowUm, true);
       emitInspect({ type: "place", x: pt.x, y: pt.y });
       return;
     }
@@ -4968,12 +5131,11 @@ export function mountEngine({ model, host }) {
 
     if (currentMode === "inspect") {
       webglCanvas.style.cursor = "crosshair";
+      // A press's drag is handled on `window` (handleInspectDrag).
       if (event.buttons === 0) {
         volumeHover = pt;
         setDeckLayers();
-      } else if (event.buttons === 1) {
-        setVolumeWindow(pt.x, pt.y, false);
-        emitInspect({ type: "place", x: pt.x, y: pt.y });
+        emitInspectHover();
       }
       return;
     }
@@ -5054,11 +5216,7 @@ export function mountEngine({ model, host }) {
 
   function handleMouseUp(event) {
     if (spacePan) return;
-    if (currentMode === "inspect" && volumeWindow && event.button === 0) {
-      // Drag moves save at most every 40 ms: flush the final window position.
-      volumeWindowSavedAt = performance.now();
-      model.save_changes();
-    }
+    // An Inspect release is handled on `window` (handleInspectRelease).
     const vertexDragActive = vertexDragIndex >= 0 || vertexDragLandmarkIndex >= 0;
     if ((currentMode === "select" || currentMode === "node" || currentMode === "move" || currentMode === "probe" || currentMode === "inspect") && !isDragging && !vertexDragActive) return;
     const pt = eventPoint(event);
@@ -5220,10 +5378,7 @@ export function mountEngine({ model, host }) {
             container.contains(into)));
       if (!stillOnPlot) clearProbeHover();
     }
-    if (volumeHover) {
-      volumeHover = null;
-      setDeckLayers();
-    }
+    if (clearInspectHover()) setDeckLayers();
     if (isDragging) { isDragging = false; dragStart = null; }
     if (vertexDragIndex >= 0 || vertexDragLandmarkIndex >= 0) {
       vertexDragIndex = -1;
@@ -5421,27 +5576,57 @@ export function mountEngine({ model, host }) {
   }
 
   let pointerInWidget = false;
+  /** `performance.now()` of the last pointer move over the map, and of the last key typed into an editable outside the widget. */
+  let pointerMovedAt = 0;
+  let typedOutsideAt = 0;
+
+  /**
+   * Whether the pointer is over the map itself (the plot host), not the side
+   * panels, the Cube dock or other chrome floating over it. `:hover` holds
+   * before any pointer event reaches us (a fresh load, or a re-render under a
+   * still mouse).
+   */
+  function pointerOverMap() {
+    try {
+      return host.matches(":hover");
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Whether a Space press arms the pan. Hovering the map is enough, with focus
+   * anywhere: a notebook often keeps it in a cell editor. From an editor outside
+   * the widget it pans only once the pointer has moved over the map since the
+   * last key typed there, so typing with the mouse parked on the map keeps its spaces.
+   */
+  function spaceArmsPan(typing, inWidget) {
+    if (!typing) return inWidget || pointerOverMap();
+    return pointerOverMap() && pointerMovedAt > typedOutsideAt;
+  }
 
   function handleKeyDown(event) {
     // Marimo often keeps focus in the cell editor after clicking the widget.
     // Only treat typing as blocking when the editable is *inside* our chrome
     // (gene combobox, etc.); otherwise pointerInWidget / deep focus still win.
     const typing = isTypingTarget(event);
-    const inWidget = eventInWidget(event) || widgetHasFocus() || pointerInWidget;
-    if (!inWidget) return;
-    if (typing && eventInWidget(event)) return;
+    const inChrome = eventInWidget(event);
+    if (typing && inChrome) return;
+    const inWidget = inChrome || widgetHasFocus() || pointerInWidget;
 
     const mod = event.metaKey || event.ctrlKey;
     const key = event.key;
     const lower = key.length === 1 ? key.toLowerCase() : key;
 
-    // Hold Space to pan in any tool (never while typing, even outside our chrome).
-    if (key === " " && !mod && !event.altKey && !typing) {
+    // Hold Space to pan in any tool (never while typing inside our own chrome).
+    if (key === " " && !mod && !event.altKey && (spacePan || spaceArmsPan(typing, inWidget))) {
       event.preventDefault();
       event.stopPropagation();
       if (!event.repeat) setSpacePan(true);
       return;
     }
+    if (typing) typedOutsideAt = performance.now();
+    if (!inWidget) return;
 
     if (key === "Enter") {
       event.preventDefault();
@@ -5467,7 +5652,19 @@ export function mountEngine({ model, host }) {
         return;
       }
       if (currentMode === "inspect") {
-        volumeHover = null;
+        // The Adjust panel owns Esc while it is open (closes only itself,
+        // never the cube): this handler runs on `window` before the panel's
+        // own React handler ever would, so it must defer explicitly.
+        const adjustTrigger = container.querySelector(
+          '[data-testid="context-cube-adjust-group"] [aria-haspopup="dialog"][aria-expanded="true"]',
+        );
+        if (adjustTrigger instanceof HTMLElement) {
+          adjustTrigger.click();
+          return;
+        }
+        // Esc ends a press where it is: later moves drag nothing.
+        endInspectPress();
+        clearInspectHover();
         emitInspect({ type: "close" });
         setDeckLayers();
         return;
@@ -5727,6 +5924,13 @@ export function mountEngine({ model, host }) {
     },
     { signal },
   );
+  host.addEventListener(
+    "pointermove",
+    () => {
+      pointerMovedAt = performance.now();
+    },
+    { signal, passive: true },
+  );
   // Document listeners see retargeted shadow hosts — use composedPath.
   document.addEventListener(
     "pointerdown",
@@ -5768,6 +5972,7 @@ export function mountEngine({ model, host }) {
     onChange(k, () => {
       setDeckLayers();
       updateUI();
+      if (k === "landmarks") for (const fn of landmarkListeners) fn();
     });
   });
   ["selected_index", "selected_kind"].forEach((k) => {
@@ -5782,6 +5987,8 @@ export function mountEngine({ model, host }) {
   onChange("mode", () => {
     currentMode = model.get("mode");
     if (currentMode === "pointer") currentMode = "select";
+    endInspectGesture();
+    clearInspectHover();
     if (currentMode === "node") nodeInsertArmed = true;
     else {
       activeVertexIndex = -1;
@@ -5960,6 +6167,7 @@ export function mountEngine({ model, host }) {
   function destroy() {
     destroyed = true;
     abort.abort();
+    endInspectGesture();
     unsubs.forEach((fn) => fn());
     themeObserver.disconnect();
     resizeObserver?.disconnect();
@@ -6156,11 +6364,33 @@ export function mountEngine({ model, host }) {
       volumeWindowVisible = Boolean(v);
       setDeckLayers();
     },
+    setInspectWindow(x, y, sizeUm) {
+      volumeWindow = { x, y, size: sizeUm };
+      model.set("inspect_cx", x);
+      model.set("inspect_cy", y);
+      model.set("inspect_size_um", sizeUm);
+      volumeWindowSavedAt = performance.now();
+      model.save_changes();
+      setDeckLayers();
+    },
+    saveInspect,
+    getLandmarkGeometry: landmarkGeometry,
+    subscribeLandmarks(fn) {
+      if (typeof fn !== "function") return () => {};
+      landmarkListeners.add(fn);
+      return () => landmarkListeners.delete(fn);
+    },
     getInspectOverlay() {
       return {
         hover: volumeHover ? [volumeHover.x, volumeHover.y] : null,
         placed: volumeWindow ? [volumeWindow.x, volumeWindow.y] : null,
+        sizeUm: inspectWindowUm,
+        placedSizeUm: volumeWindow?.size ?? null,
       };
+    },
+    /** Test / membership probe: `[x, y]` per point, in the `inspect_cx/cy` frame (µm). */
+    getPoints() {
+      return getPointsData().map((p) => [p.x, p.y]);
     },
     destroy,
   };

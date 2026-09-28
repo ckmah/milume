@@ -1,3 +1,19 @@
+import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
+
+/** The Inspect window's side (µm), fixed in X/Y (the engine's default). */
+export const INSPECT_WINDOW_UM: number;
+
+/**
+ * Events from `subscribeInspect`; positions in µm, `px, py` in canvas pixels.
+ * `sizeUm` is the fixed window side; `sizePx` its on-screen side at this zoom.
+ */
+export type InspectEvent =
+  | { type: "place"; x: number; y: number }
+  | { type: "hover"; x: number; y: number; sizeUm: number; sizePx: number; px: number; py: number }
+  | { type: "hover-end" }
+  | { type: "commit"; index: number }
+  | { type: "close" };
+
 export type EngineHandle = {
   zoomBy(delta: number, opts?: { animate?: boolean; duration?: number }): void;
   resetZoom(): void;
@@ -72,12 +88,39 @@ export type EngineHandle = {
     }) => void,
   ): () => void;
   getInspectPin(): { kind: string; index: number } | null;
-  /** Inspect placements: "place" on pointer down / drag, "close" on Esc in Inspect. */
-  subscribeInspect(fn: (evt: { type: "place" | "close"; x?: number; y?: number }) => void): () => void;
+  /**
+   * Inspect events: "place" on pointer down / drag (after `inspect_cx/cy` are set),
+   * "hover" on hover moves and zoom, "hover-end" when the hover square goes,
+   * "commit" when `saveInspect` creates an inspect Selection, "close" on Esc
+   * (which also ends a press).
+   */
+  subscribeInspect(fn: (evt: InspectEvent) => void): () => void;
   /** Keep the placed square drawn outside Inspect while the cube is open. */
   setInspectWindowVisible(visible: boolean): void;
-  /** Test probe: { hover: [x, y] | null, placed: [x, y] | null }. */
-  getInspectOverlay(): { hover: number[] | null; placed: number[] | null };
+  /** Move the placed square (and `inspect_cx/cy/size_um`) without emitting events. */
+  setInspectWindow(x: number, y: number, sizeUm: number): void;
+  /**
+   * Save the placed window as a new inspect Selection (its window, `volume_cut`
+   * and the points in the square), focus it and emit "commit". Returns its index,
+   * or null without a placed window or a 3D image.
+   */
+  saveInspect(): number | null;
+  /**
+   * The non-hidden landmarks as the map draws them: map (µm) coordinates,
+   * splines and shapes sampled as on the map, each landmark's colour (RGBA bytes).
+   */
+  getLandmarkGeometry(): CubeOverlay[];
+  /** Fires when the landmarks (or their visibility) change. */
+  subscribeLandmarks(fn: () => void): () => void;
+  /** The hover / placed square centres and sizes (µm); `sizeUm` is the fixed window side. */
+  getInspectOverlay(): {
+    hover: [number, number] | null;
+    placed: [number, number] | null;
+    sizeUm: number;
+    placedSizeUm: number | null;
+  };
+  /** Test probe: `[x, y]` per point (µm, the `inspect_cx/cy` frame). */
+  getPoints(): [number, number][];
   destroy(): void;
 };
 
@@ -93,4 +136,6 @@ type AnyModel = {
 export function mountEngine(opts: {
   model: AnyModel;
   host: HTMLElement;
+  /** Harness only: the Inspect window's side (µm), default 300. */
+  inspectWindowUm?: number;
 }): EngineHandle;
