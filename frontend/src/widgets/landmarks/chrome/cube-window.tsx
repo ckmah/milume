@@ -158,6 +158,10 @@ export function CubeWindow({
     [snapshots],
   );
 
+  // The dock opens top-down, whatever the camera was when it last closed; a
+  // preset chosen from here on (even before the first frame) is kept.
+  useLayoutEffect(() => patch({ preset: "top" }), [patch]);
+
   const container = useCallback(() => {
     const parent = ref.current?.offsetParent as HTMLElement | null;
     return parent ? { width: parent.clientWidth, height: parent.clientHeight } : null;
@@ -300,6 +304,7 @@ export function CubeWindow({
             home="top"
             reframeOnPreset
             resetTick={settings.resetTick}
+            showImage={settings.showImage}
             showLabels={settings.showLabels}
             groups={groups}
             render={settings.render}

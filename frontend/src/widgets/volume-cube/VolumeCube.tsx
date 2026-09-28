@@ -74,14 +74,19 @@ export type VolumeCubeProps = {
   cut: CubeCut;
   contrast: [number, number];
   mode: "additive" | "mip";
-  /** Applied when it changes: the preset's rotation (framed as its home view with `reframeOnPreset`). */
+  /**
+   * Applied when it changes: the preset's rotation (framed as its home view with
+   * `reframeOnPreset`). The first view is this preset when set, else `home`.
+   */
   preset: ViewPreset | null;
-  /** The home view (first view and Reset). Default "iso". */
+  /** The home view (Reset, and the first view with no preset). Default "iso". */
   home?: ViewPreset;
   /** Default false: a preset keeps the user's zoom. True frames the window as the preset's home view. */
   reframeOnPreset?: boolean;
   /** Bump to reset the camera to the home view. */
   resetTick: number;
+  /** Default true. False: the raycast adds no image signal; labels still draw (both off: an empty frame). */
+  showImage?: boolean;
   showLabels: boolean;
   groups: HighlightGroup[];
   render: RenderSettings;
@@ -272,6 +277,7 @@ export function VolumeCube({
   home = "iso",
   reframeOnPreset = false,
   resetTick,
+  showImage = true,
   showLabels,
   groups,
   render,
@@ -559,8 +565,16 @@ export function VolumeCube({
   }, [level, window_size_um, sxUm, syUm, ry, levelDepth, rz]);
   const framing = useLatest({ fits, box });
 
+  // The first view is the preset asked for by then, else the home view: a
+  // preset chosen while the window loads (no camera yet) is kept, not replaced.
+  const presetRef = useLatest(preset);
   useEffect(() => {
-    if (fits && !viewState) setViewState(homeView(home, fits, box));
+    if (!fits || viewState) return;
+    const want = presetRef.current ?? home;
+    const first = homeView(home, fits, box);
+    if (want === home) setViewState(first);
+    else setViewState(reframeOnPreset ? homeView(want, fits, box) : { ...first, ...PRESETS[want] });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fits, viewState, box, home]);
   // A fixed camera (no controller) always frames the window: it follows the
   // window's size and the view's (a preview mounted hidden is measured later).
@@ -602,7 +616,7 @@ export function VolumeCube({
   // A preset turns the camera, or with `reframeOnPreset` frames the window as
   // that preset's home view. A camera already at the preset is left alone, so
   // echoing onPreset back (or orbiting to within a preset's tolerance) never
-  // snaps the camera.
+  // snaps the camera. With no camera yet, the first view takes the preset.
   useEffect(() => {
     if (!preset) return;
     const { fits: f, box: b } = framing.current;
@@ -613,11 +627,14 @@ export function VolumeCube({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preset]);
 
+  // Reported once there is a camera: a null before the first view would
+  // overwrite a preset the caller asked for meanwhile.
   const cameraPreset = presetOf(viewState);
+  const hasCamera = Boolean(viewState);
   const onPresetRef = useLatest(onPreset);
   useLayoutEffect(() => {
-    onPresetRef.current?.(cameraPreset);
-  }, [cameraPreset, onPresetRef]);
+    if (hasCamera) onPresetRef.current?.(cameraPreset);
+  }, [cameraPreset, hasCamera, onPresetRef]);
 
   const onViewStateChange = useCallback(
     ({ viewState: next }: { viewId: string; viewState: ViewState }) => {
@@ -699,6 +716,7 @@ export function VolumeCube({
               onCellsBound,
               imagePalette,
               render,
+              showImage,
               modelMatrix: volumeMatrix,
               frameMatrix: Z_UP,
               clippingPlanes: [],
@@ -721,6 +739,7 @@ export function VolumeCube({
       onCellsBound,
       imagePalette,
       render,
+      showImage,
       cubeFrame,
       placedOverlays,
       volumeMatrix,
@@ -792,6 +811,7 @@ export function VolumeCube({
       ref={hostRef}
       className={cn("volume-cube__view relative w-full overflow-hidden rounded-md", background && "bg-neutral-950")}
       style={{ height }}
+      data-image={showImage ? "on" : "off"}
       data-labels={labelsState}
       data-channels={channels}
       data-label-format={cellsOnGpu ? "rg8" : "none"}

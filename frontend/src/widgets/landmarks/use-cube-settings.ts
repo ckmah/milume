@@ -12,6 +12,8 @@ export type CubeSettings = {
   mode: "additive" | "mip";
   preset: ViewPreset | null;
   resetTick: number;
+  /** The image in the cube views (dock and preview); off leaves only labels. */
+  showImage: boolean;
   showLabels: boolean;
   render: RenderSettings;
   contrast: [number, number];
@@ -34,6 +36,7 @@ export function useCubeSettings(
     mode: "additive",
     preset: "top",
     resetTick: 0,
+    showImage: true,
     showLabels: false,
     render: DEFAULT_RENDER,
     contrast: initialContrast,

@@ -420,6 +420,7 @@ export function InspectPreview({
           home="top"
           reframeOnPreset
           resetTick={0}
+          showImage={settings.showImage}
           showLabels={settings.showLabels}
           groups={groups}
           render={settings.render}

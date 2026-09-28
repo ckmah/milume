@@ -8,7 +8,8 @@ import { DEFAULT_RENDER, type RenderSettings, paletteLut } from "./palettes";
  * compact texture.
  *
  * Viv raycasts the image alone (`volume0`), coloured through a 256-texel
- * palette (`imagePalette`) with alpha and gamma from the `render` prop. Once
+ * palette (`imagePalette`) with alpha and gamma from the `render` prop; with
+ * `showImage` false the image adds nothing (a uniform, no refetch). Once
  * labels load, `labelVolume` (an RG8 3D texture on the same grid, see
  * `cell-volume.ts`) holds each voxel's local cell index and a surface flag. A
  * small RGBA lookup texture (`cellLut`) maps local index -> colour and fill
@@ -44,14 +45,15 @@ export type ImagePalette = { data: Uint8Array; width: number; height: number };
 // uniforms by module name and would set that sampler's texture unit from them.
 const cubeRenderModule = {
   name: "cubeRender",
-  uniformTypes: { imageAlpha: "f32", imageGamma: "f32", cellAlpha: "f32", cellsOn: "f32" },
-  defaultUniforms: { imageAlpha: 1, imageGamma: 1, cellAlpha: 1, cellsOn: 0 },
+  uniformTypes: { imageAlpha: "f32", imageGamma: "f32", cellAlpha: "f32", cellsOn: "f32", imageOn: "f32" },
+  defaultUniforms: { imageAlpha: 1, imageGamma: 1, cellAlpha: 1, cellsOn: 0, imageOn: 1 },
   // Only the numbers reach the uniform block; the palette is a texture.
-  getUniforms: (render: Partial<RenderSettings> & { cellsOn?: number } = {}) => ({
+  getUniforms: (render: Partial<RenderSettings> & { cellsOn?: number; imageOn?: number } = {}) => ({
     imageAlpha: render.imageAlpha ?? DEFAULT_RENDER.imageAlpha,
     imageGamma: render.imageGamma ?? DEFAULT_RENDER.imageGamma,
     cellAlpha: render.cellAlpha ?? DEFAULT_RENDER.cellAlpha,
     cellsOn: render.cellsOn ?? 0,
+    imageOn: render.imageOn ?? 1,
   }),
   fs: `\
 uniform cubeRenderUniforms {
@@ -59,6 +61,7 @@ uniform cubeRenderUniforms {
   float imageGamma;
   float cellAlpha;
   float cellsOn;
+  float imageOn;
 } cubeRender;
 
 // All 3D textures, the lookups one texel deep: luma.gl validates the program
@@ -71,11 +74,11 @@ uniform highp sampler3D labelVolume;
 
 vec3 srgbToLinear(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
 
-// Image value after contrast -> (linear rgb, per-sample alpha).
+// Image value after contrast -> (linear rgb, per-sample alpha); clear with the image off.
 vec4 imageSample(float v) {
   float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
   vec3 c = srgbToLinear(texelFetch(imagePalette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
-  return vec4(c, g * cubeRender.imageAlpha);
+  return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
 // Colour (linear RGB) and per-sample alpha of the label voxel at texel q.
@@ -138,9 +141,11 @@ const MIP = {
   _AFTER_RENDER: `
   // Cells in front, composited over the image's maximum-intensity projection.
   // The projection is opaque: weighting it by the sample alpha (g) as well
-  // would square the ramp and darken everything below full intensity.
+  // would square the ramp and darken everything below full intensity. With
+  // the image off only the cells remain, at their own alpha (as in Additive).
   vec4 im = imageSample(maxImage);
-  color = vec4(cells.rgb + (1.0 - cells.a) * im.rgb * cubeRender.imageAlpha, 1.0);`,
+  float imageOn = cubeRender.imageOn;
+  color = vec4(cells.rgb + (1.0 - cells.a) * im.rgb * cubeRender.imageAlpha * imageOn, mix(cells.a, 1.0, imageOn));`,
 };
 
 type Texture = { destroy(): void };
@@ -152,6 +157,8 @@ type LayerLike = {
     cellVolume?: CellVolume | null;
     /** Highlight groups while Labels is on; null hides every cell. */
     cellGroups?: readonly HighlightGroup[] | null;
+    /** Default true; false: the image adds nothing to the ray (labels still draw). */
+    showImage?: boolean;
     /** Called when the labels this layer draws change (null: none). */
     onCellsBound?: (cells: CellVolume | null) => void;
     imagePalette?: ImagePalette | null;
@@ -282,7 +289,8 @@ abstract class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       cellLut: layer.state.cellLutTexture,
       imagePalette: paletteTexture,
     });
-    model.shaderInputs.setProps({ cubeRender: { ...(layer.props.render ?? DEFAULT_RENDER), cellsOn } });
+    const imageOn = layer.props.showImage === false ? 0 : 1;
+    model.shaderInputs.setProps({ cubeRender: { ...(layer.props.render ?? DEFAULT_RENDER), cellsOn, imageOn } });
   }
 
   finalizeState() {

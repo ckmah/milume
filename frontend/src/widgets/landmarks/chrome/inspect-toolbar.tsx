@@ -9,7 +9,6 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -99,14 +98,22 @@ function RangeRow({
   );
 }
 
-/** One titled group of the Adjust panel, with a Reset for its sliders. */
+/** A section's Show switch, beside its title ("Show image", "Show labels"). */
+type ShowSwitch = { checked: boolean; disabled?: boolean; onChange: (on: boolean) => void };
+
+/**
+ * One titled group of the Adjust panel, with a Reset for its sliders and, for
+ * Image and Labels, a Show switch after the title. Reset leaves the switch be.
+ */
 function AdjustSection({
   title,
+  show,
   onReset,
   testId,
   children,
 }: {
   title: string;
+  show?: ShowSwitch;
   onReset: () => void;
   testId?: string;
   children: React.ReactNode;
@@ -115,9 +122,20 @@ function AdjustSection({
   return (
     <section aria-labelledby={id} data-testid={testId}>
       <div className="landmarks-adjust__head">
-        <h3 id={id} className={cn(TOOLBAR_CAPTION, "m-0")}>
-          {title}
-        </h3>
+        <div className="flex items-center gap-1.5">
+          <h3 id={id} className={cn(TOOLBAR_CAPTION, "m-0")}>
+            {title}
+          </h3>
+          {show ? (
+            <Switch
+              size="sm"
+              aria-label={`Show ${title.toLowerCase()}`}
+              checked={show.checked}
+              disabled={show.disabled}
+              onCheckedChange={show.onChange}
+            />
+          ) : null}
+        </div>
         <Button
           type="button"
           variant="ghost"
@@ -135,9 +153,10 @@ function AdjustSection({
 }
 
 /**
- * Context bar while Inspect has a cube open: camera, projection, palette,
- * labels, then one Adjust panel (Image, Cells, Cuts sections) that rises above
- * its button. Cuts render live and commit `volume_cut` on release (`onCutCommit`).
+ * Context bar while Inspect has a cube open: camera, projection, palette, then
+ * one Adjust panel (Image, Labels, Cuts sections; Image and Labels each with a
+ * Show switch) that rises above its button. Cuts render live and commit
+ * `volume_cut` on release (`onCutCommit`).
  */
 export function InspectToolbar({
   settings,
@@ -161,7 +180,6 @@ export function InspectToolbar({
   /** Back to defaults: one Adjust section's sliders, or all of them. */
   onReset: (section: Section | "all") => void;
 }) {
-  const labelsId = useId();
   const [adjustOpen, setAdjustOpen] = useState(false);
   const [menuContainer, setMenuContainer] = useState<HTMLElement | null>(null);
   // The cube sizes the contrast range from the contrast it draws; hold the max
@@ -193,12 +211,16 @@ export function InspectToolbar({
     heldContrastMax ?? bounds?.contrastMax ?? Math.max(255, Math.ceil(settings.contrast[1] * 4));
   const gammaLog2 = Math.log2(render.imageGamma);
 
-  // Image and Cells on the left, Cuts on the right: short enough to rise clear of the dock.
+  // Image and Labels on the left, Cuts on the right: short enough to rise clear of the dock.
   const adjustPanel = (
     <div className="landmarks-adjust" data-testid="context-cube-adjust" role="region" aria-label="Adjust">
       <div className="landmarks-adjust__cols">
         <div className="landmarks-adjust__col">
-          <AdjustSection title="Image" onReset={() => onReset("image")}>
+          <AdjustSection
+            title="Image"
+            show={{ checked: settings.showImage, onChange: (on) => patch({ showImage: on }) }}
+            onReset={() => onReset("image")}
+          >
             <div
               onPointerDownCapture={() => setHeldContrastMax(contrastMax)}
               onLostPointerCapture={() => setHeldContrastMax(null)}
@@ -238,9 +260,17 @@ export function InspectToolbar({
               onValueChange={(v) => patch({ render: { imageGamma: 2 ** v } })}
             />
           </AdjustSection>
-          <AdjustSection title="Cells" onReset={() => onReset("cells")}>
+          <AdjustSection
+            title="Labels"
+            show={{
+              checked: settings.showLabels,
+              disabled: !labelsAvailable,
+              onChange: (on) => patch({ showLabels: on }),
+            }}
+            onReset={() => onReset("labels")}
+          >
             <SoftFloatCapsuleSlider
-              aria-label="Cell alpha"
+              aria-label="Label alpha"
               caption="Alpha"
               min={0}
               max={1}
@@ -365,19 +395,6 @@ export function InspectToolbar({
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          <div className="flex items-center gap-1.5 px-1.5">
-            <Switch
-              id={labelsId}
-              size="sm"
-              aria-label="Labels"
-              checked={settings.showLabels}
-              disabled={!labelsAvailable}
-              onCheckedChange={(on) => patch({ showLabels: on })}
-            />
-            <Label htmlFor={labelsId} className={TOOLBAR_CAPTION}>
-              Labels
-            </Label>
-          </div>
           <ToolbarDivider />
           <span
             data-testid="context-cube-adjust-group"
