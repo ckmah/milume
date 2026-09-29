@@ -5,7 +5,7 @@ Multi-domain tissue-like cloud (~2k cells), several categories, correlated
 genes, k-NN + radius graphs, and toy ``X_pca`` / ``X_umap`` embeddings so the
 Vite harness can exercise chrome (including Embedding) without a notebook.
 
-Spatial units are scaled to match the ileum demo (~4.5 µm median NN) so the
+Spatial units are scaled to a typical imaging panel (~4.5 µm median NN) so the
 fixed 10 µm raster bins have realistic cell density.
 """
 
@@ -24,11 +24,11 @@ sys.path.insert(0, str(ROOT))
 from spatial_rx import LandmarksWidget  # noqa: E402
 from tests.helpers import adata_xy, graph  # noqa: E402
 
-# Ileum demo reference (demos/data/ileum/cells.csv): median NN ≈ 4.5 µm,
+# Reference cell spacing (a mouse ileum MERFISH slice): median NN ≈ 4.5 µm,
 # extent roughly x∈[2380,3910], y∈[140,1670]. Raster bin size is fixed at 10 µm.
-ILEUM_MEDIAN_NN = 4.5
-ILEUM_ORIGIN_X = 2400.0
-ILEUM_ORIGIN_Y = 140.0
+REF_MEDIAN_NN = 4.5
+REF_ORIGIN_X = 2400.0
+REF_ORIGIN_Y = 140.0
 
 # Keep aligned with LandmarksWidget synced traits used by the harness / engine.
 FIXTURE_KEYS = [
@@ -94,7 +94,7 @@ FIXTURE_KEYS = [
     "raster_status",
 ]
 
-# Domains in arbitrary layout units (rescaled to ileum µm after sampling).
+# Domains in arbitrary layout units (rescaled to reference µm after sampling).
 # (cx, cy, sx, sy, n_core, n_halo)
 DOMAINS = [
     (2200, 500, 180, 140, 420, 80),
@@ -191,14 +191,14 @@ def _median_nn(x: np.ndarray, y: np.ndarray) -> float:
     return float(np.median(dist[:, 1]))
 
 
-def _scale_to_ileum(
+def _scale_to_reference(
     x: np.ndarray, y: np.ndarray
 ) -> tuple[np.ndarray, np.ndarray, float]:
-    """Uniform scale + translate so median NN and origin match ileum µm units."""
+    """Uniform scale + translate so median NN and origin match the reference µm units."""
     nn = _median_nn(x, y)
-    scale = ILEUM_MEDIAN_NN / max(nn, 1e-9)
-    xs = (x - float(x.min())) * scale + ILEUM_ORIGIN_X
-    ys = (y - float(y.min())) * scale + ILEUM_ORIGIN_Y
+    scale = REF_MEDIAN_NN / max(nn, 1e-9)
+    xs = (x - float(x.min())) * scale + REF_ORIGIN_X
+    ys = (y - float(y.min())) * scale + REF_ORIGIN_Y
     return xs, ys, scale
 
 
@@ -274,8 +274,8 @@ def _neighbor_graphs(
 
 def _map_xy(x: float, y: float, *, x0: float, y0: float, scale: float) -> list[float]:
     return [
-        (x - x0) * scale + ILEUM_ORIGIN_X,
-        (y - y0) * scale + ILEUM_ORIGIN_Y,
+        (x - x0) * scale + REF_ORIGIN_X,
+        (y - y0) * scale + REF_ORIGIN_Y,
     ]
 
 
@@ -284,10 +284,10 @@ def main() -> None:
     x_raw, y_raw, types, compartments, domain_ids = _sample_points(rng)
     n = len(x_raw)
     x0, y0 = float(x_raw.min()), float(y_raw.min())
-    x, y, scale = _scale_to_ileum(x_raw, y_raw)
+    x, y, scale = _scale_to_reference(x_raw, y_raw)
     nn = _median_nn(x, y)
     # ~10× median NN, matching prior graph density (160 / 15 ≈ 10).
-    radius = 10.0 * ILEUM_MEDIAN_NN
+    radius = 10.0 * REF_MEDIAN_NN
 
     genes = _expression(rng, types, x, y)
     knn, radius_g = _neighbor_graphs(x, y, k=12, radius=radius)
@@ -380,7 +380,7 @@ def main() -> None:
     )
     print(
         f"  scale={scale:.4f} median_nn={nn:.3f}µm "
-        f"(target {ILEUM_MEDIAN_NN}) bin={payload.get('raster_bin_size')} "
+        f"(target {REF_MEDIAN_NN}) bin={payload.get('raster_bin_size')} "
         f"window={payload.get('raster_window_radius')}"
     )
     print(

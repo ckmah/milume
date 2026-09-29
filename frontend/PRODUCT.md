@@ -31,7 +31,7 @@ Notebook-native toolkit: best-in-class marimo/Jupyter widgets for spatial omics,
 - **Data model:** AnnData with coordinates in `obsm["spatial"]`, labels in `obs`, expression in `X`. Neighborhood expand runs client-side from coordinates (no required `obsp` graphs). Gene expression packs eagerly for view-only coloring. Interaction sync is landmarks/selections; other chrome state is client-local.
 - **Widget types:** React/shadcn widgets (bundled ahead of time) and vanilla JavaScript widgets (shipped as source). Canvas drawing for landmarks uses deck.gl orthographic layers via `mountEngine`.
 - **Development:** Widget authors work in `frontend/` and rebuild bundles; widget consumers install the published package only.
-- **Demos:** `demos/landmarks.py`, `demos/gallery.py`, `demos/gut_study.py` with molab badges for remote execution.
+- **Demos:** `demos/landmarks.py` and `demos/gallery.py` with molab badges for remote execution; `demos/volume-cube.py`.
 
 ## Capabilities and Constraints
 
@@ -71,11 +71,10 @@ Use domain language from `CONTEXT.md` (widget, synced state, traitlet, widget co
 | ----- | ---- |
 | Landmarks demo | `demos/landmarks.py` |
 | Gallery demo | `demos/gallery.py` |
-| Gut study demo | `demos/gut_study.py` |
 | Volume cube demo | `demos/volume-cube.py` |
 | Landmarks screenshot | `assets/landmarks_widget_{light,dark}.png` |
 | Gallery screenshot | `assets/gallery_widget_{light,dark}.png` |
-| Demo data notes | `demos/data/README.md` |
+| Demo data | [Stellaromics/demo](https://huggingface.co/datasets/Stellaromics/demo) `xsmall/` (Landmarks demo) |
 | Domain vocabulary | `CONTEXT.md` |
 | Widget architecture docs | `docs/widget-packaging.md`, `docs/widget-scaffold.md`, `docs/shadcn-frontend.md` |
 
