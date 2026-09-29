@@ -75,11 +75,6 @@ A contributor who adds or changes widget UI. Works in the frontend source tree
 and rebuilds bundles before release.
 _Avoid_: developer, maintainer
 
-**Widget scaffold**:
-Generated starter files for a new widget, driven by a traitlet specification
-rather than copied from an existing widget.
-_Avoid_: template, boilerplate generator
-
 **Landmark**:
 A user-placed geometric annotation on tissue coordinates (point, line, spline,
 or shape). Landmarks are the durable annotation object: notebooks convert them
@@ -102,7 +97,3 @@ holding the points inside the inspect square and the cube window (centre,
 size, cut) that restores its view.
 _Avoid_: auto-creating one on every inspect click or window move; a dedicated
 trait for it; treating it as a new geometry kind
-
-**Gallery item**:
-One card in a gallery widget: a required title with optional description and
-image.

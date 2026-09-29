@@ -1,6 +1,5 @@
 """spatial-rx: tools for exploring spatial omics data in notebooks."""
 
-from .gallery import GalleryWidget
 from .landmarks import LandmarksWidget
 from .measure import (
     along_positions,
@@ -19,7 +18,6 @@ __version__ = "1.0.1"
 from .volume_cube import VolumeCubeWidget
 
 __all__ = [
-    "GalleryWidget",
     "LandmarksWidget",
     "VolumeCubeWidget",
     "__version__",

@@ -7,7 +7,7 @@ in sync with your Python analysis.
 | Tool | Role | Demo |
 | ---- | ---- | ---- |
 | **LandmarksWidget** | Draw selections and landmarks on tissue coordinates; measure from the notebook | [![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/ckmah/spatial-rx/blob/main/demos/landmarks.py) |
-| **GalleryWidget** | Compact card gallery (e.g. analysis recipes / use cases) | [![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/ckmah/spatial-rx/blob/main/demos/gallery.py) |
+| **VolumeCubeWidget** | Isometric 3D cube of an OME-Zarr image and its cell labels | [`demos/volume-cube.py`](demos/volume-cube.py) |
 
 
 More widgets and helpers may land here over time.
@@ -66,14 +66,5 @@ Read results back in Python:
 | Inspect window and cube cut | `w.inspect_cx`, `w.inspect_cy`, `w.inspect_size_um`; `w.volume_cut` = x0, x1, y0, y1, z0, z1 µm (intersect X/Y with the window for the shown box) |
 
 Large expression matrices are sent sparse; pass `genes=` to limit the gene
-catalog. `VolumeCubeWidget` remains available as a standalone OME-Zarr cube.
-
-## GalleryWidget
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/gallery_widget_dark.png" />
-  <source media="(prefers-color-scheme: light)" srcset="assets/gallery_widget_light.png" />
-  <img alt="Gallery widget" src="assets/gallery_widget_light.png" />
-</picture>
-
-Selectable image cards for recipes or use cases. Synced selection is `selected_index`.
+catalog. `VolumeCubeWidget` is the same cube as a standalone widget for an
+OME-Zarr image.

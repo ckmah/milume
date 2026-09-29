@@ -4,8 +4,7 @@ React/shadcn anywidgets live in `frontend/` and compile to ESM under
 `spatial_rx/static/bundled/`.
 
 Docs: [widget UI dev quick reference](./widget-ui-dev.md),
-[widget packaging](./widget-packaging.md),
-[widget scaffold](./widget-scaffold.md) (traitlet-driven, not gallery-shaped).
+[widget packaging](./widget-packaging.md).
 Agent workflow:
 [`.agents/skills/shadcn-anywidget/SKILL.md`](../.agents/skills/shadcn-anywidget/SKILL.md).
 

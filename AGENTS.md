@@ -108,8 +108,7 @@ and [`.agents/skills/shadcn/SKILL.md`](.agents/skills/shadcn/SKILL.md).
 
 When adding or changing a React/shadcn widget: read
 [`.agents/skills/shadcn-anywidget/SKILL.md`](.agents/skills/shadcn-anywidget/SKILL.md).
-Architecture: [`docs/widget-packaging.md`](docs/widget-packaging.md),
-[`docs/widget-scaffold.md`](docs/widget-scaffold.md).
+Architecture: [`docs/widget-packaging.md`](docs/widget-packaging.md).
 
 ## Widget UI development
 

@@ -58,8 +58,7 @@ Free components use the `c-*` prefix (`npx shadcn@latest add @reui/c-alert-1`).
 
 shadcn APIs: [../shadcn/SKILL.md](../shadcn/SKILL.md) (CLI from `frontend/`).
 Humans: [../../docs/shadcn-frontend.md](../../docs/shadcn-frontend.md),
-[../../docs/widget-packaging.md](../../docs/widget-packaging.md),
-[../../docs/widget-scaffold.md](../../docs/widget-scaffold.md).
+[../../docs/widget-packaging.md](../../docs/widget-packaging.md).
 Domain: [../../CONTEXT.md](../../CONTEXT.md).
 
 ## Reload contract (file-watch HMR)
@@ -80,7 +79,7 @@ opening a new tab.
 Hard rules for `_esm` / `_css`:
 
 - Keep them as `Path` objects (anywidget watches Paths).
-- Resolve via `spatial_rx._assets.widget_esm` / `widget_css` (or scaffold output).
+- Resolve via `spatial_rx._assets.widget_esm` / `widget_css`.
 - Set `ANYWIDGET_HMR=1` on the process that imports the widget class.
 
 Stale-UI triage (in order):
@@ -96,36 +95,33 @@ Longer rationale and packaging roles: [widget-packaging.md](../../docs/widget-pa
 
 | Layer | Path |
 | --- | --- |
-| Python widget | `spatial_rx/gallery.py` |
+| Python widget | `spatial_rx/volume_cube.py` |
 | Asset resolver | `spatial_rx/_assets.py` |
-| React UI | `frontend/src/widgets/gallery/Gallery.tsx` |
-| anywidget entry | `frontend/src/widgets/gallery/index.tsx` |
+| React UI | `frontend/src/widgets/volume-cube/VolumeCubeView.tsx` |
+| anywidget entry | `frontend/src/widgets/volume-cube/index.tsx` |
 | shadcn primitives | `frontend/src/components/ui/` |
 | Build config | `frontend/vite.config.ts` |
 | Shipped bundles | `spatial_rx/static/bundled/{name}.mjs`, `widgets.css` |
 | Landmarks canvas CSS | `frontend/src/widgets/landmarks/landmarks.css` (in bundle) |
-| Demo | `demos/gallery.py` |
+| Demo | `demos/volume-cube.py` |
 
 ## Add a widget
 
-Declare the Python↔browser contract as **named traitlets** (any shape — not
-gallery's `items` / `selected_index` / `columns`). See
-[widget scaffold](../../docs/widget-scaffold.md).
+Declare the Python↔browser contract as **named traitlets**, shaped for the
+widget (e.g. `points:List[Dict]`, `color:Unicode`, `radius:Float`), not copied
+from another widget.
 
 Complete every step.
 
-1. **Write a traitlet spec** (YAML or CLI flags) — e.g. `points:List[Dict]`,
-   `color:Unicode`, `radius:Float`. Do not copy gallery fields unless building a
-   gallery.
+1. **Python class** `spatial_rx/<name>.py`: an `AnyWidget` subclass with
+   `_esm = widget_esm("<kebab-name>")`, `_css = widget_css()` and the traitlets
+   tagged `sync=True`. Export it from `spatial_rx/__init__.py` (`__all__` too).
 
-2. **Scaffold**:
-
-   ```bash
-   uv run scripts/scaffold_widget.py <kebab-name> --traitlet '...' --demo
-   # or: uv run scripts/scaffold_widget.py --spec widgets/<name>.yaml --demo
-   ```
-
-   See [widget-scaffold.md](../../docs/widget-scaffold.md#run-the-scaffold).
+2. **Wire the bundle**: add `frontend/src/widgets/<kebab-name>/index.tsx` (the
+   anywidget `render` entry), a `widgetEntries` entry in `frontend/vite.config.ts`,
+   a `SPATIAL_RX_BUILD_WIDGET=<kebab-name> vite build` step in the `build` script
+   and a `watch:<kebab-name>` script in `frontend/package.json`, and the bundle
+   name in `tests/test_assets.py` / `tests/test_widget_bundles.py`.
 
 3. **Add shadcn components** from `frontend/` (if needed):
 
@@ -139,7 +135,7 @@ Complete every step.
    `model.save_changes()`. Wrap in `useNotebookTheme(hostEl.parentElement)`.
    Build UI with shadcn components only (see [UI components](#ui-components-required)).
 
-5. **Implement Python validation** in `__init__` if needed (optional; not generated).
+5. **Implement Python validation** in `__init__` if needed.
 
 6. **Build and verify**:
 
@@ -151,7 +147,8 @@ Complete every step.
    Done when `spatial_rx/static/bundled/<name>.mjs` exists and the demo renders
    under the [reload contract](#reload-contract-file-watch-hmr).
 
-7. **Commit** `spatial_rx/static/bundled/*` (shipped in the wheel). See
+7. **Do not commit** `spatial_rx/static/bundled/`: it is gitignored, and CI and
+   the publish workflows run `npm run build` before building the wheel. See
    [widget packaging](../../docs/widget-packaging.md).
 
 ## Do / don't
