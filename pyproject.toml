@@ -24,11 +24,9 @@ dependencies = [
     "numpy>=1.24",
     "pandas>=2.0",
     "polars>=1.0",
-    "ruff>=0.16.6",
     "scipy>=1.11",
     "shapely>=2.1.2",
     "traitlets>=5.0",
-    "wigglystuff>=0.5.32",
 ]
 
 [project.optional-dependencies]
@@ -56,7 +54,7 @@ Issues = "https://github.com/ckmah/spatial-rx/issues"
 dev = [
     "geopandas>=1.1.4",
     "pytest>=8.3.3",
-    "pyyaml>=6.0",
+    "ruff>=0.16.6",
     "shapely>=2.1.2",
     "watchfiles>=1.2.0",
 ]
@@ -67,9 +65,12 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["spatial_rx"]
+# The engine sources in static/*.js are bundled into static/bundled/landmarks.mjs;
+# only the (gitignored) bundles are loaded at runtime.
+exclude = ["spatial_rx/static/*.js"]
 
 [tool.hatch.build]
-artifacts = ["spatial_rx/static/*"]
+artifacts = ["spatial_rx/static/bundled/*"]
 
 [tool.hatch.version]
 path = "spatial_rx/__init__.py"
