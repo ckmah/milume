@@ -56,7 +56,6 @@
     "@thi.ng/geom-accel": "^4.2.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cn": "^0.2.6",
     "cube-motion": "^0.1.0",
     "lucide-react": "^1.37.0",
     "polygon-clipping": "^0.15.7",
