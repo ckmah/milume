@@ -5,22 +5,19 @@ Not a viewer. A thinking surface for spatial biology.
 Notebook-native widgets tie AnnData-backed analysis to interactive tissue exploration.
 See [`frontend/PRODUCT.md`](frontend/PRODUCT.md) for positioning and shipped capabilities.
 
-## Now
+## First release
 
-**Landmarks↔VolumeCube analysis loop** — drive VolumeCube from Landmarks inspect and use window/slice state in Python analysis (not only visual sync).
-Active: [#40](https://github.com/ckmah/spatial-rx/issues/40).
+- **LandmarksWidget**: selections, landmarks and neighborhoods on tissue
+  coordinates, colored by category, gene or embedding. From a SpatialData, it
+  adds Inspect: a full-resolution 3D cube of the tissue under a window, with
+  saved inspect selections.
+- **VolumeCubeWidget**: the same cube as a standalone widget for an OME-Zarr image.
+- **Measures**: `distances`, `along_positions` and `composition` against
+  landmarks (in XY, with optional z bins), `enrichment` and `nearest_distances`.
 
-Verification: extend `.agents/skills/verify-volume-cube/` + `frontend/e2e/volume-cube/`; demo `demos/volume-cube.py`.
+## Under consideration
 
-## Next
-
-TBD — pick from icebox after #40.
-
-## Later / icebox
-
-- GitHub Pages landing + docs — draft [PR #32](https://github.com/ckmah/spatial-rx/pull/32)
-- Polyrender Soft Float / meshify — draft [PR #28](https://github.com/ckmah/spatial-rx/pull/28) (parked; Viv VolumeCube is the 3D detail path for now)
-
-## Shipped recently
-
-- VolumeCube (Viv) — [PR #35](https://github.com/ckmah/spatial-rx/pull/35): toy OME-Zarr, inspect→window, Marimo XYZ slices, labels lazy-off, yaw-only + Reset; verify-volume-cube feature map
+- A documentation site (draft [PR #32](https://github.com/ckmah/spatial-rx/pull/32)).
+- Jupyter parity with the marimo-first development loop.
+- Mesh-based 3D rendering (Polyrender, parked in draft
+  [PR #28](https://github.com/ckmah/spatial-rx/pull/28); the Viv cube is the 3D path for now).

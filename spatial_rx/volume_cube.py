@@ -1,9 +1,8 @@
 """VolumeCubeWidget: isometric OME-Zarr detail cube (Viv).
 
-Competes with PolyrenderWidget (Fiber + GLB). A Landmarks inspect window
-(fixed 100 µm square) is consumed one-way via ``window_cx`` / ``window_cy``.
-The toy fixture is a small OME-Zarr (1 µm/voxel) served over loopback HTTP
-so Viv can ``fetch`` it.
+A Landmarks inspect window (fixed 100 µm square) is consumed one-way via
+``window_cx`` / ``window_cy``. The toy fixture is a small OME-Zarr (1 µm/voxel)
+served over loopback HTTP so Viv can ``fetch`` it.
 
 Landmarks ``obsm["spatial"]`` XY and cube ``window_cx`` / ``window_cy`` /
 ``slice_*`` traits share the same coordinate frame. ``voxel_size_um`` and

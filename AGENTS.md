@@ -4,7 +4,7 @@ Guidance for agents working in **spatial-rx**.
 
 Domain language: [`CONTEXT.md`](CONTEXT.md).
 
-Before merging LandmarksWidget changes, verify behavior via Playwright e2e and the feature map in [`.agents/skills/verify-landmarks/`](.agents/skills/verify-landmarks/). Before merging VolumeCubeWidget changes, use [`.agents/skills/verify-volume-cube/`](.agents/skills/verify-volume-cube/). Full gate: [Merge policy](#merge-policy). Active roadmap: [`ROADMAP.md`](ROADMAP.md).
+Before merging LandmarksWidget changes, verify behavior via Playwright e2e and the feature map in [`.agents/skills/verify-landmarks/`](.agents/skills/verify-landmarks/). Before merging VolumeCubeWidget changes, use [`.agents/skills/verify-volume-cube/`](.agents/skills/verify-volume-cube/). Full gate: [Merge policy](#merge-policy). Roadmap: [`ROADMAP.md`](ROADMAP.md).
 
 ## Skills precedence
 
