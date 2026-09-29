@@ -25,19 +25,18 @@ from .genes import (
     gene_names_from_adata,
     pack_eager_gene_matrix,
 )
-from .neighbors import DEFAULT_K_MAX
-from .raster import (
-    DEFAULT_WINDOW_RADIUS,
-    default_bin_size,
-)
-from .selection import (
-    selection_mask,
-)
+from .selection import selection_mask
 
 if TYPE_CHECKING:
     import numpy as np
 
 _FALLBACK_POINT = "#00e5ff"
+# The browser builds the raster (spatial-raster.js) and the neighbor graph
+# (spatial-neighbors.js); these are their starting parameters, in world units
+# (µm when spatial coords are µm). The window stays 3x the bin edge.
+DEFAULT_BIN_SIZE = 8.0
+DEFAULT_WINDOW_RADIUS = 24.0
+DEFAULT_K_MAX = 64
 _SEQUENTIAL_LOW = "#f3e6d4"
 _SEQUENTIAL_HIGH = "#ff0099"
 
@@ -527,7 +526,6 @@ class LandmarksWidget(AnyWidget):
         self._data_y = y_arr
         self._obs_names = adata.obs_names
         self._data_label_arrays = cat_labels
-        self._median_nn = _median_nn_distance(x_arr, y_arr)
         active_cat = ""
         if cat_meta and gene_color is None:
             active_cat = active if active in cat_labels else cat_meta[0]["name"]
@@ -543,7 +541,6 @@ class LandmarksWidget(AnyWidget):
         gene_names = gene_names_from_adata(adata, genes)
         gene_meta, gene_payload = pack_eager_gene_matrix(adata, gene_names, n)
         gene_logged = bool(expression_is_log_scaled(adata)) if gene_names else False
-        init_bin_size = default_bin_size(self._median_nn, point_size)
         embedding_keys = _discover_embedding_keys(adata, spatial_key=spatial_key)
         embedding_key = _pick_default_embedding_key(embedding_keys)
 
@@ -578,7 +575,7 @@ class LandmarksWidget(AnyWidget):
             embedding_matrix="",
             embedding_matrix_dim=0,
             render_mode="points",
-            raster_bin_size=float(init_bin_size),
+            raster_bin_size=DEFAULT_BIN_SIZE,
             raster_window_radius=float(DEFAULT_WINDOW_RADIUS),
             raster_basis="composition",
             raster_embedding_key=embedding_key,

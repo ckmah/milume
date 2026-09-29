@@ -1206,7 +1206,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const r = Number(model.get("raster_window_radius"));
     if (Number.isFinite(r) && r > 0) return r;
     const bin = Number(model.get("raster_bin_size"));
-    // Match spatial_rx.raster.default_window_radius: 3 x bin, else 24 µm.
+    // Same default as spatial_rx.landmarks.DEFAULT_WINDOW_RADIUS: 3 x bin, else 24 µm.
     if (Number.isFinite(bin) && bin > 0) return bin * 3;
     return 24;
   }
