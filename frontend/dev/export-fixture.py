@@ -21,7 +21,7 @@ from scipy.spatial import cKDTree
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from spatial_rx import LandmarksWidget  # noqa: E402
+from milume import LandmarksWidget  # noqa: E402
 from tests.helpers import adata_xy, graph  # noqa: E402
 
 # Reference cell spacing (a MERFISH tissue section): median NN ≈ 4.5 µm,

@@ -11,7 +11,7 @@ from tests.helpers import adata_xy
 
 
 def test_raster_basis_follows_genes_embedding_and_composition():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     adata = adata_xy(
         [0.0, 0.2, 2.0, 2.1],
@@ -57,7 +57,7 @@ def test_raster_basis_follows_genes_embedding_and_composition():
 
 
 def test_raster_defaults_to_8_um_bins_and_24_um_window():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     adata = adata_xy(
         [0.0, 10.0, 20.0, 30.0],
@@ -72,7 +72,7 @@ def test_raster_defaults_to_8_um_bins_and_24_um_window():
 
 
 def test_raster_discovers_embedding_keys():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     adata = adata_xy(
         [0.0, 1.0, 2.0, 3.0],
@@ -95,7 +95,7 @@ def test_raster_discovers_embedding_keys():
 
 
 def test_set_raster_basis_requires_one_kwarg():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     adata = adata_xy(
         [0.0, 1.0],
@@ -111,7 +111,7 @@ def test_set_raster_basis_requires_one_kwarg():
 
 def test_embedding_values_pack_for_point_rgb():
     """Selecting an embedding packs ≤3 display-normalized channels for points."""
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     adata = adata_xy(
         [0.0, 0.2, 2.0, 2.1],
@@ -137,7 +137,7 @@ def test_embedding_values_pack_for_point_rgb():
 
 def test_empty_genes_keeps_gene_view_across_render_mode():
     """Clearing genes / flipping View must stay on genes, not fall back to category."""
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     adata = adata_xy(
         [0.0, 0.2, 2.0, 2.1],

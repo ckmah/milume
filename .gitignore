@@ -11,7 +11,7 @@ build/
 demos/__marimo__/
 demos/*.lock
 frontend/node_modules/
-spatial_rx/static/bundled/
+milume/static/bundled/
 .playwright-mcp/
 
 # Agent scratch (SDD ledgers, reports, screenshots)

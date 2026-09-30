@@ -9,7 +9,7 @@ import { loadFixtureModel } from "./mock-model";
 
 type HarnessTheme = "light" | "dark";
 
-const STORAGE_KEY = "spatial-rx-harness-theme";
+const STORAGE_KEY = "milume-harness-theme";
 
 function readStoredTheme(): HarnessTheme {
   if (typeof window === "undefined") return "dark";
@@ -65,7 +65,7 @@ export function HarnessShell() {
         </p>
         <div
           className={cn(
-            "spatial-rx-widget inline-flex items-center gap-2",
+            "milume-widget inline-flex items-center gap-2",
             theme === "dark" && "dark",
           )}
         >

@@ -75,7 +75,7 @@ export function ModeDropdown({
               ref={(node) => {
                 setMenuContainer(
                   node?.closest(
-                    ".spatial-rx-widget, .landmarks",
+                    ".milume-widget, .landmarks",
                   ) as HTMLElement | null,
                 );
               }}

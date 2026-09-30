@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from spatial_rx import LandmarksWidget  # noqa: E402
+from milume import LandmarksWidget  # noqa: E402
 from tests.helpers import toy_spatialdata  # noqa: E402
 
 DEV = Path(__file__).resolve().parent

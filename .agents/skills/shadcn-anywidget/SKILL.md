@@ -1,7 +1,7 @@
 ---
 name: shadcn-anywidget
 description: >-
-  Integrates shadcn/ui into spatial-rx anywidgets via the bundled React frontend.
+  Integrates shadcn/ui into milume anywidgets via the bundled React frontend.
   Always prefer shadcn components (@/components/ui/*) for widget chrome. Use when
   adding or changing a React/shadcn anywidget, fixing stale widget UI / HMR /
   hot-reload in marimo, running shadcn CLI from frontend/, wiring Vite widget
@@ -11,12 +11,12 @@ description: >-
 # shadcn anywidget
 
 anywidget ESM cannot import React/shadcn source directly. Compose UI in
-`frontend/`, ship per-widget bundles under `spatial_rx/static/bundled/`.
+`frontend/`, ship per-widget bundles under `milume/static/bundled/`.
 
 Landmarks chrome (panels, toolbar, forms) is React/shadcn. The deck.gl canvas
-engine stays in `spatial_rx/static/landmarks.js` (`mountEngine`) and is imported
+engine stays in `milume/static/landmarks.js` (`mountEngine`) and is imported
 by the landmarks Vite entry. Chrome reads/writes via `useLandmarksModel` (not
-raw `model.set`); shared write recipes live in `spatial_rx/static/landmarks_state.js`.
+raw `model.set`); shared write recipes live in `milume/static/landmarks_state.js`.
 
 ## UI components (required)
 
@@ -67,7 +67,7 @@ Authoring reload is **anywidget file-watch**, not the Vite dev server.
 
 | Piece | Value |
 | --- | --- |
-| `_esm` / `_css` | `pathlib.Path` from `widget_esm` / `widget_css` → `spatial_rx/static/bundled/` |
+| `_esm` / `_css` | `pathlib.Path` from `widget_esm` / `widget_css` → `milume/static/bundled/` |
 | Rebuild | `cd frontend && npm run watch:<name>` (`vite build --watch`) |
 | Python | `ANYWIDGET_HMR=1` set **before** starting marimo/jupyter |
 | Dep | `watchfiles` (`uv sync --group dev`) |
@@ -79,7 +79,7 @@ opening a new tab.
 Hard rules for `_esm` / `_css`:
 
 - Keep them as `Path` objects (anywidget watches Paths).
-- Resolve via `spatial_rx._assets.widget_esm` / `widget_css`.
+- Resolve via `milume._assets.widget_esm` / `widget_css`.
 - Set `ANYWIDGET_HMR=1` on the process that imports the widget class.
 
 Stale-UI triage (in order):
@@ -95,15 +95,15 @@ Longer rationale and packaging roles: [widget-packaging.md](../../docs/widget-pa
 
 | Layer | Path |
 | --- | --- |
-| Python widget | `spatial_rx/volume_cube.py` |
-| Asset resolver | `spatial_rx/_assets.py` |
-| React UI | `frontend/src/widgets/volume-cube/VolumeCubeView.tsx` |
-| anywidget entry | `frontend/src/widgets/volume-cube/index.tsx` |
+| Python widget | `milume/landmarks.py` |
+| Asset resolver | `milume/_assets.py` |
+| React UI | `frontend/src/widgets/landmarks/LandmarksView.tsx` |
+| anywidget entry | `frontend/src/widgets/landmarks/index.tsx` |
 | shadcn primitives | `frontend/src/components/ui/` |
 | Build config | `frontend/vite.config.ts` |
-| Shipped bundles | `spatial_rx/static/bundled/{name}.mjs`, `widgets.css` |
+| Shipped bundles | `milume/static/bundled/{name}.mjs`, `widgets.css` |
 | Landmarks canvas CSS | `frontend/src/widgets/landmarks/landmarks.css` (in bundle) |
-| Demo | `demos/volume-cube.py` |
+| Demo | `demos/landmarks.py` |
 
 ## Add a widget
 
@@ -113,13 +113,13 @@ from another widget.
 
 Complete every step.
 
-1. **Python class** `spatial_rx/<name>.py`: an `AnyWidget` subclass with
+1. **Python class** `milume/<name>.py`: an `AnyWidget` subclass with
    `_esm = widget_esm("<kebab-name>")`, `_css = widget_css()` and the traitlets
-   tagged `sync=True`. Export it from `spatial_rx/__init__.py` (`__all__` too).
+   tagged `sync=True`. Export it from `milume/__init__.py` (`__all__` too).
 
 2. **Wire the bundle**: add `frontend/src/widgets/<kebab-name>/index.tsx` (the
    anywidget `render` entry), a `widgetEntries` entry in `frontend/vite.config.ts`,
-   a `SPATIAL_RX_BUILD_WIDGET=<kebab-name> vite build` step in the `build` script
+   a `MILUME_BUILD_WIDGET=<kebab-name> vite build` step in the `build` script
    and a `watch:<kebab-name>` script in `frontend/package.json`, and the bundle
    name in `tests/test_assets.py` / `tests/test_widget_bundles.py`.
 
@@ -144,10 +144,10 @@ Complete every step.
    uv run pytest
    ```
 
-   Done when `spatial_rx/static/bundled/<name>.mjs` exists and the demo renders
+   Done when `milume/static/bundled/<name>.mjs` exists and the demo renders
    under the [reload contract](#reload-contract-file-watch-hmr).
 
-7. **Do not commit** `spatial_rx/static/bundled/`: it is gitignored, and CI and
+7. **Do not commit** `milume/static/bundled/`: it is gitignored, and CI and
    the publish workflows run `npm run build` before building the wheel. See
    [widget packaging](../../docs/widget-packaging.md).
 
@@ -161,7 +161,7 @@ Complete every step.
 | `widget_esm` / `widget_css` returning `Path` | `_esm = path.read_text()` (kills watching) |
 | `npx shadcn@latest add` from `frontend/` | Copy registry JSON from GitHub |
 | One Vite entry per widget | One monolithic bundle for all widgets |
-| `@/components/ui/*` imports | Hand-port `data-slot` CSS into `spatial_rx/static/` |
+| `@/components/ui/*` imports | Hand-port `data-slot` CSS into `milume/static/` |
 | Shared `widgets.css` theme tokens | Per-widget duplicate CSS variables |
 | Python traitlets as the state API | Notebook business logic in React |
 

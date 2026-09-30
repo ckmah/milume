@@ -48,7 +48,7 @@ Uses real AnnData and kernel sync; not a substitute for the harness, but require
 
 ```bash
 cd frontend && npm run build
-git add spatial_rx/static/bundled/
+git add milume/static/bundled/
 ```
 
 CI runs the same build; consumers never need Node.

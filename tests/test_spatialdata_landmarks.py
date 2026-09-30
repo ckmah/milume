@@ -7,7 +7,7 @@ import pytest
 pytest.importorskip("geopandas")
 pytest.importorskip("shapely")
 
-from spatial_rx.spatialdata_landmarks import (
+from milume.spatialdata_landmarks import (
     geodataframe_to_landmarks,
     landmarks_to_geodataframe,
 )

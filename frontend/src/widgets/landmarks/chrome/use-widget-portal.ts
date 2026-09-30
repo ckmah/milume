@@ -8,7 +8,7 @@ export function useWidgetPortalContainer() {
 
   useLayoutEffect(() => {
     const widget = wrapRef.current?.closest(
-      ".spatial-rx-widget",
+      ".milume-widget",
     ) as HTMLElement | null;
     if (!widget) return;
 
@@ -18,15 +18,15 @@ export function useWidgetPortalContainer() {
         ? root
         : widget.ownerDocument?.body || document.body;
     let host = parent.querySelector(
-      "[data-spatial-rx-portal]",
+      "[data-milume-portal]",
     ) as HTMLElement | null;
     if (!host) {
       host = widget.ownerDocument.createElement("div");
-      host.setAttribute("data-spatial-rx-portal", "");
+      host.setAttribute("data-milume-portal", "");
       parent.appendChild(host);
     }
     host.className = cn(
-      "spatial-rx-widget pointer-events-none fixed inset-0 z-50",
+      "milume-widget pointer-events-none fixed inset-0 z-50",
       widget.classList.contains("dark") && "dark",
     );
     setPortalEl(host);

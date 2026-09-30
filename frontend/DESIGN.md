@@ -1,5 +1,5 @@
 ---
-name: spatial-rx
+name: milume
 description: Notebook-native spatial omics widgets — Soft Float glass chrome, Framer neutrals
 colors:
   canvas-dark: "#1e1e1e"
@@ -107,13 +107,13 @@ components:
     height: "2.5rem"
 ---
 
-# Design System: spatial-rx
+# Design System: milume
 
 ## Overview
 
 **Creative North Star: Soft Float + Glass**
 
-spatial-rx widgets keep the plot as the specimen and float shadcn chrome above it. Surfaces are Framer-style achromatic neutrals (no blue tint). Docks, sheets, and toolbars share one translucent glass float material (`landmarks-float` + `--lm-float-*` tokens) so the tissue stays visible underneath. A centered icon pill carries draw modes, zoom, and fullscreen. Chrome stays compact in notebook cells; below 640px the layers and info panels stack in one top-left dock (no side rail).
+milume widgets keep the plot as the specimen and float shadcn chrome above it. Surfaces are Framer-style achromatic neutrals (no blue tint). Docks, sheets, and toolbars share one translucent glass float material (`landmarks-float` + `--lm-float-*` tokens) so the tissue stays visible underneath. A centered icon pill carries draw modes, zoom, and fullscreen. Chrome stays compact in notebook cells; below 640px the layers and info panels stack in one top-left dock (no side rail).
 
 **Key Characteristics:**
 
@@ -128,7 +128,7 @@ spatial-rx widgets keep the plot as the specimen and float shadcn chrome above i
 
 Restrained achromatic chrome. Data owns saturation on the canvas.
 
-### Chrome (`.spatial-rx-widget`)
+### Chrome (`.milume-widget`)
 
 - **Light:** background/card `#ffffff`, foreground `#111111`, primary `#171717`, muted `#f5f5f5`, muted-foreground `#666666`, border `#e5e5e5`
 - **Dark:** background `#000000`, card `#111111`, popover `#171717`, accent `#242424`, primary `#ffffff`, muted-foreground `#999999`, borders at ~10–14% white
@@ -149,7 +149,7 @@ Framer-neutral greys.
 
 **The Data Owns Saturation Rule.** Neon hues appear on canvas entities and layer swatches — not on panel fills.
 
-**The Scoped Widget Rule.** Never set `:root` theme tokens globally. Tokens live under `.spatial-rx-widget` / `.spatial-rx-widget.dark`.
+**The Scoped Widget Rule.** Never set `:root` theme tokens globally. Tokens live under `.milume-widget` / `.milume-widget.dark`.
 
 **The Framer Neutral Rule.** Chrome stays achromatic; no blue-tinted OKLCH greys in widget tokens.
 
@@ -254,7 +254,7 @@ One set for the main tool pill, View CTA, context L1/L2, Inspect bar, cube title
 
 ### Do:
 
-- **Do** scope tokens under `.spatial-rx-widget` and follow notebook light/dark ancestors.
+- **Do** scope tokens under `.milume-widget` and follow notebook light/dark ancestors.
 - **Do** keep docks ~14rem; scroll inside panels.
 - **Do** use the shared glass float tokens for every floating chrome surface.
 - **Do** prefer shadcn primitives with Soft Float surface classes.

@@ -139,7 +139,7 @@ export function ChromeTooltip({
   const [container, setContainer] = useState<HTMLElement | null>(null);
   const setTriggerNode = useCallback((node: HTMLElement | null) => {
     setContainer(
-      node?.closest(".spatial-rx-widget, .landmarks") as HTMLElement | null,
+      node?.closest(".milume-widget, .landmarks") as HTMLElement | null,
     );
   }, []);
 

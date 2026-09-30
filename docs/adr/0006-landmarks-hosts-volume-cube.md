@@ -13,7 +13,7 @@ and the `dev/notebook-link` harness existed only to prove that glue.
 ## Decision
 
 `LandmarksWidget(sdata)` infers everything the cube needs from a
-SpatialData object (`spatial_rx/volume_source.py`: table, labels element,
+SpatialData object (`milume/volume_source.py`: table, labels element,
 3D image, and their shared physical frame) and renders the cube itself,
 in its own chrome:
 
@@ -40,11 +40,10 @@ in its own chrome:
   slider release and once when a window move settles (~250 ms debounce),
   only while the cube is open.
 - `VolumeCube` (`frontend/src/widgets/volume-cube/VolumeCube.tsx`) is the
-  shared rendering component: props and a cell lookup in, no model. Both
-  `landmarks/chrome/cube-window.tsx` and the standalone
-  `volume-cube/VolumeCubeView.tsx` bind it to their own state.
+  rendering component: props and a cell lookup in, no model.
+  `landmarks/chrome/cube-window.tsx` binds it to the widget state.
 - The browser reads the store through a loopback server
-  (`serve_directory` in `spatial_rx/volume_cube.py`) that serves only
+  (`serve_directory` in `milume/volume_cube.py`) that serves only
   `images/<image>/` and `labels/<labels>/` of the SpatialData; tables and
   every other path are 404, and no directory is listed.
 - `LandmarksWidget(adata)` (no SpatialData) is unchanged: no cube, no new
@@ -61,18 +60,15 @@ in its own chrome:
   in the dev harness.
 - In MIP the projection is drawn opaque, so the Image **Alpha** slider
   scales its colour: it acts as brightness rather than transparency.
-- `VolumeCubeWidget` and `from_ome_zarr` stay as a standalone widget, and
-  as the dev/Playwright harness for the cube's rendering
-  (`npm run dev:volume-cube`, `npm run test:e2e:volume-cube`) — the same
-  `VolumeCube` component both ways.
+- The standalone `VolumeCubeWidget` (and `from_ome_zarr`) and its dev/Playwright
+  harness were removed when Milume dropped the standalone image interface; the
+  cube is only reachable through `LandmarksWidget(sdata)`.
 - The notebook-link harness (`frontend/dev/notebook-link/`) and its spec
   are gone: `frontend/dev/landmarks-volume/` and
   `frontend/e2e/landmarks/landmarks-volume.spec.ts` cover the inspect →
   cube path directly, with a toy SpatialData instead of two linked
-  widgets. Manually linking `LandmarksWidget.inspect_cx` to a separate
-  `VolumeCubeWidget.window_cx` (as `demos/volume-cube.py` still shows)
-  remains possible but is no longer the traitlet path this product
-  exercises in CI.
+  widgets. Linking `LandmarksWidget.inspect_cx` to a separate widget is no longer
+  a supported path.
 - Traits budget: three more on top of the widget's ~70; still one owner
   per synced value (ADR 0005) — the cube's own controls never become
   traits Python did not ask for.

@@ -21,7 +21,7 @@ Synced state, Traitlet).
 
 ## When to use
 
-- Before merging changes to `frontend/src/widgets/landmarks/`, `spatial_rx/static/landmarks.js`,
+- Before merging changes to `frontend/src/widgets/landmarks/`, `milume/static/landmarks.js`,
   landmark traitlets, or selection/neighborhood behavior.
 - When an agent needs to **prove** a LandmarksWidget change works — run the relevant
   e2e spec(s) and compare against the feature map's proof criteria.

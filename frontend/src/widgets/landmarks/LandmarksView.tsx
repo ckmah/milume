@@ -301,7 +301,7 @@ export function LandmarksView({
         setRootEl((prev) => (prev === node ? prev : node));
       }}
       className={cn(
-        "spatial-rx-widget landmarks relative min-w-0 w-full",
+        "milume-widget landmarks relative min-w-0 w-full",
         dark && "dark landmarks--dark",
         !dark && "landmarks--light",
         narrow && "landmarks--narrow",

@@ -22,7 +22,7 @@ def _():
     from spatialdata.models import Image3DModel, TableModel
     from spatialdata.transformations import Scale, Sequence, Translation
 
-    from spatial_rx import (
+    from milume import (
         LandmarksWidget,
         landmarks_to_geodataframe,
     )
@@ -130,7 +130,7 @@ def _(Image3DModel, Scale, Sequence, Translation, da, mosaic_path, zarr):
 @app.cell
 def _(Path, TableModel, adata, mosaic, sd, tempfile):
     # The inspect cube reads the image from a SpatialData Zarr store on disk.
-    store = Path(tempfile.gettempdir()) / "spatial-rx-xsmall.sdata.zarr"
+    store = Path(tempfile.gettempdir()) / "milume-xsmall.sdata.zarr"
     sd.SpatialData(images={"mosaic": mosaic}, tables={"table": TableModel.parse(adata)}).write(
         store, overwrite=True
     )

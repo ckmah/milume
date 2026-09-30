@@ -1,6 +1,6 @@
 import pandas as pd
 
-from spatial_rx.categories import default_categorical_palette
+from milume.categories import default_categorical_palette
 from tests.helpers import adata_xy
 
 
@@ -14,7 +14,7 @@ def test_default_palette_gives_each_category_a_distinct_colour():
 
 
 def test_widget_uses_size_matched_palette_without_uns_colors():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     labels = [f"t{i}" for i in range(7)]
     adata = adata_xy(
@@ -28,7 +28,7 @@ def test_widget_uses_size_matched_palette_without_uns_colors():
 
 
 def test_constructor_offers_string_and_categorical_obs_columns():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     cell_class = pd.Categorical(
         ["Epi", "Imm", "Epi", "Fib"], categories=["Epi", "Imm", "Fib"]

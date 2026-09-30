@@ -3,7 +3,6 @@ name: Frontend e2e
 # Path-gated Playwright tiers (skips when the change set has no frontend/):
 #   core        — shared shadcn / Soft Float chrome
 #   landmarks   — LandmarksWidget
-#   volume-cube — VolumeCubeWidget (Viv)
 
 on:
   pull_request:
@@ -30,7 +29,6 @@ on:
           - all
           - core
           - landmarks
-          - volume-cube
         default: all
 
 permissions:
@@ -47,7 +45,6 @@ jobs:
     outputs:
       core: ${{ steps.select.outputs.core }}
       landmarks: ${{ steps.select.outputs.landmarks }}
-      volume_cube: ${{ steps.select.outputs.volume_cube }}
     steps:
       - uses: actions/checkout@v4
 
@@ -69,11 +66,7 @@ jobs:
               - 'frontend/dev/**'
               # The inspect cube renders the shared VolumeCube.
               - 'frontend/src/widgets/volume-cube/**'
-            volume_cube:
-              - 'frontend/src/widgets/volume-cube/**'
-              - 'frontend/e2e/volume-cube/**'
-              - 'frontend/dev/volume-cube/**'
-              - 'spatial_rx/volume_cube.py'
+              - 'milume/volume_cube.py'
             infra:
               - 'frontend/e2e/helpers.ts'
               - 'frontend/playwright.config.ts'
@@ -92,33 +85,28 @@ jobs:
           TIER: ${{ inputs.tier || '' }}
           CORE: ${{ steps.filter.outputs.core || 'false' }}
           LANDMARKS: ${{ steps.filter.outputs.landmarks || 'false' }}
-          VOLUME_CUBE: ${{ steps.filter.outputs.volume_cube || 'false' }}
           INFRA: ${{ steps.filter.outputs.infra || 'false' }}
         run: |
           set -euo pipefail
           core=false
           landmarks=false
-          volume_cube=false
           if [[ "${EVENT}" == "workflow_dispatch" ]]; then
             case "${TIER}" in
-              all) core=true; landmarks=true; volume_cube=true ;;
+              all) core=true; landmarks=true ;;
               core) core=true ;;
               landmarks) landmarks=true ;;
-              volume-cube) volume_cube=true ;;
             esac
           else
             if [[ "${INFRA}" == "true" ]]; then
-              core=true; landmarks=true; volume_cube=true
+              core=true; landmarks=true
             else
               [[ "${CORE}" == "true" ]] && core=true
               [[ "${LANDMARKS}" == "true" ]] && landmarks=true
-              [[ "${VOLUME_CUBE}" == "true" ]] && volume_cube=true
             fi
           fi
           echo "core=${core}" >> "$GITHUB_OUTPUT"
           echo "landmarks=${landmarks}" >> "$GITHUB_OUTPUT"
-          echo "volume_cube=${volume_cube}" >> "$GITHUB_OUTPUT"
-          echo "Selected tiers: core=${core} landmarks=${landmarks} volume_cube=${volume_cube}"
+          echo "Selected tiers: core=${core} landmarks=${landmarks}"
 
   e2e-core:
     needs: changes
@@ -219,56 +207,5 @@ jobs:
         with:
           name: playwright-snapshots-landmarks
           path: frontend/e2e/landmarks/**/*-snapshots/
-          retention-days: 14
-          if-no-files-found: ignore
-
-  e2e-volume-cube:
-    needs: changes
-    if: needs.changes.outputs.volume_cube == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - run: npx playwright install chromium --with-deps
-      - name: Run volume-cube e2e
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.update_snapshots != true }}
-        run: npm run test:e2e:volume-cube
-        env:
-          CI: true
-          E2E_SCREENSHOTS: "1"
-      - name: Update volume-cube snapshots
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_snapshots == true }}
-        run: npm run test:e2e:update:volume-cube
-        env:
-          CI: true
-          E2E_SCREENSHOTS: "1"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report-volume-cube
-          path: frontend/playwright-report/
-          retention-days: 14
-          if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-test-results-volume-cube
-          path: frontend/test-results/
-          retention-days: 14
-          if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_snapshots == true }}
-        with:
-          name: playwright-snapshots-volume-cube
-          path: frontend/e2e/volume-cube/**/*-snapshots/
           retention-days: 14
           if-no-files-found: ignore

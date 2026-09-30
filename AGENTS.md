@@ -1,10 +1,10 @@
 # AGENTS.md
 
-Guidance for agents working in **spatial-rx**.
+Guidance for agents working in **milume**.
 
 Domain language: [`CONTEXT.md`](CONTEXT.md).
 
-Before merging LandmarksWidget changes, verify behavior via Playwright e2e and the feature map in [`.agents/skills/verify-landmarks/`](.agents/skills/verify-landmarks/). Before merging VolumeCubeWidget changes, use [`.agents/skills/verify-volume-cube/`](.agents/skills/verify-volume-cube/). Full gate: [Merge policy](#merge-policy). Roadmap: [`ROADMAP.md`](ROADMAP.md).
+Before merging LandmarksWidget changes, verify behavior via Playwright e2e and the feature map in [`.agents/skills/verify-landmarks/`](.agents/skills/verify-landmarks/). Full gate: [Merge policy](#merge-policy). Roadmap: [`ROADMAP.md`](ROADMAP.md).
 
 ## Skills precedence
 
@@ -12,7 +12,6 @@ When multiple skills could apply, follow this order:
 
 1. **Behavioral proof / before merge widget changes**
    - Landmarks: [`.agents/skills/verify-landmarks/`](.agents/skills/verify-landmarks/)
-   - VolumeCube: [`.agents/skills/verify-volume-cube/`](.agents/skills/verify-volume-cube/)
 2. **Widget chrome composition** — [`.agents/skills/shadcn-anywidget/SKILL.md`](.agents/skills/shadcn-anywidget/SKILL.md), then [`.agents/skills/shadcn/SKILL.md`](.agents/skills/shadcn/SKILL.md)
 3. **Motion primitives already in use** — [`.agents/skills/cube-motion/SKILL.md`](.agents/skills/cube-motion/SKILL.md) only when editing `Rise` / `Morph` / `leave` / `reveal` usage
 
@@ -27,8 +26,8 @@ Less-supervision gate for agents merging their own PRs. CI green alone is not a 
 1. CI green on the head commit.
 2. Merge conflicts resolved; PR not left as draft when intending to land.
 3. Verification PASS by change class:
-   - **LandmarksWidget / landmarks surface** (`frontend/src/widgets/landmarks/`, `spatial_rx/static/landmarks.js`, landmark traitlets, selection/neighborhood UX): run relevant Playwright + match [verify-landmarks feature map](.agents/skills/verify-landmarks/) proof criteria for touched mapped capabilities; update the map when adding coverage.
-   - **VolumeCubeWidget / volume-cube surface** (`frontend/src/widgets/volume-cube/`, `spatial_rx/volume_cube.py`, Viv/OME-Zarr wiring, `window_*` traitlets): run `npm run test:e2e:volume-cube` + match [verify-volume-cube feature map](.agents/skills/verify-volume-cube/) proof criteria for touched capabilities; update the map when adding coverage.
+   - **LandmarksWidget / landmarks surface** (`frontend/src/widgets/landmarks/`, `milume/static/landmarks.js`, landmark traitlets, selection/neighborhood UX): run relevant Playwright + match [verify-landmarks feature map](.agents/skills/verify-landmarks/) proof criteria for touched mapped capabilities; update the map when adding coverage.
+   - **Inspect cube** (`frontend/src/widgets/volume-cube/`, `milume/volume_cube.py`, Viv/OME-Zarr wiring, `volume_*` traitlets): covered by `e2e/landmarks/landmarks-volume.spec.ts`; run `npm run test:e2e:landmarks`.
    - **Other UI with a Playwright tier**: run the path-gated e2e that covers the change ([`frontend/e2e/README.md`](frontend/e2e/README.md), [`.github/workflows/frontend-e2e.yml`](.github/workflows/frontend-e2e.yml)).
    - **Docs / AGENTS / skills / non-runtime only**: feature-map not required; CI + conflict-free is enough unless the PR also touches runtime UI.
 4. Visual evidence on the PR when the change is user-visible chrome or canvas ([`.github/scripts/post-playwright-visuals.sh`](.github/scripts/post-playwright-visuals.sh) or equivalent proof on the PR). Docs-only skips this.
@@ -70,7 +69,7 @@ Durable do/don't rules for agents. Prefer short tables over prose; vocabulary ma
 
 | Prefer | Avoid |
 | --- | --- |
-| Follow [Merge policy](#merge-policy) verification by change class; update verify-landmarks / verify-volume-cube feature maps when adding coverage | Merging on CI green alone — see [Merge policy](#merge-policy) |
+| Follow [Merge policy](#merge-policy) verification by change class; update verify-landmarks feature map when adding coverage | Merging on CI green alone — see [Merge policy](#merge-policy) |
 | Path-gated e2e tiers ([`frontend/e2e/README.md`](frontend/e2e/README.md), [`.github/workflows/frontend-e2e.yml`](.github/workflows/frontend-e2e.yml)) | Inventing UI in e2e/feature map that has no real product surface |
 | PR visual comments via [`.github/scripts/post-playwright-visuals.sh`](.github/scripts/post-playwright-visuals.sh) | — |
 | Resolve merge conflicts before marking a PR ready for review | — |
@@ -90,12 +89,12 @@ Durable do/don't rules for agents. Prefer short tables over prose; vocabulary ma
 | One deck.gl orthographic `Deck` for all geometry ([ADR 0003](docs/adr/0003-deckgl-landmarks-renderer.md)) | A second 2D canvas camera that drifts from the deck.gl viewport |
 | Client-side neighborhood overlay from coordinates ([ADR 0004](docs/adr/0004-neighborhood-visuals.md)) | Syncing or requiring `obsp` CSR graphs for expand visuals |
 | Rendering controls in widget chrome; sync a trait only when Python reads/sets it; commit on release ([ADR 0005](docs/adr/0005-widget-owns-rendering-controls.md)) | Notebook sliders as a widget's control panel; two owners for one trait |
-| `LandmarksWidget(sdata)` infers and renders its own volume cube, sharing `VolumeCube` with the standalone widget ([ADR 0006](docs/adr/0006-landmarks-hosts-volume-cube.md)) | A notebook glue cell linking two widgets' traits for one gesture |
+| `LandmarksWidget(sdata)` infers and renders its own volume cube (the inspect cube is the shared `VolumeCube` component, [ADR 0006](docs/adr/0006-landmarks-hosts-volume-cube.md)) | A notebook glue cell linking two widgets' traits for one gesture |
 
 ## Widgets
 
 React/shadcn widgets live in `frontend/src/widgets/`. Canvas drawing for landmarks
-stays in `spatial_rx/static/landmarks.js` (`mountEngine`) and is bundled with the
+stays in `milume/static/landmarks.js` (`mountEngine`) and is bundled with the
 React chrome.
 
 **Widget UI must use shadcn/ui primitives** from `frontend/src/components/ui/`.
@@ -119,12 +118,6 @@ cd frontend && npm run watch:landmarks
 ANYWIDGET_HMR=1 uv run --extra demo marimo edit demos/<demo>.py
 ```
 
-VolumeCube harness (Playwright / manual):
-
-```bash
-cd frontend && npm run dev:volume-cube
-```
-
 Landmarks-with-a-cube harness (Playwright / manual, toy SpatialData with a 3D image):
 
 ```bash
@@ -135,18 +128,18 @@ cd frontend && npm run dev:landmarks-volume
 
 | Situation | Do |
 | --- | --- |
-| Windows shell | npm scripts use `VAR=x`: `export npm_config_script_shell="C:/Program Files/Git/bin/bash.exe"` first; build one widget with `SPATIAL_RX_BUILD_WIDGET=<name> npx vite build`, **landmarks last** (it rewrites the shared `widgets.css`). Bundles are git-ignored. |
+| Windows shell | npm scripts use `VAR=x`: `export npm_config_script_shell="C:/Program Files/Git/bin/bash.exe"` first; build with `MILUME_BUILD_WIDGET=landmarks npx vite build`. Bundles are git-ignored. |
 | Checking a real notebook | Rebuild bundles, then start your **own** `marimo run --headless --port <free>` (a running kernel keeps the old `_esm`). Never stop other marimo / napari processes. |
 | Reading widget DOM | anywidgets render in shadow roots: query recursively through `shadowRoot`; e2e reads `data-*` state attributes (scope cube selectors to `.volume-cube__view`). |
 | Timing renders in the browser pane | A hidden pane throttles `requestAnimationFrame` to ~1 Hz. Time `deck.redraw()` + `gl.readPixels`, not rAF. |
-| Viv / luma shaders | All raycast samplers `sampler3D`; module name ≠ sampler name; 3D texture axes ≤ 2048; separate extension classes per mode ([`verify-volume-cube/features/labels-toggle.md`](.agents/skills/verify-volume-cube/features/labels-toggle.md) Gotchas). |
+| Viv / luma shaders | All raycast samplers `sampler3D`; module name ≠ sampler name; 3D texture axes ≤ 2048; separate extension classes per mode (see `frontend/src/widgets/volume-cube/`). |
 | marimo reactivity | A cell reading a UI element re-runs when it changes: define controls in the cell that displays them, or better, in the widget (ADR 0005). |
 | Screenshots | Linux CI only: run the `frontend-e2e` workflow with `update_snapshots=true` on the pushed branch, download the artifacts, commit them. |
 | Tests | Keep tests that pin a feature, API contract or fixed regression; skip tests of private constants or internal call shapes. |
 
 ## deck.gl / luma.gl (frontend)
 
-Landmarks and VolumeCube (Viv) share one **root** stack in `frontend/package.json`:
+Landmarks and its Viv inspect cube share one **root** stack in `frontend/package.json`:
 
 - `@deck.gl/*@9.2.11`, `@luma.gl/*@9.2.6`, `@loaders.gl/core@4.3.4`
 - `overrides` dedupe Viv's nested peers to those versions
@@ -156,7 +149,7 @@ runtime Deck instance. Path `_esm` is loaded via blob URL — no sibling chunk i
 Vite aliases all `@deck.gl/*` and `@luma.gl/*` imports to the root copies during every
 widget build (`frontend/vite.config.ts`).
 
-Viv dev harnesses (`dev:volume-cube`, `dev:landmarks-volume`) use default Vite
+The Viv dev harness (`dev:landmarks-volume`) uses default Vite
 `optimizeDeps`; the plain landmarks harness (`dev:landmarks`, no 3D image) excludes
 `@hms-dbmi/viv` from pre-bundling, since it never opens a cube.
 
