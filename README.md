@@ -13,7 +13,6 @@ comes from *mille* (thousand, as in mille-feuille, layers) + *lume* (light).
 | Tool | Role | Demo |
 | ---- | ---- | ---- |
 | **LandmarksWidget** | Draw selections and landmarks on tissue coordinates; measure from the notebook | [![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/landmarks.py) |
-| **VolumeCubeWidget** | Isometric 3D cube of an OME-Zarr image and its cell labels | [`demos/volume-cube.py`](demos/volume-cube.py) |
 
 
 More widgets and helpers may land here over time.
@@ -96,5 +95,4 @@ Read results back in Python:
 | Inspect window and cube cut | `w.inspect_cx`, `w.inspect_cy`, `w.inspect_size_um`; `w.volume_cut` = x0, x1, y0, y1, z0, z1 µm (intersect X/Y with the window for the shown box) |
 
 Large expression matrices are sent sparse; pass `genes=` to limit the gene
-catalog. `VolumeCubeWidget` is the same cube as a standalone widget for an
-OME-Zarr image.
+catalog.

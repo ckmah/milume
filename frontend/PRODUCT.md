@@ -31,14 +31,13 @@ Notebook-native toolkit: best-in-class marimo/Jupyter widgets for spatial omics,
 - **Data model:** AnnData with coordinates in `obsm["spatial"]`, labels in `obs`, expression in `X`. Neighborhood expand runs client-side from coordinates (no required `obsp` graphs). Gene expression packs eagerly for view-only coloring. Interaction sync is landmarks/selections; other chrome state is client-local.
 - **Widget types:** React/shadcn widgets (bundled ahead of time) and vanilla JavaScript widgets (shipped as source). Canvas drawing for landmarks uses deck.gl orthographic layers via `mountEngine`.
 - **Development:** Widget authors work in `frontend/` and rebuild bundles; widget consumers install the published package only.
-- **Demos:** `demos/landmarks.py` with a molab badge for remote execution; `demos/volume-cube.py`.
+- **Demos:** `demos/landmarks.py` with a molab badge for remote execution.
 
 ## Capabilities and Constraints
 
 **Shipped widgets**
 
 - `LandmarksWidget` — draw selections and landmarks on tissue coordinates (lasso, rectangle, ellipse; point, line, spline, shape); gene/color controls; selection hits via `get_obs_names` / `assign_obs_mask`; landmarks are durable SpatialData annotations per `docs/landmarks-spatialdata-contract.md` (M1).
-- `VolumeCubeWidget` — OME-Zarr detail cube (Viv); Landmarks inspect drives `window_cx` / `window_cy`; Marimo XYZ slice traits (`slice_x`, `slice_y`, `slice_z`).
 
 **Technical constraints**
 
@@ -53,7 +52,7 @@ Use domain language from `CONTEXT.md` (widget, synced state, traitlet, widget co
 
 **Undecided**
 
-- Additional widgets beyond Landmarks and VolumeCube (README notes more may land over time).
+- Additional widgets beyond Landmarks (README notes more may land over time).
 - Jupyter parity details relative to marimo-first development.
 
 ## Brand Commitments
@@ -69,7 +68,6 @@ Use domain language from `CONTEXT.md` (widget, synced state, traitlet, widget co
 | Asset | Path |
 | ----- | ---- |
 | Landmarks demo | `demos/landmarks.py` |
-| Volume cube demo | `demos/volume-cube.py` |
 | Landmarks screenshot | `assets/landmarks_widget_{light,dark}.png` |
 | Demo data | [Stellaromics/demo](https://huggingface.co/datasets/Stellaromics/demo) `xsmall/` (Landmarks demo) |
 | Domain vocabulary | `CONTEXT.md` |

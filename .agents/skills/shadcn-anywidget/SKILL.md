@@ -95,15 +95,15 @@ Longer rationale and packaging roles: [widget-packaging.md](../../docs/widget-pa
 
 | Layer | Path |
 | --- | --- |
-| Python widget | `milume/volume_cube.py` |
+| Python widget | `milume/landmarks.py` |
 | Asset resolver | `milume/_assets.py` |
-| React UI | `frontend/src/widgets/volume-cube/VolumeCubeView.tsx` |
-| anywidget entry | `frontend/src/widgets/volume-cube/index.tsx` |
+| React UI | `frontend/src/widgets/landmarks/LandmarksView.tsx` |
+| anywidget entry | `frontend/src/widgets/landmarks/index.tsx` |
 | shadcn primitives | `frontend/src/components/ui/` |
 | Build config | `frontend/vite.config.ts` |
 | Shipped bundles | `milume/static/bundled/{name}.mjs`, `widgets.css` |
 | Landmarks canvas CSS | `frontend/src/widgets/landmarks/landmarks.css` (in bundle) |
-| Demo | `demos/volume-cube.py` |
+| Demo | `demos/landmarks.py` |
 
 ## Add a widget
 

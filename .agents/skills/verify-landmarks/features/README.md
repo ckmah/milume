@@ -30,9 +30,8 @@ capability** to existing Playwright coverage — not a product roadmap.
 harness (`E2E_HARNESS=landmarks-volume`,
 `frontend/e2e/landmarks/landmarks-volume.spec.ts`), wired into
 `npm run test:e2e:landmarks` alongside the rest of this tier; see
-[`frontend/e2e/README.md`](../../../frontend/e2e/README.md). Both share their
-rendering component (`VolumeCube`) with `VolumeCubeWidget` — see the
-[verify-volume-cube feature map](../../verify-volume-cube/features/README.md).
+[`frontend/e2e/README.md`](../../../frontend/e2e/README.md). Both render the
+shared `VolumeCube` component.
 
 ## Not yet mapped (spec exists, no feature file)
 

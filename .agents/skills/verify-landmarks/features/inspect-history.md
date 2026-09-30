@@ -72,4 +72,4 @@ Model keys: `selections` (`type: "inspect"` entries with `window`),
 ## Gotchas
 
 - Small toy pyramids can make every level fit the default voxel budgets; override with `?budgets=<preview>,<dock>` (goto `/?budgets=20000,300000&window=100`) to force a level split; `window=100` keeps the square smaller than the 256 µm toy volume and the canvas — see `"the dock shows the coarse level first, then refines"` (inspect-cube.md) and the two preview tests above.
-- The preview float has its own `.volume-cube__view` (`getByTestId("inspect-preview").locator(".volume-cube__view")`), separate from the dock's inside `getByRole("dialog", { name: "Cube" })` — scope selectors to the one under test, same rule as the dock vs. the standalone `VolumeCubeWidget` (see [verify-volume-cube features README](../../verify-volume-cube/features/README.md)).
+- The preview float has its own `.volume-cube__view` (`getByTestId("inspect-preview").locator(".volume-cube__view")`), separate from the dock's inside `getByRole("dialog", { name: "Cube" })` — scope selectors to the one under test.

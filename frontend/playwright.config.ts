@@ -3,8 +3,6 @@ import { defineConfig, devices } from "@playwright/test";
 const harness = process.env.E2E_HARNESS ?? "landmarks";
 const webServerCommands: Record<string, string> = {
   landmarks: "npm run dev:landmarks -- --host 127.0.0.1 --port 5173 --strictPort",
-  "volume-cube":
-    "npm run dev:volume-cube -- --host 127.0.0.1 --port 5173 --strictPort",
   "landmarks-volume":
     "npm run dev:landmarks-volume -- --host 127.0.0.1 --port 5173 --strictPort",
 };

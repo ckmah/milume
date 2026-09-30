@@ -3,25 +3,21 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "MILUME_BUILD_WIDGET=volume-cube vite build && MILUME_BUILD_WIDGET=landmarks vite build",
+    "build": "MILUME_BUILD_WIDGET=landmarks vite build",
     "dev:landmarks": "vite",
     "dev:fixture": "uv run --directory .. python frontend/dev/export-fixture.py",
     "watch": "MILUME_BUILD_WIDGET=landmarks vite build --watch",
     "watch:landmarks": "MILUME_BUILD_WIDGET=landmarks vite build --watch",
-    "watch:volume-cube": "MILUME_BUILD_WIDGET=volume-cube vite build --watch",
-    "dev:volume-cube": "DEV_WIDGET=volume-cube vite",
     "dev:landmarks-volume": "DEV_WIDGET=landmarks-volume vite",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "npm run test:e2e:core && npm run test:e2e:landmarks && npm run test:e2e:volume-cube",
+    "test:e2e": "npm run test:e2e:core && npm run test:e2e:landmarks",
     "test:e2e:core": "playwright test e2e/core",
     "test:e2e:landmarks": "E2E_HARNESS=landmarks-volume playwright test e2e/landmarks/landmarks-volume.spec.ts && playwright test e2e/landmarks",
-    "test:e2e:volume-cube": "E2E_HARNESS=volume-cube playwright test e2e/volume-cube/volume-cube.spec.ts",
     "test:e2e:install": "playwright install chromium",
     "test:e2e:mac": "PLAYWRIGHT_CHANNEL=chrome playwright test",
     "test:e2e:update": "playwright test --update-snapshots=all",
     "test:e2e:update:core": "playwright test e2e/core --update-snapshots=all",
-    "test:e2e:update:landmarks": "playwright test e2e/landmarks --update-snapshots=all",
-    "test:e2e:update:volume-cube": "E2E_HARNESS=volume-cube playwright test e2e/volume-cube/volume-cube.spec.ts --update-snapshots=all"
+    "test:e2e:update:landmarks": "playwright test e2e/landmarks --update-snapshots=all"
   },
   "overrides": {
     "@deck.gl/core": "9.2.11",

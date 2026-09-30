@@ -933,7 +933,7 @@ class LandmarksWidget(AnyWidget):
         """Label -> hex colour of a categorical column, as the map draws it.
 
         Defaults to the active category. Use it to colour other views (plots,
-        ``VolumeCubeWidget.highlight_cells``) the same way as the points.
+        the cube) the same way as the points.
         """
         name = column or self.active_category
         for meta in self.category_columns:
