@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from spatial_rx import GalleryWidget, LandmarksWidget
+from spatial_rx import LandmarksWidget
 from tests.helpers import adata_xy
 
 SQUARE = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]
@@ -56,21 +56,6 @@ def test_constructor_rejects_missing_or_empty_adata():
         LandmarksWidget(object())
     with pytest.raises(ValueError, match="at least one observation"):
         LandmarksWidget(adata_xy([], []))
-
-
-def test_gallery_requires_title():
-    with pytest.raises(ValueError):
-        GalleryWidget(items=[{"description": "no title"}])
-    g = GalleryWidget(
-        items=[
-            {"title": "A", "description": "alpha", "image": "data:image/svg+xml,x"},
-            {"title": "B"},
-        ],
-        selected_index=0,
-        columns=4,
-    )
-    assert g.selected_index == 0
-    assert len(g.items) == 2
 
 
 @pytest.mark.parametrize(

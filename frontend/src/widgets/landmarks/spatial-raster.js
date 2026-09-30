@@ -1,6 +1,7 @@
 /**
  * Client-side spatial bin assignment + windowed multi-d aggregation.
- * Mirrors spatial_rx/raster.py (hard bins, soft window mean / composition hist).
+ * Hard square bins; each bin's feature is the mean (or composition histogram)
+ * of the cells within a soft window of its centre.
  */
 
 import { KdTreeMap } from "@thi.ng/geom-accel";

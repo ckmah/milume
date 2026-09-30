@@ -2,8 +2,7 @@
 
 How spatial-rx ships browser code so `pip install spatial-rx` never requires Node.
 
-See also: [shadcn frontend](./shadcn-frontend.md),
-[widget scaffold](./widget-scaffold.md).
+See also: [shadcn frontend](./shadcn-frontend.md).
 
 ## Roles
 
@@ -78,7 +77,7 @@ channel.
 ```bash
 # terminal 1 — rebuild the bundle you are editing
 cd frontend && npm run watch:landmarks
-# or: npm run watch:gallery
+# or: npm run watch:volume-cube
 
 # terminal 2 — ANYWIDGET_HMR must be set before Python starts
 ANYWIDGET_HMR=1 uv run --extra demo marimo edit demos/landmarks.py
@@ -104,8 +103,11 @@ rewrite from `npm run watch:landmarks`.
 
 ## Adding a React widget
 
-Use the [widget scaffold](./widget-scaffold.md) — do not copy an existing widget
-by hand. Gallery is one instance of the pattern, not the template.
+Follow "Add a widget" in
+[`.agents/skills/shadcn-anywidget/SKILL.md`](../.agents/skills/shadcn-anywidget/SKILL.md):
+a Python `AnyWidget` subclass with its own named traitlets, a Vite entry in
+`frontend/vite.config.ts`, and a step in the `build` script of
+`frontend/package.json`.
 
 ## deck.gl / luma.gl versions
 

@@ -339,6 +339,3 @@ export function SoftFloatSignedSlider({
     </div>
   );
 }
-
-/** @deprecated Prefer SoftFloatSignedSlider — kept as alias during migrate. */
-export const BidirectionalPillSlider = SoftFloatSignedSlider;

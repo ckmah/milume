@@ -14,7 +14,6 @@ const outDir = path.resolve(repoRoot, "spatial_rx/static/bundled");
 /** One entry per anywidget that uses shadcn/React. */
 const widgetEntries = {
   "volume-cube": path.resolve(rootDir, "src/widgets/volume-cube/index.tsx"),
-  gallery: path.resolve(rootDir, "src/widgets/gallery/index.tsx"),
   landmarks: path.resolve(rootDir, "src/widgets/landmarks/index.tsx"),
 };
 
@@ -127,7 +126,7 @@ export default defineConfig(({ command }) => {
     },
     build: {
       outDir,
-      emptyOutDir: !buildWidget || buildWidget === "gallery",
+      emptyOutDir: !buildWidget || buildWidget === "volume-cube",
       lib: {
         entry: entries,
         formats: ["es"],

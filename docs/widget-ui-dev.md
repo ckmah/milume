@@ -10,7 +10,7 @@ cd frontend && npm run dev:landmarks
 
 Open http://localhost:5173 — mock traitlet state from `frontend/dev/fixture.json`.
 
-Edit under `frontend/src/widgets/landmarks/` (`chrome.tsx`, `LandmarksView.tsx`, `landmarks.css`, …). Vite HMR reloads on save.
+Edit under `frontend/src/widgets/landmarks/` (`chrome/`, `LandmarksView.tsx`, `landmarks.css`, …). Vite HMR reloads on save.
 
 Refresh mock data after Python traitlet changes:
 
@@ -76,4 +76,4 @@ frontend/dev/
 └── export-fixture.py   regenerate fixture.json
 ```
 
-Design authority: `frontend/DESIGN.md`, `frontend/PRODUCT.md`. Gallery has no harness yet.
+Design authority: `frontend/DESIGN.md`, `frontend/PRODUCT.md`.

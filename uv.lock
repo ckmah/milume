@@ -990,18 +990,6 @@ wheels = [
 ]
 
 [[package]]
-name = "drawdata"
-version = "0.5.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "anywidget" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/73/16/d82e593e387cb80a918957c3899687276706a217f69e68ed86a2568d454d/drawdata-0.5.2.tar.gz", hash = "sha256:11fb54a2a0b188e9c49bba344e019ea0d5f89752e2510031531035892e4fa455", size = 236404, upload-time = "2026-07-15T10:21:50.752Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/64/df/f57bbf49607c0f66fd69331efae41cbc24d3d878f53d3fb0fa2d4455ec51/drawdata-0.5.2-py3-none-any.whl", hash = "sha256:e5045ed5d2128d7ef004aac9ff2195ba46d6e0711dd7adc663104f6b954eb1cf", size = 238047, upload-time = "2026-07-15T10:21:51.965Z" },
-]
-
-[[package]]
 name = "executing"
 version = "2.2.1"
 source = { registry = "https://pypi.org/simple" }
@@ -4461,12 +4449,10 @@ dependencies = [
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "pandas", version = "3.0.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "polars" },
-    { name = "ruff" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "shapely" },
     { name = "traitlets" },
-    { name = "wigglystuff" },
 ]
 
 [package.optional-dependencies]
@@ -4493,7 +4479,7 @@ test = [
 dev = [
     { name = "geopandas" },
     { name = "pytest" },
-    { name = "pyyaml" },
+    { name = "ruff" },
     { name = "shapely" },
     { name = "watchfiles" },
 ]
@@ -4513,7 +4499,6 @@ requires-dist = [
     { name = "pandas", marker = "extra == 'test'", specifier = ">=2.0" },
     { name = "polars", specifier = ">=1.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3.3" },
-    { name = "ruff", specifier = ">=0.16.6" },
     { name = "scanpy", marker = "extra == 'demo'", specifier = ">=1.10" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "shapely", specifier = ">=2.1.2" },
@@ -4521,7 +4506,6 @@ requires-dist = [
     { name = "spatialdata", marker = "extra == 'demo'", specifier = ">=0.2" },
     { name = "spatialdata", marker = "extra == 'test'", specifier = ">=0.2" },
     { name = "traitlets", specifier = ">=5.0" },
-    { name = "wigglystuff", specifier = ">=0.5.32" },
 ]
 provides-extras = ["demo", "test"]
 
@@ -4529,7 +4513,7 @@ provides-extras = ["demo", "test"]
 dev = [
     { name = "geopandas", specifier = ">=1.1.4" },
     { name = "pytest", specifier = ">=8.3.3" },
-    { name = "pyyaml", specifier = ">=6.0" },
+    { name = "ruff", specifier = ">=0.16.6" },
     { name = "shapely", specifier = ">=2.1.2" },
     { name = "watchfiles", specifier = ">=1.2.0" },
 ]
@@ -5179,19 +5163,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/bf/60/bc7a980fc78837d6ef8f5940cca4cadc433364503a4c4d42e2a7a0de3231/widgetsnbextension-4.0.16.tar.gz", hash = "sha256:adeea0ae78f0856ee4945f413299801b82a0a01416303301f39a704282a37b73", size = 1111094, upload-time = "2026-08-18T08:52:55.859Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/34/95/40e17e20046b7bc820d29d09ae84ec157ec8dd6e6f6cd722626292c31b2e/widgetsnbextension-4.0.16-py3-none-any.whl", hash = "sha256:a31a8774885b96fe825462f5d6496166f0c7cae111195b6465c801d230eb5a4e", size = 2225148, upload-time = "2026-08-18T08:52:53.736Z" },
-]
-
-[[package]]
-name = "wigglystuff"
-version = "0.5.32"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "anywidget" },
-    { name = "drawdata" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c4/62/4891176c04225d536c898f9fa26fc33122f20f2cf2f8c4271f6b35609544/wigglystuff-0.5.32.tar.gz", hash = "sha256:e4a3458a64c8ebc5917518381eccc111cb2492c213808c3f4b49285af0886802", size = 1022155, upload-time = "2026-09-04T08:33:18.039Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/d7/48/4ec103a258b0c0901ee119ac06836c0e95de80003d526074c12ab65b871c/wigglystuff-0.5.32-py3-none-any.whl", hash = "sha256:1c61b9b4d58de8536ed60c16cdb3b96a460262d8a1308508524aab30b45a3d1d", size = 1104887, upload-time = "2026-09-04T08:33:19.505Z" },
 ]
 
 [[package]]

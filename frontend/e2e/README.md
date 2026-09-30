@@ -1,13 +1,12 @@
 # Frontend e2e (Playwright)
 
-Four tiers, path-gated in CI (`.github/workflows/frontend-e2e.yml`):
+Three tiers, path-gated in CI (`.github/workflows/frontend-e2e.yml`):
 
 | Tier | When it runs | Specs |
 |------|----------------|-------|
 | **core** | Shared chrome changes (`src/components`, `styles`, `lib`, `hooks`, `e2e/core`) | `e2e/core/` |
 | **landmarks** | Landmarks widget / harness / `e2e/landmarks` changes | `e2e/landmarks/` |
 | **volume-cube** | VolumeCube widget / harness / `e2e/volume-cube` / `spatial_rx/volume_cube.py` | `e2e/volume-cube/` |
-| **gallery** | Gallery widget / `e2e/gallery` changes (skips until specs exist) | `e2e/gallery/` |
 
 Infra changes (`e2e/helpers.ts`, `playwright.config.ts`, `package-lock.json`, …) run **all** tiers.
 The workflow itself only triggers when `frontend/**` (or the workflow/script) changes.

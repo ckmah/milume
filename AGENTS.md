@@ -4,7 +4,7 @@ Guidance for agents working in **spatial-rx**.
 
 Domain language: [`CONTEXT.md`](CONTEXT.md).
 
-Before merging LandmarksWidget changes, verify behavior via Playwright e2e and the feature map in [`.agents/skills/verify-landmarks/`](.agents/skills/verify-landmarks/). Before merging VolumeCubeWidget changes, use [`.agents/skills/verify-volume-cube/`](.agents/skills/verify-volume-cube/). Full gate: [Merge policy](#merge-policy). Active roadmap: [`ROADMAP.md`](ROADMAP.md).
+Before merging LandmarksWidget changes, verify behavior via Playwright e2e and the feature map in [`.agents/skills/verify-landmarks/`](.agents/skills/verify-landmarks/). Before merging VolumeCubeWidget changes, use [`.agents/skills/verify-volume-cube/`](.agents/skills/verify-volume-cube/). Full gate: [Merge policy](#merge-policy). Roadmap: [`ROADMAP.md`](ROADMAP.md).
 
 ## Skills precedence
 
@@ -108,8 +108,7 @@ and [`.agents/skills/shadcn/SKILL.md`](.agents/skills/shadcn/SKILL.md).
 
 When adding or changing a React/shadcn widget: read
 [`.agents/skills/shadcn-anywidget/SKILL.md`](.agents/skills/shadcn-anywidget/SKILL.md).
-Architecture: [`docs/widget-packaging.md`](docs/widget-packaging.md),
-[`docs/widget-scaffold.md`](docs/widget-scaffold.md).
+Architecture: [`docs/widget-packaging.md`](docs/widget-packaging.md).
 
 ## Widget UI development
 

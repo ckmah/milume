@@ -24,8 +24,8 @@ sys.path.insert(0, str(ROOT))
 from spatial_rx import LandmarksWidget  # noqa: E402
 from tests.helpers import adata_xy, graph  # noqa: E402
 
-# Reference cell spacing (a mouse ileum MERFISH slice): median NN ≈ 4.5 µm,
-# extent roughly x∈[2380,3910], y∈[140,1670]. Raster bin size is fixed at 10 µm.
+# Reference cell spacing (a MERFISH tissue section): median NN ≈ 4.5 µm,
+# extent roughly x∈[2380,3910], y∈[140,1670]. Raster bin size is fixed at 8 µm.
 REF_MEDIAN_NN = 4.5
 REF_ORIGIN_X = 2400.0
 REF_ORIGIN_Y = 140.0

@@ -4,7 +4,6 @@ name: Frontend e2e
 #   core        — shared shadcn / Soft Float chrome
 #   landmarks   — LandmarksWidget
 #   volume-cube — VolumeCubeWidget (Viv)
-#   gallery     — GalleryWidget (no-op until e2e/gallery specs exist)
 
 on:
   pull_request:
@@ -32,7 +31,6 @@ on:
           - core
           - landmarks
           - volume-cube
-          - gallery
         default: all
 
 permissions:
@@ -50,7 +48,6 @@ jobs:
       core: ${{ steps.select.outputs.core }}
       landmarks: ${{ steps.select.outputs.landmarks }}
       volume_cube: ${{ steps.select.outputs.volume_cube }}
-      gallery: ${{ steps.select.outputs.gallery }}
     steps:
       - uses: actions/checkout@v4
 
@@ -77,9 +74,6 @@ jobs:
               - 'frontend/e2e/volume-cube/**'
               - 'frontend/dev/volume-cube/**'
               - 'spatial_rx/volume_cube.py'
-            gallery:
-              - 'frontend/src/widgets/gallery/**'
-              - 'frontend/e2e/gallery/**'
             infra:
               - 'frontend/e2e/helpers.ts'
               - 'frontend/playwright.config.ts'
@@ -99,37 +93,32 @@ jobs:
           CORE: ${{ steps.filter.outputs.core || 'false' }}
           LANDMARKS: ${{ steps.filter.outputs.landmarks || 'false' }}
           VOLUME_CUBE: ${{ steps.filter.outputs.volume_cube || 'false' }}
-          GALLERY: ${{ steps.filter.outputs.gallery || 'false' }}
           INFRA: ${{ steps.filter.outputs.infra || 'false' }}
         run: |
           set -euo pipefail
           core=false
           landmarks=false
           volume_cube=false
-          gallery=false
           if [[ "${EVENT}" == "workflow_dispatch" ]]; then
             case "${TIER}" in
-              all) core=true; landmarks=true; volume_cube=true; gallery=true ;;
+              all) core=true; landmarks=true; volume_cube=true ;;
               core) core=true ;;
               landmarks) landmarks=true ;;
               volume-cube) volume_cube=true ;;
-              gallery) gallery=true ;;
             esac
           else
             if [[ "${INFRA}" == "true" ]]; then
-              core=true; landmarks=true; volume_cube=true; gallery=true
+              core=true; landmarks=true; volume_cube=true
             else
               [[ "${CORE}" == "true" ]] && core=true
               [[ "${LANDMARKS}" == "true" ]] && landmarks=true
               [[ "${VOLUME_CUBE}" == "true" ]] && volume_cube=true
-              [[ "${GALLERY}" == "true" ]] && gallery=true
             fi
           fi
           echo "core=${core}" >> "$GITHUB_OUTPUT"
           echo "landmarks=${landmarks}" >> "$GITHUB_OUTPUT"
           echo "volume_cube=${volume_cube}" >> "$GITHUB_OUTPUT"
-          echo "gallery=${gallery}" >> "$GITHUB_OUTPUT"
-          echo "Selected tiers: core=${core} landmarks=${landmarks} volume_cube=${volume_cube} gallery=${gallery}"
+          echo "Selected tiers: core=${core} landmarks=${landmarks} volume_cube=${volume_cube}"
 
   e2e-core:
     needs: changes
@@ -281,59 +270,5 @@ jobs:
         with:
           name: playwright-snapshots-volume-cube
           path: frontend/e2e/volume-cube/**/*-snapshots/
-          retention-days: 14
-          if-no-files-found: ignore
-
-  e2e-gallery:
-    needs: changes
-    if: needs.changes.outputs.gallery == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check for gallery specs
-        id: specs
-        run: |
-          if compgen -G "e2e/gallery/**/*.spec.ts" > /dev/null; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-            echo "No gallery e2e specs yet; skipping."
-          fi
-      - uses: actions/setup-node@v4
-        if: steps.specs.outputs.exists == 'true'
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - if: steps.specs.outputs.exists == 'true'
-        run: npm ci
-      - if: steps.specs.outputs.exists == 'true'
-        run: npx playwright install chromium --with-deps
-      - name: Run gallery e2e
-        if: >-
-          steps.specs.outputs.exists == 'true' &&
-          (github.event_name != 'workflow_dispatch' || inputs.update_snapshots != true)
-        run: npm run test:e2e:gallery
-        env:
-          CI: true
-          E2E_SCREENSHOTS: "1"
-      - name: Update gallery snapshots
-        if: >-
-          steps.specs.outputs.exists == 'true' &&
-          github.event_name == 'workflow_dispatch' &&
-          inputs.update_snapshots == true
-        run: npm run test:e2e:gallery -- --update-snapshots=all
-        env:
-          CI: true
-          E2E_SCREENSHOTS: "1"
-      - uses: actions/upload-artifact@v4
-        if: ${{ always() && steps.specs.outputs.exists == 'true' }}
-        with:
-          name: playwright-report-gallery
-          path: frontend/playwright-report/
           retention-days: 14
           if-no-files-found: ignore

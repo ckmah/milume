@@ -24,11 +24,6 @@ def gene_names_from_adata(
     return [g for g in var_names if g in wanted]
 
 
-def gene_catalog(names: list[str]) -> list[dict[str, Any]]:
-    """Cheap gene picker metadata (vmin/vmax filled when values are packed)."""
-    return [{"name": str(n), "vmin": 0.0, "vmax": 1.0} for n in names]
-
-
 def _values_look_logged(vals: "np.ndarray") -> bool:
     """Heuristic: fractional values with modest max are likely already log-scaled."""
     import numpy as np
@@ -92,19 +87,6 @@ def expression_is_log_scaled(
     return votes * 2 > checked
 
 
-def genes_look_log_scaled(adata: Any, names: list[str]) -> bool:
-    """True when every listed gene column looks already log-scaled."""
-    if adata is None or not names:
-        return False
-    probes: list[bool] = []
-    for name in names[:8]:
-        try:
-            probes.append(_values_look_logged(_column_vector(adata, str(name))))
-        except Exception:
-            continue
-    return bool(probes) and all(probes)
-
-
 def _var_index(adata: Any, name: str) -> int:
     """Column index for ``name`` without building an AnnData view."""
     import numpy as np
@@ -155,52 +137,6 @@ def _normalize_column(vals: "np.ndarray") -> tuple["np.ndarray", float, float]:
     norm = ((vals - vmin) / (vmax - vmin)).astype(np.float32)
     norm = np.clip(np.nan_to_num(norm, nan=0.0), 0.0, 1.0)
     return norm, vmin, vmax
-
-
-def encode_genes_from_adata(
-    adata: Any,
-    names: list[str],
-    n_points: int,
-) -> tuple[list[dict[str, Any]], str]:
-    """Pack selected genes column-major float32 [0, 1] (active-genes order)."""
-    import numpy as np
-
-    if not names:
-        return [], ""
-    meta: list[dict[str, Any]] = []
-    cols: list[Any] = []
-    for name in names:
-        vals = _column_vector(adata, name)
-        if vals.shape[0] != n_points:
-            raise ValueError(f"expr rows {vals.shape[0]} != n_points {n_points}")
-        norm, vmin, vmax = _normalize_column(vals)
-        meta.append({"name": str(name), "vmin": vmin, "vmax": vmax})
-        cols.append(norm)
-    packed = np.column_stack(cols).ravel(order="F")
-    return meta, base64.b64encode(packed.tobytes()).decode("ascii")
-
-
-def encode_gene_bundle(
-    frame: Any,
-    n_points: int,
-) -> tuple[list[dict[str, Any]], str]:
-    """Pack a polars/pandas-like expression frame column-major float32 [0, 1]."""
-    import numpy as np
-
-    names = [str(c) for c in frame.columns]
-    if not names:
-        return [], ""
-    meta: list[dict[str, Any]] = []
-    cols: list[Any] = []
-    for name in names:
-        vals = np.asarray(frame[name].to_numpy(), dtype=np.float64).ravel()
-        if vals.shape[0] != n_points:
-            raise ValueError(f"expr rows {vals.shape[0]} != n_points {n_points}")
-        norm, vmin, vmax = _normalize_column(vals)
-        meta.append({"name": name, "vmin": vmin, "vmax": vmax})
-        cols.append(norm)
-    packed = np.column_stack(cols).ravel(order="F")
-    return meta, base64.b64encode(packed.tobytes()).decode("ascii")
 
 
 # Warn when the eager gene payload actually sent exceeds this many raw bytes (~25 MiB).

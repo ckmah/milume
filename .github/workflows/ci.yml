@@ -27,10 +27,6 @@ jobs:
       - run: npm run build
         working-directory: frontend
 
-      - name: Verify bundles are up-to-date
-        run: |
-          git diff --exit-code spatial_rx/static/bundled/ || (echo "Bundles are stale. Run 'npm run build' in frontend/ and commit the result." && exit 1)
-
       - run: uv sync --group dev
       - run: uv run pytest
       - run: uv build

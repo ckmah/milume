@@ -153,17 +153,3 @@ def encode_category_bundle(
         "ascii"
     )
     return meta, codes_b64, label_arrays
-
-
-def encode_single_category(
-    values: Any,
-    *,
-    name: str = "category",
-    color_map: dict[str, str] | None = None,
-) -> tuple[list[dict[str, Any]], str, dict[str, Any]]:
-    """Bundle one categorical series."""
-    import polars as pl
-
-    df = pl.DataFrame({name: pl.Series(name, values).cast(pl.Utf8)})
-    maps = {name: color_map} if color_map else None
-    return encode_category_bundle(df, [name], color_maps=maps)
