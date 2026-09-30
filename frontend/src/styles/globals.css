@@ -37,7 +37,7 @@
  * Framer-inspired neutral chrome: achromatic grays, no hue tint.
  * Dark surfaces: #000 / #111 / #171 / #242. Muted labels: #666 / #999.
  */
-.spatial-rx-widget {
+.milume-widget {
   --radius: 0.35rem;
   /* Soft grey canvas — floats (card/muted) stay lighter for contrast. */
   --background: #e8e8e8;
@@ -61,8 +61,8 @@
   color: var(--foreground);
 }
 
-.spatial-rx-widget.dark,
-.dark .spatial-rx-widget {
+.milume-widget.dark,
+.dark .milume-widget {
   --background: #141414;
   --foreground: #ffffff;
   --card: #1c1c1c;
@@ -84,7 +84,7 @@
 }
 
 @layer base {
-  .spatial-rx-widget * {
+  .milume-widget * {
     @apply border-border outline-ring/50;
   }
 }

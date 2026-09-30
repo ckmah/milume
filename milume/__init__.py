@@ -1,4 +1,4 @@
-"""spatial-rx: tools for exploring spatial omics data in notebooks."""
+"""Milume: a thinking surface for spatial omics."""
 
 from .landmarks import LandmarksWidget
 from .measure import (

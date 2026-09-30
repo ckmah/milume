@@ -17,7 +17,7 @@ Both work in Python notebook environments (marimo primary, Jupyter secondary) wi
 
 ## Product Purpose
 
-spatial-rx provides interactive notebook widgets for spatial omics exploration. Python owns analysis logic; the browser owns presentation. Named, typed traitlets keep widget state in sync with the notebook kernel so users can explore tissue coordinates, selections, and landmarks without re-running cells.
+Milume provides interactive notebook widgets for spatial omics exploration. Python owns analysis logic; the browser owns presentation. Named, typed traitlets keep widget state in sync with the notebook kernel so users can explore tissue coordinates, selections, and landmarks without re-running cells.
 
 Success means a notebook user can install the package, embed a widget, and get faithful, responsive spatial interaction tied to their AnnData object — with no build step on the consumer side.
 
@@ -42,7 +42,7 @@ Notebook-native toolkit: best-in-class marimo/Jupyter widgets for spatial omics,
 
 **Technical constraints**
 
-- Widget consumers must never need a frontend build toolchain; React bundles ship inside the installed package (`spatial_rx/static/`).
+- Widget consumers must never need a frontend build toolchain; React bundles ship inside the installed package (`milume/static/`).
 - k-NN / radius neighborhood expand is client-side; no precomputed `obsp` graphs required.
 - Selections persist as `obs_names`, not positional indices.
 - Chrome follows notebook cell width; marker radius derives from median nearest-neighbor distance.
@@ -58,10 +58,10 @@ Use domain language from `CONTEXT.md` (widget, synced state, traitlet, widget co
 
 ## Brand Commitments
 
-- **Name:** spatial-rx
+- **Name:** Milume (`milume`; formerly spatial-rx)
 - **License:** MIT open source
 - **Author:** ckmah
-- **Repository:** https://github.com/ckmah/spatial-rx
+- **Repository:** https://github.com/ckmah/milume
 - **Voice:** Technical, precise, notebook-native; domain terms from `CONTEXT.md` are binding.
 
 ## Evidence on Hand
@@ -81,7 +81,7 @@ Do not fabricate testimonials, case studies, benchmarks, or customer logos. Scre
 
 1. **Notebook-native first** — design for marimo/Jupyter cells, not standalone apps; the notebook kernel remains the source of truth.
 2. **Analysis fidelity** — widgets reflect AnnData state accurately; UI never hides or replaces Python-side logic.
-3. **Zero consumer toolchain** — published bundles must work out of the box for `pip install spatial-rx` users.
+3. **Zero consumer toolchain** — published bundles must work out of the box for `pip install milume` users.
 4. **Sync over re-run** — state crosses the Python/browser boundary through named traitlets, not opaque payloads or cell re-execution.
 5. **Accessible chrome** — widget UI targets WCAG 2.1 AA for controls, labels, and keyboard paths.
 

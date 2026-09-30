@@ -1,6 +1,6 @@
 # Widget packaging
 
-How spatial-rx ships browser code so `pip install spatial-rx` never requires Node.
+How milume ships browser code so `pip install milume` never requires Node.
 
 See also: [shadcn frontend](./shadcn-frontend.md).
 
@@ -16,19 +16,19 @@ A **widget consumer** installs the package and embeds widgets in marimo or Jupyt
 All React widget assets are already inside the wheel.
 
 A **widget author** edits `frontend/`, runs the build, and commits the output under
-`spatial_rx/static/bundled/`. CI verifies that committed bundles match source.
+`milume/static/bundled/`. CI verifies that committed bundles match source.
 
 ## What ships in the wheel
 
 ```
-spatial_rx/static/
+milume/static/
 ├── bundled/{name}.mjs    one ESM entry per React widget
 ├── bundled/widgets.css   shared Tailwind + shadcn theme (all React widgets)
 ├── landmarks.js          canvas engine imported by the landmarks bundle
 └── landmarks_state.js    shared traitlet write recipes (engine + React chrome)
 ```
 
-Hatch includes `spatial_rx/static/*` as build artifacts. The installed package is
+Hatch includes `milume/static/*` as build artifacts. The installed package is
 self-contained.
 
 ## Install paths
@@ -36,7 +36,7 @@ self-contained.
 **Consumer** (notebooks, analysis):
 
 ```bash
-pip install spatial-rx
+pip install milume
 ```
 
 No Node, no `frontend/`, no build step.
@@ -55,7 +55,7 @@ cd frontend && npm install && npm run build
 uv run pytest
 ```
 
-Commit both source changes and updated files in `spatial_rx/static/bundled/`.
+Commit both source changes and updated files in `milume/static/bundled/`.
 
 ## CI
 
@@ -70,7 +70,7 @@ that touch only Python; see [ADR 0001](./adr/0001-prebuilt-bundles-node-free-ins
 Reload uses **anywidget's file watcher**, not the Vite dev server.
 
 `_esm` / `_css` are `pathlib.Path` objects pointing at
-`spatial_rx/static/bundled/`. Vite rewrites those files on save; anywidget
+`milume/static/bundled/`. Vite rewrites those files on save; anywidget
 detects the mtime change and hot-swaps the widget over the notebook Comm
 channel.
 
@@ -95,7 +95,7 @@ a Vite websocket from the notebook origin and is easy to leave half-wired. Prefe
 `build --watch` + Path + `ANYWIDGET_HMR=1` ([anywidget getting started](https://anywidget.dev/en/getting-started/),
 [bundling](https://anywidget.dev/en/bundling/)).
 
-Vanilla engine source (`spatial_rx/static/landmarks.js`) is imported into the
+Vanilla engine source (`milume/static/landmarks.js`) is imported into the
 landmarks Vite entry. Canvas CSS lives at
 `frontend/src/widgets/landmarks/landmarks.css` and ships inside `widgets.css`.
 With `ANYWIDGET_HMR=1`, editing the engine JS hot-swaps after the next bundle

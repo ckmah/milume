@@ -19,7 +19,7 @@ export function LayersPanel({ lm }: { lm: LandmarksModel }) {
   useEffect(() => {
     setMenuContainer(
       (rootRef.current?.closest(
-        ".spatial-rx-widget, .landmarks",
+        ".milume-widget, .landmarks",
       ) as HTMLElement | null) ?? null,
     );
   }, []);

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Guidance for agents working in **spatial-rx**.
+Guidance for agents working in **milume**.
 
 Domain language: [`CONTEXT.md`](CONTEXT.md).
 
@@ -27,8 +27,8 @@ Less-supervision gate for agents merging their own PRs. CI green alone is not a 
 1. CI green on the head commit.
 2. Merge conflicts resolved; PR not left as draft when intending to land.
 3. Verification PASS by change class:
-   - **LandmarksWidget / landmarks surface** (`frontend/src/widgets/landmarks/`, `spatial_rx/static/landmarks.js`, landmark traitlets, selection/neighborhood UX): run relevant Playwright + match [verify-landmarks feature map](.agents/skills/verify-landmarks/) proof criteria for touched mapped capabilities; update the map when adding coverage.
-   - **VolumeCubeWidget / volume-cube surface** (`frontend/src/widgets/volume-cube/`, `spatial_rx/volume_cube.py`, Viv/OME-Zarr wiring, `window_*` traitlets): run `npm run test:e2e:volume-cube` + match [verify-volume-cube feature map](.agents/skills/verify-volume-cube/) proof criteria for touched capabilities; update the map when adding coverage.
+   - **LandmarksWidget / landmarks surface** (`frontend/src/widgets/landmarks/`, `milume/static/landmarks.js`, landmark traitlets, selection/neighborhood UX): run relevant Playwright + match [verify-landmarks feature map](.agents/skills/verify-landmarks/) proof criteria for touched mapped capabilities; update the map when adding coverage.
+   - **VolumeCubeWidget / volume-cube surface** (`frontend/src/widgets/volume-cube/`, `milume/volume_cube.py`, Viv/OME-Zarr wiring, `window_*` traitlets): run `npm run test:e2e:volume-cube` + match [verify-volume-cube feature map](.agents/skills/verify-volume-cube/) proof criteria for touched capabilities; update the map when adding coverage.
    - **Other UI with a Playwright tier**: run the path-gated e2e that covers the change ([`frontend/e2e/README.md`](frontend/e2e/README.md), [`.github/workflows/frontend-e2e.yml`](.github/workflows/frontend-e2e.yml)).
    - **Docs / AGENTS / skills / non-runtime only**: feature-map not required; CI + conflict-free is enough unless the PR also touches runtime UI.
 4. Visual evidence on the PR when the change is user-visible chrome or canvas ([`.github/scripts/post-playwright-visuals.sh`](.github/scripts/post-playwright-visuals.sh) or equivalent proof on the PR). Docs-only skips this.
@@ -95,7 +95,7 @@ Durable do/don't rules for agents. Prefer short tables over prose; vocabulary ma
 ## Widgets
 
 React/shadcn widgets live in `frontend/src/widgets/`. Canvas drawing for landmarks
-stays in `spatial_rx/static/landmarks.js` (`mountEngine`) and is bundled with the
+stays in `milume/static/landmarks.js` (`mountEngine`) and is bundled with the
 React chrome.
 
 **Widget UI must use shadcn/ui primitives** from `frontend/src/components/ui/`.
@@ -135,7 +135,7 @@ cd frontend && npm run dev:landmarks-volume
 
 | Situation | Do |
 | --- | --- |
-| Windows shell | npm scripts use `VAR=x`: `export npm_config_script_shell="C:/Program Files/Git/bin/bash.exe"` first; build one widget with `SPATIAL_RX_BUILD_WIDGET=<name> npx vite build`, **landmarks last** (it rewrites the shared `widgets.css`). Bundles are git-ignored. |
+| Windows shell | npm scripts use `VAR=x`: `export npm_config_script_shell="C:/Program Files/Git/bin/bash.exe"` first; build one widget with `MILUME_BUILD_WIDGET=<name> npx vite build`, **landmarks last** (it rewrites the shared `widgets.css`). Bundles are git-ignored. |
 | Checking a real notebook | Rebuild bundles, then start your **own** `marimo run --headless --port <free>` (a running kernel keeps the old `_esm`). Never stop other marimo / napari processes. |
 | Reading widget DOM | anywidgets render in shadow roots: query recursively through `shadowRoot`; e2e reads `data-*` state attributes (scope cube selectors to `.volume-cube__view`). |
 | Timing renders in the browser pane | A hidden pane throttles `requestAnimationFrame` to ~1 Hz. Time `deck.redraw()` + `gl.readPixels`, not rAF. |

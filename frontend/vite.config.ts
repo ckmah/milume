@@ -9,7 +9,7 @@ import { defineConfig } from "vite";
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(rootDir, "..");
 const devDir = path.resolve(rootDir, "dev");
-const outDir = path.resolve(repoRoot, "spatial_rx/static/bundled");
+const outDir = path.resolve(repoRoot, "milume/static/bundled");
 
 /** One entry per anywidget that uses shadcn/React. */
 const widgetEntries = {
@@ -17,7 +17,7 @@ const widgetEntries = {
   landmarks: path.resolve(rootDir, "src/widgets/landmarks/index.tsx"),
 };
 
-const buildWidget = process.env.SPATIAL_RX_BUILD_WIDGET;
+const buildWidget = process.env.MILUME_BUILD_WIDGET;
 const entries =
   buildWidget && buildWidget in widgetEntries
     ? { [buildWidget]: widgetEntries[buildWidget as keyof typeof widgetEntries] }

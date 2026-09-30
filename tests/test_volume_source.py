@@ -3,7 +3,7 @@ import pytest
 
 pytest.importorskip("spatialdata")
 
-from spatial_rx.volume_source import resolve_volume
+from milume.volume_source import resolve_volume
 from tests.helpers import toy_spatialdata
 
 

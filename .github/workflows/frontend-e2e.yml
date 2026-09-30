@@ -73,7 +73,7 @@ jobs:
               - 'frontend/src/widgets/volume-cube/**'
               - 'frontend/e2e/volume-cube/**'
               - 'frontend/dev/volume-cube/**'
-              - 'spatial_rx/volume_cube.py'
+              - 'milume/volume_cube.py'
             infra:
               - 'frontend/e2e/helpers.ts'
               - 'frontend/playwright.config.ts'

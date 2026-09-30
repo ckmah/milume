@@ -30,7 +30,7 @@ def _wide_sparse_adata(*, n_obs: int = 20, n_vars: int = 80):
 
 
 def test_constructor_does_not_copy_obs():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     adata = adata_xy([0.0, 1.0], [0.0, 1.0], color=["a", "b"])
     calls: list[int] = []
@@ -46,7 +46,7 @@ def test_constructor_does_not_copy_obs():
 
 
 def test_choosing_active_genes_does_not_resend_the_matrix():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     w = LandmarksWidget(_wide_sparse_adata(), color="label")
     packed = (w.gene_values, w.gene_csc_indptr, w.gene_csc_indices, w.gene_csc_data)

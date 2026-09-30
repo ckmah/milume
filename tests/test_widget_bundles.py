@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-BUNDLED = Path(__file__).resolve().parents[1] / "spatial_rx" / "static" / "bundled"
+BUNDLED = Path(__file__).resolve().parents[1] / "milume" / "static" / "bundled"
 
 
 @pytest.mark.parametrize("bundle", ["landmarks.mjs", "volume-cube.mjs"])

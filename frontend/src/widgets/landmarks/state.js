@@ -35,4 +35,4 @@ export {
   toggleLandmarkHidden,
   toggleSelectionHidden,
   withHood,
-} from "../../../../spatial_rx/static/landmarks_state.js";
+} from "../../../../milume/static/landmarks_state.js";

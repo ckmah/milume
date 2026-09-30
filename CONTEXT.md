@@ -1,4 +1,4 @@
-# spatial-rx
+# Milume
 
 Interactive notebook widgets for spatial omics exploration. Python owns analysis
 logic; the browser owns presentation. State crosses the boundary through named,
@@ -66,7 +66,7 @@ package so consumers need no build toolchain.
 _Avoid_: static files, .mjs, dist
 
 **Widget consumer**:
-A notebook user who installs spatial-rx and embeds widgets. No frontend toolchain
+A notebook user who installs milume and embeds widgets. No frontend toolchain
 required.
 _Avoid_: user, end user
 

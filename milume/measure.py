@@ -1,7 +1,7 @@
 """Landmark measurements on AnnData (tidy DataFrames + obs write-back).
 
 Measure helpers take a landmarks `geopandas.GeoDataFrame` (build with
-`spatial_rx.landmarks_to_geodataframe` from widget landmark dicts).
+`milume.landmarks_to_geodataframe` from widget landmark dicts).
 
 Required columns
 ----------------

@@ -30,7 +30,7 @@ def _adata(n=4):
 
 
 def test_neighborhood_limits_need_no_obsp_graphs():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     adata = _adata()
     assert not adata.obsp
@@ -40,7 +40,7 @@ def test_neighborhood_limits_need_no_obsp_graphs():
 
 
 def test_constructor_uses_uns_colors_and_packs_requested_genes():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     w = LandmarksWidget(_adata(), color="cell_type", genes=["g1"])
     assert w.legend_title == "cell_type"
@@ -51,7 +51,7 @@ def test_constructor_uses_uns_colors_and_packs_requested_genes():
 
 
 def test_rendering_controls_are_not_constructor_kwargs():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     adata = adata_xy([0.0, 1.0], [0.0, 0.0])
     with pytest.raises(TypeError):
@@ -61,7 +61,7 @@ def test_rendering_controls_are_not_constructor_kwargs():
 
 
 def test_selection_membership_is_written_to_obs_by_name():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     adata = _adata()
     w = LandmarksWidget(adata, color="cell_type")
@@ -80,7 +80,7 @@ def test_selection_membership_is_written_to_obs_by_name():
 
 
 def test_write_obs_joins_scores_by_obs_name():
-    from spatial_rx import write_obs
+    from milume import write_obs
 
     adata = _adata()
     df = pd.DataFrame({"obs_name": ["c2", "c0"], "s": [0.9, 0.1]})
@@ -91,7 +91,7 @@ def test_write_obs_joins_scores_by_obs_name():
 
 
 def test_set_neighbor_graphs_raises_a_removal_error():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     adata = _adata()
     w = LandmarksWidget(adata, color="cell_type")

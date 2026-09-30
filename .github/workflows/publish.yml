@@ -35,7 +35,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
           TAG="${GITHUB_REF#refs/tags/v}"
-          VERSION=$(uv run python -c "import spatial_rx; print(spatial_rx.__version__)")
+          VERSION=$(uv run python -c "import milume; print(milume.__version__)")
           test "$TAG" = "$VERSION"
 
       - run: uv run pytest

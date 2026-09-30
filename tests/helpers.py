@@ -50,7 +50,7 @@ def toy_spatialdata(dest):
     from spatialdata.models import Image3DModel, Labels3DModel, TableModel
     from spatialdata.transformations import Identity
 
-    from spatial_rx.volume_cube import toy_volumes
+    from milume.volume_cube import toy_volumes
 
     image, labels = toy_volumes()
     ids = np.unique(labels)

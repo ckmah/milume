@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-import spatial_rx._assets as assets
+import milume._assets as assets
 
 
 @pytest.mark.parametrize("name", ["landmarks", "volume-cube"])

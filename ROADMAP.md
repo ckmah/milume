@@ -17,7 +17,7 @@ See [`frontend/PRODUCT.md`](frontend/PRODUCT.md) for positioning and shipped cap
 
 ## Under consideration
 
-- A documentation site (draft [PR #32](https://github.com/ckmah/spatial-rx/pull/32)).
+- A documentation site (draft [PR #32](https://github.com/ckmah/milume/pull/32)).
 - Jupyter parity with the marimo-first development loop.
 - Mesh-based 3D rendering (Polyrender, parked in draft
-  [PR #28](https://github.com/ckmah/spatial-rx/pull/28); the Viv cube is the 3D path for now).
+  [PR #28](https://github.com/ckmah/milume/pull/28); the Viv cube is the 3D path for now).

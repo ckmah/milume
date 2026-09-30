@@ -12,7 +12,7 @@ import traitlets
 from anndata import AnnData
 from anywidget import AnyWidget
 
-from spatial_rx._assets import widget_css, widget_esm
+from milume._assets import widget_css, widget_esm
 from .categories import (
     as_polars,
     default_categorical_palette,

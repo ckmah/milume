@@ -7,7 +7,7 @@ import pytest
 
 pytest.importorskip("spatialdata")
 
-from spatial_rx import LandmarksWidget
+from milume import LandmarksWidget
 from tests.helpers import toy_spatialdata
 
 NEW_TRAITS = {"volume", "volume_label_ids", "volume_cut"}

@@ -1,7 +1,7 @@
 # shadcn frontend
 
 React/shadcn anywidgets live in `frontend/` and compile to ESM under
-`spatial_rx/static/bundled/`.
+`milume/static/bundled/`.
 
 Docs: [widget UI dev quick reference](./widget-ui-dev.md),
 [widget packaging](./widget-packaging.md).
@@ -17,9 +17,9 @@ frontend/                          npm package (UI source of truth)
 │   ├── hooks/                     traitlets + notebook theme bridges
 │   └── widgets/<name>/            one Vite entry per widget
 │       └── landmarks/landmarks.css   canvas CSS (emitted into widgets.css)
-└── vite.config.ts                 → spatial_rx/static/bundled/
+└── vite.config.ts                 → milume/static/bundled/
 
-spatial_rx/static/
+milume/static/
 ├── bundled/{name}.mjs, widgets.css   committed; shipped in the wheel
 └── landmarks.js                      canvas engine for the landmarks widget
 ```

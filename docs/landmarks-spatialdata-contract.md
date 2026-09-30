@@ -1,7 +1,7 @@
 # Landmarks ↔ GeoDataFrame contract (M1)
 
 Binding contract for durable landmark annotations. Implements
-[GitHub #26](https://github.com/ckmah/spatial-rx/issues/26) / M1.1.
+[GitHub #26](https://github.com/ckmah/milume/issues/26) / M1.1.
 Vocabulary: [`CONTEXT.md`](../CONTEXT.md).
 
 ## Scope
@@ -30,7 +30,7 @@ themselves if desired.
 ## Public API
 
 ```python
-from spatial_rx import landmarks_to_geodataframe, geodataframe_to_landmarks
+from milume import landmarks_to_geodataframe, geodataframe_to_landmarks
 
 gdf = landmarks_to_geodataframe(w.landmarks)       # may be empty
 w.landmarks = geodataframe_to_landmarks(gdf)       # [] if empty

@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from urllib.request import urlopen
 
-from spatial_rx.volume_cube import (
+from milume.volume_cube import (
     BLIN_IDR_IMAGE_URL,
     BLIN_SHAPE_ZYX,
     DEFAULT_Z_SLAB,

@@ -21,13 +21,13 @@ def _adata():
 
 
 def _gdf(landmarks):
-    from spatial_rx import landmarks_to_geodataframe
+    from milume import landmarks_to_geodataframe
 
     return landmarks_to_geodataframe(landmarks)
 
 
 def test_distances_to_a_line_by_group_written_to_obs():
-    from spatial_rx.measure import distances, write_obs
+    from milume.measure import distances, write_obs
 
     adata = _adata()
     gdf = _gdf(
@@ -50,7 +50,7 @@ def test_distances_to_a_line_by_group_written_to_obs():
 
 
 def test_composition_counts_groups_inside_a_shape():
-    from spatial_rx.measure import composition
+    from milume.measure import composition
 
     adata = _adata()
     gdf = _gdf(
@@ -70,7 +70,7 @@ def test_composition_counts_groups_inside_a_shape():
 
 
 def test_along_positions_gives_fractional_position_on_the_line():
-    from spatial_rx.measure import along_positions, write_obs
+    from milume.measure import along_positions, write_obs
 
     adata = _adata()
     gdf = _gdf(
@@ -111,7 +111,7 @@ def _adata_3d():
 
 
 def test_enrichment_against_all_cells():
-    from spatial_rx import enrichment
+    from milume import enrichment
 
     adata = _adata_3d()
     out = enrichment(adata, ["s0", "n0"], obs_key="cell_type")
@@ -125,7 +125,7 @@ def test_enrichment_against_all_cells():
 
 
 def test_nearest_distances_separates_xy_from_depth():
-    from spatial_rx import nearest_distances
+    from milume import nearest_distances
 
     adata = _adata_3d()
     out = nearest_distances(adata, ["s0", "s1"], obs_key="cell_type").set_index("obs_name")
@@ -143,7 +143,7 @@ def test_nearest_distances_separates_xy_from_depth():
 
 
 def test_nearest_distances_needs_z():
-    from spatial_rx import nearest_distances
+    from milume import nearest_distances
 
     with pytest.raises(ValueError, match="x, y, z"):
         nearest_distances(_adata(), ["c0"], obs_key="cell_type")
@@ -179,7 +179,7 @@ def _line(**extra):
 
 
 def test_distances_add_z_bins_and_keep_the_xy_distance():
-    from spatial_rx.measure import distances
+    from milume.measure import distances
 
     df = distances(_adata_z(), _line(), obs_key="cell_type").set_index("obs_name")
     assert df["distance"].to_dict() == pytest.approx({"c0": 0.0, "c1": 0.0, "c2": 1.0, "c3": 1.0})
@@ -188,7 +188,7 @@ def test_distances_add_z_bins_and_keep_the_xy_distance():
 
 
 def test_z_bin_size_sets_the_bin_width_and_none_turns_it_off():
-    from spatial_rx.measure import along_positions, distances
+    from milume.measure import along_positions, distances
 
     wide = distances(_adata_z(), _line(), obs_key="cell_type", z_bin_size=5.0)
     assert set(wide["z_bin"]) == {10.0}
@@ -198,14 +198,14 @@ def test_z_bin_size_sets_the_bin_width_and_none_turns_it_off():
 
 
 def test_along_positions_add_z_bins():
-    from spatial_rx.measure import along_positions
+    from milume.measure import along_positions
 
     df = along_positions(_adata_z(), _line(), obs_key="cell_type")
     assert df["z_bin"].tolist() == [10.0, 10.0, 12.0, 12.0]
 
 
 def test_2d_coordinates_have_no_z_columns():
-    from spatial_rx.measure import along_positions, composition, distances
+    from milume.measure import along_positions, composition, distances
 
     adata = _adata()
     for fn in (distances, along_positions, composition):
@@ -215,7 +215,7 @@ def test_2d_coordinates_have_no_z_columns():
 
 
 def test_composition_per_z_bin():
-    from spatial_rx.measure import composition
+    from milume.measure import composition
 
     df = composition(_adata_z(), _line(), obs_key="cell_type", obs_names=["c0", "c1", "c2"])
     assert df[["z_bin", "group", "count", "proportion", "n_total"]].to_dict("records") == [

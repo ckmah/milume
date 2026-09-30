@@ -13,7 +13,7 @@ and the `dev/notebook-link` harness existed only to prove that glue.
 ## Decision
 
 `LandmarksWidget(sdata)` infers everything the cube needs from a
-SpatialData object (`spatial_rx/volume_source.py`: table, labels element,
+SpatialData object (`milume/volume_source.py`: table, labels element,
 3D image, and their shared physical frame) and renders the cube itself,
 in its own chrome:
 
@@ -44,7 +44,7 @@ in its own chrome:
   `landmarks/chrome/cube-window.tsx` and the standalone
   `volume-cube/VolumeCubeView.tsx` bind it to their own state.
 - The browser reads the store through a loopback server
-  (`serve_directory` in `spatial_rx/volume_cube.py`) that serves only
+  (`serve_directory` in `milume/volume_cube.py`) that serves only
   `images/<image>/` and `labels/<labels>/` of the SpatialData; tables and
   every other path are 404, and no directory is listed.
 - `LandmarksWidget(adata)` (no SpatialData) is unchanged: no cube, no new

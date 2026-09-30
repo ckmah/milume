@@ -1,7 +1,7 @@
 [project]
-name = "spatial-rx"
+name = "milume"
 version = "1.0.1"
-description = "Tools for exploring spatial omics data in notebooks"
+description = "Milume: a thinking surface for spatial omics. A tactile, reactive Jupyter (anywidget) surface for forming intuition about spatial omics data."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
@@ -46,9 +46,9 @@ test = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ckmah/spatial-rx"
-Repository = "https://github.com/ckmah/spatial-rx"
-Issues = "https://github.com/ckmah/spatial-rx/issues"
+Homepage = "https://github.com/ckmah/milume"
+Repository = "https://github.com/ckmah/milume"
+Issues = "https://github.com/ckmah/milume/issues"
 
 [dependency-groups]
 dev = [
@@ -64,16 +64,16 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["spatial_rx"]
+packages = ["milume"]
 # The engine sources in static/*.js are bundled into static/bundled/landmarks.mjs;
 # only the (gitignored) bundles are loaded at runtime.
-exclude = ["spatial_rx/static/*.js"]
+exclude = ["milume/static/*.js"]
 
 [tool.hatch.build]
-artifacts = ["spatial_rx/static/bundled/*"]
+artifacts = ["milume/static/bundled/*"]
 
 [tool.hatch.version]
-path = "spatial_rx/__init__.py"
+path = "milume/__init__.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

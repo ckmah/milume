@@ -6,7 +6,7 @@ Three tiers, path-gated in CI (`.github/workflows/frontend-e2e.yml`):
 |------|----------------|-------|
 | **core** | Shared chrome changes (`src/components`, `styles`, `lib`, `hooks`, `e2e/core`) | `e2e/core/` |
 | **landmarks** | Landmarks widget / harness / `e2e/landmarks` changes | `e2e/landmarks/` |
-| **volume-cube** | VolumeCube widget / harness / `e2e/volume-cube` / `spatial_rx/volume_cube.py` | `e2e/volume-cube/` |
+| **volume-cube** | VolumeCube widget / harness / `e2e/volume-cube` / `milume/volume_cube.py` | `e2e/volume-cube/` |
 
 Infra changes (`e2e/helpers.ts`, `playwright.config.ts`, `package-lock.json`, …) run **all** tiers.
 The workflow itself only triggers when `frontend/**` (or the workflow/script) changes.

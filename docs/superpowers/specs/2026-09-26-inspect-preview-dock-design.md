@@ -206,8 +206,8 @@ Keep only feature and regression tests.
   strip.
 - `frontend/src/widgets/landmarks/use-inspect-cube.ts`: Save (with the live cut),
   and focusing an entry restores its view.
-- `spatial_rx/static/landmarks.js`: fixed 300 µm square, `saveInspect()`, and
+- `milume/static/landmarks.js`: fixed 300 µm square, `saveInspect()`, and
   hover events for the preview.
-- `spatial_rx/landmarks.py`: docstring (height, `inspect_size_um` as an output).
+- `milume/landmarks.py`: docstring (height, `inspect_size_um` as an output).
 - `tests/helpers.py`: toy pyramid.
 - Docs: README Inspect paragraph, ADR 0006 addendum, and feature maps.

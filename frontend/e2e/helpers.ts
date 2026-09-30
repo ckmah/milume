@@ -85,7 +85,7 @@ export async function canvasBox(page: Page) {
 
 export async function bootLandmarksHarness(page: Page) {
   await page.addInitScript(() => {
-    window.localStorage.setItem("spatial-rx-harness-theme", "dark");
+    window.localStorage.setItem("milume-harness-theme", "dark");
   });
   await page.goto("/", { waitUntil: "networkidle" });
   await waitForEngine(page);
@@ -119,7 +119,7 @@ export async function setVolumeModel(page: Page, patch: Record<string, unknown>)
 
 export async function bootVolumeCubeHarness(page: Page) {
   await page.addInitScript(() => {
-    window.localStorage.setItem("spatial-rx-harness-theme", "dark");
+    window.localStorage.setItem("milume-harness-theme", "dark");
   });
   await page.goto("/", { waitUntil: "networkidle" });
   await waitForVolumeCube(page);

@@ -157,7 +157,7 @@ export function VolumeCubeView({ model, hostEl }: { hostEl: HTMLElement; model: 
 
   return (
     <div
-      className={cn("spatial-rx-widget volume-cube relative min-w-0 w-full", dark && "dark")}
+      className={cn("milume-widget volume-cube relative min-w-0 w-full", dark && "dark")}
       data-labels={loadState.labels}
       data-channels={loadState.channels}
       data-highlight={highlighted}

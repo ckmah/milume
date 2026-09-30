@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 
-from spatial_rx import LandmarksWidget
+from milume import LandmarksWidget
 from tests.helpers import adata_xy
 
 SQUARE = [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]

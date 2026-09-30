@@ -318,7 +318,7 @@ export function InspectToolbar({
         onWheel={(e) => e.stopPropagation()}
       >
         <div
-          ref={(node) => setMenuContainer(node?.closest(".spatial-rx-widget, .landmarks") as HTMLElement | null)}
+          ref={(node) => setMenuContainer(node?.closest(".milume-widget, .landmarks") as HTMLElement | null)}
           className={TOOLBAR_CLASS}
           data-testid="context-toolbar-l1"
         >

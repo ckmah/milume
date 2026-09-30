@@ -20,7 +20,7 @@ Domain vocabulary: [`CONTEXT.md`](../../CONTEXT.md) (Widget, Synced state, Trait
 
 ## When to use
 
-- Before merging changes to `frontend/src/widgets/volume-cube/`, `spatial_rx/volume_cube.py`,
+- Before merging changes to `frontend/src/widgets/volume-cube/`, `milume/volume_cube.py`,
   Viv/OME-Zarr wiring, or `window_*` traitlets consumed from Landmarks inspect mode.
 - When an agent needs to **prove** a VolumeCube change works — run the relevant
   e2e spec(s) and compare against the feature map's proof criteria.

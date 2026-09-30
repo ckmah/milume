@@ -20,8 +20,8 @@ def _():
     import marimo as mo
     import numpy as np
 
-    from spatial_rx import LandmarksWidget, VolumeCubeWidget
-    from spatial_rx.volume_cube import (
+    from milume import LandmarksWidget, VolumeCubeWidget
+    from milume.volume_cube import (
         BLIN_IDR_IMAGE_URL,
         BLIN_SHAPE_ZYX,
         cells_in_inspect_window,

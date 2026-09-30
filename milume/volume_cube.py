@@ -33,7 +33,7 @@ import numpy as np
 import traitlets
 from anywidget import AnyWidget
 
-from spatial_rx._assets import widget_css, widget_esm
+from milume._assets import widget_css, widget_esm
 
 TOY_SHAPE_ZYX = (64, 256, 256)
 TOY_CHUNK_ZYX = (32, 64, 64)

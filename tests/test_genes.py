@@ -7,7 +7,7 @@ from tests.helpers import adata_xy
 
 
 def _widget(**kwargs):
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     adata = adata_xy(
         [0.0, 1.0, 2.0, 3.0],
@@ -51,7 +51,7 @@ def test_set_expression_replaces_the_gene_catalog():
 
 
 def test_log_scaled_expression_is_detected_from_uns_or_values():
-    from spatial_rx import LandmarksWidget
+    from milume import LandmarksWidget
 
     def widget(values, uns=None):
         adata = adata_xy(
@@ -125,7 +125,7 @@ def _awkward_sparse_matrix():
 def test_sparse_pack_matches_dense_pack():
     from scipy import sparse
 
-    from spatial_rx.genes import pack_eager_gene_matrix
+    from milume.genes import pack_eager_gene_matrix
 
     csr = sparse.csr_matrix(_awkward_sparse_matrix())
     # Explicitly stored zeros must be treated like implicit zeros.
@@ -153,7 +153,7 @@ def test_sparse_pack_matches_dense_pack():
 def test_sparse_pack_respects_catalog_order_and_subset():
     from scipy import sparse
 
-    from spatial_rx.genes import pack_eager_gene_matrix
+    from milume.genes import pack_eager_gene_matrix
 
     dense = _awkward_sparse_matrix()
     n_obs = dense.shape[0]
@@ -172,7 +172,7 @@ def test_sparse_pack_respects_catalog_order_and_subset():
 def test_sparse_pack_csc_input_matches_and_leaves_x_untouched():
     from scipy import sparse
 
-    from spatial_rx.genes import pack_eager_gene_matrix
+    from milume.genes import pack_eager_gene_matrix
 
     dense = _awkward_sparse_matrix()
     n_obs, n_vars = dense.shape
@@ -198,7 +198,7 @@ def test_sparse_pack_csc_input_matches_and_leaves_x_untouched():
 def test_sparse_pack_of_an_all_zero_matrix_decodes_to_zeros():
     from scipy import sparse
 
-    from spatial_rx.genes import pack_eager_gene_matrix
+    from milume.genes import pack_eager_gene_matrix
 
     _, pay = pack_eager_gene_matrix(
         _plain_adata(sparse.csr_matrix((10, 2), dtype=np.float32)), ["g0", "g1"], 10
@@ -212,7 +212,7 @@ def test_sparse_pack_does_not_densify():
 
     from scipy import sparse
 
-    from spatial_rx import genes
+    from milume import genes
 
     n_obs, n_vars = 100_000, 200
     rng = np.random.default_rng(0)
@@ -239,7 +239,7 @@ def test_size_warning_reports_bytes_sent(monkeypatch):
 
     from scipy import sparse
 
-    from spatial_rx import genes
+    from milume import genes
 
     rng = np.random.default_rng(5)
     csr = sparse.random(
@@ -273,7 +273,7 @@ def test_size_warning_reports_bytes_sent(monkeypatch):
 def test_size_warning_dense_input_reports_dense_bytes(monkeypatch):
     import warnings
 
-    from spatial_rx import genes
+    from milume import genes
 
     rng = np.random.default_rng(6)
     dense = (rng.random((300, 4)) + 0.1).astype(np.float32)
