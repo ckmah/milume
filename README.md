@@ -40,13 +40,13 @@ import milume   # was: import spatial_rx
 The final `spatial-rx` release is a thin shim that depends on `milume` and
 re-exports it from `spatial_rx` with a `DeprecationWarning`.
 
-## Alongside napari
+## Alongside other viewers
 
-Milume complements napari and other viewers. Use Milume to form intuition: layer
-images, cells, and transcripts in a notebook, select what stands out, and carry the
-selection straight into your analysis code. Use heavier viewers such as napari when you
-need to inspect in depth. Landmarks and selections round-trip as plain geometry and
-`obs_names`, so you can hand the same regions to either tool.
+Milume complements other viewers. Use Milume to form intuition: layer images, cells,
+and transcripts in a notebook, select what stands out, and carry the selection straight
+into your analysis code. Use heavier viewers when you need to inspect in depth.
+Landmarks and selections round-trip as plain geometry and `obs_names`, so you can hand
+the same regions to any viewer.
 
 From source:
 
@@ -66,10 +66,10 @@ Draw selections and landmarks on tissue coordinates, color by category or gene,
 expand neighborhoods, and inspect the 3D tissue under a window.
 
 ```python
-from milume import LandmarksWidget
+import milume
 
-w = LandmarksWidget(adata, color="cell_type")   # AnnData with obsm["spatial"]
-w = LandmarksWidget(sdata, color="cell_type")   # SpatialData on disk: adds the 3D cube
+w = milume.peek(adata, color="cell_type")   # AnnData with obsm["spatial"]
+w = milume.peek(sdata, color="cell_type")   # SpatialData on disk: adds the 3D cube
 ```
 
 From a SpatialData, the widget finds the table, the labels element it

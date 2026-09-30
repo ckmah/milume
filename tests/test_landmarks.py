@@ -86,3 +86,10 @@ def test_category_colors_match_the_legend():
     assert colors == w.category_colors("label")
     with pytest.raises(KeyError):
         w.category_colors("missing")
+
+
+def test_peek_builds_a_landmarks_widget():
+    import milume
+
+    w = milume.peek(adata_xy(np.array([0.0, 1.0]), np.array([0.0, 1.0])))
+    assert isinstance(w, LandmarksWidget)

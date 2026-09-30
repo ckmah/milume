@@ -15,6 +15,16 @@ from .spatialdata_landmarks import (
 )
 
 __version__ = "1.0.1"
+
+
+def peek(data, **kwargs) -> LandmarksWidget:
+    """Open a Milume surface on AnnData or SpatialData.
+
+    Shorthand for ``LandmarksWidget(data, **kwargs)``.
+    """
+    return LandmarksWidget(data, **kwargs)
+
+
 from .volume_cube import VolumeCubeWidget
 
 __all__ = [
@@ -28,5 +38,6 @@ __all__ = [
     "geodataframe_to_landmarks",
     "landmarks_to_geodataframe",
     "nearest_distances",
+    "peek",
     "write_obs",
 ]
