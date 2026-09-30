@@ -1,12 +1,18 @@
-# spatial-rx
+# Milume
 
-Tools for exploring spatial omics data in notebooks — reactive widgets that stay
-in sync with your Python analysis.
+**Milume: a thinking surface for spatial omics.**
 
+A tactile, reactive widget that harnesses your scientific intuition.
+
+Layer your data, select what catches your eye, and pick up where you left off in code.
+
+Milume is a simple, reactive Jupyter ([anywidget](https://anywidget.dev)) surface for forming
+intuition about spatial omics data, which then drives the analysis that follows. The name
+comes from *mille* (thousand, as in mille-feuille, layers) + *lume* (light).
 
 | Tool | Role | Demo |
 | ---- | ---- | ---- |
-| **LandmarksWidget** | Draw selections and landmarks on tissue coordinates; measure from the notebook | [![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/ckmah/spatial-rx/blob/main/demos/landmarks.py) |
+| **LandmarksWidget** | Draw selections and landmarks on tissue coordinates; measure from the notebook | [![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/landmarks.py) |
 | **VolumeCubeWidget** | Isometric 3D cube of an OME-Zarr image and its cell labels | [`demos/volume-cube.py`](demos/volume-cube.py) |
 
 
@@ -15,8 +21,32 @@ More widgets and helpers may land here over time.
 ## Install
 
 ```bash
-pip install spatial-rx
+pip install milume
 ```
+
+### Formerly spatial-rx
+
+Milume was called `spatial-rx`. The API is unchanged; only the names moved:
+
+```bash
+pip uninstall spatial-rx
+pip install milume
+```
+
+```python
+import milume   # was: import spatial_rx
+```
+
+The final `spatial-rx` release is a thin shim that depends on `milume` and
+re-exports it from `spatial_rx` with a `DeprecationWarning`.
+
+## Alongside napari
+
+Milume complements napari and other viewers. Use Milume to form intuition: layer
+images, cells, and transcripts in a notebook, select what stands out, and carry the
+selection straight into your analysis code. Use heavier viewers such as napari when you
+need to inspect in depth. Landmarks and selections round-trip as plain geometry and
+`obs_names`, so you can hand the same regions to either tool.
 
 From source:
 
@@ -36,7 +66,7 @@ Draw selections and landmarks on tissue coordinates, color by category or gene,
 expand neighborhoods, and inspect the 3D tissue under a window.
 
 ```python
-from spatial_rx import LandmarksWidget
+from milume import LandmarksWidget
 
 w = LandmarksWidget(adata, color="cell_type")   # AnnData with obsm["spatial"]
 w = LandmarksWidget(sdata, color="cell_type")   # SpatialData on disk: adds the 3D cube
