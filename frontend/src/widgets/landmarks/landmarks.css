@@ -9,6 +9,8 @@
   gap: 0;
   color-scheme: inherit;
   position: relative;
+  /* Parked (collapsed) docks sit outside the root; clip them so they never widen a scrolling ancestor. */
+  overflow-x: clip;
   box-sizing: border-box;
   /* Browser surfaces — themed from Soft Float neutrals, not UA defaults */
   caret-color: var(--foreground);
@@ -1881,12 +1883,26 @@
   transform: translateX(calc(-100% - var(--lm-chrome-inset)));
   opacity: 0;
   pointer-events: none;
+  /* Drop the box from hit-testing and wheel targeting once the slide-out ends,
+   * so the parked dock never captures page scroll. */
+  visibility: hidden;
+  transition:
+    transform 180ms ease,
+    opacity 180ms ease,
+    visibility 0s linear 180ms;
 }
 
 .landmarks__chrome-dock--right.landmarks__chrome-dock--collapsed {
   transform: translateX(calc(100% + var(--lm-chrome-inset)));
   opacity: 0;
   pointer-events: none;
+  /* Drop the box from hit-testing and wheel targeting once the slide-out ends,
+   * so the parked dock never captures page scroll. */
+  visibility: hidden;
+  transition:
+    transform 180ms ease,
+    opacity 180ms ease,
+    visibility 0s linear 180ms;
 }
 
 .landmarks__peek-tab {
