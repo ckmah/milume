@@ -2,16 +2,16 @@
   <img src="https://raw.githubusercontent.com/ckmah/milume/main/assets/logo/milume-mark.svg" width="128" alt="Milume logo" />
 </p>
 
-# Milume
+# milume
 
-**Milume: a thinking surface for spatial omics.**
+**milume: a thinking surface for spatial omics.**
 
 A tactile, reactive widget that harnesses your scientific intuition.
 
 Layer your data, select what catches your eye, and pick up where you left off in code.
 
-Milume is a simple, reactive Jupyter ([anywidget](https://anywidget.dev)) surface for forming
-intuition about spatial omics data, which then drives the analysis that follows. The name
+Milume is a reactive ([anywidget](https://anywidget.dev)) for engaging with spatial omics data, 
+which then drives the analysis that follows, creating an efficient feedback loop for ideation. The name
 comes from *mille* (thousand, as in mille-feuille, layers) + *lume* (light).
 
 | Tool | Role | Demo |
@@ -45,7 +45,7 @@ re-exports it from `spatial_rx` with a `DeprecationWarning`.
 
 ## Alongside other viewers
 
-Milume complements other viewers. Use Milume to form intuition: layer images, cells,
+Milume complements other viewers. Use `milume` to form intuition: layer images, cells,
 and transcripts in a notebook, select what stands out, and carry the selection straight
 into your analysis code. Use heavier viewers when you need to inspect in depth.
 Landmarks and selections round-trip as plain geometry and `obs_names`, so you can hand
