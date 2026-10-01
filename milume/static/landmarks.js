@@ -220,6 +220,10 @@ function easeOutQuart(t) {
   return 1 - Math.pow(1 - t, 4);
 }
 
+const WHEEL_ZOOM_SPEED = 0.01; // deck.gl default
+const WHEEL_ZOOM_BOOST = 4; // extra gain at tiny deltas (trackpad gesture start)
+const WHEEL_ZOOM_KNEE = 10; // px delta where the boost has fallen to 1/2
+
 /** Shift+wheel often reports deltaX on macOS/Chrome; prefer vertical then horizontal. */
 function wheelDelta(e) {
   const dy = e.deltaY || 0;
@@ -5784,6 +5788,43 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
 
   const abort = new AbortController();
   const { signal } = abort;
+
+  // deck.gl zoom is linear in wheel delta (speed 0.01), so a trackpad gesture
+  // (deltas of 1–5 px at the start) crawls before it ramps. Boost small deltas;
+  // mouse notches (~100) keep deck's stock step.
+  webglCanvas.addEventListener(
+    "wheel",
+    (e) => {
+      if (e.shiftKey || !deckgl || !currentViewState) return;
+      const z0 = currentViewState.zoom;
+      if (typeof z0 !== "number") return;
+      let dy = e.deltaY || 0;
+      if (!dy) return;
+      if (e.deltaMode === 1) dy *= 40;
+      const boosted = dy * (1 + WHEEL_ZOOM_BOOST / (1 + (dy / WHEEL_ZOOM_KNEE) ** 2));
+      const mag = Math.log2(2 / (1 + Math.exp(-Math.abs(boosted) * WHEEL_ZOOM_SPEED)));
+      const fit = fitZoom ?? z0;
+      const zoom = Math.max(
+        currentViewState.minZoom ?? fit - 1,
+        Math.min(currentViewState.maxZoom ?? fit + 6, z0 + (dy < 0 ? mag : -mag))
+      );
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (zoom === z0) return;
+      // Keep the world point under the cursor fixed.
+      const rect = webglCanvas.getBoundingClientRect();
+      const vp = deckgl.getViewports()?.[0];
+      const world = vp?.unproject([e.clientX - rect.left, e.clientY - rect.top]);
+      const next = { zoom };
+      if (world) {
+        const t = currentViewState.target || [0, 0, 0];
+        const k = Math.pow(2, z0 - zoom);
+        next.target = [world[0] - (world[0] - t[0]) * k, world[1] - (world[1] - t[1]) * k, 0];
+      }
+      setViewState(next);
+    },
+    { signal, capture: true, passive: false }
+  );
 
   webglCanvas.addEventListener(
     "wheel",

@@ -2,7 +2,7 @@
   <img src="https://raw.githubusercontent.com/ckmah/milume/main/assets/logo/milume-mark.svg" width="128" alt="Milume logo" />
 </p>
 
-# Milume
+# milume
 
 **Milume: a thinking surface for spatial omics.**
 
