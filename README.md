@@ -32,9 +32,9 @@ mille-feuille, layers) + *lume* (light).
 pip install milume
 ```
 
-### Formerly spatial-rx
+### Migrate from spatial-rx
 
-Milume was called `spatial-rx`. The API is unchanged; only the names moved:
+Note: Milume was formerly `spatial-rx`. The API is unchanged; only the names moved:
 
 ```bash
 pip uninstall spatial-rx
@@ -44,9 +44,6 @@ pip install milume
 ```python
 import milume   # was: import spatial_rx
 ```
-
-The final `spatial-rx` release is a thin shim that depends on `milume` and
-re-exports it from `spatial_rx` with a `DeprecationWarning`.
 
 ## Alongside other viewers
 
@@ -89,16 +86,10 @@ w = milume.peek(sdata, color="cell_type")   # SpatialData on disk: adds the 3D c
 | `table`, `image`, `labels` | override what is inferred from a `SpatialData` |
 | `contrast_limits` | display range for the 3D image |
 
-From a SpatialData, the widget finds the table, the labels element it
-annotates, a 3D image on the same grid, and their µm frame (override with
-`table=`, `image=`, `labels=`; `contrast_limits=` for the image). Press **I**
-(Inspect): hovering shows a live coarse preview of the tissue under the
-cursor, and a click places a 300 µm window and docks a floating
-full-resolution cube of it, colored like the map, with your landmarks drawn on
-top. **Save** in the dock's title bar adds the window as an **inspect
-selection** to its history strip. Read the inspected cells back with
-`w.get_obs_names(adata, "<inspect id>")` or `w.selections`. Hold
-**Space** to pan in any tool.
+- From a SpatialData, the widget finds the table, the labels element it annotates, a 3D image on the same grid, and their µm frame (override with `table=`, `image=`, `labels=`; `contrast_limits=` for the image).
+- Press **I** (Inspect): hovering shows a live coarse preview of the tissue under the cursor, and a click places a 300 µm window and docks a floating full-resolution cube of it, colored like the map, with your landmarks drawn on top.
+- **Save** in the dock's title bar adds the window as an **inspect selection** to its history strip. Read the inspected cells back with `w.get_obs_names(adata, "<inspect id>")` or `w.selections`.
+- Hold **Space** to pan in any tool.
 
 Read results back in Python:
 
