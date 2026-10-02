@@ -78,10 +78,6 @@ const LANDMARK_OPACITY = 0.28;
 const STROKE_WIDTH = 2;
 const DEFAULT_TENSION = 0;
 const DEFAULT_BUFFER_SIDE = "both";
-/** Soft hover/pin halos by inspect target type (DESIGN.md). */
-const HALO_LANDMARK = "#00e5ff";
-const HALO_CELL = "#a3a3a3";
-const HALO_MOLECULE = "#ff0099";
 /** DESIGN.md neighborhood-teal */
 const NEIGH_COLOR = "#b3f2e8";
 const NEIGH_FILL_ALPHA = 0.3;
@@ -220,6 +216,10 @@ function easeOutQuart(t) {
   return 1 - Math.pow(1 - t, 4);
 }
 
+const WHEEL_ZOOM_SPEED = 0.01; // deck.gl default
+const WHEEL_ZOOM_BOOST = 4; // extra gain at tiny deltas (trackpad gesture start)
+const WHEEL_ZOOM_KNEE = 10; // px delta where the boost has fallen to 1/2
+
 /** Shift+wheel often reports deltaX on macOS/Chrome; prefer vertical then horizontal. */
 function wheelDelta(e) {
   const dy = e.deltaY || 0;
@@ -335,56 +335,9 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         style: tooltipStyle(),
       };
     }
-    // Pointer-only hover tooltips (Move / Selection / landmark draw: no hover paint).
-    if (currentMode !== "select") return null;
-    const hit = resolvePointerTarget(info);
-    // Landmark hover tips off — cursor affordance stays via getCursor / pickable.
-    if (!hit || hit.kind === "landmark") return null;
-    const text = formatInspectTooltip(hit);
-    return text ? { text, style: tooltipStyle() } : null;
-  }
-
-  function formatInspectTooltip(hit) {
-    if (!hit) return "";
-    if (hit.kind === "landmark") {
-      const lm = (model.get("landmarks") || [])[hit.index];
-      if (!lm) return "";
-      return String(lm.id || `landmark ${hit.index}`);
-    }
-    if (hit.kind === "type") {
-      const labels = model.get("legend_labels") || [];
-      const name = labels[hit.index] ?? `type ${hit.index}`;
-      const cat = model.get("active_category") || "category";
-      return `${cat}: ${name}`;
-    }
-    if (hit.kind === "molecule") {
-      const pts = getPointsData();
-      const p = pts[hit.index];
-      if (!p) return `molecule ${hit.index}`;
-      const bits = [`molecule ${hit.index}`, `x ${p.x.toFixed(1)}`, `y ${p.y.toFixed(1)}`];
-      const activeGenes = model.get("active_genes") || [];
-      const genesOn =
-        model.get("color_by") === "continuous" && activeGenes.length > 0;
-      if (genesOn) {
-        for (const name of activeGenes) {
-          const raw = geneRawAt(hit.index, name);
-          if (raw == null || !Number.isFinite(raw)) continue;
-          bits.push(`${name} ${Number(raw).toPrecision(3)}`);
-        }
-      } else {
-        const labels = model.get("legend_labels") || [];
-        const code = categoryCodeAt(hit.index);
-        if (code >= 0 && labels[code] != null) bits.push(String(labels[code]));
-      }
-      return bits.join(" · ");
-    }
-    return "";
-  }
-
-  function haloColorFor(kind) {
-    if (kind === "landmark") return HALO_LANDMARK;
-    if (kind === "type") return HALO_CELL;
-    return HALO_MOLECULE;
+    // No hover tooltips: landmark tips are off and cells are not hover-picked
+    // (a GPU pick over ~10^5 points stalled wheel zoom).
+    return null;
   }
 
   legend.addEventListener("mousedown", (e) => e.stopPropagation());
@@ -2722,12 +2675,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       currentMode,
       ...roleTrigger,
     ];
-    // Probe scrub uses DOM mousemove + unproject — GPU picking here only
-    // stalls hover (20k+ points). Pointer mode still picks for landmark tips.
-    const selectHoverPick = currentMode === "select";
-    const pickData = selectHoverPick
-      ? data.map((d) => ({ ...d, kind: "molecule", index: d.i }))
-      : data;
+    // Cells are never GPU-picked: a pick pass over 10^5+ points stalls hover and
+    // wheel zoom. Probe scrub uses DOM mousemove + unproject.
     // Hoist probe field once; getFillColor must stay O(1) per point.
     const probeField =
       pointSimilarityOn() || rasterSimilarityOn()
@@ -2736,7 +2685,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     return [
       new ScatterplotLayer({
         id: "landmarks-points",
-        data: pickData,
+        data,
         getPosition: (d) => [d.x, d.y, 0],
         getFillColor: (d) => fillColorForPoint(d, probeField),
         getRadius: (d) => radiusForPoint(d),
@@ -2744,12 +2693,10 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         radiusMinPixels: 1.5,
         stroked: false,
         filled: true,
-        // Hover-only: select never selects points (click ignores molecules).
-        pickable: selectHoverPick,
+        pickable: false,
         updateTriggers: {
           getFillColor: fillTriggers,
           getRadius: roleTrigger,
-          pickable: selectHoverPick,
         },
       }),
     ];
@@ -3334,7 +3281,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     return null;
   }
 
-  /** Hover pick includes molecules for pie / tooltips; never used for selection. */
+  /** Hover pick: landmarks only (cells are not pickable). */
   function resolveHoverTarget(info) {
     if (!info) return null;
     if (deckgl?.isInitialized && info.x != null && info.y != null) {
@@ -3347,88 +3294,11 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       const objs = stack.map((s) => s.object).filter(Boolean);
       const landmark = objs.find((o) => o.kind === "landmark");
       if (landmark) return { kind: "landmark", index: landmark.index };
-      const mol = objs.find((o) => o.kind === "molecule");
-      if (mol) return { kind: "molecule", index: mol.index };
     }
     const obj = info.object;
-    if (obj?.kind === "landmark" || obj?.kind === "molecule") {
-      return { kind: obj.kind, index: obj.index };
-    }
+    if (obj?.kind === "landmark") return { kind: obj.kind, index: obj.index };
     return null;
   }
-
-  function inspectHaloTargets() {
-    const out = [];
-    const pinKind = model.get("selected_kind");
-    const pinIndex = model.get("selected_index");
-    // Landmark pin only — no category / molecule outlines.
-    if (pinKind === "landmark" && pinIndex >= 0) {
-      out.push({ kind: pinKind, index: pinIndex, pinned: true });
-    }
-    if (
-      hoverTarget?.kind === "landmark" &&
-      !(pinKind === "landmark" && hoverTarget.index === pinIndex)
-    ) {
-      out.push({ ...hoverTarget, pinned: false });
-    }
-    return out;
-  }
-
-  function haloPositionsFor(hit) {
-    const pts = getPointsData();
-    if (hit.kind === "molecule") {
-      const p = pts[hit.index];
-      return p ? [[p.x, p.y, 0]] : [];
-    }
-    if (hit.kind === "landmark") {
-      // No center-point halo for landmarks — selection uses stroke emphasis.
-      return [];
-    }
-    return [];
-  }
-
-  function buildInspectHaloLayer() {
-    if (!deckModules || currentMode !== "select") return null;
-    const { ScatterplotLayer } = deckModules;
-    const size = model.get("point_size") ?? 2;
-    const data = [];
-    for (const hit of inspectHaloTargets()) {
-      const hex = haloColorFor(hit.kind);
-      const fill = hexToRgbaBytes(hex, hit.pinned ? 0.28 : 0.16);
-      const line = hexToRgbaBytes(hex, hit.pinned ? 0.95 : 0.55);
-      const radius = size * (hit.pinned ? 2.4 : 2.0);
-      for (const position of haloPositionsFor(hit)) {
-        data.push({
-          position,
-          fill,
-          line,
-          radius,
-          lineWidth: hit.pinned ? 2 : 1.25,
-        });
-      }
-    }
-    if (!data.length) return null;
-    return new ScatterplotLayer({
-      id: "inspect-halo",
-      data,
-      getPosition: (d) => d.position,
-      getFillColor: (d) => d.fill,
-      getLineColor: (d) => d.line,
-      getRadius: (d) => d.radius,
-      getLineWidth: (d) => d.lineWidth,
-      radiusUnits: "common",
-      lineWidthUnits: "pixels",
-      stroked: true,
-      filled: true,
-      pickable: false,
-      parameters: OVERLAY_GL,
-      updateTriggers: {
-        getFillColor: [hoverTarget, model.get("selected_kind"), model.get("selected_index")],
-        getRadius: [model.get("point_size")],
-      },
-    });
-  }
-
 
   function buildProbeOutlineLayers() {
     if (!deckModules || !probeModeOn()) return [];
@@ -3503,7 +3373,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       ...buildProbeOutlineLayers(),
       ...buildNeighborhoodLayers(),
       ...buildPointsLayer(),
-      buildInspectHaloLayer(),
       ...buildLandmarkLayers(),
       ...buildDraftLayers(),
       ...buildVolumeWindowLayers(),
@@ -5784,6 +5653,46 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
 
   const abort = new AbortController();
   const { signal } = abort;
+
+  // deck.gl zoom is linear in wheel delta (speed 0.01), so a trackpad gesture
+  // (deltas of 1–5 px at the start) crawls before it ramps. Boost small deltas;
+  // mouse notches (~100) keep deck's stock step.
+  webglCanvas.addEventListener(
+    "wheel",
+    (e) => {
+      if (e.shiftKey || !deckgl || !currentViewState) return;
+      // Deck may report zoom as a scalar or an [x, y] pair; zoom stays uniform.
+      const zRaw = currentViewState.zoom;
+      const z0 = Array.isArray(zRaw) ? zRaw[0] : zRaw;
+      if (typeof z0 !== "number") return;
+      const scalar = (v, d) => (Array.isArray(v) ? v[0] : v) ?? d;
+      let dy = e.deltaY || 0;
+      if (!dy) return;
+      if (e.deltaMode === 1) dy *= 40;
+      const boosted = dy * (1 + WHEEL_ZOOM_BOOST / (1 + (dy / WHEEL_ZOOM_KNEE) ** 2));
+      const mag = Math.log2(2 / (1 + Math.exp(-Math.abs(boosted) * WHEEL_ZOOM_SPEED)));
+      const fit = scalar(fitZoom, z0);
+      const zoom = Math.max(
+        scalar(currentViewState.minZoom, fit - 1),
+        Math.min(scalar(currentViewState.maxZoom, fit + 6), z0 + (dy < 0 ? mag : -mag))
+      );
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (zoom === z0) return;
+      // Keep the world point under the cursor fixed.
+      const rect = webglCanvas.getBoundingClientRect();
+      const vp = deckgl.getViewports()?.[0];
+      const world = vp?.unproject([e.clientX - rect.left, e.clientY - rect.top]);
+      const next = { zoom: Array.isArray(zRaw) ? [zoom, zoom] : zoom };
+      if (world) {
+        const t = currentViewState.target || [0, 0, 0];
+        const k = Math.pow(2, z0 - zoom);
+        next.target = [world[0] - (world[0] - t[0]) * k, world[1] - (world[1] - t[1]) * k, 0];
+      }
+      setViewState(next);
+    },
+    { signal, capture: true, passive: false }
+  );
 
   webglCanvas.addEventListener(
     "wheel",
