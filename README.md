@@ -6,20 +6,25 @@
 
 **milume: a thinking surface for spatial omics.**
 
-A tactile, reactive widget that harnesses your scientific intuition.
+You have a spatial dataset and a hunch. milume turns a notebook cell into a tactile,
+reactive surface where you can look at your tissue, select what catches your eye, and
+carry that selection straight into code. Cells, landmarks and measurements stay in
+plain `AnnData` / `obs_names` / geometry, so what you see on the surface is what you
+analyze next.
 
-Layer your data, select what catches your eye, and pick up where you left off in code.
+One call opens it:
 
-Milume is a reactive ([anywidget](https://anywidget.dev)) for engaging with spatial omics data, 
-which then drives the analysis that follows, creating an efficient feedback loop for ideation. The name
-comes from *mille* (thousand, as in mille-feuille, layers) + *lume* (light).
+```python
+import milume
 
-| Tool | Role | Demo |
-| ---- | ---- | ---- |
-| **LandmarksWidget** | Draw selections and landmarks on tissue coordinates; measure from the notebook | [![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/landmarks.py) |
+w = milume.peek(adata, color="cell_type")
+```
 
+Draw selections and landmarks, color by category or gene, expand neighborhoods, and
+read everything back in Python. The name comes from *mille* (thousand, as in
+mille-feuille, layers) + *lume* (light).
 
-More widgets and helpers may land here over time.
+[![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/landmarks.py)
 
 ## Install
 
@@ -27,9 +32,9 @@ More widgets and helpers may land here over time.
 pip install milume
 ```
 
-### Formerly spatial-rx
+### Migrate from spatial-rx
 
-Milume was called `spatial-rx`. The API is unchanged; only the names moved:
+Note: Milume was formerly `spatial-rx`. The API is unchanged; only the names moved:
 
 ```bash
 pip uninstall spatial-rx
@@ -39,9 +44,6 @@ pip install milume
 ```python
 import milume   # was: import spatial_rx
 ```
-
-The final `spatial-rx` release is a thin shim that depends on `milume` and
-re-exports it from `spatial_rx` with a `DeprecationWarning`.
 
 ## Alongside other viewers
 
@@ -57,16 +59,16 @@ From source:
 uv sync --extra demo --group dev
 ```
 
-## LandmarksWidget
+## milume.peek
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/landmarks_widget_dark.png" />
   <source media="(prefers-color-scheme: light)" srcset="assets/landmarks_widget_light.png" />
-  <img alt="Landmarks widget" src="assets/landmarks_widget_light.png" />
+  <img alt="milume surface" src="assets/landmarks_widget_light.png" />
 </picture>
 
-Draw selections and landmarks on tissue coordinates, color by category or gene,
-expand neighborhoods, and inspect the 3D tissue under a window.
+`milume.peek(data, **kwargs)` opens the surface on your data and returns a widget `w`
+you read results from.
 
 ```python
 import milume
@@ -75,16 +77,19 @@ w = milume.peek(adata, color="cell_type")   # AnnData with obsm["spatial"]
 w = milume.peek(sdata, color="cell_type")   # SpatialData on disk: adds the 3D cube
 ```
 
-From a SpatialData, the widget finds the table, the labels element it
-annotates, a 3D image on the same grid, and their µm frame (override with
-`table=`, `image=`, `labels=`; `contrast_limits=` for the image). Press **I**
-(Inspect): hovering shows a live coarse preview of the tissue under the
-cursor, and a click places a 300 µm window and docks a floating
-full-resolution cube of it, colored like the map, with your landmarks drawn on
-top. **Save** in the dock's title bar adds the window as an **inspect
-selection** to its history strip. Read the inspected cells back with
-`w.get_obs_names(adata, "<inspect id>")` or `w.selections`. Hold
-**Space** to pan in any tool.
+| Argument | Meaning |
+| --- | --- |
+| `data` | `AnnData` with `obsm["spatial"]`, or a `SpatialData` |
+| `color` | `obs` column to color cells by |
+| `genes` | gene(s) to expose for coloring; limits the catalog on large matrices |
+| `spatial_key` | `obsm` key holding coordinates (default `"spatial"`) |
+| `table`, `image`, `labels` | override what is inferred from a `SpatialData` |
+| `contrast_limits` | display range for the 3D image |
+
+- From a SpatialData, the widget finds the table, the labels element it annotates, a 3D image on the same grid, and their µm frame (override with `table=`, `image=`, `labels=`; `contrast_limits=` for the image).
+- Press **I** (Inspect): hovering shows a live coarse preview of the tissue under the cursor, and a click places a 300 µm window and docks a floating full-resolution cube of it, colored like the map, with your landmarks drawn on top.
+- **Save** in the dock's title bar adds the window as an **inspect selection** to its history strip. Read the inspected cells back with `w.get_obs_names(adata, "<inspect id>")` or `w.selections`.
+- Hold **Space** to pan in any tool.
 
 Read results back in Python:
 
