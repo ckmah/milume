@@ -24,16 +24,14 @@ themselves if desired.
 - When placing the GeoDataFrame into SpatialData, use the **same coordinate
   system** as the table / points used to build the widget scatter. Do not invent
   a second CRS for landmarks.
-- With `LandmarksWidget(sdata)` that coordinate system is `w.coordinate_system`
-  (chosen by `coordinate_system=`, else the one holding most of the table's
-  cells). Declare it when you place the GeoDataFrame, so the element lines up
-  with the cells in every other coordinate system the table's elements share:
+- The widget does not know which SpatialData coordinate system `spatial_key`
+  is in; you do. Declare it when you place the GeoDataFrame:
 
   ```python
   from spatialdata.models import ShapesModel
   from spatialdata.transformations import Identity
 
-  sdata["landmarks"] = ShapesModel.parse(gdf, transformations={w.coordinate_system: Identity()})
+  sdata["landmarks"] = ShapesModel.parse(gdf, transformations={"global": Identity()})
   ```
 - Y-up vs image Y-down follows whatever the widget already uses for
   `obsm["spatial"]` (no silent flip on write/read).

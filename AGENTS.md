@@ -54,7 +54,7 @@ Durable do/don't rules for agents. Prefer short tables over prose; vocabulary ma
 | Landmark persistence via `landmarks_to_geodataframe` / `geodataframe_to_landmarks` | Treating selections as SpatialData geometry export (M1 contract) |
 | Selection hits via `obs_names` / `get_obs_names` / `assign_obs_mask` | Positional indices for selection membership |
 | Neighborhood expand in the browser from coordinates | Required or synced `obsp` neighbor graphs |
-| `LandmarksWidget(sdata)` infers table / coordinate system / cell positions (`table_source.py`) and labels / 3D image / frame (`volume_source.py`); test with `tests.helpers.toy_spatialdata` (3D) and `circles_sdata` (2D, any platform shape); try real datasets with `MILUME_SDATA_DIR` ([`tests/test_spatialdata_datasets.py`](tests/test_spatialdata_datasets.py)) | Asking callers for paths or keys the SpatialData metadata already holds; assuming `obsm["spatial"]`, one coordinate system, one region, or a 3D image exists |
+| `LandmarksWidget(sdata)` infers table / labels / 3D image / frame (`volume_source.py`); test with `tests.helpers.toy_spatialdata` | Asking callers for paths or keys the SpatialData metadata already holds |
 | New synced traits only for values Python reads or sets; one compact trait per concern (base64 arrays, one config dict) | A trait per rendering control, or re-sending per-cell data on interaction |
 | Loopback serving scoped to the element dirs the browser needs (`serve_directory(..., allow_prefixes=)`) | Serving a whole store (tables, expression) to any local page |
 

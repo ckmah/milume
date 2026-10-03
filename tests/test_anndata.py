@@ -79,6 +79,21 @@ def test_selection_membership_is_written_to_obs_by_name():
         w.get_obs_names(adata[["c0", "c2"]].copy(), selection_id="selection 1")
 
 
+def test_get_obs_names_needs_no_table():
+    from milume import LandmarksWidget
+
+    adata = _adata()
+    w = LandmarksWidget(adata, color="cell_type")
+    w.selections = [
+        {
+            "id": "selection 1",
+            "type": "polygon",
+            "vertices": [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]],
+        }
+    ]
+    assert list(w.get_obs_names(selection_id="selection 1")) == ["c0"]
+
+
 def test_write_obs_joins_scores_by_obs_name():
     from milume import write_obs
 

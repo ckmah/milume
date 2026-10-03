@@ -64,6 +64,22 @@ def test_toy_pyramid_levels_share_grids(sdata):
     assert labels == image
 
 
+def test_several_tables_name_what_they_annotate(sdata):
+    sdata.tables["other"] = sdata.tables["table"].copy()
+    with pytest.raises(ValueError, match=r"annotates \['cells'\].*table="):
+        resolve_volume(sdata)
+
+
+def test_2d_labels_beside_a_3d_image_are_not_a_crash(sdata):
+    """Labels on a 2D grid cannot colour the cube: image only, with a notice."""
+    from spatialdata.models import Labels2DModel
+
+    sdata["flat"] = Labels2DModel.parse(np.ones((8, 8), dtype=np.uint32), dims=("y", "x"))
+    with pytest.warns(UserWarning, match="another grid"):
+        _, src = resolve_volume(sdata, labels="flat")
+    assert src.image == "mosaic" and src.labels is None
+
+
 def test_a_2d_sdata_has_no_cube_and_no_warning(recwarn):
     from spatialdata.datasets import blobs
 

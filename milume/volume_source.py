@@ -1,12 +1,10 @@
-"""Find what the Landmarks cube needs in a SpatialData: labels, 3D image, frame.
+"""Find what the Landmarks cube needs in a SpatialData: table, labels, 3D image, frame.
 
-The table (see ``table_source``) names the labels element it annotates and the
+The table's ``spatialdata_attrs`` name the labels element it annotates and the
 ``obs`` column holding each cell's label id. The image is the 3D image in the
 same coordinate system on the labels' grid (else the only 3D image there). The
 frame comes from the element's transform to that coordinate system, so window
 coordinates and ``obsm["spatial"]`` share units (µm for Pyxa / Meteor).
-
-Most SpatialData are 2D: then there is simply no cube, and nothing to warn about.
 """
 
 from __future__ import annotations
@@ -17,8 +15,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-
-from .table_source import TableSelection, select_table
 
 
 @dataclass(frozen=True)
@@ -67,36 +63,63 @@ def _frame_or_none(element: Any, cs: str):
         return None
 
 
-def volume_for(
+def _pick_table(sdata: Any, table: str | None) -> str:
+    if table is not None:
+        return table
+    names = list(sdata.tables)
+    if len(names) == 1:
+        return names[0]
+
+    def links_labels(name: str) -> bool:
+        # ``region`` may also be a list of elements; only a single name links labels.
+        region = sdata.tables[name].uns.get("spatialdata_attrs", {}).get("region")
+        return isinstance(region, str) and region in sdata.labels
+
+    linked = [n for n in names if links_labels(n)]
+    if len(linked) == 1:
+        return linked[0]
+    detail = []
+    for n in names:
+        region = sdata.tables[n].uns.get("spatialdata_attrs", {}).get("region")
+        regions = [region] if isinstance(region, str) else list(region or [])
+        detail.append(f"{n!r} (annotates {regions})" if regions else repr(n))
+    raise ValueError(f"several tables {', '.join(detail)}: pass table=<name>")
+
+
+def resolve_volume(
     sdata: Any,
-    sel: TableSelection,
     *,
-    rows: np.ndarray | None = None,
+    table: str | None = None,
     image: str | bool | None = None,
     labels: str | bool | None = None,
-) -> VolumeSource | None:
-    """The cube's volume source for the plotted ``rows`` of ``sel``, or ``None`` for no cube.
+) -> tuple[Any, VolumeSource | None]:
+    """The table to plot and, when the cube is possible, its volume source.
 
     ``image`` / ``labels``: an element name, ``None`` to infer, or ``False`` to
-    leave it out. Warns when a 3D image exists but cannot be served (the
-    SpatialData is not backed by a Zarr store, or its transform is not scale +
-    translation).
+    leave it out. No 3D image means no cube (silently: most SpatialData are 2D);
+    warns (and returns no source) when a 3D image cannot be served, i.e. the
+    SpatialData is not backed by a Zarr store on disk or its transform is not
+    scale + translation.
     """
-    adata = sel.adata
-    cs = sel.coordinate_system or "global"
-    kept = sel.keep if rows is None else np.isin(np.arange(adata.n_obs), rows)
+    table_name = _pick_table(sdata, table)
+    adata = sdata.tables[table_name]
+    attrs = adata.uns.get("spatialdata_attrs", {})
+    cs = "global"
 
     labels_name = None
-    if labels is not False and (isinstance(labels, str) or sel.row_region is not None):
-        regions = [labels] if isinstance(labels, str) else list(dict.fromkeys(sel.row_region[kept].tolist()))
-        if len(regions) == 1 and regions[0] in sdata.labels:
-            labels_name = regions[0]
+    if labels is not False:
+        region = labels if isinstance(labels, str) else attrs.get("region")
+        if isinstance(region, str) and region in sdata.labels:
+            labels_name = region
+    if labels_name is not None:
+        from spatialdata.transformations import get_transformation
+
+        systems = list(get_transformation(sdata.labels[labels_name], get_all=True))
+        cs = "global" if "global" in systems else systems[0]
 
     image_name = None
     if image is not False:
         if isinstance(image, str):
-            if image not in sdata.images:
-                raise ValueError(f"no image {image!r}; images: {list(sdata.images)}")
             image_name = image
         else:
             images3d = [n for n, e in sdata.images.items() if "z" in _level0(e).dims]
@@ -106,41 +129,25 @@ def volume_for(
                 image_name = (aligned or images3d or [None])[0]
             elif len(images3d) == 1:
                 image_name = images3d[0]
-    if image_name is None:
-        return None
+    if image_name is None:  # most SpatialData are 2D: no cube, nothing to warn about
+        return adata, None
     if getattr(sdata, "path", None) is None:
-        warnings.warn("SpatialData is not backed by a Zarr store on disk: no cube", UserWarning, stacklevel=3)
-        return None
+        warnings.warn("SpatialData is not backed by a Zarr store on disk: no cube", UserWarning, stacklevel=2)
+        return adata, None
+
     try:
         voxel, origin, shape = _frame(sdata.images[image_name], cs)
     except ValueError as err:
-        warnings.warn(f"image {image_name!r} in {cs!r}: {err}: no cube", UserWarning, stacklevel=3)
-        return None
+        warnings.warn(f"image {image_name!r} in {cs!r}: {err}: no cube", UserWarning, stacklevel=2)
+        return adata, None
     if labels_name is not None and _frame_or_none(sdata.labels[labels_name], cs) != (voxel, origin, shape):
         warnings.warn(
             f"labels {labels_name!r} are on another grid than {image_name!r}: cube shows the image only",
             UserWarning,
-            stacklevel=3,
+            stacklevel=2,
         )
         labels_name = None
     label_ids = None
-    instance_key = adata.uns.get("spatialdata_attrs", {}).get("instance_key")
-    if labels_name is not None and instance_key in adata.obs:
-        ids = adata.obs[instance_key].to_numpy()
-        label_ids = (ids if rows is None else ids[rows]).astype(np.int32)
-    return VolumeSource(sel.name, image_name, labels_name, Path(sdata.path), voxel, origin, shape, label_ids)
-
-
-def resolve_volume(
-    sdata: Any,
-    *,
-    table: str | None = None,
-    image: str | bool | None = None,
-    labels: str | bool | None = None,
-    coordinate_system: str | None = None,
-    region: str | list[str] | None = None,
-) -> tuple[Any, VolumeSource | None]:
-    """The table to plot and, when the cube is possible, its volume source."""
-    sel = select_table(sdata, table=table, coordinate_system=coordinate_system, region=region)
-    rows = None if sel.keep.all() else np.flatnonzero(sel.keep)
-    return sel.adata, volume_for(sdata, sel, rows=rows, image=image, labels=labels)
+    if labels_name is not None and attrs.get("instance_key") in adata.obs:
+        label_ids = adata.obs[attrs["instance_key"]].to_numpy().astype(np.int32)
+    return adata, VolumeSource(table_name, image_name, labels_name, Path(sdata.path), voxel, origin, shape, label_ids)
