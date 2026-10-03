@@ -154,7 +154,8 @@ const CELL_SAMPLE = `
 // toggle needs no recompile). The image accumulates samples (Additive) or keeps
 // the maximum (MIP); the labels accumulate shells front to back (Additive) or
 // keep the strongest shell (MIP). Labels composite over the image either way.
-// Viv steps \`p\` after _RENDER, so _RENDER may break but must not continue.
+// Viv steps p after _RENDER, so _RENDER may break but must not continue.
+// Either layer stops sampling once it is saturated (as the per-mode templates did).
 const RENDERING = {
   _BEFORE_RENDER: `${CELL_SETUP}
   vec4 acc = vec4(0.0);
@@ -165,19 +166,19 @@ const RENDERING = {
   _RENDER: `
     if (cubeRender.imageMip > 0.5) {
       maxImage = max(maxImage, intensityValue0);
-    } else {
+    } else if (acc.a < 0.95) {
       vec4 im = imageSample(intensityValue0);
       acc.rgb += (1.0 - acc.a) * im.a * im.rgb;
       acc.a += (1.0 - acc.a) * im.a;
     }
-    if (cellsOn) {
+    if (cellsOn && (cubeRender.cellMip > 0.5 || cells.a < 0.95)) {
       ${CELL_SAMPLE}
       if (cubeRender.cellMip > 0.5) {
         if (cell.a > cellMax) {
           cellMax = cell.a;
           cellMaxRgb = cell.rgb;
         }
-      } else if (cells.a < 0.95) {
+      } else {
         cells.rgb += (1.0 - cells.a) * cell.a * cell.rgb;
         cells.a += (1.0 - cells.a) * cell.a;
       }
@@ -198,7 +199,8 @@ const RENDERING = {
     imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
   }
   // The labels: the strongest shell along the ray, or the accumulated shells.
-  vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb, cellMax) : cells;
+  // Premultiplied, like the accumulated shells, for the "over" below.
+  vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb * cellMax, cellMax) : cells;
   // Labels over the image.
   color = vec4(
     cellsOut.rgb + (1.0 - cellsOut.a) * imageOut.rgb,
