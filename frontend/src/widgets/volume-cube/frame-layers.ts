@@ -150,12 +150,7 @@ export class FramedVolumeView extends VolumeView {
     // Viv's VolumeView.getLayers, with the cube's VolumeLayer (the image at its
     // own dtype, image-volume.ts) under Viv's own layer id.
     const loader = props.loader as { type?: string };
-    const context = props.contextLayer as Record<string, unknown> | null | undefined;
-    // The out-of-focus context first, so the window layer draws over it.
-    const layers: CubeVolumeLayer[] = context
-      ? [new CubeVolumeLayer(context, { id: `context-${loader.type}${vivTag(id)}` })]
-      : [];
-    layers.push(new CubeVolumeLayer(props, { id: `${loader.type}${vivTag(id)}` }));
+    const layers = [new CubeVolumeLayer(props, { id: `${loader.type}${vivTag(id)}` })];
     const frame = props.cubeFrame as CubeFrame | undefined;
     // The frame marks the requested window: it keeps its place while a loaded
     // window pans under it (`frameMatrix`), and otherwise shares the volume's.

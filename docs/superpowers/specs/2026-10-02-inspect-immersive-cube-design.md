@@ -1,5 +1,9 @@
 # Inspect: immersive cube
 
+> **Superseded in part (2026-10-03):** the context region (coarse, dimmed context
+> layer around the window) and its zoom-out bound were removed; see
+> [`2026-10-03-inspect-rework-design.md`](2026-10-03-inspect-rework-design.md).
+
 Status: approved in brainstorming (2026-10-02). Builds on
 [ADR 0006](../../adr/0006-landmarks-hosts-volume-cube.md) and
 [`2026-09-26-inspect-preview-dock-design.md`](2026-09-26-inspect-preview-dock-design.md).

@@ -43,18 +43,7 @@ export { DEFAULT_RENDER, type RenderSettings } from "./palettes";
 /** A 256-texel image colour map from `paletteLut`. */
 export type ImagePalette = { data: Uint8Array; width: number; height: number };
 
-type CubeUniforms = Partial<RenderSettings> & {
-  cellsOn?: number;
-  imageOn?: number;
-  imageScale?: number;
-  ctxOn?: number;
-  ctxWin?: [number, number, number, number];
-  ctxLook?: [number, number];
-};
-
-/** The out-of-focus look: brightness kept, and how far colour moves toward grey. */
-export const CONTEXT_DIM = 0.55;
-export const CONTEXT_DESATURATE = 0.5;
+type CubeUniforms = Partial<RenderSettings> & { cellsOn?: number; imageOn?: number; imageScale?: number };
 
 // The module must not share a sampler's name: luma.gl keys a module's
 // uniforms by module name and would set that sampler's texture unit from them.
@@ -67,21 +56,8 @@ const cubeRenderModule = {
     cellsOn: "f32",
     imageOn: "f32",
     imageScale: "f32",
-    ctxOn: "f32",
-    ctxWin: "vec4<f32>",
-    ctxLook: "vec2<f32>",
   },
-  defaultUniforms: {
-    imageAlpha: 1,
-    imageGamma: 1,
-    cellAlpha: 1,
-    cellsOn: 0,
-    imageOn: 1,
-    imageScale: 1,
-    ctxOn: 0,
-    ctxWin: [0, 0, 0, 0],
-    ctxLook: [1, 0],
-  },
+  defaultUniforms: { imageAlpha: 1, imageGamma: 1, cellAlpha: 1, cellsOn: 0, imageOn: 1, imageScale: 1 },
   // Only the numbers reach the uniform block; the palette is a texture.
   getUniforms: (render: CubeUniforms = {}) => ({
     imageAlpha: render.imageAlpha ?? DEFAULT_RENDER.imageAlpha,
@@ -90,9 +66,6 @@ const cubeRenderModule = {
     cellsOn: render.cellsOn ?? 0,
     imageOn: render.imageOn ?? 1,
     imageScale: render.imageScale ?? 1,
-    ctxOn: render.ctxOn ?? 0,
-    ctxWin: render.ctxWin ?? [0, 0, 0, 0],
-    ctxLook: render.ctxLook ?? [1, 0],
   }),
   // Viv's contrast ramp on the raw value: a unorm image texture (r8unorm,
   // r16unorm) samples as value / max, and imageScale (max; 1 for float)
@@ -110,9 +83,6 @@ uniform cubeRenderUniforms {
   float cellsOn;
   float imageOn;
   float imageScale;
-  float ctxOn;
-  vec4 ctxWin;
-  vec2 ctxLook;
 } cubeRender;
 
 // All 3D textures, the lookups one texel deep: luma.gl validates the program
@@ -130,34 +100,6 @@ vec4 imageSample(float v) {
   float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
   vec3 c = srgbToLinear(texelFetch(imagePalette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
-}
-
-// A context layer leaves to the window layer every ray that crosses the
-// window's column (footprint x0, x1, y0, y1 in texture space, the whole stack
-// deep) for at least one step dt within the ray's span [t.x, t.y]: a ray
-// grazing the column's edge gets no sample from the window and would leave a
-// dark seam, so the context keeps it. Both layers add into the target, so
-// skipping only the samples inside the column would still add the context's
-// samples beyond it (under the window's walls, and around its top edges in
-// perspective) to the window's own: a double-bright rim. The window always
-// shows unoccluded; the context fills the rest.
-bool ctxHidesRay(vec3 eye, vec3 dir, vec2 t, float dt) {
-  if (cubeRender.ctxOn < 0.5) return false;
-  vec3 lo = vec3(cubeRender.ctxWin.x, cubeRender.ctxWin.z, 0.0);
-  vec3 hi = vec3(cubeRender.ctxWin.y, cubeRender.ctxWin.w, 1.0);
-  vec3 a = (lo - eye) / dir;
-  vec3 b = (hi - eye) / dir;
-  vec3 near = min(a, b);
-  vec3 far = max(a, b);
-  float t0 = max(max(near.x, near.y), max(near.z, t.x));
-  float t1 = min(min(far.x, far.y), min(far.z, t.y));
-  return t1 - t0 >= dt;
-}
-// The out-of-focus grade: toward grey, then dimmed (identity for the window layer).
-vec3 ctxGrade(vec3 c) {
-  if (cubeRender.ctxOn < 0.5) return c;
-  float g = dot(c, vec3(0.2126, 0.7152, 0.0722));
-  return mix(c, vec3(g), cubeRender.ctxLook.y) * cubeRender.ctxLook.x;
 }
 
 // Colour (linear RGB) and per-sample alpha of the label voxel at texel q.
@@ -181,10 +123,7 @@ vec4 cellColor(ivec3 q) {
 
 // No channel placeholders anywhere, so Viv does not repeat these lines per
 // channel. With no labels bound, or Labels off, cellsOn skips the label fetch.
-// A context layer drops the rays the window layer draws, before the loop (Viv
-// advances p after _RENDER, so the loop body must never continue).
 const CELL_SETUP = `
-  if (ctxHidesRay(transformed_eye, ray_dir, t_hit, dt)) discard;
   ivec3 cellSize = textureSize(labelVolume, 0);
   bool cellsOn = cubeRender.cellsOn > 0.5;`;
 
@@ -201,7 +140,6 @@ const ADDITIVE = {
       color.a += (1.0 - color.a) * cell.a;
     }
     vec4 im = imageSample(intensityValue0);
-    im.rgb = ctxGrade(im.rgb);
     color.rgb += (1.0 - color.a) * im.a * im.rgb;
     color.a += (1.0 - color.a) * im.a;
     if (color.a >= 0.95) {
@@ -227,7 +165,6 @@ const MIP = {
   // would square the ramp and darken everything below full intensity. With
   // the image off only the cells remain, at their own alpha (as in Additive).
   vec4 im = imageSample(maxImage);
-  im.rgb = ctxGrade(im.rgb);
   float imageOn = cubeRender.imageOn;
   color = vec4(cells.rgb + (1.0 - cells.a) * im.rgb * cubeRender.imageAlpha * imageOn, mix(cells.a, 1.0, imageOn));`,
 };
@@ -249,8 +186,6 @@ type LayerLike = {
     onImageBound?: (format: ImageFormat | null) => void;
     imagePalette?: ImagePalette | null;
     render?: RenderSettings | null;
-    /** A context layer: the window's footprint in its texture (x0, x1, y0, y1), drawn by the window layer instead. */
-    contextWindow?: [number, number, number, number] | null;
     /** Set by Viv's VolumeLayer: `data[0]` is the image volume being drawn. */
     channelData?: { data?: unknown[] } | null;
   };
@@ -395,9 +330,6 @@ abstract class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       cellsOn,
       imageOn,
       imageScale: image?.scale ?? 1,
-      ctxOn: layer.props.contextWindow ? 1 : 0,
-      ctxWin: layer.props.contextWindow ?? [0, 0, 0, 0],
-      ctxLook: [CONTEXT_DIM, CONTEXT_DESATURATE],
     };
     model.shaderInputs.setProps({ cubeRender: uniforms });
   }

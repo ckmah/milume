@@ -110,17 +110,13 @@ without new traits:
 - The cube opens on mouse **release**, not press (the engine's `release`
   event). A press-and-drag positions the window with the hover preview
   following, and the cube opens where the drag ends.
-- A second, coarse **context** volume layer is loaded around the window (3×
-  the window's side, within `PREVIEW_REGION_BUDGET`, through its own
-  `useShownWindow`) and drawn first, dimmed and desaturated outside the
-  window, so zooming out shows the tissue around it. The window layer is
-  unchanged. The window stays the unit that Save, the cut and the highlight
-  act on; the context is for orientation only and never moves `inspect_cx` /
-  `inspect_cy` (no free pan; zoom-out stops just past the context region).
-- Known limit: the context drops every ray that crosses the window's column,
-  so an orbited view does not draw context tissue in front of or behind the
-  window. A screen-space blur that would hold the focus when orbited was not
-  built.
+- The window is the unit that Save, the cut and the highlight act on; the
+  camera orbits the window and zoom-out stops 2 steps below home, as in the
+  preview.
+- Addendum: a coarse **context** region (a second volume layer drawn dimmed
+  around the window) was added and then removed 2026-10-03, as it gave no
+  functional value; see
+  [`2026-10-03-inspect-rework-design.md`](../superpowers/specs/2026-10-03-inspect-rework-design.md).
 - No new synced traits; `volume`, `volume_label_ids`, `volume_cut`, `inspect_*`
   and `selections` keep their meaning, and ADR 0005 still holds (the cube's
-  controls and the context stay client-local).
+  controls stay client-local).
