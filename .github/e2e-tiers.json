@@ -1,0 +1,34 @@
+{
+  "core": [
+    "frontend/src/components/**",
+    "frontend/src/styles/**",
+    "frontend/src/lib/**",
+    "frontend/src/hooks/**",
+    "frontend/components.json",
+    "frontend/e2e/core/**"
+  ],
+  "landmarks": [
+    "frontend/src/widgets/landmarks/**",
+    "frontend/src/widgets/volume-cube/**",
+    "frontend/e2e/landmarks/**",
+    "frontend/dev/**",
+    "milume/volume_cube.py",
+    "milume/landmarks.py"
+  ],
+  "infra": [
+    "frontend/e2e/helpers.ts",
+    "frontend/playwright.config.ts",
+    "frontend/package.json",
+    "frontend/package-lock.json",
+    "frontend/vite.config.*",
+    "frontend/index.html",
+    ".github/workflows/frontend-e2e.yml",
+    ".github/scripts/post-playwright-visuals.sh",
+    ".github/e2e-tiers.json"
+  ],
+  "python": [
+    "milume/**",
+    "tests/**",
+    "pyproject.toml"
+  ]
+}

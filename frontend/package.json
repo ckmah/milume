@@ -3,21 +3,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "MILUME_BUILD_WIDGET=landmarks vite build",
+    "build": "cross-env MILUME_BUILD_WIDGET=landmarks vite build",
     "dev:landmarks": "vite",
     "dev:fixture": "uv run --directory .. python frontend/dev/export-fixture.py",
-    "watch": "MILUME_BUILD_WIDGET=landmarks vite build --watch",
-    "watch:landmarks": "MILUME_BUILD_WIDGET=landmarks vite build --watch",
-    "dev:landmarks-volume": "DEV_WIDGET=landmarks-volume vite",
+    "watch": "cross-env MILUME_BUILD_WIDGET=landmarks vite build --watch",
+    "watch:landmarks": "cross-env MILUME_BUILD_WIDGET=landmarks vite build --watch",
+    "dev:landmarks-volume": "cross-env DEV_WIDGET=landmarks-volume vite",
     "typecheck": "tsc --noEmit",
     "test:e2e": "npm run test:e2e:core && npm run test:e2e:landmarks",
     "test:e2e:core": "playwright test e2e/core",
-    "test:e2e:landmarks": "E2E_HARNESS=landmarks-volume playwright test e2e/landmarks/landmarks-volume.spec.ts && playwright test e2e/landmarks",
+    "test:e2e:landmarks": "cross-env E2E_HARNESS=landmarks-volume playwright test e2e/landmarks/landmarks-volume.spec.ts && playwright test e2e/landmarks",
     "test:e2e:install": "playwright install chromium",
-    "test:e2e:mac": "PLAYWRIGHT_CHANNEL=chrome playwright test",
+    "test:e2e:mac": "cross-env PLAYWRIGHT_CHANNEL=chrome playwright test",
     "test:e2e:update": "playwright test --update-snapshots=all",
     "test:e2e:update:core": "playwright test e2e/core --update-snapshots=all",
-    "test:e2e:update:landmarks": "playwright test e2e/landmarks --update-snapshots=all"
+    "test:e2e:update:landmarks": "playwright test e2e/landmarks --update-snapshots=all",
+    "check:chrome": "node scripts/check-chrome.mjs",
+    "verify": "node scripts/verify.mjs"
   },
   "overrides": {
     "@deck.gl/core": "9.2.11",
@@ -69,6 +71,7 @@
     "@types/react": "^19.1.12",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.2",
+    "cross-env": "^10.1.0",
     "tailwindcss": "^4.1.12",
     "typescript": "^5.9.2",
     "vite": "^7.1.3"
