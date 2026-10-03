@@ -239,6 +239,43 @@ test.describe("Landmarks inspect cube", () => {
     await expect(preview(page).locator(".volume-cube__view")).toHaveAttribute("data-context", "off");
   });
 
+  test("context draws dimmed around the window, never over it", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-context-refining", "false");
+    // Zoom out as far as the cube allows (two steps below its home view), so
+    // the 256 µm volume around the 100 µm window is on screen.
+    const b = (await view.boundingBox())!;
+    const home = Number(await view.getAttribute("data-zoom"));
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    for (let i = 0; i < 6; i++) await page.mouse.wheel(0, 300);
+    await expect.poll(async () => Number(await view.getAttribute("data-zoom"))).toBeLessThan(home - 1.5);
+    const clip = (fx: number, fy: number, fw: number, fh: number) => ({
+      x: b.x + b.width * fx,
+      y: b.y + b.height * fy,
+      width: b.width * fw,
+      height: b.height * fh,
+    });
+    // Strips just above and below the window's footprint (about 0.42-0.58 of
+    // the view's height here), inside the volume (about 0.29-0.69) and clear of
+    // the floating toolbars and the frame's axis labels: only context can light them.
+    const above = clip(0.47, 0.3, 0.15, 0.08);
+    const below = clip(0.47, 0.6, 0.15, 0.08);
+    const lit = async (min: number) =>
+      (await brightPixels(page, await page.screenshot({ clip: above }), min)) +
+      (await brightPixels(page, await page.screenshot({ clip: below }), min));
+    // In both projections (MIP shows the toy cells at full stain brightness).
+    for (const projection of ["Additive", "Maximum intensity"]) {
+      await page.getByTestId("context-inspect-toolbar").getByRole("radio", { name: projection }).click();
+      await expect(view).toHaveAttribute("data-render", projection === "Additive" ? "additive" : "mip");
+      expect(await lit(20)).toBeGreaterThan(0);
+      // The context is dimmed: nothing outside the window reaches the stain's full brightness.
+      expect(await lit(200)).toBe(0);
+    }
+  });
+
   test("the Inspect toolbar shows before a window is placed; cut sliders wait for ranges without a crash", async ({
     page,
   }) => {

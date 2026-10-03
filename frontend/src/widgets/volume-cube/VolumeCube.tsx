@@ -10,7 +10,7 @@ import type { ChunkCache } from "./chunk-cache";
 import { CUBE_EXTENSIONS, type HighlightGroup, type RenderSettings } from "./cell-lut-extension";
 import { type CellVolume, TOO_MANY_CELLS, markVivVolume } from "./cell-volume";
 import { AxisLegend } from "./axis-legend";
-import { type ContextProp, contextMatrix } from "./context-layer";
+import { type ContextProp, contextMatrix, windowRectInContext } from "./context-layer";
 import type { ImageFormat } from "./image-volume";
 import type { Range, ViewPreset } from "./CubeControls";
 import { type CubeFrame, FramedVolumeView, labelPad } from "./frame-layers";
@@ -584,6 +584,31 @@ export function VolumeCube({
         : null,
     [ctxShown, shown, liveBox, ry],
   );
+  // The window's footprint in the context texture: the context layer leaves it
+  // to the window layer. The window draws its exact µm extent (winX, winY), up
+  // to a voxel inside `liveBox` (whole voxels) on each side: masking `liveBox`
+  // would leave a dark seam at the frame.
+  const ctxRect = useMemo(
+    () =>
+      ctxShown && level && levelVoxel
+        ? windowRectInContext({
+            ctx: ctxShown,
+            win: {
+              level,
+              box: {
+                z0: 0,
+                z1: levelDepth,
+                x0: (winX[0] - oxUm) / levelVoxel[2],
+                x1: (winX[1] - oxUm) / levelVoxel[2],
+                y0: (winY[0] - oyUm) / levelVoxel[1],
+                y1: (winY[1] - oyUm) / levelVoxel[1],
+              },
+            },
+          })
+        : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ctxShown, level, levelDepth, winX[0], winX[1], winY[0], winY[1], oxUm, oyUm, levelVoxel?.[1], levelVoxel?.[2]],
+  );
   // The Z cut in the context level's voxels.
   const ctxFz = ctxShown?.level.factor[0] ?? 1;
   const ctxDepth = ctxShown ? axisSize(ctxShown.level.source, "z") : 1;
@@ -788,7 +813,7 @@ export function VolumeCube({
               cubeOverlays: placedOverlays,
               // A second volume layer, drawn under the window (frame-layers.ts).
               contextLayer:
-                ctxLoader && ctxMatrix && ctxShown
+                ctxLoader && ctxMatrix && ctxRect && ctxShown
                   ? {
                       loader: ctxLoader,
                       onViewportLoad: onCtxViewportLoad,
@@ -807,6 +832,7 @@ export function VolumeCube({
                       render,
                       showImage,
                       modelMatrix: ctxMatrix,
+                      contextWindow: ctxRect,
                       clippingPlanes: [],
                     }
                   : null,
@@ -836,6 +862,7 @@ export function VolumeCube({
       onCtxViewportLoad,
       ctxMatrix,
       ctxZSlice,
+      ctxRect,
       ctxShown,
     ],
   );
