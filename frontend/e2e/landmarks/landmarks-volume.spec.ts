@@ -131,8 +131,9 @@ async function newCategoryPixels(page: Page, before: Buffer, after: Buffer) {
  * Category-coloured pixels of a screenshot, grouped into connected blobs: for
  * each blob of at least 30 pixels (bounding-box radius R = half the larger
  * side), `core` counts its pixels within 0.4R of the box centre and `rim` those
- * between 0.7R and 1.15R, summed over blobs. A filled cell has a core as dense
- * as its rim; a shell's core is hollow.
+ * between 0.7R and 1.15R, summed over blobs. The core is a smaller area than the
+ * rim band, so even a filled cell has core/rim well below 1 (see the shells test
+ * for the measured ratios).
  */
 async function ringVsCore(page: Page, png: Buffer) {
   return page.evaluate(
@@ -1067,8 +1068,9 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-refining", "false");
     const { rim, core } = await ringVsCore(page, await view.screenshot());
     expect(rim).toBeGreaterThan(0);
-    // Measured: rim ~2600, core ~240 (the slab clips the pole of the smallest cell, a
-    // small solid cap); filled cells measured a core several times the rim.
+    // Measured core/rim: old filled cells, rim 8790 / core 2912 = 0.33; shells, rim 2649 /
+    // core 236 = 0.09 (the slab clips the pole of the smallest cell, a small solid cap).
+    // 0.25 sits between the two.
     expect(core).toBeLessThan(rim * 0.25);
   });
 

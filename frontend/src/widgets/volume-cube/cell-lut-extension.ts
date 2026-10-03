@@ -58,7 +58,7 @@ const cubeRenderModule = {
     imageOn: "f32",
     imageScale: "f32",
   },
-  defaultUniforms: { imageAlpha: 1, imageGamma: 1, cellAlpha: 1, cellsOn: 0, imageOn: 1, imageScale: 1 },
+  defaultUniforms: { imageAlpha: 1, imageGamma: 1, cellAlpha: DEFAULT_RENDER.cellAlpha, cellsOn: 0, imageOn: 1, imageScale: 1 },
   // Only the numbers reach the uniform block; the palette is a texture.
   getUniforms: (render: CubeUniforms = {}) => ({
     imageAlpha: render.imageAlpha ?? DEFAULT_RENDER.imageAlpha,
