@@ -414,32 +414,54 @@ class LandmarksWidget(AnyWidget):
         self,
         adata: AnnData | Any,
         *,
-        spatial_key: str = "spatial",
+        spatial_key: str | None = "spatial",
         color: str | None = None,
         genes: str | list[str] | None = None,
         table: str | None = None,
+        coordinate_system: str | None = None,
+        region: str | list[str] | None = None,
         image: str | bool | None = None,
         labels: str | bool | None = None,
         contrast_limits: tuple[float, float] | None = None,
     ) -> None:
-        """Build from AnnData, or from a SpatialData (cube inferred).
+        """Build from AnnData, or from a SpatialData (table, frame and cube inferred).
 
             w = LandmarksWidget(adata, color="cell_type")
-            w = LandmarksWidget(sdata)  # table, labels, 3D image and frame inferred
+            w = LandmarksWidget(sdata)  # table, coordinates, 3D image and frame inferred
+
+        From a SpatialData, cells are placed from ``obsm[spatial_key]`` when the
+        table has it, else at the centroids of the elements it annotates in
+        ``coordinate_system`` (``spatial_key=None`` forces the latter). Pick
+        ``table`` when several exist, ``coordinate_system`` when the elements
+        live in several (e.g. one per FOV) and ``region`` to show only some of
+        the annotated elements. Landmarks and selections are in that coordinate
+        system (``w.coordinate_system``).
         """
         import numpy as np
 
         volume_source = None
+        table_xy = None
+        table_rows = None
+        cs_name = None
         if not isinstance(adata, AnnData) and hasattr(adata, "tables"):
-            from .volume_source import resolve_volume
+            from .table_source import select_table, table_coordinates
+            from .volume_source import volume_for
 
-            adata, volume_source = resolve_volume(adata, table=table, image=image, labels=labels)
+            sdata = adata
+            sel = select_table(sdata, table=table, coordinate_system=coordinate_system, region=region)
+            table_rows, table_xy = table_coordinates(sdata, sel, spatial_key)
+            volume_source = volume_for(sdata, sel, rows=table_rows, image=image, labels=labels)
+            cs_name = sel.coordinate_system
+            adata = sel.adata if table_rows is None else sel.adata[table_rows]
         if not isinstance(adata, AnnData):
             raise TypeError("LandmarksWidget(data) requires an AnnData or a SpatialData")
 
-        if spatial_key not in adata.obsm:
-            raise ValueError(f"adata.obsm[{spatial_key!r}] is required")
-        xy = np.asarray(adata.obsm[spatial_key], dtype=np.float64, copy=False)
+        if table_xy is not None:
+            xy = table_xy
+        else:
+            if spatial_key is None or spatial_key not in adata.obsm:
+                raise ValueError(f"adata.obsm[{spatial_key!r}] is required")
+            xy = np.asarray(adata.obsm[spatial_key], dtype=np.float64, copy=False)
         if xy.ndim != 2 or xy.shape[1] < 2:
             raise ValueError(f"adata.obsm[{spatial_key!r}] must be (n, ≥2)")
         if xy.shape[0] != adata.n_obs:
@@ -519,6 +541,8 @@ class LandmarksWidget(AnyWidget):
         points = np.column_stack([nx, ny, value_a, np.zeros(n, dtype=np.float32)])
 
         self._adata = adata
+        self._table_rows = table_rows  # positions of the plotted rows in the SpatialData table
+        self.coordinate_system = cs_name
         self._expr_frame = None
         self._x_scale = "linear"
         self._y_scale = "linear"
@@ -541,7 +565,7 @@ class LandmarksWidget(AnyWidget):
         gene_names = gene_names_from_adata(adata, genes)
         gene_meta, gene_payload = pack_eager_gene_matrix(adata, gene_names, n)
         gene_logged = bool(expression_is_log_scaled(adata)) if gene_names else False
-        embedding_keys = _discover_embedding_keys(adata, spatial_key=spatial_key)
+        embedding_keys = _discover_embedding_keys(adata, spatial_key=spatial_key or "spatial")
         embedding_key = _pick_default_embedding_key(embedding_keys)
 
         AnyWidget.__init__(
@@ -962,7 +986,7 @@ class LandmarksWidget(AnyWidget):
 
     def get_obs_names(
         self,
-        adata: Any,
+        adata: Any = None,
         selection_id: str | None = "all",
         *,
         spatial_key: str = "spatial",
@@ -972,24 +996,33 @@ class LandmarksWidget(AnyWidget):
         Uses :func:`selection_mask` (geometry or stored ``point_indices``).
         Neighborhood expand is client-side; promote freezes membership into
         ``point_indices`` before syncing.
+
+        With no ``adata``, or when the widget shows only some rows of a
+        SpatialData table (a coordinate system, ``region`` or cells without
+        coordinates), the widget's own coordinates and names are used, so the
+        result is the same whichever table object you pass.
         """
         import numpy as np
 
-        xy = np.asarray(adata.obsm[spatial_key], dtype=np.float64)
         cached = getattr(self, "_data_x", None)
-        if cached is None or xy.shape[0] != int(cached.shape[0]):
-            raise ValueError(
-                "adata row count != widget points; rebuild the widget after filtering"
-            )
+        if adata is None or getattr(self, "_table_rows", None) is not None:
+            x, y, names = cached, self._data_y, np.asarray(self._obs_names.astype(str))
+        else:
+            xy = np.asarray(adata.obsm[spatial_key], dtype=np.float64)
+            if cached is None or xy.shape[0] != int(cached.shape[0]):
+                raise ValueError(
+                    "adata row count != widget points; rebuild the widget after filtering"
+                )
+            x, y, names = xy[:, 0], xy[:, 1], np.asarray(adata.obs_names.astype(str))
         mask = selection_mask(
             list(self.selections),
-            xy[:, 0],
-            xy[:, 1],
+            x,
+            y,
             selection_id,
             x_scale=self._x_scale,
             y_scale=self._y_scale,
         )
-        return np.asarray(adata.obs_names.astype(str))[np.asarray(mask, dtype=bool)]
+        return names[np.asarray(mask, dtype=bool)]
 
     def assign_obs_mask(
         self,
@@ -999,7 +1032,11 @@ class LandmarksWidget(AnyWidget):
         *,
         spatial_key: str = "spatial",
     ) -> None:
-        """Write a boolean column on ``adata.obs`` for the current selection."""
+        """Write a boolean column on ``adata.obs`` for the current selection.
+
+        Joins by ``obs_names``, so ``adata`` may be the full SpatialData table
+        even when the widget shows only some of its rows (the rest get False).
+        """
         names = set(
             self.get_obs_names(
                 adata, selection_id, spatial_key=spatial_key

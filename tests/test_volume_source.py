@@ -26,8 +26,7 @@ def test_infers_table_labels_image_and_frame(sdata):
 def test_overrides_and_opt_out(sdata):
     _, src = resolve_volume(sdata, labels="cells", image="mosaic", table="table")
     assert src.image == "mosaic"
-    with pytest.warns(UserWarning, match="no 3D image"):
-        _, none = resolve_volume(sdata, image=False)
+    _, none = resolve_volume(sdata, image=False)  # opting out is silent
     assert none is None
 
 
@@ -63,3 +62,11 @@ def test_toy_pyramid_levels_share_grids(sdata):
     labels = [root[f"labels/cells/s{i}"].shape for i in range(3)]
     assert image == [(64, 256, 256), (32, 128, 128), (16, 64, 64)]
     assert labels == image
+
+
+def test_a_2d_sdata_has_no_cube_and_no_warning(recwarn):
+    from spatialdata.datasets import blobs
+
+    adata, src = resolve_volume(blobs())
+    assert src is None and adata.n_obs > 0
+    assert not [w for w in recwarn if issubclass(w.category, UserWarning)]

@@ -82,11 +82,14 @@ w = milume.peek(sdata, color="cell_type")   # SpatialData on disk: adds the 3D c
 | `data` | `AnnData` with `obsm["spatial"]`, or a `SpatialData` |
 | `color` | `obs` column to color cells by |
 | `genes` | gene(s) to expose for coloring; limits the catalog on large matrices |
-| `spatial_key` | `obsm` key holding coordinates (default `"spatial"`) |
-| `table`, `image`, `labels` | override what is inferred from a `SpatialData` |
+| `spatial_key` | `obsm` key holding coordinates (default `"spatial"`); `None` places cells from the annotated elements instead |
+| `table`, `coordinate_system`, `region` | pick from a `SpatialData`: the table, the coordinate system, and which annotated elements to show |
+| `image`, `labels` | override the 3D image / labels inferred from a `SpatialData` |
 | `contrast_limits` | display range for the 3D image |
 
-- From a SpatialData, the widget finds the table, the labels element it annotates, a 3D image on the same grid, and their µm frame (override with `table=`, `image=`, `labels=`; `contrast_limits=` for the image).
+- From a SpatialData, the widget finds the table, the elements it annotates, the coordinate system they share, and (for a 3D image on the same grid) their µm frame. Cells sit at `obsm["spatial"]` when the table has it, otherwise at the centroids of the annotated labels or shapes, transformed into the coordinate system (Xenium, MERFISH, Visium HD segmentations, SpaceM). Those derived positions are stored in `obsm["spatial"]` so `distances` and friends work on the table afterwards.
+- A table that annotates elements in several coordinate systems (one per FOV or slide, e.g. MIBI-TOF, Visium) shows the biggest one and warns; pass `coordinate_system=` to choose. `region=` shows only some of the annotated elements (e.g. SpaceM cells but not ablation marks). `w.coordinate_system` is the one shown; landmarks live in it.
+- Several tables (e.g. Visium HD cell and nucleus segmentations) need `table=`.
 - Press **I** (Inspect): hovering shows a live coarse preview of the tissue under the cursor, and a click places a 300 µm window and docks a floating full-resolution cube of it, colored like the map, with your landmarks drawn on top.
 - **Save** in the dock's title bar adds the window as an **inspect selection** to its history strip. Read the inspected cells back with `w.get_obs_names(adata, "<inspect id>")` or `w.selections`.
 - Hold **Space** to pan in any tool.
@@ -95,7 +98,7 @@ Read results back in Python:
 
 | Need | Call |
 | --- | --- |
-| Cells in a selection | `w.get_obs_names(adata, selection_id)`, `w.assign_obs_mask(adata, key, selection_id)` |
+| Cells in a selection | `w.get_obs_names(selection_id=...)`, `w.assign_obs_mask(adata, key, selection_id)` (by `obs_names`: pass the full table even if the widget shows only some rows) |
 | Landmarks as geometry | `landmarks_to_geodataframe(w.landmarks)` |
 | Measure against landmarks | `distances`, `composition`, `along_positions` (+ `write_obs`) |
 | Compare a subset with the tissue | `enrichment(adata, obs_names, obs_key=...)` |

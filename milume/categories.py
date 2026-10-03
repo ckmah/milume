@@ -24,6 +24,7 @@ _TAB20C = _matplotlib_tab("tab20c")
 DEFAULT_CATEGORICAL_PALETTE = _TAB20 + _TAB20B + _TAB20C
 
 _MAX_LEVELS = 128
+MISSING_LABEL = "NA"  # shown for missing values in a category column
 
 
 def default_categorical_palette(n: int) -> list[str]:
@@ -48,6 +49,17 @@ def default_categorical_palette(n: int) -> list[str]:
     return [pool[i % len(pool)] for i in range(n)]
 
 
+def _text_series(name: str, series: Any) -> Any:
+    """A pandas column as a polars string Series; missing values (NaN, None, NA) become nulls."""
+    import numpy as np
+    import polars as pl
+
+    missing = series.isna().to_numpy()
+    text = np.where(missing, "", series.astype(object).to_numpy()).astype(str)
+    out = pl.Series(name, text, dtype=pl.Utf8)
+    return out.set(pl.Series(missing), None) if missing.any() else out
+
+
 def as_polars(frame: Any) -> Any:
     """Coerce pandas / polars / mapping to a polars DataFrame."""
     import polars as pl
@@ -64,9 +76,13 @@ def as_polars(frame: Any) -> Any:
             for name in frame.columns:
                 series = frame[name]
                 if isinstance(series.dtype, pd.CategoricalDtype):
-                    cols[str(name)] = series.astype(str).to_numpy()
+                    cols[str(name)] = _text_series(str(name), series)
                 else:
-                    cols[str(name)] = series.to_numpy()
+                    values = series.to_numpy()
+                    if values.dtype == object:
+                        # Strings with missing values, mixed types, nullable extension dtypes.
+                        values = _text_series(str(name), series)
+                    cols[str(name)] = values
             return pl.DataFrame(cols)
         return pl.from_pandas(frame)
     if hasattr(frame, "__dataframe__"):
@@ -117,7 +133,7 @@ def encode_category_bundle(
     label_arrays: dict[str, Any] = {}
 
     for name in columns:
-        series = df[name].cast(pl.Utf8)
+        series = df[name].cast(pl.Utf8).fill_null(MISSING_LABEL)
         labels = [str(v) for v in series.unique(maintain_order=True).to_list()]
         cmap = color_maps.get(name) or {}
         if cmap:
