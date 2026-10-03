@@ -15,7 +15,7 @@ the checks for your diff from [`.github/e2e-tiers.json`](.github/e2e-tiers.json)
 
 ## Merging your own PR
 
-Needs a green `gate` check, a conflict-free non-draft PR, and, for user-visible chrome or canvas, visual evidence on the PR ([`post-playwright-visuals.sh`](.github/scripts/post-playwright-visuals.sh)). Squash, delete the branch, and note what you verified.
+Needs a green `gate` check and a conflict-free non-draft PR. Squash, delete the branch, and note what you verified. Visual changes show up as snapshot diffs in the PR; regenerate baselines on Linux CI.
 
 **Stop and escalate to Clarence instead of merging** on:
 

@@ -23,7 +23,6 @@
     "frontend/vite.config.*",
     "frontend/index.html",
     ".github/workflows/frontend-e2e.yml",
-    ".github/scripts/post-playwright-visuals.sh",
     ".github/e2e-tiers.json"
   ],
   "python": [
