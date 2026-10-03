@@ -1932,6 +1932,23 @@
   border-radius: 9999px 0 0 9999px;
 }
 
+/* Open cube: the docks and peek tabs float over it (Soft Float glass at the
+   tool pill's level), so a category or Selection can still be focused to
+   colour the cube. They start below the cube's actions row (title, Save,
+   Close) so they never cover it. */
+.landmarks--cube-open .landmarks__chrome {
+  --lm-chrome-band: calc(var(--lm-chrome-inset) * 2 + var(--lm-toolbar-h) * 2);
+}
+
+.landmarks--cube-open .landmarks__chrome-dock,
+.landmarks--cube-open .landmarks__peek-tab {
+  z-index: 22;
+}
+
+.landmarks--cube-open.landmarks--rulers .landmarks__peek-tab {
+  top: calc(var(--lm-chrome-band) + var(--lm-chrome-gap) + var(--lm-ruler-band));
+}
+
 .landmarks--rulers .landmarks__chrome-tools {
   top: calc(var(--lm-chrome-inset) + var(--lm-ruler-band));
 }

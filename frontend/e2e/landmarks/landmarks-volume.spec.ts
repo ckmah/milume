@@ -945,6 +945,37 @@ test.describe("Landmarks inspect cube", () => {
     await expect(right).toHaveAttribute("data-collapsed", "true");
   });
 
+  test("peek tabs and docks float over the open cube; focusing a category there recolours it", async ({ page }) => {
+    await openCubeAtCentre(page, { at: [130, 170] });
+    await toggleShow(page, "Show labels");
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-highlight", "2");
+    const right = page.locator(".landmarks__chrome-dock--right");
+    await expect(right).toHaveAttribute("data-collapsed", "true");
+    // Both peek tabs sit over the cube, clear of its Close button (a click is
+    // refused when another element would receive it).
+    const close = cubeWindow(page).getByRole("button", { name: "Close cube" });
+    await close.click({ trial: true, timeout: 5_000 });
+    await page.getByRole("button", { name: "Show left panel" }).click({ trial: true, timeout: 5_000 });
+    await page.getByRole("button", { name: "Show right panel" }).click();
+    await expect(right).toHaveAttribute("data-collapsed", "false");
+    await expect(cubeWindow(page)).toBeVisible();
+    // The expanded dock is the top hit over the cube, and the cube's actions stay reachable.
+    const b = (await right.boundingBox())!;
+    const onTop = await page.evaluate(
+      ([x, y]) => Boolean(document.elementFromPoint(x, y)?.closest(".landmarks__chrome-dock--right")),
+      [b.x + b.width / 2, b.y + Math.min(b.height / 2, 40)],
+    );
+    expect(onTop).toBe(true);
+    await close.click({ trial: true, timeout: 5_000 });
+
+    // Focus a category in the dock: the cube highlights only its cells (type1: cells 1 and 3).
+    await right.getByRole("button", { name: "Expand cell_type" }).click();
+    await right.getByRole("listitem").filter({ hasText: "type1" }).click();
+    await expect.poll(() => getModel(page, "selected_kind")).toBe("type");
+    await expect(view).toHaveAttribute("data-highlight", "1");
+  });
+
   test("highlight follows focus: everything, a category, a Selection", async ({ page }) => {
     // The 300 µm square holds all three cells: type1 and type0.
     await openCubeAtCentre(page, { at: [130, 170] });

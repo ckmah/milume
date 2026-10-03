@@ -310,6 +310,8 @@ export function LandmarksView({
         isFullscreen && "landmarks--fs",
         overlay && "landmarks--overlay-fs",
         lm.show_rulers && "landmarks--rulers",
+        // Docks and peek tabs float over the open cube (landmarks.css).
+        cubeOpen && "landmarks--cube-open",
       )}
       data-rulers={lm.show_rulers ? "on" : "off"}
       onKeyDown={inspectCube.onKeyDown}
