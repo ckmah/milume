@@ -10,6 +10,7 @@ import type { ChunkCache } from "./chunk-cache";
 import { CUBE_EXTENSIONS, type HighlightGroup, type RenderSettings } from "./cell-lut-extension";
 import { type CellVolume, TOO_MANY_CELLS, markVivVolume } from "./cell-volume";
 import { AxisLegend } from "./axis-legend";
+import { type ContextProp, contextMatrix } from "./context-layer";
 import type { ImageFormat } from "./image-volume";
 import type { Range, ViewPreset } from "./CubeControls";
 import { type CubeFrame, FramedVolumeView, labelPad } from "./frame-layers";
@@ -104,6 +105,8 @@ export type VolumeCubeProps = {
   region?: { scale: number; budget: number; cx: number; cy: number } | null;
   /** Show a coarse level first (dock): the level `pickLevel(levels, frame, size * scale, budget)`. */
   coarse?: { scale: number; budget: number } | null;
+  /** Cube views: also load a coarse region around the window, drawn out of focus around it. Default none. */
+  context?: ContextProp | null;
   /** Default true; false leaves the camera fixed (no controller). */
   interactive?: boolean;
   /** Default true: the category Badge legend over the canvas. */
@@ -290,6 +293,7 @@ export function VolumeCube({
   budget = WINDOW_VOXEL_BUDGET,
   region = null,
   coarse = null,
+  context = null,
   interactive = true,
   showLegend = true,
   background = true,
@@ -439,6 +443,26 @@ export function VolumeCube({
     chunkCache,
     pausesPrefetch,
   });
+  // Context: a coarse region around the window, loaded and swapped like the window (no labels).
+  const ctxScale = context?.scale ?? 0;
+  const ctxBudget = context?.budget ?? 0;
+  const contextTarget: WindowTarget | null = useMemo(() => {
+    if (!levels || !ctxScale) return null;
+    const size = window_size_um * ctxScale;
+    const lvl = pickLevel(levels, frame, size, ctxBudget);
+    const box = fitsBudget(levelBox(lvl), ctxBudget) ? levelBox(lvl) : regionBox(lvl, frame, cx, cy, size);
+    return { level: lvl, box, cells: null };
+  }, [levels, frame, cx, cy, window_size_um, ctxScale, ctxBudget]);
+  const { shown: ctxLoaded } = useShownWindow({
+    levels,
+    frame,
+    fine: contextTarget,
+    coarse: null,
+    chunkCache,
+    pausesPrefetch: false,
+  });
+  // The hook keeps its last window with no target: context turned off draws none.
+  const ctxShown = ctxScale ? ctxLoaded : null;
   // Everything drawn follows the shown window, never the target still loading.
   const level: Level | null = shown?.level ?? null;
   const shownBox = shown?.box ?? null;
@@ -474,6 +498,18 @@ export function VolumeCube({
           }
         : undefined,
     [shownImage],
+  );
+  const ctxImage = ctxShown?.image ?? null;
+  const ctxLoader = useMemo(() => (ctxImage ? [ctxImage] : null), [ctxImage]);
+  const onCtxViewportLoad = useMemo(
+    () =>
+      ctxImage
+        ? (volumes: { data: unknown }[]) => {
+            markVivVolume(volumes[0]?.data, ctxImage);
+            ctxImage.release();
+          }
+        : undefined,
+    [ctxImage],
   );
   const cells = shown?.cells ?? null;
   const hasCells = Boolean(cells);
@@ -539,6 +575,23 @@ export function VolumeCube({
     return clampRange((zShown[0] - ozUm) / scale, (zShown[1] - ozUm) / scale, 0, levelDepth);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zShown[0], zShown[1], ozUm, levelDepth, levelVoxel?.[0]]);
+  // The context sits in the requested window's world, as the frame does: placed
+  // against `liveBox`, so it stays put while the shown window pans under the frame.
+  const ctxMatrix = useMemo(
+    () =>
+      ctxShown && shown
+        ? contextMatrix({ base: Z_UP, ctx: ctxShown, win: { level: shown.level, box: liveBox ?? shown.box }, ry })
+        : null,
+    [ctxShown, shown, liveBox, ry],
+  );
+  // The Z cut in the context level's voxels.
+  const ctxFz = ctxShown?.level.factor[0] ?? 1;
+  const ctxDepth = ctxShown ? axisSize(ctxShown.level.source, "z") : 1;
+  const ctxZSlice = useMemo(() => {
+    const scale = ctxFz * szUm;
+    return clampRange((zShown[0] - ozUm) / scale, (zShown[1] - ozUm) / scale, 0, ctxDepth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zShown[0], zShown[1], ozUm, szUm, ctxFz, ctxDepth]);
 
   // Centre of the whole window box in world units (physical scale, then Z_UP).
   // Deliberately not the cut region's centre: cross-sections must not move the cube.
@@ -733,6 +786,30 @@ export function VolumeCube({
               clippingPlanes: [],
               cubeFrame,
               cubeOverlays: placedOverlays,
+              // A second volume layer, drawn under the window (frame-layers.ts).
+              contextLayer:
+                ctxLoader && ctxMatrix && ctxShown
+                  ? {
+                      loader: ctxLoader,
+                      onViewportLoad: onCtxViewportLoad,
+                      contrastLimits,
+                      colors: IMAGE_COLORS,
+                      channelsVisible: ONE_CHANNEL_VISIBLE,
+                      selections: ONE_CHANNEL,
+                      xSlice: [0, ctxShown.image.width],
+                      ySlice: [0, ctxShown.image.height],
+                      zSlice: ctxZSlice,
+                      resolution: 0,
+                      extensions: CUBE_EXTENSIONS[mode],
+                      cellVolume: null,
+                      cellGroups: null,
+                      imagePalette,
+                      render,
+                      showImage,
+                      modelMatrix: ctxMatrix,
+                      clippingPlanes: [],
+                    }
+                  : null,
             },
           ]
         : null,
@@ -755,6 +832,11 @@ export function VolumeCube({
       cubeFrame,
       placedOverlays,
       volumeMatrix,
+      ctxLoader,
+      onCtxViewportLoad,
+      ctxMatrix,
+      ctxZSlice,
+      ctxShown,
     ],
   );
 
@@ -836,6 +918,11 @@ export function VolumeCube({
       data-image-gamma={render.imageGamma}
       data-level={shown?.level.index ?? -1}
       data-refining={String(refining)}
+      data-context={ctxScale ? "on" : "off"}
+      data-context-level={ctxShown?.level.index ?? -1}
+      data-context-refining={String(
+        Boolean(ctxScale) && contextTarget != null && ctxShown?.level.index !== contextTarget.level.index,
+      )}
       data-overlays={placedOverlays?.count ?? 0}
       data-zoom={viewState ? viewState.zoom.toFixed(2) : ""}
       data-pitch={viewState ? Math.round(viewState.rotationX) : ""}

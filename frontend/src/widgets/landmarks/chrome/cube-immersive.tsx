@@ -7,7 +7,7 @@ import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
 import type { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
 import type { CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
-import { PREVIEW_REGION_SCALE } from "@/widgets/volume-cube/window-source";
+import { PREVIEW_REGION_BUDGET, PREVIEW_REGION_SCALE } from "@/widgets/volume-cube/window-source";
 
 import { INSPECT_WINDOW_UM } from "../engine";
 import { SELECTION_COLORS } from "../helpers";
@@ -169,6 +169,7 @@ export function CubeImmersive({
           showLegend={false}
           overlays={overlays}
           coarse={{ scale: PREVIEW_REGION_SCALE, budget: budgets.preview }}
+          context={{ scale: PREVIEW_REGION_SCALE, budget: PREVIEW_REGION_BUDGET }}
           budget={budgets.dock}
           chunkCache={cache}
           pausesPrefetch

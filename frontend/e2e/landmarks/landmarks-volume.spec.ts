@@ -225,6 +225,20 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
   });
 
+  test("the immersive cube loads a coarse context region around the window", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-context", "on");
+    await expect.poll(async () => Number(await view.getAttribute("data-context-level"))).toBeGreaterThanOrEqual(0);
+    await expect(view).toHaveAttribute("data-context-refining", "false");
+    // The hover preview (no context) is unchanged.
+    await page.keyboard.press("Escape");
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await expect(preview(page).locator(".volume-cube__view")).toHaveAttribute("data-context", "off");
+  });
+
   test("the Inspect toolbar shows before a window is placed; cut sliders wait for ranges without a crash", async ({
     page,
   }) => {
