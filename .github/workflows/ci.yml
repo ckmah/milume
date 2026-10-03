@@ -24,6 +24,12 @@ jobs:
       - run: npm ci
         working-directory: frontend
 
+      - run: npm run check:chrome
+        working-directory: frontend
+
+      - run: npm run typecheck
+        working-directory: frontend
+
       - run: npm run build
         working-directory: frontend
 

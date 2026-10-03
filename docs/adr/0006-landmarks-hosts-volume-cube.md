@@ -75,7 +75,7 @@ in its own chrome:
 
 ## Addendum 2026-09-26
 
-[Inspect preview, dock and history](../superpowers/specs/2026-09-26-inspect-preview-dock-design.md)
+[Inspect preview, dock and history](../specs/2026-09-26-inspect-preview-dock-design.md)
 adds a live pyramid preview beside the window square and a history strip in
 the dock, without new traits:
 

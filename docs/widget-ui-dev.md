@@ -77,3 +77,27 @@ frontend/dev/
 ```
 
 Design authority: `frontend/DESIGN.md`, `frontend/PRODUCT.md`.
+
+## Authoring against a real notebook
+
+Use anywidget file-watch HMR, not the Vite dev server:
+
+```bash
+cd frontend && npm run watch:landmarks
+ANYWIDGET_HMR=1 uv run --extra demo marimo edit demos/<demo>.py
+```
+
+Landmarks-with-a-cube harness (Playwright / manual, toy SpatialData with a 3D image):
+`cd frontend && npm run dev:landmarks-volume`.
+
+## Gotchas
+
+| Situation | Do |
+| --- | --- |
+| Checking a real notebook | Rebuild bundles, then start your **own** `marimo run --headless --port <free>` (a running kernel keeps the old `_esm`). Never stop other marimo / napari processes. |
+| Reading widget DOM | anywidgets render in shadow roots: query recursively through `shadowRoot`; e2e reads `data-*` state attributes (scope cube selectors to `.volume-cube__view`). |
+| Timing renders in the browser pane | A hidden pane throttles `requestAnimationFrame` to ~1 Hz. Time `deck.redraw()` + `gl.readPixels`, not rAF. |
+| Viv / luma shaders | All raycast samplers `sampler3D`; module name ≠ sampler name; 3D texture axes ≤ 2048; separate extension classes per mode (see `frontend/src/widgets/volume-cube/`). |
+| marimo reactivity | A cell reading a UI element re-runs when it changes: define controls in the cell that displays them, or better, in the widget ([ADR 0005](adr/0005-widget-owns-rendering-controls.md)). |
+| Screenshots | Linux CI only: run the `frontend-e2e` workflow with `update_snapshots=true` on the pushed branch, download the artifacts, commit them. |
+| deck.gl / luma.gl versions | Pinned once in `frontend/package.json` (`overrides`) and aliased in `frontend/vite.config.ts`; each widget ships its own bundled `.mjs`. |
