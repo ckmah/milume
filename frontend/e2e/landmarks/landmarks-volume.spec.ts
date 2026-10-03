@@ -127,6 +127,74 @@ async function newCategoryPixels(page: Page, before: Buffer, after: Buffer) {
   );
 }
 
+/**
+ * Category-coloured pixels of a screenshot, grouped into connected blobs: for
+ * each blob of at least 30 pixels (bounding-box radius R = half the larger
+ * side), `core` counts its pixels within 0.4R of the box centre and `rim` those
+ * between 0.7R and 1.15R, summed over blobs. A filled cell has a core as dense
+ * as its rim; a shell's core is hollow.
+ */
+async function ringVsCore(page: Page, png: Buffer) {
+  return page.evaluate(
+    async ({ png, hues }) => {
+      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(bitmap, 0, 0);
+      const { data, width, height } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      const category = (i: number) => {
+        const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
+        const max = Math.max(r, g, b);
+        const d = max - Math.min(r, g, b);
+        if (max < 40 || d / max < 0.4) return "";
+        let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        h = (h * 60 + 360) % 360;
+        for (const [k, hue] of Object.entries(hues)) if (Math.abs(((h - hue + 540) % 360) - 180) <= 15) return k;
+        return "";
+      };
+      const kind = new Array<string>(width * height);
+      for (let p = 0; p < kind.length; p++) kind[p] = category(p * 4);
+      const seen = new Uint8Array(width * height);
+      let rim = 0;
+      let core = 0;
+      for (let start = 0; start < kind.length; start++) {
+        if (!kind[start] || seen[start]) continue;
+        const members: number[] = [start];
+        seen[start] = 1;
+        let [x0, x1, y0, y1] = [width, 0, height, 0];
+        for (let q = 0; q < members.length; q++) {
+          const p = members[q]!;
+          const [x, y] = [p % width, Math.floor(p / width)];
+          x0 = Math.min(x0, x);
+          x1 = Math.max(x1, x);
+          y0 = Math.min(y0, y);
+          y1 = Math.max(y1, y);
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const [nx, ny] = [x + dx, y + dy];
+              if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+              const n = ny * width + nx;
+              if (kind[n] === kind[start] && !seen[n]) {
+                seen[n] = 1;
+                members.push(n);
+              }
+            }
+        }
+        if (members.length < 30) continue;
+        const R = Math.max(x1 - x0, y1 - y0) / 2;
+        const [cx, cy] = [(x0 + x1) / 2, (y0 + y1) / 2];
+        for (const p of members) {
+          const d = Math.hypot((p % width) - cx, Math.floor(p / width) - cy);
+          if (d <= 0.4 * R) core++;
+          else if (d >= 0.7 * R && d <= 1.15 * R) rim++;
+        }
+      }
+      return { rim, core };
+    },
+    { png: png.toString("base64"), hues: CATEGORY_HUES },
+  );
+}
+
 type Box = { x: number; y: number; width: number; height: number };
 async function dragOnMap(page: Page, box: Box, from: [number, number], to: [number, number]) {
   await page.mouse.move(box.x + box.width * from[0], box.y + box.height * from[1]);
@@ -633,10 +701,10 @@ test.describe("Landmarks inspect cube", () => {
         cuts: [await now("X cut", 1), await now("Y cut", 0), await now("Z cut", 1)],
       };
     };
-    // Defaults: the volume's contrast_limits, alpha 1, gamma 1 (0 on its log2 scale), open cuts.
+    // Defaults: the volume's contrast_limits, image alpha 1, gamma 1 (0 on its log2 scale), label alpha 0.6 (the shells' default), open cuts.
     const initial = await values();
     expect(initial.image).toEqual([0, 48, 1, 0]);
-    expect(initial.labels).toEqual([1]);
+    expect(initial.labels).toEqual([0.6]);
     expect(initial.cuts[2]).toBe(64);
     // All sliders are one width.
     const widths = await panel.locator(".landmarks-slider-control").evaluateAll((els) =>
@@ -982,6 +1050,26 @@ test.describe("Landmarks inspect cube", () => {
     // ...each where it is (top-down: x right, y down): cell 2 right of and above cell 3.
     expect(on.type0.x).toBeGreaterThan(on.type1.x + 20);
     expect(on.type0.y).toBeLessThan(on.type1.y - 20);
+  });
+
+  test("labels draw as shells: a cell's rim is coloured, its core is not", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    // The image off, so only the cells draw; a 2 µm slab through the cells' middle
+    // (viewed from the top) shows each cell's cross-section: its rim, and its
+    // interior when it is filled.
+    await toggleShow(page, "Show image");
+    await toggleShow(page, "Show labels");
+    await expect(view).toHaveAttribute("data-labels", "on");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await setModel(page, { volume_cut: [0, 256, 0, 256, 31, 33] });
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const { rim, core } = await ringVsCore(page, await view.screenshot());
+    expect(rim).toBeGreaterThan(0);
+    // Measured: rim ~2600, core ~240 (the slab clips the pole of the smallest cell, a
+    // small solid cap); filled cells measured a core several times the rim.
+    expect(core).toBeLessThan(rim * 0.25);
   });
 
   test("the dock shows the coarse level first, then refines", async ({ page }) => {
