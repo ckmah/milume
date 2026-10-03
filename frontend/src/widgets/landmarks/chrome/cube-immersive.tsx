@@ -7,7 +7,7 @@ import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
 import type { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
 import type { CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
-import { PREVIEW_REGION_BUDGET, PREVIEW_REGION_SCALE } from "@/widgets/volume-cube/window-source";
+import { PREVIEW_REGION_SCALE } from "@/widgets/volume-cube/window-source";
 
 import { INSPECT_WINDOW_UM } from "../engine";
 import { SELECTION_COLORS } from "../helpers";
@@ -55,7 +55,7 @@ export function CubeImmersive({
   groups: HighlightGroup[];
   /** The widget's decoded-chunk cache, shared with the preview. */
   cache: ChunkCache;
-  /** Voxel budgets: `preview` sizes the coarse first step, `dock` the fine level. */
+  /** Voxel budgets: `preview` sizes the coarse first step and the context region, `dock` the fine level. */
   budgets: { preview: number; dock: number };
   /** History chip snapshots by selection id; kept across opens, never synced. */
   snapshots: Map<string, ChipSnapshot>;
@@ -169,7 +169,7 @@ export function CubeImmersive({
           showLegend={false}
           overlays={overlays}
           coarse={{ scale: PREVIEW_REGION_SCALE, budget: budgets.preview }}
-          context={{ scale: PREVIEW_REGION_SCALE, budget: PREVIEW_REGION_BUDGET }}
+          context={{ scale: PREVIEW_REGION_SCALE, budget: budgets.preview }}
           budget={budgets.dock}
           chunkCache={cache}
           pausesPrefetch

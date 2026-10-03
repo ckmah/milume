@@ -57,6 +57,52 @@ async function brightPixels(page: Page, png: Buffer, min = 60) {
   );
 }
 
+/**
+ * Two same-size screenshots: where `a` draws a lit block (max channel > 40) on
+ * the dark background (its bounding box, inset by `inset` px), and the share of
+ * that box whose pixels differ from `b` by more than `tol` in some channel.
+ */
+async function compareLitBlock(page: Page, a: Buffer, b: Buffer, { inset = 10, tol = 24 } = {}) {
+  return page.evaluate(
+    async ({ a, b, inset, tol }) => {
+      const pixels = async (png: string) => {
+        const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(bitmap, 0, 0);
+        return ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      };
+      const [p, q] = [await pixels(a), await pixels(b)];
+      const { width } = p;
+      const max = (d: Uint8ClampedArray, i: number) => Math.max(d[i]!, d[i + 1]!, d[i + 2]!);
+      let [x0, y0, x1, y1] = [Infinity, Infinity, -1, -1];
+      for (let i = 0; i < p.data.length; i += 4) {
+        if (max(p.data, i) <= 40) continue;
+        const x = (i / 4) % width;
+        const y = Math.floor(i / 4 / width);
+        [x0, y0, x1, y1] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y)];
+      }
+      const box = { x0: x0 + inset, y0: y0 + inset, x1: x1 - inset, y1: y1 - inset };
+      let n = 0;
+      let total = 0;
+      for (let y = box.y0; y <= box.y1; y++) {
+        for (let x = box.x0; x <= box.x1; x++) {
+          const i = (y * width + x) * 4;
+          const d = Math.max(...[0, 1, 2].map((c) => Math.abs(p.data[i + c]! - q.data[i + c]!)));
+          if (d > tol) n++;
+          total++;
+        }
+      }
+      return { box, differing: total ? n / total : 1 };
+    },
+    { a: a.toString("base64"), b: b.toString("base64"), inset, tol },
+  );
+}
+
+/** Wait until the page has drawn two more frames (a React attribute can lead the canvas). */
+const nextFrames = (page: Page) =>
+  page.evaluate(() => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+
 /** Reload the harness with harness-only URL options (`window=<µm>`, `budgets=<preview>,<dock>`). */
 async function reloadWith(page: Page, query: string) {
   await page.goto(`/?${query}`, { waitUntil: "networkidle" });
@@ -291,6 +337,55 @@ test.describe("Landmarks inspect cube", () => {
     const min = Number(await view.getAttribute("data-zoom"));
     expect(home - min).toBeLessThan(1.58 + 0.3); // log2(3) region width, plus a small margin (the old floor was 2)
     expect(home - min).toBeGreaterThan(1.2);
+  });
+
+  test("a context region inside the volume draws the same tissue as the whole level", async ({ page }) => {
+    // A 40 µm window at (115, 115): its 120 µm context fits a 200k-voxel preview
+    // budget only at level 1, where the whole level (128² × 32) does not, so it
+    // loads a region (`regionBox`) whose corner is inside the volume, as on real
+    // sections. A 600k budget loads all of level 1 (`levelBox`) instead. Inside
+    // the region both must draw the same tissue in the same place.
+    const settled = async (previewBudget: number) => {
+      await reloadWith(page, `budgets=${previewBudget},100000000&window=40`);
+      await openCubeAtCentre(page, { at: [115, 115] });
+      const view = cubeWindow(page).locator(".volume-cube__view");
+      await expect(view).toHaveAttribute("data-refining", "false");
+      await expect(view).toHaveAttribute("data-context-refining", "false");
+      await expect(view).toHaveAttribute("data-context-level", "1");
+      await expect(view).toHaveAttribute("data-level", "0");
+      // Zoom out to the floor, so the context around the window is on screen.
+      const home = Number(await view.getAttribute("data-zoom"));
+      const b = (await view.boundingBox())!;
+      await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+      for (let i = 0; i < 12; i++) await page.mouse.wheel(0, 400);
+      const floor = home - (Math.log2(3) + 0.25);
+      await expect.poll(async () => Math.abs(Number(await view.getAttribute("data-zoom")) - floor)).toBeLessThan(0.02);
+      await nextFrames(page);
+      // The middle of the view, clear of the floating toolbars and the axis legend.
+      const clip = { x: b.x + b.width * 0.2, y: b.y + b.height * 0.15, width: b.width * 0.6, height: b.height * 0.65 };
+      return { box: await view.getAttribute("data-context-box"), png: await page.screenshot({ clip }) };
+    };
+    const region = await settled(200_000);
+    const [x0, y0, x1, y1] = region.box!.split(",").map(Number);
+    // Level 1 is 128 voxels wide: a region strictly inside it, corner not at 0.
+    expect(x0).toBeGreaterThan(0);
+    expect(y0).toBeGreaterThan(0);
+    expect(x1).toBeLessThan(128);
+    expect(y1).toBeLessThan(128);
+
+    const level = await settled(600_000);
+    expect(level.box).toBe("0,0,128,128");
+    // The region draws a lit block (context tissue around the window), which
+    // the whole level draws identically: a misplaced region (offset or scale)
+    // would shift the cells and its edge against the level's.
+    const { box, differing } = await compareLitBlock(page, region.png, level.png);
+    // The window is about 115 px wide at the floor; the region, 3x it, reaches well past it.
+    expect(box.x1 - box.x0).toBeGreaterThan(250);
+    expect(box.y1 - box.y0).toBeGreaterThan(250);
+    expect(differing).toBeLessThan(0.01);
+    // And it is the region, not the whole level: the level draws past its edge.
+    const outside = await compareLitBlock(page, region.png, level.png, { inset: -12 });
+    expect(outside.differing).toBeGreaterThan(differing);
   });
 
   test("the Inspect toolbar shows before a window is placed; cut sliders wait for ranges without a crash", async ({

@@ -952,6 +952,7 @@ export function VolumeCube({
       data-refining={String(refining)}
       data-context={ctxScale ? "on" : "off"}
       data-context-level={ctxShown?.level.index ?? -1}
+      data-context-box={ctxShown ? `${ctxShown.box.x0},${ctxShown.box.y0},${ctxShown.box.x1},${ctxShown.box.y1}` : ""}
       data-context-refining={String(
         Boolean(ctxScale) && contextTarget != null && ctxShown?.level.index !== contextTarget.level.index,
       )}
