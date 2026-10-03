@@ -313,9 +313,18 @@ test.describe("Landmarks inspect cube", () => {
       (await brightPixels(page, await page.screenshot({ clip: above }), min)) +
       (await brightPixels(page, await page.screenshot({ clip: below }), min));
     // In both projections (MIP shows the toy cells at full stain brightness).
+    let previous: Buffer | null = null;
     for (const projection of ["Additive", "Maximum intensity"]) {
       await page.getByTestId("context-inspect-toolbar").getByRole("radio", { name: projection }).click();
       await expect(view).toHaveAttribute("data-render", projection === "Additive" ? "additive" : "mip");
+      // `data-render` is React state and can lead the canvas: wait for a frame
+      // drawn in this projection (the window itself looks different in each).
+      await nextFrames(page);
+      if (previous) {
+        const before = previous;
+        await expect.poll(async () => (await view.screenshot()).equals(before)).toBe(false);
+      }
+      previous = await view.screenshot();
       expect(await lit(20)).toBeGreaterThan(0);
       // The context is dimmed: nothing outside the window reaches the stain's full brightness.
       expect(await lit(200)).toBe(0);

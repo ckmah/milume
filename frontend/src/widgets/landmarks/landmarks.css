@@ -1240,10 +1240,12 @@
   box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--foreground) 70%, transparent);
 }
 
-/* Inspect cube taking over the plot area: under the top tools (22), over the docks (16-17). */
+/* Inspect cube taking over the plot area: under the top tools (22), over the
+   minimap (16). The docks and peek tabs are lifted over it while it is open
+   (`.landmarks--cube-open`, below). Rounded like `.landmarks__body`. */
 .landmarks__cube-immersive {
   z-index: 21;
-  border-radius: inherit;
+  border-radius: 12px;
   overflow: hidden;
   animation: landmarks-cube-open var(--duration-quick, 180ms) var(--ease-out, ease-out);
 }
@@ -1253,6 +1255,12 @@
     opacity: 0;
     transform: scale(0.96);
   }
+}
+
+.landmarks--fs .landmarks__cube-immersive,
+.landmarks:fullscreen .landmarks__cube-immersive,
+.landmarks--overlay-fs .landmarks__cube-immersive {
+  border-radius: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1286,7 +1294,6 @@
   position: absolute;
   bottom: var(--lm-chrome-inset);
   left: var(--lm-chrome-inset);
-  right: 3rem;
   display: flex;
   gap: 0.25rem;
   padding: 0.25rem;
