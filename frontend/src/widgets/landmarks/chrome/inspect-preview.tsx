@@ -23,7 +23,7 @@ import type { CubeSettings } from "../use-cube-settings";
 import type { EngineHandle, InspectEvent } from "../engine";
 import type { LandmarksModel } from "../use-landmarks-model";
 
-// Lazy only in the dev harness (see cube-window.tsx).
+// Lazy only in the dev harness (see cube-immersive.tsx).
 const VolumeCube = lazy(() =>
   import("@/widgets/volume-cube/VolumeCube").then((m) => ({ default: m.VolumeCube })),
 );

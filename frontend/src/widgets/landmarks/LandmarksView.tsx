@@ -18,14 +18,14 @@ import {
   ViewCta,
   RightChromeStack,
   CanvasRulers,
-  CubeWindow,
+  CubeImmersive,
   InspectPreview,
   InspectToolbar,
   InspectNoVolumePill,
   PanelCollapseButton,
   PanelPeekTab,
 } from "./chrome";
-import type { ChipSnapshot } from "./chrome/cube-window";
+import type { ChipSnapshot } from "./chrome/cube-snapshots";
 import { FLOAT_PANEL } from "./chrome/sections";
 import { cubeHighlightGroups } from "./cube-highlight";
 import { INSPECT_WINDOW_UM, mountEngine, type EngineHandle } from "./engine";
@@ -373,7 +373,7 @@ export function LandmarksView({
         )}
 
         {hasVolume && cube.open ? (
-          <CubeWindow
+          <CubeImmersive
             lm={lm}
             settings={cube}
             patch={patchCube}
@@ -392,7 +392,7 @@ export function LandmarksView({
         {/* Kept mounted once there is a volume (hidden outside Inspect): no WebGL context churn. */}
         {hasVolume ? (
           <InspectPreview
-            active={inspecting}
+            active={inspecting && !cube.open}
             lm={lm}
             engine={engine}
             rootEl={rootEl}

@@ -191,6 +191,19 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toBeVisible();
   });
 
+  test("the cube fills the plot area and Esc returns to the map", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const body = page.locator(".landmarks__body").first();
+    const [cube, plot] = await Promise.all([cubeWindow(page).boundingBox(), body.boundingBox()]);
+    expect(cube!.width).toBeGreaterThanOrEqual(plot!.width - 2);
+    expect(cube!.height).toBeGreaterThanOrEqual(plot!.height - 2);
+    await expect(cubeWindow(page).locator(".volume-cube__view")).toBeVisible();
+    // The hover preview does not float over the immersive cube.
+    await expect(preview(page)).toBeHidden();
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+  });
+
   test("the Inspect toolbar shows before a window is placed; cut sliders wait for ranges without a crash", async ({
     page,
   }) => {

@@ -1217,46 +1217,9 @@
   pointer-events: auto;
 }
 
-/* Inspect cube: floating over the map (and the docks), under the top tools. */
-.landmarks__cube-window {
-  z-index: 21;
-}
-
 /* Inspect preview: the dock's level (later in the DOM, so over it), under the top tools. */
 .landmarks__inspect-preview {
   z-index: 21;
-}
-
-.landmarks__cube-resize {
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 14px;
-  height: 14px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  cursor: nwse-resize;
-  touch-action: none;
-  background: transparent;
-}
-
-.landmarks__cube-resize::after {
-  content: "";
-  position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 7px;
-  height: 7px;
-  border-right: 2px solid var(--lm-text-muted);
-  border-bottom: 2px solid var(--lm-text-muted);
-  border-bottom-right-radius: 3px;
-  opacity: 0.5;
-  transition: opacity var(--duration-quick) var(--ease-out);
-}
-
-.landmarks__cube-resize:hover::after {
-  opacity: 0.9;
 }
 
 /* Inspect history chip: a hit sized to its 64x40 snapshot (utilities cannot
@@ -1277,8 +1240,33 @@
   box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--foreground) 70%, transparent);
 }
 
-/* Cube title bar: same height, pad and gap as every toolbar. */
-.landmarks__cube-titlebar {
+/* Inspect cube taking over the plot area: under the top tools (22), over the docks (16-17). */
+.landmarks__cube-immersive {
+  z-index: 21;
+  border-radius: inherit;
+  overflow: hidden;
+  animation: landmarks-cube-open var(--duration-quick, 180ms) var(--ease-out, ease-out);
+}
+
+@keyframes landmarks-cube-open {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landmarks__cube-immersive {
+    animation: none;
+  }
+}
+
+/* Title, Save, Close: a second row under the top tools, right-aligned beneath
+   the view buttons, so it never shares a row with the tool pill. */
+.landmarks__cube-actions {
+  position: absolute;
+  top: calc(var(--lm-chrome-inset) * 2 + var(--lm-toolbar-h));
+  right: var(--lm-chrome-inset);
   display: flex;
   align-items: center;
   gap: var(--lm-toolbar-gap);
@@ -1286,7 +1274,30 @@
   padding: var(--lm-toolbar-pad);
   padding-inline-start: 0.75rem;
   box-sizing: border-box;
-  touch-action: none;
+  max-width: calc(100% - var(--lm-chrome-inset) * 2);
+}
+
+.landmarks--rulers .landmarks__cube-actions {
+  top: calc(var(--lm-chrome-inset) * 2 + var(--lm-toolbar-h) + var(--lm-ruler-band));
+}
+
+/* Inspect history: bottom left, scrolls sideways. */
+.landmarks__cube-history {
+  position: absolute;
+  bottom: var(--lm-chrome-inset);
+  left: var(--lm-chrome-inset);
+  right: 3rem;
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  width: fit-content;
+  max-width: calc(100% - 4rem);
+  overflow-x: auto;
+}
+
+/* Narrow: the bottom row belongs to the context toolbar, so the history rides above it. */
+.landmarks--narrow .landmarks__cube-history {
+  bottom: calc(var(--lm-resize-band) + var(--lm-chrome-inset) * 2 + var(--lm-toolbar-h));
 }
 
 .landmarks--fs .landmarks__chrome-context,
