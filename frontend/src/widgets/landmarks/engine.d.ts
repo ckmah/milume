@@ -9,6 +9,7 @@ export const INSPECT_WINDOW_UM: number;
  */
 export type InspectEvent =
   | { type: "place"; x: number; y: number }
+  | { type: "release" }
   | { type: "hover"; x: number; y: number; sizeUm: number; sizePx: number; px: number; py: number }
   | { type: "hover-end" }
   | { type: "commit"; index: number }

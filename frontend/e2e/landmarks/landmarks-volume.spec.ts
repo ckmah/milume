@@ -178,6 +178,19 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
   });
 
+  test("a drag moves the window with the cube closed; the cube opens on release", async ({ page }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5, { steps: 4 });
+    // Mid-drag: the window has moved, the cube has not opened.
+    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(0);
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await page.mouse.up();
+    await expect(cubeWindow(page)).toBeVisible();
+  });
+
   test("the Inspect toolbar shows before a window is placed; cut sliders wait for ranges without a crash", async ({
     page,
   }) => {

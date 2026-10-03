@@ -3486,6 +3486,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   function handleInspectRelease(event) {
     if (event.button !== 0) return;
     endInspectPress();
+    // A release (not Esc, blur or a lost release) is what opens the cube.
+    emitInspect({ type: "release" });
   }
 
   /** Points inside the axis-aligned square (every depth; the cut never changes membership). */

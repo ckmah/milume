@@ -84,11 +84,11 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   useEffect(() => {
     if (!engine || !hasVolume) return;
     return engine.subscribeInspect((e) => {
-      // Placements and saves open the cube and Esc closes it; hover leaves it be.
+      // Placements remember where the user put the window (for the settle commit);
+      // the release (end of the click or drag) and saves open the cube, Esc closes it.
       if (e.type === "place") {
         placedRef.current = { x: e.x, y: e.y };
-        patchCube({ open: true });
-      } else if (e.type === "commit") {
+      } else if (e.type === "release" || e.type === "commit") {
         patchCube({ open: true });
       } else if (e.type === "close") {
         patchCube({ open: false });
