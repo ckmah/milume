@@ -87,8 +87,8 @@ w = milume.peek(sdata, color="cell_type")   # SpatialData on disk: adds the 3D c
 | `contrast_limits` | display range for the 3D image |
 
 - From a SpatialData, the widget finds the table, the labels element it annotates, a 3D image on the same grid, and their µm frame (override with `table=`, `image=`, `labels=`; `contrast_limits=` for the image).
-- Press **I** (Inspect): hovering shows a live coarse preview of the tissue under the cursor, and a click places a 300 µm window and docks a floating full-resolution cube of it, colored like the map, with your landmarks drawn on top.
-- **Save** in the dock's title bar adds the window as an **inspect selection** to its history strip. Read the inspected cells back with `w.get_obs_names(adata, "<inspect id>")` or `w.selections`.
+- Press **I** (Inspect): hovering shows a live coarse preview of the tissue under the cursor, and a click places a 300 µm window; on release a full-resolution cube of it takes over the plot area, colored like the map, with your landmarks drawn on top and the tissue around the window shown dimmed. Esc or Close returns to the map; leaving Inspect closes the cube. The side panels' peek tabs stay over the cube, so you can focus a category or Selection to color it.
+- **Save** in the cube's top-right actions adds the window as an **inspect selection** to its history strip. Read the inspected cells back with `w.get_obs_names(adata, "<inspect id>")` or `w.selections`.
 - Hold **Space** to pan in any tool.
 
 Read results back in Python:

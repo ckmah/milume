@@ -21,7 +21,7 @@ const preview = (page: Page) => page.getByTestId("inspect-preview");
 const cutOf = async (page: Page) => (await getModel(page, "volume_cut")) as number[];
 const selectionsOf = async (page: Page) => (await getModel(page, "selections")) as any[];
 const saveButton = (page: Page) => cubeWindow(page).getByRole("button", { name: "Save window" });
-/** Save the live window from the dock's title bar; the new entry's index (it is focused). */
+/** Save the live window from the cube's actions row; the new entry's index (it is focused). */
 async function save(page: Page) {
   const before = (await selectionsOf(page)).length;
   await saveButton(page).click();

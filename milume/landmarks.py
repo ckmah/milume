@@ -291,8 +291,9 @@ class LandmarksWidget(AnyWidget):
     square; the browser writes ``inspect_size_um`` when a press places it, and
     Python only reads it. ``inspect_cx`` / ``inspect_cy`` follow the placed
     square; setting them from Python moves the cube's window (the map square
-    stays where it was placed). A click only places the window; the Cube dock's
-    Save keeps it as an inspect Selection. UI
+    stays where it was placed). A click only places the window (its release opens
+    the immersive cube over the plot area); the cube's Save keeps it as an
+    inspect Selection. UI
     chrome state (mode, genes, color, neighborhoods) stays in the browser;
     raster bin features and probe scores
     are built client-side from the eager gene / embedding / category packs.

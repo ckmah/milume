@@ -178,7 +178,7 @@ Framer-neutral greys.
 - Zoom lives in the top tool pill (in / out / reset), not a separate bottom cluster
 - Slider rows: single line — left caption + capsule track; fill encodes value; numeral overlays the left of the capsule; thumb nearly invisible until hover/focus. Range sliders (cuts, contrast) use the same capsule
 - Inspect collapses both side docks (peek tabs stay); leaving Inspect restores them
-- Inspect cube: an immersive takeover of the plot area, not a floating window. `role="dialog"` "Cube" fills the plot area (`z-index` 21, under the tool pill at 22); the Inspect bar stays top centre; title, Save and Close sit in a second row under the tool pill, right-aligned (`landmarks__cube-actions`), so they never share a row with the view buttons; the inspect history strip is bottom-left (`landmarks__cube-history`). It fades/scales in from the viewport centre (`--duration-quick`), none under `prefers-reduced-motion`
+- Inspect cube: an immersive takeover of the plot area, not a floating window. `role="dialog"` "Cube" fills the plot area (`z-index` 21, under the tool pill at 22); the Inspect bar stays top centre; title, Save and Close sit in a second row under the tool pill, right-aligned (`landmarks__cube-actions`), so they never share a row with the view buttons; the inspect history strip is bottom-left (`landmarks__cube-history`). Its corners follow `.landmarks__body` (12px, square in fullscreen). While it is open (`.landmarks--cube-open`) the docks and peek tabs float over it at `z-index` 22, starting below the actions row, so a category or Selection can still be focused to colour it. Leaving Inspect closes it. It fades/scales in from the viewport centre (`--duration-quick`), none under `prefers-reduced-motion`
 
 ## Elevation & Depth
 

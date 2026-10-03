@@ -104,7 +104,9 @@ without new traits:
   whole widget in fullscreen) and covers the map while it is open; the map stays
   mounted underneath, so the engine keeps its layout and WebGL context. Esc or
   Close cube returns to the map; to move the window the user closes the cube and
-  places again. The hover preview is hidden while the cube is open.
+  places again. The hover preview is hidden while the cube is open. The cube
+  belongs to Inspect: leaving Inspect closes it. The docks and peek tabs float
+  over the open cube, so the category panel's highlight still drives it.
 - The cube opens on mouse **release**, not press (the engine's `release`
   event). A press-and-drag positions the window with the hover preview
   following, and the cube opens where the drag ends.

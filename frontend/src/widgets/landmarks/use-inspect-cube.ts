@@ -50,7 +50,7 @@ export type InspectCube = {
   onKeyDown: (e: React.KeyboardEvent) => void;
   /** Focus a saved inspect entry and restore its window and cut (a history chip). */
   focusEntry: (index: number) => void;
-  /** Save the live window, with its cut, as an inspect Selection (the dock's Save). */
+  /** Save the live window, with its cut, as an inspect Selection (the cube's Save). */
   save: () => void;
   /** Back to defaults: one Adjust section, or all of them. Open cuts are committed like a slider release. */
   resetAdjust: (section: AdjustSection | "all") => void;

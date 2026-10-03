@@ -19,7 +19,7 @@ Interaction modes (Select, Node, Move, Probe) and lasso selection entry update t
   typing with the mouse parked on the map keeps its spaces; Space never pans
   while typing in the widget's own chrome. The hover gate is the map (the plot
   host), not the whole widget: with an outside editor focused, a space typed
-  with the pointer over a side panel or the Cube dock is typed, not swallowed
+  with the pointer over a side panel or the open cube is typed, not swallowed
   (`landmarks.spec.ts` — `"Space pans on the first try: pointer over the map, never clicked"`)
 
 ## How to get to it (user POV)

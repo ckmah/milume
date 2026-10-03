@@ -103,7 +103,7 @@ only.
 
 ## Open risks
 
-- Outside-window dim in the raycast shader (fallback above).
+- Outside-window dim in the raycast shader (fallback above). Resolved, see Deviations (two-layer context, shader dim).
 - Opening from a small cell: the plot area may be short; the camera fit and
   chrome must hold at the minimum widget height.
 - Coarse region budget on very large sections: reuse `PREVIEW_REGION_BUDGET`
@@ -145,4 +145,16 @@ What was built differs from the plan above in these ways.
 - **No pan.** The camera has no free pan (the orbit target stays on the
   window); zoom-out stops at log2(3) + 0.25 steps below home with the context
   (2 without, as before), instead of the wider zoom and pan bounds planned.
+- **Docks and peek tabs float over the open cube.** Entering Inspect still
+  collapses both docks, but while the cube is open (root class
+  `landmarks--cube-open`) the docks and peek tabs sit over it (`z-index` 22,
+  Soft Float glass) and start below its actions row, so a category or
+  Selection can be focused in a dock to colour the cube.
+- **Leaving Inspect closes the cube.** The cube covers the map, so switching
+  to another tool closes it (`useInspectCube`, on the mode transition), and
+  it renders only in Inspect. Back in Inspect it stays closed until the next
+  click.
+- **Context budget follows the cube's preview budget.** The context region
+  uses `budgets.preview` (`PREVIEW_REGION_BUDGET` in the product), so the
+  harness's `?budgets=` reaches the `regionBox` path real sections take.
 - **No new traits**, as planned.
