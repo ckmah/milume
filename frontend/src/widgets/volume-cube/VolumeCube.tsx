@@ -221,6 +221,8 @@ function homeView(
   preset: ViewPreset,
   fits: Record<ViewPreset, Fit[]>,
   view: { width: number; height: number },
+  /** How far the camera may zoom out from home (zoom steps): 2 by default; with a context, to its edge. */
+  zoomOut = 2,
 ): ViewState {
   const zoom = fitZoom(fits[preset], view) - HOME_ZOOM_BACKOFF[preset];
   return {
@@ -228,7 +230,7 @@ function homeView(
     target: [0, 0, 0],
     zoom,
     ...PRESETS[preset],
-    minZoom: zoom - 2,
+    minZoom: zoom - zoomOut,
     maxZoom: zoom + 5,
     minRotationX: MIN_PITCH,
     maxRotationX: MAX_PITCH,
@@ -652,7 +654,10 @@ export function VolumeCube({
       side: [{ width: wx * m, height: depth * m, near: wy / 2 }],
     };
   }, [level, window_size_um, sxUm, syUm, ry, levelDepth, rz]);
-  const framing = useLatest({ fits, box });
+  // The context region is `scale` times the window wide: zooming out stops just
+  // past its edge (log2 steps, plus a margin), not at empty space beyond it.
+  const zoomOut = context ? Math.log2(context.scale) + 0.25 : 2;
+  const framing = useLatest({ fits, box, zoomOut });
 
   // The first view is the preset asked for by then, else the home view: a
   // preset chosen while the window loads (no camera yet) is kept, not replaced.
@@ -660,15 +665,15 @@ export function VolumeCube({
   useEffect(() => {
     if (!fits || viewState) return;
     const want = presetRef.current ?? home;
-    const first = homeView(home, fits, box);
+    const first = homeView(home, fits, box, zoomOut);
     if (want === home) setViewState(first);
-    else setViewState(reframeOnPreset ? homeView(want, fits, box) : { ...first, ...PRESETS[want] });
-  }, [fits, viewState, box, home, reframeOnPreset, presetRef]);
+    else setViewState(reframeOnPreset ? homeView(want, fits, box, zoomOut) : { ...first, ...PRESETS[want] });
+  }, [fits, viewState, box, home, reframeOnPreset, presetRef, zoomOut]);
   // A fixed camera (no controller) always frames the window: it follows the
   // window's size and the view's (a preview mounted hidden is measured later).
   useEffect(() => {
-    if (!interactive && fits) setViewState(homeView(home, fits, box));
-  }, [interactive, fits, box, home]);
+    if (!interactive && fits) setViewState(homeView(home, fits, box, zoomOut));
+  }, [interactive, fits, box, home, zoomOut]);
 
   // World units are the shown level's X voxels, so a finer level is a bigger
   // world: a level swap (coarse to fine) zooms out by the factor ratio to keep
@@ -696,8 +701,8 @@ export function VolumeCube({
   useEffect(() => {
     if (resetTickRef.current === resetTick) return;
     resetTickRef.current = resetTick;
-    const { fits: f, box: b } = framing.current;
-    if (f) setViewState(homeView(home, f, b));
+    const { fits: f, box: b, zoomOut: zo } = framing.current;
+    if (f) setViewState(homeView(home, f, b, zo));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetTick]);
 
@@ -707,10 +712,10 @@ export function VolumeCube({
   // snaps the camera. With no camera yet, the first view takes the preset.
   useEffect(() => {
     if (!preset) return;
-    const { fits: f, box: b } = framing.current;
+    const { fits: f, box: b, zoomOut: zo } = framing.current;
     setViewState((prev) => {
       if (!prev || presetOf(prev) === preset) return prev;
-      return reframeOnPreset && f ? homeView(preset, f, b) : { ...prev, ...PRESETS[preset] };
+      return reframeOnPreset && f ? homeView(preset, f, b, zo) : { ...prev, ...PRESETS[preset] };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preset]);

@@ -276,6 +276,23 @@ test.describe("Landmarks inspect cube", () => {
     }
   });
 
+  test("zoom out stops just past the context region", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    // Settled: a level swap shifts zoom and its floor, so measure home after it.
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-context-refining", "false");
+    const home = Number(await view.getAttribute("data-zoom"));
+    const b = (await view.boundingBox())!;
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2);
+    for (let i = 0; i < 20; i++) await page.mouse.wheel(0, 400);
+    await expect.poll(async () => Number(await view.getAttribute("data-zoom"))).toBeLessThan(home - 1);
+    const min = Number(await view.getAttribute("data-zoom"));
+    expect(home - min).toBeLessThan(1.58 + 0.3); // log2(3) region width, plus a small margin (the old floor was 2)
+    expect(home - min).toBeGreaterThan(1.2);
+  });
+
   test("the Inspect toolbar shows before a window is placed; cut sliders wait for ranges without a crash", async ({
     page,
   }) => {
