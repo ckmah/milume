@@ -51,3 +51,27 @@ def test_constructor_offers_string_and_categorical_obs_columns():
     assert w.active_category == "cell_class"
     assert w.legend_labels == ["Epi", "Imm", "Fib"]
     assert w.point_palette == ["#111111", "#222222", "#333333"]
+
+
+def test_missing_values_in_text_and_categorical_columns_become_a_label():
+    """Real tables (SpaceM, Xenium) leave NaN in string / categorical obs columns."""
+    import numpy as np
+    import pandas as pd
+
+    from milume.categories import MISSING_LABEL, as_polars, detect_category_columns, encode_category_bundle
+
+    obs = pd.DataFrame(
+        {
+            "text": pd.Series(["a", np.nan, "b", "a"], dtype=object),
+            "cat": pd.Categorical(["x", "y", None, "x"]),
+            "nullable": pd.array(["u", pd.NA, "v", "u"], dtype="string"),
+        }
+    )
+    df = as_polars(obs)
+    cols = detect_category_columns(df)
+    assert cols == ["text", "cat", "nullable"]
+    meta, _, labels = encode_category_bundle(df, cols)
+    by_name = {m["name"]: m["labels"] for m in meta}
+    assert by_name["text"] == ["a", MISSING_LABEL, "b"]
+    assert by_name["cat"] == ["x", "y", MISSING_LABEL]
+    assert labels["nullable"].tolist() == ["u", MISSING_LABEL, "v", "u"]

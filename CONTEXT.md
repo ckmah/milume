@@ -26,8 +26,19 @@ chrome state is client-local; hydrate payloads (points, genes, categories,
 embeddings) cross the wire at construct. Raster bin features and probe scores
 are built entirely in the browser.
 
-`LandmarksWidget(sdata)` also reads a SpatialData on disk: the table's labels
-element, a 3D image on the same grid, and their µm frame. **Inspect** opens a
+`LandmarksWidget(sdata)` reads a SpatialData from any platform. The table's
+`spatialdata_attrs` say which elements its rows annotate; their transformations
+say which **coordinate systems** they live in. Cells sit at `obsm["spatial"]`
+when the table has it, otherwise at the centroids of the annotated labels or
+shapes in the chosen coordinate system (`spatialdata.get_centroids`), stored back
+into `obsm["spatial"]` and recorded in `uns["milume_derived_obsm"]` so a later
+widget in another coordinate system recomputes them. A table spanning several
+coordinate systems shows the biggest and warns (`coordinate_system=`, `region=`
+choose). The widget shows a **view** of the table when it plots only some rows;
+selection hits join back by `obs_names`.
+
+For a 3D image on disk it also finds the labels element, the image on the same
+grid, and their µm frame. **Inspect** opens a
 **cube** of the inspect window inside the widget; its rendering controls are
 client-local, and cells are colored from the category panel in the browser.
 Only `volume` (config), `volume_label_ids` and `volume_cut` are synced
