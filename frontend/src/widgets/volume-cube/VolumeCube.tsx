@@ -74,7 +74,10 @@ export type VolumeCubeProps = {
   /** Shown cut (already the live value); clamped to the window and the stack here. */
   cut: CubeCut;
   contrast: [number, number];
-  mode: "additive" | "mip";
+  /** Default "additive": the image's samples accumulate; "mip": its maximum along each ray. */
+  imageMode?: "additive" | "mip";
+  /** Default "additive": label shells accumulate front to back; "mip": the strongest shell along each ray. */
+  labelMode?: "additive" | "mip";
   /**
    * Applied when it changes: the preset's rotation (framed as its home view with
    * `reframeOnPreset`). The first view is this preset when set, else `home`.
@@ -273,7 +276,8 @@ export function VolumeCube({
   windowSizeUm: window_size_um,
   cut,
   contrast,
-  mode,
+  imageMode = "additive",
+  labelMode = "additive",
   preset,
   home = "iso",
   reframeOnPreset = false,
@@ -720,7 +724,9 @@ export function VolumeCube({
               ySlice,
               zSlice,
               resolution: 0,
-              extensions: CUBE_EXTENSIONS[mode],
+              extensions: CUBE_EXTENSIONS,
+              imageMode,
+              labelMode,
               cellVolume: cells,
               cellGroups,
               onCellsBound,
@@ -744,7 +750,8 @@ export function VolumeCube({
       xSlice,
       ySlice,
       zSlice,
-      mode,
+      imageMode,
+      labelMode,
       cells,
       cellGroups,
       onCellsBound,
@@ -830,7 +837,8 @@ export function VolumeCube({
       data-label-format={cellsOnGpu ? "rg8" : "none"}
       data-label-cells={cells?.count ?? 0}
       data-highlight={highlighted.length}
-      data-render={mode}
+      data-image-mode={imageMode}
+      data-label-mode={labelMode}
       data-pan={`${panX},${panY}`}
       data-palette={render.palette}
       data-image-gamma={render.imageGamma}

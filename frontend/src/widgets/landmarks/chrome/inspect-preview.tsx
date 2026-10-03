@@ -415,7 +415,8 @@ export function InspectPreview({
           windowSizeUm={hover.sizeUm}
           cut={OPEN_CUT}
           contrast={settings.contrast}
-          mode="mip"
+          imageMode="mip"
+          labelMode="additive"
           preset="top"
           home="top"
           reframeOnPreset

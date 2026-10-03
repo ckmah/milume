@@ -44,7 +44,13 @@ export { DEFAULT_RENDER, type RenderSettings } from "./palettes";
 /** A 256-texel image colour map from `paletteLut`. */
 export type ImagePalette = { data: Uint8Array; width: number; height: number };
 
-type CubeUniforms = Partial<RenderSettings> & { cellsOn?: number; imageOn?: number; imageScale?: number };
+type CubeUniforms = Partial<RenderSettings> & {
+  cellsOn?: number;
+  imageOn?: number;
+  imageScale?: number;
+  imageMip?: number;
+  cellMip?: number;
+};
 
 // The module must not share a sampler's name: luma.gl keys a module's
 // uniforms by module name and would set that sampler's texture unit from them.
@@ -57,8 +63,19 @@ const cubeRenderModule = {
     cellsOn: "f32",
     imageOn: "f32",
     imageScale: "f32",
+    imageMip: "f32",
+    cellMip: "f32",
   },
-  defaultUniforms: { imageAlpha: 1, imageGamma: 1, cellAlpha: DEFAULT_RENDER.cellAlpha, cellsOn: 0, imageOn: 1, imageScale: 1 },
+  defaultUniforms: {
+    imageAlpha: 1,
+    imageGamma: 1,
+    cellAlpha: DEFAULT_RENDER.cellAlpha,
+    cellsOn: 0,
+    imageOn: 1,
+    imageScale: 1,
+    imageMip: 0,
+    cellMip: 0,
+  },
   // Only the numbers reach the uniform block; the palette is a texture.
   getUniforms: (render: CubeUniforms = {}) => ({
     imageAlpha: render.imageAlpha ?? DEFAULT_RENDER.imageAlpha,
@@ -67,6 +84,8 @@ const cubeRenderModule = {
     cellsOn: render.cellsOn ?? 0,
     imageOn: render.imageOn ?? 1,
     imageScale: render.imageScale ?? 1,
+    imageMip: render.imageMip ?? 0,
+    cellMip: render.cellMip ?? 0,
   }),
   // Viv's contrast ramp on the raw value: a unorm image texture (r8unorm,
   // r16unorm) samples as value / max, and imageScale (max; 1 for float)
@@ -84,6 +103,8 @@ uniform cubeRenderUniforms {
   float cellsOn;
   float imageOn;
   float imageScale;
+  float imageMip;
+  float cellMip;
 } cubeRender;
 
 // All 3D textures, the lookups one texel deep: luma.gl validates the program
@@ -129,43 +150,60 @@ const CELL_SETUP = `
 const CELL_SAMPLE = `
     vec4 cell = canShow * cellColor(clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1));`;
 
-const ADDITIVE = {
-  _BEFORE_RENDER: CELL_SETUP,
+// One loop for every combination of the two projections (uniforms, so a
+// toggle needs no recompile). The image accumulates samples (Additive) or keeps
+// the maximum (MIP); the labels accumulate shells front to back (Additive) or
+// keep the strongest shell (MIP). Labels composite over the image either way.
+// Viv steps \`p\` after _RENDER, so _RENDER may break but must not continue.
+const RENDERING = {
+  _BEFORE_RENDER: `${CELL_SETUP}
+  vec4 acc = vec4(0.0);
+  float maxImage = -1.0;
+  vec4 cells = vec4(0.0);
+  float cellMax = 0.0;
+  vec3 cellMaxRgb = vec3(0.0);`,
   _RENDER: `
-    if (cellsOn) {
-      // Cell first, so a coloured cell reads in its own colour over bright stain.
-      ${CELL_SAMPLE}
-      color.rgb += (1.0 - color.a) * cell.a * cell.rgb;
-      color.a += (1.0 - color.a) * cell.a;
+    if (cubeRender.imageMip > 0.5) {
+      maxImage = max(maxImage, intensityValue0);
+    } else {
+      vec4 im = imageSample(intensityValue0);
+      acc.rgb += (1.0 - acc.a) * im.a * im.rgb;
+      acc.a += (1.0 - acc.a) * im.a;
     }
-    vec4 im = imageSample(intensityValue0);
-    color.rgb += (1.0 - color.a) * im.a * im.rgb;
-    color.a += (1.0 - color.a) * im.a;
-    if (color.a >= 0.95) {
+    if (cellsOn) {
+      ${CELL_SAMPLE}
+      if (cubeRender.cellMip > 0.5) {
+        if (cell.a > cellMax) {
+          cellMax = cell.a;
+          cellMaxRgb = cell.rgb;
+        }
+      } else if (cells.a < 0.95) {
+        cells.rgb += (1.0 - cells.a) * cell.a * cell.rgb;
+        cells.a += (1.0 - cells.a) * cell.a;
+      }
+    }
+    bool imageDone = cubeRender.imageMip < 0.5 && acc.a >= 0.95;
+    bool cellsDone = !cellsOn || (cubeRender.cellMip < 0.5 && cells.a >= 0.95);
+    if (imageDone && cellsDone) {
       break;
     }`,
-  _AFTER_RENDER: "",
-};
-
-const MIP = {
-  _BEFORE_RENDER: `${CELL_SETUP}
-  float maxImage = -1.0;
-  vec4 cells = vec4(0.0);`,
-  _RENDER: `
-    maxImage = max(maxImage, intensityValue0);
-    if (cellsOn && cells.a < 0.95) {
-      ${CELL_SAMPLE}
-      cells.rgb += (1.0 - cells.a) * cell.a * cell.rgb;
-      cells.a += (1.0 - cells.a) * cell.a;
-    }`,
   _AFTER_RENDER: `
-  // Cells in front, composited over the image's maximum-intensity projection.
+  // The image: opaque maximum projection, or the accumulated samples.
   // The projection is opaque: weighting it by the sample alpha (g) as well
   // would square the ramp and darken everything below full intensity. With
-  // the image off only the cells remain, at their own alpha (as in Additive).
-  vec4 im = imageSample(maxImage);
-  float imageOn = cubeRender.imageOn;
-  color = vec4(cells.rgb + (1.0 - cells.a) * im.rgb * cubeRender.imageAlpha * imageOn, mix(cells.a, 1.0, imageOn));`,
+  // the image off only the labels remain, at their own alpha.
+  vec4 imageOut = acc;
+  if (cubeRender.imageMip > 0.5) {
+    vec4 im = imageSample(maxImage);
+    imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
+  }
+  // The labels: the strongest shell along the ray, or the accumulated shells.
+  vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb, cellMax) : cells;
+  // Labels over the image.
+  color = vec4(
+    cellsOut.rgb + (1.0 - cellsOut.a) * imageOut.rgb,
+    cellsOut.a + (1.0 - cellsOut.a) * imageOut.a
+  );`,
 };
 
 type Texture = { destroy(): void };
@@ -179,6 +217,10 @@ type LayerLike = {
     cellGroups?: readonly HighlightGroup[] | null;
     /** Default true; false: the image adds nothing to the ray (labels still draw). */
     showImage?: boolean;
+    /** Default "additive": accumulate the image's samples; "mip": its maximum along the ray. */
+    imageMode?: "additive" | "mip";
+    /** Default "additive": accumulate the shells front to back; "mip": the strongest shell along the ray. */
+    labelMode?: "additive" | "mip";
     /** Called when the labels this layer draws change (null: none). */
     onCellsBound?: (cells: CellVolume | null) => void;
     /** Called when the format of the image texture this layer draws changes (null: none yet). */
@@ -258,9 +300,11 @@ function bindCells(layer: LayerLike): CellVolume | null {
   return want;
 }
 
-abstract class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
+/** The cube's raycast, with or without labels, each layer in its own projection. */
+class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
   static componentName = "CubeExtension";
-  abstract rendering: typeof ADDITIVE;
+  static extensionName = "CubeExtension";
+  rendering = RENDERING;
 
   getVivShaderTemplates() {
     return { modules: [cubeRenderModule] };
@@ -329,6 +373,8 @@ abstract class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       cellsOn,
       imageOn,
       imageScale: image?.scale ?? 1,
+      imageMip: layer.props.imageMode === "mip" ? 1 : 0,
+      cellMip: layer.props.labelMode === "mip" ? 1 : 0,
     };
     model.shaderInputs.setProps({ cubeRender: uniforms });
   }
@@ -344,23 +390,8 @@ abstract class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
   }
 }
 
-// Separate classes: deck.gl treats two instances of one extension class with
-// equal options as the same extension and would not recompile on a mode switch.
-class CubeAdditiveExtension extends CubeExtension {
-  static extensionName = "CubeAdditiveExtension";
-  rendering = ADDITIVE;
-}
-
-class CubeMipExtension extends CubeExtension {
-  static extensionName = "CubeMipExtension";
-  rendering = MIP;
-}
-
-/** The cube's raycast, with or without labels: additive compositing or maximum-intensity projection. */
-export const CUBE_EXTENSIONS: Record<"additive" | "mip", unknown[]> = {
-  additive: [new CubeAdditiveExtension()],
-  mip: [new CubeMipExtension()],
-};
+/** One instance: the projections are uniforms, so the program never changes with them. */
+export const CUBE_EXTENSIONS: unknown[] = [new CubeExtension()];
 
 function srgbToLinear(c: number): number {
   const s = c / 255;

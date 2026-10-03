@@ -348,8 +348,13 @@ export function InspectToolbar({
             spacing={1}
             aria-label="Projection"
             className="gap-0.5"
-            value={settings.mode}
-            onValueChange={(v) => v && patch({ mode: v as CubeSettings["mode"] })}
+            value={settings.imageMode}
+            // Both layers until the Adjust panel sets each on its own.
+            onValueChange={(v) => {
+              if (!v) return;
+              const m = v as CubeSettings["imageMode"];
+              patch({ imageMode: m, labelMode: m });
+            }}
           >
             <ToggleGroupItem value="additive" aria-label="Additive" className={chromeHitTextClass}>
               Additive

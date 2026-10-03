@@ -637,6 +637,16 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toBeVisible();
   });
 
+  test("the projection toggle sets the image and label modes", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-image-mode", "additive");
+    await expect(view).toHaveAttribute("data-label-mode", "additive");
+    await page.getByRole("radio", { name: "Maximum intensity" }).click();
+    await expect(view).toHaveAttribute("data-image-mode", "mip");
+    await expect(view).toHaveAttribute("data-label-mode", "mip");
+  });
+
   test("inspect toolbar: presets, MIP, palette, alpha/gamma, committed Z cut", async ({ page }) => {
     await openCubeAtCentre(page);
     const bar = page.getByTestId("context-inspect-toolbar");
@@ -652,7 +662,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).not.toHaveAttribute("data-zoom", topZoom!);
 
     await bar.getByRole("radio", { name: "Maximum intensity" }).click();
-    await expect(view).toHaveAttribute("data-render", "mip");
+    await expect(view).toHaveAttribute("data-image-mode", "mip");
 
     await bar.getByRole("button", { name: "Palette" }).click();
     await page.getByRole("menuitemradio", { name: "viridis" }).click();
@@ -1028,10 +1038,10 @@ test.describe("Landmarks inspect cube", () => {
     // wide (R8 image rows of 101 bytes and RG8 label rows of 202, not 4-byte
     // aligned, like A2's 667).
     await setModel(page, { inspect_cx: 130.5, inspect_cy: 170.5 });
-    // Maximum intensity puts cells in front of the image, so deep cells show too.
-    const bar = page.getByTestId("context-inspect-toolbar");
-    await bar.getByRole("radio", { name: "Maximum intensity" }).click();
-    await expect(view).toHaveAttribute("data-render", "mip");
+    // Labels composite over the image in every projection, so the default
+    // (Additive) shows deep cells too.
+    await expect(view).toHaveAttribute("data-image-mode", "additive");
+    await expect(view).toHaveAttribute("data-label-mode", "additive");
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-pan", "0,0");
     // The image at one byte per voxel.

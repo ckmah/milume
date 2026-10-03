@@ -155,7 +155,8 @@ export function CubeImmersive({
           windowSizeUm={size}
           cut={cut}
           contrast={settings.contrast}
-          mode={settings.mode}
+          imageMode={settings.imageMode}
+          labelMode={settings.labelMode}
           preset={settings.preset}
           home="top"
           reframeOnPreset

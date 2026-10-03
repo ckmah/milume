@@ -9,7 +9,10 @@ import type { RelativeCut } from "./cube-cut";
 /** Client-local state of the Inspect cube window and its context toolbar. */
 export type CubeSettings = {
   open: boolean;
-  mode: "additive" | "mip";
+  /** Projection of the image in the cube: accumulated samples or maximum intensity. */
+  imageMode: "additive" | "mip";
+  /** Projection of the label shells: accumulated front to back or the strongest one. */
+  labelMode: "additive" | "mip";
   preset: ViewPreset | null;
   resetTick: number;
   /** The image in the cube views (dock and preview); off leaves only labels. */
@@ -33,7 +36,8 @@ export function useCubeSettings(
 ): [CubeSettings, (patch: CubeSettingsPatch) => void] {
   const [settings, setSettings] = useState<CubeSettings>(() => ({
     open: false,
-    mode: "additive",
+    imageMode: "additive",
+    labelMode: "additive",
     preset: "top",
     resetTick: 0,
     showImage: true,
