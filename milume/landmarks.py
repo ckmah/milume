@@ -440,9 +440,9 @@ class LandmarksWidget(AnyWidget):
         if spatial_key not in adata.obsm:
             raise ValueError(
                 f"adata.obsm[{spatial_key!r}] is required: pass spatial_key=<an obsm key> or add "
-                "positions to the table first (README, 'Other platforms')"
+                "positions to the table first (README, 'Platform compatibility')"
             )
-        xy = np.asarray(adata.obsm[spatial_key], dtype=np.float64, copy=False)
+        xy = np.asarray(adata.obsm[spatial_key], dtype=np.float64)
         if xy.ndim != 2 or xy.shape[1] < 2:
             raise ValueError(f"adata.obsm[{spatial_key!r}] must be (n, ≥2)")
         if xy.shape[0] != adata.n_obs:
@@ -451,8 +451,8 @@ class LandmarksWidget(AnyWidget):
         if n == 0:
             raise ValueError("adata must contain at least one observation")
 
-        x_arr = np.asarray(xy[:, 0], dtype=np.float64, copy=False)
-        y_arr = np.asarray(xy[:, 1], dtype=np.float64, copy=False)
+        x_arr = np.asarray(xy[:, 0], dtype=np.float64)
+        y_arr = np.asarray(xy[:, 1], dtype=np.float64)
         xmin, xmax, ymin, ymax, point_size, buffer_width = _spatial_metrics(
             x_arr, y_arr
         )

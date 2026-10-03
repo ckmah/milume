@@ -91,35 +91,6 @@ w = milume.peek(sdata, color="cell_type")   # SpatialData on disk: adds the 3D c
 - **Save** in the dock's title bar adds the window as an **inspect selection** to its history strip. Read the inspected cells back with `w.get_obs_names(adata, "<inspect id>")` or `w.selections`.
 - Hold **Space** to pan in any tool.
 
-### Other platforms
-
-Milume plots the coordinates you point it at: `obsm[spatial_key]` of the table.
-It does not guess positions or coordinate systems from SpatialData elements, so
-nothing is computed at construction beyond packing what you will color by. What
-the `spatialdata-io` readers write for `obsm`:
-
-| Platform | What to pass |
-| --- | --- |
-| Pyxa, Meteor, Xenium, Visium, seqFISH, Stereo-seq, Curio | nothing: `obsm["spatial"]` is the cell position |
-| CosMx | `spatial_key="global"` (`obsm["spatial"]` is local to each FOV) |
-| MERSCOPE | nothing: positions are µm, whatever the SpatialData's own pixel coordinate system is |
-| Several tables (seqFISH ROIs, Visium HD bin sizes) | `table="..."` |
-| One FOV or slide of a table that spans several (MIBI-TOF, Visium) | slice first: `milume.peek(t[t.obs["fov"] == "1"])` |
-| No `obsm` (MERFISH, SpaceM, Visium HD segmentations) | add positions first, then peek (below) |
-
-```python
-import spatialdata as sd
-
-t = sdata.tables["table"]
-cent = sd.get_centroids(sdata["cells"], coordinate_system="global").compute()
-t.obsm["spatial"] = cent.loc[t.obs["cell_id"], ["x", "y"]].to_numpy()
-w = milume.peek(sdata)
-```
-
-The widget does not know which SpatialData coordinate system your coordinates
-are in. When you place landmarks into the SpatialData, declare it yourself
-([contract](docs/landmarks-spatialdata-contract.md)).
-
 Read results back in Python:
 
 | Need | Call |
@@ -134,3 +105,47 @@ Read results back in Python:
 
 Large expression matrices are sent sparse; pass `genes=` to limit the gene
 catalog.
+
+### Platform compatibility
+
+Milume plots the coordinates you point it at: `obsm[spatial_key]` of the table.
+It does not guess positions or coordinate systems from SpatialData elements, so
+nothing is computed at construction beyond packing what you will color by. What
+the `spatialdata-io` readers write for `obsm`, and what to pass:
+
+| Platform | What to pass |
+| --- | --- |
+| Pyxa, Meteor, Xenium, Visium, seqFISH, Stereo-seq, Curio | nothing: `obsm["spatial"]` is the cell position |
+| CosMx | `spatial_key="global"` (`obsm["spatial"]` is local to each FOV) |
+| MERSCOPE | nothing: positions are µm, whatever the SpatialData's own pixel coordinate system is |
+| Several tables (seqFISH ROIs, Visium HD bin sizes) | `table="..."` |
+| One FOV or slide of a table that spans several (MIBI-TOF, Visium) | slice first: `milume.peek(t[t.obs["fov"] == "1"])` |
+| No `obsm` (MERFISH, Visium HD segmentations) | add positions first, then peek (below) |
+
+```python
+import spatialdata as sd
+
+t = sdata.tables["table"]
+cent = sd.get_centroids(sdata["cells"], coordinate_system="global").compute()
+t.obsm["spatial"] = cent.loc[t.obs["cell_id"], ["x", "y"]].to_numpy()
+w = milume.peek(sdata)
+```
+
+The widget does not know which SpatialData coordinate system your coordinates
+are in. When you place landmarks into the SpatialData, declare it yourself
+([contract](docs/landmarks-spatialdata-contract.md)).
+
+**Tested against** the example datasets on the
+[SpatialData datasets page](https://spatialdata.scverse.org/en/stable/tutorials/notebooks/datasets/README.html),
+converted in [spatialdata-sandbox](https://github.com/giovp/spatialdata-sandbox):
+MERFISH, MIBI-TOF, Molecular Cartography, Visium and Visium HD (cell
+segmentations), plus Pyxa. The rows for Xenium, CosMx, MERSCOPE, seqFISH,
+Stereo-seq and Curio come from reading what the
+[`spatialdata-io`](https://github.com/scverse/spatialdata-io) readers write,
+not from real data.
+
+**Formats change.** SpatialData, its readers and the vendors' outputs are still
+evolving, so the table above is a snapshot. If a reader moves positions to
+another `obsm` key or coordinate system, or a dataset arrives in a layout not
+listed, you may need to adjust it yourself: choose `spatial_key`, pick the
+`table`, slice the AnnData, or add positions as shown above.
