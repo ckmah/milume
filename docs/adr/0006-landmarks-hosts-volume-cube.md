@@ -23,8 +23,9 @@ in its own chrome:
   `volume_cut` (the committed cut box, `x0,x1,y0,y1,z0,z1` µm). Every
   rendering control (camera, projection, palette, image alpha/gamma, cell
   alpha, Labels) is client-local, per [ADR 0005](0005-widget-owns-rendering-controls.md).
-- The **Inspect** tool places a window on the map and opens a floating
-  **Cube** dialog (`frontend/src/widgets/landmarks/chrome/cube-window.tsx`)
+- The **Inspect** tool places a window on the map and opens the **Cube**
+  dialog (`frontend/src/widgets/landmarks/chrome/cube-immersive.tsx`; a
+  floating window until the 2026-10-02 addendum)
   with its own context toolbar (`chrome/inspect-toolbar.tsx`,
   `data-testid="context-inspect-toolbar"`). Highlight follows the category
   panel's focus in the browser (`cube-highlight.ts`) — no Python round
@@ -41,7 +42,7 @@ in its own chrome:
   only while the cube is open.
 - `VolumeCube` (`frontend/src/widgets/volume-cube/VolumeCube.tsx`) is the
   rendering component: props and a cell lookup in, no model.
-  `landmarks/chrome/cube-window.tsx` binds it to the widget state.
+  `landmarks/chrome/cube-immersive.tsx` binds it to the widget state.
 - The browser reads the store through a loopback server
   (`serve_directory` in `milume/volume_cube.py`) that serves only
   `images/<image>/` and `labels/<labels>/` of the SpatialData; tables and
@@ -91,3 +92,33 @@ the dock, without new traits:
   Python no longer sets it.
 - Both cube views open top-down and draw the user's landmarks on the stack's
   top face, with a small axis legend.
+
+## Addendum 2026-10-02
+
+[Inspect: immersive cube](../superpowers/specs/2026-10-02-inspect-immersive-cube-design.md)
+replaces the floating Cube window with a takeover of the plot area, still
+without new traits:
+
+- The cube is no longer a floating window. `CubeImmersive`
+  (`chrome/cube-immersive.tsx`) fills the plot area (`.landmarks__body`, or the
+  whole widget in fullscreen) and covers the map while it is open; the map stays
+  mounted underneath, so the engine keeps its layout and WebGL context. Esc or
+  Close cube returns to the map; to move the window the user closes the cube and
+  places again. The hover preview is hidden while the cube is open.
+- The cube opens on mouse **release**, not press (the engine's `release`
+  event). A press-and-drag positions the window with the hover preview
+  following, and the cube opens where the drag ends.
+- A second, coarse **context** volume layer is loaded around the window (3×
+  the window's side, within `PREVIEW_REGION_BUDGET`, through its own
+  `useShownWindow`) and drawn first, dimmed and desaturated outside the
+  window, so zooming out shows the tissue around it. The window layer is
+  unchanged. The window stays the unit that Save, the cut and the highlight
+  act on; the context is for orientation only and never moves `inspect_cx` /
+  `inspect_cy` (no free pan; zoom-out stops just past the context region).
+- Known limit: the context drops every ray that crosses the window's column,
+  so an orbited view does not draw context tissue in front of or behind the
+  window. A screen-space blur that would hold the focus when orbited was not
+  built.
+- No new synced traits; `volume`, `volume_label_ids`, `volume_cut`, `inspect_*`
+  and `selections` keep their meaning, and ADR 0005 still holds (the cube's
+  controls and the context stay client-local).

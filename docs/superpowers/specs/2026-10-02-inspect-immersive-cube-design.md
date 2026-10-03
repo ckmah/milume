@@ -108,3 +108,41 @@ only.
   chrome must hold at the minimum widget height.
 - Coarse region budget on very large sections: reuse `PREVIEW_REGION_BUDGET`
   and the `fitsBudget` / `regionBox` rules; do not add a second budget.
+
+## Deviations during implementation
+
+What was built differs from the plan above in these ways.
+
+- **Opens on release, not on click.** The cube opens on mouse release (the
+  engine's `release` event, commit `3be7b2c`): a press-and-drag positions the
+  window with the hover preview following, and the cube opens where the drag
+  ends. The map is covered while the cube is open, so to move the window the
+  user presses Esc or Close, then places again. The hover preview is hidden
+  while the cube is open.
+- **`CubeImmersive` replaced `CubeWindow`.** `chrome/cube-immersive.tsx`
+  (`role="dialog"`, name "Cube", `z-index` 21) replaced `cube-window.tsx`. Its
+  actions (title, Save window, Close cube; `data-testid="cube-actions"`) sit
+  on a **second row below the tool pill**, not top right on the same row, since
+  the Close button was under `.landmarks__chrome-view`. The history chips are
+  bottom-left (`aria-label="Inspect history"`). Snapshot helpers moved to
+  `chrome/cube-snapshots.ts`, with a live-window snapshot slot so a chip gets
+  its thumbnail when Save lands after the cube has settled.
+- **Open animation.** A fade/scale from the viewport centre, not a grow from
+  the hover preview's rect (none under `prefers-reduced-motion`).
+- **Two-layer context, window layer untouched.** `VolumeCube`'s `context` prop
+  loads a second coarse volume layer (a second `useShownWindow`; 3× the window,
+  `PREVIEW_REGION_BUDGET`), drawn first. The shader (`ctxOn` / `ctxWin` /
+  `ctxLook` in `cell-lut-extension.ts`) drops any context ray that crosses the
+  window's column (an analytic slab test before the loop), using the window's
+  exact µm extent, and dims (`CONTEXT_DIM`) and desaturates
+  (`CONTEXT_DESATURATE`) the rest. `data-context`, `data-context-level` and
+  `data-context-refining` mirror it on `.volume-cube__view`; the hover preview
+  reports `data-context="off"`. With X/Y cuts the cut-away part of the window
+  shows empty.
+- **Compositing limit when orbited.** Because the context drops the window's
+  whole column, an orbited camera shows no context tissue in front of or
+  behind the window. Tier 2 (the screen-space blur) was not built.
+- **No pan.** The camera has no free pan (the orbit target stays on the
+  window); zoom-out stops at log2(3) + 0.25 steps below home with the context
+  (2 without, as before), instead of the wider zoom and pan bounds planned.
+- **No new traits**, as planned.
