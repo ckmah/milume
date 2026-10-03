@@ -469,6 +469,9 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.7, { steps: 3 });
     await page.mouse.up();
     expect(await cx()).toBe(escaped);
+    // An open on release would be async, so this passes at once; the 300 ms-guarded
+    // check at the end of this test covers "no cube" for the lost-release and blur cases.
+    await page.waitForTimeout(300); // a negative check: outlast the render an open would cause
     await expect(cubeWindow(page)).toHaveCount(0);
 
     // A lost release (a move with no button held), or the page losing focus, ends the press.
@@ -517,10 +520,14 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
     await dragOnMap(page, box, [0.5, 0.5], [0.56, 0.5]);
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(cx0);
-    // Released: the cube reopens at the new window and settles with no residual pan.
+    // Released: the cube reopens, loads the new window, and settles with no residual pan.
     await expect(cubeWindow(page)).toBeVisible();
     await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).not.toHaveAttribute("data-level", "-1");
     await expect(view).toHaveAttribute("data-pan", "0,0");
+    const placed = await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay().placed);
+    expect(placed[0]).toBeCloseTo(Number(await getModel(page, "inspect_cx")), 3);
+    expect(placed[0]).toBeGreaterThan(cx0);
 
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
@@ -1038,6 +1045,17 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
   });
 
+  test("a chip gets its thumbnail when Save lands after the cube has settled", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-pan", "0,0");
+    await page.waitForTimeout(1500); // settle: past the cube's last frame, so Save cannot ride on one
+    expect(await save(page)).toBe(0);
+    const chip = cubeWindow(page).getByLabel("Inspect history").getByRole("button", { name: "Inspect 1" });
+    await expect(chip.locator("img")).toHaveCount(1);
+  });
+
   test("a chip's snapshot follows its entry: a reused id re-snapshots", async ({ page }) => {
     // A 100 µm window, so two places show different parts of the toy volume.
     await reloadWith(page, "window=100");
@@ -1057,8 +1075,6 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toBeVisible();
     expect(await save(page)).toBe(0);
     expect((await selectionsOf(page))[0].id).toBe(id);
-    // A snapshot is taken from a rendered frame: nudge one in case the cube had already settled.
-    await page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Reset view" }).click();
     await expect(chip.locator("img")).toHaveCount(1);
     await expect.poll(src).not.toBe(before);
   });

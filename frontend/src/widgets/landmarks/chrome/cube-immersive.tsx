@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useReducer, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { BookmarkCheckIcon, BookmarkPlusIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -83,29 +83,47 @@ export function CubeImmersive({
   const focusedIndex = lm.selected_kind === "selection" ? lm.selected_index : -1;
   const focused = history.find((h) => h.index === focusedIndex) ?? null;
 
-  // Snapshot the focused entry once its window is shown settled (fine level,
-  // no pan) at the entry's own window.
+  // Snapshot the live window once it is shown settled (fine level, no pan): a
+  // chip for it can then show its thumbnail the moment Save adds it, though
+  // deck draws no new frame then (the canvas can only be read while rendering).
+  // A focused entry at its own window also gets one, under its id. After an
+  // entry's first snapshot, settled renders replace it for SNAPSHOT_SETTLE_MS.
   const [, bumpSnapshots] = useReducer((n: number) => n + 1, 0);
-  const latest = useRef({ focused, cx: lm.inspect_cx, cy: lm.inspect_cy });
-  latest.current = { focused, cx: lm.inspect_cx, cy: lm.inspect_cy };
+  const live = useRef<ChipSnapshot | null>(null);
+  const latest = useRef({ focused, cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um });
+  latest.current = { focused, cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um };
   const onRendered = useCallback(
     (canvas: HTMLCanvasElement) => {
       const s = loadRef.current;
-      const { focused: f, cx, cy } = latest.current;
-      if (!s || s.refining || s.pan[0] !== 0 || s.pan[1] !== 0 || !f) return;
-      if (f.win.cx !== cx || f.win.cy !== cy) return;
-      const key = windowKey(f.win);
-      const prev = snapshots.get(f.id);
-      const current = prev?.key === key ? prev : null;
+      const { focused: f, cx, cy, size: sz } = latest.current;
+      if (!s || s.refining || s.pan[0] !== 0 || s.pan[1] !== 0 || cx == null || cy == null) return;
       const now = performance.now();
-      if (current && now - current.at > SNAPSHOT_SETTLE_MS) return;
+      const liveKey = windowKey({ cx, cy, size_um: sz });
+      const liveCur = live.current?.key === liveKey ? live.current : null;
+      const takeLive = !liveCur || now - liveCur.at <= SNAPSHOT_SETTLE_MS;
+      let entryCur: ChipSnapshot | null = null;
+      let takeEntry = false;
+      if (f && f.win.cx === cx && f.win.cy === cy) {
+        const prev = snapshots.get(f.id);
+        entryCur = prev?.key === windowKey(f.win) ? prev : null;
+        takeEntry = !entryCur || now - entryCur.at <= SNAPSHOT_SETTLE_MS;
+      }
+      if (!takeLive && !takeEntry) return;
       const url = snapshotOf(canvas);
       if (!url) return;
-      snapshots.set(f.id, { key, url, at: current?.at ?? now });
+      if (takeLive) live.current = { key: liveKey, url, at: liveCur?.at ?? now };
+      if (takeEntry && f) snapshots.set(f.id, { key: windowKey(f.win), url, at: entryCur?.at ?? now });
       bumpSnapshots();
     },
     [snapshots],
   );
+  // A focused entry at the live window keeps the live snapshot when the cube moves on.
+  const focusedKey = focused ? windowKey(focused.win) : "";
+  useEffect(() => {
+    const l = live.current;
+    if (!focused || !l || l.key !== focusedKey || snapshots.get(focused.id)?.key === focusedKey) return;
+    snapshots.set(focused.id, l);
+  });
 
   const volume = lm.volume ?? {};
   const size = lm.inspect_size_um || INSPECT_WINDOW_UM;
@@ -205,8 +223,9 @@ export function CubeImmersive({
           className={cn(FLOAT_PANEL, "landmarks__cube-history")}
         >
           {history.map((h, n) => {
-            const snap = snapshots.get(h.id);
-            const src = snap?.key === windowKey(h.win) ? snap.url : null;
+            const key = windowKey(h.win);
+            const snap = [snapshots.get(h.id), live.current].find((c) => c?.key === key);
+            const src = snap?.url ?? null;
             return (
               <Button
                 key={`${h.id}-${h.index}`}
