@@ -260,6 +260,15 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
 
   const mode = lm.mode;
   const open = cube.open;
+  // The cube belongs to Inspect: it covers the map, so leaving Inspect closes it
+  // (on the transition only; a later click in Inspect opens it again).
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    const was = modeRef.current;
+    modeRef.current = mode;
+    if (was === "inspect" && mode !== "inspect" && open) patchCube({ open: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, patchCube]);
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key !== "Escape" || mode !== "inspect" || !open) return;

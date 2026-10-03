@@ -150,6 +150,8 @@ export function LandmarksView({
     lm.inspect_size_um,
   ]);
   const inspecting = lm.mode === "inspect";
+  // The immersive cube shows only in Inspect (leaving Inspect also closes it).
+  const cubeOpen = hasVolume && cube.open && inspecting;
 
   // The user's landmarks, drawn in the cube views for context.
   const [landmarkGeometry, setLandmarkGeometry] = useState<CubeOverlay[] | null>(null);
@@ -372,7 +374,7 @@ export function LandmarksView({
           <SelectionToolbar lm={lm} engine={engine} />
         )}
 
-        {hasVolume && cube.open ? (
+        {cubeOpen ? (
           <CubeImmersive
             lm={lm}
             settings={cube}

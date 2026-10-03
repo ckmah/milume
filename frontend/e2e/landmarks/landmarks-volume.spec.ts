@@ -884,15 +884,24 @@ test.describe("Landmarks inspect cube", () => {
     await expect(page.getByRole("slider", { name: "Z cut" }).nth(1)).toHaveAttribute("aria-valuenow", "54");
   });
 
-  test("the cube stays open after switching tool; Esc from its chrome closes it", async ({ page }) => {
+  test("leaving Inspect closes the cube and frees the map; Esc from its chrome closes it", async ({ page }) => {
     const box = await openCubeAtCentre(page);
     await page.getByRole("radio", { name: "Select", exact: true }).click();
-    await expect(cubeWindow(page)).toBeVisible();
+    await expect(cubeWindow(page)).toHaveCount(0);
     await expect(page.getByTestId("context-inspect-toolbar")).toHaveCount(0);
-    expect((await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay())).placed).not.toBeNull();
+    // The map is the top hit again: a click in the new tool reaches the map, not a cube.
+    const centre: [number, number] = [box.x + box.width * 0.5, box.y + box.height * 0.5];
+    const hitsMap = () =>
+      page.evaluate(([x, y]) => Boolean(document.elementFromPoint(x, y)?.closest(".landmarks__plot-host")), centre);
+    expect(await hitsMap()).toBe(true);
+    // Back in Inspect the cube stays closed until the next click.
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    await expect(cubeWindow(page)).toHaveCount(0);
+    expect(await hitsMap()).toBe(true);
 
     // Esc with focus in the Inspect toolbar.
-    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    await page.mouse.click(...centre);
+    await expect(cubeWindow(page)).toBeVisible();
     await page.getByTestId("context-inspect-toolbar").getByRole("radio", { name: "Top view" }).click();
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
