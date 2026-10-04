@@ -5296,6 +5296,13 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     return false;
   }
 
+  /** True if the event comes from inside an open menu (focus moves into it). */
+  function eventInMenu(event) {
+    const path =
+      typeof event.composedPath === "function" ? event.composedPath() : [event.target];
+    return path.some((node) => node instanceof Element && node.getAttribute("role") === "menu");
+  }
+
   /** True if the event originated under this widget (works across shadow DOM). */
   function eventInWidget(event) {
     const path =
@@ -5505,6 +5512,9 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       finishVertexDraft();
       return;
     }
+    // Esc in an open menu belongs to the menu (it closes itself): in Inspect
+    // it never closes the cube or leaves the mode.
+    if (key === "Escape" && currentMode === "inspect" && eventInMenu(event)) return;
     if (key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
@@ -5533,10 +5543,13 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
           adjustTrigger.click();
           return;
         }
-        // Esc ends a press where it is: later moves drag nothing.
+        // Esc ends a press where it is: later moves drag nothing. React
+        // closes the cube on `close`, or exits Inspect when none is open and
+        // no press was ended.
+        const press = Boolean(inspectGesture);
         endInspectPress();
         clearInspectHover();
-        emitInspect({ type: "close" });
+        emitInspect({ type: "close", press });
         setDeckLayers();
         return;
       }

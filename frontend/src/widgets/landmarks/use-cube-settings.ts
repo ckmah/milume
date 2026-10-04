@@ -25,6 +25,10 @@ export type CubeSettings = {
   bounds: CubeBounds | null;
   /** The Move tool: a plain drag in the cube pans the window instead of orbiting. */
   move: boolean;
+  /** The open cube's load: a level still loading, all loaded, or failed (the Inspect pill's chip). */
+  load: "refining" | "ready" | "error";
+  /** Why the load failed, when `load` is "error". */
+  loadError: string;
 };
 
 export type CubeSettingsPatch = Omit<Partial<CubeSettings>, "render"> & {
@@ -49,6 +53,8 @@ export function useCubeSettings(
     cut: initialCut,
     bounds: null,
     move: false,
+    load: "refining",
+    loadError: "",
   }));
   const patch = useCallback((p: CubeSettingsPatch) => {
     setSettings((prev) => {

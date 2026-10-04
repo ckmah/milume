@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Rise } from "cube-motion/react";
 
 import { useNotebookTheme } from "@/hooks/use-notebook-theme";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ import {
   MinimapPanel,
   SelectionToolbar,
   Topbar,
+  InspectPill,
   LandmarkCanvasMenu,
   ViewCta,
   RightChromeStack,
@@ -36,7 +38,7 @@ import {
   type AnyModel,
 } from "./helpers";
 import { wrapLandmarksModel } from "./model";
-import { useInspectCube } from "./use-inspect-cube";
+import { isWindowSaved, useInspectCube } from "./use-inspect-cube";
 import { useLandmarksModel } from "./use-landmarks-model";
 import { useWidgetFullscreen } from "./use-widget-fullscreen";
 
@@ -345,18 +347,41 @@ export function LandmarksView({
           onMouseDown={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}
         >
-          <Topbar
-            modes={ALL_MODES}
-            mode={lm.mode}
-            onMode={(mode) => lm.setMode(mode)}
-            fullscreen={isFullscreen}
-            onToggleFullscreen={() => {
-              toggle();
-            }}
-            onZoomIn={() => engineRef.current?.zoomBy(1)}
-            onZoomOut={() => engineRef.current?.zoomBy(-1)}
-            onReset={() => engineRef.current?.resetZoom()}
-          />
+          {/* One slot: the Inspect pill swaps in for the tool pill (both stack while one leaves). */}
+          <Rise show={!inspecting} inert={inspecting}>
+            <Topbar
+              modes={ALL_MODES}
+              mode={lm.mode}
+              onMode={(mode) => lm.setMode(mode)}
+              fullscreen={isFullscreen}
+              onToggleFullscreen={() => {
+                toggle();
+              }}
+              onZoomIn={() => engineRef.current?.zoomBy(1)}
+              onZoomOut={() => engineRef.current?.zoomBy(-1)}
+              onReset={() => engineRef.current?.resetZoom()}
+            />
+          </Rise>
+          <Rise show={inspecting} inert={!inspecting}>
+            <InspectPill
+              open={cubeOpen}
+              sizeUm={lm.inspect_size_um || INSPECT_WINDOW_UM}
+              centre={lm.inspect_cx != null && lm.inspect_cy != null ? { x: lm.inspect_cx, y: lm.inspect_cy } : null}
+              status={cube.load}
+              statusError={cube.loadError}
+              saved={isWindowSaved(lm)}
+              canSave={lm.inspect_cx != null && lm.inspect_cy != null}
+              fullscreen={isFullscreen}
+              onExit={inspectCube.exitInspect}
+              onSave={inspectCube.save}
+              onToggleFullscreen={() => {
+                toggle();
+              }}
+              onZoomIn={() => engineRef.current?.zoomBy(1)}
+              onZoomOut={() => engineRef.current?.zoomBy(-1)}
+              onResetZoom={() => engineRef.current?.resetZoom()}
+            />
+          </Rise>
         </div>
 
         {inspecting && hasVolume ? (
@@ -389,7 +414,6 @@ export function LandmarksView({
             snapshots={snapshots}
             overlays={landmarkGeometry}
             onFocusEntry={inspectCube.focusEntry}
-            onSave={inspectCube.save}
             onPan={inspectCube.panWindow}
             onPanEnd={inspectCube.panEnd}
           />

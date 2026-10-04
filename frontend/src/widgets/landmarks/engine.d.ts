@@ -13,7 +13,8 @@ export type InspectEvent =
   | { type: "hover"; x: number; y: number; sizeUm: number; sizePx: number; px: number; py: number }
   | { type: "hover-end" }
   | { type: "commit"; index: number }
-  | { type: "close" };
+  /** Esc in Inspect; `press` when it ended a press on the map (which then only ends). */
+  | { type: "close"; press: boolean };
 
 export type EngineHandle = {
   zoomBy(delta: number, opts?: { animate?: boolean; duration?: number }): void;

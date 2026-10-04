@@ -239,8 +239,12 @@ test.describe("LandmarksWidget", () => {
     await expect(page.getByRole("dialog", { name: "Cube" })).toHaveCount(0);
     // Placement only: no inspect selection is committed.
     expect(await getModel(page, "selections")).toEqual(before);
-    await page.getByRole("radio", { name: "Select", exact: true }).click();
+    // The Inspect pill (armed: no cube to open) stands in for the tool pill; Exit leaves Inspect.
+    const pill = page.getByTestId("inspect-pill");
+    await expect(pill).toHaveAttribute("data-state", "armed");
+    await pill.getByRole("button", { name: "Exit Inspect" }).click();
     await expect(page.getByTestId("context-inspect-no-volume")).toHaveCount(0);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
   });
 
   test("context toolbar docks at bottom center for selected landmark", async ({

@@ -31,6 +31,14 @@ export function inspectWindowOf(sel: SelectionItem | undefined): InspectWindow |
   return w && typeof w.cx === "number" && typeof w.cy === "number" ? w : null;
 }
 
+/** The live window is already a saved inspect entry: nothing new to save. */
+export function isWindowSaved(lm: LandmarksModel): boolean {
+  return lm.selections.some((sel) => {
+    const w = inspectWindowOf(sel);
+    return w != null && w.cx === lm.inspect_cx && w.cy === lm.inspect_cy && w.size_um === lm.inspect_size_um;
+  });
+}
+
 const DEFAULT_CONTRAST: Range = [0, 255];
 const NO_ORIGIN: [number, number, number] = [0, 0, 0];
 /** Commit the cut once the window has stopped moving for this long. */
@@ -46,11 +54,16 @@ export type InspectCube = {
   cutRanges: { x: Range; y: Range; z: Range } | null;
   onCutLive: (cut: CubeCut) => void;
   onCutCommit: (cut: CubeCut) => void;
-  /** Esc anywhere in the widget closes the cube while in Inspect. */
+  /**
+   * Esc in the widget's chrome while in Inspect (when the engine leaves it to
+   * React): closes the cube, or with no cube open, exits Inspect.
+   */
   onKeyDown: (e: React.KeyboardEvent) => void;
+  /** Leave Inspect: close the cube and go back to the tool used before it. */
+  exitInspect: () => void;
   /** Focus a saved inspect entry and restore its window and cut (a history chip). */
   focusEntry: (index: number) => void;
-  /** Save the live window, with its cut, as an inspect Selection (the cube's Save). */
+  /** Save the live window, with its cut, as an inspect Selection (the Inspect pill's Save). */
   save: () => void;
   /** Back to defaults: one Adjust section, or all of them. Open cuts are committed like a slider release. */
   resetAdjust: (section: AdjustSection | "all") => void;
@@ -87,27 +100,48 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     volumeCut ? { ...OPEN_CUT, z: [volumeCut[4], volumeCut[5]] } : OPEN_CUT,
   );
 
+  // Leaving Inspect goes back to the tool used before it.
+  const prevModeRef = useRef("select");
+  useEffect(() => {
+    if (lm.mode !== "inspect") prevModeRef.current = lm.mode;
+  }, [lm.mode]);
+  const setMode = lm.setMode;
+  const exitInspect = useCallback(() => {
+    patchCube({ open: false });
+    setMode(prevModeRef.current === "inspect" ? "select" : prevModeRef.current);
+  }, [setMode, patchCube]);
+
   // The last user placement (engine events), consumed by the settle commit.
   const placedRef = useRef<{ x: number; y: number } | null>(null);
+  // The cube's open state as last rendered: an Esc closes an open cube, and
+  // only a later Esc (after that render) exits Inspect.
+  const openRef = useRef(cube.open);
+  openRef.current = cube.open;
+  const exitRef = useRef(exitInspect);
+  exitRef.current = exitInspect;
   useEffect(() => {
-    if (!engine || !hasVolume) return;
+    if (!engine) return;
     return engine.subscribeInspect((e) => {
       // Placements remember where the user put the window (for the settle commit);
-      // the release (end of the click or drag) and saves open the cube, Esc closes it.
-      if (e.type === "place") {
+      // the release (end of the click or drag) and saves open the cube. Esc
+      // closes it; an Esc with no cube open (and no press to end) exits Inspect.
+      if (e.type === "close") {
+        if (openRef.current || e.press) patchCube({ open: false });
+        else exitRef.current();
+      } else if (!hasVolume) {
+        return;
+      } else if (e.type === "place") {
         placedRef.current = { x: e.x, y: e.y };
       } else if (e.type === "release" || e.type === "commit") {
         patchCube({ open: true });
-      } else if (e.type === "close") {
-        patchCube({ open: false });
       }
     });
   }, [engine, hasVolume, patchCube]);
   useEffect(() => {
     engine?.setInspectWindowVisible(cube.open);
-    // A reopened cube reloads; its cut ranges wait for the new bounds. Move is
-    // a tool of the open cube only.
-    if (!cube.open) patchCube({ move: false, bounds: null });
+    // A reopened cube reloads (Refining again); its cut ranges wait for the new
+    // bounds. Move is a tool of the open cube only.
+    if (!cube.open) patchCube({ move: false, bounds: null, load: "refining", loadError: "" });
   }, [engine, cube.open, patchCube]);
 
   const bounds = cube.bounds;
@@ -281,18 +315,17 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   }, [mode, patchCube]);
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key !== "Escape" || mode !== "inspect" || !open) return;
+      if (e.key !== "Escape" || mode !== "inspect") return;
+      const target = e.target as Element | null;
       // Esc in an open menu, or the Adjust panel (which closes itself), only
       // closes that — never the cube.
-      if (
-        (e.target as Element | null)?.closest?.(
-          '[role="menu"], [data-testid="context-cube-adjust-group"]',
-        )
-      )
-        return;
-      patchCube({ open: false });
+      if (target?.closest?.('[role="menu"], [data-testid="context-cube-adjust-group"]')) return;
+      // `open` is this render's value, so the Esc that closes the cube never
+      // also exits Inspect. Esc in a text field only leaves the field.
+      if (open) patchCube({ open: false });
+      else if (!target?.closest?.('input, textarea, [contenteditable="true"], [role="combobox"]')) exitInspect();
     },
-    [mode, open, patchCube],
+    [mode, open, patchCube, exitInspect],
   );
 
   const select = lm.select;
@@ -383,6 +416,7 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     onCutLive,
     onCutCommit,
     onKeyDown,
+    exitInspect,
     focusEntry,
     save,
     resetAdjust,

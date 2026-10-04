@@ -6,8 +6,8 @@ import { bootLandmarksVolumeHarness, canvasBox, getModel, setModel } from "../he
  * Landmarks over a toy SpatialData (`E2E_HARNESS=landmarks-volume`): Inspect
  * hovers a window square, a press places it (a drag moves it) and the release
  * opens the immersive cube, which covers the map; Esc closes it. The Inspect
- * context bar drives the cube. The cube's Save keeps the window as an inspect
- * Selection. Because the map is covered while the cube is open, tests that move
+ * context bar drives the cube. The Inspect pill (top, in place of the tool
+ * pill) holds Save, which keeps the window as an inspect Selection, and Exit. Because the map is covered while the cube is open, tests that move
  * the window close the cube first (`moveWindow`). The cube's `data-*` mirrors are
  * read from its `.volume-cube__view` inside the Cube dialog.
  *
@@ -20,8 +20,10 @@ const cubeWindow = (page: Page) => page.getByRole("dialog", { name: "Cube" });
 const preview = (page: Page) => page.getByTestId("inspect-preview");
 const cutOf = async (page: Page) => (await getModel(page, "volume_cut")) as number[];
 const selectionsOf = async (page: Page) => (await getModel(page, "selections")) as any[];
-const saveButton = (page: Page) => cubeWindow(page).getByRole("button", { name: "Save window" });
-/** Save the live window from the cube's actions row; the new entry's index (it is focused). */
+/** The top pill while in Inspect (in place of the tool pill): Exit, the window's status, Save. */
+const inspectPill = (page: Page) => page.getByTestId("inspect-pill");
+const saveButton = (page: Page) => inspectPill(page).getByRole("button", { name: "Save window" });
+/** Save the live window from the Inspect pill; the new entry's index (it is focused). */
 async function save(page: Page) {
   const before = (await selectionsOf(page)).length;
   await saveButton(page).click();
@@ -269,7 +271,8 @@ test.describe("Landmarks inspect cube", () => {
 
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(cubeWindow(page)).toBeVisible();
-    await expect(cubeWindow(page).getByText(/Cube · [\d.]+ µm/)).toBeVisible();
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "open");
+    await expect(inspectPill(page).getByText(/^[\d.]+ µm$/)).toBeVisible();
     await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-channels", /1|2/);
     expect(Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(0);
     expect((await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay())).placed).not.toBeNull();
@@ -277,7 +280,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(await selectionsOf(page)).toEqual([]);
     await expect(cubeWindow(page).getByLabel("Inspect history")).toHaveCount(0);
 
-    await cubeWindow(page).getByRole("button", { name: "Close cube" }).click();
+    await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
   });
 
@@ -305,6 +308,87 @@ test.describe("Landmarks inspect cube", () => {
     await expect(preview(page)).toBeHidden();
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+  });
+
+  test("entering Inspect swaps the top pill for the dotted Inspect pill; Exit restores it", async ({ page }) => {
+    const tools = page.getByRole("toolbar", { name: "Drawing tools" });
+    await expect(tools).toBeVisible();
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const pill = page.getByTestId("inspect-pill");
+    await expect(pill).toBeVisible();
+    await expect(pill).toHaveAttribute("data-state", "armed");
+    await expect(tools).toHaveCount(0);
+    await expect(pill.getByText("Click to place a 300 µm window")).toBeVisible();
+    expect(await pill.evaluate((el) => getComputedStyle(el).borderStyle)).toContain("dashed");
+    await pill.getByRole("button", { name: "Exit Inspect" }).click();
+    await expect(pill).toHaveCount(0);
+    await expect(tools).toBeVisible();
+    expect(await getModel(page, "mode")).not.toBe("inspect");
+  });
+
+  test("the Inspect pill shows Refining then Ready, with Save and Exit", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const pill = page.getByTestId("inspect-pill");
+    await expect(pill).toHaveAttribute("data-state", "open");
+    await expect(pill.getByText(/Inspect/)).toBeVisible();
+    await expect(page.getByTestId("inspect-status")).toHaveAttribute("data-state", "ready");
+    await expect(pill.getByRole("button", { name: "Save window" })).toBeEnabled();
+    await pill.getByRole("button", { name: "Exit Inspect" }).click();
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(page.getByRole("toolbar", { name: "Drawing tools" })).toBeVisible();
+  });
+
+  test("Esc closes the cube, a second Esc exits Inspect", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(page.getByTestId("inspect-pill")).toHaveAttribute("data-state", "armed");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("inspect-pill")).toHaveCount(0);
+    await expect(page.getByRole("toolbar", { name: "Drawing tools" })).toBeVisible();
+  });
+
+  test("with no cube open, Esc in a menu or the Adjust panel closes only that, not Inspect", async ({ page }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const bar = page.getByTestId("context-inspect-toolbar");
+    await bar.getByRole("button", { name: "Palette" }).click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await openAdjust(page);
+    await expect(adjustPanel(page)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(adjustPanel(page)).toHaveCount(0);
+    expect(await getModel(page, "mode")).toBe("inspect");
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
+  });
+
+  test("Exit and Esc go back to the tool used before Inspect", async ({ page }) => {
+    const tools = page.getByRole("toolbar", { name: "Drawing tools" });
+    await tools.getByRole("radio", { name: "Move", exact: true }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("move");
+    await openCubeAtCentre(page);
+    await inspectPill(page).getByRole("button", { name: "Exit Inspect" }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("move");
+
+    await tools.getByRole("radio", { name: "Probe", exact: true }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("probe");
+    await openCubeAtCentre(page);
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+    expect(await getModel(page, "mode")).toBe("inspect");
+    await page.keyboard.press("Escape");
+    await expect.poll(() => getModel(page, "mode")).toBe("probe");
+    await expect(tools.getByRole("radio", { name: "Probe", exact: true })).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("the status chip reads Refining while a level loads", async ({ page }) => {
+    // Force a coarse-then-fine load with the harness budgets so the chip is observable.
+    await reloadWith(page, "budgets=2000,20000");
+    await openCubeAtCentre(page);
+    const chip = page.getByTestId("inspect-status");
+    await expect(chip).toHaveAttribute("data-state", /refining|ready/);
+    await expect(chip).toHaveAttribute("data-state", "ready");
   });
 
   test("the Inspect toolbar shows before a window is placed; cut sliders wait for ranges without a crash", async ({
@@ -373,7 +457,7 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(cubeWindow(page)).toBeVisible();
     expect(await getModel(page, "inspect_size_um")).toBe(300);
-    await expect(cubeWindow(page).getByText("Cube · 300 µm")).toBeVisible();
+    await expect(inspectPill(page).getByText("300 µm", { exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
     expect((await events()).at(-2)).toEqual({ type: "hover-end" });
   });
@@ -521,8 +605,8 @@ test.describe("Landmarks inspect cube", () => {
     // The map is covered while the cube is open: close it, then press on the map.
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
-    // The tool pill sits over the map and is always on screen.
-    const pill = (await page.getByRole("radio", { name: "Inspect", exact: true }).boundingBox())!;
+    // The top pill (the Inspect pill in Inspect) sits over the map and is always on screen.
+    const pill = (await inspectPill(page).getByText("Inspect", { exact: true }).boundingBox())!;
     const overChrome = { x: pill.x + pill.width / 2, y: pill.y + pill.height / 2 };
     // Released over the chrome: the window stays where the drag left it, saved.
     await page.evaluate(() => {
@@ -551,6 +635,9 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.7, { steps: 3 });
     await page.mouse.up();
     expect(await cx()).toBe(escaped);
+    // That Esc only ended the press: still in Inspect.
+    expect(await getModel(page, "mode")).toBe("inspect");
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
     // An open on release would be async, so this passes at once; the 300 ms-guarded
     // check at the end of this test covers "no cube" for the lost-release and blur cases.
     await page.waitForTimeout(300); // a negative check: outlast the render an open would cause
@@ -983,8 +1070,10 @@ test.describe("Landmarks inspect cube", () => {
 
   test("leaving Inspect closes the cube and frees the map; Esc from its chrome closes it", async ({ page }) => {
     const box = await openCubeAtCentre(page);
-    await page.getByRole("radio", { name: "Select", exact: true }).click();
+    // The tool pill is swapped out in Inspect: Exit leaves it.
+    await inspectPill(page).getByRole("button", { name: "Exit Inspect" }).click();
     await expect(cubeWindow(page)).toHaveCount(0);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
     await expect(page.getByTestId("context-inspect-toolbar")).toHaveCount(0);
     // The map is the top hit again: a click in the new tool reaches the map, not a cube.
     const centre: [number, number] = [box.x + box.width * 0.5, box.y + box.height * 0.5];
@@ -996,19 +1085,32 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
     expect(await hitsMap()).toBe(true);
 
-    // Esc with focus in the Inspect toolbar.
+    // Esc with focus in the Inspect toolbar: closes the cube; a second one there exits Inspect.
     await page.mouse.click(...centre);
     await expect(cubeWindow(page)).toBeVisible();
     await page.getByTestId("context-inspect-toolbar").getByRole("radio", { name: "Top view" }).click();
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
+    await page.keyboard.press("Escape");
+    await expect(inspectPill(page)).toHaveCount(0);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
 
     // Esc after clicking into the cube window.
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(cubeWindow(page)).toBeVisible();
-    await cubeWindow(page).getByText(/Cube · [\d.]+ µm/).click();
+    await cubeWindow(page).locator(".volume-cube__view").click({ position: { x: 12, y: 12 } });
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
+
+    // Leaving Inspect any other way (here Python sets the tool) closes the cube too.
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await expect(cubeWindow(page)).toBeVisible();
+    await setModel(page, { mode: "select" });
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(inspectPill(page)).toHaveCount(0);
   });
 
   test("Inspect hides both side panels; leaving restores them as they were", async ({ page }) => {
@@ -1024,7 +1126,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(page.getByRole("button", { name: "Show left panel" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Show right panel" })).toBeVisible();
 
-    await page.getByRole("radio", { name: "Select", exact: true }).click();
+    await inspectPill(page).getByRole("button", { name: "Exit Inspect" }).click();
     await expect(left).toHaveAttribute("data-collapsed", "false");
     await expect(right).toHaveAttribute("data-collapsed", "false");
 
@@ -1036,6 +1138,9 @@ test.describe("Landmarks inspect cube", () => {
     await expect(left).toHaveAttribute("data-collapsed", "true");
     await page.getByRole("button", { name: "Show left panel" }).click();
     await expect(left).toHaveAttribute("data-collapsed", "false");
+    // With no cube open, Esc leaves Inspect (here with focus on the peek tab).
+    await page.keyboard.press("Escape");
+    await expect(inspectPill(page)).toHaveCount(0);
     await page.getByRole("radio", { name: "Move", exact: true }).click();
     await expect.poll(() => getModel(page, "mode")).toBe("move");
     await expect(left).toHaveAttribute("data-collapsed", "false");
@@ -1049,22 +1154,25 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-highlight", "2");
     const right = page.locator(".landmarks__chrome-dock--right");
     await expect(right).toHaveAttribute("data-collapsed", "true");
-    // Both peek tabs sit over the cube, clear of its Close button (a click is
-    // refused when another element would receive it).
-    const close = cubeWindow(page).getByRole("button", { name: "Close cube" });
-    await close.click({ trial: true, timeout: 5_000 });
+    // Both peek tabs sit over the cube, clear of the Inspect pill's Save and Exit
+    // (a click is refused when another element would receive it).
+    const actions = [
+      inspectPill(page).getByRole("button", { name: "Save window" }),
+      inspectPill(page).getByRole("button", { name: "Exit Inspect" }),
+    ];
+    for (const a of actions) await a.click({ trial: true, timeout: 5_000 });
     await page.getByRole("button", { name: "Show left panel" }).click({ trial: true, timeout: 5_000 });
     await page.getByRole("button", { name: "Show right panel" }).click();
     await expect(right).toHaveAttribute("data-collapsed", "false");
     await expect(cubeWindow(page)).toBeVisible();
-    // The expanded dock is the top hit over the cube, and the cube's actions stay reachable.
+    // The expanded dock is the top hit over the cube, and the pill's actions stay reachable.
     const b = (await right.boundingBox())!;
     const onTop = await page.evaluate(
       ([x, y]) => Boolean(document.elementFromPoint(x, y)?.closest(".landmarks__chrome-dock--right")),
       [b.x + b.width / 2, b.y + Math.min(b.height / 2, 40)],
     );
     expect(onTop).toBe(true);
-    await close.click({ trial: true, timeout: 5_000 });
+    for (const a of actions) await a.click({ trial: true, timeout: 5_000 });
 
     // Focus a category in the dock: the cube highlights only its cells (type1: cells 1 and 3).
     await right.getByRole("button", { name: "Expand cell_type" }).click();
@@ -1205,7 +1313,8 @@ test.describe("Landmarks inspect cube", () => {
     const box = await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
-    await cubeWindow(page).getByRole("button", { name: "Close cube" }).click();
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
     const chunkRequests: string[] = [];
     page.on("request", (r) => {
       if (/\/s\d+\/c\//.test(r.url())) chunkRequests.push(r.url());
@@ -1385,8 +1494,10 @@ test.describe("Landmarks inspect cube", () => {
       const z = (el: Element) => Number(getComputedStyle(el).zIndex);
       const f = document.querySelector('[data-testid="inspect-preview"]')!;
       const tools = document.querySelector(".landmarks__chrome-tools")!;
-      return { float: z(f), tools: z(tools) };
+      return { float: z(f), tools: z(tools), pill: Boolean(tools.querySelector('[data-testid="inspect-pill"]')) };
     });
+    // In Inspect the top pill is the Inspect pill, in the tools' slot.
+    expect(stack.pill).toBe(true);
     expect(stack.float).toBeLessThan(stack.tools);
 
     // Opening the cube takes the float away: the cube is what is shown then.
@@ -1539,7 +1650,8 @@ test.describe("Landmarks inspect cube", () => {
     await expect(bar.getByRole("radio", { name: "Oblique view" })).toHaveAttribute("aria-checked", "true");
 
     // Reopened, the dock opens in the toolbar's preset (still Oblique).
-    await cubeWindow(page).getByRole("button", { name: "Close cube" }).click();
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-pitch", "35");
@@ -1673,7 +1785,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).not.toHaveAttribute("data-level", "-1");
     await view.evaluate((el) => ((el as any).__kept = true));
 
-    await page.getByRole("radio", { name: "Select", exact: true }).click();
+    await inspectPill(page).getByRole("button", { name: "Exit Inspect" }).click();
     await expect(preview(page)).toBeHidden();
     await expect(view).toHaveCount(1);
 

@@ -1,5 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { BookmarkCheckIcon, BookmarkPlusIcon, XIcon } from "lucide-react";
+import { Suspense, lazy, useCallback, useEffect, useReducer, useRef } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,7 +14,7 @@ import type { CubeSettings, CubeSettingsPatch } from "../use-cube-settings";
 import { inspectWindowOf } from "../use-inspect-cube";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { type ChipSnapshot, SNAPSHOT, SNAPSHOT_SETTLE_MS, snapshotOf, windowKey } from "./cube-snapshots";
-import { chromeHitClass, chromeHitTextClass } from "./primitives";
+import { chromeHitClass } from "./primitives";
 import { FLOAT_PANEL } from "./sections";
 
 // Lazy only in the dev harness: the widget build inlines dynamic imports
@@ -28,9 +27,9 @@ const ORIGIN_ZYX: [number, number, number] = [0, 0, 0];
 const VOXEL_ZYX: [number, number, number] = [1, 1, 1];
 
 /**
- * The Inspect cube taking over the widget's plot area: full-bleed, with Soft
- * Float chrome over it (title, Save, Close top right; the inspect history
- * bottom). Esc in Inspect or the Close button returns to the map.
+ * The Inspect cube taking over the widget's plot area: full-bleed, with the
+ * inspect history over it (bottom). Its load status goes to the settings for
+ * the Inspect pill, which holds Save and Exit. Esc in Inspect returns to the map.
  */
 export function CubeImmersive({
   lm,
@@ -44,7 +43,6 @@ export function CubeImmersive({
   snapshots,
   overlays,
   onFocusEntry,
-  onSave,
   onPan,
   onPanEnd,
 }: {
@@ -65,21 +63,20 @@ export function CubeImmersive({
   overlays: CubeOverlay[] | null;
   /** A history chip: focus its entry and restore its window and cut. */
   onFocusEntry: (index: number) => void;
-  /** Save the live window as an inspect Selection. */
-  onSave: () => void;
   /** Shift+drag, or a drag with the Move tool: pan the live window (µm). */
   onPan: (dxUm: number, dyUm: number) => void;
   /** The pan's release. */
   onPanEnd: () => void;
 }) {
-  const [refineError, setRefineError] = useState("");
-  const [refining, setRefining] = useState(false);
   const loadRef = useRef<CubeLoadState | null>(null);
-  const onLoadState = useCallback((s: CubeLoadState) => {
-    loadRef.current = s;
-    setRefineError(s.refineError ?? "");
-    setRefining(s.refining);
-  }, []);
+  const onLoadState = useCallback(
+    (s: CubeLoadState) => {
+      loadRef.current = s;
+      const error = s.imageError || s.refineError || "";
+      patch({ load: error ? "error" : s.refining ? "refining" : "ready", loadError: error });
+    },
+    [patch],
+  );
 
   // History: the inspect Selections, in `selections` order.
   const history = lm.selections.flatMap((sel, index) => {
@@ -133,11 +130,6 @@ export function CubeImmersive({
 
   const volume = lm.volume ?? {};
   const size = lm.inspect_size_um || INSPECT_WINDOW_UM;
-  // The live window is already a saved entry: nothing new to save.
-  const placed = lm.inspect_cx != null && lm.inspect_cy != null;
-  const saved = history.some(
-    (h) => h.win.cx === lm.inspect_cx && h.win.cy === lm.inspect_cy && h.win.size_um === lm.inspect_size_um,
-  );
   const swatch = (index: number) => SELECTION_COLORS[index % SELECTION_COLORS.length];
 
   return (
@@ -188,44 +180,6 @@ export function CubeImmersive({
           onPanEnd={onPanEnd}
         />
       </Suspense>
-      <header
-        className={cn(FLOAT_PANEL, "landmarks__cube-actions")}
-        data-testid="cube-actions"
-      >
-        <span className="min-w-0 truncate px-2 text-xs font-medium text-foreground">Cube · {Math.round(size)} µm</span>
-        {refineError ? (
-          <span className="min-w-0 truncate text-xs text-destructive" role="status">
-            {refineError}
-          </span>
-        ) : refining ? (
-          <span className="shrink-0 text-xs text-muted-foreground">refining</span>
-        ) : null}
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          aria-label="Save window"
-          title={saved ? "This window is saved" : "Save this window as an inspect selection"}
-          data-saved={String(saved)}
-          disabled={saved || !placed}
-          className={cn(chromeHitTextClass, "gap-1 px-2")}
-          onClick={onSave}
-        >
-          {saved ? <BookmarkCheckIcon aria-hidden /> : <BookmarkPlusIcon aria-hidden />}
-          {saved ? "Saved" : "Save"}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close cube"
-          title="Close cube"
-          className={chromeHitClass}
-          onClick={() => patch({ open: false })}
-        >
-          <XIcon className="size-4" />
-        </Button>
-      </header>
       {history.length ? (
         <div
           role="group"
