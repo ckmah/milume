@@ -43,10 +43,16 @@ async function save(page: Page) {
   await expect.poll(async () => (await selectionsOf(page)).length).toBe(before + 1);
   return Number(await getModel(page, "selected_index"));
 }
-/** Open the Inspect toolbar's one adjustments panel (Image, Labels, Cuts). */
+/** Open the Inspect toolbar's Adjust panel (Image and Labels columns). */
 const openAdjust = (page: Page) =>
   page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Adjust" }).click();
 const adjustPanel = (page: Page) => page.getByTestId("context-cube-adjust");
+/** Open the Inspect toolbar's Cross-section panel (the X, Y and Z cuts). */
+const openCross = (page: Page) =>
+  page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Cross-section", exact: true }).click();
+const crossPanel = (page: Page) => page.getByTestId("context-cube-cross");
+/** Whichever of the bar's panels is open (one at a time). */
+const openPanel = (page: Page) => page.locator('[data-testid="context-cube-adjust"], [data-testid="context-cube-cross"]');
 /** Flip one of the Adjust panel's Show switches ("Show image", "Show labels"), then close the panel. */
 async function toggleShow(page: Page, name: "Show image" | "Show labels") {
   await openAdjust(page);
@@ -96,13 +102,14 @@ const CATEGORY_HUES = { type1: 205, type0: 28 };
 
 /**
  * Pixels that take on a category colour between two screenshots of the same
- * view (`before`, `after`): hue within 15° of the category's, saturated and not
- * dark, and not already that colour before. Counts and mean x, y (px) per
+ * view (`before`, `after`): hue within 15° of the category's, saturated (at
+ * least `minSaturation`, (max - min) / max) and not dark, and not already that
+ * colour before. Counts and mean x, y (px) per
  * category. Comparing the two leaves out the frame's axes and the axis legend.
  */
-async function newCategoryPixels(page: Page, before: Buffer, after: Buffer) {
+async function newCategoryPixels(page: Page, before: Buffer, after: Buffer, minSaturation = 0.4) {
   return page.evaluate(
-    async ({ before, after, hues }) => {
+    async ({ before, after, hues, minSaturation }) => {
       const pixels = async (png: string) => {
         const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
         const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
@@ -114,7 +121,7 @@ async function newCategoryPixels(page: Page, before: Buffer, after: Buffer) {
         const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
         const max = Math.max(r, g, b);
         const d = max - Math.min(r, g, b);
-        if (max < 40 || d / max < 0.4) return "";
+        if (max < 40 || d / max < minSaturation) return "";
         let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
         h = (h * 60 + 360) % 360;
         for (const [k, hue] of Object.entries(hues)) if (Math.abs(((h - hue + 540) % 360) - 180) <= 15) return k;
@@ -138,7 +145,7 @@ async function newCategoryPixels(page: Page, before: Buffer, after: Buffer) {
       }
       return out;
     },
-    { before: before.toString("base64"), after: after.toString("base64"), hues: CATEGORY_HUES },
+    { before: before.toString("base64"), after: after.toString("base64"), hues: CATEGORY_HUES, minSaturation },
   );
 }
 
@@ -226,10 +233,10 @@ async function dragOnMap(page: Page, box: Box, from: [number, number], to: [numb
  */
 async function moveWindow(page: Page, box: Box, from: [number, number], to: [number, number]) {
   if (await cubeWindow(page).count()) {
-    // An open Adjust panel owns the first Esc (it closes only itself).
-    if (await adjustPanel(page).count()) {
+    // An open panel (Adjust, Cross-section) owns the first Esc (it closes only itself).
+    if (await openPanel(page).count()) {
       await page.keyboard.press("Escape");
-      await expect(adjustPanel(page)).toHaveCount(0);
+      await expect(openPanel(page)).toHaveCount(0);
     }
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
@@ -361,17 +368,21 @@ test.describe("Landmarks inspect cube", () => {
     await expect(page.getByRole("toolbar", { name: "Drawing tools" })).toBeVisible();
   });
 
-  test("with no cube open, Esc in a menu or the Adjust panel closes only that, not Inspect", async ({ page }) => {
+  test("with no cube open, Esc in a menu or a panel closes only that, not Inspect", async ({ page }) => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-    const bar = page.getByTestId("context-inspect-toolbar");
-    await bar.getByRole("button", { name: "Palette" }).click();
+    // The palette menu sits in Adjust: Esc closes the menu, not the panel.
+    await openAdjust(page);
+    await adjustPanel(page).getByRole("button", { name: "Palette" }).click();
     await expect(page.getByRole("menu")).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("menu")).toHaveCount(0);
-    await openAdjust(page);
     await expect(adjustPanel(page)).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(adjustPanel(page)).toHaveCount(0);
+    await openCross(page);
+    await expect(crossPanel(page)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(crossPanel(page)).toHaveCount(0);
     expect(await getModel(page, "mode")).toBe("inspect");
     await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
   });
@@ -447,7 +458,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
 
     // Cuts need the dock's bounds: a placeholder, not a slider with no range.
-    await openAdjust(page);
+    await openCross(page);
     const cuts = page.getByTestId("context-cube-cuts");
     await expect(cuts).toContainText("Loading volume");
     await expect(cuts.getByRole("slider")).toHaveCount(0);
@@ -456,16 +467,19 @@ test.describe("Landmarks inspect cube", () => {
     // The Show switches live in the Adjust panel, not on the bar.
     await expect(bar.getByRole("switch")).toHaveCount(0);
 
-    // Camera, projection and palette do not need the cube open.
+    // The camera does not need the cube open (nor do Adjust's projections and palette).
     await bar.getByRole("radio", { name: "Top view" }).click();
     await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "true");
   });
 
   test("a palette change before placing reaches the hover preview, then the dock", async ({ page }) => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-    const bar = page.getByTestId("context-inspect-toolbar");
-    await bar.getByRole("button", { name: "Palette" }).click();
+    // The palette lives in Adjust, which opens before any window is placed.
+    await openAdjust(page);
+    await adjustPanel(page).getByRole("button", { name: "Palette" }).click();
     await page.getByRole("menuitemradio", { name: "viridis" }).click();
+    await page.keyboard.press("Escape");
+    await expect(adjustPanel(page)).toHaveCount(0);
 
     const box = await canvasBox(page);
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5, { steps: 3 });
@@ -526,7 +540,7 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.click(at.x, at.y);
     await expect(cubeWindow(page)).toBeVisible();
     expect(await selectionsOf(page)).toEqual([]);
-    await openAdjust(page);
+    await openCross(page);
     const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
     await zHi.focus();
     for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
@@ -591,7 +605,7 @@ test.describe("Landmarks inspect cube", () => {
   test("Save right after a move stores the new window's cut", async ({ page }) => {
     await reloadWith(page, "window=100");
     const box = await openCubeAtCentre(page);
-    await openAdjust(page);
+    await openCross(page);
     const xHi = page.getByRole("slider", { name: "X cut" }).nth(1);
     await xHi.focus();
     for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
@@ -857,14 +871,79 @@ test.describe("Landmarks inspect cube", () => {
     expect(cy).toBeLessThanOrEqual(256);
   });
 
-  test("the projection toggle sets the image and label modes", async ({ page }) => {
+  test("the bottom bar holds the view options; Adjust and Cross-section are separate panels", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const bar = page.getByTestId("context-inspect-toolbar");
+    await expect(bar.getByRole("button", { name: "Move" })).toBeVisible();
+    await expect(bar.getByRole("button", { name: "Reset view" })).toBeVisible();
+    await expect(bar.getByRole("button", { name: "Adjust" })).toBeVisible();
+    await expect(bar.getByRole("button", { name: "Cross-section" })).toBeVisible();
+    // The projection and palette moved into Adjust.
+    await expect(bar.getByLabel("Projection")).toHaveCount(0);
+    await expect(bar.getByRole("button", { name: "Palette" })).toHaveCount(0);
+    await bar.getByRole("button", { name: "Cross-section" }).click();
+    await expect(page.getByTestId("context-cube-cross").getByTestId("context-cube-cuts")).toBeVisible();
+    await expect(page.getByTestId("context-cube-adjust")).toHaveCount(0); // one panel at a time
+  });
+
+  test("Adjust has an Image and a Labels column with independent projections", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await openAdjust(page);
+    const panel = page.getByTestId("context-cube-adjust");
+    await panel.getByTestId("adjust-image").getByRole("radio", { name: "MIP" }).click();
+    await expect(view).toHaveAttribute("data-image-mode", "mip");
+    await expect(view).toHaveAttribute("data-label-mode", "additive");
+    await panel.getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
+    await expect(view).toHaveAttribute("data-label-mode", "mip");
+    await panel.getByTestId("adjust-image").getByRole("radio", { name: "Additive" }).click();
+    await expect(view).toHaveAttribute("data-image-mode", "additive");
+    await expect(view).toHaveAttribute("data-label-mode", "mip");
+    await expect(panel.getByTestId("adjust-image").getByRole("button", { name: "Palette" })).toBeVisible();
+  });
+
+  test("panels stay short enough not to cover the cube", async ({ page }) => {
+    await page.setViewportSize({ width: 900, height: 520 });
+    // The harness widget keeps its 820 px height in a short window: drag its
+    // height handle up so the widget fits the window (the handle caps it at 90%).
+    const handle = page.getByRole("button", { name: "Resize height" });
+    await handle.scrollIntoViewIfNeeded();
+    const h = (await handle.boundingBox())!;
+    await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2 - 400, { steps: 5 });
+    await page.mouse.up();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect.poll(async () => (await page.locator(".landmarks__body").first().boundingBox())!.height).toBeLessThan(
+      520,
+    );
+    await openCubeAtCentre(page);
+    const widget = (await page.locator(".landmarks__body").first().boundingBox())!;
+    await openAdjust(page);
+    const adjust = (await page.getByTestId("context-cube-adjust").boundingBox())!;
+    expect(adjust.height).toBeLessThanOrEqual(widget.height * 0.5);
+    await page.keyboard.press("Escape");
+    await page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Cross-section" }).click();
+    const cross = (await page.getByTestId("context-cube-cross").boundingBox())!;
+    expect(cross.height).toBeLessThanOrEqual(widget.height * 0.5);
+  });
+
+  test("the projection toggles set the image and label modes", async ({ page }) => {
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-image-mode", "additive");
     await expect(view).toHaveAttribute("data-label-mode", "additive");
-    await page.getByRole("radio", { name: "Maximum intensity" }).click();
+    await openAdjust(page);
+    const image = page.getByLabel("Image projection", { exact: true });
+    const labels = page.getByLabel("Labels projection", { exact: true });
+    await expect(image.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
+    await expect(labels.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
+    await image.getByRole("radio", { name: "MIP" }).click();
+    await labels.getByRole("radio", { name: "MIP" }).click();
     await expect(view).toHaveAttribute("data-image-mode", "mip");
     await expect(view).toHaveAttribute("data-label-mode", "mip");
+    await expect(image.getByRole("radio", { name: "MIP" })).toHaveAttribute("aria-checked", "true");
+    await expect(labels.getByRole("radio", { name: "MIP" })).toHaveAttribute("aria-checked", "true");
   });
 
   test("inspect toolbar: presets, MIP, palette, alpha/gamma, committed Z cut", async ({ page }) => {
@@ -881,14 +960,15 @@ test.describe("Landmarks inspect cube", () => {
     // In the dock a preset also frames the window as that preset's home view.
     await expect(view).not.toHaveAttribute("data-zoom", topZoom!);
 
-    await bar.getByRole("radio", { name: "Maximum intensity" }).click();
+    await openAdjust(page);
+    const image = page.getByTestId("adjust-image");
+    await image.getByRole("radio", { name: "MIP" }).click();
     await expect(view).toHaveAttribute("data-image-mode", "mip");
 
-    await bar.getByRole("button", { name: "Palette" }).click();
+    await image.getByRole("button", { name: "Palette" }).click();
     await page.getByRole("menuitemradio", { name: "viridis" }).click();
     await expect(view).toHaveAttribute("data-palette", "viridis");
 
-    await openAdjust(page);
     await expect(view).toHaveAttribute("data-image-gamma", "1");
     const gamma = page.getByRole("slider", { name: "Image gamma" });
     await gamma.focus();
@@ -901,6 +981,7 @@ test.describe("Landmarks inspect cube", () => {
     // Uniforms only: no labels fetched, same single image channel.
     await expect(view).toHaveAttribute("data-channels", "1");
 
+    await openCross(page);
     const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
     await expect(zHi).toHaveAttribute("aria-valuenow", "64");
     await zHi.focus();
@@ -908,107 +989,147 @@ test.describe("Landmarks inspect cube", () => {
     await expect.poll(async () => ((await getModel(page, "volume_cut")) as number[])[5]).toBe(54);
   });
 
-  test("one Adjust panel: Image, Labels and Cuts sections, each with a Reset, and Reset all", async ({ page }) => {
+  test("Adjust: Image and Labels sections, each with a Reset, and Reset all; Cross-section has its own Reset", async ({
+    page,
+  }) => {
     await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
     await openAdjust(page);
-    const panel = page.getByTestId("context-cube-adjust");
-    await expect(panel.getByRole("heading")).toHaveText(["Image", "Labels", "Cuts"]);
+    const panel = adjustPanel(page);
+    await expect(panel.getByRole("heading")).toHaveText(["Image", "Labels"]);
     // Each of Image and Labels opens with its Show switch: image on, labels off.
     const showImage = panel.getByRole("switch", { name: "Show image" });
     const showLabelsSwitch = panel.getByRole("switch", { name: "Show labels" });
     await expect(panel.getByRole("switch")).toHaveCount(2);
     await expect(showImage).toBeChecked();
     await expect(showLabelsSwitch).not.toBeChecked();
-    const slider = (name: string, n = 0) => panel.getByRole("slider", { name }).nth(n);
+    const slider = (name: string, n = 0) => page.getByRole("slider", { name }).nth(n);
     const nudge = async (name: string, key: string, n = 0, times = 4) => {
       await slider(name, n).focus();
       for (let i = 0; i < times; i++) await page.keyboard.press(key);
     };
-    const values = async () => {
-      const now = async (name: string, n = 0) => Number(await slider(name, n).getAttribute("aria-valuenow"));
-      return {
-        image: [await now("Contrast", 0), await now("Contrast", 1), await now("Image alpha"), await now("Image gamma")],
-        labels: [await now("Label alpha")],
-        cuts: [await now("X cut", 1), await now("Y cut", 0), await now("Z cut", 1)],
-      };
-    };
-    // Defaults: the volume's contrast_limits, image alpha 1, gamma 1 (0 on its log2 scale), label alpha 0.6 (the shells' default), open cuts.
-    const initial = await values();
+    const now = async (name: string, n = 0) => Number(await slider(name, n).getAttribute("aria-valuenow"));
+    const adjustValues = async () => ({
+      image: [await now("Contrast", 0), await now("Contrast", 1), await now("Image alpha"), await now("Image gamma")],
+      labels: [await now("Label alpha")],
+      // Each layer's projection is reset with its section.
+      modes: [await view.getAttribute("data-image-mode"), await view.getAttribute("data-label-mode")],
+    });
+    const cutValues = async () => [await now("X cut", 1), await now("Y cut", 0), await now("Z cut", 1)];
+    // Defaults: the volume's contrast_limits, image alpha 1, gamma 1 (0 on its log2 scale), label alpha 0.6 (the shells' default), both Additive.
+    const initial = await adjustValues();
     expect(initial.image).toEqual([0, 48, 1, 0]);
     expect(initial.labels).toEqual([0.6]);
-    expect(initial.cuts[2]).toBe(64);
-    // All sliders are one width.
-    const widths = await panel.locator(".landmarks-slider-control").evaluateAll((els) =>
-      els.map((el) => Math.round(el.getBoundingClientRect().width)),
-    );
-    expect(new Set(widths).size).toBe(1);
-    expect(widths[0]).toBeGreaterThanOrEqual(150);
-    expect(widths[0]).toBeLessThanOrEqual(170);
+    expect(initial.modes).toEqual(["additive", "additive"]);
+    // All sliders are one width, in both panels.
+    const widthsOf = (region: Locator) =>
+      region.locator(".landmarks-slider-control").evaluateAll((els) =>
+        els.map((el) => Math.round(el.getBoundingClientRect().width)),
+      );
+    const widths = await widthsOf(panel);
 
-    const changeAll = async () => {
+    const changeAdjust = async () => {
       await nudge("Contrast", "ArrowLeft", 1);
       await nudge("Image alpha", "ArrowLeft");
       await nudge("Image gamma", "ArrowRight");
       await nudge("Label alpha", "ArrowLeft");
-      await nudge("X cut", "ArrowLeft", 1);
-      await nudge("Y cut", "ArrowRight", 0);
-      await nudge("Z cut", "ArrowLeft", 1);
-      const v = await values();
+      await panel.getByTestId("adjust-image").getByRole("radio", { name: "MIP" }).click();
+      await panel.getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
+      const v = await adjustValues();
       expect(v.image).not.toEqual(initial.image);
       expect(v.labels).not.toEqual(initial.labels);
-      expect(v.cuts).not.toEqual(initial.cuts);
-      await expect.poll(async () => (await cutOf(page))[5]).toBe(60);
+      await expect(view).toHaveAttribute("data-image-mode", "mip");
+      await expect(view).toHaveAttribute("data-label-mode", "mip");
     };
 
-    await changeAll();
-    // Resets restore sliders only: the Show switches stay as the user set them.
+    await changeAdjust();
+    // Resets restore sliders and projection only: the Show switches stay as the user set them.
     await showImage.click();
     await showLabelsSwitch.click();
     await panel.getByRole("button", { name: "Reset image" }).click();
-    let v = await values();
+    await expect(view).toHaveAttribute("data-image-mode", "additive");
+    let v = await adjustValues();
     expect(v.image).toEqual(initial.image);
     expect(v.labels).not.toEqual(initial.labels);
+    expect(v.modes).toEqual(["additive", "mip"]);
     await expect(showImage).not.toBeChecked();
     await panel.getByRole("button", { name: "Reset labels" }).click();
-    v = await values();
+    await expect(view).toHaveAttribute("data-label-mode", "additive");
+    v = await adjustValues();
     expect(v.labels).toEqual(initial.labels);
     await expect(showLabelsSwitch).toBeChecked();
-    expect(v.cuts).not.toEqual(initial.cuts);
-    // Reset cuts opens every cut and commits it, like a slider release.
-    await panel.getByRole("button", { name: "Reset cuts" }).click();
-    expect((await values()).cuts).toEqual(initial.cuts);
-    await expect.poll(async () => cutOf(page)).toEqual([0, 256, 0, 256, 0, 64]);
 
-    await changeAll();
+    await changeAdjust();
     await panel.getByRole("button", { name: "Reset all" }).click();
-    expect(await values()).toEqual(initial);
-    await expect.poll(async () => cutOf(page)).toEqual([0, 256, 0, 256, 0, 64]);
+    await expect(view).toHaveAttribute("data-label-mode", "additive");
+    expect(await adjustValues()).toEqual(initial);
     await expect(showImage).not.toBeChecked();
     await expect(showLabelsSwitch).toBeChecked();
-    await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-image", "off");
+    await expect(view).toHaveAttribute("data-image", "off");
+
+    // Cross-section: its sliders and its own Reset, which opens every cut and
+    // commits it, like a slider release.
+    await openCross(page);
+    const cross = crossPanel(page);
+    await expect(panel).toHaveCount(0);
+    await expect(cross.getByRole("heading")).toHaveText(["Cross-section"]);
+    const initialCuts = await cutValues();
+    expect(initialCuts[2]).toBe(64);
+    const crossWidths = await widthsOf(cross);
+    expect(new Set([...widths, ...crossWidths]).size).toBe(1);
+    expect(widths[0]).toBeGreaterThanOrEqual(150);
+    expect(widths[0]).toBeLessThanOrEqual(170);
+    await nudge("X cut", "ArrowLeft", 1);
+    await nudge("Y cut", "ArrowRight", 0);
+    await nudge("Z cut", "ArrowLeft", 1);
+    expect(await cutValues()).not.toEqual(initialCuts);
+    await expect.poll(async () => (await cutOf(page))[5]).toBe(60);
+    await cross.getByRole("button", { name: "Reset cross-section" }).click();
+    expect(await cutValues()).toEqual(initialCuts);
+    await expect.poll(async () => cutOf(page)).toEqual([0, 256, 0, 256, 0, 64]);
+    // Adjust's Reset all leaves the cuts alone: it resets what its panel shows.
+    await nudge("Z cut", "ArrowLeft", 1);
+    await expect.poll(async () => (await cutOf(page))[5]).toBe(60);
+    await openAdjust(page);
+    await panel.getByRole("button", { name: "Reset all" }).click();
+    await page.waitForTimeout(300); // a negative check: no cut write follows
+    expect((await cutOf(page))[5]).toBe(60);
   });
 
-  test("Adjust trigger a11y; Esc closes only the Adjust panel, not the cube", async ({ page }) => {
+  test("panel triggers' a11y; Esc closes only the open panel, not the cube", async ({ page }) => {
     await openCubeAtCentre(page);
-    const trigger = page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Adjust" });
-    await expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
-    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    const bar = page.getByTestId("context-inspect-toolbar");
+    for (const [name, region] of [
+      ["Adjust", adjustPanel(page)],
+      ["Cross-section", crossPanel(page)],
+    ] as const) {
+      const trigger = bar.getByRole("button", { name, exact: true });
+      await expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
 
-    await trigger.click();
-    await expect(trigger).toHaveAttribute("aria-expanded", "true");
-    const panel = page.getByRole("region", { name: "Adjust" });
-    await expect(panel).toBeVisible();
+      await trigger.click();
+      await expect(trigger).toHaveAttribute("aria-expanded", "true");
+      // The panel is a region named after its trigger (Cross-section's own section shares the name).
+      const panel = region.and(page.getByRole("region", { name, exact: true }));
+      await expect(panel).toBeVisible();
 
-    await page.keyboard.press("Escape");
-    await expect(panel).toHaveCount(0);
-    await expect(trigger).toHaveAttribute("aria-expanded", "false");
-    await expect(cubeWindow(page)).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(panel).toHaveCount(0);
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
+      await expect(cubeWindow(page)).toBeVisible();
+    }
+    // One at a time: opening the other panel closes the first.
+    await openAdjust(page);
+    await openCross(page);
+    await expect(adjustPanel(page)).toHaveCount(0);
+    await expect(bar.getByRole("button", { name: "Adjust", exact: true })).toHaveAttribute("aria-expanded", "false");
+    await expect(crossPanel(page)).toBeVisible();
   });
 
   test("partial X and Y cuts keep their place in a moved window; open edges stay open", async ({ page }) => {
     await reloadWith(page, "window=100");
     const box = await openCubeAtCentre(page);
-    await openAdjust(page);
+    await openCross(page);
 
     // X: trim the high edge, then move the window right.
     const xHi = page.getByRole("slider", { name: "X cut" }).nth(1);
@@ -1021,7 +1142,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(await cutOf(page)).toEqual([0, cx0 + size / 2 - trim, 0, 256, 0, 64].map((v) => expect.closeTo(v, 3)));
 
     await moveWindow(page, box, [0.5, 0.5], [0.55, 0.5]);
-    await openAdjust(page); // closed by the Esc that cleared the way to the map
+    await openCross(page); // closed by the Esc that cleared the way to the map
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(cx0);
     const cx1 = Number(await getModel(page, "inspect_cx"));
     await expect.poll(async () => (await cutOf(page))[1]).toBeCloseTo(cx1 + size / 2 - trim, 3);
@@ -1040,7 +1161,7 @@ test.describe("Landmarks inspect cube", () => {
     expect((await cutOf(page))[3]).toBe(256);
 
     await moveWindow(page, box, [0.5, 0.5], [0.5, 0.44]);
-    await openAdjust(page);
+    await openCross(page);
     await expect.poll(async () => Number(await getModel(page, "inspect_cy"))).not.toBeCloseTo(cy0, 1);
     const cy1 = Number(await getModel(page, "inspect_cy"));
     await expect.poll(async () => (await cutOf(page))[2]).toBeCloseTo(cy1 - size / 2 + yTrim, 3);
@@ -1050,7 +1171,7 @@ test.describe("Landmarks inspect cube", () => {
   test("Python's inspect and volume_cut writes are followed, never written back", async ({ page }) => {
     await reloadWith(page, "window=100");
     await openCubeAtCentre(page);
-    await openAdjust(page);
+    await openCross(page);
     const x = page.getByRole("slider", { name: "X cut" });
     await x.nth(1).focus();
     for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
@@ -1085,7 +1206,7 @@ test.describe("Landmarks inspect cube", () => {
 
   test("a Z-only cut leaves X and Y whole for any window, edge windows too", async ({ page }) => {
     const box = await openCubeAtCentre(page);
-    await openAdjust(page);
+    await openCross(page);
     const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
     await zHi.focus();
     for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
@@ -1097,7 +1218,7 @@ test.describe("Landmarks inspect cube", () => {
     await page.evaluate(() => (window as any).__landmarksEngine.zoomBy(-2, { animate: false }));
     await expect.poll(zoom).toBeLessThan(zoom0);
     await moveWindow(page, box, [0.25, 0.5], [0.25, 0.5]);
-    await openAdjust(page);
+    await openCross(page);
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(50);
     await page.waitForTimeout(600); // past the settle commit
     expect(await cutOf(page)).toEqual([0, 256, 0, 256, 0, 54]);
@@ -1304,6 +1425,53 @@ test.describe("Landmarks inspect cube", () => {
     expect(on.type0.y).toBeLessThan(on.type1.y - 20);
   });
 
+  test("each toy cell keeps its category colour with Image MIP, under Labels Additive and Labels MIP", async ({ page }) => {
+    // The window and cells of the test above: cell 2 (type0) right of and above cell 3 (type1).
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page, { at: [130, 170] });
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await setModel(page, { inspect_cx: 130.5, inspect_cy: 170.5 });
+    await openAdjust(page);
+    await adjustPanel(page).getByTestId("adjust-image").getByRole("radio", { name: "MIP" }).click();
+    await page.keyboard.press("Escape");
+    await expect(adjustPanel(page)).toHaveCount(0);
+    await expect(view).toHaveAttribute("data-image-mode", "mip");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-pan", "0,0");
+    const off = await view.screenshot();
+
+    // Image MIP + Labels Additive (the hover preview's look): as saturated as Additive/Additive.
+    await toggleShow(page, "Show labels");
+    await expect(view).toHaveAttribute("data-label-mode", "additive");
+    await expect(view).toHaveAttribute("data-label-cells", "2");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const additive = await view.screenshot();
+    const add = await newCategoryPixels(page, off, additive);
+    // Measured (macOS Metal): type1 12923 px, type0 52450 px at the 0.4 cutoff.
+    expect(add.type1.count).toBeGreaterThan(200);
+    expect(add.type0.count).toBeGreaterThan(200);
+    expect(add.type0.x).toBeGreaterThan(add.type1.x + 20);
+    expect(add.type0.y).toBeLessThan(add.type1.y - 20);
+
+    // Image MIP + Labels MIP: the strongest shell per pixel, one shell at 0.9 x 0.6
+    // = 0.54 alpha over the white image MIP, is pale. Measured category pixels
+    // (type1 / type0) by saturation cutoff: 0.4: 0 / 0; 0.3: 0 / 62786;
+    // 0.2: 98 / 62786; 0.15: 31584 / 62786 (as at 0.1). So the blue cells sit at
+    // saturation 0.15-0.2 and the orange at 0.3-0.4; 0.12 keeps a margin below
+    // both (the grey image is near 0).
+    await openAdjust(page);
+    await adjustPanel(page).getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
+    await page.keyboard.press("Escape");
+    await expect(adjustPanel(page)).toHaveCount(0);
+    await expect(view).toHaveAttribute("data-label-mode", "mip");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const mip = await newCategoryPixels(page, off, await view.screenshot(), 0.12);
+    expect(mip.type1.count).toBeGreaterThan(200);
+    expect(mip.type0.count).toBeGreaterThan(200);
+    expect(mip.type0.x).toBeGreaterThan(mip.type1.x + 20);
+    expect(mip.type0.y).toBeLessThan(mip.type1.y - 20);
+  });
+
   test("labels draw as shells: a cell's rim is coloured, its core is not", async ({ page }) => {
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
@@ -1374,7 +1542,7 @@ test.describe("Landmarks inspect cube", () => {
   test("history chips restore each saved window and cut; a saved entry keeps its cut", async ({ page }) => {
     const box = await openCubeAtCentre(page);
     const cx = () => getModel(page, "inspect_cx").then(Number);
-    await openAdjust(page);
+    await openCross(page);
     const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
     const nudge = async (key: string) => {
       await zHi.focus();
@@ -1388,7 +1556,7 @@ test.describe("Landmarks inspect cube", () => {
 
     // Elsewhere, with entry 1 still focused: a new cut stays out of entry 1.
     await moveWindow(page, box, [0.2, 0.25], [0.2, 0.25]);
-    await openAdjust(page);
+    await openCross(page);
     await expect.poll(cx).not.toBeCloseTo(first.window.cx, 1);
     await nudge("ArrowRight");
     await expect.poll(async () => (await cutOf(page))[5]).toBe(64);

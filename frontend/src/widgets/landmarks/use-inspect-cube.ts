@@ -18,7 +18,7 @@ import type { LandmarksModel } from "./use-landmarks-model";
 
 type Range = [number, number];
 
-/** A section of the Inspect toolbar's Adjust panel, for its Reset. */
+/** A section of the Inspect toolbar's panels, for its Reset: Adjust's Image and Labels, and Cross-section's cuts. */
 export type AdjustSection = "image" | "labels" | "cuts";
 
 /** An inspect Selection's window: centre and side (µm), and its cut (absolute µm, or `[]`). */
@@ -65,7 +65,10 @@ export type InspectCube = {
   focusEntry: (index: number) => void;
   /** Save the live window, with its cut, as an inspect Selection (the Inspect pill's Save). */
   save: () => void;
-  /** Back to defaults: one Adjust section, or all of them. Open cuts are committed like a slider release. */
+  /**
+   * Back to defaults: one section (Image and Labels with their projection), or
+   * "all" of Adjust (Image and Labels). Open cuts are committed like a slider release.
+   */
   resetAdjust: (section: AdjustSection | "all") => void;
   /**
    * Pan the live window by (dx, dy) µm, its centre clamped to the volume: moves
@@ -317,9 +320,9 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     (e: React.KeyboardEvent) => {
       if (e.key !== "Escape" || mode !== "inspect") return;
       const target = e.target as Element | null;
-      // Esc in an open menu, or the Adjust panel (which closes itself), only
-      // closes that — never the cube.
-      if (target?.closest?.('[role="menu"], [data-testid="context-cube-adjust-group"]')) return;
+      // Esc in an open menu, or an open panel of the bar (Adjust, Cross-section:
+      // each closes itself), only closes that — never the cube.
+      if (target?.closest?.('[role="menu"], [data-inspect-panel-group]')) return;
       // `open` is this render's value, so the Esc that closes the cube never
       // also exits Inspect. Esc in a text field only leaves the field.
       if (open) patchCube({ open: false });
@@ -393,12 +396,16 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
       const all = section === "all";
       if (all || section === "image") {
         patchCube({
+          imageMode: "additive",
           contrast: [contrastLo, contrastHi],
           render: { imageAlpha: DEFAULT_RENDER.imageAlpha, imageGamma: DEFAULT_RENDER.imageGamma },
         });
       }
-      if (all || section === "labels") patchCube({ render: { cellAlpha: DEFAULT_RENDER.cellAlpha } });
-      if (all || section === "cuts") {
+      if (all || section === "labels") {
+        patchCube({ labelMode: "additive", render: { cellAlpha: DEFAULT_RENDER.cellAlpha } });
+      }
+      // "all" is Adjust's Reset all: Image and Labels; the cuts have Cross-section's own Reset.
+      if (section === "cuts") {
         patchCube({ cut: OPEN_CUT });
         const { win: w, volume: v } = latest.current;
         if (w && v) write(committedCut(OPEN_CUT, w, v));

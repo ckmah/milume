@@ -212,6 +212,8 @@
   pointer-events: none;
   /* Room for panel drop shadows outside the clipped body */
   overflow: visible;
+  /* `cqh` in the bar's panels is a share of the widget's height. */
+  container-type: size;
 }
 
 .landmarks__figure {
@@ -1128,7 +1130,7 @@
   min-width: 7.5rem;
 }
 
-/* Inspect Adjust panel: Image / Cells / Cuts sections, one capsule width. */
+/* Inspect bar panels: Adjust (Image | Labels columns) and Cross-section, one capsule width. */
 .landmarks-adjust {
   display: flex;
   flex-direction: column;
@@ -1136,10 +1138,30 @@
   padding: 0.125rem 0;
 }
 
+/* Never more than about half the widget: taller content scrolls inside, so the
+   panel does not cover the cube it adjusts. */
+.landmarks-adjust,
+.landmarks-cross {
+  max-height: min(45cqh, 22rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .landmarks-adjust__cols {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
+}
+
+.landmarks--narrow .landmarks-adjust__cols {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* A non-slider control (projection toggle, palette) at the sliders' width. */
+.landmarks-adjust .landmarks-adjust__control {
+  flex: none;
+  width: 10rem;
 }
 
 .landmarks-adjust__col {
