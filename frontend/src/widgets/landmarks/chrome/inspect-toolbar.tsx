@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { BoxIcon, ChevronDownIcon, RotateCcwIcon, SlidersHorizontalIcon } from "lucide-react";
+import { BoxIcon, ChevronDownIcon, HandIcon, RotateCcwIcon, SlidersHorizontalIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -400,6 +400,16 @@ export function InspectToolbar({
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
+          <ToolbarDivider />
+          {/* Pans the window with a plain drag in the cube (Shift+drag pans without it). */}
+          <IconBtn
+            title="Move"
+            active={settings.move}
+            disabled={!settings.open}
+            onClick={() => patch({ move: !settings.move })}
+          >
+            <HandIcon className="size-4" />
+          </IconBtn>
           <ToolbarDivider />
           <span
             data-testid="context-cube-adjust-group"

@@ -45,6 +45,8 @@ export function CubeImmersive({
   overlays,
   onFocusEntry,
   onSave,
+  onPan,
+  onPanEnd,
 }: {
   lm: LandmarksModel;
   settings: CubeSettings;
@@ -65,6 +67,10 @@ export function CubeImmersive({
   onFocusEntry: (index: number) => void;
   /** Save the live window as an inspect Selection. */
   onSave: () => void;
+  /** Shift+drag, or a drag with the Move tool: pan the live window (µm). */
+  onPan: (dxUm: number, dyUm: number) => void;
+  /** The pan's release. */
+  onPanEnd: () => void;
 }) {
   const [refineError, setRefineError] = useState("");
   const [refining, setRefining] = useState(false);
@@ -177,6 +183,9 @@ export function CubeImmersive({
           onRendered={onRendered}
           onBounds={(bounds) => patch({ bounds })}
           onPreset={(preset) => patch({ preset })}
+          panMode={settings.move}
+          onPan={onPan}
+          onPanEnd={onPanEnd}
         />
       </Suspense>
       <header

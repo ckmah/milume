@@ -54,6 +54,14 @@ export type InspectCube = {
   save: () => void;
   /** Back to defaults: one Adjust section, or all of them. Open cuts are committed like a slider release. */
   resetAdjust: (section: AdjustSection | "all") => void;
+  /**
+   * Pan the live window by (dx, dy) µm, its centre clamped to the volume: moves
+   * the map's square and `inspect_cx/cy` (saved at most every 40 ms); the cut
+   * follows once the window settles, as after a drag on the map.
+   */
+  panWindow: (dxUm: number, dyUm: number) => void;
+  /** The pan's release: save the final window. */
+  panEnd: () => void;
 };
 
 /**
@@ -97,8 +105,9 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   }, [engine, hasVolume, patchCube]);
   useEffect(() => {
     engine?.setInspectWindowVisible(cube.open);
-    // A reopened cube reloads; its cut ranges wait for the new bounds.
-    if (!cube.open) patchCube({ bounds: null });
+    // A reopened cube reloads; its cut ranges wait for the new bounds. Move is
+    // a tool of the open cube only.
+    if (!cube.open) patchCube({ move: false, bounds: null });
   }, [engine, cube.open, patchCube]);
 
   const bounds = cube.bounds;
@@ -115,8 +124,9 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
 
   const cx = lm.inspect_cx;
   const cy = lm.inspect_cy;
-  const latest = useRef({ rel: cube.cut, win, volume, cx, cy });
-  latest.current = { rel: cube.cut, win, volume, cx, cy };
+  const volumeBounds = bounds ? { volumeX: bounds.volumeX, volumeY: bounds.volumeY } : null;
+  const latest = useRef({ rel: cube.cut, win, volume, cx, cy, volumeBounds });
+  latest.current = { rel: cube.cut, win, volume, cx, cy, volumeBounds };
 
   // The last value this widget wrote, so its echo is not adopted as Python's.
   const writtenRef = useRef<string | null>(null);
@@ -315,6 +325,34 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     engine.saveInspect();
   }, [engine, facade, write, origin]);
 
+  const panSavedAt = useRef(0);
+  const panWindow = useCallback(
+    (dxUm: number, dyUm: number) => {
+      if (!engine) return;
+      const x0 = facade.get("inspect_cx") as number | null;
+      const y0 = facade.get("inspect_cy") as number | null;
+      if (x0 == null || y0 == null) return;
+      const b = latest.current.volumeBounds;
+      const clamp = (v: number, [lo, hi]: Range) => Math.max(lo, Math.min(hi, v));
+      const nx = b ? clamp(x0 + dxUm, b.volumeX) : x0 + dxUm;
+      const ny = b ? clamp(y0 + dyUm, b.volumeY) : y0 + dyUm;
+      if (nx === x0 && ny === y0) return;
+      // A pan is a user placement: the settle commit then writes the cut once it stops.
+      placedRef.current = { x: nx, y: ny };
+      engine.moveInspectWindow(nx, ny);
+      const now = performance.now();
+      if (now - panSavedAt.current > 40) {
+        panSavedAt.current = now;
+        facade.save_changes();
+      }
+    },
+    [engine, facade],
+  );
+  const panEnd = useCallback(() => {
+    panSavedAt.current = performance.now();
+    facade.save_changes();
+  }, [facade]);
+
   const contrastLo = defaultContrast[0];
   const contrastHi = defaultContrast[1];
   const resetAdjust = useCallback(
@@ -348,6 +386,8 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     focusEntry,
     save,
     resetAdjust,
+    panWindow,
+    panEnd,
   };
 }
 

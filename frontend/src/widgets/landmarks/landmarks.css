@@ -1269,6 +1269,14 @@
   }
 }
 
+/* The Move tool: a drag pans the window (deck sets its own cursor on the canvas). */
+.volume-cube__view[data-pan-mode="true"] canvas {
+  cursor: grab !important;
+}
+.volume-cube__view[data-panning="true"] canvas {
+  cursor: grabbing !important;
+}
+
 /* Title, Save, Close: a second row under the top tools, right-aligned beneath
    the view buttons, so it never shares a row with the tool pill. */
 .landmarks__cube-actions {

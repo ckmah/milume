@@ -241,6 +241,19 @@ async function openCubeAtCentre(page: Page, { zoomOut = 0, at }: { zoomOut?: num
   return box;
 }
 
+/** Press at the cube view's centre, drag (dx, dy) px in 4 steps and release; `shift` holds Shift throughout. */
+async function dragCube(page: Page, view: Locator, dx: number, dy: number, { shift = false }: { shift?: boolean }) {
+  const b = (await view.boundingBox())!;
+  const x = b.x + b.width / 2;
+  const y = b.y + b.height / 2;
+  if (shift) await page.keyboard.down("Shift");
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + dx, y + dy, { steps: 4 });
+  await page.mouse.up();
+  if (shift) await page.keyboard.up("Shift");
+}
+
 test.describe("Landmarks inspect cube", () => {
   test.beforeEach(async ({ page }) => bootLandmarksVolumeHarness(page));
 
@@ -635,6 +648,79 @@ test.describe("Landmarks inspect cube", () => {
     expect(cx).toBeGreaterThan(cx0);
     expect(await page.evaluate(() => (window as any).__savedCx)).toBe(cx);
     await expect(cubeWindow(page)).toBeVisible();
+  });
+
+  test("shift-drag in the cube pans the live window; plain drag only orbits", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    const axes = view.getByLabel("Axes");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const cx0 = Number(await getModel(page, "inspect_cx"));
+    const axes0 = await axes.getAttribute("data-axes");
+    // Plain drag: orbit, the window stays.
+    await dragCube(page, view, 60, 0, {});
+    await expect(axes).not.toHaveAttribute("data-axes", axes0!);
+    expect(Number(await getModel(page, "inspect_cx"))).toBe(cx0);
+    // Shift-drag right: the tissue follows the pointer, so the window centre moves left (top-down).
+    await page.getByRole("radio", { name: "Top view" }).click();
+    await expect(axes).toHaveAttribute("data-axes", "0,-90,0");
+    const zoom = await view.getAttribute("data-zoom");
+    await dragCube(page, view, 80, 0, { shift: true });
+    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(cx0);
+    // A pan never orbits.
+    await expect(axes).toHaveAttribute("data-axes", "0,-90,0");
+    // The map's square follows.
+    const placed = await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay().placed);
+    expect(placed[0]).toBeCloseTo(Number(await getModel(page, "inspect_cx")), 1);
+    // The cube settles at the new window.
+    await expect(view).toHaveAttribute("data-pan", "0,0");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    expect(await view.getAttribute("data-pitch")).toBe("90");
+    expect(await view.getAttribute("data-zoom")).toBe(zoom);
+  });
+
+  test("the Move tool makes a plain drag pan; the distance scales with the drag", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await page.getByRole("radio", { name: "Top view" }).click();
+    await page.getByRole("button", { name: "Move" }).click();
+    await expect(page.getByRole("button", { name: "Move" })).toHaveAttribute("aria-pressed", "true");
+    await expect(view).toHaveAttribute("data-pan-mode", "true");
+    const cx0 = Number(await getModel(page, "inspect_cx"));
+    const cy0 = Number(await getModel(page, "inspect_cy"));
+    await dragCube(page, view, 40, 0, {});
+    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(cx0);
+    const d1 = cx0 - Number(await getModel(page, "inspect_cx"));
+    await dragCube(page, view, 80, 0, {});
+    const d2 = cx0 - d1 - Number(await getModel(page, "inspect_cx"));
+    expect(d2 / d1).toBeGreaterThan(1.7);
+    expect(d2 / d1).toBeLessThan(2.3);
+    // A horizontal drag leaves y; dragging down moves the window up the map (y decreases).
+    expect(Number(await getModel(page, "inspect_cy"))).toBe(cy0);
+    await dragCube(page, view, 0, 40, {});
+    await expect.poll(async () => Number(await getModel(page, "inspect_cy"))).toBeLessThan(cy0);
+    // Never an orbit while Move is on.
+    await expect(view.getByLabel("Axes")).toHaveAttribute("data-axes", "0,-90,0");
+    // Closing the cube turns Move off.
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Move" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("panning clamps the window centre to the volume", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await page.getByRole("radio", { name: "Top view" }).click();
+    await page.getByRole("button", { name: "Move" }).click();
+    // Drag right until the window would leave the toy volume (0..256 µm, origin 0): it stops at x = 0.
+    for (let i = 0; i < 12; i++) await dragCube(page, view, 250, 0, {});
+    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBe(0);
+    const cy = Number(await getModel(page, "inspect_cy"));
+    expect(cy).toBeGreaterThanOrEqual(0);
+    expect(cy).toBeLessThanOrEqual(256);
   });
 
   test("the projection toggle sets the image and label modes", async ({ page }) => {

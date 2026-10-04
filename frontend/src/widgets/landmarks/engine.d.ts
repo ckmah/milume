@@ -100,6 +100,8 @@ export type EngineHandle = {
   setInspectWindowVisible(visible: boolean): void;
   /** Move the placed square (and `inspect_cx/cy/size_um`) without emitting events. */
   setInspectWindow(x: number, y: number, sizeUm: number): void;
+  /** Move the placed square and `inspect_cx/cy` without saving or emitting; the caller saves. */
+  moveInspectWindow(x: number, y: number): void;
   /**
    * Save the placed window as a new inspect Selection (its window, `volume_cut`
    * and the points in the square), focus it and emit "commit". Returns its index,

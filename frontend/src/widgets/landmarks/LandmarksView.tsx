@@ -390,6 +390,8 @@ export function LandmarksView({
             overlays={landmarkGeometry}
             onFocusEntry={inspectCube.focusEntry}
             onSave={inspectCube.save}
+            onPan={inspectCube.panWindow}
+            onPanEnd={inspectCube.panEnd}
           />
         ) : null}
 

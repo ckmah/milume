@@ -15,6 +15,7 @@ import type { Range, ViewPreset } from "./CubeControls";
 import { type CubeFrame, FramedVolumeView, labelPad } from "./frame-layers";
 import { type CubeOverlay, placeOverlays } from "./overlay-layers";
 import { paletteLut } from "./palettes";
+import { dragToWindowDelta } from "./pan";
 import { type WindowTarget, levelVoxelSize, useShownWindow } from "./use-shown-window";
 import {
   type Box,
@@ -125,6 +126,16 @@ export type VolumeCubeProps = {
   onLevels?: (image: ZarrSource[], labels: ZarrSource[] | null) => void;
   /** Called when the shown window changes: its level index and voxel box. */
   onShown?: (level: number, box: Box) => void;
+  /** The Move tool: a plain left drag pans (with `onPan`) instead of orbiting. Default false. */
+  panMode?: boolean;
+  /**
+   * Set to let a left drag with Shift held (or any left drag with `panMode`) pan:
+   * called per pointer move with the window centre's move (µm, +y down the map)
+   * that keeps the tissue under the pointer. The orbit controller never sees it.
+   */
+  onPan?: (dxUm: number, dyUm: number) => void;
+  /** The pan's release (or cancel). */
+  onPanEnd?: () => void;
 };
 
 type ViewState = {
@@ -303,6 +314,9 @@ export function VolumeCube({
   onRendered,
   onLevels,
   onShown,
+  panMode = false,
+  onPan,
+  onPanEnd,
 }: VolumeCubeProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const fixedHeight = typeof height === "number";
@@ -825,9 +839,61 @@ export function VolumeCube({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasExtent, winX[0], winX[1], winY[0], winY[1], stackZ[0], stackZ[1], extentX, extentY, contrastMax, onBoundsRef]);
 
+  // Pan: a Shift (or Move tool) press is stopped in the capture phase, before
+  // deck's controller (mjolnir's pointerdown on the canvas) sees it, so it never
+  // orbits; window listeners then follow the drag until release.
+  const panAbort = useRef<AbortController | null>(null);
+  const viewRef = useLatest(viewState);
+  const umRef = useLatest(levelVoxel ? levelVoxel[2] : 1);
+  const onPanRef = useLatest(onPan);
+  const onPanEndRef = useLatest(onPanEnd);
+  const [panning, setPanning] = useState(false);
+  useEffect(() => () => panAbort.current?.abort(), []);
+
+  const wantsPan = (e: { button: number; shiftKey: boolean }) =>
+    Boolean(onPan) && e.button === 0 && (panMode || e.shiftKey);
+
+  const onPointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!wantsPan(e)) return;
+    e.stopPropagation();
+    e.preventDefault();
+    panAbort.current?.abort();
+    const abort = new AbortController();
+    panAbort.current = abort;
+    let last = { x: e.clientX, y: e.clientY };
+    setPanning(true);
+    const end = () => {
+      abort.abort();
+      setPanning(false);
+      onPanEndRef.current?.();
+    };
+    const opts = { signal: abort.signal };
+    window.addEventListener(
+      "pointermove",
+      (m: PointerEvent) => {
+        const view = viewRef.current;
+        if (!view) return;
+        const d = dragToWindowDelta(m.clientX - last.x, m.clientY - last.y, view, umRef.current);
+        last = { x: m.clientX, y: m.clientY };
+        onPanRef.current?.(d.x, d.y);
+      },
+      opts,
+    );
+    window.addEventListener("pointerup", end, opts);
+    window.addEventListener("pointercancel", end, opts);
+    window.addEventListener("blur", end, opts);
+  };
+  const onMouseDownCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (wantsPan(e)) e.stopPropagation();
+  };
+
   return (
     <div
       ref={hostRef}
+      onPointerDownCapture={onPointerDownCapture}
+      onMouseDownCapture={onMouseDownCapture}
+      data-pan-mode={String(panMode)}
+      data-panning={String(panning)}
       className={cn("volume-cube__view relative w-full overflow-hidden rounded-md", background && "bg-neutral-950")}
       style={{ height }}
       data-image={showImage ? "on" : "off"}

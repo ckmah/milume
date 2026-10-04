@@ -6284,6 +6284,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       model.save_changes();
       setDeckLayers();
     },
+    moveInspectWindow(x, y) {
+      const size = volumeWindow?.size ?? inspectWindowUm;
+      volumeWindow = { x, y, size };
+      model.set("inspect_cx", x);
+      model.set("inspect_cy", y);
+      model.set("inspect_size_um", size);
+      setDeckLayers();
+    },
     saveInspect,
     getLandmarkGeometry: landmarkGeometry,
     subscribeLandmarks(fn) {

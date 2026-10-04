@@ -23,6 +23,8 @@ export type CubeSettings = {
   /** X/Y relative to the inspect window, Z absolute (see cube-cut.ts). */
   cut: RelativeCut;
   bounds: CubeBounds | null;
+  /** The Move tool: a plain drag in the cube pans the window instead of orbiting. */
+  move: boolean;
 };
 
 export type CubeSettingsPatch = Omit<Partial<CubeSettings>, "render"> & {
@@ -46,6 +48,7 @@ export function useCubeSettings(
     contrast: initialContrast,
     cut: initialCut,
     bounds: null,
+    move: false,
   }));
   const patch = useCallback((p: CubeSettingsPatch) => {
     setSettings((prev) => {
