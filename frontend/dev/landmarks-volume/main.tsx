@@ -9,16 +9,19 @@ import { LandmarksView } from "@/widgets/landmarks/LandmarksView";
 
 import { loadFixtureModel } from "../mock-model";
 
-/** `?budgets=<preview>,<dock>` (voxels) makes the toy pyramid pick different levels. */
-function budgetsFromUrl(): { preview: number; dock: number } | undefined {
-  const raw = new URLSearchParams(location.search).get("budgets");
-  if (!raw) return undefined;
-  const [preview, dock] = raw.split(",").map(Number);
-  return preview && dock ? { preview, dock } : undefined;
+/**
+ * Harness-only options, read from a query string. `budgets=<preview>,<dock>` (voxels) makes the toy
+ * pyramid pick different levels; `window=<µm>` shrinks the Inspect window below the toy volume (256 µm),
+ * so moved windows stay inside it.
+ */
+function optionsFrom(search: string) {
+  const params = new URLSearchParams(search);
+  const [preview, dock] = (params.get("budgets") ?? "").split(",").map(Number);
+  return {
+    cubeBudgets: preview && dock ? { preview, dock } : undefined,
+    inspectWindowUm: Number(params.get("window")) || undefined,
+  };
 }
-const CUBE_BUDGETS = budgetsFromUrl();
-/** `?window=<µm>` shrinks the Inspect window below the toy volume (256 µm), so moved windows stay inside it. */
-const INSPECT_WINDOW_UM = Number(new URLSearchParams(location.search).get("window")) || undefined;
 
 /**
  * Landmarks over a toy SpatialData (`public/toy.sdata.zarr`): a click in Inspect
@@ -28,6 +31,7 @@ function LandmarksVolumeHarness() {
   const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
   const [model, setModel] = useState<AnyModel | null>(null);
   const [loadError, setLoadError] = useState("");
+  const [options, setOptions] = useState(() => optionsFrom(location.search));
 
   useEffect(() => {
     let cancelled = false;
@@ -44,10 +48,12 @@ function LandmarksVolumeHarness() {
   }, []);
 
   // E2E only: remount the widget on a fresh model without reloading the page (see e2e/fixtures.ts).
+  // `query` carries the options a reload would have (`window=100`); none means the defaults.
   useEffect(() => {
-    (window as unknown as { __harnessReset?: () => Promise<void> }).__harnessReset = async () => {
+    (window as unknown as { __harnessReset?: (query?: string) => Promise<void> }).__harnessReset = async (query = "") => {
       resetModeDropdownMemory();
       setModel(null);
+      setOptions(optionsFrom(query));
       await new Promise<void>((resolve) =>
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       );
@@ -68,8 +74,8 @@ function LandmarksVolumeHarness() {
             model={model}
             hostEl={hostEl}
             defaultHeight={820}
-            cubeBudgets={CUBE_BUDGETS}
-            inspectWindowUm={INSPECT_WINDOW_UM}
+            cubeBudgets={options.cubeBudgets}
+            inspectWindowUm={options.inspectWindowUm}
           />
         ) : (
           <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>

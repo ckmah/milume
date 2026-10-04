@@ -9,7 +9,7 @@ async function newPage(browser: Browser, info: Pick<TestInfo, "project">) {
   return { context, page: await context.newPage() };
 }
 
-/** Undo what a previous test did to the shared page: input state, routes, listeners, viewport, URL options. */
+/** Undo what a previous test did to the shared page: input state, routes, listeners, viewport. */
 async function resetPage(page: Page, info: Pick<TestInfo, "project">) {
   await page.mouse.up().catch(() => undefined);
   // Off the widget, so a remount does not start with the pointer (and :hover) over the map.
@@ -23,10 +23,6 @@ async function resetPage(page: Page, info: Pick<TestInfo, "project">) {
   }
   const viewport = info.project.use.viewport;
   if (viewport) await page.setViewportSize(viewport).catch(() => undefined);
-  // `?window=` / `?budgets=` are read once at load: leave them behind with a plain reload.
-  if (new URL(page.url(), "http://x").search !== "") {
-    await page.goto("/", { waitUntil: "networkidle" }).catch(() => undefined);
-  }
   await page.evaluate(() => {
     (document.activeElement as HTMLElement | null)?.blur?.();
     window.scrollTo(0, 0);

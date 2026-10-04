@@ -88,14 +88,17 @@ async function brightPixels(page: Page, png: Buffer, min = 60) {
   );
 }
 
-/** Reload the harness with harness-only URL options (`window=<µm>`, `budgets=<preview>,<dock>`). */
-async function reloadWith(page: Page, query: string) {
+/** Remount the harness with harness-only options (`window=<µm>`, `budgets=<preview>,<dock>`). */
+const reloadWith = bootLandmarksVolumeHarness;
+
+/** A real page load with the options, for a test that installed an init script (`@isolated`). */
+async function loadFresh(page: Page, query: string) {
   await page.goto(`/?${query}`, { waitUntil: "networkidle" });
   await page.waitForFunction(() => Boolean((window as any).__landmarksEngine?.getViewState?.()));
 }
 
 /**
- * After ten arrow presses on a cut slider: how far `volume_cut[i]` sits inside
+ * After one Shift+arrow press (ten steps) on a cut slider: how far `volume_cut[i]` sits inside
  * the window edge `edge`. About 10 µm: the slider snaps to a 1 µm grid, and the
  * square is rarely a whole number of µm.
  */
@@ -712,7 +715,7 @@ test.describe("Landmarks inspect cube", () => {
     await openCross(page);
     const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
     await zHi.focus();
-    for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("Shift+ArrowLeft");
     await expect.poll(async () => (await cutOf(page))[5]).toBe(54);
 
     expect(await save(page)).toBe(0);
@@ -778,7 +781,7 @@ test.describe("Landmarks inspect cube", () => {
     await openCross(page);
     const xHi = page.getByRole("slider", { name: "X cut" }).nth(1);
     await xHi.focus();
-    for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("Shift+ArrowLeft");
     const cx0 = Number(await getModel(page, "inspect_cx"));
     const size = Number(await getModel(page, "inspect_size_um"));
     const trim = await cutTrim(page, 1, cx0 + size / 2);
@@ -1222,7 +1225,7 @@ test.describe("Landmarks inspect cube", () => {
     const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
     await expect(zHi).toHaveAttribute("aria-valuenow", "64");
     await zHi.focus();
-    for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("Shift+ArrowLeft");
     await expect.poll(async () => ((await getModel(page, "volume_cut")) as number[])[5]).toBe(54);
   });
 
@@ -1242,9 +1245,9 @@ test.describe("Landmarks inspect cube", () => {
     await expect(showImage).toBeChecked();
     await expect(showLabelsSwitch).not.toBeChecked();
     const slider = (name: string, n = 0) => page.getByRole("slider", { name }).nth(n);
-    const nudge = async (name: string, key: string, n = 0, times = 4) => {
+    const nudge = async (name: string, key: string, n = 0) => {
       await slider(name, n).focus();
-      for (let i = 0; i < times; i++) await page.keyboard.press(key);
+      await page.keyboard.press(`Shift+${key}`);
     };
     const now = async (name: string, n = 0) => Number(await slider(name, n).getAttribute("aria-valuenow"));
     const adjustValues = async () => ({
@@ -1321,17 +1324,17 @@ test.describe("Landmarks inspect cube", () => {
     await nudge("Y cut", "ArrowRight", 0);
     await nudge("Z cut", "ArrowLeft", 1);
     expect(await cutValues()).not.toEqual(initialCuts);
-    await expect.poll(async () => (await cutOf(page))[5]).toBe(60);
+    await expect.poll(async () => (await cutOf(page))[5]).toBe(54);
     await cross.getByRole("button", { name: "Reset cross-section" }).click();
     expect(await cutValues()).toEqual(initialCuts);
     await expect.poll(async () => cutOf(page)).toEqual([0, 256, 0, 256, 0, 64]);
     // Adjust's Reset all leaves the cuts alone: it resets what its panel shows.
     await nudge("Z cut", "ArrowLeft", 1);
-    await expect.poll(async () => (await cutOf(page))[5]).toBe(60);
+    await expect.poll(async () => (await cutOf(page))[5]).toBe(54);
     await openAdjust(page);
     await panel.getByRole("button", { name: "Reset all" }).click();
     await page.waitForTimeout(300); // a negative check: no cut write follows
-    expect((await cutOf(page))[5]).toBe(60);
+    expect((await cutOf(page))[5]).toBe(54);
   });
 
   test("panel triggers' a11y; Esc closes only the open panel, not the cube", async ({ page }) => {
@@ -1375,7 +1378,7 @@ test.describe("Landmarks inspect cube", () => {
     // X: trim the high edge, then move the window right.
     const xHi = page.getByRole("slider", { name: "X cut" }).nth(1);
     await xHi.focus();
-    for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("Shift+ArrowLeft");
     const cx0 = Number(await getModel(page, "inspect_cx"));
     const size = Number(await getModel(page, "inspect_size_um"));
     const trim = await cutTrim(page, 1, cx0 + size / 2);
@@ -1396,7 +1399,7 @@ test.describe("Landmarks inspect cube", () => {
     // Y: trim the low edge, then move the window vertically.
     const yLo = page.getByRole("slider", { name: "Y cut" }).nth(0);
     await yLo.focus();
-    for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowRight");
+    await page.keyboard.press("Shift+ArrowRight");
     const cy0 = Number(await getModel(page, "inspect_cy"));
     const yTrim = await cutTrim(page, 2, cy0 - size / 2);
     expect((await cutOf(page))[3]).toBe(256);
@@ -1415,7 +1418,7 @@ test.describe("Landmarks inspect cube", () => {
     await openCross(page);
     const x = page.getByRole("slider", { name: "X cut" });
     await x.nth(1).focus();
-    for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("Shift+ArrowLeft");
     const cx0 = Number(await getModel(page, "inspect_cx"));
     const size = Number(await getModel(page, "inspect_size_um"));
     await cutTrim(page, 1, cx0 + size / 2);
@@ -1450,7 +1453,7 @@ test.describe("Landmarks inspect cube", () => {
     await openCross(page);
     const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
     await zHi.focus();
-    for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
+    await page.keyboard.press("Shift+ArrowLeft");
     await expect.poll(async () => cutOf(page)).toEqual([0, 256, 0, 256, 0, 54]);
 
     // Zoom out so a click lands a window that the volume's left edge clamps.
@@ -1634,7 +1637,7 @@ test.describe("Landmarks inspect cube", () => {
     // A 100 µm window over cells 2 (type0, at 160, 150) and 3 (type1, at 100, 190)
     // and not cell 1: the first cell encoded is global 2, so local index 1 is
     // global 2 and a local/global mix-up changes the colours.
-    await reloadWith(page, "window=100");
+    await loadFresh(page, "window=100");
     await openCubeAtCentre(page, { at: [130, 170] });
     const view = cubeWindow(page).locator(".volume-cube__view");
     // Half-µm centre: the level-0 box is X 80-181, Y 120-221, an odd 101 voxels
@@ -1748,7 +1751,7 @@ test.describe("Landmarks inspect cube", () => {
       };
     });
     // Small budgets make the toy pyramid pick different levels (see main.tsx ?budgets).
-    await reloadWith(page, "budgets=20000,300000&window=100");
+    await loadFresh(page, "budgets=20000,300000&window=100");
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
@@ -1790,7 +1793,7 @@ test.describe("Landmarks inspect cube", () => {
     const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
     const nudge = async (key: string) => {
       await zHi.focus();
-      for (let i = 0; i < 10; i++) await page.keyboard.press(key);
+      await page.keyboard.press(`Shift+${key}`);
     };
     await nudge("ArrowLeft");
     await expect.poll(async () => (await cutOf(page))[5]).toBe(54);

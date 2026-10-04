@@ -49,7 +49,29 @@ export async function setModel(page: Page, patch: Record<string, unknown>) {
   }, patch);
 }
 
+/**
+ * cube-motion runs on the Web Animations API, which the CSS reset below cannot stop. Its entrances
+ * last 640 ms and lift the element, so Playwright's stability check waits them out on every click.
+ * Zero every animation's timing instead; `finished` still resolves, so leave-then-unmount keeps working.
+ */
+function zeroWebAnimations() {
+  const w = window as any;
+  if (w.__motionOff) return;
+  w.__motionOff = true;
+  const animate = Element.prototype.animate;
+  Element.prototype.animate = function (keyframes, options) {
+    const timing = typeof options === "number" ? { duration: 0 } : { ...options, duration: 0, delay: 0, endDelay: 0 };
+    return animate.call(this, keyframes, timing);
+  };
+}
+const motionOffPages = new WeakSet<Page>();
+
 export async function stabilizeUi(page: Page) {
+  if (!motionOffPages.has(page)) {
+    motionOffPages.add(page);
+    await page.addInitScript(zeroWebAnimations);
+  }
+  await page.evaluate(zeroWebAnimations);
   // Idempotent: a shared worker page can be reloaded between tests, which drops the style.
   await page.evaluate(() => {
     if (document.getElementById("e2e-stabilize-ui")) return;
@@ -107,19 +129,22 @@ export async function bootLandmarksHarness(page: Page) {
   await stabilizeUi(page);
 }
 
-/** Landmarks over the toy SpatialData (`E2E_HARNESS=landmarks-volume`); the cube opens from Inspect. */
-export async function bootLandmarksVolumeHarness(page: Page) {
-  // Warm only on the plain harness URL: `?window=` / `?budgets=` are read once at load.
+/**
+ * Landmarks over the toy SpatialData (`E2E_HARNESS=landmarks-volume`); the cube opens from Inspect.
+ * `query` sets harness-only options (`window=<µm>`, `budgets=<preview>,<dock>`); a warm page remounts with them
+ * instead of reloading, and the next boot without a query puts the defaults back.
+ */
+export async function bootLandmarksVolumeHarness(page: Page, query = "") {
   const isWarm = await page
-    .evaluate(() => location.search === "" && typeof (window as any).__harnessReset === "function")
+    .evaluate(() => typeof (window as any).__harnessReset === "function")
     .catch(() => false);
   if (isWarm) {
-    await page.evaluate(() => (window as any).__harnessReset());
+    await page.evaluate((q) => (window as any).__harnessReset(q), query);
     await waitForEngine(page, 150);
     await stabilizeUi(page);
     return;
   }
-  await page.goto("/", { waitUntil: "networkidle" });
+  await page.goto(query ? `/?${query}` : "/", { waitUntil: "networkidle" });
   await waitForEngine(page);
   await stabilizeUi(page);
 }

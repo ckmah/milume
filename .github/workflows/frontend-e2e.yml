@@ -129,11 +129,25 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+  # The volume spec is ~70 tests of software-GL cube rendering: split it across runners,
+  # dealt out by title (scripts/e2e-shard.mjs) so the heavy cube tests do not land on one runner.
+  # Only the default-harness leg owns snapshots, so it alone runs for update_snapshots.
   e2e-landmarks:
     needs: changes
     if: needs.changes.outputs.landmarks == 'true'
+    name: e2e-landmarks (${{ matrix.id }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { id: volume-1, harness: landmarks-volume, cmd: "node scripts/e2e-shard.mjs 1/3 e2e/landmarks/landmarks-volume.spec.ts" }
+          - { id: volume-2, harness: landmarks-volume, cmd: "node scripts/e2e-shard.mjs 2/3 e2e/landmarks/landmarks-volume.spec.ts" }
+          - { id: volume-3, harness: landmarks-volume, cmd: "node scripts/e2e-shard.mjs 3/3 e2e/landmarks/landmarks-volume.spec.ts" }
+          - { id: default, harness: landmarks, cmd: "npx playwright test e2e/landmarks" }
+    env:
+      UPDATE: ${{ github.event_name == 'workflow_dispatch' && inputs.update_snapshots == true }}
     defaults:
       run:
         working-directory: frontend
@@ -147,33 +161,35 @@ jobs:
       - run: npm ci
       - run: npx playwright install chromium --with-deps
       - name: Run landmarks e2e
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.update_snapshots != true }}
-        run: npm run test:e2e:landmarks
+        if: ${{ env.UPDATE != 'true' }}
+        run: ${{ matrix.cmd }}
         env:
           CI: true
           E2E_SCREENSHOTS: "1"
+          E2E_HARNESS: ${{ matrix.harness }}
       - name: Update landmarks snapshots
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_snapshots == true }}
-        run: npm run test:e2e:landmarks -- --update-snapshots=all
+        if: ${{ env.UPDATE == 'true' && matrix.id == 'default' }}
+        run: ${{ matrix.cmd }} --update-snapshots=all
         env:
           CI: true
           E2E_SCREENSHOTS: "1"
+          E2E_HARNESS: ${{ matrix.harness }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report-landmarks
+          name: playwright-report-landmarks-${{ matrix.id }}
           path: frontend/playwright-report/
           retention-days: 14
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-test-results-landmarks
+          name: playwright-test-results-landmarks-${{ matrix.id }}
           path: frontend/test-results/
           retention-days: 14
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_snapshots == true }}
+        if: ${{ env.UPDATE == 'true' && matrix.id == 'default' }}
         with:
           name: playwright-snapshots-landmarks
           path: frontend/e2e/landmarks/**/*-snapshots/
