@@ -23,6 +23,17 @@ const selectionsOf = async (page: Page) => (await getModel(page, "selections")) 
 /** The top pill while in Inspect (in place of the tool pill): Exit, the window's status, Save. */
 const inspectPill = (page: Page) => page.getByTestId("inspect-pill");
 const saveButton = (page: Page) => inspectPill(page).getByRole("button", { name: "Save window" });
+/** The focused element, through shadow roots: its aria-label and whether it sits in `[data-testid=testId]`. */
+async function focused(page: Page, testId: string) {
+  return page.evaluate((testId) => {
+    let el: Element | null = document.activeElement;
+    while (el?.shadowRoot?.activeElement) el = el.shadowRoot.activeElement;
+    return {
+      label: el?.getAttribute("aria-label") ?? el?.tagName ?? null,
+      inside: Boolean(el?.closest(`[data-testid="${testId}"], [aria-label="${testId}"]`)),
+    };
+  }, testId);
+}
 /** Save the live window from the Inspect pill; the new entry's index (it is focused). */
 async function save(page: Page) {
   const before = (await selectionsOf(page)).length;
@@ -389,6 +400,40 @@ test.describe("Landmarks inspect cube", () => {
     const chip = page.getByTestId("inspect-status");
     await expect(chip).toHaveAttribute("data-state", /refining|ready/);
     await expect(chip).toHaveAttribute("data-state", "ready");
+    // Exit, re-enter and reopen: the chip starts over and settles again.
+    await inspectPill(page).getByRole("button", { name: "Exit Inspect" }).click();
+    await expect(chip).toHaveCount(0);
+    await openCubeAtCentre(page);
+    await expect(chip).toHaveAttribute("data-state", /refining|ready/);
+    await expect(chip).toHaveAttribute("data-state", "ready");
+  });
+
+  test("keyboard: the swap keeps focus in the widget, and Esc from focus alone leaves Inspect", async ({ page }) => {
+    // No pointer over the widget anywhere in this test: only focus puts keys "in" it.
+    await page.mouse.move(0, 0);
+    const tools = page.getByRole("toolbar", { name: "Drawing tools" });
+    await tools.getByRole("radio", { name: "Inspect", exact: true }).focus();
+    await page.keyboard.press("Space");
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
+    // Focus moved from the leaving tool pill to the Inspect pill's Exit.
+    await expect.poll(() => focused(page, "inspect-pill")).toEqual({ label: "Exit Inspect", inside: true });
+    // Enter on Exit: back to the tool used before, focused on its radio.
+    await page.keyboard.press("Enter");
+    await expect(inspectPill(page)).toHaveCount(0);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
+    await expect.poll(() => focused(page, "Drawing tools")).toEqual({ label: "Select", inside: true });
+
+    // Again, leaving with Esc (no cube open: one Esc leaves Inspect).
+    await tools.getByRole("radio", { name: "Inspect", exact: true }).focus();
+    await page.keyboard.press("Space");
+    await expect.poll(() => focused(page, "inspect-pill")).toEqual({ label: "Exit Inspect", inside: true });
+    await page.keyboard.press("Escape");
+    await expect(inspectPill(page)).toHaveCount(0);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
+    await expect.poll(() => focused(page, "Drawing tools")).toEqual({ label: "Select", inside: true });
+    // A second Esc stays harmless in the restored tool.
+    await page.keyboard.press("Escape");
+    expect(await getModel(page, "mode")).toBe("select");
   });
 
   test("the Inspect toolbar shows before a window is placed; cut sliders wait for ranges without a crash", async ({

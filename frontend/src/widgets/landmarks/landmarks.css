@@ -1226,8 +1226,10 @@
   white-space: nowrap;
 }
 
-/* Narrow: the hint drops the size so the armed pill stays clear of the view buttons. */
-.landmarks--narrow .landmarks__inspect-hint-size {
+/* Narrow: the hint drops the size, and the open pill its centre readout, so
+   the pill stays clear of the view buttons. */
+.landmarks--narrow .landmarks__inspect-hint-size,
+.landmarks--narrow .landmarks__inspect-centre {
   display: none;
 }
 
@@ -1239,6 +1241,18 @@
   min-width: 3.5rem;
   color: var(--lm-text-muted);
   white-space: nowrap;
+}
+
+/* A load error is cut short (its full text is the chip's title), so it never
+   stretches the pill into the view buttons. */
+.landmarks__inspect-status[data-state="error"] {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.landmarks--narrow .landmarks__inspect-status[data-state="error"] {
+  max-width: 8rem;
 }
 
 .landmarks__inspect-status[data-state="refining"] .landmarks__shimmer {
@@ -2013,10 +2027,6 @@
 .landmarks--cube-open .landmarks__chrome-dock,
 .landmarks--cube-open .landmarks__peek-tab {
   z-index: 22;
-}
-
-.landmarks--cube-open.landmarks--rulers .landmarks__peek-tab {
-  top: calc(var(--lm-chrome-band) + var(--lm-chrome-gap) + var(--lm-ruler-band));
 }
 
 .landmarks--rulers .landmarks__chrome-tools {

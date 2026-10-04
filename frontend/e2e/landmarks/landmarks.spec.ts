@@ -247,6 +247,17 @@ test.describe("LandmarksWidget", () => {
     await expect.poll(() => getModel(page, "mode")).toBe("select");
   });
 
+  test("Inspect without a 3D image: Esc leaves it for the tool pill", async ({ page }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const pill = page.getByTestId("inspect-pill");
+    await expect(pill).toHaveAttribute("data-state", "armed");
+    await expect(page.getByRole("toolbar", { name: "Drawing tools" })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(pill).toHaveCount(0);
+    await expect(page.getByRole("toolbar", { name: "Drawing tools" })).toBeVisible();
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
+  });
+
   test("context toolbar docks at bottom center for selected landmark", async ({
     page,
   }) => {

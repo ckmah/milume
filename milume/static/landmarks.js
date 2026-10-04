@@ -5483,7 +5483,25 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     return pointerOverMap() && pointerMovedAt > typedOutsideAt;
   }
 
+  // The control that took focus from the keyboard (Tab, or a keyboard-driven
+  // focus move), not from a click: Space and Enter then press it instead of
+  // panning or finishing a draft. A clicked control keeps Space for panning.
+  const CONTROL_SELECTOR =
+    'button, a[href], [role="button"], [role="radio"], [role="switch"], [role="checkbox"], [role="tab"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
+  let lastInput = "key";
+  let keyFocused = null;
+  function eventOrigin(event) {
+    const path = typeof event.composedPath === "function" ? event.composedPath() : null;
+    return (path && path[0]) || event.target;
+  }
+  function pressesFocusedControl(event) {
+    const el = eventOrigin(event);
+    return el instanceof Element && el === keyFocused && el.matches(CONTROL_SELECTOR);
+  }
+
   function handleKeyDown(event) {
+    lastInput = "key";
+    if ((event.key === " " || event.key === "Enter") && pressesFocusedControl(event)) return;
     // Marimo often keeps focus in the cell editor after clicking the widget.
     // Only treat typing as blocking when the editable is *inside* our chrome
     // (gene combobox, etc.); otherwise pointerInWidget / deep focus still win.
@@ -5862,6 +5880,20 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       pointerInWidget = eventInWidget(e);
     },
     { signal },
+  );
+  window.addEventListener(
+    "pointerdown",
+    () => {
+      lastInput = "pointer";
+    },
+    { capture: true, signal },
+  );
+  window.addEventListener(
+    "focusin",
+    (e) => {
+      keyFocused = lastInput === "key" ? eventOrigin(e) : null;
+    },
+    { capture: true, signal },
   );
   // Capture on window so we run before notebook hosts; composedPath keeps
   // shadow-DOM focus checks correct for marimo anywidget.

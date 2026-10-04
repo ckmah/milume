@@ -66,7 +66,7 @@ export function InspectPill(p: InspectPillProps) {
         {p.open ? (
           <>
             {p.centre ? (
-              <span className="landmarks-meta tabular-nums" data-testid="inspect-centre">
+              <span className="landmarks-meta landmarks__inspect-centre tabular-nums" data-testid="inspect-centre">
                 {Math.round(p.centre.x)}, {Math.round(p.centre.y)} µm
               </span>
             ) : null}

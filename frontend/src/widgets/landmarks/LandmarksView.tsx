@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Rise } from "cube-motion/react";
 
 import { useNotebookTheme } from "@/hooks/use-notebook-theme";
@@ -180,6 +180,40 @@ export function LandmarksView({
     }
   }, [inspecting]);
 
+  // The top slot swaps the tool pill and the Inspect pill (`<Rise>` each).
+  const toolPillRef = useRef<HTMLDivElement>(null);
+  const inspectPillRef = useRef<HTMLDivElement>(null);
+  // The tool pill shows from the start: no entrance on the widget's first
+  // render (Rise starts it in its effect, before the first frame we finish it).
+  useEffect(() => {
+    for (const a of toolPillRef.current?.getAnimations() ?? []) a.finish();
+  }, []);
+  // When the swap takes the focused control away (the leaving pill goes
+  // inert), focus moves into the incoming pill: Exit Inspect on entry, the
+  // restored tool's radio on exit. Runs before the browser blurs the inert
+  // control, so a keyboard user keeps focus inside the widget.
+  const wasInspectingRef = useRef(inspecting);
+  useLayoutEffect(() => {
+    if (wasInspectingRef.current === inspecting) return;
+    wasInspectingRef.current = inspecting;
+    const leaving = inspecting ? toolPillRef.current : inspectPillRef.current;
+    const incoming = inspecting ? inspectPillRef.current : toolPillRef.current;
+    const root = rootRef.current;
+    if (!leaving || !root) return;
+    const active = (root.getRootNode() as Document | ShadowRoot).activeElement;
+    if (!active || !leaving.contains(active)) return;
+    const target =
+      incoming?.querySelector<HTMLElement>(
+        inspecting ? '[aria-label="Exit Inspect"]' : '[role="radio"][aria-checked="true"]',
+      ) ?? incoming?.querySelector<HTMLElement>("button:not([disabled])");
+    if (target) {
+      target.focus({ preventScroll: true });
+    } else {
+      root.tabIndex = -1;
+      root.focus({ preventScroll: true });
+    }
+  }, [inspecting]);
+
   const syncEngineLayout = useCallback(() => {
     engineRef.current?.resize();
   }, []);
@@ -348,7 +382,7 @@ export function LandmarksView({
           onWheel={(e) => e.stopPropagation()}
         >
           {/* One slot: the Inspect pill swaps in for the tool pill (both stack while one leaves). */}
-          <Rise show={!inspecting} inert={inspecting}>
+          <Rise ref={toolPillRef} show={!inspecting} inert={inspecting}>
             <Topbar
               modes={ALL_MODES}
               mode={lm.mode}
@@ -362,7 +396,7 @@ export function LandmarksView({
               onReset={() => engineRef.current?.resetZoom()}
             />
           </Rise>
-          <Rise show={inspecting} inert={!inspecting}>
+          <Rise ref={inspectPillRef} show={inspecting} inert={!inspecting}>
             <InspectPill
               open={cubeOpen}
               sizeUm={lm.inspect_size_um || INSPECT_WINDOW_UM}
