@@ -185,7 +185,7 @@ New or rewritten Playwright tests (`frontend/e2e/landmarks/landmarks-volume.spec
 
 ## Deviations during implementation
 
-Recorded from the task reports (plan `docs/superpowers/plans/2026-10-03-inspect-rework.md`).
+Recorded from the task reports (plan `docs/plans/2026-10-03-inspect-rework.md`).
 What was built is described in the verify-landmarks feature maps
 (`inspect-cube.md`, `inspect-history.md`) and the ADR 0006 addendum of 2026-10-03.
 

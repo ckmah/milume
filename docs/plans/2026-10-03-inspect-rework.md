@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 19, TypeScript, Viv 0.22 / deck.gl 9.2 / luma.gl 9.2 (GLSL injected through Viv extensions), `cube-motion/react`, shadcn/ui, Playwright e2e (no unit runner), vanilla engine `milume/static/landmarks.js`.
 
-**Spec:** [`docs/superpowers/specs/2026-10-03-inspect-rework-design.md`](../specs/2026-10-03-inspect-rework-design.md)
+**Spec:** [`docs/specs/2026-10-03-inspect-rework-design.md`](../specs/2026-10-03-inspect-rework-design.md)
 
 ## Global Constraints
 

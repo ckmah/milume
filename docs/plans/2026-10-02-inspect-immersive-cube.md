@@ -8,7 +8,7 @@
 
 **Tech Stack:** React 19, TypeScript, Viv 0.22 / deck.gl 9.2 / luma.gl 9.2 (GLSL ES 3.00 injected via Viv extensions), Playwright e2e (no unit runner in this repo), vanilla engine in `milume/static/landmarks.js`.
 
-**Spec:** [`docs/superpowers/specs/2026-10-02-inspect-immersive-cube-design.md`](../specs/2026-10-02-inspect-immersive-cube-design.md)
+**Spec:** [`docs/specs/2026-10-02-inspect-immersive-cube-design.md`](../specs/2026-10-02-inspect-immersive-cube-design.md)
 
 ## Global Constraints
 
@@ -1241,7 +1241,7 @@ Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 - Modify: `.agents/skills/verify-landmarks/features/inspect-cube.md`, `inspect-history.md`
 - Modify: `docs/adr/0006-landmarks-hosts-volume-cube.md` (append addendum)
 - Modify: `frontend/DESIGN.md` (cube wording)
-- Modify: `docs/superpowers/specs/2026-10-02-inspect-immersive-cube-design.md` (record deviations)
+- Modify: `docs/specs/2026-10-02-inspect-immersive-cube-design.md` (record deviations)
 - Modify: `CONTEXT.md` only if the word "dock" for the cube appears (`grep -n "dock" CONTEXT.md`)
 
 - [ ] **Step 1: Feature map `inspect-cube.md`**

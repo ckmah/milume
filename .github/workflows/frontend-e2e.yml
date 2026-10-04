@@ -5,17 +5,10 @@ name: Frontend e2e
 #   landmarks   — LandmarksWidget
 
 on:
+  # No `paths:` here: the `changes` job filters, so `gate` always reports.
   pull_request:
-    paths:
-      - "frontend/**"
-      - ".github/workflows/frontend-e2e.yml"
-      - ".github/scripts/post-playwright-visuals.sh"
   push:
     branches: [main]
-    paths:
-      - "frontend/**"
-      - ".github/workflows/frontend-e2e.yml"
-      - ".github/scripts/post-playwright-visuals.sh"
   workflow_dispatch:
     inputs:
       update_snapshots:
@@ -52,32 +45,8 @@ jobs:
         id: filter
         if: github.event_name != 'workflow_dispatch'
         with:
-          filters: |
-            core:
-              - 'frontend/src/components/**'
-              - 'frontend/src/styles/**'
-              - 'frontend/src/lib/**'
-              - 'frontend/src/hooks/**'
-              - 'frontend/components.json'
-              - 'frontend/e2e/core/**'
-            landmarks:
-              - 'frontend/src/widgets/landmarks/**'
-              - 'frontend/e2e/landmarks/**'
-              - 'frontend/dev/**'
-              # The inspect cube renders the shared VolumeCube.
-              - 'frontend/src/widgets/volume-cube/**'
-              - 'milume/volume_cube.py'
-            infra:
-              - 'frontend/e2e/helpers.ts'
-              - 'frontend/e2e/fixtures.ts'
-              - 'frontend/playwright.config.ts'
-              - 'frontend/package.json'
-              - 'frontend/package-lock.json'
-              - 'frontend/vite.config.ts'
-              - 'frontend/vite.config.*'
-              - 'frontend/index.html'
-              - '.github/workflows/frontend-e2e.yml'
-              - '.github/scripts/post-playwright-visuals.sh'
+          # Single source of truth, shared with `npm run verify`.
+          filters: .github/e2e-tiers.json
 
       - name: Select tiers
         id: select
@@ -210,3 +179,17 @@ jobs:
           path: frontend/e2e/landmarks/**/*-snapshots/
           retention-days: 14
           if-no-files-found: ignore
+
+  # One stable check to require in branch protection: path-gated jobs may be skipped,
+  # which a required check cannot tolerate; this job passes unless a tier failed.
+  gate:
+    needs: [changes, e2e-core, e2e-landmarks]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail if any selected tier failed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "tier results: ${RESULTS}"
+          [[ "${RESULTS}" != *failure* && "${RESULTS}" != *cancelled* ]]

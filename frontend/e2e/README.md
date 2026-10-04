@@ -1,6 +1,6 @@
 # Frontend e2e (Playwright)
 
-Two tiers, path-gated in CI (`.github/workflows/frontend-e2e.yml`):
+Two tiers, path-gated in CI (`.github/workflows/frontend-e2e.yml`; the path map lives in `.github/e2e-tiers.json`, shared with `npm run verify`):
 
 | Tier | When it runs | Specs |
 |------|----------------|-------|
@@ -8,7 +8,7 @@ Two tiers, path-gated in CI (`.github/workflows/frontend-e2e.yml`):
 | **landmarks** | Landmarks widget / harness / `e2e/landmarks` changes | `e2e/landmarks/` |
 
 Infra changes (`e2e/helpers.ts`, `playwright.config.ts`, `package-lock.json`, …) run **all** tiers.
-The workflow itself only triggers when `frontend/**` (or the workflow/script) changes.
+The workflow runs on every PR; its `changes` job selects tiers, and the `gate` job is the one check to require.
 
 ## Screenshots
 

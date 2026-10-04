@@ -15,11 +15,11 @@ inside the cube. Esc closes the cube and stays in Inspect; a second Esc, or
 **Spec:** `frontend/e2e/landmarks/landmarks-volume.spec.ts` — `"Landmarks inspect cube"` describe block
 (`E2E_HARNESS=landmarks-volume`, run via `npm run test:e2e:landmarks`)
 
-**Design:** [`docs/superpowers/specs/2026-09-25-landmarks-inspect-cube-design.md`](../../../docs/superpowers/specs/2026-09-25-landmarks-inspect-cube-design.md) · [`docs/superpowers/specs/2026-09-26-inspect-preview-dock-design.md`](../../../docs/superpowers/specs/2026-09-26-inspect-preview-dock-design.md) · [`docs/superpowers/specs/2026-10-02-inspect-immersive-cube-design.md`](../../../docs/superpowers/specs/2026-10-02-inspect-immersive-cube-design.md) · [`docs/superpowers/specs/2026-10-03-inspect-rework-design.md`](../../../docs/superpowers/specs/2026-10-03-inspect-rework-design.md) · [ADR 0006](../../../docs/adr/0006-landmarks-hosts-volume-cube.md)
+**Design:** [`docs/specs/2026-09-25-landmarks-inspect-cube-design.md`](../../../docs/specs/2026-09-25-landmarks-inspect-cube-design.md) · [`docs/specs/2026-09-26-inspect-preview-dock-design.md`](../../../docs/specs/2026-09-26-inspect-preview-dock-design.md) · [`docs/specs/2026-10-02-inspect-immersive-cube-design.md`](../../../docs/specs/2026-10-02-inspect-immersive-cube-design.md) · [`docs/specs/2026-10-03-inspect-rework-design.md`](../../../docs/specs/2026-10-03-inspect-rework-design.md) · [ADR 0006](../../../docs/adr/0006-landmarks-hosts-volume-cube.md)
 
 ## Sub-features
 
-The context region (a coarse, dimmed region around the window) was removed 2026-10-03; see [`2026-10-03-inspect-rework-design.md`](../../../docs/superpowers/specs/2026-10-03-inspect-rework-design.md). The cube shows only the window.
+The context region (a coarse, dimmed region around the window) was removed 2026-10-03; see [`2026-10-03-inspect-rework-design.md`](../../../docs/specs/2026-10-03-inspect-rework-design.md). The cube shows only the window.
 
 ### Inspect pill (top)
 
