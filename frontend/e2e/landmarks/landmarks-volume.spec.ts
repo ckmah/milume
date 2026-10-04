@@ -262,10 +262,9 @@ async function screenAt(page: Page, box: Box, [x, y]: [number, number]) {
   return { x: box.x + box.width / 2 + (x - vs.target[0]) * k, y: box.y + box.height / 2 + (y - vs.target[1]) * k };
 }
 
-/** Click in Inspect at the canvas centre, or at map point `at` (µm) after zooming out `zoomOut` steps. */
-async function openCubeAtCentre(page: Page, { zoomOut = 0, at }: { zoomOut?: number; at?: [number, number] } = {}) {
+/** Click in Inspect at the canvas centre, or at map point `at` (µm). */
+async function openCubeAtCentre(page: Page, { at }: { at?: [number, number] } = {}) {
   await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-  if (zoomOut) await page.evaluate((d) => (window as any).__landmarksEngine.zoomBy(-d, { animate: false }), zoomOut);
   const box = await canvasBox(page);
   const p = at ? await screenAt(page, box, at) : { x: box.x + box.width * 0.5, y: box.y + box.height * 0.5 };
   await page.mouse.click(p.x, p.y);
@@ -1344,8 +1343,10 @@ test.describe("Landmarks inspect cube", () => {
 
       await trigger.click();
       await expect(trigger).toHaveAttribute("aria-expanded", "true");
-      // The panel is a region named after its trigger (Cross-section's own section shares the name).
-      const panel = region.and(page.getByRole("region", { name, exact: true }));
+      // The panel is the one region named after its trigger.
+      const named = page.getByRole("region", { name, exact: true });
+      await expect(named).toHaveCount(1);
+      const panel = region.and(named);
       await expect(panel).toBeVisible();
 
       await page.keyboard.press("Escape");

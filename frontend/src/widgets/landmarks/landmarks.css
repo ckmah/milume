@@ -1176,6 +1176,10 @@
   max-height: min(45cqh, 22rem);
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* The scroll box clips the 3px focus rings of its first and last rows (the
+     Resets): pad by the ring, and pull back the 1px added so nothing moves. */
+  padding-block: 3px;
+  margin-block: -1px;
 }
 
 .landmarks-adjust__cols {

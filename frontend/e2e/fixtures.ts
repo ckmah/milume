@@ -12,6 +12,8 @@ async function newPage(browser: Browser, info: Pick<TestInfo, "project">) {
 /** Undo what a previous test did to the shared page: input state, routes, listeners, viewport, URL options. */
 async function resetPage(page: Page, info: Pick<TestInfo, "project">) {
   await page.mouse.up().catch(() => undefined);
+  // Off the widget, so a remount does not start with the pointer (and :hover) over the map.
+  await page.mouse.move(0, 0).catch(() => undefined);
   for (const key of ["Shift", "Control", "Alt", "Meta", "Space"]) {
     await page.keyboard.up(key).catch(() => undefined);
   }

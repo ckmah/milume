@@ -117,17 +117,20 @@ function AdjustSection({
   show,
   onReset,
   testId,
+  named = true,
   children,
 }: {
   title: string;
   show?: ShowSwitch;
   onReset: () => void;
   testId?: string;
+  /** False when the panel around it is already a region named `title`: one region, not two of the same name. */
+  named?: boolean;
   children: React.ReactNode;
 }) {
   const id = useId();
   return (
-    <section aria-labelledby={id} data-testid={testId}>
+    <section aria-labelledby={named ? id : undefined} data-testid={testId}>
       <div className="landmarks-adjust__head">
         <div className="flex items-center gap-1.5">
           <h3 id={id} className={cn(TOOLBAR_CAPTION, "m-0")}>
@@ -402,7 +405,12 @@ export function InspectToolbar({
       role="region"
       aria-label="Cross-section"
     >
-      <AdjustSection title="Cross-section" testId="context-cube-cuts" onReset={() => onReset("cuts")}>
+      <AdjustSection
+        title="Cross-section"
+        testId="context-cube-cuts"
+        named={false}
+        onReset={() => onReset("cuts")}
+      >
         {cutRanges ? (
           <>
             {cutRow(0, "X cut", cutRanges.x, true)}
