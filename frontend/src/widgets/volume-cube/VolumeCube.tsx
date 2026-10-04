@@ -787,7 +787,13 @@ export function VolumeCube({
   // other failure (no coarse step) is the canvas status, as before.
   const refineFailed = Boolean(imageError && shownIsCoarse);
   const refineError = refineFailed ? `Could not refine: ${imageError}` : "";
-  const settled = Boolean(shown && target && shown.level.index === target.level.index);
+  // Settled: the target level is shown, at the window asked for right now. A
+  // moved window is stale until its fetch lands, whether the debounced target
+  // has caught up or not, and a pan along a clamped edge can change the box
+  // without shifting it. The preview's region is never the window: its level decides.
+  const settled = Boolean(
+    shown && target && shown.level.index === target.level.index && (regionScale > 0 || sameBox(shown.box, liveBox)),
+  );
   const refining = !settled && !error && !imageError && !outside;
   // The image failed with nothing kept on screen.
   const loadError = error || (refineFailed ? "" : imageError);
@@ -949,4 +955,8 @@ export function VolumeCube({
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function sameBox(a: Box, b: Box | null): boolean {
+  return b !== null && a.x0 === b.x0 && a.x1 === b.x1 && a.y0 === b.y0 && a.y1 === b.y1;
 }

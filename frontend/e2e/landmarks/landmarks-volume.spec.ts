@@ -273,6 +273,20 @@ async function openCubeAtCentre(page: Page, { zoomOut = 0, at }: { zoomOut?: num
   return box;
 }
 
+/** Record every `data-state` the element at `selector` takes from now on (read with `recordedStates`). */
+async function recordStates(page: Page, selector: string) {
+  await page.evaluate((selector) => {
+    const el = document.querySelector(selector)!;
+    const states: string[] = [];
+    (window as any).__states = states;
+    (window as any).__statesObserver?.disconnect();
+    const observer = new MutationObserver(() => states.push(el.getAttribute("data-state") ?? ""));
+    observer.observe(el, { attributes: true, attributeFilter: ["data-state"] });
+    (window as any).__statesObserver = observer;
+  }, selector);
+}
+const recordedStates = (page: Page) => page.evaluate(() => (window as any).__states as string[]);
+
 /** Press at the cube view's centre, drag (dx, dy) px in 4 steps and release; `shift` holds Shift throughout. */
 async function dragCube(page: Page, view: Locator, dx: number, dy: number, { shift = false }: { shift?: boolean }) {
   const b = (await view.boundingBox())!;
@@ -925,6 +939,9 @@ test.describe("Landmarks inspect cube", () => {
     await page.getByRole("radio", { name: "Top view" }).click();
     await expect(axes).toHaveAttribute("data-axes", "0,-90,0");
     const zoom = await view.getAttribute("data-zoom");
+    const chip = page.getByTestId("inspect-status");
+    await expect(chip).toHaveAttribute("data-state", "ready");
+    await recordStates(page, '[data-testid="inspect-status"]');
     await dragCube(page, view, 80, 0, { shift: true });
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(cx0);
     // A pan never orbits.
@@ -932,9 +949,11 @@ test.describe("Landmarks inspect cube", () => {
     // The map's square follows.
     const placed = await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay().placed);
     expect(placed[0]).toBeCloseTo(Number(await getModel(page, "inspect_cx")), 1);
-    // The cube settles at the new window.
+    // The cube settles at the new window. The chip read Refining while the moved window was stale.
     await expect(view).toHaveAttribute("data-pan", "0,0");
     await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(chip).toHaveAttribute("data-state", "ready");
+    expect(await recordedStates(page)).toContain("refining");
     expect(await view.getAttribute("data-pitch")).toBe("90");
     expect(await view.getAttribute("data-zoom")).toBe(zoom);
   });
