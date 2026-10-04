@@ -1605,21 +1605,24 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("the dock shows the coarse level first, then refines", { tag: "@isolated" }, async ({ page }) => {
+    // Record every `data-level` a cube view is given, on the element itself, from
+    // its first render: an observer attached after the cube opens can miss the
+    // coarse level when the refine is fast (as under parallel load).
+    await page.addInitScript(() => {
+      const setAttribute = Element.prototype.setAttribute;
+      Element.prototype.setAttribute = function (this: Element, name: string, value: string) {
+        if (name === "data-level" && this.classList.contains("volume-cube__view")) {
+          ((this as any).__levels ??= []).push(String(value));
+        }
+        return setAttribute.call(this, name, value);
+      };
+    });
     // Small budgets make the toy pyramid pick different levels (see main.tsx ?budgets).
     await reloadWith(page, "budgets=20000,300000&window=100");
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
-    const levels: string[] = [];
-    await view.evaluate((el) => {
-      const seen: string[] = [];
-      (window as any).__levels = seen;
-      new MutationObserver(() => seen.push(el.getAttribute("data-level") ?? "")).observe(el, {
-        attributes: true,
-        attributeFilter: ["data-level"],
-      });
-    });
     await expect(view).toHaveAttribute("data-refining", "false");
-    levels.push(...(await page.evaluate(() => (window as any).__levels as string[])));
+    const levels = await view.evaluate((el) => ((el as any).__levels ?? []) as string[]);
     const shown = levels.filter((l) => l !== "-1").map(Number);
     expect(shown.length).toBeGreaterThanOrEqual(2);
     expect(shown[0]).toBeGreaterThan(shown[shown.length - 1]!);
