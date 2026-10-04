@@ -87,7 +87,8 @@ the dock, without new traits:
   the dock, so recentres and reopens are cache reads, not re-fetches.
 - A click only places the window. The dock's **Save** makes an ordinary
   `selections` entry (`type: "inspect"`); the history strip reads
-  `selections`, it does not add a trait.
+  `selections`, it does not add a trait. (The strip was replaced by
+  Selections rows on 2026-10-03, below.)
 - `inspect_size_um` flips to an output: the browser writes 300 at placement;
   Python no longer sets it.
 - Both cube views open top-down and draw the user's landmarks on the stack's
@@ -104,9 +105,11 @@ without new traits:
   whole widget in fullscreen) and covers the map while it is open; the map stays
   mounted underneath, so the engine keeps its layout and WebGL context. Esc or
   Close cube returns to the map; to move the window the user closes the cube and
-  places again. The hover preview is hidden while the cube is open. The cube
-  belongs to Inspect: leaving Inspect closes it. The docks and peek tabs float
-  over the open cube, so the category panel's highlight still drives it.
+  places again (since 2026-10-03 the window also pans from inside the cube, and
+  Close cube is gone; below). The hover preview is hidden while the cube is
+  open. The cube belongs to Inspect: leaving Inspect closes it. The docks and
+  peek tabs float over the open cube, so the category panel's highlight still
+  drives it.
 - The cube opens on mouse **release**, not press (the engine's `release`
   event). A press-and-drag positions the window with the hover preview
   following, and the cube opens where the drag ends.
@@ -120,3 +123,37 @@ without new traits:
 - No new synced traits; `volume`, `volume_label_ids`, `volume_cut`, `inspect_*`
   and `selections` keep their meaning, and ADR 0005 still holds (the cube's
   controls stay client-local).
+
+## Addendum 2026-10-03
+
+[Inspect rework](../superpowers/specs/2026-10-03-inspect-rework-design.md)
+makes Inspect a temporary, self-contained mode, still without new traits:
+
+- The context region is removed (see the 2026-10-02 addendum): the cube shows
+  only the 300 µm window.
+- **Pan.** Shift+drag in the cube, or a plain drag with the bar's Move tool,
+  pans the live window in XY; a plain drag still orbits. Pan writes the existing
+  `inspect_cx` / `inspect_cy` (at most every 40 ms, and on release), clamped to
+  the volume's XY extent, so Python sees the window move as it does during a map
+  drag; `volume_cut` settles as after any window move.
+- **Labels are shells.** Only each cell's surface voxels draw: highlighted cells
+  in their category colour, the rest as a faint orange shell. Nothing is filled,
+  so the image shows through every cell. The Labels alpha defaults to 0.6.
+- **Projection per layer.** Image and Labels each have Additive | MIP
+  (client-local `imageMode` / `labelMode`); one shader extension switches them
+  with uniforms, without a recompile. Labels composite over the image in every
+  combination. The hover preview keeps its look (image MIP, labels additive).
+- **Chrome.** In Inspect the top tool pill is swapped for a dashed-outline
+  Inspect pill (Exit, hint, map zoom, full screen; with the cube open: the
+  window, a Refining / Ready status, Save, full screen), and the cube's own
+  title / Save / Close row is gone. Esc closes the cube; a second Esc (or Exit)
+  leaves Inspect for the previous tool. The bottom bar holds the camera, Move,
+  Reset view, Adjust (Image and Labels columns) and Cross-section (the cuts),
+  as height-capped panels.
+- **Saved windows are Selections rows.** The cube's history strip is gone:
+  inspect entries are listed in the left dock with a cube thumbnail (client-local,
+  never synced) and a hover card (cell count, window, category mix). New
+  selections are named at creation from what they hold,
+  `<top category> · <count>`, as a plain `id` Python reads like any other.
+- Traits: unchanged. `inspect_*`, `volume_cut` and `selections` keep their
+  meaning; every new control is client-local (ADR 0005).

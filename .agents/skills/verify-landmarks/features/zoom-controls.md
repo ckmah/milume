@@ -9,6 +9,7 @@ Zoom in, zoom out, and reset view buttons change deck.gl viewState zoom.
 - Zoom in increases viewState zoom
 - Zoom out decreases zoom relative to zoom-in state
 - Reset view returns zoom near the baseline
+- In Inspect the tool pill is swapped out; the armed Inspect pill carries the same Zoom in / Zoom out / Reset view buttons (`ZoomControls`, `chrome/topbar.tsx`, shared by both pills) for placing a window. The open pill drops them (the map is covered); the Inspect bar's own `Reset view` (an `IconBtn` titled "Reset view") resets the cube's camera instead — scope `Reset view` to `getByTestId("inspect-pill")` or `getByTestId("context-inspect-toolbar")` in Inspect
 
 ## How to get to it (user POV)
 

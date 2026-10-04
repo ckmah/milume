@@ -182,3 +182,107 @@ New or rewritten Playwright tests (`frontend/e2e/landmarks/landmarks-volume.spec
   tests and `toolbar-layout.md` assume; adapt rather than delete those tests.
 - **Name generation** depends on the active categorical at creation time and on
   Python-created selections having no snapshot.
+
+## Deviations during implementation
+
+Recorded from the task reports (plan `docs/superpowers/plans/2026-10-03-inspect-rework.md`).
+What was built is described in the verify-landmarks feature maps
+(`inspect-cube.md`, `inspect-history.md`) and the ADR 0006 addendum of 2026-10-03.
+
+**Context removal (1).** The four context tests were deleted (volume spec 50 → 46);
+nothing else was removed from the window path.
+
+**Shells (3).**
+- The shells test cannot look at a highlighted cell face-on: a closed shell seen
+  along a ray is a disc (its caps are surface voxels). It turns the image off and
+  cuts a 2 µm Z slab through the toy cells, then compares the coloured core with
+  the rim (`ringVsCore`; measured core/rim 0.33 filled, 0.09 shells; limit 0.25).
+- Tuned values: `HIGHLIGHT_ALPHA` 0.9, `OUTLINE.alpha` 0.5 → 0.4,
+  `OUTLINE.behindHighlight` 0.08 → 0.12, and the default **Label alpha 1 → 0.6**
+  (shells at 1 still read near-opaque on colon A2). The hover preview shares the
+  0.6 default.
+
+**Projection per layer (5).**
+- The hover preview draws `imageMode="mip"`, `labelMode="additive"`, not MIP for
+  both: that combination is pixel-identical to the old MIP look; labels MIP would
+  make the preview's cells pale.
+- Label MIP is premultiplied; the additive early stop now waits for both layers to
+  saturate, so labels-on costs about 10–25% more on colon A2 (GPU).
+- Labels MIP over a bright image MIP is pale (one shell at 0.9 × 0.6 ≈ 0.54
+  alpha). Left as is: the Labels Alpha slider fixes it in one gesture.
+
+**Pan (2).**
+- The map's square follows through a new engine call, `moveInspectWindow(x, y)`
+  (no save, no events), not `setInspectWindow`; the hook saves at most every 40 ms
+  and once on release.
+- **Move is disabled while the cube is closed** (the bar also shows with no cube,
+  and a Move left on would carry into the next open).
+- A pan that the clamp holds at the volume edge writes nothing. The grab cursor
+  is set on the canvas (deck sets its own inline cursor). The mapping is 1:1 at
+  the camera target (mid-stack); the top face moves ~12–15% faster than the
+  pointer in the toy's top view. A pan event costs about 2–3× an orbit event
+  (the whole view re-renders on each `inspect_cx` change).
+
+**Inspect pill (4).**
+- **Esc** is handled on the engine's path: its window-capture Escape handler
+  emits `close`, which now carries **`press`** (the Esc ended a press on the
+  map), so an Esc that only ends a press never exits Inspect. On `close` the hook
+  closes the cube if open, else exits. In Inspect the engine leaves an Esc inside
+  an open `role="menu"` to the menu. With no cube open the first Esc exits.
+- **Exit** returns to the tool used before Inspect, not always Select.
+- **Keyboard (engine change, beyond the plan).** The engine used to swallow Space
+  and Enter for every event in the widget, so no chrome control could be pressed
+  from the keyboard. It now tracks the last input and the control focused by the
+  keyboard (`focusin`): Space and Enter press that control; a clicked control
+  keeps Space for panning. Focus also moves across the pill swap (to Exit Inspect,
+  or back to the restored tool's radio). Only the Inspect keyboard test covers it.
+- The status chip's sweep is on a span inside Morph's face (Morph cancels
+  animations on its faces), so Refining → Ready is a **whole-face crossfade**, not
+  a letter morph. The sweep runs `100% 0 → 0% 0`.
+- The hint reads "Click to place a {size} µm window"; **below 640 px it drops the
+  size, and the open pill hides its centre readout**, so the pill clears the View
+  CTA. A long error is cut to 14 rem (8 rem narrow) with the full text in `title`.
+- The tool pill's `Rise` would also play on the widget's first mount; that
+  **first-mount Rise is suppressed**. The leaving pill is `inert` with
+  `pointer-events: none`. A stale rulers rule that cleared the old actions row was
+  deleted.
+
+**Bar and panels (5).**
+- **Adjust's "Reset all" resets Image and Labels only, not the cuts**; the cuts
+  have Cross-section's own Reset (a one-word change in `resetAdjust` restores the
+  old scope). A section Reset also resets that layer's projection.
+- The panel cap is `max-height: min(45cqh, 22rem)`: a percentage resolves against
+  the button-sized `ToolStack`, so `.landmarks__chrome` is a size container and
+  **`cqh`** is the widget's height. The height test resizes the harness widget
+  under 520 px first (at its default 820 px the test passed without the cap).
+- The projection rows are captioned "Mode" (the caption column cannot fit
+  "Projection"); the groups are named "Image projection" / "Labels projection",
+  the items "Additive" / "MIP" (`title` "Maximum intensity projection"). Narrow
+  widgets stack the columns with `flex-direction: column`. The engine defers Esc
+  to any open bar panel (`[data-inspect-panel-group]`).
+
+**Names (6).**
+- Every new selection is named in the engine at creation (`selectionName`): inspect
+  saves, drawn selections, neighbourhood and buffer promotes, and pastes. The
+  fallback is lowercase **`inspect <n>` / `selection <n>`**, not `Inspect <n>`. A
+  taken name gets **` (2)`**, ` (3)`, …. `nextSelectionId` is gone.
+
+**Selections rows and hover card (6).**
+- **Thumbnails** come from the widget-local snapshots `Map`, **keyed by selection
+  id** and checked against the entry's window: renaming an entry drops its
+  thumbnail (the row falls back to the swatch). Each thumbnail write bumps a
+  counter in `LandmarksView`, re-rendering the view during the ~1 s settle after a
+  Save. The card's image is the 64×40 snapshot scaled up (soft).
+- The card's window line reads `300 µm window at cx, cy µm`, with a separate
+  **`Depth z0–z1 µm`** line instead of "· cross-section" (a saved cut is always six
+  numbers, so a suffix would show on every entry); the Depth line is **dropped when
+  the cut spans the whole stack**. The card also shows the name, steps aside while
+  the row's menu or rename is open, and the active row carries `aria-current`.
+- `HoverCardContent` gained a `container` prop (portalled into the widget). The
+  shadcn CLI's stray `cn` dependency and import were reverted.
+
+**Tests.** Local e2e now shares one page per worker (`frontend/e2e/fixtures.ts`,
+`__harnessReset` remounts the harness), runs 4 workers on the Metal GPU on macOS,
+and tags tests that need a fresh page `@isolated`. The coarse-then-refine test
+records every `data-level` from the cube view's first render (an init script), as
+an observer attached after the open could miss a fast refine.

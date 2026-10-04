@@ -55,8 +55,8 @@
   --lm-float-shadow: 0 4px 12px color-mix(in srgb, #000 8%, transparent);
 
   /*
-   * Shared chrome tokens — every toolbar (main, view, context L1/L2, Inspect,
-   * cube title bar), every icon hit / segmented toggle, every slider row and
+   * Shared chrome tokens — every toolbar (main, view, context L1/L2, Inspect
+   * pill and bar), every icon hit / segmented toggle, every slider row and
    * every chip read these. See DESIGN.md "Chrome tokens".
    */
   --lm-toolbar-h: 2.5rem;
@@ -1148,7 +1148,7 @@
   white-space: nowrap;
 }
 
-/* Stacked rows (Cuts / Image / Cells): captions share one column. */
+/* Stacked rows (Cross-section / Image / Labels): captions share one column. */
 .landmarks-slider-stack {
   --lm-slider-caption-w: 3.25rem;
   display: flex;

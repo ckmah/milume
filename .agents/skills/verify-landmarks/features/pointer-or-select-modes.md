@@ -21,6 +21,14 @@ Interaction modes (Select, Node, Move, Probe) and lasso selection entry update t
   host), not the whole widget: with an outside editor focused, a space typed
   with the pointer over a side panel or the open cube is typed, not swallowed
   (`landmarks.spec.ts` — `"Space pans on the first try: pointer over the map, never clicked"`)
+- Space and Enter press a chrome control that took focus from the keyboard
+  (Tab, or a focus move made while the last input was a key), instead of
+  panning or finishing a draft; a control focused by a click keeps Space for
+  panning (the engine tracks the last input on `pointerdown` / `keydown` and
+  the keyboard-focused element on `focusin`, `milume/static/landmarks.js`).
+  Proved through the Inspect keyboard flow (`landmarks-volume.spec.ts` —
+  `"keyboard: the swap keeps focus in the widget, and Esc from focus alone leaves Inspect"`);
+  no default-harness test pins it yet
 
 ## How to get to it (user POV)
 
@@ -71,3 +79,4 @@ Model keys: `mode` (string: `"select"`, `"node"`, `"move"`, `"probe"`, `"lasso"`
 - **Node** mode is required for vertex hit-testing; **Select** mode does not edit vertices (see `landmark-edit-node`).
 - Lasso uses `getByRole("button", { name: /Lasso/i })` — geometry is not a top-level ModeToggle radio.
 - Probe and Move are distinct modes; do not assume they share behavior with Select.
+- In Inspect the tool radios are gone (the Inspect pill replaces the tool pill); leave Inspect (Exit Inspect, Esc with no cube open, or `setModel`) before clicking them. The Inspect bar's **Move** is a toggle button that pans the cube's window, not this `move` mode.

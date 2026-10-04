@@ -4,6 +4,9 @@ Main toolbar order and grouping: `select · hand · inspect · probe · node |
 lasso ▾ · landmark ▾ | + · − · reset | full screen`. The landmark dropdown
 replaces four separate landmark buttons; the active lasso/landmark dropdown
 keeps its on-color on hover in dark mode.
+In Inspect the whole pill is swapped for the dashed-outline Inspect pill
+(Exit Inspect, hint, zoom, full screen; see [inspect-cube](inspect-cube.md))
+and comes back, with the tool used before Inspect checked, on leaving.
 
 **Spec:** `frontend/e2e/landmarks/landmarks.spec.ts` —
 `"toolbar: interaction order, lasso and landmark dropdowns, cube icon"`,
@@ -13,10 +16,11 @@ keeps its on-color on hover in dark mode.
 
 - Toolbar radios (`getByRole("toolbar", { name: "Drawing tools" })`) read, in order: Select, Move, Inspect, Probe, Node
 - Inspect uses the lucide `Box` icon (`svg.lucide-box`)
+- Entering Inspect replaces this toolbar with the Inspect pill (`data-testid="inspect-pill"`): the Drawing tools toolbar has zero count until Inspect is left (spec `landmarks-volume.spec.ts` → `"entering Inspect swaps the top pill for the dotted Inspect pill; Exit restores it"`, `"Exit and Esc go back to the tool used before Inspect"`)
 - **Landmark ▾** (`chrome/mode-dropdown.tsx`, shared with the lasso dropdown): left click arms the last-used landmark type (point/line/spline/shape), right click or the chevron opens the menu to pick one
 - The dropdown remembers the last-used mode per group across renders (arming Spline, switching to Select, then clicking the dropdown again re-arms Spline)
 - Active lasso (or landmark) dropdown button keeps `bg-foreground`/`text-background` on hover in dark mode — it does not fall back to the ghost variant's darker hover
-- Every toolbar (main, View CTA, context L1/L2, Inspect bar, cube title bar) shares `TOOLBAR_CLASS` and every hit shares `chromeHitClass` (`.landmarks-hit`, on = `aria-pressed`/`data-state="on"`) — see DESIGN.md "Chrome tokens"; the hover-colour spec above proves the shared on state
+- Every toolbar (main, View CTA, context L1/L2, Inspect pill, Inspect bar) shares `TOOLBAR_CLASS` and every hit shares `chromeHitClass` (`.landmarks-hit`, on = `aria-pressed`/`data-state="on"`) — see DESIGN.md "Chrome tokens"; the hover-colour spec above proves the shared on state
 
 ## How to get to it (user POV)
 
