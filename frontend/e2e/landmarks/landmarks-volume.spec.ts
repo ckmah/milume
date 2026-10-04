@@ -1063,6 +1063,7 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("the Move tool makes a plain drag pan; the distance scales with the drag", async ({ page }) => {
+    test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
     await reloadWith(page, "window=100");
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
@@ -1092,6 +1093,7 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("panning clamps the window centre to the volume", async ({ page }) => {
+    test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
     await reloadWith(page, "window=100");
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
@@ -1181,6 +1183,7 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("inspect toolbar: presets, MIP, palette, alpha/gamma, committed Z cut", async ({ page }) => {
+    test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
     await openCubeAtCentre(page);
     const bar = page.getByTestId("context-inspect-toolbar");
     const view = cubeWindow(page).locator(".volume-cube__view");
@@ -1226,6 +1229,7 @@ test.describe("Landmarks inspect cube", () => {
   test("Adjust: Image and Labels sections, each with a Reset, and Reset all; Cross-section has its own Reset", async ({
     page,
   }) => {
+    test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await openAdjust(page);
@@ -1363,6 +1367,7 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("partial X and Y cuts keep their place in a moved window; open edges stay open", async ({ page }) => {
+    test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
     await reloadWith(page, "window=100");
     const box = await openCubeAtCentre(page);
     await openCross(page);

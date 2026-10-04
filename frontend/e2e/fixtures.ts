@@ -60,17 +60,23 @@ export const test = base.extend<object, { workerPage: Page }>({
       return;
     }
     // Mirror the config's `trace: "on-first-retry"`; tracing slows timing-sensitive tests, so the first attempt runs untraced.
+    // Playwright may already be tracing this context on a retry (it traces every context it sees), and
+    // `tracing.start` then throws: only stop (and attach) a trace this fixture started itself.
     const context = workerPage.context();
-    const isTraced = testInfo.retry > 0;
-    if (isTraced) await context.tracing.start({ screenshots: true, snapshots: true });
+    let ownsTrace = false;
+    if (testInfo.retry > 0) {
+      ownsTrace = await context.tracing
+        .start({ screenshots: true, snapshots: true })
+        .then(() => true, () => false);
+    }
     await resetPage(workerPage, testInfo);
     await use(workerPage);
     await resetPage(workerPage, testInfo);
-    if (isTraced) {
+    if (ownsTrace) {
       const path = testInfo.outputPath("trace.zip");
-      await context.tracing.stop({ path });
+      await context.tracing.stop({ path }).catch(() => undefined);
       if (testInfo.status !== testInfo.expectedStatus) {
-        await testInfo.attach("trace", { path, contentType: "application/zip" });
+        await testInfo.attach("trace", { path, contentType: "application/zip" }).catch(() => undefined);
       }
     }
   },
