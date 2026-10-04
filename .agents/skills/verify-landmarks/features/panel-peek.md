@@ -16,6 +16,7 @@ shortcuts.
 - Collapse state is client-local (not a traitlet); the narrow/stacked layout collapses as one
 - The peek tab sits above the minimap slot so the left tab never covers it
 - Entering Inspect collapses both docks and leaving restores them (see [inspect-cube](inspect-cube.md); spec `landmarks-volume.spec.ts` → `"Inspect hides both side panels; leaving restores them as they were"`)
+- With the cube open the docks and peek tabs float over it (`landmarks--cube-open`, `z-index` 22); the left dock's Selections rows are how saved inspect windows are reopened (see [inspect-history](inspect-history.md); `"peek tabs and docks float over the open cube; focusing a category there recolours it"`)
 
 ## How to get to it (user POV)
 

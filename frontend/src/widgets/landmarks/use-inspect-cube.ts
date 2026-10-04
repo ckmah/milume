@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 import { DEFAULT_RENDER } from "@/widgets/volume-cube/palettes";
 import type { CubeCut } from "@/widgets/volume-cube/VolumeCube";
@@ -18,7 +18,7 @@ import type { LandmarksModel } from "./use-landmarks-model";
 
 type Range = [number, number];
 
-/** A section of the Inspect toolbar's Adjust panel, for its Reset. */
+/** A section of the Inspect toolbar's panels, for its Reset: Adjust's Image and Labels, and Cross-section's cuts. */
 export type AdjustSection = "image" | "labels" | "cuts";
 
 /** An inspect Selection's window: centre and side (µm), and its cut (absolute µm, or `[]`). */
@@ -29,6 +29,14 @@ export function inspectWindowOf(sel: SelectionItem | undefined): InspectWindow |
   if (!sel || sel.type !== "inspect") return null;
   const w = sel.window as InspectWindow | undefined;
   return w && typeof w.cx === "number" && typeof w.cy === "number" ? w : null;
+}
+
+/** The live window is already a saved inspect entry: nothing new to save. */
+export function isWindowSaved(lm: LandmarksModel): boolean {
+  return lm.selections.some((sel) => {
+    const w = inspectWindowOf(sel);
+    return w != null && w.cx === lm.inspect_cx && w.cy === lm.inspect_cy && w.size_um === lm.inspect_size_um;
+  });
 }
 
 const DEFAULT_CONTRAST: Range = [0, 255];
@@ -44,16 +52,34 @@ export type InspectCube = {
   cut: CubeCut;
   /** Slider ranges once the volume is open: the clamped window and the stack. */
   cutRanges: { x: Range; y: Range; z: Range } | null;
+  /** The stack's Z extent (µm), kept after the cube closes; `null` until a cube first opens. */
+  stackZ: Range | null;
   onCutLive: (cut: CubeCut) => void;
   onCutCommit: (cut: CubeCut) => void;
-  /** Esc anywhere in the widget closes the cube while in Inspect. */
+  /**
+   * Esc in the widget's chrome while in Inspect (when the engine leaves it to
+   * React): closes the cube, or with no cube open, exits Inspect.
+   */
   onKeyDown: (e: React.KeyboardEvent) => void;
-  /** Focus a saved inspect entry and restore its window and cut (a history chip). */
+  /** Leave Inspect: close the cube and go back to the tool used before it. */
+  exitInspect: () => void;
+  /** Focus a saved inspect entry and restore its window and cut (a Selections row click). */
   focusEntry: (index: number) => void;
-  /** Save the live window, with its cut, as an inspect Selection (the dock's Save). */
+  /** Save the live window, with its cut, as an inspect Selection (the Inspect pill's Save). */
   save: () => void;
-  /** Back to defaults: one Adjust section, or all of them. Open cuts are committed like a slider release. */
+  /**
+   * Back to defaults: one section (Image and Labels with their projection), or
+   * "all" of Adjust (Image and Labels). Open cuts are committed like a slider release.
+   */
   resetAdjust: (section: AdjustSection | "all") => void;
+  /**
+   * Pan the live window by (dx, dy) µm, its centre clamped to the volume: moves
+   * the map's square and `inspect_cx/cy` (saved at most every 40 ms); the cut
+   * follows once the window settles, as after a drag on the map.
+   */
+  panWindow: (dxUm: number, dyUm: number) => void;
+  /** The pan's release: save the final window. */
+  panEnd: () => void;
 };
 
 /**
@@ -64,9 +90,9 @@ export type InspectCube = {
  * slider release, and once after the user moves the window (when it settles);
  * never in answer to Python's own `volume_cut` or inspect writes.
  *
- * Inspect Selections are the dock's history, saved from the live window (the
- * engine's `saveInspect`) as fixed snapshots: presses only move the live
- * window. Focusing one restores its window and cut and opens the dock; a
+ * Inspect Selections are saved from the live window (the engine's
+ * `saveInspect`) as fixed snapshots and listed as Selections rows: presses
+ * only move the live window. Focusing one restores its window and cut and opens the dock; a
  * committed cut is also written into the focused entry while its window is
  * the live one; removing the last one closes the dock.
  */
@@ -79,26 +105,48 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     volumeCut ? { ...OPEN_CUT, z: [volumeCut[4], volumeCut[5]] } : OPEN_CUT,
   );
 
+  // Leaving Inspect goes back to the tool used before it.
+  const prevModeRef = useRef("select");
+  useEffect(() => {
+    if (lm.mode !== "inspect") prevModeRef.current = lm.mode;
+  }, [lm.mode]);
+  const setMode = lm.setMode;
+  const exitInspect = useCallback(() => {
+    patchCube({ open: false });
+    setMode(prevModeRef.current === "inspect" ? "select" : prevModeRef.current);
+  }, [setMode, patchCube]);
+
   // The last user placement (engine events), consumed by the settle commit.
   const placedRef = useRef<{ x: number; y: number } | null>(null);
+  // The cube's open state as last rendered: an Esc closes an open cube, and
+  // only a later Esc (after that render) exits Inspect.
+  const openRef = useRef(cube.open);
+  openRef.current = cube.open;
+  const exitRef = useRef(exitInspect);
+  exitRef.current = exitInspect;
   useEffect(() => {
-    if (!engine || !hasVolume) return;
+    if (!engine) return;
     return engine.subscribeInspect((e) => {
-      // Placements and saves open the cube and Esc closes it; hover leaves it be.
-      if (e.type === "place") {
+      // Placements remember where the user put the window (for the settle commit);
+      // the release (end of the click or drag) and saves open the cube. Esc
+      // closes it; an Esc with no cube open (and no press to end) exits Inspect.
+      if (e.type === "close") {
+        if (openRef.current || e.press) patchCube({ open: false });
+        else exitRef.current();
+      } else if (!hasVolume) {
+        return;
+      } else if (e.type === "place") {
         placedRef.current = { x: e.x, y: e.y };
+      } else if (e.type === "release" || e.type === "commit") {
         patchCube({ open: true });
-      } else if (e.type === "commit") {
-        patchCube({ open: true });
-      } else if (e.type === "close") {
-        patchCube({ open: false });
       }
     });
   }, [engine, hasVolume, patchCube]);
   useEffect(() => {
     engine?.setInspectWindowVisible(cube.open);
-    // A reopened cube reloads; its cut ranges wait for the new bounds.
-    if (!cube.open) patchCube({ bounds: null });
+    // A reopened cube reloads (Refining again); its cut ranges wait for the new
+    // bounds. Move is a tool of the open cube only.
+    if (!cube.open) patchCube({ move: false, bounds: null, load: "refining", loadError: "" });
   }, [engine, cube.open, patchCube]);
 
   const bounds = cube.bounds;
@@ -112,11 +160,20 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     ? shownCut(cube.cut, win, volume?.z ?? null)
     : [-Infinity, Infinity, -Infinity, Infinity, cube.cut.z[0], cube.cut.z[1]];
   const cutRanges = win && volume ? { x: win.x, y: win.y, z: volume.z } : null;
+  // The stack's Z extent outlives the open cube (`bounds` resets on close), so a
+  // saved entry's cut can be told apart from the whole depth.
+  const [stackZ, setStackZ] = useState<Range | null>(null);
+  const z0 = bounds?.stackZ[0];
+  const z1 = bounds?.stackZ[1];
+  useEffect(() => {
+    if (z0 != null && z1 != null) setStackZ((prev) => (prev && prev[0] === z0 && prev[1] === z1 ? prev : [z0, z1]));
+  }, [z0, z1]);
 
   const cx = lm.inspect_cx;
   const cy = lm.inspect_cy;
-  const latest = useRef({ rel: cube.cut, win, volume, cx, cy });
-  latest.current = { rel: cube.cut, win, volume, cx, cy };
+  const volumeBounds = bounds ? { volumeX: bounds.volumeX, volumeY: bounds.volumeY } : null;
+  const latest = useRef({ rel: cube.cut, win, volume, cx, cy, volumeBounds });
+  latest.current = { rel: cube.cut, win, volume, cx, cy, volumeBounds };
 
   // The last value this widget wrote, so its echo is not adopted as Python's.
   const writtenRef = useRef<string | null>(null);
@@ -181,7 +238,7 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   // entry's cut is adopted as a Python-set cut. Keyed on the entry and its
   // window, not `inspect_cx/cy`, so a press that moves the live window away
   // from the focused entry never snaps it back; after a save the entry equals
-  // the window, so nothing happens. A chip click on the focused entry restores
+  // the window, so nothing happens. A row click on the focused entry restores
   // it again (`restoreTick`).
   const [restoreTick, requestRestore] = useReducer((n: number) => n + 1, 0);
   const focused = lm.selected_kind === "selection" ? lm.selections[lm.selected_index] : undefined;
@@ -260,20 +317,28 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
 
   const mode = lm.mode;
   const open = cube.open;
+  // The cube belongs to Inspect: it covers the map, so leaving Inspect closes it
+  // (on the transition only; a later click in Inspect opens it again).
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    const was = modeRef.current;
+    modeRef.current = mode;
+    if (was === "inspect" && mode !== "inspect" && open) patchCube({ open: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, patchCube]);
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key !== "Escape" || mode !== "inspect" || !open) return;
-      // Esc in an open menu, or the Adjust panel (which closes itself), only
-      // closes that — never the cube.
-      if (
-        (e.target as Element | null)?.closest?.(
-          '[role="menu"], [data-testid="context-cube-adjust-group"]',
-        )
-      )
-        return;
-      patchCube({ open: false });
+      if (e.key !== "Escape" || mode !== "inspect") return;
+      const target = e.target as Element | null;
+      // Esc in an open menu, or an open panel of the bar (Adjust, Cross-section:
+      // each closes itself), only closes that — never the cube.
+      if (target?.closest?.('[role="menu"], [data-inspect-panel-group]')) return;
+      // `open` is this render's value, so the Esc that closes the cube never
+      // also exits Inspect. Esc in a text field only leaves the field.
+      if (open) patchCube({ open: false });
+      else if (!target?.closest?.('input, textarea, [contenteditable="true"], [role="combobox"]')) exitInspect();
     },
-    [mode, open, patchCube],
+    [mode, open, patchCube, exitInspect],
   );
 
   const select = lm.select;
@@ -306,6 +371,34 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     engine.saveInspect();
   }, [engine, facade, write, origin]);
 
+  const panSavedAt = useRef(0);
+  const panWindow = useCallback(
+    (dxUm: number, dyUm: number) => {
+      if (!engine) return;
+      const x0 = facade.get("inspect_cx") as number | null;
+      const y0 = facade.get("inspect_cy") as number | null;
+      if (x0 == null || y0 == null) return;
+      const b = latest.current.volumeBounds;
+      const clamp = (v: number, [lo, hi]: Range) => Math.max(lo, Math.min(hi, v));
+      const nx = b ? clamp(x0 + dxUm, b.volumeX) : x0 + dxUm;
+      const ny = b ? clamp(y0 + dyUm, b.volumeY) : y0 + dyUm;
+      if (nx === x0 && ny === y0) return;
+      // A pan is a user placement: the settle commit then writes the cut once it stops.
+      placedRef.current = { x: nx, y: ny };
+      engine.moveInspectWindow(nx, ny);
+      const now = performance.now();
+      if (now - panSavedAt.current > 40) {
+        panSavedAt.current = now;
+        facade.save_changes();
+      }
+    },
+    [engine, facade],
+  );
+  const panEnd = useCallback(() => {
+    panSavedAt.current = performance.now();
+    facade.save_changes();
+  }, [facade]);
+
   const contrastLo = defaultContrast[0];
   const contrastHi = defaultContrast[1];
   const resetAdjust = useCallback(
@@ -313,12 +406,16 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
       const all = section === "all";
       if (all || section === "image") {
         patchCube({
+          imageMode: "additive",
           contrast: [contrastLo, contrastHi],
           render: { imageAlpha: DEFAULT_RENDER.imageAlpha, imageGamma: DEFAULT_RENDER.imageGamma },
         });
       }
-      if (all || section === "labels") patchCube({ render: { cellAlpha: DEFAULT_RENDER.cellAlpha } });
-      if (all || section === "cuts") {
+      if (all || section === "labels") {
+        patchCube({ labelMode: "additive", render: { cellAlpha: DEFAULT_RENDER.cellAlpha } });
+      }
+      // "all" is Adjust's Reset all: Image and Labels; the cuts have Cross-section's own Reset.
+      if (section === "cuts") {
         patchCube({ cut: OPEN_CUT });
         const { win: w, volume: v } = latest.current;
         if (w && v) write(committedCut(OPEN_CUT, w, v));
@@ -333,12 +430,16 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     patchCube,
     cut,
     cutRanges,
+    stackZ,
     onCutLive,
     onCutCommit,
     onKeyDown,
+    exitInspect,
     focusEntry,
     save,
     resetAdjust,
+    panWindow,
+    panEnd,
   };
 }
 

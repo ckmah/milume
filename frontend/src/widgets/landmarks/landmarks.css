@@ -55,8 +55,8 @@
   --lm-float-shadow: 0 4px 12px color-mix(in srgb, #000 8%, transparent);
 
   /*
-   * Shared chrome tokens — every toolbar (main, view, context L1/L2, Inspect,
-   * cube title bar), every icon hit / segmented toggle, every slider row and
+   * Shared chrome tokens — every toolbar (main, view, context L1/L2, Inspect
+   * pill and bar), every icon hit / segmented toggle, every slider row and
    * every chip read these. See DESIGN.md "Chrome tokens".
    */
   --lm-toolbar-h: 2.5rem;
@@ -212,6 +212,8 @@
   pointer-events: none;
   /* Room for panel drop shadows outside the clipped body */
   overflow: visible;
+  /* `cqh` in the bar's panels is a share of the widget's height. */
+  container-type: size;
 }
 
 .landmarks__figure {
@@ -906,6 +908,37 @@
   background-color: transparent;
 }
 
+/* Inspect entry thumbnail in place of the swatch, edged in the selection colour. */
+.landmarks-layer-thumb {
+  box-sizing: border-box;
+  border: 1.5px solid var(--border);
+  background: var(--muted);
+}
+
+/* Selection hover card: Soft Float glass, portalled to the widget root. */
+.landmarks .landmarks__selection-card {
+  width: 14rem;
+  max-width: calc(100vw - 1rem);
+  padding: 0.5rem 0.625rem 0.625rem;
+  color: var(--foreground);
+}
+
+.landmarks__selection-card-thumb {
+  display: block;
+  aspect-ratio: 64 / 40;
+  object-fit: cover;
+}
+
+.landmarks__selection-card-track {
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landmarks .landmarks__selection-card {
+    animation: none;
+  }
+}
+
 .landmarks-trail {
   display: flex;
   flex: 0 0 var(--lm-trail);
@@ -1115,7 +1148,7 @@
   white-space: nowrap;
 }
 
-/* Stacked rows (Cuts / Image / Cells): captions share one column. */
+/* Stacked rows (Cross-section / Image / Labels): captions share one column. */
 .landmarks-slider-stack {
   --lm-slider-caption-w: 3.25rem;
   display: flex;
@@ -1128,7 +1161,7 @@
   min-width: 7.5rem;
 }
 
-/* Inspect Adjust panel: Image / Cells / Cuts sections, one capsule width. */
+/* Inspect bar panels: Adjust (Image | Labels columns) and Cross-section, one capsule width. */
 .landmarks-adjust {
   display: flex;
   flex-direction: column;
@@ -1136,10 +1169,34 @@
   padding: 0.125rem 0;
 }
 
+/* Never more than about half the widget: taller content scrolls inside, so the
+   panel does not cover the cube it adjusts. */
+.landmarks-adjust,
+.landmarks-cross {
+  max-height: min(45cqh, 22rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /* The scroll box clips the 3px focus rings of its first and last rows (the
+     Resets): pad by the ring, and pull back the 1px added so nothing moves. */
+  padding-block: 3px;
+  margin-block: -1px;
+}
+
 .landmarks-adjust__cols {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
+}
+
+.landmarks--narrow .landmarks-adjust__cols {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* A non-slider control (projection toggle, palette) at the sliders' width. */
+.landmarks-adjust .landmarks-adjust__control {
+  flex: none;
+  width: 10rem;
 }
 
 .landmarks-adjust__col {
@@ -1191,6 +1248,100 @@
   z-index: 22;
   transform: translateX(-50%);
   pointer-events: none;
+  /* The Inspect pill replaces the tool pill in the same slot; both stack while one leaves. */
+  display: grid;
+  place-items: start center;
+}
+
+.landmarks__chrome-tools > * {
+  grid-area: 1 / 1;
+}
+
+/* The pill on its way out (Rise's leave, `inert`) takes no clicks: they reach
+   the pill coming in, or the map. */
+.landmarks__chrome-tools > [inert],
+.landmarks__chrome-tools > [inert] * {
+  pointer-events: none;
+}
+
+/* Inspect is a temporary mode: its pill wears a dotted outline. */
+.landmarks-toolbar.landmarks__inspect-pill {
+  border: 1px dashed color-mix(in oklab, var(--lm-text-muted) 70%, transparent);
+}
+
+.landmarks__inspect-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding-inline: 0.25rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.landmarks__inspect-pill .landmarks-meta {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+/* Narrow: the hint drops the size, and the open pill its centre readout, so
+   the pill stays clear of the view buttons. */
+.landmarks--narrow .landmarks__inspect-hint-size,
+.landmarks--narrow .landmarks__inspect-centre {
+  display: none;
+}
+
+/* Refining: a gradient sweeps across the text. It is clipped to a span inside
+   Morph's face: the faces are composited layers (will-change), which a clip on
+   an ancestor does not reach, and Morph cancels any animation on a face. */
+.landmarks__inspect-status {
+  font-size: 0.6875rem;
+  min-width: 3.5rem;
+  color: var(--lm-text-muted);
+  white-space: nowrap;
+}
+
+/* A load error is cut short (its full text is the chip's title), so it never
+   stretches the pill into the view buttons. */
+.landmarks__inspect-status[data-state="error"] {
+  max-width: 14rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.landmarks--narrow .landmarks__inspect-status[data-state="error"] {
+  max-width: 8rem;
+}
+
+.landmarks__inspect-status[data-state="refining"] .landmarks__shimmer {
+  background: linear-gradient(
+      90deg,
+      var(--lm-text-muted) 0%,
+      var(--lm-text-muted) 35%,
+      var(--foreground) 50%,
+      var(--lm-text-muted) 65%,
+      var(--lm-text-muted) 100%
+    )
+    100% 0 / 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: landmarks-shimmer 1.4s linear infinite;
+}
+
+/* The image is wider than the text, so 100% → 0% carries the bright band
+   from just left of the text to just right of it. */
+@keyframes landmarks-shimmer {
+  to {
+    background-position: 0% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landmarks__inspect-status[data-state="refining"] .landmarks__shimmer {
+    animation: none;
+    color: var(--lm-text-muted);
+    background: none;
+  }
 }
 
 /* Sticky bottom-center context toolbar (mirrors top tools).
@@ -1217,76 +1368,46 @@
   pointer-events: auto;
 }
 
-/* Inspect cube: floating over the map (and the docks), under the top tools. */
-.landmarks__cube-window {
-  z-index: 21;
-}
-
 /* Inspect preview: the dock's level (later in the DOM, so over it), under the top tools. */
 .landmarks__inspect-preview {
   z-index: 21;
 }
 
-.landmarks__cube-resize {
-  position: absolute;
-  right: 2px;
-  bottom: 2px;
-  width: 14px;
-  height: 14px;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  cursor: nwse-resize;
-  touch-action: none;
-  background: transparent;
+/* Inspect cube taking over the plot area: under the top tools (22), over the
+   minimap (16). The docks and peek tabs are lifted over it while it is open
+   (`.landmarks--cube-open`, below). Rounded like `.landmarks__body`. */
+.landmarks__cube-immersive {
+  z-index: 21;
+  border-radius: 12px;
+  overflow: hidden;
+  animation: landmarks-cube-open var(--duration-quick, 180ms) var(--ease-out, ease-out);
 }
 
-.landmarks__cube-resize::after {
-  content: "";
-  position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 7px;
-  height: 7px;
-  border-right: 2px solid var(--lm-text-muted);
-  border-bottom: 2px solid var(--lm-text-muted);
-  border-bottom-right-radius: 3px;
-  opacity: 0.5;
-  transition: opacity var(--duration-quick) var(--ease-out);
+@keyframes landmarks-cube-open {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
 }
 
-.landmarks__cube-resize:hover::after {
-  opacity: 0.9;
+.landmarks--fs .landmarks__cube-immersive,
+.landmarks:fullscreen .landmarks__cube-immersive,
+.landmarks--overlay-fs .landmarks__cube-immersive {
+  border-radius: 0;
 }
 
-/* Inspect history chip: a hit sized to its 64x40 snapshot (utilities cannot
-   override the unlayered .landmarks-hit box). */
-.landmarks-hit.landmarks__inspect-chip {
-  position: relative;
-  width: auto;
-  min-width: 0;
-  height: auto;
-  padding: 2px;
-  border-radius: 6px;
+@media (prefers-reduced-motion: reduce) {
+  .landmarks__cube-immersive {
+    animation: none;
+  }
 }
 
-/* Focused chip: a quiet ring around the snapshot, not the filled on-state. */
-.landmarks-hit.landmarks__inspect-chip[aria-pressed="true"],
-.landmarks-hit.landmarks__inspect-chip[aria-pressed="true"]:hover {
-  background: color-mix(in oklab, var(--foreground) 12%, transparent);
-  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--foreground) 70%, transparent);
+/* The Move tool: a drag pans the window (deck sets its own cursor on the canvas). */
+.volume-cube__view[data-pan-mode="true"] canvas {
+  cursor: grab !important;
 }
-
-/* Cube title bar: same height, pad and gap as every toolbar. */
-.landmarks__cube-titlebar {
-  display: flex;
-  align-items: center;
-  gap: var(--lm-toolbar-gap);
-  min-height: var(--lm-toolbar-h);
-  padding: var(--lm-toolbar-pad);
-  padding-inline-start: 0.75rem;
-  box-sizing: border-box;
-  touch-action: none;
+.volume-cube__view[data-panning="true"] canvas {
+  cursor: grabbing !important;
 }
 
 .landmarks--fs .landmarks__chrome-context,
@@ -1919,6 +2040,14 @@
 .landmarks__peek-tab--right {
   right: 0;
   border-radius: 9999px 0 0 9999px;
+}
+
+/* Open cube: the docks and peek tabs float over it (Soft Float glass at the
+   tool pill's level), so a category or Selection can still be focused to
+   colour the cube. */
+.landmarks--cube-open .landmarks__chrome-dock,
+.landmarks--cube-open .landmarks__peek-tab {
+  z-index: 22;
 }
 
 .landmarks--rulers .landmarks__chrome-tools {

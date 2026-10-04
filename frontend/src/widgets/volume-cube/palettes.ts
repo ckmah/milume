@@ -14,7 +14,7 @@ export type RenderSettings = {
   cellAlpha: number;
 };
 
-export const DEFAULT_RENDER: RenderSettings = { palette: "gray", imageAlpha: 1, imageGamma: 1, cellAlpha: 1 };
+export const DEFAULT_RENDER: RenderSettings = { palette: "gray", imageAlpha: 1, imageGamma: 1, cellAlpha: 0.6 };
 
 // sRGB stops, evenly spaced. Gray is generated instead (see `grayRamp`).
 const STOPS: Record<Exclude<PaletteName, "gray">, string[]> = {

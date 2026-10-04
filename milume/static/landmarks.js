@@ -2302,8 +2302,35 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   function nextLandmarkId(items) {
     return nextNumberedId("landmark", items);
   }
-  function nextSelectionId(items) {
-    return nextNumberedId("selection", items);
+  /** A selection's default name: its top category and size, e.g. "Epithelial · 214"; else "<prefix> <n>". */
+  function selectionName(indices, prefix, items) {
+    const cols = model.get("category_columns") || [];
+    const active = model.get("active_category");
+    const colIdx = cols.findIndex((c) => c.name === active);
+    const labels = colIdx >= 0 ? cols[colIdx].labels || [] : [];
+    const n = getPointsData().length;
+    if (categoryCodes && labels.length && n && indices && indices.length) {
+      const counts = new Map();
+      for (const i of indices) {
+        const c = categoryCodes[colIdx * n + i];
+        if (c >= 0 && c < labels.length) counts.set(c, (counts.get(c) || 0) + 1);
+      }
+      let best = -1;
+      let bestN = 0;
+      for (const [c, k] of counts) {
+        if (k > bestN) {
+          best = c;
+          bestN = k;
+        }
+      }
+      if (best >= 0) {
+        const base = `${labels[best]} · ${indices.length}`;
+        const used = new Set((items || []).map((x) => String(x.id)));
+        if (!used.has(base)) return base;
+        for (let i = 2; ; i++) if (!used.has(`${base} (${i})`)) return `${base} (${i})`;
+      }
+    }
+    return nextNumberedId(prefix, items);
   }
 
   function resetDraft() {
@@ -3486,6 +3513,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   function handleInspectRelease(event) {
     if (event.button !== 0) return;
     endInspectPress();
+    // A release (not Esc, blur or a lost release) is what opens the cube.
+    emitInspect({ type: "release" });
   }
 
   /** Points inside the axis-aligned square (every depth; the cut never changes membership). */
@@ -3511,11 +3540,12 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const cut =
       Array.isArray(raw) && raw.length === 6 && raw.every((v) => typeof v === "number") ? [...raw] : [];
     const selections = [...(model.get("selections") || [])];
+    const members = inspectMemberIndices(cx, cy, size);
     selections.push(
       withHood({
-        id: nextSelectionId(selections),
+        id: selectionName(members, "inspect", selections),
         type: "inspect",
-        point_indices: inspectMemberIndices(cx, cy, size),
+        point_indices: members,
         window: { cx, cy, size_um: size, cut },
       }),
     );
@@ -4194,7 +4224,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const selections = [...(model.get("selections") || [])];
     selections.push(
       withHood({
-        id: nextSelectionId(selections),
+        id: selectionName(indices, "selection", selections),
         type: "points",
         point_indices: indices,
       }),
@@ -4254,7 +4284,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         : String(selections[focus.index]?.id || "selection");
     selections.push(
       withHood({
-        id: nextSelectionId(selections),
+        id: selectionName(point_indices, "selection", selections),
         type: "points",
         point_indices,
         neighborhood: "off",
@@ -4307,7 +4337,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const selections = [...(model.get("selections") || [])];
     selections.push(
       withHood({
-        id: nextSelectionId(selections),
+        id: selectionName(point_indices, "selection", selections),
         type: "points",
         point_indices,
         neighborhood: "off",
@@ -5294,6 +5324,13 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     return false;
   }
 
+  /** True if the event comes from inside an open menu (focus moves into it). */
+  function eventInMenu(event) {
+    const path =
+      typeof event.composedPath === "function" ? event.composedPath() : [event.target];
+    return path.some((node) => node instanceof Element && node.getAttribute("role") === "menu");
+  }
+
   /** True if the event originated under this widget (works across shadow DOM). */
   function eventInWidget(event) {
     const path =
@@ -5372,7 +5409,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     if (editClipboard.kind === "selection") {
       const selections = [...(model.get("selections") || [])];
       const item = withHood(cloneJson(editClipboard.item));
-      item.id = nextSelectionId(selections);
+      item.id = selectionName(item.point_indices, item.type === "inspect" ? "inspect" : "selection", selections);
       selections.push(item);
       model.set("selections", selections);
       setSelected("selection", selections.length - 1);
@@ -5474,7 +5511,25 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     return pointerOverMap() && pointerMovedAt > typedOutsideAt;
   }
 
+  // The control that took focus from the keyboard (Tab, or a keyboard-driven
+  // focus move), not from a click: Space and Enter then press it instead of
+  // panning or finishing a draft. A clicked control keeps Space for panning.
+  const CONTROL_SELECTOR =
+    'button, a[href], [role="button"], [role="radio"], [role="switch"], [role="checkbox"], [role="tab"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]';
+  let lastInput = "key";
+  let keyFocused = null;
+  function eventOrigin(event) {
+    const path = typeof event.composedPath === "function" ? event.composedPath() : null;
+    return (path && path[0]) || event.target;
+  }
+  function pressesFocusedControl(event) {
+    const el = eventOrigin(event);
+    return el instanceof Element && el === keyFocused && el.matches(CONTROL_SELECTOR);
+  }
+
   function handleKeyDown(event) {
+    lastInput = "key";
+    if ((event.key === " " || event.key === "Enter") && pressesFocusedControl(event)) return;
     // Marimo often keeps focus in the cell editor after clicking the widget.
     // Only treat typing as blocking when the editable is *inside* our chrome
     // (gene combobox, etc.); otherwise pointerInWidget / deep focus still win.
@@ -5503,6 +5558,9 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       finishVertexDraft();
       return;
     }
+    // Esc in an open menu belongs to the menu (it closes itself): in Inspect
+    // it never closes the cube or leaves the mode.
+    if (key === "Escape" && currentMode === "inspect" && eventInMenu(event)) return;
     if (key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
@@ -5521,20 +5579,24 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         return;
       }
       if (currentMode === "inspect") {
-        // The Adjust panel owns Esc while it is open (closes only itself,
-        // never the cube): this handler runs on `window` before the panel's
-        // own React handler ever would, so it must defer explicitly.
-        const adjustTrigger = container.querySelector(
-          '[data-testid="context-cube-adjust-group"] [aria-haspopup="dialog"][aria-expanded="true"]',
+        // An open panel of the Inspect bar (Adjust, Cross-section) owns Esc
+        // (closes only itself, never the cube): this handler runs on `window`
+        // before the panel's own React handler ever would, so it must defer
+        // explicitly.
+        const panelTrigger = container.querySelector(
+          '[data-inspect-panel-group] [aria-haspopup="dialog"][aria-expanded="true"]',
         );
-        if (adjustTrigger instanceof HTMLElement) {
-          adjustTrigger.click();
+        if (panelTrigger instanceof HTMLElement) {
+          panelTrigger.click();
           return;
         }
-        // Esc ends a press where it is: later moves drag nothing.
+        // Esc ends a press where it is: later moves drag nothing. React
+        // closes the cube on `close`, or exits Inspect when none is open and
+        // no press was ended.
+        const press = Boolean(inspectGesture);
         endInspectPress();
         clearInspectHover();
-        emitInspect({ type: "close" });
+        emitInspect({ type: "close", press });
         setDeckLayers();
         return;
       }
@@ -5847,6 +5909,20 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       pointerInWidget = eventInWidget(e);
     },
     { signal },
+  );
+  window.addEventListener(
+    "pointerdown",
+    () => {
+      lastInput = "pointer";
+    },
+    { capture: true, signal },
+  );
+  window.addEventListener(
+    "focusin",
+    (e) => {
+      keyFocused = lastInput === "key" ? eventOrigin(e) : null;
+    },
+    { capture: true, signal },
   );
   // Capture on window so we run before notebook hosts; composedPath keeps
   // shadow-DOM focus checks correct for marimo anywidget.
@@ -6280,6 +6356,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       model.set("inspect_size_um", sizeUm);
       volumeWindowSavedAt = performance.now();
       model.save_changes();
+      setDeckLayers();
+    },
+    moveInspectWindow(x, y) {
+      const size = volumeWindow?.size ?? inspectWindowUm;
+      volumeWindow = { x, y, size };
+      model.set("inspect_cx", x);
+      model.set("inspect_cy", y);
+      model.set("inspect_size_um", size);
       setDeckLayers();
     },
     saveInspect,

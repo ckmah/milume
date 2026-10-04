@@ -15,6 +15,7 @@ import type { Range, ViewPreset } from "./CubeControls";
 import { type CubeFrame, FramedVolumeView, labelPad } from "./frame-layers";
 import { type CubeOverlay, placeOverlays } from "./overlay-layers";
 import { paletteLut } from "./palettes";
+import { dragToWindowDelta } from "./pan";
 import { type WindowTarget, levelVoxelSize, useShownWindow } from "./use-shown-window";
 import {
   type Box,
@@ -49,6 +50,8 @@ export type CubeLoadState = {
   refineError?: string;
   /** Set when the image (or its window, with no coarse view to keep) failed to load. */
   imageError?: string;
+  /** The window holds none of the volume: nothing loads, nothing is drawn. */
+  outside: boolean;
 };
 
 export type CubeBounds = {
@@ -74,7 +77,10 @@ export type VolumeCubeProps = {
   /** Shown cut (already the live value); clamped to the window and the stack here. */
   cut: CubeCut;
   contrast: [number, number];
-  mode: "additive" | "mip";
+  /** Default "additive": the image's samples accumulate; "mip": its maximum along each ray. */
+  imageMode?: "additive" | "mip";
+  /** Default "additive": label shells accumulate front to back; "mip": the strongest shell along each ray. */
+  labelMode?: "additive" | "mip";
   /**
    * Applied when it changes: the preset's rotation (framed as its home view with
    * `reframeOnPreset`). The first view is this preset when set, else `home`.
@@ -122,6 +128,16 @@ export type VolumeCubeProps = {
   onLevels?: (image: ZarrSource[], labels: ZarrSource[] | null) => void;
   /** Called when the shown window changes: its level index and voxel box. */
   onShown?: (level: number, box: Box) => void;
+  /** The Move tool: a plain left drag pans (with `onPan`) instead of orbiting. Default false. */
+  panMode?: boolean;
+  /**
+   * Set to let a left drag with Shift held (or any left drag with `panMode`) pan:
+   * called per pointer move with the window centre's move (µm, +y down the map)
+   * that keeps the tissue under the pointer. The orbit controller never sees it.
+   */
+  onPan?: (dxUm: number, dyUm: number) => void;
+  /** The pan's release (or cancel). */
+  onPanEnd?: () => void;
 };
 
 type ViewState = {
@@ -273,7 +289,8 @@ export function VolumeCube({
   windowSizeUm: window_size_um,
   cut,
   contrast,
-  mode,
+  imageMode = "additive",
+  labelMode = "additive",
   preset,
   home = "iso",
   reframeOnPreset = false,
@@ -299,6 +316,9 @@ export function VolumeCube({
   onRendered,
   onLevels,
   onShown,
+  panMode = false,
+  onPan,
+  onPanEnd,
 }: VolumeCubeProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const fixedHeight = typeof height === "number";
@@ -720,7 +740,9 @@ export function VolumeCube({
               ySlice,
               zSlice,
               resolution: 0,
-              extensions: CUBE_EXTENSIONS[mode],
+              extensions: CUBE_EXTENSIONS,
+              imageMode,
+              labelMode,
               cellVolume: cells,
               cellGroups,
               onCellsBound,
@@ -744,7 +766,8 @@ export function VolumeCube({
       xSlice,
       ySlice,
       zSlice,
-      mode,
+      imageMode,
+      labelMode,
       cells,
       cellGroups,
       onCellsBound,
@@ -766,7 +789,13 @@ export function VolumeCube({
   // other failure (no coarse step) is the canvas status, as before.
   const refineFailed = Boolean(imageError && shownIsCoarse);
   const refineError = refineFailed ? `Could not refine: ${imageError}` : "";
-  const settled = Boolean(shown && target && shown.level.index === target.level.index);
+  // Settled: the target level is shown, at the window asked for right now. A
+  // moved window is stale until its fetch lands, whether the debounced target
+  // has caught up or not, and a pan along a clamped edge can change the box
+  // without shifting it. The preview's region is never the window: its level decides.
+  const settled = Boolean(
+    shown && target && shown.level.index === target.level.index && (regionScale > 0 || sameBox(shown.box, liveBox)),
+  );
   const refining = !settled && !error && !imageError && !outside;
   // The image failed with nothing kept on screen.
   const loadError = error || (refineFailed ? "" : imageError);
@@ -806,8 +835,9 @@ export function VolumeCube({
       refining,
       refineError,
       imageError: loadError,
+      outside,
     });
-  }, [labelsState, channels, panX, panY, levelIndex, refining, refineError, loadError, onLoadStateRef]);
+  }, [labelsState, channels, panX, panY, levelIndex, refining, refineError, loadError, outside, onLoadStateRef]);
 
   // Reported once the image is open: before that the volume has no extent.
   const onBoundsRef = useLatest(onBounds);
@@ -818,9 +848,75 @@ export function VolumeCube({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasExtent, winX[0], winX[1], winY[0], winY[1], stackZ[0], stackZ[1], extentX, extentY, contrastMax, onBoundsRef]);
 
+  // Pan: a Shift (or Move tool) press is stopped in the capture phase, before
+  // deck's controller (mjolnir's pointerdown on the canvas) sees it, so it never
+  // orbits; window listeners then follow the drag until release.
+  const panAbort = useRef<AbortController | null>(null);
+  const viewRef = useLatest(viewState);
+  const umRef = useLatest(levelVoxel ? levelVoxel[2] : 1);
+  const onPanRef = useLatest(onPan);
+  const onPanEndRef = useLatest(onPanEnd);
+  const [panning, setPanning] = useState(false);
+  /** Stop a pan still in progress; its end is reported, so its last moves are saved. */
+  const stopPan = useCallback(() => {
+    const abort = panAbort.current;
+    if (!abort || abort.signal.aborted) return;
+    abort.abort();
+    onPanEndRef.current?.();
+  }, [onPanEndRef]);
+  // Torn down mid-pan (Esc or a tool key closes the cube): the pan still ends.
+  useEffect(() => stopPan, [stopPan]);
+
+  const wantsPan = (e: { button: number; shiftKey: boolean }) =>
+    Boolean(onPan) && e.button === 0 && (panMode || e.shiftKey);
+
+  const onPointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!wantsPan(e)) return;
+    e.stopPropagation();
+    e.preventDefault();
+    stopPan();
+    const abort = new AbortController();
+    panAbort.current = abort;
+    const pointer = e.pointerId;
+    let last = { x: e.clientX, y: e.clientY };
+    setPanning(true);
+    const end = () => {
+      setPanning(false);
+      stopPan();
+    };
+    const opts = { signal: abort.signal };
+    window.addEventListener(
+      "pointermove",
+      (m: PointerEvent) => {
+        if (m.pointerId !== pointer) return;
+        // A release lost outside the page: hovering must not keep panning.
+        if (!(m.buttons & 1)) return end();
+        const view = viewRef.current;
+        if (!view) return;
+        const d = dragToWindowDelta(m.clientX - last.x, m.clientY - last.y, view, umRef.current);
+        last = { x: m.clientX, y: m.clientY };
+        onPanRef.current?.(d.x, d.y);
+      },
+      opts,
+    );
+    const release = (u: PointerEvent) => {
+      if (u.pointerId === pointer) end();
+    };
+    window.addEventListener("pointerup", release, opts);
+    window.addEventListener("pointercancel", release, opts);
+    window.addEventListener("blur", end, opts);
+  };
+  const onMouseDownCapture = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (wantsPan(e)) e.stopPropagation();
+  };
+
   return (
     <div
       ref={hostRef}
+      onPointerDownCapture={onPointerDownCapture}
+      onMouseDownCapture={onMouseDownCapture}
+      data-pan-mode={String(panMode)}
+      data-panning={String(panning)}
       className={cn("volume-cube__view relative w-full overflow-hidden rounded-md", background && "bg-neutral-950")}
       style={{ height }}
       data-image={showImage ? "on" : "off"}
@@ -830,7 +926,8 @@ export function VolumeCube({
       data-label-format={cellsOnGpu ? "rg8" : "none"}
       data-label-cells={cells?.count ?? 0}
       data-highlight={highlighted.length}
-      data-render={mode}
+      data-image-mode={imageMode}
+      data-label-mode={labelMode}
       data-pan={`${panX},${panY}`}
       data-palette={render.palette}
       data-image-gamma={render.imageGamma}
@@ -875,4 +972,8 @@ export function VolumeCube({
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+function sameBox(a: Box, b: Box | null): boolean {
+  return b !== null && a.x0 === b.x0 && a.x1 === b.x1 && a.y0 === b.y0 && a.y1 === b.y1;
 }

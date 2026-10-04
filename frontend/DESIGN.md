@@ -178,12 +178,14 @@ Framer-neutral greys.
 - Zoom lives in the top tool pill (in / out / reset), not a separate bottom cluster
 - Slider rows: single line — left caption + capsule track; fill encodes value; numeral overlays the left of the capsule; thumb nearly invisible until hover/focus. Range sliders (cuts, contrast) use the same capsule
 - Inspect collapses both side docks (peek tabs stay); leaving Inspect restores them
+- Inspect is a temporary mode with its own chrome (see **Inspect chrome** under Components): the Inspect pill takes the tool pill's slot, the Inspect bar sits bottom centre
+- Inspect cube: an immersive takeover of the plot area, not a floating window. `role="dialog"` "Cube" fills the plot area (`z-index` 21, under the top pill at 22) and has no chrome of its own: Save and Exit live on the Inspect pill, the view options on the Inspect bar. Its corners follow `.landmarks__body` (12px, square in fullscreen). While it is open (`.landmarks--cube-open`) the docks and peek tabs float over it at `z-index` 22, so a category or Selection can still be focused to colour it and a saved window reopened from its row. Leaving Inspect closes it. It fades/scales in from the viewport centre (`--duration-quick`), none under `prefers-reduced-motion`
 
 ## Elevation & Depth
 
 - Widget body: soft offset shadow (not flat ring-only)
 - Shared float tokens (`--lm-float-bg`, `--lm-float-blur`, `--lm-float-shadow`) drive every floating chrome surface
-- **Shadow-only Soft Float:** panels and toolbars have no hairline border; elevation is fill + soft drop shadow (craft floor: declare elevation once). `--lm-float-border` stays transparent for token compatibility.
+- **Shadow-only Soft Float:** panels and toolbars have no hairline border; elevation is fill + soft drop shadow (craft floor: declare elevation once). `--lm-float-border` stays transparent for token compatibility. One deliberate exception: the Inspect pill's 1px dashed outline marks a temporary mode, not elevation.
 - Denser frosted fill (88% card mix, same in light and dark) so borderless glass separates from busy tissue and chrome text holds AA over it
 - Panels and toolbars share the same glass material; `--toolbar` is slightly rounder than `--panel`
 - Inner chrome stays quiet: slider capsules are fill-only (no inset rings); section dividers use spacing, not rules; segmented controls sit in muted trays without outline strokes
@@ -209,6 +211,16 @@ Glass is a deliberate float treatment over live canvas, not decorative blur on s
 ### Tool pill (`Topbar`)
 
 Icon-only select + landmark mode groups, zoom (in / out / reset), and fullscreen. Soft muted trays; active = foreground fill on background glyph. Uses `landmarks-float landmarks-float--toolbar`.
+
+### Inspect chrome
+
+Inspect is temporary, so its chrome replaces the normal chrome rather than adding to it.
+
+- **Inspect pill** (`chrome/inspect-pill.tsx`, `InspectPill`): takes the tool pill's top-centre slot while `mode` is Inspect; the two swap with cube-motion `Rise` (the leaving one is `inert`, no clicks), focus follows the swap, and the tool pill does not rise on first mount. Same `TOOLBAR_CLASS` glass plus a **1px dashed outline** (`.landmarks-toolbar.landmarks__inspect-pill`, muted text at 70%), the only bordered toolbar: it reads as a mode, not a tool. Armed: × Exit Inspect · Box icon + "Inspect" · hint "Click to place a 300 µm window" (size dropped below 640px) · zoom in / out / reset (`ZoomControls`, shared with the tool pill) · full screen. Open: × · "Inspect · 300 µm" · centre "x, y µm" (hidden below 640px) · status chip · Save window (BookmarkPlus → BookmarkCheck "Saved", disabled) · full screen. Labels 0.75rem, meta in `--lm-text-muted`
+- **Status chip** (`landmarks__inspect-status`, 0.6875rem, muted): "Refining" with a gradient band sweeping across the text (`landmarks-shimmer`, 1.4s linear, clipped to a span inside the Morph face), crossfading to a resting "Ready" (`Morph`); an error in `text-destructive`, max 14rem (8rem narrow) with an ellipsis and the full text in `title`. No sweep under `prefers-reduced-motion`
+- **Inspect bar** (`chrome/inspect-toolbar.tsx`, bottom centre, `TOOLBAR_CLASS`): `Top | Iso | Side` toggle group · divider · Move (hand, `IconBtn`, on = pressed; grab / grabbing cursor in the cube) · Reset view · divider · Adjust · Cross-section. Nothing else on the bar
+- **Bar panels** (`ToolStack`, one open at a time, rising right-aligned above their button): the toolbar glass (`TOOLBAR_CLASS`), capped at `min(45cqh, 22rem)` against the widget box (`.landmarks__chrome` is a size container) and scrolling inside (`overscroll-behavior: contain`), so they never cover most of the cube. Adjust: two columns, Image | Labels, each a titled section with its Show switch beside the title and a ghost "Reset" right; rows on the shared capsule (one 10rem width), non-slider controls (Mode toggle, Palette swatch dropdown) at the same width; "Reset all" at the foot. Below 640px the columns stack. Cross-section: one section, X / Y / Z range capsules and Reset
+- **Selections rows and hover card**: an inspect entry's row shows its cube thumbnail (the 64×40 snapshot cropped into a 1.75rem square, `.landmarks-layer-thumb`, rounded, edged in the selection colour) where other rows have the dashed swatch. Every selection row opens a shadcn `HoverCard` to its right (`.landmarks__selection-card`: 14rem, `FLOAT_PANEL` glass, portalled to the widget root, no entrance under reduced motion): thumbnail (full width, 64/40), name, "N cells", window or extent in `landmarks-meta`, then three category bars (label · track at fg 10% · %), filled in the category colours
 
 ### Glass docks
 
@@ -239,7 +251,7 @@ Tokens on `.landmarks`: `--lm-float-radius`, `--lm-float-border`, `--lm-float-bg
 
 ### Chrome tokens
 
-One set for the main tool pill, View CTA, context L1/L2, Inspect bar, cube title bar and peek tabs. Class constants in `chrome/primitives.tsx`; values on `.landmarks` in `landmarks.css`.
+One set for the main tool pill, View CTA, context L1/L2, Inspect pill, Inspect bar and peek tabs. Class constants in `chrome/primitives.tsx`; values on `.landmarks` in `landmarks.css`.
 
 | Role | Class / constant | Tokens |
 | --- | --- | --- |

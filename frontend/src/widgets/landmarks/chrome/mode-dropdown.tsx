@@ -21,6 +21,11 @@ import {
 /** Last-used mode per group (keyed by `modes.join()`), remembered across renders. */
 const lastUsedByGroup = new Map<string, string>();
 
+/** E2E harness only: forget remembered tools so a remounted widget starts like a fresh page. */
+export function resetModeDropdownMemory() {
+  lastUsedByGroup.clear();
+}
+
 /**
  * Left click arms the last-used mode in `modes` (default `modes[0]`);
  * right click or the chevron opens the menu to pick a specific mode.

@@ -1,13 +1,17 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
+
+import { test } from "../fixtures";
 
 import { bootLandmarksVolumeHarness, canvasBox, getModel, setModel } from "../helpers";
 
 /**
  * Landmarks over a toy SpatialData (`E2E_HARNESS=landmarks-volume`): Inspect
- * hovers a window square, a click places it and opens the floating cube, a
- * drag moves it, Esc closes it; the Inspect context bar drives the cube. The
- * dock's Save keeps the window as an inspect Selection. The cube's `data-*`
- * mirrors are read from its `.volume-cube__view` inside the Cube dialog.
+ * hovers a window square, a press places it (a drag moves it) and the release
+ * opens the immersive cube, which covers the map; Esc closes it. The Inspect
+ * context bar drives the cube. The Inspect pill (top, in place of the tool
+ * pill) holds Save, which keeps the window as an inspect Selection, and Exit. Because the map is covered while the cube is open, tests that move
+ * the window close the cube first (`moveWindow`). The cube's `data-*` mirrors are
+ * read from its `.volume-cube__view` inside the Cube dialog.
  *
  * The toy table has three cells (labels 1-3) at about (70, 80), (160, 150) and
  * (100, 190) µm, typed type1 / type0 / type1, in a 256 µm volume. The Inspect
@@ -18,18 +22,47 @@ const cubeWindow = (page: Page) => page.getByRole("dialog", { name: "Cube" });
 const preview = (page: Page) => page.getByTestId("inspect-preview");
 const cutOf = async (page: Page) => (await getModel(page, "volume_cut")) as number[];
 const selectionsOf = async (page: Page) => (await getModel(page, "selections")) as any[];
-const saveButton = (page: Page) => cubeWindow(page).getByRole("button", { name: "Save window" });
-/** Save the live window from the dock's title bar; the new entry's index (it is focused). */
+/** The top pill while in Inspect (in place of the tool pill): Exit, the window's status, Save. */
+const inspectPill = (page: Page) => page.getByTestId("inspect-pill");
+const saveButton = (page: Page) => inspectPill(page).getByRole("button", { name: "Save window" });
+/** Inspect collapses the docks: reopen the left one (Selections) from its peek tab. It floats over the cube. */
+async function openSelectionsDock(page: Page) {
+  const left = page.locator(".landmarks__chrome-dock--left");
+  if ((await left.getAttribute("data-collapsed")) === "true") {
+    await page.getByRole("button", { name: "Show left panel" }).click();
+  }
+  await expect(left).toHaveAttribute("data-collapsed", "false");
+}
+/** The Selections panel's row for selection `index`. */
+const selectionRow = (page: Page, index: number) => page.getByTestId("selection-row").nth(index);
+/** The focused element, through shadow roots: its aria-label and whether it sits in `[data-testid=testId]`. */
+async function focused(page: Page, testId: string) {
+  return page.evaluate((testId) => {
+    let el: Element | null = document.activeElement;
+    while (el?.shadowRoot?.activeElement) el = el.shadowRoot.activeElement;
+    return {
+      label: el?.getAttribute("aria-label") ?? el?.tagName ?? null,
+      inside: Boolean(el?.closest(`[data-testid="${testId}"], [aria-label="${testId}"]`)),
+    };
+  }, testId);
+}
+/** Save the live window from the Inspect pill; the new entry's index (it is focused). */
 async function save(page: Page) {
   const before = (await selectionsOf(page)).length;
   await saveButton(page).click();
   await expect.poll(async () => (await selectionsOf(page)).length).toBe(before + 1);
   return Number(await getModel(page, "selected_index"));
 }
-/** Open the Inspect toolbar's one adjustments panel (Image, Labels, Cuts). */
+/** Open the Inspect toolbar's Adjust panel (Image and Labels columns). */
 const openAdjust = (page: Page) =>
   page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Adjust" }).click();
 const adjustPanel = (page: Page) => page.getByTestId("context-cube-adjust");
+/** Open the Inspect toolbar's Cross-section panel (the X, Y and Z cuts). */
+const openCross = (page: Page) =>
+  page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Cross-section", exact: true }).click();
+const crossPanel = (page: Page) => page.getByTestId("context-cube-cross");
+/** Whichever of the bar's panels is open (one at a time). */
+const openPanel = (page: Page) => page.locator('[data-testid="context-cube-adjust"], [data-testid="context-cube-cross"]');
 /** Flip one of the Adjust panel's Show switches ("Show image", "Show labels"), then close the panel. */
 async function toggleShow(page: Page, name: "Show image" | "Show labels") {
   await openAdjust(page);
@@ -79,13 +112,14 @@ const CATEGORY_HUES = { type1: 205, type0: 28 };
 
 /**
  * Pixels that take on a category colour between two screenshots of the same
- * view (`before`, `after`): hue within 15° of the category's, saturated and not
- * dark, and not already that colour before. Counts and mean x, y (px) per
+ * view (`before`, `after`): hue within 15° of the category's, saturated (at
+ * least `minSaturation`, (max - min) / max) and not dark, and not already that
+ * colour before. Counts and mean x, y (px) per
  * category. Comparing the two leaves out the frame's axes and the axis legend.
  */
-async function newCategoryPixels(page: Page, before: Buffer, after: Buffer) {
+async function newCategoryPixels(page: Page, before: Buffer, after: Buffer, minSaturation = 0.4) {
   return page.evaluate(
-    async ({ before, after, hues }) => {
+    async ({ before, after, hues, minSaturation }) => {
       const pixels = async (png: string) => {
         const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
         const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
@@ -97,7 +131,7 @@ async function newCategoryPixels(page: Page, before: Buffer, after: Buffer) {
         const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
         const max = Math.max(r, g, b);
         const d = max - Math.min(r, g, b);
-        if (max < 40 || d / max < 0.4) return "";
+        if (max < 40 || d / max < minSaturation) return "";
         let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
         h = (h * 60 + 360) % 360;
         for (const [k, hue] of Object.entries(hues)) if (Math.abs(((h - hue + 540) % 360) - 180) <= 15) return k;
@@ -121,7 +155,76 @@ async function newCategoryPixels(page: Page, before: Buffer, after: Buffer) {
       }
       return out;
     },
-    { before: before.toString("base64"), after: after.toString("base64"), hues: CATEGORY_HUES },
+    { before: before.toString("base64"), after: after.toString("base64"), hues: CATEGORY_HUES, minSaturation },
+  );
+}
+
+/**
+ * Category-coloured pixels of a screenshot, grouped into connected blobs: for
+ * each blob of at least 30 pixels (bounding-box radius R = half the larger
+ * side), `core` counts its pixels within 0.4R of the box centre and `rim` those
+ * between 0.7R and 1.15R, summed over blobs. The core is a smaller area than the
+ * rim band, so even a filled cell has core/rim well below 1 (see the shells test
+ * for the measured ratios).
+ */
+async function ringVsCore(page: Page, png: Buffer) {
+  return page.evaluate(
+    async ({ png, hues }) => {
+      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(bitmap, 0, 0);
+      const { data, width, height } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      const category = (i: number) => {
+        const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
+        const max = Math.max(r, g, b);
+        const d = max - Math.min(r, g, b);
+        if (max < 40 || d / max < 0.4) return "";
+        let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        h = (h * 60 + 360) % 360;
+        for (const [k, hue] of Object.entries(hues)) if (Math.abs(((h - hue + 540) % 360) - 180) <= 15) return k;
+        return "";
+      };
+      const kind = new Array<string>(width * height);
+      for (let p = 0; p < kind.length; p++) kind[p] = category(p * 4);
+      const seen = new Uint8Array(width * height);
+      let rim = 0;
+      let core = 0;
+      for (let start = 0; start < kind.length; start++) {
+        if (!kind[start] || seen[start]) continue;
+        const members: number[] = [start];
+        seen[start] = 1;
+        let [x0, x1, y0, y1] = [width, 0, height, 0];
+        for (let q = 0; q < members.length; q++) {
+          const p = members[q]!;
+          const [x, y] = [p % width, Math.floor(p / width)];
+          x0 = Math.min(x0, x);
+          x1 = Math.max(x1, x);
+          y0 = Math.min(y0, y);
+          y1 = Math.max(y1, y);
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const [nx, ny] = [x + dx, y + dy];
+              if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+              const n = ny * width + nx;
+              if (kind[n] === kind[start] && !seen[n]) {
+                seen[n] = 1;
+                members.push(n);
+              }
+            }
+        }
+        if (members.length < 30) continue;
+        const R = Math.max(x1 - x0, y1 - y0) / 2;
+        const [cx, cy] = [(x0 + x1) / 2, (y0 + y1) / 2];
+        for (const p of members) {
+          const d = Math.hypot((p % width) - cx, Math.floor(p / width) - cy);
+          if (d <= 0.4 * R) core++;
+          else if (d >= 0.7 * R && d <= 1.15 * R) rim++;
+        }
+      }
+      return { rim, core };
+    },
+    { png: png.toString("base64"), hues: CATEGORY_HUES },
   );
 }
 
@@ -133,6 +236,25 @@ async function dragOnMap(page: Page, box: Box, from: [number, number], to: [numb
   await page.mouse.up();
 }
 
+/**
+ * Move the live window while the immersive cube is open: close it (the map is
+ * covered while it is open), then press-drag on the map; the cube opens again
+ * on release.
+ */
+async function moveWindow(page: Page, box: Box, from: [number, number], to: [number, number]) {
+  if (await cubeWindow(page).count()) {
+    // An open panel (Adjust, Cross-section) owns the first Esc (it closes only itself).
+    if (await openPanel(page).count()) {
+      await page.keyboard.press("Escape");
+      await expect(openPanel(page)).toHaveCount(0);
+    }
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+  }
+  await dragOnMap(page, box, from, to);
+  await expect(cubeWindow(page)).toBeVisible();
+}
+
 /** The canvas point over a map point (µm), from the engine's orthographic view state. */
 async function screenAt(page: Page, box: Box, [x, y]: [number, number]) {
   const vs = await page.evaluate(() => (window as any).__landmarksEngine.getViewState());
@@ -140,15 +262,73 @@ async function screenAt(page: Page, box: Box, [x, y]: [number, number]) {
   return { x: box.x + box.width / 2 + (x - vs.target[0]) * k, y: box.y + box.height / 2 + (y - vs.target[1]) * k };
 }
 
-/** Click in Inspect at the canvas centre, or at map point `at` (µm) after zooming out `zoomOut` steps. */
-async function openCubeAtCentre(page: Page, { zoomOut = 0, at }: { zoomOut?: number; at?: [number, number] } = {}) {
+/** Click in Inspect at the canvas centre, or at map point `at` (µm). */
+async function openCubeAtCentre(page: Page, { at }: { at?: [number, number] } = {}) {
   await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-  if (zoomOut) await page.evaluate((d) => (window as any).__landmarksEngine.zoomBy(-d, { animate: false }), zoomOut);
   const box = await canvasBox(page);
   const p = at ? await screenAt(page, box, at) : { x: box.x + box.width * 0.5, y: box.y + box.height * 0.5 };
   await page.mouse.click(p.x, p.y);
   await expect(cubeWindow(page)).toBeVisible();
   return box;
+}
+
+/** Record every `data-state` the element at `selector` takes from now on (read with `recordedStates`). */
+async function recordStates(page: Page, selector: string) {
+  await page.evaluate((selector) => {
+    const el = document.querySelector(selector)!;
+    const states: string[] = [];
+    (window as any).__states = states;
+    (window as any).__statesObserver?.disconnect();
+    const observer = new MutationObserver(() => states.push(el.getAttribute("data-state") ?? ""));
+    observer.observe(el, { attributes: true, attributeFilter: ["data-state"] });
+    (window as any).__statesObserver = observer;
+  }, selector);
+}
+const recordedStates = (page: Page) => page.evaluate(() => (window as any).__states as string[]);
+
+/** A synthetic pointer event on the open cube: type, x offset (px) from the view's centre, buttons, pointer id (default 1). */
+type PointerStep = [type: string, dx: number, buttons: number, pointerId?: number];
+/**
+ * Dispatch `steps` with Shift held, in one task (so moves can land inside the
+ * 40 ms pan save throttle): the press on the cube view, the rest on window.
+ * Returns `inspect_cx` as last saved (`__savedCx`, if recorded) and as live now.
+ */
+async function shiftPointer(page: Page, steps: PointerStep[]) {
+  return page.evaluate((steps) => {
+    const view = document.querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view')!;
+    const r = view.getBoundingClientRect();
+    for (const [type, dx, buttons, pointerId = 1] of steps) {
+      const init = {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        pointerId,
+        pointerType: "mouse",
+        isPrimary: pointerId === 1,
+        button: 0,
+        buttons,
+        shiftKey: true,
+        clientX: r.x + r.width / 2 + dx,
+        clientY: r.y + r.height / 2,
+      };
+      (type === "pointerdown" ? view : window).dispatchEvent(new PointerEvent(type, init));
+    }
+    const model = (window as any).__landmarksModel;
+    return { saved: (window as any).__savedCx as number | undefined, live: model.get("inspect_cx") as number };
+  }, steps);
+}
+
+/** Press at the cube view's centre, drag (dx, dy) px in 4 steps and release; `shift` holds Shift throughout. */
+async function dragCube(page: Page, view: Locator, dx: number, dy: number, { shift = false }: { shift?: boolean }) {
+  const b = (await view.boundingBox())!;
+  const x = b.x + b.width / 2;
+  const y = b.y + b.height / 2;
+  if (shift) await page.keyboard.down("Shift");
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + dx, y + dy, { steps: 4 });
+  await page.mouse.up();
+  if (shift) await page.keyboard.up("Shift");
 }
 
 test.describe("Landmarks inspect cube", () => {
@@ -166,16 +346,276 @@ test.describe("Landmarks inspect cube", () => {
 
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(cubeWindow(page)).toBeVisible();
-    await expect(cubeWindow(page).getByText(/Cube · [\d.]+ µm/)).toBeVisible();
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "open");
+    await expect(inspectPill(page).getByText(/^[\d.]+ µm$/)).toBeVisible();
     await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-channels", /1|2/);
     expect(Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(0);
     expect((await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay())).placed).not.toBeNull();
-    // A click only places the window: no selection, no history.
+    // A click only places the window: no selection, no Selections row.
     expect(await selectionsOf(page)).toEqual([]);
-    await expect(cubeWindow(page).getByLabel("Inspect history")).toHaveCount(0);
+    await expect(page.getByTestId("selection-row")).toHaveCount(0);
 
-    await cubeWindow(page).getByRole("button", { name: "Close cube" }).click();
+    await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+  });
+
+  test("a drag moves the window with the cube closed; the cube opens on release", async ({ page }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5, { steps: 4 });
+    // Mid-drag: the window has moved, the cube has not opened.
+    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(0);
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await page.mouse.up();
+    await expect(cubeWindow(page)).toBeVisible();
+  });
+
+  test("the cube fills the plot area and Esc returns to the map", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const body = page.locator(".landmarks__body").first();
+    const [cube, plot] = await Promise.all([cubeWindow(page).boundingBox(), body.boundingBox()]);
+    expect(cube!.width).toBeGreaterThanOrEqual(plot!.width - 2);
+    expect(cube!.height).toBeGreaterThanOrEqual(plot!.height - 2);
+    await expect(cubeWindow(page).locator(".volume-cube__view")).toBeVisible();
+    // The hover preview does not float over the immersive cube.
+    await expect(preview(page)).toBeHidden();
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+  });
+
+  test("entering Inspect swaps the top pill for the dotted Inspect pill; Exit restores it", async ({ page }) => {
+    const tools = page.getByRole("toolbar", { name: "Drawing tools" });
+    await expect(tools).toBeVisible();
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const pill = page.getByTestId("inspect-pill");
+    await expect(pill).toBeVisible();
+    await expect(pill).toHaveAttribute("data-state", "armed");
+    await expect(tools).toHaveCount(0);
+    await expect(pill.getByText("Click to place a 300 µm window")).toBeVisible();
+    expect(await pill.evaluate((el) => getComputedStyle(el).borderStyle)).toContain("dashed");
+    await pill.getByRole("button", { name: "Exit Inspect" }).click();
+    await expect(pill).toHaveCount(0);
+    await expect(tools).toBeVisible();
+    expect(await getModel(page, "mode")).not.toBe("inspect");
+  });
+
+  test("the Inspect pill shows Refining then Ready, with Save and Exit", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const pill = page.getByTestId("inspect-pill");
+    await expect(pill).toHaveAttribute("data-state", "open");
+    await expect(pill.getByText(/Inspect/)).toBeVisible();
+    await expect(page.getByTestId("inspect-status")).toHaveAttribute("data-state", "ready");
+    await expect(pill.getByRole("button", { name: "Save window" })).toBeEnabled();
+    await pill.getByRole("button", { name: "Exit Inspect" }).click();
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(page.getByRole("toolbar", { name: "Drawing tools" })).toBeVisible();
+  });
+
+  test("a saved inspect window is named by its top category and cell count", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await page.getByTestId("inspect-pill").getByRole("button", { name: "Save window" }).click();
+    await expect.poll(async () => (await selectionsOf(page)).length).toBe(1);
+    // The default window holds all three toy cells; two are type1. The count is the
+    // selection's total members, the label the category with the most.
+    const [sel] = await selectionsOf(page);
+    expect(sel.id).toBe("type1 · 3");
+    // From the members themselves: the count is `point_indices.length`, the label
+    // the active categorical's most frequent code among them.
+    const majority = await page.evaluate(
+      ({ indices }) => {
+        const engine = (window as any).__landmarksEngine;
+        const model = (window as any).__landmarksModel;
+        const n = engine.getPoints().length;
+        const cols = model.get("category_columns") as { name: string; labels: string[] }[];
+        const ci = cols.findIndex((c) => c.name === model.get("active_category"));
+        const bytes = Uint8Array.from(atob(model.get("category_codes")), (ch) => ch.charCodeAt(0));
+        const codes = new Int32Array(bytes.buffer);
+        const counts = new Map<number, number>();
+        for (const i of indices) counts.set(codes[ci * n + i]!, (counts.get(codes[ci * n + i]!) ?? 0) + 1);
+        const [best] = [...counts].sort((a, b) => b[1] - a[1])[0]!;
+        return cols[ci]!.labels[best];
+      },
+      { indices: sel.point_indices as number[] },
+    );
+    expect(sel.id).toBe(`${majority} · ${sel.point_indices.length}`);
+  });
+
+  test("a name already taken gets a numeric suffix", async ({ page }) => {
+    await setModel(page, { selections: [{ id: "type1 · 3", type: "points", point_indices: [0, 1, 2] }] });
+    await openCubeAtCentre(page);
+    expect(await save(page)).toBe(1);
+    expect((await selectionsOf(page)).map((s) => s.id)).toEqual(["type1 · 3", "type1 · 3 (2)"]);
+  });
+
+  test("there is no history strip; the saved window is a Selections row with a thumbnail", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await page.getByTestId("inspect-pill").getByRole("button", { name: "Save window" }).click();
+    await expect.poll(async () => (await selectionsOf(page)).length).toBe(1);
+    await expect(cubeWindow(page).getByLabel("Inspect history")).toHaveCount(0);
+    await openSelectionsDock(page);
+    const row = page.getByTestId("selection-row").first();
+    await expect(row).toBeVisible();
+    await expect(row.getByTestId("selection-thumb")).toBeVisible();
+  });
+
+  test("hovering a selection row shows its count, window and category bars", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await page.getByTestId("inspect-pill").getByRole("button", { name: "Save window" }).click();
+    await expect.poll(async () => (await selectionsOf(page)).length).toBe(1);
+    await openSelectionsDock(page);
+    await page.getByTestId("selection-row").first().hover();
+    const card = page.getByTestId("selection-card");
+    await expect(card).toBeVisible();
+    await expect(card).toContainText("3 cells");
+    await expect(card).toContainText("µm");
+    await expect(card.getByTestId("selection-card-bar").first()).toBeVisible();
+    // A cut through the whole stack is no depth cut; a Z cut shows its range.
+    await expect(card).not.toContainText("Depth");
+    const [sel] = await selectionsOf(page);
+    expect(sel.window.cut).toHaveLength(6);
+    const cut = [...sel.window.cut];
+    cut[4] = 10;
+    cut[5] = 40;
+    await setModel(page, { selections: [{ ...sel, window: { ...sel.window, cut } }] });
+    await expect(card).toContainText("Depth 10–40 µm");
+  });
+
+  test("a lasso row's hover card gives its cells' extent in µm", async ({ page }) => {
+    await setModel(page, { selections: [{ id: "picked", type: "points", point_indices: [0, 2] }] });
+    await openSelectionsDock(page);
+    await selectionRow(page, 0).hover();
+    const card = page.getByTestId("selection-card");
+    await expect(card).toContainText("2 cells");
+    const text = (await card.textContent()) ?? "";
+    const m = text.match(/x (-?\d+)–(-?\d+) · y (-?\d+)–(-?\d+) µm/);
+    expect(m).not.toBeNull();
+    const pts = await page.evaluate(() => (window as any).__landmarksEngine.getPoints() as [number, number][]);
+    const [a, b] = [pts[0]!, pts[2]!];
+    const want = [Math.min(a[0], b[0]), Math.max(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[1], b[1])];
+    m!.slice(1).forEach((v, i) => expect(Math.abs(Number(v) - want[i]!)).toBeLessThanOrEqual(1));
+  });
+
+  test("clicking an inspect row restores its window and opens the cube", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    const box = await openCubeAtCentre(page);
+    await page.getByTestId("inspect-pill").getByRole("button", { name: "Save window" }).click();
+    await expect.poll(async () => (await selectionsOf(page)).length).toBe(1);
+    const saved = (await selectionsOf(page))[0].window;
+    await page.keyboard.press("Escape");
+    await dragOnMap(page, box, [0.3, 0.3], [0.35, 0.3]);
+    await expect(cubeWindow(page)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await openSelectionsDock(page);
+    await page.getByTestId("selection-row").first().click();
+    await expect(cubeWindow(page)).toBeVisible();
+    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBe(saved.cx);
+  });
+
+  test("Esc closes the cube, a second Esc exits Inspect", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(page.getByTestId("inspect-pill")).toHaveAttribute("data-state", "armed");
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId("inspect-pill")).toHaveCount(0);
+    await expect(page.getByRole("toolbar", { name: "Drawing tools" })).toBeVisible();
+  });
+
+  test("with no cube open, Esc in a menu or a panel closes only that, not Inspect", async ({ page }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    // The palette menu sits in Adjust: Esc closes the menu, not the panel.
+    await openAdjust(page);
+    await adjustPanel(page).getByRole("button", { name: "Palette" }).click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    await expect(adjustPanel(page)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(adjustPanel(page)).toHaveCount(0);
+    await openCross(page);
+    await expect(crossPanel(page)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(crossPanel(page)).toHaveCount(0);
+    expect(await getModel(page, "mode")).toBe("inspect");
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
+  });
+
+  test("Exit and Esc go back to the tool used before Inspect", async ({ page }) => {
+    const tools = page.getByRole("toolbar", { name: "Drawing tools" });
+    await tools.getByRole("radio", { name: "Move", exact: true }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("move");
+    await openCubeAtCentre(page);
+    await inspectPill(page).getByRole("button", { name: "Exit Inspect" }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("move");
+
+    await tools.getByRole("radio", { name: "Probe", exact: true }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("probe");
+    await openCubeAtCentre(page);
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+    expect(await getModel(page, "mode")).toBe("inspect");
+    await page.keyboard.press("Escape");
+    await expect.poll(() => getModel(page, "mode")).toBe("probe");
+    await expect(tools.getByRole("radio", { name: "Probe", exact: true })).toHaveAttribute("aria-checked", "true");
+  });
+
+  test("the status chip reads Refining while a level loads", async ({ page }) => {
+    // Force a coarse-then-fine load with the harness budgets so the chip is observable.
+    await reloadWith(page, "budgets=2000,20000");
+    await openCubeAtCentre(page);
+    const chip = page.getByTestId("inspect-status");
+    await expect(chip).toHaveAttribute("data-state", /refining|ready/);
+    await expect(chip).toHaveAttribute("data-state", "ready");
+    // Exit, re-enter and reopen: the chip starts over and settles again.
+    await inspectPill(page).getByRole("button", { name: "Exit Inspect" }).click();
+    await expect(chip).toHaveCount(0);
+    await openCubeAtCentre(page);
+    await expect(chip).toHaveAttribute("data-state", /refining|ready/);
+    await expect(chip).toHaveAttribute("data-state", "ready");
+  });
+
+  test("a window outside the volume reads as an error on the chip, not Ready", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const chip = page.getByTestId("inspect-status");
+    await expect(chip).toHaveAttribute("data-state", "ready");
+    // Python moves the window off the toy volume (0..256 µm).
+    await setModel(page, { inspect_cx: 10000, inspect_cy: 10000 });
+    await expect(cubeWindow(page).getByText("Inspect window is outside the volume")).toBeVisible();
+    await expect(chip).toHaveAttribute("data-state", "error");
+    await expect(chip).toHaveText("Outside the volume");
+    // Back inside: the window loads and the chip settles again.
+    await setModel(page, { inspect_cx: 128, inspect_cy: 128 });
+    await expect(chip).toHaveAttribute("data-state", "ready");
+  });
+
+  test("keyboard: the swap keeps focus in the widget, and Esc from focus alone leaves Inspect", async ({ page }) => {
+    // No pointer over the widget anywhere in this test: only focus puts keys "in" it.
+    await page.mouse.move(0, 0);
+    const tools = page.getByRole("toolbar", { name: "Drawing tools" });
+    await tools.getByRole("radio", { name: "Inspect", exact: true }).focus();
+    await page.keyboard.press("Space");
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
+    // Focus moved from the leaving tool pill to the Inspect pill's Exit.
+    await expect.poll(() => focused(page, "inspect-pill")).toEqual({ label: "Exit Inspect", inside: true });
+    // Enter on Exit: back to the tool used before, focused on its radio.
+    await page.keyboard.press("Enter");
+    await expect(inspectPill(page)).toHaveCount(0);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
+    await expect.poll(() => focused(page, "Drawing tools")).toEqual({ label: "Select", inside: true });
+
+    // Again, leaving with Esc (no cube open: one Esc leaves Inspect).
+    await tools.getByRole("radio", { name: "Inspect", exact: true }).focus();
+    await page.keyboard.press("Space");
+    await expect.poll(() => focused(page, "inspect-pill")).toEqual({ label: "Exit Inspect", inside: true });
+    await page.keyboard.press("Escape");
+    await expect(inspectPill(page)).toHaveCount(0);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
+    await expect.poll(() => focused(page, "Drawing tools")).toEqual({ label: "Select", inside: true });
+    // A second Esc stays harmless in the restored tool.
+    await page.keyboard.press("Escape");
+    expect(await getModel(page, "mode")).toBe("select");
   });
 
   test("the Inspect toolbar shows before a window is placed; cut sliders wait for ranges without a crash", async ({
@@ -187,7 +627,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
 
     // Cuts need the dock's bounds: a placeholder, not a slider with no range.
-    await openAdjust(page);
+    await openCross(page);
     const cuts = page.getByTestId("context-cube-cuts");
     await expect(cuts).toContainText("Loading volume");
     await expect(cuts.getByRole("slider")).toHaveCount(0);
@@ -196,16 +636,19 @@ test.describe("Landmarks inspect cube", () => {
     // The Show switches live in the Adjust panel, not on the bar.
     await expect(bar.getByRole("switch")).toHaveCount(0);
 
-    // Camera, projection and palette do not need the cube open.
+    // The camera does not need the cube open (nor do Adjust's projections and palette).
     await bar.getByRole("radio", { name: "Top view" }).click();
     await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "true");
   });
 
   test("a palette change before placing reaches the hover preview, then the dock", async ({ page }) => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-    const bar = page.getByTestId("context-inspect-toolbar");
-    await bar.getByRole("button", { name: "Palette" }).click();
+    // The palette lives in Adjust, which opens before any window is placed.
+    await openAdjust(page);
+    await adjustPanel(page).getByRole("button", { name: "Palette" }).click();
     await page.getByRole("menuitemradio", { name: "viridis" }).click();
+    await page.keyboard.press("Escape");
+    await expect(adjustPanel(page)).toHaveCount(0);
 
     const box = await canvasBox(page);
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5, { steps: 3 });
@@ -244,7 +687,7 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(cubeWindow(page)).toBeVisible();
     expect(await getModel(page, "inspect_size_um")).toBe(300);
-    await expect(cubeWindow(page).getByText("Cube · 300 µm")).toBeVisible();
+    await expect(inspectPill(page).getByText("300 µm", { exact: true })).toBeVisible();
     await page.keyboard.press("Escape");
     expect((await events()).at(-2)).toEqual({ type: "hover-end" });
   });
@@ -266,7 +709,7 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.click(at.x, at.y);
     await expect(cubeWindow(page)).toBeVisible();
     expect(await selectionsOf(page)).toEqual([]);
-    await openAdjust(page);
+    await openCross(page);
     const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
     await zHi.focus();
     for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
@@ -292,14 +735,14 @@ test.describe("Landmarks inspect cube", () => {
       type: "commit",
       index: 0,
     });
-    const strip = cubeWindow(page).getByLabel("Inspect history");
-    await expect(strip.getByRole("button", { name: "Inspect 1" })).toHaveAttribute("aria-pressed", "true");
+    // The new entry's Selections row is the current one.
+    await expect(selectionRow(page, 0)).toHaveAttribute("aria-current", "true");
   });
 
-  test("the dock's Save adds one selection and chip, then reads Saved until the window moves", async ({ page }) => {
+  test("the dock's Save adds one selection and row, then reads Saved until the window moves", async ({ page }) => {
     await reloadWith(page, "window=100");
     const box = await openCubeAtCentre(page);
-    const strip = cubeWindow(page).getByLabel("Inspect history");
+    const rows = page.getByTestId("selection-row");
     // A click only opens the dock.
     expect(await selectionsOf(page)).toEqual([]);
     await expect(saveButton(page)).toBeEnabled();
@@ -308,22 +751,23 @@ test.describe("Landmarks inspect cube", () => {
 
     await saveButton(page).click();
     await expect.poll(async () => (await selectionsOf(page)).length).toBe(1);
-    await expect(strip.getByRole("button")).toHaveCount(1);
+    await expect(rows).toHaveCount(1);
     await expect(saveButton(page)).toHaveText("Saved");
     await expect(saveButton(page)).toBeDisabled();
     await expect(saveButton(page)).toHaveAttribute("data-saved", "true");
 
     // Moving the live window re-enables Save; a second Save adds a second entry.
-    await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.4);
+    await moveWindow(page, box, [0.3, 0.4], [0.3, 0.4]);
     await expect(saveButton(page)).toHaveText("Save");
     await expect(saveButton(page)).toBeEnabled();
     expect(await save(page)).toBe(1);
-    await expect(strip.getByRole("button")).toHaveCount(2);
+    await expect(rows).toHaveCount(2);
 
-    // A chip restores its window, which is saved.
-    await page.mouse.click(box.x + box.width * 0.6, box.y + box.height * 0.6);
+    // A row restores its window, which is saved.
+    await moveWindow(page, box, [0.6, 0.6], [0.6, 0.6]);
     await expect(saveButton(page)).toBeEnabled();
-    await strip.getByRole("button", { name: "Inspect 1" }).click();
+    await openSelectionsDock(page);
+    await selectionRow(page, 0).click();
     await expect(saveButton(page)).toHaveText("Saved");
     expect(await selectionsOf(page)).toHaveLength(2);
   });
@@ -331,7 +775,7 @@ test.describe("Landmarks inspect cube", () => {
   test("Save right after a move stores the new window's cut", async ({ page }) => {
     await reloadWith(page, "window=100");
     const box = await openCubeAtCentre(page);
-    await openAdjust(page);
+    await openCross(page);
     const xHi = page.getByRole("slider", { name: "X cut" }).nth(1);
     await xHi.focus();
     for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
@@ -379,34 +823,42 @@ test.describe("Landmarks inspect cube", () => {
     expect(await save(page)).toBe(0);
     const saved = (await selectionsOf(page))[0];
     // A drag starting inside the saved (focused) square moves only the live window.
-    await dragOnMap(page, box, [0.5, 0.5], [0.56, 0.52]);
+    await moveWindow(page, box, [0.5, 0.5], [0.56, 0.52]);
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(saved.window.cx);
-    await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.4);
+    await moveWindow(page, box, [0.3, 0.4], [0.3, 0.4]);
     await page.waitForTimeout(600); // past the cut's settle commit: nothing may reach the entry
     expect(await selectionsOf(page)).toEqual([saved]);
   });
 
-  test("a release over the dock ends the press; Esc, a lost release or blur end it too", async ({ page }) => {
+  test("a release over the chrome ends the press; Esc, a lost release or blur end it too", async ({ page }) => {
     const box = await openCubeAtCentre(page);
     const cx = () => getModel(page, "inspect_cx").then(Number);
-    const dock = (await cubeWindow(page).boundingBox())!;
-    const overDock = { x: dock.x + dock.width / 2, y: dock.y + 12 }; // its title bar
-    // Released over the dock: the window stays where the drag left it, saved.
+    // The map is covered while the cube is open: close it, then press on the map.
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+    // The top pill (the Inspect pill in Inspect) sits over the map and is always on screen.
+    const pill = (await inspectPill(page).getByText("Inspect", { exact: true }).boundingBox())!;
+    const overChrome = { x: pill.x + pill.width / 2, y: pill.y + pill.height / 2 };
+    // Released over the chrome: the window stays where the drag left it, saved.
     await page.evaluate(() => {
       const model = (window as any).__landmarksModel;
       model.on("change:inspect_cx", () => ((window as any).__savedCx = model.get("inspect_cx")));
     });
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await page.mouse.down();
-    await page.mouse.move(overDock.x, overDock.y, { steps: 6 });
+    await page.mouse.move(overChrome.x, overChrome.y, { steps: 6 });
     await page.mouse.up();
     const released = await cx();
     expect(await page.evaluate(() => (window as any).__savedCx)).toBe(released);
-    await page.mouse.move(overDock.x - 40, overDock.y + 30, { steps: 3 });
+    // The release opens the cube wherever it lands; nothing is saved as a selection.
+    await expect(cubeWindow(page)).toBeVisible();
+    await page.mouse.move(overChrome.x - 40, overChrome.y + 30, { steps: 3 });
     expect(await cx()).toBe(released);
     expect(await selectionsOf(page)).toEqual([]);
 
-    // Esc between press and release: later moves drag nothing.
+    // Esc between press and release: later moves drag nothing, and the cube does not open.
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
     await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.7);
     await page.mouse.down();
     await page.keyboard.press("Escape");
@@ -414,6 +866,13 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.7, { steps: 3 });
     await page.mouse.up();
     expect(await cx()).toBe(escaped);
+    // That Esc only ended the press: still in Inspect.
+    expect(await getModel(page, "mode")).toBe("inspect");
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
+    // An open on release would be async, so this passes at once; the 300 ms-guarded
+    // check at the end of this test covers "no cube" for the lost-release and blur cases.
+    await page.waitForTimeout(300); // a negative check: outlast the render an open would cause
+    await expect(cubeWindow(page)).toHaveCount(0);
 
     // A lost release (a move with no button held), or the page losing focus, ends the press.
     const synthetic = (steps: [string, number, number][]) =>
@@ -445,30 +904,30 @@ test.describe("Landmarks inspect cube", () => {
     const blurred = await cx();
     await synthetic([["mousemove", 0.6, 1]]);
     expect(await cx()).toBe(blurred);
+    // Neither a lost release nor a blur is a release: the cube stays closed.
+    await page.waitForTimeout(300); // a negative check: outlast the render an open would cause
+    await expect(cubeWindow(page)).toHaveCount(0);
   });
 
-  test("drag pans the cube; Esc closes it", async ({ page }) => {
+  test("a drag on the map slides the window; the cube reopens on release at the new window", async ({ page }) => {
     await reloadWith(page, "window=100");
     const box = await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-pan", "0,0");
-    await view.evaluate((el) => {
-      const seen: string[] = [];
-      (window as any).__pans = seen;
-      new MutationObserver(() => seen.push(el.getAttribute("data-pan") ?? "")).observe(el, {
-        attributes: true,
-        attributeFilter: ["data-pan"],
-      });
-    });
     const cx0 = Number(await getModel(page, "inspect_cx"));
-    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
-    await page.mouse.down();
-    await page.mouse.move(box.x + box.width * 0.56, box.y + box.height * 0.5, { steps: 4 });
-    await page.mouse.up();
+    // The map is covered while the cube is open: close it, then drag on the map.
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await dragOnMap(page, box, [0.5, 0.5], [0.56, 0.5]);
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(cx0);
-    // The loaded volume slides under the frame, then the refetch lands at the new window.
+    // Released: the cube reopens, loads the new window, and settles with no residual pan.
+    await expect(cubeWindow(page)).toBeVisible();
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).not.toHaveAttribute("data-level", "-1");
     await expect(view).toHaveAttribute("data-pan", "0,0");
-    expect((await page.evaluate(() => (window as any).__pans)).some((p: string) => p !== "0,0")).toBe(true);
+    const placed = await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay().placed);
+    expect(placed[0]).toBeCloseTo(Number(await getModel(page, "inspect_cx")), 3);
+    expect(placed[0]).toBeGreaterThan(cx0);
 
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
@@ -478,6 +937,9 @@ test.describe("Landmarks inspect cube", () => {
   test("a quick drag saves the final window position on release", async ({ page }) => {
     const box = await openCubeAtCentre(page);
     const cx0 = Number(await getModel(page, "inspect_cx"));
+    // The map is covered while the cube is open: close it so the press lands on the map.
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
     // Record inspect_cx as saved (change events fire on save_changes only).
     await page.evaluate(() => {
       const model = (window as any).__landmarksModel;
@@ -503,9 +965,225 @@ test.describe("Landmarks inspect cube", () => {
     const cx = Number(await getModel(page, "inspect_cx"));
     expect(cx).toBeGreaterThan(cx0);
     expect(await page.evaluate(() => (window as any).__savedCx)).toBe(cx);
+    await expect(cubeWindow(page)).toBeVisible();
+  });
+
+  test("shift-drag in the cube pans the live window; plain drag only orbits", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    const axes = view.getByLabel("Axes");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const cx0 = Number(await getModel(page, "inspect_cx"));
+    const axes0 = await axes.getAttribute("data-axes");
+    // Plain drag: orbit, the window stays.
+    await dragCube(page, view, 60, 0, {});
+    await expect(axes).not.toHaveAttribute("data-axes", axes0!);
+    expect(Number(await getModel(page, "inspect_cx"))).toBe(cx0);
+    // Shift-drag right: the tissue follows the pointer, so the window centre moves left (top-down).
+    await page.getByRole("radio", { name: "Top view" }).click();
+    await expect(axes).toHaveAttribute("data-axes", "0,-90,0");
+    const zoom = await view.getAttribute("data-zoom");
+    const chip = page.getByTestId("inspect-status");
+    await expect(chip).toHaveAttribute("data-state", "ready");
+    await recordStates(page, '[data-testid="inspect-status"]');
+    await dragCube(page, view, 80, 0, { shift: true });
+    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(cx0);
+    // A pan never orbits.
+    await expect(axes).toHaveAttribute("data-axes", "0,-90,0");
+    // The map's square follows.
+    const placed = await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay().placed);
+    expect(placed[0]).toBeCloseTo(Number(await getModel(page, "inspect_cx")), 1);
+    // The cube settles at the new window. The chip read Refining while the moved window was stale.
+    await expect(view).toHaveAttribute("data-pan", "0,0");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(chip).toHaveAttribute("data-state", "ready");
+    expect(await recordedStates(page)).toContain("refining");
+    expect(await view.getAttribute("data-pitch")).toBe("90");
+    expect(await view.getAttribute("data-zoom")).toBe(zoom);
+  });
+
+  test("a pan saves its last move on release, and when Esc closes the cube mid-drag", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await page.getByRole("radio", { name: "Top view" }).click();
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const cx0 = Number(await getModel(page, "inspect_cx"));
+    // Record inspect_cx as saved (change events fire on save_changes only).
+    await page.evaluate(() => {
+      const model = (window as any).__landmarksModel;
+      model.on("change:inspect_cx", () => ((window as any).__savedCx = model.get("inspect_cx")));
+    });
+    // Shift-press, two moves (and a release) in one task: the second move lands inside the 40 ms save throttle.
+    const shiftDrag = (release: boolean) =>
+      shiftPointer(page, [
+        ["pointerdown", 0, 1],
+        ["pointermove", 20, 1],
+        ["pointermove", 40, 1],
+        ...(release ? [["pointerup", 40, 0] as PointerStep] : []),
+      ]);
+
+    const released = await shiftDrag(true);
+    expect(released.live).toBeLessThan(cx0);
+    expect(released.saved).toBe(released.live);
+
+    // Esc between the moves and the release closes the cube: the pan still saves where it got to.
+    const escaped = await shiftDrag(false);
+    expect(escaped.live).toBeLessThan(released.live);
+    expect(escaped.saved).not.toBe(escaped.live);
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).__savedCx)).toBe(escaped.live);
+    expect(Number(await getModel(page, "inspect_cx"))).toBe(escaped.live);
+  });
+
+  test("a pan follows only its own pointer and ends on a move with no button held", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await page.getByRole("radio", { name: "Top view" }).click();
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const pressed = await shiftPointer(page, [
+      ["pointerdown", 0, 1],
+      ["pointermove", 30, 1],
+    ]);
+    // Another pointer's move and release leave the pan alone.
+    const other = await shiftPointer(page, [
+      ["pointermove", 90, 1, 2],
+      ["pointerup", 90, 0, 2],
+    ]);
+    expect(other.live).toBe(pressed.live);
+    await expect(view).toHaveAttribute("data-panning", "true");
+    // A move with no button held is a release lost outside the page: the pan ends, hovering pans nothing.
+    const lost = await shiftPointer(page, [["pointermove", 40, 0]]);
+    await expect(view).toHaveAttribute("data-panning", "false");
+    const hover = await shiftPointer(page, [["pointermove", 120, 1]]);
+    expect(hover.live).toBe(lost.live);
+  });
+
+  test("the Move tool makes a plain drag pan; the distance scales with the drag", async ({ page }) => {
+    test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await page.getByRole("radio", { name: "Top view" }).click();
+    await page.getByRole("button", { name: "Move" }).click();
+    await expect(page.getByRole("button", { name: "Move" })).toHaveAttribute("aria-pressed", "true");
+    await expect(view).toHaveAttribute("data-pan-mode", "true");
+    const cx0 = Number(await getModel(page, "inspect_cx"));
+    const cy0 = Number(await getModel(page, "inspect_cy"));
+    await dragCube(page, view, 40, 0, {});
+    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(cx0);
+    const d1 = cx0 - Number(await getModel(page, "inspect_cx"));
+    await dragCube(page, view, 80, 0, {});
+    const d2 = cx0 - d1 - Number(await getModel(page, "inspect_cx"));
+    expect(d2 / d1).toBeGreaterThan(1.7);
+    expect(d2 / d1).toBeLessThan(2.3);
+    // A horizontal drag leaves y; dragging down moves the window up the map (y decreases).
+    expect(Number(await getModel(page, "inspect_cy"))).toBe(cy0);
+    await dragCube(page, view, 0, 40, {});
+    await expect.poll(async () => Number(await getModel(page, "inspect_cy"))).toBeLessThan(cy0);
+    // Never an orbit while Move is on.
+    await expect(view.getByLabel("Axes")).toHaveAttribute("data-axes", "0,-90,0");
+    // Closing the cube turns Move off.
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Move" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  test("panning clamps the window centre to the volume", async ({ page }) => {
+    test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await page.getByRole("radio", { name: "Top view" }).click();
+    await page.getByRole("button", { name: "Move" }).click();
+    // Drag right until the window would leave the toy volume (0..256 µm, origin 0): it stops at x = 0.
+    for (let i = 0; i < 12; i++) await dragCube(page, view, 250, 0, {});
+    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBe(0);
+    const cy = Number(await getModel(page, "inspect_cy"));
+    expect(cy).toBeGreaterThanOrEqual(0);
+    expect(cy).toBeLessThanOrEqual(256);
+  });
+
+  test("the bottom bar holds the view options; Adjust and Cross-section are separate panels", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const bar = page.getByTestId("context-inspect-toolbar");
+    await expect(bar.getByRole("button", { name: "Move" })).toBeVisible();
+    await expect(bar.getByRole("button", { name: "Reset view" })).toBeVisible();
+    await expect(bar.getByRole("button", { name: "Adjust" })).toBeVisible();
+    await expect(bar.getByRole("button", { name: "Cross-section" })).toBeVisible();
+    // The projection and palette moved into Adjust.
+    await expect(bar.getByLabel("Projection")).toHaveCount(0);
+    await expect(bar.getByRole("button", { name: "Palette" })).toHaveCount(0);
+    await bar.getByRole("button", { name: "Cross-section" }).click();
+    await expect(page.getByTestId("context-cube-cross").getByTestId("context-cube-cuts")).toBeVisible();
+    await expect(page.getByTestId("context-cube-adjust")).toHaveCount(0); // one panel at a time
+  });
+
+  test("Adjust has an Image and a Labels column with independent projections", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await openAdjust(page);
+    const panel = page.getByTestId("context-cube-adjust");
+    await panel.getByTestId("adjust-image").getByRole("radio", { name: "MIP" }).click();
+    await expect(view).toHaveAttribute("data-image-mode", "mip");
+    await expect(view).toHaveAttribute("data-label-mode", "additive");
+    await panel.getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
+    await expect(view).toHaveAttribute("data-label-mode", "mip");
+    await panel.getByTestId("adjust-image").getByRole("radio", { name: "Additive" }).click();
+    await expect(view).toHaveAttribute("data-image-mode", "additive");
+    await expect(view).toHaveAttribute("data-label-mode", "mip");
+    await expect(panel.getByTestId("adjust-image").getByRole("button", { name: "Palette" })).toBeVisible();
+  });
+
+  test("panels stay short enough not to cover the cube", async ({ page }) => {
+    await page.setViewportSize({ width: 900, height: 520 });
+    // The harness widget keeps its 820 px height in a short window: drag its
+    // height handle up so the widget fits the window (the handle caps it at 90%).
+    const handle = page.getByRole("button", { name: "Resize height" });
+    await handle.scrollIntoViewIfNeeded();
+    const h = (await handle.boundingBox())!;
+    await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(h.x + h.width / 2, h.y + h.height / 2 - 400, { steps: 5 });
+    await page.mouse.up();
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect.poll(async () => (await page.locator(".landmarks__body").first().boundingBox())!.height).toBeLessThan(
+      520,
+    );
+    await openCubeAtCentre(page);
+    const widget = (await page.locator(".landmarks__body").first().boundingBox())!;
+    await openAdjust(page);
+    const adjust = (await page.getByTestId("context-cube-adjust").boundingBox())!;
+    expect(adjust.height).toBeLessThanOrEqual(widget.height * 0.5);
+    await page.keyboard.press("Escape");
+    await page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Cross-section" }).click();
+    const cross = (await page.getByTestId("context-cube-cross").boundingBox())!;
+    expect(cross.height).toBeLessThanOrEqual(widget.height * 0.5);
+  });
+
+  test("the projection toggles set the image and label modes", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-image-mode", "additive");
+    await expect(view).toHaveAttribute("data-label-mode", "additive");
+    await openAdjust(page);
+    const image = page.getByLabel("Image projection", { exact: true });
+    const labels = page.getByLabel("Labels projection", { exact: true });
+    await expect(image.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
+    await expect(labels.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
+    await image.getByRole("radio", { name: "MIP" }).click();
+    await labels.getByRole("radio", { name: "MIP" }).click();
+    await expect(view).toHaveAttribute("data-image-mode", "mip");
+    await expect(view).toHaveAttribute("data-label-mode", "mip");
+    await expect(image.getByRole("radio", { name: "MIP" })).toHaveAttribute("aria-checked", "true");
+    await expect(labels.getByRole("radio", { name: "MIP" })).toHaveAttribute("aria-checked", "true");
   });
 
   test("inspect toolbar: presets, MIP, palette, alpha/gamma, committed Z cut", async ({ page }) => {
+    test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
     await openCubeAtCentre(page);
     const bar = page.getByTestId("context-inspect-toolbar");
     const view = cubeWindow(page).locator(".volume-cube__view");
@@ -519,14 +1197,15 @@ test.describe("Landmarks inspect cube", () => {
     // In the dock a preset also frames the window as that preset's home view.
     await expect(view).not.toHaveAttribute("data-zoom", topZoom!);
 
-    await bar.getByRole("radio", { name: "Maximum intensity" }).click();
-    await expect(view).toHaveAttribute("data-render", "mip");
+    await openAdjust(page);
+    const image = page.getByTestId("adjust-image");
+    await image.getByRole("radio", { name: "MIP" }).click();
+    await expect(view).toHaveAttribute("data-image-mode", "mip");
 
-    await bar.getByRole("button", { name: "Palette" }).click();
+    await image.getByRole("button", { name: "Palette" }).click();
     await page.getByRole("menuitemradio", { name: "viridis" }).click();
     await expect(view).toHaveAttribute("data-palette", "viridis");
 
-    await openAdjust(page);
     await expect(view).toHaveAttribute("data-image-gamma", "1");
     const gamma = page.getByRole("slider", { name: "Image gamma" });
     await gamma.focus();
@@ -539,6 +1218,7 @@ test.describe("Landmarks inspect cube", () => {
     // Uniforms only: no labels fetched, same single image channel.
     await expect(view).toHaveAttribute("data-channels", "1");
 
+    await openCross(page);
     const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
     await expect(zHi).toHaveAttribute("aria-valuenow", "64");
     await zHi.focus();
@@ -546,107 +1226,151 @@ test.describe("Landmarks inspect cube", () => {
     await expect.poll(async () => ((await getModel(page, "volume_cut")) as number[])[5]).toBe(54);
   });
 
-  test("one Adjust panel: Image, Labels and Cuts sections, each with a Reset, and Reset all", async ({ page }) => {
+  test("Adjust: Image and Labels sections, each with a Reset, and Reset all; Cross-section has its own Reset", async ({
+    page,
+  }) => {
+    test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
     await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
     await openAdjust(page);
-    const panel = page.getByTestId("context-cube-adjust");
-    await expect(panel.getByRole("heading")).toHaveText(["Image", "Labels", "Cuts"]);
+    const panel = adjustPanel(page);
+    await expect(panel.getByRole("heading")).toHaveText(["Image", "Labels"]);
     // Each of Image and Labels opens with its Show switch: image on, labels off.
     const showImage = panel.getByRole("switch", { name: "Show image" });
     const showLabelsSwitch = panel.getByRole("switch", { name: "Show labels" });
     await expect(panel.getByRole("switch")).toHaveCount(2);
     await expect(showImage).toBeChecked();
     await expect(showLabelsSwitch).not.toBeChecked();
-    const slider = (name: string, n = 0) => panel.getByRole("slider", { name }).nth(n);
+    const slider = (name: string, n = 0) => page.getByRole("slider", { name }).nth(n);
     const nudge = async (name: string, key: string, n = 0, times = 4) => {
       await slider(name, n).focus();
       for (let i = 0; i < times; i++) await page.keyboard.press(key);
     };
-    const values = async () => {
-      const now = async (name: string, n = 0) => Number(await slider(name, n).getAttribute("aria-valuenow"));
-      return {
-        image: [await now("Contrast", 0), await now("Contrast", 1), await now("Image alpha"), await now("Image gamma")],
-        labels: [await now("Label alpha")],
-        cuts: [await now("X cut", 1), await now("Y cut", 0), await now("Z cut", 1)],
-      };
-    };
-    // Defaults: the volume's contrast_limits, alpha 1, gamma 1 (0 on its log2 scale), open cuts.
-    const initial = await values();
+    const now = async (name: string, n = 0) => Number(await slider(name, n).getAttribute("aria-valuenow"));
+    const adjustValues = async () => ({
+      image: [await now("Contrast", 0), await now("Contrast", 1), await now("Image alpha"), await now("Image gamma")],
+      labels: [await now("Label alpha")],
+      // Each layer's projection is reset with its section.
+      modes: [await view.getAttribute("data-image-mode"), await view.getAttribute("data-label-mode")],
+    });
+    const cutValues = async () => [await now("X cut", 1), await now("Y cut", 0), await now("Z cut", 1)];
+    // Defaults: the volume's contrast_limits, image alpha 1, gamma 1 (0 on its log2 scale), label alpha 0.6 (the shells' default), both Additive.
+    const initial = await adjustValues();
     expect(initial.image).toEqual([0, 48, 1, 0]);
-    expect(initial.labels).toEqual([1]);
-    expect(initial.cuts[2]).toBe(64);
-    // All sliders are one width.
-    const widths = await panel.locator(".landmarks-slider-control").evaluateAll((els) =>
-      els.map((el) => Math.round(el.getBoundingClientRect().width)),
-    );
-    expect(new Set(widths).size).toBe(1);
-    expect(widths[0]).toBeGreaterThanOrEqual(150);
-    expect(widths[0]).toBeLessThanOrEqual(170);
+    expect(initial.labels).toEqual([0.6]);
+    expect(initial.modes).toEqual(["additive", "additive"]);
+    // All sliders are one width, in both panels.
+    const widthsOf = (region: Locator) =>
+      region.locator(".landmarks-slider-control").evaluateAll((els) =>
+        els.map((el) => Math.round(el.getBoundingClientRect().width)),
+      );
+    const widths = await widthsOf(panel);
 
-    const changeAll = async () => {
+    const changeAdjust = async () => {
       await nudge("Contrast", "ArrowLeft", 1);
       await nudge("Image alpha", "ArrowLeft");
       await nudge("Image gamma", "ArrowRight");
       await nudge("Label alpha", "ArrowLeft");
-      await nudge("X cut", "ArrowLeft", 1);
-      await nudge("Y cut", "ArrowRight", 0);
-      await nudge("Z cut", "ArrowLeft", 1);
-      const v = await values();
+      await panel.getByTestId("adjust-image").getByRole("radio", { name: "MIP" }).click();
+      await panel.getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
+      const v = await adjustValues();
       expect(v.image).not.toEqual(initial.image);
       expect(v.labels).not.toEqual(initial.labels);
-      expect(v.cuts).not.toEqual(initial.cuts);
-      await expect.poll(async () => (await cutOf(page))[5]).toBe(60);
+      await expect(view).toHaveAttribute("data-image-mode", "mip");
+      await expect(view).toHaveAttribute("data-label-mode", "mip");
     };
 
-    await changeAll();
-    // Resets restore sliders only: the Show switches stay as the user set them.
+    await changeAdjust();
+    // Resets restore sliders and projection only: the Show switches stay as the user set them.
     await showImage.click();
     await showLabelsSwitch.click();
     await panel.getByRole("button", { name: "Reset image" }).click();
-    let v = await values();
+    await expect(view).toHaveAttribute("data-image-mode", "additive");
+    let v = await adjustValues();
     expect(v.image).toEqual(initial.image);
     expect(v.labels).not.toEqual(initial.labels);
+    expect(v.modes).toEqual(["additive", "mip"]);
     await expect(showImage).not.toBeChecked();
     await panel.getByRole("button", { name: "Reset labels" }).click();
-    v = await values();
+    await expect(view).toHaveAttribute("data-label-mode", "additive");
+    v = await adjustValues();
     expect(v.labels).toEqual(initial.labels);
     await expect(showLabelsSwitch).toBeChecked();
-    expect(v.cuts).not.toEqual(initial.cuts);
-    // Reset cuts opens every cut and commits it, like a slider release.
-    await panel.getByRole("button", { name: "Reset cuts" }).click();
-    expect((await values()).cuts).toEqual(initial.cuts);
-    await expect.poll(async () => cutOf(page)).toEqual([0, 256, 0, 256, 0, 64]);
 
-    await changeAll();
+    await changeAdjust();
     await panel.getByRole("button", { name: "Reset all" }).click();
-    expect(await values()).toEqual(initial);
-    await expect.poll(async () => cutOf(page)).toEqual([0, 256, 0, 256, 0, 64]);
+    await expect(view).toHaveAttribute("data-label-mode", "additive");
+    expect(await adjustValues()).toEqual(initial);
     await expect(showImage).not.toBeChecked();
     await expect(showLabelsSwitch).toBeChecked();
-    await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-image", "off");
+    await expect(view).toHaveAttribute("data-image", "off");
+
+    // Cross-section: its sliders and its own Reset, which opens every cut and
+    // commits it, like a slider release.
+    await openCross(page);
+    const cross = crossPanel(page);
+    await expect(panel).toHaveCount(0);
+    await expect(cross.getByRole("heading")).toHaveText(["Cross-section"]);
+    const initialCuts = await cutValues();
+    expect(initialCuts[2]).toBe(64);
+    const crossWidths = await widthsOf(cross);
+    expect(new Set([...widths, ...crossWidths]).size).toBe(1);
+    expect(widths[0]).toBeGreaterThanOrEqual(150);
+    expect(widths[0]).toBeLessThanOrEqual(170);
+    await nudge("X cut", "ArrowLeft", 1);
+    await nudge("Y cut", "ArrowRight", 0);
+    await nudge("Z cut", "ArrowLeft", 1);
+    expect(await cutValues()).not.toEqual(initialCuts);
+    await expect.poll(async () => (await cutOf(page))[5]).toBe(60);
+    await cross.getByRole("button", { name: "Reset cross-section" }).click();
+    expect(await cutValues()).toEqual(initialCuts);
+    await expect.poll(async () => cutOf(page)).toEqual([0, 256, 0, 256, 0, 64]);
+    // Adjust's Reset all leaves the cuts alone: it resets what its panel shows.
+    await nudge("Z cut", "ArrowLeft", 1);
+    await expect.poll(async () => (await cutOf(page))[5]).toBe(60);
+    await openAdjust(page);
+    await panel.getByRole("button", { name: "Reset all" }).click();
+    await page.waitForTimeout(300); // a negative check: no cut write follows
+    expect((await cutOf(page))[5]).toBe(60);
   });
 
-  test("Adjust trigger a11y; Esc closes only the Adjust panel, not the cube", async ({ page }) => {
+  test("panel triggers' a11y; Esc closes only the open panel, not the cube", async ({ page }) => {
     await openCubeAtCentre(page);
-    const trigger = page.getByTestId("context-inspect-toolbar").getByRole("button", { name: "Adjust" });
-    await expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
-    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    const bar = page.getByTestId("context-inspect-toolbar");
+    for (const [name, region] of [
+      ["Adjust", adjustPanel(page)],
+      ["Cross-section", crossPanel(page)],
+    ] as const) {
+      const trigger = bar.getByRole("button", { name, exact: true });
+      await expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
 
-    await trigger.click();
-    await expect(trigger).toHaveAttribute("aria-expanded", "true");
-    const panel = page.getByRole("region", { name: "Adjust" });
-    await expect(panel).toBeVisible();
+      await trigger.click();
+      await expect(trigger).toHaveAttribute("aria-expanded", "true");
+      // The panel is the one region named after its trigger.
+      const named = page.getByRole("region", { name, exact: true });
+      await expect(named).toHaveCount(1);
+      const panel = region.and(named);
+      await expect(panel).toBeVisible();
 
-    await page.keyboard.press("Escape");
-    await expect(panel).toHaveCount(0);
-    await expect(trigger).toHaveAttribute("aria-expanded", "false");
-    await expect(cubeWindow(page)).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(panel).toHaveCount(0);
+      await expect(trigger).toHaveAttribute("aria-expanded", "false");
+      await expect(cubeWindow(page)).toBeVisible();
+    }
+    // One at a time: opening the other panel closes the first.
+    await openAdjust(page);
+    await openCross(page);
+    await expect(adjustPanel(page)).toHaveCount(0);
+    await expect(bar.getByRole("button", { name: "Adjust", exact: true })).toHaveAttribute("aria-expanded", "false");
+    await expect(crossPanel(page)).toBeVisible();
   });
 
   test("partial X and Y cuts keep their place in a moved window; open edges stay open", async ({ page }) => {
+    test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
     await reloadWith(page, "window=100");
     const box = await openCubeAtCentre(page);
-    await openAdjust(page);
+    await openCross(page);
 
     // X: trim the high edge, then move the window right.
     const xHi = page.getByRole("slider", { name: "X cut" }).nth(1);
@@ -658,7 +1382,8 @@ test.describe("Landmarks inspect cube", () => {
     // The untouched low edge is open: written as the volume's edge, not the window's.
     expect(await cutOf(page)).toEqual([0, cx0 + size / 2 - trim, 0, 256, 0, 64].map((v) => expect.closeTo(v, 3)));
 
-    await dragOnMap(page, box, [0.5, 0.5], [0.55, 0.5]);
+    await moveWindow(page, box, [0.5, 0.5], [0.55, 0.5]);
+    await openCross(page); // closed by the Esc that cleared the way to the map
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(cx0);
     const cx1 = Number(await getModel(page, "inspect_cx"));
     await expect.poll(async () => (await cutOf(page))[1]).toBeCloseTo(cx1 + size / 2 - trim, 3);
@@ -676,7 +1401,8 @@ test.describe("Landmarks inspect cube", () => {
     const yTrim = await cutTrim(page, 2, cy0 - size / 2);
     expect((await cutOf(page))[3]).toBe(256);
 
-    await dragOnMap(page, box, [0.5, 0.5], [0.5, 0.44]);
+    await moveWindow(page, box, [0.5, 0.5], [0.5, 0.44]);
+    await openCross(page);
     await expect.poll(async () => Number(await getModel(page, "inspect_cy"))).not.toBeCloseTo(cy0, 1);
     const cy1 = Number(await getModel(page, "inspect_cy"));
     await expect.poll(async () => (await cutOf(page))[2]).toBeCloseTo(cy1 - size / 2 + yTrim, 3);
@@ -686,7 +1412,7 @@ test.describe("Landmarks inspect cube", () => {
   test("Python's inspect and volume_cut writes are followed, never written back", async ({ page }) => {
     await reloadWith(page, "window=100");
     await openCubeAtCentre(page);
-    await openAdjust(page);
+    await openCross(page);
     const x = page.getByRole("slider", { name: "X cut" });
     await x.nth(1).focus();
     for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
@@ -721,7 +1447,7 @@ test.describe("Landmarks inspect cube", () => {
 
   test("a Z-only cut leaves X and Y whole for any window, edge windows too", async ({ page }) => {
     const box = await openCubeAtCentre(page);
-    await openAdjust(page);
+    await openCross(page);
     const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
     await zHi.focus();
     for (let i = 0; i < 10; i++) await page.keyboard.press("ArrowLeft");
@@ -732,7 +1458,8 @@ test.describe("Landmarks inspect cube", () => {
     const zoom0 = await zoom();
     await page.evaluate(() => (window as any).__landmarksEngine.zoomBy(-2, { animate: false }));
     await expect.poll(zoom).toBeLessThan(zoom0);
-    await page.mouse.click(box.x + box.width * 0.25, box.y + box.height * 0.5);
+    await moveWindow(page, box, [0.25, 0.5], [0.25, 0.5]);
+    await openCross(page);
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(50);
     await page.waitForTimeout(600); // past the settle commit
     expect(await cutOf(page)).toEqual([0, 256, 0, 256, 0, 54]);
@@ -750,25 +1477,49 @@ test.describe("Landmarks inspect cube", () => {
     await expect(page.getByRole("slider", { name: "Z cut" }).nth(1)).toHaveAttribute("aria-valuenow", "54");
   });
 
-  test("the cube stays open after switching tool; Esc from its chrome closes it", async ({ page }) => {
+  test("leaving Inspect closes the cube and frees the map; Esc from its chrome closes it", async ({ page }) => {
     const box = await openCubeAtCentre(page);
-    await page.getByRole("radio", { name: "Select", exact: true }).click();
-    await expect(cubeWindow(page)).toBeVisible();
+    // The tool pill is swapped out in Inspect: Exit leaves it.
+    await inspectPill(page).getByRole("button", { name: "Exit Inspect" }).click();
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
     await expect(page.getByTestId("context-inspect-toolbar")).toHaveCount(0);
-    expect((await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay())).placed).not.toBeNull();
-
-    // Esc with focus in the Inspect toolbar.
+    // The map is the top hit again: a click in the new tool reaches the map, not a cube.
+    const centre: [number, number] = [box.x + box.width * 0.5, box.y + box.height * 0.5];
+    const hitsMap = () =>
+      page.evaluate(([x, y]) => Boolean(document.elementFromPoint(x, y)?.closest(".landmarks__plot-host")), centre);
+    expect(await hitsMap()).toBe(true);
+    // Back in Inspect the cube stays closed until the next click.
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    await expect(cubeWindow(page)).toHaveCount(0);
+    expect(await hitsMap()).toBe(true);
+
+    // Esc with focus in the Inspect toolbar: closes the cube; a second one there exits Inspect.
+    await page.mouse.click(...centre);
+    await expect(cubeWindow(page)).toBeVisible();
     await page.getByTestId("context-inspect-toolbar").getByRole("radio", { name: "Top view" }).click();
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
+    await page.keyboard.press("Escape");
+    await expect(inspectPill(page)).toHaveCount(0);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
 
     // Esc after clicking into the cube window.
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(cubeWindow(page)).toBeVisible();
-    await cubeWindow(page).getByText(/Cube · [\d.]+ µm/).click();
+    await cubeWindow(page).locator(".volume-cube__view").click({ position: { x: 12, y: 12 } });
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
+
+    // Leaving Inspect any other way (here Python sets the tool) closes the cube too.
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await expect(cubeWindow(page)).toBeVisible();
+    await setModel(page, { mode: "select" });
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(inspectPill(page)).toHaveCount(0);
   });
 
   test("Inspect hides both side panels; leaving restores them as they were", async ({ page }) => {
@@ -784,7 +1535,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(page.getByRole("button", { name: "Show left panel" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Show right panel" })).toBeVisible();
 
-    await page.getByRole("radio", { name: "Select", exact: true }).click();
+    await inspectPill(page).getByRole("button", { name: "Exit Inspect" }).click();
     await expect(left).toHaveAttribute("data-collapsed", "false");
     await expect(right).toHaveAttribute("data-collapsed", "false");
 
@@ -796,10 +1547,47 @@ test.describe("Landmarks inspect cube", () => {
     await expect(left).toHaveAttribute("data-collapsed", "true");
     await page.getByRole("button", { name: "Show left panel" }).click();
     await expect(left).toHaveAttribute("data-collapsed", "false");
+    // With no cube open, Esc leaves Inspect (here with focus on the peek tab).
+    await page.keyboard.press("Escape");
+    await expect(inspectPill(page)).toHaveCount(0);
     await page.getByRole("radio", { name: "Move", exact: true }).click();
     await expect.poll(() => getModel(page, "mode")).toBe("move");
     await expect(left).toHaveAttribute("data-collapsed", "false");
     await expect(right).toHaveAttribute("data-collapsed", "true");
+  });
+
+  test("peek tabs and docks float over the open cube; focusing a category there recolours it", async ({ page }) => {
+    await openCubeAtCentre(page, { at: [130, 170] });
+    await toggleShow(page, "Show labels");
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-highlight", "2");
+    const right = page.locator(".landmarks__chrome-dock--right");
+    await expect(right).toHaveAttribute("data-collapsed", "true");
+    // Both peek tabs sit over the cube, clear of the Inspect pill's Save and Exit
+    // (a click is refused when another element would receive it).
+    const actions = [
+      inspectPill(page).getByRole("button", { name: "Save window" }),
+      inspectPill(page).getByRole("button", { name: "Exit Inspect" }),
+    ];
+    for (const a of actions) await a.click({ trial: true, timeout: 5_000 });
+    await page.getByRole("button", { name: "Show left panel" }).click({ trial: true, timeout: 5_000 });
+    await page.getByRole("button", { name: "Show right panel" }).click();
+    await expect(right).toHaveAttribute("data-collapsed", "false");
+    await expect(cubeWindow(page)).toBeVisible();
+    // The expanded dock is the top hit over the cube, and the pill's actions stay reachable.
+    const b = (await right.boundingBox())!;
+    const onTop = await page.evaluate(
+      ([x, y]) => Boolean(document.elementFromPoint(x, y)?.closest(".landmarks__chrome-dock--right")),
+      [b.x + b.width / 2, b.y + Math.min(b.height / 2, 40)],
+    );
+    expect(onTop).toBe(true);
+    for (const a of actions) await a.click({ trial: true, timeout: 5_000 });
+
+    // Focus a category in the dock: the cube highlights only its cells (type1: cells 1 and 3).
+    await right.getByRole("button", { name: "Expand cell_type" }).click();
+    await right.getByRole("listitem").filter({ hasText: "type1" }).click();
+    await expect.poll(() => getModel(page, "selected_kind")).toBe("type");
+    await expect(view).toHaveAttribute("data-highlight", "1");
   });
 
   test("highlight follows focus: everything, a category, a Selection", async ({ page }) => {
@@ -830,7 +1618,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-highlight", "2");
   });
 
-  test("with Labels on each toy cell renders in its category colour in the dock", async ({ page }) => {
+  test("with Labels on each toy cell renders in its category colour in the dock", { tag: "@isolated" }, async ({ page }) => {
     // Record the width of every R8 (image) and RG8 (labels) 3D texture allocated.
     await page.addInitScript(() => {
       const widths = { r8: [] as number[], rg8: [] as number[] };
@@ -853,10 +1641,10 @@ test.describe("Landmarks inspect cube", () => {
     // wide (R8 image rows of 101 bytes and RG8 label rows of 202, not 4-byte
     // aligned, like A2's 667).
     await setModel(page, { inspect_cx: 130.5, inspect_cy: 170.5 });
-    // Maximum intensity puts cells in front of the image, so deep cells show too.
-    const bar = page.getByTestId("context-inspect-toolbar");
-    await bar.getByRole("radio", { name: "Maximum intensity" }).click();
-    await expect(view).toHaveAttribute("data-render", "mip");
+    // Labels composite over the image in every projection, so the default
+    // (Additive) shows deep cells too.
+    await expect(view).toHaveAttribute("data-image-mode", "additive");
+    await expect(view).toHaveAttribute("data-label-mode", "additive");
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-pan", "0,0");
     // The image at one byte per voxel.
@@ -878,22 +1666,93 @@ test.describe("Landmarks inspect cube", () => {
     expect(on.type0.y).toBeLessThan(on.type1.y - 20);
   });
 
-  test("the dock shows the coarse level first, then refines", async ({ page }) => {
+  test("each toy cell keeps its category colour with Image MIP, under Labels Additive and Labels MIP", async ({ page }) => {
+    // The window and cells of the test above: cell 2 (type0) right of and above cell 3 (type1).
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page, { at: [130, 170] });
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await setModel(page, { inspect_cx: 130.5, inspect_cy: 170.5 });
+    await openAdjust(page);
+    await adjustPanel(page).getByTestId("adjust-image").getByRole("radio", { name: "MIP" }).click();
+    await page.keyboard.press("Escape");
+    await expect(adjustPanel(page)).toHaveCount(0);
+    await expect(view).toHaveAttribute("data-image-mode", "mip");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-pan", "0,0");
+    const off = await view.screenshot();
+
+    // Image MIP + Labels Additive (the hover preview's look): as saturated as Additive/Additive.
+    await toggleShow(page, "Show labels");
+    await expect(view).toHaveAttribute("data-label-mode", "additive");
+    await expect(view).toHaveAttribute("data-label-cells", "2");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const additive = await view.screenshot();
+    const add = await newCategoryPixels(page, off, additive);
+    // Measured (macOS Metal): type1 12923 px, type0 52450 px at the 0.4 cutoff.
+    expect(add.type1.count).toBeGreaterThan(200);
+    expect(add.type0.count).toBeGreaterThan(200);
+    expect(add.type0.x).toBeGreaterThan(add.type1.x + 20);
+    expect(add.type0.y).toBeLessThan(add.type1.y - 20);
+
+    // Image MIP + Labels MIP: the strongest shell per pixel, one shell at 0.9 x 0.6
+    // = 0.54 alpha over the white image MIP, is pale. Measured category pixels
+    // (type1 / type0) by saturation cutoff: 0.4: 0 / 0; 0.3: 0 / 62786;
+    // 0.2: 98 / 62786; 0.15: 31584 / 62786 (as at 0.1). So the blue cells sit at
+    // saturation 0.15-0.2 and the orange at 0.3-0.4; 0.12 keeps a margin below
+    // both (the grey image is near 0).
+    await openAdjust(page);
+    await adjustPanel(page).getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
+    await page.keyboard.press("Escape");
+    await expect(adjustPanel(page)).toHaveCount(0);
+    await expect(view).toHaveAttribute("data-label-mode", "mip");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const mip = await newCategoryPixels(page, off, await view.screenshot(), 0.12);
+    expect(mip.type1.count).toBeGreaterThan(200);
+    expect(mip.type0.count).toBeGreaterThan(200);
+    expect(mip.type0.x).toBeGreaterThan(mip.type1.x + 20);
+    expect(mip.type0.y).toBeLessThan(mip.type1.y - 20);
+  });
+
+  test("labels draw as shells: a cell's rim is coloured, its core is not", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    // The image off, so only the cells draw; a 2 µm slab through the cells' middle
+    // (viewed from the top) shows each cell's cross-section: its rim, and its
+    // interior when it is filled.
+    await toggleShow(page, "Show image");
+    await toggleShow(page, "Show labels");
+    await expect(view).toHaveAttribute("data-labels", "on");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await setModel(page, { volume_cut: [0, 256, 0, 256, 31, 33] });
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const { rim, core } = await ringVsCore(page, await view.screenshot());
+    expect(rim).toBeGreaterThan(0);
+    // Measured core/rim: old filled cells, rim 8790 / core 2912 = 0.33; shells, rim 2649 /
+    // core 236 = 0.09 (the slab clips the pole of the smallest cell, a small solid cap).
+    // 0.25 sits between the two.
+    expect(core).toBeLessThan(rim * 0.25);
+  });
+
+  test("the dock shows the coarse level first, then refines", { tag: "@isolated" }, async ({ page }) => {
+    // Record every `data-level` a cube view is given, on the element itself, from
+    // its first render: an observer attached after the cube opens can miss the
+    // coarse level when the refine is fast (as under parallel load).
+    await page.addInitScript(() => {
+      const setAttribute = Element.prototype.setAttribute;
+      Element.prototype.setAttribute = function (this: Element, name: string, value: string) {
+        if (name === "data-level" && this.classList.contains("volume-cube__view")) {
+          ((this as any).__levels ??= []).push(String(value));
+        }
+        return setAttribute.call(this, name, value);
+      };
+    });
     // Small budgets make the toy pyramid pick different levels (see main.tsx ?budgets).
     await reloadWith(page, "budgets=20000,300000&window=100");
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
-    const levels: string[] = [];
-    await view.evaluate((el) => {
-      const seen: string[] = [];
-      (window as any).__levels = seen;
-      new MutationObserver(() => seen.push(el.getAttribute("data-level") ?? "")).observe(el, {
-        attributes: true,
-        attributeFilter: ["data-level"],
-      });
-    });
     await expect(view).toHaveAttribute("data-refining", "false");
-    levels.push(...(await page.evaluate(() => (window as any).__levels as string[])));
+    const levels = await view.evaluate((el) => ((el as any).__levels ?? []) as string[]);
     const shown = levels.filter((l) => l !== "-1").map(Number);
     expect(shown.length).toBeGreaterThanOrEqual(2);
     expect(shown[0]).toBeGreaterThan(shown[shown.length - 1]!);
@@ -913,7 +1772,8 @@ test.describe("Landmarks inspect cube", () => {
     const box = await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
-    await cubeWindow(page).getByRole("button", { name: "Close cube" }).click();
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
     const chunkRequests: string[] = [];
     page.on("request", (r) => {
       if (/\/s\d+\/c\//.test(r.url())) chunkRequests.push(r.url());
@@ -923,10 +1783,10 @@ test.describe("Landmarks inspect cube", () => {
     expect(chunkRequests).toEqual([]);
   });
 
-  test("history chips restore each saved window and cut; a saved entry keeps its cut", async ({ page }) => {
+  test("Selections rows restore each saved window and cut; a saved entry keeps its cut", async ({ page }) => {
     const box = await openCubeAtCentre(page);
     const cx = () => getModel(page, "inspect_cx").then(Number);
-    await openAdjust(page);
+    await openCross(page);
     const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
     const nudge = async (key: string) => {
       await zHi.focus();
@@ -939,7 +1799,8 @@ test.describe("Landmarks inspect cube", () => {
     expect(first.window.cut[5]).toBe(54);
 
     // Elsewhere, with entry 1 still focused: a new cut stays out of entry 1.
-    await page.mouse.click(box.x + box.width * 0.2, box.y + box.height * 0.25);
+    await moveWindow(page, box, [0.2, 0.25], [0.2, 0.25]);
+    await openCross(page);
     await expect.poll(cx).not.toBeCloseTo(first.window.cx, 1);
     await nudge("ArrowRight");
     await expect.poll(async () => (await cutOf(page))[5]).toBe(64);
@@ -948,44 +1809,62 @@ test.describe("Landmarks inspect cube", () => {
     expect(await save(page)).toBe(1);
     const second = (await selectionsOf(page))[1];
 
-    const strip = cubeWindow(page).getByLabel("Inspect history");
-    await expect(strip.getByRole("button")).toHaveCount(2);
-    await expect(strip.getByRole("button", { name: "Inspect 2" })).toHaveAttribute("aria-pressed", "true");
-    await strip.getByRole("button", { name: "Inspect 1" }).click();
+    await expect(page.getByTestId("selection-row")).toHaveCount(2);
+    await expect(selectionRow(page, 1)).toHaveAttribute("aria-current", "true");
+    await openSelectionsDock(page);
+    await selectionRow(page, 0).click();
     await expect.poll(cx).toBeCloseTo(first.window.cx, 3);
     await expect.poll(async () => (await cutOf(page))[5]).toBe(54);
-    await strip.getByRole("button", { name: "Inspect 2" }).click();
+    await selectionRow(page, 1).click();
     await expect.poll(cx).toBeCloseTo(second.window.cx, 3);
     await expect.poll(async () => (await cutOf(page))[5]).toBe(64);
 
-    // A press moves the live window off the focused entry; its chip brings it back.
-    await page.mouse.click(box.x + box.width * 0.7, box.y + box.height * 0.6);
+    // A press moves the live window off the focused entry; its row brings it back.
+    await moveWindow(page, box, [0.7, 0.6], [0.7, 0.6]);
     await expect.poll(cx).not.toBeCloseTo(second.window.cx, 1);
-    await strip.getByRole("button", { name: "Inspect 2" }).click();
+    await selectionRow(page, 1).click();
     await expect.poll(cx).toBeCloseTo(second.window.cx, 3);
     // Saved entries are snapshots: nothing above changed them.
     expect(await selectionsOf(page)).toEqual([first, second]);
   });
 
-  test("deleting an inspect selection removes its chip; the last one closes the dock", async ({ page }) => {
+  test("deleting an inspect selection removes its row; the last one closes the dock", async ({ page }) => {
     await openCubeAtCentre(page);
     expect(await save(page)).toBe(0);
-    const strip = cubeWindow(page).getByLabel("Inspect history");
-    await expect(strip.getByRole("button")).toHaveCount(1);
-    // Once refined, the chip carries a snapshot of the cube.
-    await expect(strip.getByRole("button", { name: "Inspect 1" }).locator("img")).toHaveCount(1);
+    await openSelectionsDock(page);
+    const rows = page.getByTestId("selection-row");
+    await expect(rows).toHaveCount(1);
+    // Once refined, the row carries a snapshot of the cube.
+    await expect(selectionRow(page, 0).getByTestId("selection-thumb")).toBeVisible();
     await setModel(page, { selections: [], selected_kind: "", selected_index: -1 });
+    await expect(rows).toHaveCount(0);
     await expect(cubeWindow(page)).toHaveCount(0);
   });
 
-  test("a chip's snapshot follows its entry: a reused id re-snapshots", async ({ page }) => {
+  test("a row gets its thumbnail when Save lands after the cube has settled", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-pan", "0,0");
+    await page.waitForTimeout(1500); // settle: past the cube's last frame, so Save cannot ride on one
+    expect(await save(page)).toBe(0);
+    await openSelectionsDock(page);
+    await expect(selectionRow(page, 0).getByTestId("selection-thumb")).toBeVisible();
+  });
+
+  test("a row's snapshot follows its entry: a reused id re-snapshots", async ({ page }) => {
     // A 100 µm window, so two places show different parts of the toy volume.
     await reloadWith(page, "window=100");
+    // No active categorical, so a new entry is "inspect 1" whatever it holds (named by
+    // category, two different windows would not share an id).
+    await setModel(page, { active_category: "" });
     const box = await openCubeAtCentre(page);
     expect(await save(page)).toBe(0);
-    const chip = cubeWindow(page).getByLabel("Inspect history").getByRole("button", { name: "Inspect 1" });
-    const src = () => chip.locator("img").getAttribute("src");
-    await expect(chip.locator("img")).toHaveCount(1);
+    expect((await selectionsOf(page))[0].id).toBe("inspect 1");
+    // The row's thumbnail (rows stay in the DOM while Inspect collapses the dock).
+    const thumb = selectionRow(page, 0).getByTestId("selection-thumb");
+    const src = () => thumb.getAttribute("src");
+    await expect(thumb).toHaveCount(1);
     await page.waitForTimeout(1200); // past the snapshot's settle replacement (SNAPSHOT_SETTLE_MS)
     const before = await src();
     const id = (await selectionsOf(page))[0].id;
@@ -997,7 +1876,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toBeVisible();
     expect(await save(page)).toBe(0);
     expect((await selectionsOf(page))[0].id).toBe(id);
-    await expect(chip.locator("img")).toHaveCount(1);
+    await expect(thumb).toHaveCount(1);
     await expect.poll(src).not.toBe(before);
   });
 
@@ -1038,7 +1917,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(preview(page)).toBeHidden();
   });
 
-  test("the preview float sits beside the hover square, inside the widget, above the dock", async ({ page }) => {
+  test("the preview float sits beside the hover square, inside the widget, under the tools", async ({ page }) => {
     await reloadWith(page, "window=100");
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     await page.evaluate(() => {
@@ -1076,19 +1955,21 @@ test.describe("Landmarks inspect cube", () => {
     const flipped = (await float.boundingBox())!;
     expect(flipped.x + flipped.width).toBeLessThanOrEqual(right - half);
 
-    // With the dock open the float stacks above it (same layer, later in the DOM) and under the tools.
-    await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.5);
-    await expect(cubeWindow(page)).toBeVisible();
+    // The float sits under the tools (which stay above the map and the cube).
     const stack = await page.evaluate(() => {
       const z = (el: Element) => Number(getComputedStyle(el).zIndex);
-      const dock = document.querySelector(".landmarks__cube-window")!;
       const f = document.querySelector('[data-testid="inspect-preview"]')!;
       const tools = document.querySelector(".landmarks__chrome-tools")!;
-      const after = Boolean(dock.compareDocumentPosition(f) & Node.DOCUMENT_POSITION_FOLLOWING);
-      return { dock: z(dock), float: z(f), tools: z(tools), after };
+      return { float: z(f), tools: z(tools), pill: Boolean(tools.querySelector('[data-testid="inspect-pill"]')) };
     });
-    expect(stack.float > stack.dock || (stack.float === stack.dock && stack.after)).toBe(true);
+    // In Inspect the top pill is the Inspect pill, in the tools' slot.
+    expect(stack.pill).toBe(true);
     expect(stack.float).toBeLessThan(stack.tools);
+
+    // Opening the cube takes the float away: the cube is what is shown then.
+    await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.5);
+    await expect(cubeWindow(page)).toBeVisible();
+    await expect(float).toBeHidden();
   });
 
   /** Hover at each canvas fraction: the preview float stays inside the widget and off the cursor. */
@@ -1161,7 +2042,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(styles.view).toBe("rgba(0, 0, 0, 0)");
   });
 
-  test("the dock and the preview open top-down; an axis legend turns with the camera", async ({ page }) => {
+  test("the cube and the preview open top-down; an axis legend turns with the camera", async ({ page }) => {
     await openCubeAtCentre(page);
     const bar = page.getByTestId("context-inspect-toolbar");
     await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "true");
@@ -1189,7 +2070,9 @@ test.describe("Landmarks inspect cube", () => {
     await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "true");
     await expect(legend).toHaveAttribute("data-axes", top!);
 
-    // The hover preview is top-down too, with its own legend.
+    // The hover preview is top-down too, with its own legend (it hides while the cube is open).
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
     const box = await canvasBox(page);
     await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5, { steps: 3 });
     const previewLegend = preview(page).locator(".volume-cube__view").getByLabel("Axes");
@@ -1233,7 +2116,8 @@ test.describe("Landmarks inspect cube", () => {
     await expect(bar.getByRole("radio", { name: "Oblique view" })).toHaveAttribute("aria-checked", "true");
 
     // Reopened, the dock opens in the toolbar's preset (still Oblique).
-    await cubeWindow(page).getByRole("button", { name: "Close cube" }).click();
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-pitch", "35");
@@ -1277,7 +2161,9 @@ test.describe("Landmarks inspect cube", () => {
     const cells = await newCategoryPixels(page, empty, await dock.screenshot());
     expect(cells.type1.count + cells.type0.count).toBeGreaterThan(200);
 
-    // The hover preview follows the same switches.
+    // The hover preview follows the same switches (it shows with the cube closed).
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
     const box = await canvasBox(page);
     await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5, { steps: 3 });
     const pv = preview(page).locator(".volume-cube__view");
@@ -1287,8 +2173,10 @@ test.describe("Landmarks inspect cube", () => {
 
     // Back on: both views show the image again.
     await toggleShow(page, "Show image");
-    await expect(dock).toHaveAttribute("data-image", "on");
     await expect(pv).toHaveAttribute("data-image", "on");
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await expect(cubeWindow(page)).toBeVisible();
+    await expect(dock).toHaveAttribute("data-image", "on");
   });
 
   test("landmarks crossing the window are drawn in the cube; ones outside are not", async ({ page }) => {
@@ -1316,11 +2204,13 @@ test.describe("Landmarks inspect cube", () => {
     await setModel(page, { landmarks: [line("hidden", [[20, 128], [240, 140]], { hidden: true })] });
     await expect(view).toHaveAttribute("data-overlays", "0");
 
-    // The hover preview draws them too.
+    // The hover preview draws them too (it shows with the cube closed).
     await setModel(page, {
       landmarks: [line("across", [[20, 128], [240, 140]]), { id: "p", type: "point", vertices: [[128, 100]] }],
     });
     await expect(view).toHaveAttribute("data-overlays", "2");
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
     const box = await canvasBox(page);
     await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5, { steps: 3 });
     await expect(preview(page)).toBeVisible();
@@ -1361,7 +2251,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).not.toHaveAttribute("data-level", "-1");
     await view.evaluate((el) => ((el as any).__kept = true));
 
-    await page.getByRole("radio", { name: "Select", exact: true }).click();
+    await inspectPill(page).getByRole("button", { name: "Exit Inspect" }).click();
     await expect(preview(page)).toBeHidden();
     await expect(view).toHaveCount(1);
 

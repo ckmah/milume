@@ -68,7 +68,7 @@ An inspect selection is an ordinary entry in the `selections` trait:
 
 ```python
 {
-    "id": "...",                  # nextSelectionId
+    "id": "...",                  # selectionName: "<top category> · <count>", else "inspect <n>"
     "type": "inspect",
     "point_indices": [...],       # points inside the square, every depth
     "window": {

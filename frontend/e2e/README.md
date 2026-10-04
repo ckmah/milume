@@ -78,6 +78,25 @@ Hooks:
 
 - Landmarks: `window.__landmarksEngine` / `__landmarksModel`
 
+### One page per worker
+
+Specs import `test` from `e2e/fixtures.ts`, not from `@playwright/test`. Each
+worker boots the harness once and keeps the page; later tests call the boot
+helper, which remounts the widget in place through `window.__harnessReset`
+(fresh model, fresh engine). Between tests the fixture releases the mouse and
+modifier keys, drops routes and page listeners, restores the viewport and
+reloads plain `/` if a test used `?window=` / `?budgets=`. The HTTP cache stays
+disabled, so progressive loads still show their coarse level.
+
+- 4 workers locally (2 on CI, `E2E_WORKERS` overrides). On macOS outside CI
+  Chromium runs on the Metal GPU (`E2E_GPU=0` falls back to SwiftShader, which
+  Linux CI always uses). Both Landmarks tiers take about 50–70 s locally.
+- Tag a test `{ tag: "@isolated" }` when it needs a fresh page: anything using
+  `page.addInitScript`, or state a remount cannot undo.
+- No state may leak between tests: module-level state in the widget or the
+  harness has to be reset in `__harnessReset` (`dev/HarnessShell.tsx`,
+  `dev/landmarks-volume/main.tsx`), and a test must not rely on running first.
+
 ## CI artifacts
 
 Per-tier HTML report + test-results (failure screenshots / traces / videos).

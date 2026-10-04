@@ -50,8 +50,6 @@ export function Topbar({
   const geometryModes = GEOMETRY_MODE_IDS.filter((m) => modes.includes(m));
   const interactionValue = interactionFromMode(mode);
 
-  const fullscreenLabel = fullscreen ? "Exit full screen" : "Full screen";
-
   return (
     <TooltipProvider delayDuration={80} skipDelayDuration={0}>
       <div
@@ -90,70 +88,91 @@ export function Topbar({
           />
         ) : null}
         <ToolbarDivider />
-        <ChromeTooltip label="Zoom in" shortcut="=">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className={chromeHitClass}
-            aria-label="Zoom in"
-            onClick={(e) => {
-              e.stopPropagation();
-              onZoomIn();
-            }}
-          >
-            <PlusIcon className="size-4" />
-          </Button>
-        </ChromeTooltip>
-        <ChromeTooltip label="Zoom out" shortcut="-">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className={chromeHitClass}
-            aria-label="Zoom out"
-            onClick={(e) => {
-              e.stopPropagation();
-              onZoomOut();
-            }}
-          >
-            <MinusIcon className="size-4" />
-          </Button>
-        </ChromeTooltip>
-        <ChromeTooltip label="Reset view" shortcut="0">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className={chromeHitClass}
-            aria-label="Reset view"
-            onClick={(e) => {
-              e.stopPropagation();
-              onReset();
-            }}
-          >
-            <Maximize2Icon className="size-4" />
-          </Button>
-        </ChromeTooltip>
+        <ZoomControls onZoomIn={onZoomIn} onZoomOut={onZoomOut} onReset={onReset} />
         <ToolbarDivider />
-        <ChromeTooltip label={fullscreenLabel} shortcut="F">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className={chromeHitClass}
-            aria-label={fullscreenLabel}
-            aria-pressed={fullscreen}
-            onClick={onToggleFullscreen}
-          >
-            {fullscreen ? (
-              <MinimizeIcon className="size-4" />
-            ) : (
-              <MaximizeIcon className="size-4" />
-            )}
-          </Button>
-        </ChromeTooltip>
+        <FullscreenButton fullscreen={fullscreen} onToggle={onToggleFullscreen} />
       </div>
     </TooltipProvider>
+  );
+}
+
+/** Zoom in, Zoom out and Reset view (the map's camera), with their shortcuts. */
+export function ZoomControls({
+  onZoomIn,
+  onZoomOut,
+  onReset,
+}: {
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <>
+      <ChromeTooltip label="Zoom in" shortcut="=">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className={chromeHitClass}
+          aria-label="Zoom in"
+          onClick={(e) => {
+            e.stopPropagation();
+            onZoomIn();
+          }}
+        >
+          <PlusIcon className="size-4" />
+        </Button>
+      </ChromeTooltip>
+      <ChromeTooltip label="Zoom out" shortcut="-">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className={chromeHitClass}
+          aria-label="Zoom out"
+          onClick={(e) => {
+            e.stopPropagation();
+            onZoomOut();
+          }}
+        >
+          <MinusIcon className="size-4" />
+        </Button>
+      </ChromeTooltip>
+      <ChromeTooltip label="Reset view" shortcut="0">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          className={chromeHitClass}
+          aria-label="Reset view"
+          onClick={(e) => {
+            e.stopPropagation();
+            onReset();
+          }}
+        >
+          <Maximize2Icon className="size-4" />
+        </Button>
+      </ChromeTooltip>
+    </>
+  );
+}
+
+/** The widget's full-screen toggle. */
+export function FullscreenButton({ fullscreen, onToggle }: { fullscreen: boolean; onToggle: () => void }) {
+  const label = fullscreen ? "Exit full screen" : "Full screen";
+  return (
+    <ChromeTooltip label={label} shortcut="F">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className={chromeHitClass}
+        aria-label={label}
+        aria-pressed={fullscreen}
+        onClick={onToggle}
+      >
+        {fullscreen ? <MinimizeIcon className="size-4" /> : <MaximizeIcon className="size-4" />}
+      </Button>
+    </ChromeTooltip>
   );
 }

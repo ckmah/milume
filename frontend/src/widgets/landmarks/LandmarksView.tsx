@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import { Rise } from "cube-motion/react";
 
 import { useNotebookTheme } from "@/hooks/use-notebook-theme";
 import { cn } from "@/lib/utils";
@@ -14,18 +15,19 @@ import {
   MinimapPanel,
   SelectionToolbar,
   Topbar,
+  InspectPill,
   LandmarkCanvasMenu,
   ViewCta,
   RightChromeStack,
   CanvasRulers,
-  CubeWindow,
+  CubeImmersive,
   InspectPreview,
   InspectToolbar,
   InspectNoVolumePill,
   PanelCollapseButton,
   PanelPeekTab,
 } from "./chrome";
-import type { ChipSnapshot } from "./chrome/cube-window";
+import type { ChipSnapshot } from "./chrome/cube-snapshots";
 import { FLOAT_PANEL } from "./chrome/sections";
 import { cubeHighlightGroups } from "./cube-highlight";
 import { INSPECT_WINDOW_UM, mountEngine, type EngineHandle } from "./engine";
@@ -36,7 +38,7 @@ import {
   type AnyModel,
 } from "./helpers";
 import { wrapLandmarksModel } from "./model";
-import { useInspectCube } from "./use-inspect-cube";
+import { isWindowSaved, useInspectCube } from "./use-inspect-cube";
 import { useLandmarksModel } from "./use-landmarks-model";
 import { useWidgetFullscreen } from "./use-widget-fullscreen";
 
@@ -85,8 +87,11 @@ export function LandmarksView({
   const inspectCube = useInspectCube(facade, lm, engine);
   // One decoded-chunk cache per widget, kept across cube opens.
   const chunkCache = useMemo(() => new ChunkCache(), []);
-  // Inspect history chip snapshots by selection id, kept across cube opens (never synced).
+  // Inspect entry thumbnails by selection id, kept across cube opens (never
+  // synced). The cube adds them; the Selections panel shows them. The Map is
+  // mutable, so the cube bumps `snapshotVersion` when it adds one.
   const snapshots = useMemo(() => new Map<string, ChipSnapshot>(), []);
+  const [snapshotVersion, bumpSnapshotVersion] = useReducer((n: number) => n + 1, 0);
   // Drop snapshots of deleted selections (ids are reused).
   useEffect(() => {
     const ids = new Set(lm.selections.map((s) => String(s.id)));
@@ -150,6 +155,8 @@ export function LandmarksView({
     lm.inspect_size_um,
   ]);
   const inspecting = lm.mode === "inspect";
+  // The immersive cube shows only in Inspect (leaving Inspect also closes it).
+  const cubeOpen = hasVolume && cube.open && inspecting;
 
   // The user's landmarks, drawn in the cube views for context.
   const [landmarkGeometry, setLandmarkGeometry] = useState<CubeOverlay[] | null>(null);
@@ -173,6 +180,40 @@ export function LandmarksView({
     } else if (preInspectRef.current) {
       setCollapsed(preInspectRef.current);
       preInspectRef.current = null;
+    }
+  }, [inspecting]);
+
+  // The top slot swaps the tool pill and the Inspect pill (`<Rise>` each).
+  const toolPillRef = useRef<HTMLDivElement>(null);
+  const inspectPillRef = useRef<HTMLDivElement>(null);
+  // The tool pill shows from the start: no entrance on the widget's first
+  // render (Rise starts it in its effect, before the first frame we finish it).
+  useEffect(() => {
+    for (const a of toolPillRef.current?.getAnimations() ?? []) a.finish();
+  }, []);
+  // When the swap takes the focused control away (the leaving pill goes
+  // inert), focus moves into the incoming pill: Exit Inspect on entry, the
+  // restored tool's radio on exit. Runs before the browser blurs the inert
+  // control, so a keyboard user keeps focus inside the widget.
+  const wasInspectingRef = useRef(inspecting);
+  useLayoutEffect(() => {
+    if (wasInspectingRef.current === inspecting) return;
+    wasInspectingRef.current = inspecting;
+    const leaving = inspecting ? toolPillRef.current : inspectPillRef.current;
+    const incoming = inspecting ? inspectPillRef.current : toolPillRef.current;
+    const root = rootRef.current;
+    if (!leaving || !root) return;
+    const active = (root.getRootNode() as Document | ShadowRoot).activeElement;
+    if (!active || !leaving.contains(active)) return;
+    const target =
+      incoming?.querySelector<HTMLElement>(
+        inspecting ? '[aria-label="Exit Inspect"]' : '[role="radio"][aria-checked="true"]',
+      ) ?? incoming?.querySelector<HTMLElement>("button:not([disabled])");
+    if (target) {
+      target.focus({ preventScroll: true });
+    } else {
+      root.tabIndex = -1;
+      root.focus({ preventScroll: true });
     }
   }, [inspecting]);
 
@@ -308,6 +349,8 @@ export function LandmarksView({
         isFullscreen && "landmarks--fs",
         overlay && "landmarks--overlay-fs",
         lm.show_rulers && "landmarks--rulers",
+        // Docks and peek tabs float over the open cube (landmarks.css).
+        cubeOpen && "landmarks--cube-open",
       )}
       data-rulers={lm.show_rulers ? "on" : "off"}
       onKeyDown={inspectCube.onKeyDown}
@@ -341,18 +384,41 @@ export function LandmarksView({
           onMouseDown={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}
         >
-          <Topbar
-            modes={ALL_MODES}
-            mode={lm.mode}
-            onMode={(mode) => lm.setMode(mode)}
-            fullscreen={isFullscreen}
-            onToggleFullscreen={() => {
-              toggle();
-            }}
-            onZoomIn={() => engineRef.current?.zoomBy(1)}
-            onZoomOut={() => engineRef.current?.zoomBy(-1)}
-            onReset={() => engineRef.current?.resetZoom()}
-          />
+          {/* One slot: the Inspect pill swaps in for the tool pill (both stack while one leaves). */}
+          <Rise ref={toolPillRef} show={!inspecting} inert={inspecting}>
+            <Topbar
+              modes={ALL_MODES}
+              mode={lm.mode}
+              onMode={(mode) => lm.setMode(mode)}
+              fullscreen={isFullscreen}
+              onToggleFullscreen={() => {
+                toggle();
+              }}
+              onZoomIn={() => engineRef.current?.zoomBy(1)}
+              onZoomOut={() => engineRef.current?.zoomBy(-1)}
+              onReset={() => engineRef.current?.resetZoom()}
+            />
+          </Rise>
+          <Rise ref={inspectPillRef} show={inspecting} inert={!inspecting}>
+            <InspectPill
+              open={cubeOpen}
+              sizeUm={lm.inspect_size_um || INSPECT_WINDOW_UM}
+              centre={lm.inspect_cx != null && lm.inspect_cy != null ? { x: lm.inspect_cx, y: lm.inspect_cy } : null}
+              status={cube.load}
+              statusError={cube.loadError}
+              saved={isWindowSaved(lm)}
+              canSave={lm.inspect_cx != null && lm.inspect_cy != null}
+              fullscreen={isFullscreen}
+              onExit={inspectCube.exitInspect}
+              onSave={inspectCube.save}
+              onToggleFullscreen={() => {
+                toggle();
+              }}
+              onZoomIn={() => engineRef.current?.zoomBy(1)}
+              onZoomOut={() => engineRef.current?.zoomBy(-1)}
+              onResetZoom={() => engineRef.current?.resetZoom()}
+            />
+          </Rise>
         </div>
 
         {inspecting && hasVolume ? (
@@ -372,8 +438,8 @@ export function LandmarksView({
           <SelectionToolbar lm={lm} engine={engine} />
         )}
 
-        {hasVolume && cube.open ? (
-          <CubeWindow
+        {cubeOpen ? (
+          <CubeImmersive
             lm={lm}
             settings={cube}
             patch={patchCube}
@@ -384,15 +450,16 @@ export function LandmarksView({
             budgets={budgets}
             snapshots={snapshots}
             overlays={landmarkGeometry}
-            onFocusEntry={inspectCube.focusEntry}
-            onSave={inspectCube.save}
+            onSnapshot={bumpSnapshotVersion}
+            onPan={inspectCube.panWindow}
+            onPanEnd={inspectCube.panEnd}
           />
         ) : null}
 
         {/* Kept mounted once there is a volume (hidden outside Inspect): no WebGL context churn. */}
         {hasVolume ? (
           <InspectPreview
-            active={inspecting}
+            active={inspecting && !cube.open}
             lm={lm}
             engine={engine}
             rootEl={rootEl}
@@ -438,7 +505,13 @@ export function LandmarksView({
               >
                 <RightChromeStack lm={lm} engine={engine} />
               </div>
-              <LayersPanel lm={lm} />
+              <LayersPanel
+                lm={lm}
+                snapshots={snapshots}
+                snapshotVersion={snapshotVersion}
+                stackZ={inspectCube.stackZ}
+                onFocusEntry={inspectCube.focusEntry}
+              />
             </div>
             {collapsed.left ? (
               <PanelPeekTab
@@ -463,7 +536,13 @@ export function LandmarksView({
                 side="left"
                 onCollapse={() => setCollapsed((c) => ({ ...c, left: true }))}
               />
-              <LayersPanel lm={lm} />
+              <LayersPanel
+                lm={lm}
+                snapshots={snapshots}
+                snapshotVersion={snapshotVersion}
+                stackZ={inspectCube.stackZ}
+                onFocusEntry={inspectCube.focusEntry}
+              />
             </div>
             {collapsed.left ? (
               <PanelPeekTab

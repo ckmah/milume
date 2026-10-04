@@ -1,4 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
+
+import { test } from "../fixtures";
 
 import {
   bootLandmarksHarness,
@@ -185,8 +187,8 @@ test.describe("LandmarksWidget", () => {
       selected_index: 0,
     });
     await expect.poll(async () => (await hoodOverlay()).mode).toBe("knn");
+    await expect.poll(async () => (await hoodOverlay()).edgeCount).toBeGreaterThan(0);
     hood = await hoodOverlay();
-    expect(hood.edgeCount).toBeGreaterThan(0);
     expect(hood.radiusGradient).toBe(false);
     expect(hood.radiusDiskCount).toBe(0);
   });
@@ -239,8 +241,23 @@ test.describe("LandmarksWidget", () => {
     await expect(page.getByRole("dialog", { name: "Cube" })).toHaveCount(0);
     // Placement only: no inspect selection is committed.
     expect(await getModel(page, "selections")).toEqual(before);
-    await page.getByRole("radio", { name: "Select", exact: true }).click();
+    // The Inspect pill (armed: no cube to open) stands in for the tool pill; Exit leaves Inspect.
+    const pill = page.getByTestId("inspect-pill");
+    await expect(pill).toHaveAttribute("data-state", "armed");
+    await pill.getByRole("button", { name: "Exit Inspect" }).click();
     await expect(page.getByTestId("context-inspect-no-volume")).toHaveCount(0);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
+  });
+
+  test("Inspect without a 3D image: Esc leaves it for the tool pill", async ({ page }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const pill = page.getByTestId("inspect-pill");
+    await expect(pill).toHaveAttribute("data-state", "armed");
+    await expect(page.getByRole("toolbar", { name: "Drawing tools" })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(pill).toHaveCount(0);
+    await expect(page.getByRole("toolbar", { name: "Drawing tools" })).toBeVisible();
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
   });
 
   test("context toolbar docks at bottom center for selected landmark", async ({

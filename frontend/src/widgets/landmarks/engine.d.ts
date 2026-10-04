@@ -9,10 +9,12 @@ export const INSPECT_WINDOW_UM: number;
  */
 export type InspectEvent =
   | { type: "place"; x: number; y: number }
+  | { type: "release" }
   | { type: "hover"; x: number; y: number; sizeUm: number; sizePx: number; px: number; py: number }
   | { type: "hover-end" }
   | { type: "commit"; index: number }
-  | { type: "close" };
+  /** Esc in Inspect; `press` when it ended a press on the map (which then only ends). */
+  | { type: "close"; press: boolean };
 
 export type EngineHandle = {
   zoomBy(delta: number, opts?: { animate?: boolean; duration?: number }): void;
@@ -99,6 +101,8 @@ export type EngineHandle = {
   setInspectWindowVisible(visible: boolean): void;
   /** Move the placed square (and `inspect_cx/cy/size_um`) without emitting events. */
   setInspectWindow(x: number, y: number, sizeUm: number): void;
+  /** Move the placed square and `inspect_cx/cy` without saving or emitting; the caller saves. */
+  moveInspectWindow(x: number, y: number): void;
   /**
    * Save the placed window as a new inspect Selection (its window, `volume_cut`
    * and the points in the square), focus it and emit "commit". Returns its index,

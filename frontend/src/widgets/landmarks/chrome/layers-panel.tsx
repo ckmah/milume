@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Card } from "@/components/ui/card";
 import { FieldDescription } from "@/components/ui/field";
@@ -6,13 +6,49 @@ import { ItemGroup } from "@/components/ui/item";
 import { cn } from "@/lib/utils";
 
 import { landmarkStableColor, SELECTION_COLORS } from "../helpers";
+import { inspectWindowOf } from "../use-inspect-cube";
 import type { LandmarksModel } from "../use-landmarks-model";
+import { type ChipSnapshot, windowKey } from "./cube-snapshots";
 import { LayerRow } from "./primitives";
+import { SelectionCard } from "./selection-card";
 import { FLOAT_PANEL, FLOAT_PANEL_CLIP, SECTION_LABEL } from "./sections";
 
-/** Left dock: selections + landmarks (single-select only). */
-export function LayersPanel({ lm }: { lm: LandmarksModel }) {
+const NO_SNAPSHOTS = new Map<string, ChipSnapshot>();
+
+/**
+ * Left dock: selections + landmarks (single-select only). An inspect entry's
+ * row shows its cube thumbnail, and clicking it restores its window and cut
+ * (`onFocusEntry`); every selection row has a hover card (`SelectionCard`).
+ */
+export function LayersPanel({
+  lm,
+  snapshots = NO_SNAPSHOTS,
+  snapshotVersion = 0,
+  stackZ = null,
+  onFocusEntry,
+}: {
+  lm: LandmarksModel;
+  /** Inspect entry thumbnails by selection id (mutable; see `snapshotVersion`). */
+  snapshots?: Map<string, ChipSnapshot>;
+  /** Bumped when `snapshots` gains or replaces a thumbnail. */
+  snapshotVersion?: number;
+  /** The 3D image's Z extent (µm), once known: an entry cut to all of it has no depth line. */
+  stackZ?: [number, number] | null;
+  /** Focus an inspect entry and restore its window and cut (opens the cube). */
+  onFocusEntry?: (index: number) => void;
+}) {
   const { selections, landmarks, selected_kind, selected_index } = lm;
+  // A thumbnail only while it shows its entry's window (ids are reused).
+  const thumbs = useMemo(
+    () =>
+      selections.map((sel) => {
+        const win = inspectWindowOf(sel);
+        const snap = win ? snapshots.get(String(sel.id)) : undefined;
+        return snap && win && snap.key === windowKey(win) ? snap : null;
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the Map is mutable: snapshotVersion marks its changes
+    [selections, snapshots, snapshotVersion],
+  );
   const rootRef = useRef<HTMLDivElement>(null);
   const [menuContainer, setMenuContainer] = useState<HTMLElement | null>(null);
 
@@ -39,6 +75,7 @@ export function LayersPanel({ lm }: { lm: LandmarksModel }) {
                   {selections.map((sel, i) => (
                     <LayerRow
                       key={`${sel.id}-${i}`}
+                      testId="selection-row"
                       active={
                         selected_kind === "selection" && selected_index === i
                       }
@@ -47,7 +84,15 @@ export function LayersPanel({ lm }: { lm: LandmarksModel }) {
                       label={sel.id}
                       hidden={!!sel.hidden}
                       menuContainer={menuContainer}
-                      onSelect={() => lm.select("selection", i)}
+                      thumbnail={thumbs[i]?.url ?? null}
+                      hoverContent={
+                        <SelectionCard lm={lm} index={i} snapshot={thumbs[i] ?? null} stackZ={stackZ} />
+                      }
+                      onSelect={() =>
+                        inspectWindowOf(sel) && onFocusEntry
+                          ? onFocusEntry(i)
+                          : lm.select("selection", i)
+                      }
                       onRename={(next) => lm.renameSelection(i, next)}
                       onToggleHidden={() => lm.toggleSelectionHidden(i)}
                       onDelete={() => lm.deleteSelection(i)}

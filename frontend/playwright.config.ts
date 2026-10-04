@@ -9,6 +9,11 @@ const webServerCommands: Record<string, string> = {
 const webServerCommand =
   webServerCommands[harness] ?? webServerCommands.landmarks;
 
+// Software GL (SwiftShader) costs ~4s per widget mount; local macOS runs use the GPU (E2E_GPU=0 opts out).
+// Linux CI stays on SwiftShader because the canonical snapshots are rendered there.
+const useGpu = process.platform === "darwin" && !process.env.CI && process.env.E2E_GPU !== "0";
+const gpuArgs = useGpu ? ["--use-angle=metal", "--use-gl=angle", "--ignore-gpu-blocklist", "--enable-gpu"] : [];
+
 /** Canonical visual snapshots: Linux Chromium (CI). Mac soft-skips unless E2E_SCREENSHOTS=1. */
 export default defineConfig({
   testDir: "./e2e",
@@ -22,10 +27,10 @@ export default defineConfig({
       animations: "disabled",
     },
   },
-  fullyParallel: false,
+  fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: 1,
+  workers: Number(process.env.E2E_WORKERS ?? (process.env.CI ? 2 : 4)),
   reporter: process.env.CI
     ? [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]]
     : [["list"]],
@@ -41,7 +46,7 @@ export default defineConfig({
     video: process.env.CI ? "retain-on-failure" : "off",
     viewport: { width: 1280, height: 900 },
     deviceScaleFactor: 1,
-    launchOptions: { args: ["--disable-lcd-text", "--font-render-hinting=none"] },
+    launchOptions: { args: [...gpuArgs, "--disable-lcd-text", "--font-render-hinting=none"] },
   },
   projects: [{
     name: "chromium",

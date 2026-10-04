@@ -17,6 +17,7 @@
   ],
   "infra": [
     "frontend/e2e/helpers.ts",
+    "frontend/e2e/fixtures.ts",
     "frontend/playwright.config.ts",
     "frontend/package.json",
     "frontend/package-lock.json",

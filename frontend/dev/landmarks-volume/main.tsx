@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import "@/styles/globals.css";
 import "@/widgets/landmarks/landmarks.css";
 import type { AnyModel } from "@/widgets/landmarks/helpers";
+import { resetModeDropdownMemory } from "@/widgets/landmarks/chrome/mode-dropdown";
 import { LandmarksView } from "@/widgets/landmarks/LandmarksView";
 
 import { loadFixtureModel } from "../mock-model";
@@ -20,8 +21,8 @@ const CUBE_BUDGETS = budgetsFromUrl();
 const INSPECT_WINDOW_UM = Number(new URLSearchParams(location.search).get("window")) || undefined;
 
 /**
- * Landmarks over a toy SpatialData (`public/toy.sdata.zarr`): Inspect opens the
- * floating cube. The engine exposes `window.__landmarksEngine` / `__landmarksModel`.
+ * Landmarks over a toy SpatialData (`public/toy.sdata.zarr`): a click in Inspect
+ * opens the immersive cube over the plot area on release. The engine exposes `window.__landmarksEngine` / `__landmarksModel`.
  */
 function LandmarksVolumeHarness() {
   const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
@@ -39,6 +40,21 @@ function LandmarksVolumeHarness() {
       });
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  // E2E only: remount the widget on a fresh model without reloading the page (see e2e/fixtures.ts).
+  useEffect(() => {
+    (window as unknown as { __harnessReset?: () => Promise<void> }).__harnessReset = async () => {
+      resetModeDropdownMemory();
+      setModel(null);
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      );
+      setModel(await loadFixtureModel());
+    };
+    return () => {
+      delete (window as unknown as { __harnessReset?: unknown }).__harnessReset;
     };
   }, []);
 

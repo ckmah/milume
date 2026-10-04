@@ -9,7 +9,10 @@ import type { RelativeCut } from "./cube-cut";
 /** Client-local state of the Inspect cube window and its context toolbar. */
 export type CubeSettings = {
   open: boolean;
-  mode: "additive" | "mip";
+  /** Projection of the image in the cube: accumulated samples or maximum intensity. */
+  imageMode: "additive" | "mip";
+  /** Projection of the label shells: accumulated front to back or the strongest one. */
+  labelMode: "additive" | "mip";
   preset: ViewPreset | null;
   resetTick: number;
   /** The image in the cube views (dock and preview); off leaves only labels. */
@@ -20,6 +23,12 @@ export type CubeSettings = {
   /** X/Y relative to the inspect window, Z absolute (see cube-cut.ts). */
   cut: RelativeCut;
   bounds: CubeBounds | null;
+  /** The Move tool: a plain drag in the cube pans the window instead of orbiting. */
+  move: boolean;
+  /** The open cube's load: a level still loading, all loaded, or failed (the Inspect pill's chip). */
+  load: "refining" | "ready" | "error";
+  /** Why the load failed, when `load` is "error". */
+  loadError: string;
 };
 
 export type CubeSettingsPatch = Omit<Partial<CubeSettings>, "render"> & {
@@ -33,7 +42,8 @@ export function useCubeSettings(
 ): [CubeSettings, (patch: CubeSettingsPatch) => void] {
   const [settings, setSettings] = useState<CubeSettings>(() => ({
     open: false,
-    mode: "additive",
+    imageMode: "additive",
+    labelMode: "additive",
     preset: "top",
     resetTick: 0,
     showImage: true,
@@ -42,6 +52,9 @@ export function useCubeSettings(
     contrast: initialContrast,
     cut: initialCut,
     bounds: null,
+    move: false,
+    load: "refining",
+    loadError: "",
   }));
   const patch = useCallback((p: CubeSettingsPatch) => {
     setSettings((prev) => {

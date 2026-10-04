@@ -8,7 +8,7 @@ export function screenshotsEnabled(): boolean {
   return process.platform === "linux";
 }
 
-export async function waitForEngine(page: Page) {
+export async function waitForEngine(page: Page, settleMs = 400) {
   await page.locator(".landmarks").first().waitFor({ state: "visible" });
   await page.locator("canvas.landmarks__webgl").first().waitFor({ state: "visible" });
   await page.waitForFunction(() => {
@@ -17,7 +17,7 @@ export async function waitForEngine(page: Page) {
     return Boolean(vs && Number.isFinite(vs.zoom));
   });
   // Let deck.gl finish a couple frames after first paint.
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(settleMs);
 }
 
 export async function getZoom(page: Page) {
@@ -50,14 +50,19 @@ export async function setModel(page: Page, patch: Record<string, unknown>) {
 }
 
 export async function stabilizeUi(page: Page) {
-  await page.addStyleTag({
-    content: `
+  // Idempotent: a shared worker page can be reloaded between tests, which drops the style.
+  await page.evaluate(() => {
+    if (document.getElementById("e2e-stabilize-ui")) return;
+    const style = document.createElement("style");
+    style.id = "e2e-stabilize-ui";
+    style.textContent = `
       *, *::before, *::after {
         animation: none !important;
         transition: none !important;
         caret-color: transparent !important;
       }
-    `,
+    `;
+    document.head.appendChild(style);
   });
 }
 
@@ -84,6 +89,16 @@ export async function canvasBox(page: Page) {
 }
 
 export async function bootLandmarksHarness(page: Page) {
+  const isWarm = await page
+    .evaluate(() => typeof (window as any).__harnessReset === "function")
+    .catch(() => false);
+  if (isWarm) {
+    // Shared worker page: remount the widget on a fresh model, no page load.
+    await page.evaluate(() => (window as any).__harnessReset());
+    await waitForEngine(page, 150);
+    await stabilizeUi(page);
+    return;
+  }
   await page.addInitScript(() => {
     window.localStorage.setItem("milume-harness-theme", "dark");
   });
@@ -94,6 +109,16 @@ export async function bootLandmarksHarness(page: Page) {
 
 /** Landmarks over the toy SpatialData (`E2E_HARNESS=landmarks-volume`); the cube opens from Inspect. */
 export async function bootLandmarksVolumeHarness(page: Page) {
+  // Warm only on the plain harness URL: `?window=` / `?budgets=` are read once at load.
+  const isWarm = await page
+    .evaluate(() => location.search === "" && typeof (window as any).__harnessReset === "function")
+    .catch(() => false);
+  if (isWarm) {
+    await page.evaluate(() => (window as any).__harnessReset());
+    await waitForEngine(page, 150);
+    await stabilizeUi(page);
+    return;
+  }
   await page.goto("/", { waitUntil: "networkidle" });
   await waitForEngine(page);
   await stabilizeUi(page);
