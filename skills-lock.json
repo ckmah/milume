@@ -2,7 +2,7 @@
   "version": 1,
   "skills": {
     "cube-motion": {
-      "source": "Danilaa1/cube-motion",
+      "source": "danielwh2/cube-motion",
       "sourceType": "github",
       "skillPath": "skills/cube-motion/SKILL.md",
       "computedHash": "61e10e79c87f382a2fc1569b94fb788db86aebe30c6dbb3d0043d147c331f1f9"
