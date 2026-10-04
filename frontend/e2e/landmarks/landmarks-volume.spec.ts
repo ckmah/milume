@@ -287,6 +287,38 @@ async function recordStates(page: Page, selector: string) {
 }
 const recordedStates = (page: Page) => page.evaluate(() => (window as any).__states as string[]);
 
+/** A synthetic pointer event on the open cube: type, x offset (px) from the view's centre, buttons, pointer id (default 1). */
+type PointerStep = [type: string, dx: number, buttons: number, pointerId?: number];
+/**
+ * Dispatch `steps` with Shift held, in one task (so moves can land inside the
+ * 40 ms pan save throttle): the press on the cube view, the rest on window.
+ * Returns `inspect_cx` as last saved (`__savedCx`, if recorded) and as live now.
+ */
+async function shiftPointer(page: Page, steps: PointerStep[]) {
+  return page.evaluate((steps) => {
+    const view = document.querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view')!;
+    const r = view.getBoundingClientRect();
+    for (const [type, dx, buttons, pointerId = 1] of steps) {
+      const init = {
+        bubbles: true,
+        cancelable: true,
+        composed: true,
+        pointerId,
+        pointerType: "mouse",
+        isPrimary: pointerId === 1,
+        button: 0,
+        buttons,
+        shiftKey: true,
+        clientX: r.x + r.width / 2 + dx,
+        clientY: r.y + r.height / 2,
+      };
+      (type === "pointerdown" ? view : window).dispatchEvent(new PointerEvent(type, init));
+    }
+    const model = (window as any).__landmarksModel;
+    return { saved: (window as any).__savedCx as number | undefined, live: model.get("inspect_cx") as number };
+  }, steps);
+}
+
 /** Press at the cube view's centre, drag (dx, dy) px in 4 steps and release; `shift` holds Shift throughout. */
 async function dragCube(page: Page, view: Locator, dx: number, dy: number, { shift = false }: { shift?: boolean }) {
   const b = (await view.boundingBox())!;
@@ -956,6 +988,65 @@ test.describe("Landmarks inspect cube", () => {
     expect(await recordedStates(page)).toContain("refining");
     expect(await view.getAttribute("data-pitch")).toBe("90");
     expect(await view.getAttribute("data-zoom")).toBe(zoom);
+  });
+
+  test("a pan saves its last move on release, and when Esc closes the cube mid-drag", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await page.getByRole("radio", { name: "Top view" }).click();
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const cx0 = Number(await getModel(page, "inspect_cx"));
+    // Record inspect_cx as saved (change events fire on save_changes only).
+    await page.evaluate(() => {
+      const model = (window as any).__landmarksModel;
+      model.on("change:inspect_cx", () => ((window as any).__savedCx = model.get("inspect_cx")));
+    });
+    // Shift-press, two moves (and a release) in one task: the second move lands inside the 40 ms save throttle.
+    const shiftDrag = (release: boolean) =>
+      shiftPointer(page, [
+        ["pointerdown", 0, 1],
+        ["pointermove", 20, 1],
+        ["pointermove", 40, 1],
+        ...(release ? [["pointerup", 40, 0] as PointerStep] : []),
+      ]);
+
+    const released = await shiftDrag(true);
+    expect(released.live).toBeLessThan(cx0);
+    expect(released.saved).toBe(released.live);
+
+    // Esc between the moves and the release closes the cube: the pan still saves where it got to.
+    const escaped = await shiftDrag(false);
+    expect(escaped.live).toBeLessThan(released.live);
+    expect(escaped.saved).not.toBe(escaped.live);
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).__savedCx)).toBe(escaped.live);
+    expect(Number(await getModel(page, "inspect_cx"))).toBe(escaped.live);
+  });
+
+  test("a pan follows only its own pointer and ends on a move with no button held", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await page.getByRole("radio", { name: "Top view" }).click();
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const pressed = await shiftPointer(page, [
+      ["pointerdown", 0, 1],
+      ["pointermove", 30, 1],
+    ]);
+    // Another pointer's move and release leave the pan alone.
+    const other = await shiftPointer(page, [
+      ["pointermove", 90, 1, 2],
+      ["pointerup", 90, 0, 2],
+    ]);
+    expect(other.live).toBe(pressed.live);
+    await expect(view).toHaveAttribute("data-panning", "true");
+    // A move with no button held is a release lost outside the page: the pan ends, hovering pans nothing.
+    const lost = await shiftPointer(page, [["pointermove", 40, 0]]);
+    await expect(view).toHaveAttribute("data-panning", "false");
+    const hover = await shiftPointer(page, [["pointermove", 120, 1]]);
+    expect(hover.live).toBe(lost.live);
   });
 
   test("the Move tool makes a plain drag pan; the distance scales with the drag", async ({ page }) => {

@@ -854,7 +854,15 @@ export function VolumeCube({
   const onPanRef = useLatest(onPan);
   const onPanEndRef = useLatest(onPanEnd);
   const [panning, setPanning] = useState(false);
-  useEffect(() => () => panAbort.current?.abort(), []);
+  /** Stop a pan still in progress; its end is reported, so its last moves are saved. */
+  const stopPan = useCallback(() => {
+    const abort = panAbort.current;
+    if (!abort || abort.signal.aborted) return;
+    abort.abort();
+    onPanEndRef.current?.();
+  }, [onPanEndRef]);
+  // Torn down mid-pan (Esc or a tool key closes the cube): the pan still ends.
+  useEffect(() => stopPan, [stopPan]);
 
   const wantsPan = (e: { button: number; shiftKey: boolean }) =>
     Boolean(onPan) && e.button === 0 && (panMode || e.shiftKey);
@@ -863,20 +871,23 @@ export function VolumeCube({
     if (!wantsPan(e)) return;
     e.stopPropagation();
     e.preventDefault();
-    panAbort.current?.abort();
+    stopPan();
     const abort = new AbortController();
     panAbort.current = abort;
+    const pointer = e.pointerId;
     let last = { x: e.clientX, y: e.clientY };
     setPanning(true);
     const end = () => {
-      abort.abort();
       setPanning(false);
-      onPanEndRef.current?.();
+      stopPan();
     };
     const opts = { signal: abort.signal };
     window.addEventListener(
       "pointermove",
       (m: PointerEvent) => {
+        if (m.pointerId !== pointer) return;
+        // A release lost outside the page: hovering must not keep panning.
+        if (!(m.buttons & 1)) return end();
         const view = viewRef.current;
         if (!view) return;
         const d = dragToWindowDelta(m.clientX - last.x, m.clientY - last.y, view, umRef.current);
@@ -885,8 +896,11 @@ export function VolumeCube({
       },
       opts,
     );
-    window.addEventListener("pointerup", end, opts);
-    window.addEventListener("pointercancel", end, opts);
+    const release = (u: PointerEvent) => {
+      if (u.pointerId === pointer) end();
+    };
+    window.addEventListener("pointerup", release, opts);
+    window.addEventListener("pointercancel", release, opts);
     window.addEventListener("blur", end, opts);
   };
   const onMouseDownCapture = (e: React.MouseEvent<HTMLDivElement>) => {
