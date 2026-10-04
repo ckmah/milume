@@ -90,7 +90,7 @@ disabled, so progressive loads still show their coarse level.
 
 - 4 workers locally (2 on CI, `E2E_WORKERS` overrides). On macOS outside CI
   Chromium runs on the Metal GPU (`E2E_GPU=0` falls back to SwiftShader, which
-  Linux CI always uses). Both Landmarks tiers take about 50 s locally.
+  Linux CI always uses). Both Landmarks tiers take about 50–70 s locally.
 - Tag a test `{ tag: "@isolated" }` when it needs a fresh page: anything using
   `page.addInitScript`, or state a remount cannot undo.
 - No state may leak between tests: module-level state in the widget or the

@@ -286,3 +286,21 @@ nothing else was removed from the window path.
 and tags tests that need a fresh page `@isolated`. The coarse-then-refine test
 records every `data-level` from the cube view's first render (an init script), as
 an observer attached after the open could miss a fast refine.
+
+**After the final review.** The fix wave made the chip honest after a pan (Ready
+only once the shown window is the one asked for) and saved a pan cut short by the
+cube closing. Two items were added then, not in the reviewed branch: **P1** a pan
+ignores other pointers and ends on a buttonless move; **P2** a window outside the
+volume shows "Outside the volume" as the chip's error.
+
+**Known limitations and risks.**
+- The Labels-MIP colour test's thresholds were measured on Metal; they also pass on
+  SwiftShader (`E2E_GPU=0`, 1 worker) with only ~0.03 saturation headroom for blue.
+- The selection card shows a Depth line for a whole-stack cut until a cube has
+  opened once this session (`stackZ` is unknown before).
+- A keyboard-only user cannot place a window.
+- Save blocks the page about 0.3 s on colon A2.
+- Label MIP over a bright image MIP is pale at the default Label alpha 0.6.
+- Dense highlighted shells hide the image on colon A2 at the default alpha.
+- Every new selection of any kind now gets an id like `Epithelial · 214`; Python
+  users read ids via `selection_by_id`, which compares strings opaquely.
