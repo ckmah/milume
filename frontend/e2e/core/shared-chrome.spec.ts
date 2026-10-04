@@ -1,4 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
+
+import { test } from "../fixtures";
 
 import { bootLandmarksHarness, shot } from "../helpers";
 

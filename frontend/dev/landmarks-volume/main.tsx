@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import "@/styles/globals.css";
 import "@/widgets/landmarks/landmarks.css";
 import type { AnyModel } from "@/widgets/landmarks/helpers";
+import { resetModeDropdownMemory } from "@/widgets/landmarks/chrome/mode-dropdown";
 import { LandmarksView } from "@/widgets/landmarks/LandmarksView";
 
 import { loadFixtureModel } from "../mock-model";
@@ -39,6 +40,21 @@ function LandmarksVolumeHarness() {
       });
     return () => {
       cancelled = true;
+    };
+  }, []);
+
+  // E2E only: remount the widget on a fresh model without reloading the page (see e2e/fixtures.ts).
+  useEffect(() => {
+    (window as unknown as { __harnessReset?: () => Promise<void> }).__harnessReset = async () => {
+      resetModeDropdownMemory();
+      setModel(null);
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      );
+      setModel(await loadFixtureModel());
+    };
+    return () => {
+      delete (window as unknown as { __harnessReset?: unknown }).__harnessReset;
     };
   }, []);
 

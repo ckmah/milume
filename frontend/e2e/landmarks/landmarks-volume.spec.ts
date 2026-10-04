@@ -1,4 +1,6 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
+
+import { test } from "../fixtures";
 
 import { bootLandmarksVolumeHarness, canvasBox, getModel, setModel } from "../helpers";
 
@@ -1254,7 +1256,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-highlight", "2");
   });
 
-  test("with Labels on each toy cell renders in its category colour in the dock", async ({ page }) => {
+  test("with Labels on each toy cell renders in its category colour in the dock", { tag: "@isolated" }, async ({ page }) => {
     // Record the width of every R8 (image) and RG8 (labels) 3D texture allocated.
     await page.addInitScript(() => {
       const widths = { r8: [] as number[], rg8: [] as number[] };
@@ -1323,7 +1325,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(core).toBeLessThan(rim * 0.25);
   });
 
-  test("the dock shows the coarse level first, then refines", async ({ page }) => {
+  test("the dock shows the coarse level first, then refines", { tag: "@isolated" }, async ({ page }) => {
     // Small budgets make the toy pyramid pick different levels (see main.tsx ?budgets).
     await reloadWith(page, "budgets=20000,300000&window=100");
     await openCubeAtCentre(page);

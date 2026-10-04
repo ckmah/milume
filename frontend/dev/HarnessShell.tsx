@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AnyModel } from "@/widgets/landmarks/helpers";
+import { resetModeDropdownMemory } from "@/widgets/landmarks/chrome/mode-dropdown";
 import { LandmarksView } from "@/widgets/landmarks/LandmarksView";
 
 import { loadFixtureModel } from "./mock-model";
@@ -40,6 +41,24 @@ export function HarnessShell() {
   useEffect(() => {
     applyHarnessTheme(theme);
   }, [theme]);
+
+  // E2E only: remount the widget on a fresh model without reloading the page,
+  // so a worker boots Vite + deck.gl once instead of once per test.
+  useEffect(() => {
+    (window as unknown as { __harnessReset?: () => Promise<void> }).__harnessReset = async () => {
+      resetModeDropdownMemory();
+      applyHarnessTheme("dark");
+      setTheme("dark");
+      setModel(null);
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      );
+      setModel(await loadFixtureModel());
+    };
+    return () => {
+      delete (window as unknown as { __harnessReset?: unknown }).__harnessReset;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
