@@ -2302,8 +2302,35 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   function nextLandmarkId(items) {
     return nextNumberedId("landmark", items);
   }
-  function nextSelectionId(items) {
-    return nextNumberedId("selection", items);
+  /** A selection's default name: its top category and size, e.g. "Epithelial · 214"; else "<prefix> <n>". */
+  function selectionName(indices, prefix, items) {
+    const cols = model.get("category_columns") || [];
+    const active = model.get("active_category");
+    const colIdx = cols.findIndex((c) => c.name === active);
+    const labels = colIdx >= 0 ? cols[colIdx].labels || [] : [];
+    const n = getPointsData().length;
+    if (categoryCodes && labels.length && n && indices && indices.length) {
+      const counts = new Map();
+      for (const i of indices) {
+        const c = categoryCodes[colIdx * n + i];
+        if (c >= 0 && c < labels.length) counts.set(c, (counts.get(c) || 0) + 1);
+      }
+      let best = -1;
+      let bestN = 0;
+      for (const [c, k] of counts) {
+        if (k > bestN) {
+          best = c;
+          bestN = k;
+        }
+      }
+      if (best >= 0) {
+        const base = `${labels[best]} · ${indices.length}`;
+        const used = new Set((items || []).map((x) => String(x.id)));
+        if (!used.has(base)) return base;
+        for (let i = 2; ; i++) if (!used.has(`${base} ${i}`)) return `${base} ${i}`;
+      }
+    }
+    return nextNumberedId(prefix, items);
   }
 
   function resetDraft() {
@@ -3513,11 +3540,12 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const cut =
       Array.isArray(raw) && raw.length === 6 && raw.every((v) => typeof v === "number") ? [...raw] : [];
     const selections = [...(model.get("selections") || [])];
+    const members = inspectMemberIndices(cx, cy, size);
     selections.push(
       withHood({
-        id: nextSelectionId(selections),
+        id: selectionName(members, "inspect", selections),
         type: "inspect",
-        point_indices: inspectMemberIndices(cx, cy, size),
+        point_indices: members,
         window: { cx, cy, size_um: size, cut },
       }),
     );
@@ -4196,7 +4224,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const selections = [...(model.get("selections") || [])];
     selections.push(
       withHood({
-        id: nextSelectionId(selections),
+        id: selectionName(indices, "selection", selections),
         type: "points",
         point_indices: indices,
       }),
@@ -4256,7 +4284,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         : String(selections[focus.index]?.id || "selection");
     selections.push(
       withHood({
-        id: nextSelectionId(selections),
+        id: selectionName(point_indices, "selection", selections),
         type: "points",
         point_indices,
         neighborhood: "off",
@@ -4309,7 +4337,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const selections = [...(model.get("selections") || [])];
     selections.push(
       withHood({
-        id: nextSelectionId(selections),
+        id: selectionName(point_indices, "selection", selections),
         type: "points",
         point_indices,
         neighborhood: "off",
@@ -5381,7 +5409,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     if (editClipboard.kind === "selection") {
       const selections = [...(model.get("selections") || [])];
       const item = withHood(cloneJson(editClipboard.item));
-      item.id = nextSelectionId(selections);
+      item.id = selectionName(item.point_indices, item.type === "inspect" ? "inspect" : "selection", selections);
       selections.push(item);
       model.set("selections", selections);
       setSelected("selection", selections.length - 1);

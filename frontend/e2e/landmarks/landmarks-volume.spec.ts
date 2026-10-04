@@ -358,6 +358,25 @@ test.describe("Landmarks inspect cube", () => {
     await expect(page.getByRole("toolbar", { name: "Drawing tools" })).toBeVisible();
   });
 
+  test("a saved inspect window is named by its top category and cell count", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await page.getByTestId("inspect-pill").getByRole("button", { name: "Save window" }).click();
+    await expect.poll(async () => (await selectionsOf(page)).length).toBe(1);
+    // The default window holds all three toy cells; two are type1. The count is the
+    // selection's total members, the label the category with the most.
+    const cols = (await getModel(page, "category_columns")) as { name: string; labels: string[] }[];
+    const active = await getModel(page, "active_category");
+    expect(cols.find((c) => c.name === active)?.labels).toContain("type1");
+    expect((await selectionsOf(page))[0].id).toBe("type1 · 3");
+  });
+
+  test("a name already taken gets a numeric suffix", async ({ page }) => {
+    await setModel(page, { selections: [{ id: "type1 · 3", type: "points", point_indices: [0, 1, 2] }] });
+    await openCubeAtCentre(page);
+    expect(await save(page)).toBe(1);
+    expect((await selectionsOf(page)).map((s) => s.id)).toEqual(["type1 · 3", "type1 · 3 2"]);
+  });
+
   test("Esc closes the cube, a second Esc exits Inspect", async ({ page }) => {
     await openCubeAtCentre(page);
     await page.keyboard.press("Escape");
@@ -1609,8 +1628,12 @@ test.describe("Landmarks inspect cube", () => {
   test("a chip's snapshot follows its entry: a reused id re-snapshots", async ({ page }) => {
     // A 100 µm window, so two places show different parts of the toy volume.
     await reloadWith(page, "window=100");
+    // No active categorical, so a new entry is "inspect 1" whatever it holds (named by
+    // category, two different windows would not share an id).
+    await setModel(page, { active_category: "" });
     const box = await openCubeAtCentre(page);
     expect(await save(page)).toBe(0);
+    expect((await selectionsOf(page))[0].id).toBe("inspect 1");
     const chip = cubeWindow(page).getByLabel("Inspect history").getByRole("button", { name: "Inspect 1" });
     const src = () => chip.locator("img").getAttribute("src");
     await expect(chip.locator("img")).toHaveCount(1);

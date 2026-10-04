@@ -103,6 +103,9 @@ test.describe("LandmarksWidget tool completeness", () => {
     await page.getByTestId("promote-buffer").click();
     await expect.poll(async () => (await selections(page)).length).toBe(1);
     expect((await selections(page))[0].point_indices.length).toBeGreaterThan(0);
+    // Named by its top category and size ("<label> · <n>"), the harness having an active categorical.
+    const promoted = (await selections(page))[0];
+    expect(promoted.id).toMatch(new RegExp(` · ${promoted.point_indices.length}$`));
     // The buffer is consumed by the promote.
     expect((await landmarks(page))[0].buffer_width).toBe(0);
   });

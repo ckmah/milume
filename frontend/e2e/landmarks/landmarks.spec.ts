@@ -187,8 +187,8 @@ test.describe("LandmarksWidget", () => {
       selected_index: 0,
     });
     await expect.poll(async () => (await hoodOverlay()).mode).toBe("knn");
+    await expect.poll(async () => (await hoodOverlay()).edgeCount).toBeGreaterThan(0);
     hood = await hoodOverlay();
-    expect(hood.edgeCount).toBeGreaterThan(0);
     expect(hood.radiusGradient).toBe(false);
     expect(hood.radiusDiskCount).toBe(0);
   });
