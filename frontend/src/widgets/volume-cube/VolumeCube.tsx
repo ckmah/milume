@@ -50,6 +50,8 @@ export type CubeLoadState = {
   refineError?: string;
   /** Set when the image (or its window, with no coarse view to keep) failed to load. */
   imageError?: string;
+  /** The window holds none of the volume: nothing loads, nothing is drawn. */
+  outside: boolean;
 };
 
 export type CubeBounds = {
@@ -833,8 +835,9 @@ export function VolumeCube({
       refining,
       refineError,
       imageError: loadError,
+      outside,
     });
-  }, [labelsState, channels, panX, panY, levelIndex, refining, refineError, loadError, onLoadStateRef]);
+  }, [labelsState, channels, panX, panY, levelIndex, refining, refineError, loadError, outside, onLoadStateRef]);
 
   // Reported once the image is open: before that the volume has no extent.
   const onBoundsRef = useLatest(onBounds);

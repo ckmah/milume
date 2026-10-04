@@ -577,6 +577,20 @@ test.describe("Landmarks inspect cube", () => {
     await expect(chip).toHaveAttribute("data-state", "ready");
   });
 
+  test("a window outside the volume reads as an error on the chip, not Ready", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const chip = page.getByTestId("inspect-status");
+    await expect(chip).toHaveAttribute("data-state", "ready");
+    // Python moves the window off the toy volume (0..256 µm).
+    await setModel(page, { inspect_cx: 10000, inspect_cy: 10000 });
+    await expect(cubeWindow(page).getByText("Inspect window is outside the volume")).toBeVisible();
+    await expect(chip).toHaveAttribute("data-state", "error");
+    await expect(chip).toHaveText("Outside the volume");
+    // Back inside: the window loads and the chip settles again.
+    await setModel(page, { inspect_cx: 128, inspect_cy: 128 });
+    await expect(chip).toHaveAttribute("data-state", "ready");
+  });
+
   test("keyboard: the swap keeps focus in the widget, and Esc from focus alone leaves Inspect", async ({ page }) => {
     // No pointer over the widget anywhere in this test: only focus puts keys "in" it.
     await page.mouse.move(0, 0);

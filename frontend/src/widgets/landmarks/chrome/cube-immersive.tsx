@@ -68,7 +68,7 @@ export function CubeImmersive({
   const onLoadState = useCallback(
     (s: CubeLoadState) => {
       loadRef.current = s;
-      const error = s.imageError || s.refineError || "";
+      const error = s.imageError || s.refineError || (s.outside ? "Outside the volume" : "");
       patch({ load: error ? "error" : s.refining ? "refining" : "ready", loadError: error });
     },
     [patch],
