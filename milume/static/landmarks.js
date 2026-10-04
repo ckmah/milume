@@ -2327,7 +2327,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         const base = `${labels[best]} · ${indices.length}`;
         const used = new Set((items || []).map((x) => String(x.id)));
         if (!used.has(base)) return base;
-        for (let i = 2; ; i++) if (!used.has(`${base} ${i}`)) return `${base} ${i}`;
+        for (let i = 2; ; i++) if (!used.has(`${base} (${i})`)) return `${base} (${i})`;
       }
     }
     return nextNumberedId(prefix, items);

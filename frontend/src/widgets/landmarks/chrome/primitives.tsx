@@ -5,6 +5,7 @@ import {
   useState,
   type ComponentType,
   type ReactElement,
+  type ReactNode,
   type Ref,
 } from "react";
 import {
@@ -39,10 +40,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import { MODE_LABELS, MODE_SHORTCUTS } from "../helpers";
+import { FLOAT_PANEL } from "./sections";
 
 function FilledCircleIcon(props: LucideProps) {
   return <CircleIcon {...props} fill="currentColor" strokeWidth={0} />;
@@ -295,6 +302,9 @@ export function LayerRow({
   onDelete,
   onToggleHidden,
   menuContainer,
+  thumbnail,
+  hoverContent,
+  testId,
 }: {
   active: boolean;
   color?: string;
@@ -308,9 +318,16 @@ export function LayerRow({
   onDelete?: () => void;
   onToggleHidden?: () => void;
   menuContainer?: HTMLElement | null;
+  /** An image (data URL) shown in place of the colour swatch. */
+  thumbnail?: string | null;
+  /** A hover card beside the row; mounted only while it is open. */
+  hoverContent?: ReactNode;
+  testId?: string;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(label);
+  const [cardOpen, setCardOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const hasMenu = !!(onRename || onDelete || onToggleHidden);
 
   const startRename = () => {
@@ -319,9 +336,11 @@ export function LayerRow({
     setEditing(true);
   };
 
-  return (
+  const row = (
     <div
       role="listitem"
+      data-testid={testId}
+      aria-current={active || undefined}
       aria-disabled={disabled || undefined}
       className={cn(
         "landmarks-layer-row text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
@@ -341,12 +360,22 @@ export function LayerRow({
         }
       }}
     >
-      <ColorSwatch
-        color={color}
-        variant={swatchVariant}
-        fillOpacity={swatchFillOpacity}
-        className="landmarks-layer-swatch"
-      />
+      {thumbnail ? (
+        <img
+          data-testid="selection-thumb"
+          src={thumbnail}
+          alt=""
+          className="landmarks-layer-thumb size-7 shrink-0 rounded-sm object-cover"
+          style={color ? { borderColor: color } : undefined}
+        />
+      ) : (
+        <ColorSwatch
+          color={color}
+          variant={swatchVariant}
+          fillOpacity={swatchFillOpacity}
+          className="landmarks-layer-swatch"
+        />
+      )}
       <div className="landmarks-layer-label">
         {editing && onRename ? (
           <Input
@@ -393,7 +422,7 @@ export function LayerRow({
       </div>
       {hasMenu ? (
         <div className="landmarks-trail">
-          <DropdownMenu>
+          <DropdownMenu onOpenChange={setMenuOpen}>
             <DropdownMenuTrigger asChild>
               <Button
                 type="button"
@@ -452,5 +481,29 @@ export function LayerRow({
         </div>
       ) : null}
     </div>
+  );
+
+  if (!hoverContent) return row;
+  // The card steps aside while the row's menu is open or it is being renamed.
+  return (
+    <HoverCard
+      openDelay={350}
+      closeDelay={80}
+      open={cardOpen && !menuOpen && !editing}
+      onOpenChange={setCardOpen}
+    >
+      <HoverCardTrigger asChild>{row}</HoverCardTrigger>
+      <HoverCardContent
+        data-testid="selection-card"
+        side="right"
+        align="start"
+        sideOffset={10}
+        collisionPadding={8}
+        container={menuContainer}
+        className={cn(FLOAT_PANEL, "landmarks__selection-card")}
+      >
+        {hoverContent}
+      </HoverCardContent>
+    </HoverCard>
   );
 }

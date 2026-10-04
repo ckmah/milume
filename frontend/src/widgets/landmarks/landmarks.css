@@ -908,6 +908,37 @@
   background-color: transparent;
 }
 
+/* Inspect entry thumbnail in place of the swatch, edged in the selection colour. */
+.landmarks-layer-thumb {
+  box-sizing: border-box;
+  border: 1.5px solid var(--border);
+  background: var(--muted);
+}
+
+/* Selection hover card: Soft Float glass, portalled to the widget root. */
+.landmarks .landmarks__selection-card {
+  width: 14rem;
+  max-width: calc(100vw - 1rem);
+  padding: 0.5rem 0.625rem 0.625rem;
+  color: var(--foreground);
+}
+
+.landmarks__selection-card-thumb {
+  display: block;
+  aspect-ratio: 64 / 40;
+  object-fit: cover;
+}
+
+.landmarks__selection-card-track {
+  background: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landmarks .landmarks__selection-card {
+    animation: none;
+  }
+}
+
 .landmarks-trail {
   display: flex;
   flex: 0 0 var(--lm-trail);
@@ -1338,24 +1369,6 @@
   z-index: 21;
 }
 
-/* Inspect history chip: a hit sized to its 64x40 snapshot (utilities cannot
-   override the unlayered .landmarks-hit box). */
-.landmarks-hit.landmarks__inspect-chip {
-  position: relative;
-  width: auto;
-  min-width: 0;
-  height: auto;
-  padding: 2px;
-  border-radius: 6px;
-}
-
-/* Focused chip: a quiet ring around the snapshot, not the filled on-state. */
-.landmarks-hit.landmarks__inspect-chip[aria-pressed="true"],
-.landmarks-hit.landmarks__inspect-chip[aria-pressed="true"]:hover {
-  background: color-mix(in oklab, var(--foreground) 12%, transparent);
-  box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--foreground) 70%, transparent);
-}
-
 /* Inspect cube taking over the plot area: under the top tools (22), over the
    minimap (16). The docks and peek tabs are lifted over it while it is open
    (`.landmarks--cube-open`, below). Rounded like `.landmarks__body`. */
@@ -1391,24 +1404,6 @@
 }
 .volume-cube__view[data-panning="true"] canvas {
   cursor: grabbing !important;
-}
-
-/* Inspect history: bottom left, scrolls sideways. */
-.landmarks__cube-history {
-  position: absolute;
-  bottom: var(--lm-chrome-inset);
-  left: var(--lm-chrome-inset);
-  display: flex;
-  gap: 0.25rem;
-  padding: 0.25rem;
-  width: fit-content;
-  max-width: calc(100% - 4rem);
-  overflow-x: auto;
-}
-
-/* Narrow: the bottom row belongs to the context toolbar, so the history rides above it. */
-.landmarks--narrow .landmarks__cube-history {
-  bottom: calc(var(--lm-resize-band) + var(--lm-chrome-inset) * 2 + var(--lm-toolbar-h));
 }
 
 .landmarks--fs .landmarks__chrome-context,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Rise } from "cube-motion/react";
 
 import { useNotebookTheme } from "@/hooks/use-notebook-theme";
@@ -87,8 +87,11 @@ export function LandmarksView({
   const inspectCube = useInspectCube(facade, lm, engine);
   // One decoded-chunk cache per widget, kept across cube opens.
   const chunkCache = useMemo(() => new ChunkCache(), []);
-  // Inspect history chip snapshots by selection id, kept across cube opens (never synced).
+  // Inspect entry thumbnails by selection id, kept across cube opens (never
+  // synced). The cube adds them; the Selections panel shows them. The Map is
+  // mutable, so the cube bumps `snapshotVersion` when it adds one.
   const snapshots = useMemo(() => new Map<string, ChipSnapshot>(), []);
+  const [snapshotVersion, bumpSnapshotVersion] = useReducer((n: number) => n + 1, 0);
   // Drop snapshots of deleted selections (ids are reused).
   useEffect(() => {
     const ids = new Set(lm.selections.map((s) => String(s.id)));
@@ -447,7 +450,7 @@ export function LandmarksView({
             budgets={budgets}
             snapshots={snapshots}
             overlays={landmarkGeometry}
-            onFocusEntry={inspectCube.focusEntry}
+            onSnapshot={bumpSnapshotVersion}
             onPan={inspectCube.panWindow}
             onPanEnd={inspectCube.panEnd}
           />
@@ -502,7 +505,12 @@ export function LandmarksView({
               >
                 <RightChromeStack lm={lm} engine={engine} />
               </div>
-              <LayersPanel lm={lm} />
+              <LayersPanel
+                lm={lm}
+                snapshots={snapshots}
+                snapshotVersion={snapshotVersion}
+                onFocusEntry={inspectCube.focusEntry}
+              />
             </div>
             {collapsed.left ? (
               <PanelPeekTab
@@ -527,7 +535,12 @@ export function LandmarksView({
                 side="left"
                 onCollapse={() => setCollapsed((c) => ({ ...c, left: true }))}
               />
-              <LayersPanel lm={lm} />
+              <LayersPanel
+                lm={lm}
+                snapshots={snapshots}
+                snapshotVersion={snapshotVersion}
+                onFocusEntry={inspectCube.focusEntry}
+              />
             </div>
             {collapsed.left ? (
               <PanelPeekTab

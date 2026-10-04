@@ -1,7 +1,5 @@
-import { Suspense, lazy, useCallback, useEffect, useReducer, useRef } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef } from "react";
 
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
 import type { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
@@ -9,13 +7,10 @@ import type { CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
 import { PREVIEW_REGION_SCALE } from "@/widgets/volume-cube/window-source";
 
 import { INSPECT_WINDOW_UM } from "../engine";
-import { SELECTION_COLORS } from "../helpers";
 import type { CubeSettings, CubeSettingsPatch } from "../use-cube-settings";
 import { inspectWindowOf } from "../use-inspect-cube";
 import type { LandmarksModel } from "../use-landmarks-model";
-import { type ChipSnapshot, SNAPSHOT, SNAPSHOT_SETTLE_MS, snapshotOf, windowKey } from "./cube-snapshots";
-import { chromeHitClass } from "./primitives";
-import { FLOAT_PANEL } from "./sections";
+import { type ChipSnapshot, SNAPSHOT_SETTLE_MS, snapshotOf, windowKey } from "./cube-snapshots";
 
 // Lazy only in the dev harness: the widget build inlines dynamic imports
 // (`inlineDynamicImports`, vite.config.ts), so landmarks.mjs always carries Viv.
@@ -27,9 +22,10 @@ const ORIGIN_ZYX: [number, number, number] = [0, 0, 0];
 const VOXEL_ZYX: [number, number, number] = [1, 1, 1];
 
 /**
- * The Inspect cube taking over the widget's plot area: full-bleed, with the
- * inspect history over it (bottom). Its load status goes to the settings for
- * the Inspect pill, which holds Save and Exit. Esc in Inspect returns to the map.
+ * The Inspect cube taking over the widget's plot area, full-bleed. Its load
+ * status goes to the settings for the Inspect pill, which holds Save and Exit.
+ * Esc in Inspect returns to the map. It also snapshots the window it shows for
+ * the inspect entries' thumbnails in the Selections panel.
  */
 export function CubeImmersive({
   lm,
@@ -42,7 +38,7 @@ export function CubeImmersive({
   budgets,
   snapshots,
   overlays,
-  onFocusEntry,
+  onSnapshot,
   onPan,
   onPanEnd,
 }: {
@@ -57,12 +53,12 @@ export function CubeImmersive({
   cache: ChunkCache;
   /** Voxel budgets: `preview` sizes the coarse first step, `dock` the fine level. */
   budgets: { preview: number; dock: number };
-  /** History chip snapshots by selection id; kept across opens, never synced. */
+  /** Inspect entry thumbnails by selection id; kept across opens, never synced. */
   snapshots: Map<string, ChipSnapshot>;
   /** The user's landmarks (µm), drawn on the cube's top face. */
   overlays: CubeOverlay[] | null;
-  /** A history chip: focus its entry and restore its window and cut. */
-  onFocusEntry: (index: number) => void;
+  /** An entry's thumbnail was added or replaced in `snapshots` (the Map is mutable). */
+  onSnapshot: () => void;
   /** Shift+drag, or a drag with the Move tool: pan the live window (µm). */
   onPan: (dxUm: number, dyUm: number) => void;
   /** The pan's release. */
@@ -78,20 +74,17 @@ export function CubeImmersive({
     [patch],
   );
 
-  // History: the inspect Selections, in `selections` order.
-  const history = lm.selections.flatMap((sel, index) => {
-    const win = inspectWindowOf(sel);
-    return win ? [{ id: String(sel.id), index, win }] : [];
-  });
-  const focusedIndex = lm.selected_kind === "selection" ? lm.selected_index : -1;
-  const focused = history.find((h) => h.index === focusedIndex) ?? null;
+  // The focused inspect entry, if any.
+  const focusedSel = lm.selected_kind === "selection" ? lm.selections[lm.selected_index] : undefined;
+  const focusedWin = inspectWindowOf(focusedSel);
+  const focused = focusedWin ? { id: String(focusedSel?.id), win: focusedWin } : null;
 
-  // Snapshot the live window once it is shown settled (fine level, no pan): a
-  // chip for it can then show its thumbnail the moment Save adds it, though
-  // deck draws no new frame then (the canvas can only be read while rendering).
-  // A focused entry at its own window also gets one, under its id. After an
-  // entry's first snapshot, settled renders replace it for SNAPSHOT_SETTLE_MS.
-  const [, bumpSnapshots] = useReducer((n: number) => n + 1, 0);
+  // Snapshot the live window once it is shown settled (fine level, no pan): an
+  // entry saved from it can then show its thumbnail the moment Save adds it,
+  // though deck draws no new frame then (the canvas can only be read while
+  // rendering). A focused entry at its own window also gets one, under its id.
+  // After an entry's first snapshot, settled renders replace it for
+  // SNAPSHOT_SETTLE_MS.
   const live = useRef<ChipSnapshot | null>(null);
   const latest = useRef({ focused, cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um });
   latest.current = { focused, cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um };
@@ -115,10 +108,12 @@ export function CubeImmersive({
       const url = snapshotOf(canvas);
       if (!url) return;
       if (takeLive) live.current = { key: liveKey, url, at: liveCur?.at ?? now };
-      if (takeEntry && f) snapshots.set(f.id, { key: windowKey(f.win), url, at: entryCur?.at ?? now });
-      bumpSnapshots();
+      if (takeEntry && f) {
+        snapshots.set(f.id, { key: windowKey(f.win), url, at: entryCur?.at ?? now });
+        onSnapshot();
+      }
     },
-    [snapshots],
+    [snapshots, onSnapshot],
   );
   // A focused entry at the live window keeps the live snapshot when the cube moves on.
   const focusedKey = focused ? windowKey(focused.win) : "";
@@ -126,11 +121,11 @@ export function CubeImmersive({
     const l = live.current;
     if (!focused || !l || l.key !== focusedKey || snapshots.get(focused.id)?.key === focusedKey) return;
     snapshots.set(focused.id, l);
+    onSnapshot();
   });
 
   const volume = lm.volume ?? {};
   const size = lm.inspect_size_um || INSPECT_WINDOW_UM;
-  const swatch = (index: number) => SELECTION_COLORS[index % SELECTION_COLORS.length];
 
   return (
     <section
@@ -180,44 +175,6 @@ export function CubeImmersive({
           onPanEnd={onPanEnd}
         />
       </Suspense>
-      {history.length ? (
-        <div
-          role="group"
-          aria-label="Inspect history"
-          className={cn(FLOAT_PANEL, "landmarks__cube-history")}
-        >
-          {history.map((h, n) => {
-            const key = windowKey(h.win);
-            const snap = [snapshots.get(h.id), live.current].find((c) => c?.key === key);
-            const src = snap?.url ?? null;
-            return (
-              <Button
-                key={`${h.id}-${h.index}`}
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label={`Inspect ${n + 1}`}
-                aria-pressed={h.index === focusedIndex}
-                title={`Inspect ${n + 1}`}
-                className={cn(chromeHitClass, "landmarks__inspect-chip")}
-                onClick={() => onFocusEntry(h.index)}
-              >
-                {src ? (
-                  <img src={src} alt="" width={SNAPSHOT.width} height={SNAPSHOT.height} className="rounded-sm" />
-                ) : (
-                  <span
-                    className="block rounded-sm"
-                    style={{ width: SNAPSHOT.width, height: SNAPSHOT.height, background: swatch(h.index) }}
-                  />
-                )}
-                <span className="pointer-events-none absolute bottom-1 left-1.5 text-[10px] leading-none font-medium text-white [text-shadow:0_0_2px_rgb(0_0_0/0.9)]">
-                  {n + 1}
-                </span>
-              </Button>
-            );
-          })}
-        </div>
-      ) : null}
     </section>
   );
 }

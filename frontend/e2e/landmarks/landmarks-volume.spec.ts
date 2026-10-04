@@ -25,6 +25,16 @@ const selectionsOf = async (page: Page) => (await getModel(page, "selections")) 
 /** The top pill while in Inspect (in place of the tool pill): Exit, the window's status, Save. */
 const inspectPill = (page: Page) => page.getByTestId("inspect-pill");
 const saveButton = (page: Page) => inspectPill(page).getByRole("button", { name: "Save window" });
+/** Inspect collapses the docks: reopen the left one (Selections) from its peek tab. It floats over the cube. */
+async function openSelectionsDock(page: Page) {
+  const left = page.locator(".landmarks__chrome-dock--left");
+  if ((await left.getAttribute("data-collapsed")) === "true") {
+    await page.getByRole("button", { name: "Show left panel" }).click();
+  }
+  await expect(left).toHaveAttribute("data-collapsed", "false");
+}
+/** The Selections panel's row for selection `index`. */
+const selectionRow = (page: Page, index: number) => page.getByTestId("selection-row").nth(index);
 /** The focused element, through shadow roots: its aria-label and whether it sits in `[data-testid=testId]`. */
 async function focused(page: Page, testId: string) {
   return page.evaluate((testId) => {
@@ -296,9 +306,9 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-channels", /1|2/);
     expect(Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(0);
     expect((await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay())).placed).not.toBeNull();
-    // A click only places the window: no selection, no history.
+    // A click only places the window: no selection, no Selections row.
     expect(await selectionsOf(page)).toEqual([]);
-    await expect(cubeWindow(page).getByLabel("Inspect history")).toHaveCount(0);
+    await expect(page.getByTestId("selection-row")).toHaveCount(0);
 
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
@@ -364,17 +374,89 @@ test.describe("Landmarks inspect cube", () => {
     await expect.poll(async () => (await selectionsOf(page)).length).toBe(1);
     // The default window holds all three toy cells; two are type1. The count is the
     // selection's total members, the label the category with the most.
-    const cols = (await getModel(page, "category_columns")) as { name: string; labels: string[] }[];
-    const active = await getModel(page, "active_category");
-    expect(cols.find((c) => c.name === active)?.labels).toContain("type1");
-    expect((await selectionsOf(page))[0].id).toBe("type1 · 3");
+    const [sel] = await selectionsOf(page);
+    expect(sel.id).toBe("type1 · 3");
+    // From the members themselves: the count is `point_indices.length`, the label
+    // the active categorical's most frequent code among them.
+    const majority = await page.evaluate(
+      ({ indices }) => {
+        const engine = (window as any).__landmarksEngine;
+        const model = (window as any).__landmarksModel;
+        const n = engine.getPoints().length;
+        const cols = model.get("category_columns") as { name: string; labels: string[] }[];
+        const ci = cols.findIndex((c) => c.name === model.get("active_category"));
+        const bytes = Uint8Array.from(atob(model.get("category_codes")), (ch) => ch.charCodeAt(0));
+        const codes = new Int32Array(bytes.buffer);
+        const counts = new Map<number, number>();
+        for (const i of indices) counts.set(codes[ci * n + i]!, (counts.get(codes[ci * n + i]!) ?? 0) + 1);
+        const [best] = [...counts].sort((a, b) => b[1] - a[1])[0]!;
+        return cols[ci]!.labels[best];
+      },
+      { indices: sel.point_indices as number[] },
+    );
+    expect(sel.id).toBe(`${majority} · ${sel.point_indices.length}`);
   });
 
   test("a name already taken gets a numeric suffix", async ({ page }) => {
     await setModel(page, { selections: [{ id: "type1 · 3", type: "points", point_indices: [0, 1, 2] }] });
     await openCubeAtCentre(page);
     expect(await save(page)).toBe(1);
-    expect((await selectionsOf(page)).map((s) => s.id)).toEqual(["type1 · 3", "type1 · 3 2"]);
+    expect((await selectionsOf(page)).map((s) => s.id)).toEqual(["type1 · 3", "type1 · 3 (2)"]);
+  });
+
+  test("there is no history strip; the saved window is a Selections row with a thumbnail", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await page.getByTestId("inspect-pill").getByRole("button", { name: "Save window" }).click();
+    await expect.poll(async () => (await selectionsOf(page)).length).toBe(1);
+    await expect(cubeWindow(page).getByLabel("Inspect history")).toHaveCount(0);
+    await openSelectionsDock(page);
+    const row = page.getByTestId("selection-row").first();
+    await expect(row).toBeVisible();
+    await expect(row.getByTestId("selection-thumb")).toBeVisible();
+  });
+
+  test("hovering a selection row shows its count, window and category bars", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await page.getByTestId("inspect-pill").getByRole("button", { name: "Save window" }).click();
+    await expect.poll(async () => (await selectionsOf(page)).length).toBe(1);
+    await openSelectionsDock(page);
+    await page.getByTestId("selection-row").first().hover();
+    const card = page.getByTestId("selection-card");
+    await expect(card).toBeVisible();
+    await expect(card).toContainText("3 cells");
+    await expect(card).toContainText("µm");
+    await expect(card.getByTestId("selection-card-bar").first()).toBeVisible();
+  });
+
+  test("a lasso row's hover card gives its cells' extent in µm", async ({ page }) => {
+    await setModel(page, { selections: [{ id: "picked", type: "points", point_indices: [0, 2] }] });
+    await openSelectionsDock(page);
+    await selectionRow(page, 0).hover();
+    const card = page.getByTestId("selection-card");
+    await expect(card).toContainText("2 cells");
+    const text = (await card.textContent()) ?? "";
+    const m = text.match(/x (-?\d+)–(-?\d+) · y (-?\d+)–(-?\d+) µm/);
+    expect(m).not.toBeNull();
+    const pts = await page.evaluate(() => (window as any).__landmarksEngine.getPoints() as [number, number][]);
+    const [a, b] = [pts[0]!, pts[2]!];
+    const want = [Math.min(a[0], b[0]), Math.max(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[1], b[1])];
+    m!.slice(1).forEach((v, i) => expect(Math.abs(Number(v) - want[i]!)).toBeLessThanOrEqual(1));
+  });
+
+  test("clicking an inspect row restores its window and opens the cube", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    const box = await openCubeAtCentre(page);
+    await page.getByTestId("inspect-pill").getByRole("button", { name: "Save window" }).click();
+    await expect.poll(async () => (await selectionsOf(page)).length).toBe(1);
+    const saved = (await selectionsOf(page))[0].window;
+    await page.keyboard.press("Escape");
+    await dragOnMap(page, box, [0.3, 0.3], [0.35, 0.3]);
+    await expect(cubeWindow(page)).toBeVisible();
+    await page.keyboard.press("Escape");
+    await openSelectionsDock(page);
+    await page.getByTestId("selection-row").first().click();
+    await expect(cubeWindow(page)).toBeVisible();
+    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBe(saved.cx);
   });
 
   test("Esc closes the cube, a second Esc exits Inspect", async ({ page }) => {
@@ -585,14 +667,14 @@ test.describe("Landmarks inspect cube", () => {
       type: "commit",
       index: 0,
     });
-    const strip = cubeWindow(page).getByLabel("Inspect history");
-    await expect(strip.getByRole("button", { name: "Inspect 1" })).toHaveAttribute("aria-pressed", "true");
+    // The new entry's Selections row is the current one.
+    await expect(selectionRow(page, 0)).toHaveAttribute("aria-current", "true");
   });
 
-  test("the dock's Save adds one selection and chip, then reads Saved until the window moves", async ({ page }) => {
+  test("the dock's Save adds one selection and row, then reads Saved until the window moves", async ({ page }) => {
     await reloadWith(page, "window=100");
     const box = await openCubeAtCentre(page);
-    const strip = cubeWindow(page).getByLabel("Inspect history");
+    const rows = page.getByTestId("selection-row");
     // A click only opens the dock.
     expect(await selectionsOf(page)).toEqual([]);
     await expect(saveButton(page)).toBeEnabled();
@@ -601,7 +683,7 @@ test.describe("Landmarks inspect cube", () => {
 
     await saveButton(page).click();
     await expect.poll(async () => (await selectionsOf(page)).length).toBe(1);
-    await expect(strip.getByRole("button")).toHaveCount(1);
+    await expect(rows).toHaveCount(1);
     await expect(saveButton(page)).toHaveText("Saved");
     await expect(saveButton(page)).toBeDisabled();
     await expect(saveButton(page)).toHaveAttribute("data-saved", "true");
@@ -611,12 +693,13 @@ test.describe("Landmarks inspect cube", () => {
     await expect(saveButton(page)).toHaveText("Save");
     await expect(saveButton(page)).toBeEnabled();
     expect(await save(page)).toBe(1);
-    await expect(strip.getByRole("button")).toHaveCount(2);
+    await expect(rows).toHaveCount(2);
 
-    // A chip restores its window, which is saved.
+    // A row restores its window, which is saved.
     await moveWindow(page, box, [0.6, 0.6], [0.6, 0.6]);
     await expect(saveButton(page)).toBeEnabled();
-    await strip.getByRole("button", { name: "Inspect 1" }).click();
+    await openSelectionsDock(page);
+    await selectionRow(page, 0).click();
     await expect(saveButton(page)).toHaveText("Saved");
     expect(await selectionsOf(page)).toHaveLength(2);
   });
@@ -1558,7 +1641,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(chunkRequests).toEqual([]);
   });
 
-  test("history chips restore each saved window and cut; a saved entry keeps its cut", async ({ page }) => {
+  test("Selections rows restore each saved window and cut; a saved entry keeps its cut", async ({ page }) => {
     const box = await openCubeAtCentre(page);
     const cx = () => getModel(page, "inspect_cx").then(Number);
     await openCross(page);
@@ -1584,48 +1667,50 @@ test.describe("Landmarks inspect cube", () => {
     expect(await save(page)).toBe(1);
     const second = (await selectionsOf(page))[1];
 
-    const strip = cubeWindow(page).getByLabel("Inspect history");
-    await expect(strip.getByRole("button")).toHaveCount(2);
-    await expect(strip.getByRole("button", { name: "Inspect 2" })).toHaveAttribute("aria-pressed", "true");
-    await strip.getByRole("button", { name: "Inspect 1" }).click();
+    await expect(page.getByTestId("selection-row")).toHaveCount(2);
+    await expect(selectionRow(page, 1)).toHaveAttribute("aria-current", "true");
+    await openSelectionsDock(page);
+    await selectionRow(page, 0).click();
     await expect.poll(cx).toBeCloseTo(first.window.cx, 3);
     await expect.poll(async () => (await cutOf(page))[5]).toBe(54);
-    await strip.getByRole("button", { name: "Inspect 2" }).click();
+    await selectionRow(page, 1).click();
     await expect.poll(cx).toBeCloseTo(second.window.cx, 3);
     await expect.poll(async () => (await cutOf(page))[5]).toBe(64);
 
-    // A press moves the live window off the focused entry; its chip brings it back.
+    // A press moves the live window off the focused entry; its row brings it back.
     await moveWindow(page, box, [0.7, 0.6], [0.7, 0.6]);
     await expect.poll(cx).not.toBeCloseTo(second.window.cx, 1);
-    await strip.getByRole("button", { name: "Inspect 2" }).click();
+    await selectionRow(page, 1).click();
     await expect.poll(cx).toBeCloseTo(second.window.cx, 3);
     // Saved entries are snapshots: nothing above changed them.
     expect(await selectionsOf(page)).toEqual([first, second]);
   });
 
-  test("deleting an inspect selection removes its chip; the last one closes the dock", async ({ page }) => {
+  test("deleting an inspect selection removes its row; the last one closes the dock", async ({ page }) => {
     await openCubeAtCentre(page);
     expect(await save(page)).toBe(0);
-    const strip = cubeWindow(page).getByLabel("Inspect history");
-    await expect(strip.getByRole("button")).toHaveCount(1);
-    // Once refined, the chip carries a snapshot of the cube.
-    await expect(strip.getByRole("button", { name: "Inspect 1" }).locator("img")).toHaveCount(1);
+    await openSelectionsDock(page);
+    const rows = page.getByTestId("selection-row");
+    await expect(rows).toHaveCount(1);
+    // Once refined, the row carries a snapshot of the cube.
+    await expect(selectionRow(page, 0).getByTestId("selection-thumb")).toBeVisible();
     await setModel(page, { selections: [], selected_kind: "", selected_index: -1 });
+    await expect(rows).toHaveCount(0);
     await expect(cubeWindow(page)).toHaveCount(0);
   });
 
-  test("a chip gets its thumbnail when Save lands after the cube has settled", async ({ page }) => {
+  test("a row gets its thumbnail when Save lands after the cube has settled", async ({ page }) => {
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-pan", "0,0");
     await page.waitForTimeout(1500); // settle: past the cube's last frame, so Save cannot ride on one
     expect(await save(page)).toBe(0);
-    const chip = cubeWindow(page).getByLabel("Inspect history").getByRole("button", { name: "Inspect 1" });
-    await expect(chip.locator("img")).toHaveCount(1);
+    await openSelectionsDock(page);
+    await expect(selectionRow(page, 0).getByTestId("selection-thumb")).toBeVisible();
   });
 
-  test("a chip's snapshot follows its entry: a reused id re-snapshots", async ({ page }) => {
+  test("a row's snapshot follows its entry: a reused id re-snapshots", async ({ page }) => {
     // A 100 µm window, so two places show different parts of the toy volume.
     await reloadWith(page, "window=100");
     // No active categorical, so a new entry is "inspect 1" whatever it holds (named by
@@ -1634,9 +1719,10 @@ test.describe("Landmarks inspect cube", () => {
     const box = await openCubeAtCentre(page);
     expect(await save(page)).toBe(0);
     expect((await selectionsOf(page))[0].id).toBe("inspect 1");
-    const chip = cubeWindow(page).getByLabel("Inspect history").getByRole("button", { name: "Inspect 1" });
-    const src = () => chip.locator("img").getAttribute("src");
-    await expect(chip.locator("img")).toHaveCount(1);
+    // The row's thumbnail (rows stay in the DOM while Inspect collapses the dock).
+    const thumb = selectionRow(page, 0).getByTestId("selection-thumb");
+    const src = () => thumb.getAttribute("src");
+    await expect(thumb).toHaveCount(1);
     await page.waitForTimeout(1200); // past the snapshot's settle replacement (SNAPSHOT_SETTLE_MS)
     const before = await src();
     const id = (await selectionsOf(page))[0].id;
@@ -1648,7 +1734,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toBeVisible();
     expect(await save(page)).toBe(0);
     expect((await selectionsOf(page))[0].id).toBe(id);
-    await expect(chip.locator("img")).toHaveCount(1);
+    await expect(thumb).toHaveCount(1);
     await expect.poll(src).not.toBe(before);
   });
 
