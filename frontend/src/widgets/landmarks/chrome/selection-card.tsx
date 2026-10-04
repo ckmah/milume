@@ -48,10 +48,13 @@ export function SelectionCard({
   lm,
   index,
   snapshot,
+  stackZ = null,
 }: {
   lm: LandmarksModel;
   index: number;
   snapshot: ChipSnapshot | null;
+  /** The 3D image's Z extent (µm), when known. */
+  stackZ?: [number, number] | null;
 }) {
   const sel = lm.selections[index];
   const win = inspectWindowOf(sel);
@@ -85,15 +88,18 @@ export function SelectionCard({
         .slice(0, 3),
     [n, mask, category_codes, category_columns, active_category],
   );
-  // Where it is: an inspect entry's window (and its depth cut), else the members' extent.
+  // Where it is: an inspect entry's window (and its depth cut, unless it is the
+  // whole stack), else the members' extent.
   const where = useMemo(() => {
     if (!win) return [boundsText(points_data || "", mask, x_bounds || [], y_bounds || [])].filter(Boolean);
     const r = Math.round;
+    const z = win.cut?.length === 6 ? [r(win.cut[4]!), r(win.cut[5]!)] : null;
+    const wholeStack = z != null && stackZ != null && z[0] <= r(stackZ[0]) && z[1] >= r(stackZ[1]);
     return [
       `${r(win.size_um)} µm window at ${r(win.cx)}, ${r(win.cy)} µm`,
-      win.cut?.length === 6 ? `Depth ${r(win.cut[4]!)}–${r(win.cut[5]!)} µm` : "",
+      z && !wholeStack ? `Depth ${z[0]}–${z[1]} µm` : "",
     ].filter(Boolean);
-  }, [win, points_data, mask, x_bounds, y_bounds]);
+  }, [win, stackZ, points_data, mask, x_bounds, y_bounds]);
   if (!sel) return null;
   const total = Math.max(count, 1);
 

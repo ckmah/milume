@@ -509,6 +509,7 @@ export function LandmarksView({
                 lm={lm}
                 snapshots={snapshots}
                 snapshotVersion={snapshotVersion}
+                stackZ={inspectCube.stackZ}
                 onFocusEntry={inspectCube.focusEntry}
               />
             </div>
@@ -539,6 +540,7 @@ export function LandmarksView({
                 lm={lm}
                 snapshots={snapshots}
                 snapshotVersion={snapshotVersion}
+                stackZ={inspectCube.stackZ}
                 onFocusEntry={inspectCube.focusEntry}
               />
             </div>

@@ -426,6 +426,15 @@ test.describe("Landmarks inspect cube", () => {
     await expect(card).toContainText("3 cells");
     await expect(card).toContainText("µm");
     await expect(card.getByTestId("selection-card-bar").first()).toBeVisible();
+    // A cut through the whole stack is no depth cut; a Z cut shows its range.
+    await expect(card).not.toContainText("Depth");
+    const [sel] = await selectionsOf(page);
+    expect(sel.window.cut).toHaveLength(6);
+    const cut = [...sel.window.cut];
+    cut[4] = 10;
+    cut[5] = 40;
+    await setModel(page, { selections: [{ ...sel, window: { ...sel.window, cut } }] });
+    await expect(card).toContainText("Depth 10–40 µm");
   });
 
   test("a lasso row's hover card gives its cells' extent in µm", async ({ page }) => {

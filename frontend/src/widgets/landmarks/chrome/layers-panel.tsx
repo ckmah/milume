@@ -24,6 +24,7 @@ export function LayersPanel({
   lm,
   snapshots = NO_SNAPSHOTS,
   snapshotVersion = 0,
+  stackZ = null,
   onFocusEntry,
 }: {
   lm: LandmarksModel;
@@ -31,6 +32,8 @@ export function LayersPanel({
   snapshots?: Map<string, ChipSnapshot>;
   /** Bumped when `snapshots` gains or replaces a thumbnail. */
   snapshotVersion?: number;
+  /** The 3D image's Z extent (µm), once known: an entry cut to all of it has no depth line. */
+  stackZ?: [number, number] | null;
   /** Focus an inspect entry and restore its window and cut (opens the cube). */
   onFocusEntry?: (index: number) => void;
 }) {
@@ -83,7 +86,7 @@ export function LayersPanel({
                       menuContainer={menuContainer}
                       thumbnail={thumbs[i]?.url ?? null}
                       hoverContent={
-                        <SelectionCard lm={lm} index={i} snapshot={thumbs[i] ?? null} />
+                        <SelectionCard lm={lm} index={i} snapshot={thumbs[i] ?? null} stackZ={stackZ} />
                       }
                       onSelect={() =>
                         inspectWindowOf(sel) && onFocusEntry

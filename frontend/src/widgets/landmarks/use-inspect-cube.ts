@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 
 import { DEFAULT_RENDER } from "@/widgets/volume-cube/palettes";
 import type { CubeCut } from "@/widgets/volume-cube/VolumeCube";
@@ -52,6 +52,8 @@ export type InspectCube = {
   cut: CubeCut;
   /** Slider ranges once the volume is open: the clamped window and the stack. */
   cutRanges: { x: Range; y: Range; z: Range } | null;
+  /** The stack's Z extent (µm), kept after the cube closes; `null` until a cube first opens. */
+  stackZ: Range | null;
   onCutLive: (cut: CubeCut) => void;
   onCutCommit: (cut: CubeCut) => void;
   /**
@@ -61,7 +63,7 @@ export type InspectCube = {
   onKeyDown: (e: React.KeyboardEvent) => void;
   /** Leave Inspect: close the cube and go back to the tool used before it. */
   exitInspect: () => void;
-  /** Focus a saved inspect entry and restore its window and cut (a history chip). */
+  /** Focus a saved inspect entry and restore its window and cut (a Selections row click). */
   focusEntry: (index: number) => void;
   /** Save the live window, with its cut, as an inspect Selection (the Inspect pill's Save). */
   save: () => void;
@@ -88,9 +90,9 @@ export type InspectCube = {
  * slider release, and once after the user moves the window (when it settles);
  * never in answer to Python's own `volume_cut` or inspect writes.
  *
- * Inspect Selections are the dock's history, saved from the live window (the
- * engine's `saveInspect`) as fixed snapshots: presses only move the live
- * window. Focusing one restores its window and cut and opens the dock; a
+ * Inspect Selections are saved from the live window (the engine's
+ * `saveInspect`) as fixed snapshots and listed as Selections rows: presses
+ * only move the live window. Focusing one restores its window and cut and opens the dock; a
  * committed cut is also written into the focused entry while its window is
  * the live one; removing the last one closes the dock.
  */
@@ -158,6 +160,14 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     ? shownCut(cube.cut, win, volume?.z ?? null)
     : [-Infinity, Infinity, -Infinity, Infinity, cube.cut.z[0], cube.cut.z[1]];
   const cutRanges = win && volume ? { x: win.x, y: win.y, z: volume.z } : null;
+  // The stack's Z extent outlives the open cube (`bounds` resets on close), so a
+  // saved entry's cut can be told apart from the whole depth.
+  const [stackZ, setStackZ] = useState<Range | null>(null);
+  const z0 = bounds?.stackZ[0];
+  const z1 = bounds?.stackZ[1];
+  useEffect(() => {
+    if (z0 != null && z1 != null) setStackZ((prev) => (prev && prev[0] === z0 && prev[1] === z1 ? prev : [z0, z1]));
+  }, [z0, z1]);
 
   const cx = lm.inspect_cx;
   const cy = lm.inspect_cy;
@@ -228,7 +238,7 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   // entry's cut is adopted as a Python-set cut. Keyed on the entry and its
   // window, not `inspect_cx/cy`, so a press that moves the live window away
   // from the focused entry never snaps it back; after a save the entry equals
-  // the window, so nothing happens. A chip click on the focused entry restores
+  // the window, so nothing happens. A row click on the focused entry restores
   // it again (`restoreTick`).
   const [restoreTick, requestRestore] = useReducer((n: number) => n + 1, 0);
   const focused = lm.selected_kind === "selection" ? lm.selections[lm.selected_index] : undefined;
@@ -420,6 +430,7 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     patchCube,
     cut,
     cutRanges,
+    stackZ,
     onCutLive,
     onCutCommit,
     onKeyDown,

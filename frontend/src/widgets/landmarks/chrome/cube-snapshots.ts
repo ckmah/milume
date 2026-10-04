@@ -6,7 +6,7 @@ export const SNAPSHOT = { width: 64, height: 40 };
  */
 export const SNAPSHOT_SETTLE_MS = 1000;
 
-/** A history chip snapshot: the window it shows (`windowKey`), its data URL, and when it was first taken. */
+/** An inspect entry's thumbnail (its Selections row and hover card): the window it shows (`windowKey`), its data URL, and when it was first taken. */
 export type ChipSnapshot = { key: string; url: string; at: number };
 
 /** The window a snapshot shows. A snapshot under another key (moved entry, reused id) is stale. */
