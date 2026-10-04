@@ -88,8 +88,11 @@ async function brightPixels(page: Page, png: Buffer, min = 60) {
   );
 }
 
-/** Reload the harness with harness-only URL options (`window=<µm>`, `budgets=<preview>,<dock>`). */
-async function reloadWith(page: Page, query: string) {
+/** Remount the harness with harness-only options (`window=<µm>`, `budgets=<preview>,<dock>`). */
+const reloadWith = bootLandmarksVolumeHarness;
+
+/** A real page load with the options, for a test that installed an init script (`@isolated`). */
+async function loadFresh(page: Page, query: string) {
   await page.goto(`/?${query}`, { waitUntil: "networkidle" });
   await page.waitForFunction(() => Boolean((window as any).__landmarksEngine?.getViewState?.()));
 }
@@ -1634,7 +1637,7 @@ test.describe("Landmarks inspect cube", () => {
     // A 100 µm window over cells 2 (type0, at 160, 150) and 3 (type1, at 100, 190)
     // and not cell 1: the first cell encoded is global 2, so local index 1 is
     // global 2 and a local/global mix-up changes the colours.
-    await reloadWith(page, "window=100");
+    await loadFresh(page, "window=100");
     await openCubeAtCentre(page, { at: [130, 170] });
     const view = cubeWindow(page).locator(".volume-cube__view");
     // Half-µm centre: the level-0 box is X 80-181, Y 120-221, an odd 101 voxels
@@ -1748,7 +1751,7 @@ test.describe("Landmarks inspect cube", () => {
       };
     });
     // Small budgets make the toy pyramid pick different levels (see main.tsx ?budgets).
-    await reloadWith(page, "budgets=20000,300000&window=100");
+    await loadFresh(page, "budgets=20000,300000&window=100");
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
