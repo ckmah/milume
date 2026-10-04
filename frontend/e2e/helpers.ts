@@ -129,19 +129,22 @@ export async function bootLandmarksHarness(page: Page) {
   await stabilizeUi(page);
 }
 
-/** Landmarks over the toy SpatialData (`E2E_HARNESS=landmarks-volume`); the cube opens from Inspect. */
-export async function bootLandmarksVolumeHarness(page: Page) {
-  // Warm only on the plain harness URL: `?window=` / `?budgets=` are read once at load.
+/**
+ * Landmarks over the toy SpatialData (`E2E_HARNESS=landmarks-volume`); the cube opens from Inspect.
+ * `query` sets harness-only options (`window=<µm>`, `budgets=<preview>,<dock>`); a warm page remounts with them
+ * instead of reloading, and the next boot without a query puts the defaults back.
+ */
+export async function bootLandmarksVolumeHarness(page: Page, query = "") {
   const isWarm = await page
-    .evaluate(() => location.search === "" && typeof (window as any).__harnessReset === "function")
+    .evaluate(() => typeof (window as any).__harnessReset === "function")
     .catch(() => false);
   if (isWarm) {
-    await page.evaluate(() => (window as any).__harnessReset());
+    await page.evaluate((q) => (window as any).__harnessReset(q), query);
     await waitForEngine(page, 150);
     await stabilizeUi(page);
     return;
   }
-  await page.goto("/", { waitUntil: "networkidle" });
+  await page.goto(query ? `/?${query}` : "/", { waitUntil: "networkidle" });
   await waitForEngine(page);
   await stabilizeUi(page);
 }
