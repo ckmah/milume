@@ -1281,8 +1281,10 @@
   pointer-events: none;
 }
 
-/* Inspect is a temporary mode: its pill wears a dotted outline. */
+/* Inspect is a temporary mode: its pill wears a dotted outline.
+   The ready chip is positioned against this box. */
 .landmarks-toolbar.landmarks__inspect-pill {
+  position: relative;
   border: 1px dashed color-mix(in oklab, var(--lm-text-muted) 70%, transparent);
 }
 
@@ -1300,21 +1302,26 @@
   white-space: nowrap;
 }
 
-/* Narrow: the hint drops the size, and the open pill its centre readout, so
-   the pill stays clear of the view buttons. */
-.landmarks--narrow .landmarks__inspect-hint-size,
-.landmarks--narrow .landmarks__inspect-centre {
-  display: none;
-}
-
-/* Refining: a gradient sweeps across the text. It is clipped to a span inside
-   Morph's face: the faces are composited layers (will-change), which a clip on
-   an ancestor does not reach, and Morph cancels any animation on a face. */
+/* Refining: a gradient sweeps across the word. */
 .landmarks__inspect-status {
   font-size: 0.6875rem;
-  min-width: 3.5rem;
   color: var(--lm-text-muted);
   white-space: nowrap;
+}
+
+/* Ready has no text. Clip it out of the row and keep the node in the tree so a
+   later Refining or error on this role="status" is announced. */
+.landmarks__inspect-status[data-state="ready"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+  pointer-events: none;
 }
 
 /* A load error is cut short (its full text is the chip's title), so it never

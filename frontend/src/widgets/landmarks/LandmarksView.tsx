@@ -16,6 +16,7 @@ import {
   SelectionToolbar,
   Topbar,
   InspectPill,
+  toInspectLoad,
   LandmarkCanvasMenu,
   ViewCta,
   RightChromeStack,
@@ -404,9 +405,7 @@ export function LandmarksView({
             <InspectPill
               open={cubeOpen}
               sizeUm={lm.inspect_size_um || INSPECT_WINDOW_UM}
-              centre={lm.inspect_cx != null && lm.inspect_cy != null ? { x: lm.inspect_cx, y: lm.inspect_cy } : null}
-              status={cube.load}
-              statusError={cube.loadError}
+              load={toInspectLoad(cube.load, cube.loadError)}
               saved={isWindowSaved(lm)}
               canSave={lm.inspect_cx != null && lm.inspect_cy != null}
               fullscreen={isFullscreen}
