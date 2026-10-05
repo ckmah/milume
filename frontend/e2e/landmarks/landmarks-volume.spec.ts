@@ -1777,7 +1777,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(add.type0.x).toBeGreaterThan(add.type1.x + 20);
     expect(add.type0.y).toBeLessThan(add.type1.y - 20);
 
-    // Image MIP + Labels MIP: the strongest shell per pixel, one shell at 0.9 x 0.6
+    // Image MIP + Labels MIP: the strongest cell sample per pixel, one at 0.9 x 0.6
     // = 0.54 alpha over the white image MIP, is pale. Measured category pixels
     // (type1 / type0) by saturation cutoff: 0.4: 0 / 0; 0.3: 0 / 62786;
     // 0.2: 98 / 62786; 0.15: 31584 / 62786 (as at 0.1). So the blue cells sit at

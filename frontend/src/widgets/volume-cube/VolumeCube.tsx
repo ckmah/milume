@@ -79,7 +79,7 @@ export type VolumeCubeProps = {
   contrast: [number, number];
   /** Default "additive": the image's samples accumulate; "mip": its maximum along each ray. */
   imageMode?: "additive" | "mip";
-  /** Default "additive": label shells accumulate front to back; "mip": the strongest shell along each ray. */
+  /** Default "additive": label samples accumulate front to back; "mip": the strongest one along each ray. */
   labelMode?: "additive" | "mip";
   /**
    * Applied when it changes: the preset's rotation (framed as its home view with

@@ -162,8 +162,9 @@ const CELL_SAMPLE = `
 
 // One loop for every combination of the two projections (uniforms, so a
 // toggle needs no recompile). The image accumulates samples (Additive) or keeps
-// the maximum (MIP); the labels accumulate shells front to back (Additive) or
-// keep the strongest shell (MIP). Labels composite over the image either way.
+// the maximum (MIP); the labels accumulate cell samples front to back
+// (Additive) or keep the strongest one (MIP). Labels composite over the image
+// either way.
 // Viv steps p after _RENDER, so _RENDER may break but must not continue.
 // Either layer stops sampling once it is saturated (as the per-mode templates did).
 const RENDERING = {
@@ -208,8 +209,8 @@ const RENDERING = {
     vec4 im = imageSample(maxImage);
     imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
   }
-  // The labels: the strongest shell along the ray, or the accumulated shells.
-  // Premultiplied, like the accumulated shells, for the "over" below.
+  // The labels: the strongest cell sample along the ray, or the accumulated
+  // ones. Premultiplied, like the accumulated samples, for the "over" below.
   vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb * cellMax, cellMax) : cells;
   // Labels over the image.
   color = vec4(
@@ -231,7 +232,7 @@ type LayerLike = {
     showImage?: boolean;
     /** Default "additive": accumulate the image's samples; "mip": its maximum along the ray. */
     imageMode?: "additive" | "mip";
-    /** Default "additive": accumulate the shells front to back; "mip": the strongest shell along the ray. */
+    /** Default "additive": accumulate the cell samples front to back; "mip": the strongest one along the ray. */
     labelMode?: "additive" | "mip";
     /** Called when the labels this layer draws change (null: none). */
     onCellsBound?: (cells: CellVolume | null) => void;

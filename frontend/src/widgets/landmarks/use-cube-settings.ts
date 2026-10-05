@@ -11,7 +11,7 @@ export type CubeSettings = {
   open: boolean;
   /** Projection of the image in the cube: accumulated samples or maximum intensity. */
   imageMode: "additive" | "mip";
-  /** Projection of the label shells: accumulated front to back or the strongest one. */
+  /** Projection of the labels: accumulated front to back or the strongest sample. */
   labelMode: "additive" | "mip";
   preset: ViewPreset | null;
   resetTick: number;
