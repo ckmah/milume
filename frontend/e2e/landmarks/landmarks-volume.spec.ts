@@ -169,6 +169,77 @@ async function newCategoryPixels(page: Page, before: Buffer, after: Buffer, minS
 }
 
 /**
+ * Category-coloured pixels of one screenshot, by the same hue test as
+ * `newCategoryPixels` but with no before image: for a count that has to fall
+ * (a cell leaving its category colour), there is nothing for a diff to catch.
+ */
+async function categoryPixels(page: Page, png: Buffer) {
+  return page.evaluate(
+    async ({ png, hues }) => {
+      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(bitmap, 0, 0);
+      const { data } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      const out = Object.fromEntries(Object.keys(hues).map((k) => [k, 0])) as Record<keyof typeof hues, number>;
+      let flat = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
+        const max = Math.max(r, g, b);
+        const d = max - Math.min(r, g, b);
+        if (max < 40) continue;
+        if (d / max < 0.4) {
+          flat++;
+          continue;
+        }
+        let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        h = (h * 60 + 360) % 360;
+        for (const [k, hue] of Object.entries(hues))
+          if (Math.abs(((h - hue + 540) % 360) - 180) <= 15) out[k as keyof typeof hues]++;
+      }
+      return { ...out, flat };
+    },
+    { png: png.toString("base64"), hues: CATEGORY_HUES },
+  );
+}
+
+/**
+ * Hue clusters the view gained between two screenshots: saturated pixels
+ * bucketed by 10°, keeping buckets of over 1000 pixels that `before` did not
+ * already have. The diff drops the chrome, whose axis legend is a cluster of
+ * its own. Instance colours are hues nothing else picks, so the clusters count
+ * the cells that colour tells apart.
+ */
+async function newHueClusters(page: Page, before: Buffer, after: Buffer) {
+  return page.evaluate(
+    async ({ before, after }) => {
+      const clusters = async (png: string) => {
+        const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(bitmap, 0, 0);
+        const { data } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+        const buckets = new Map<number, number>();
+        for (let i = 0; i < data.length; i += 4) {
+          const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
+          const max = Math.max(r, g, b);
+          const d = max - Math.min(r, g, b);
+          if (max < 40 || d / max < 0.4) continue;
+          let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+          h = (h * 60 + 360) % 360;
+          const k = Math.floor(h / 10) * 10;
+          buckets.set(k, (buckets.get(k) ?? 0) + 1);
+        }
+        return new Set([...buckets.entries()].filter(([, n]) => n > 1000).map(([k]) => k));
+      };
+      const [was, now] = [await clusters(before), await clusters(after)];
+      return [...now].filter((k) => !was.has(k)).sort((a, b) => a - b);
+    },
+    { before: before.toString("base64"), after: after.toString("base64") },
+  );
+}
+
+/**
  * Category-coloured pixels of a screenshot, grouped into connected blobs: for
  * each blob of at least 30 pixels (bounding-box radius R = half the larger
  * side), `core` counts its pixels within 0.4R of the box centre and `rim` those
@@ -1723,6 +1794,71 @@ test.describe("Landmarks inspect cube", () => {
     expect(mip.type0.count).toBeGreaterThan(200);
     expect(mip.type0.x).toBeGreaterThan(mip.type1.x + 20);
     expect(mip.type0.y).toBeLessThan(mip.type1.y - 20);
+  });
+
+  test("the cube opens showing the cells, with no trip to Adjust", async ({ page }) => {
+    await openCubeAtCentre(page, { at: [130, 170] });
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    // Nothing touched since the click that opened it.
+    await expect(view).toHaveAttribute("data-labels", "on");
+    await expect(view).toHaveAttribute("data-image", "on");
+    await expect(view).toHaveAttribute("data-coloring", "groups");
+    await expect(view).toHaveAttribute("data-channels", "2");
+    const shown = await categoryPixels(page, await view.screenshot());
+    expect(shown.type1).toBeGreaterThan(200);
+    expect(shown.type0).toBeGreaterThan(200);
+    // The switch agrees with what the cube draws.
+    await openAdjust(page);
+    await expect(adjustPanel(page).getByRole("switch", { name: "Show labels" })).toBeChecked();
+  });
+
+  test("with no category to colour by, every cell takes its own hue", async ({ page }) => {
+    await openCubeAtCentre(page, { at: [130, 170] });
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-coloring", "groups");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const byCategory = await view.screenshot();
+    const before = await categoryPixels(page, byCategory);
+
+    // The store's only categorical column goes: there is nothing left to group by.
+    await setModel(page, { active_category: "" });
+    await expect(view).toHaveAttribute("data-coloring", "instances");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const shot = await view.screenshot();
+    // Labels 1, 2 and 3 land on hues 222°, 85° and 307° (HUE_STEP per id), so
+    // the three toy cells show as three clusters and neither category hue (205°
+    // type1, 28° type0) is among them.
+    expect(await newHueClusters(page, byCategory, shot)).toEqual([80, 220, 300]);
+    // Both category counts collapse to the chrome's own few hundred pixels: the
+    // axis legend holds hues inside the 15° the category test allows.
+    const after = await categoryPixels(page, shot);
+    expect(before.type1).toBeGreaterThan(5000);
+    expect(before.type0).toBeGreaterThan(5000);
+    expect(after.type1).toBeLessThan(before.type1 / 10);
+    expect(after.type0).toBeLessThan(before.type0 / 10);
+  });
+
+  test("a cell outside the focused category is neutral, never another category's colour", async ({ page }) => {
+    await openCubeAtCentre(page, { at: [130, 170] });
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await setShow(page, "Show image", false);
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const both = await categoryPixels(page, await view.screenshot());
+    expect(both.type0).toBeGreaterThan(200);
+
+    // Focus type1 (cells 1 and 3). Cell 2 is type0 and drops out of every group.
+    await setModel(page, { selected_kind: "type", selected_index: 0 });
+    await expect(view).toHaveAttribute("data-highlight", "1");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const focused = await categoryPixels(page, await view.screenshot());
+    // The unassigned shell was #f97316, 3.6° from tab10's #ff7f0e: close enough
+    // that this very hue test could not tell cell 2 from a type0 cell. Grey can
+    // never land in a category's bucket, so type0 drops to the chrome's own few
+    // hundred pixels and the unsaturated pixels take cell 2's place.
+    expect(focused.type0).toBeLessThan(both.type0 / 10);
+    expect(focused.type1).toBeGreaterThan(200);
+    expect(focused.flat).toBeGreaterThan(both.flat + 2000);
   });
 
   test("labels draw as filled bodies: a cell's core is coloured, its rim brighter", async ({ page }) => {
