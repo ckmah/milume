@@ -36,6 +36,23 @@ def _level0(element: Any):
     return element
 
 
+def image_contrast_limits(element: Any) -> tuple[float, float]:
+    from .volume_cube import DEFAULT_CONTRAST_LIMITS
+
+    levels = [next(iter(element[k].values())) for k in element.children] if hasattr(element, "children") else []
+    arr = min(levels, key=lambda a: a.size) if levels else element
+    if "c" in arr.dims:
+        arr = arr.isel(c=0)
+    values = np.asarray(arr.data, dtype=np.float64).ravel()
+    values = values[np.isfinite(values)]
+    if not values.size:
+        return DEFAULT_CONTRAST_LIMITS
+    lo, hi = (float(v) for v in np.percentile(values, [1, 99.5]))
+    if hi <= lo:
+        hi = max(float(values.max()), lo + 1.0)
+    return lo, hi
+
+
 def _frame(element: Any, cs: str) -> tuple[tuple[float, ...], tuple[float, ...], tuple[int, ...]]:
     from spatialdata.transformations import get_transformation
 

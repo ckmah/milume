@@ -3,7 +3,7 @@ import pytest
 
 pytest.importorskip("spatialdata")
 
-from milume.volume_source import resolve_volume
+from milume.volume_source import image_contrast_limits, resolve_volume
 from tests.helpers import toy_spatialdata
 
 
@@ -63,3 +63,31 @@ def test_toy_pyramid_levels_share_grids(sdata):
     labels = [root[f"labels/cells/s{i}"].shape for i in range(3)]
     assert image == [(64, 256, 256), (32, 128, 128), (16, 64, 64)]
     assert labels == image
+
+
+def _image(values, scale_factors=None):
+    from spatialdata.models import Image3DModel
+
+    return Image3DModel.parse(values[None], dims=("c", "z", "y", "x"), scale_factors=scale_factors)
+
+
+def test_contrast_limits_span_the_image_percentiles():
+    values = np.random.default_rng(0).integers(1000, 30000, size=(8, 32, 32), dtype=np.uint16)
+    lo, hi = image_contrast_limits(_image(values))
+    np.testing.assert_allclose((lo, hi), np.percentile(values, [1, 99.5]))
+
+
+def test_contrast_limits_read_the_coarsest_level():
+    image = _image(np.full((8, 32, 32), 60000, dtype=np.uint16), scale_factors=[2, 2])
+    coarsest = image["scale2"]
+    name = next(iter(coarsest.data_vars))
+    level = coarsest[name]
+    ramp = np.arange(level.size, dtype=np.uint16).reshape(level.shape)
+    image["scale2"] = coarsest.dataset.assign({name: level.copy(data=ramp)})
+    lo, hi = image_contrast_limits(image)
+    np.testing.assert_allclose((lo, hi), np.percentile(ramp, [1, 99.5]))
+
+
+def test_a_constant_image_still_has_a_contrast_range():
+    lo, hi = image_contrast_limits(_image(np.full((4, 8, 8), 500, dtype=np.uint16)))
+    assert lo <= 500 < hi

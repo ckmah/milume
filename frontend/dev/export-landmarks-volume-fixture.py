@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from milume import LandmarksWidget  # noqa: E402
+from milume.volume_cube import TOY_CONTRAST_LIMITS  # noqa: E402
 from tests.helpers import toy_spatialdata  # noqa: E402
 
 DEV = Path(__file__).resolve().parent
@@ -84,7 +85,7 @@ def main() -> None:
         shutil.rmtree(STORE)
     STORE.parent.mkdir(parents=True, exist_ok=True)
     sdata = toy_spatialdata(STORE)
-    widget = LandmarksWidget(sdata, color="cell_type")
+    widget = LandmarksWidget(sdata, color="cell_type", contrast_limits=TOY_CONTRAST_LIMITS)
     widget.set_render_mode("points")
     payload = {key: getattr(widget, key) for key in FIXTURE_KEYS + VOLUME_KEYS}
     # Served by Vite from the harness public dir instead of the widget's local server.

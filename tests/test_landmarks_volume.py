@@ -8,6 +8,7 @@ import pytest
 pytest.importorskip("spatialdata")
 
 from milume import LandmarksWidget
+from milume.volume_cube import TOY_CONTRAST_LIMITS, toy_volumes
 from tests.helpers import toy_spatialdata
 
 NEW_TRAITS = {"volume", "volume_label_ids", "volume_cut"}
@@ -75,3 +76,15 @@ def test_inspect_selection_round_trips_through_get_obs_names(sdata):
     ]
     names = list(w.get_obs_names(w._adata, "inspect-1"))
     assert names == [str(w._obs_names[0]), str(w._obs_names[2])]
+
+
+def test_contrast_limits_come_from_the_image(sdata):
+    image, _ = toy_volumes()
+    lo, hi = LandmarksWidget(sdata, color="cell_type").volume["contrast_limits"]
+    assert lo == image.min()
+    assert TOY_CONTRAST_LIMITS[1] < hi <= image.max()
+
+
+def test_explicit_contrast_limits_win(sdata):
+    w = LandmarksWidget(sdata, color="cell_type", contrast_limits=(5, 900))
+    assert w.volume["contrast_limits"] == [5.0, 900.0]

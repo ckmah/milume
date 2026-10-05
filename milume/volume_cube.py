@@ -21,8 +21,8 @@ import numpy as np
 TOY_SHAPE_ZYX = (64, 256, 256)
 TOY_CHUNK_ZYX = (32, 64, 64)
 TOY_UM_PER_VOXEL = 1.0
+TOY_CONTRAST_LIMITS = (0.0, 48.0)
 
-# Display range for the image channel (tuned for the toy volumes).
 DEFAULT_CONTRAST_LIMITS = (0.0, 48.0)
 
 

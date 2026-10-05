@@ -84,7 +84,7 @@ w = milume.peek(sdata, color="cell_type")   # SpatialData on disk: adds the 3D c
 | `genes` | gene(s) to expose for coloring; limits the catalog on large matrices |
 | `spatial_key` | `obsm` key holding coordinates (default `"spatial"`) |
 | `table`, `image`, `labels` | override what is inferred from a `SpatialData` |
-| `contrast_limits` | display range for the 3D image |
+| `contrast_limits` | display range for the 3D image (default: its 1st to 99.5th percentile, from the coarsest pyramid level) |
 
 - From a SpatialData, the widget finds the table, the labels element it annotates, a 3D image on the same grid, and their µm frame (override with `table=`, `image=`, `labels=`; `contrast_limits=` for the image).
 - Press **I** (Inspect): the top toolbar turns into a dashed Inspect pill, hovering shows a live coarse preview of the tissue under the cursor, and a click places a 300 µm window; on release a full-resolution cube of it takes over the plot area, cells drawn as outlines colored like the map, with your landmarks on top. Shift+drag in the cube (or the **Move** tool) slides the window across the tissue; a plain drag orbits. The bottom bar holds the camera, **Adjust** (image and label display) and **Cross-section** (cuts). Esc closes the cube; Esc again, or ×, leaves Inspect. The side panels' peek tabs stay over the cube, so you can focus a category or Selection to color it.
