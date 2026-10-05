@@ -433,9 +433,12 @@ class LandmarksWidget(AnyWidget):
 
         volume_source = None
         if not isinstance(adata, AnnData) and hasattr(adata, "tables"):
-            from .volume_source import resolve_volume
+            from .volume_source import image_contrast_limits, resolve_volume
 
-            adata, volume_source = resolve_volume(adata, table=table, image=image, labels=labels)
+            sdata = adata
+            adata, volume_source = resolve_volume(sdata, table=table, image=image, labels=labels)
+            if volume_source is not None and contrast_limits is None:
+                contrast_limits = image_contrast_limits(sdata.images[volume_source.image])
         if not isinstance(adata, AnnData):
             raise TypeError("LandmarksWidget(data) requires an AnnData or a SpatialData")
 
@@ -596,8 +599,8 @@ class LandmarksWidget(AnyWidget):
         if volume_source is not None:
             self._attach_volume(volume_source, contrast_limits)
 
-    def _attach_volume(self, src: Any, contrast_limits: tuple[float, float] | None) -> None:
-        from .volume_cube import DEFAULT_CONTRAST_LIMITS, serve_directory
+    def _attach_volume(self, src: Any, contrast_limits: tuple[float, float]) -> None:
+        from .volume_cube import serve_directory
 
         # Only the cube's image and labels: the rest of the store (tables,
         # expression) stays off the loopback server.
@@ -610,7 +613,7 @@ class LandmarksWidget(AnyWidget):
             "labels_url": f"{base}/labels/{src.labels}/" if src.labels else "",
             "voxel_size_um": [sz, sy, sx],
             "origin_um": [oz, oy, ox],
-            "contrast_limits": [float(v) for v in (contrast_limits or DEFAULT_CONTRAST_LIMITS)],
+            "contrast_limits": [float(v) for v in contrast_limits],
         }
         if src.label_ids is not None:
             ids = np.asarray(src.label_ids, dtype=np.int32)
