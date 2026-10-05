@@ -1244,6 +1244,29 @@ test.describe("Landmarks inspect cube", () => {
     expect(cross.height).toBeLessThanOrEqual(widget.height * 0.5);
   });
 
+  test("Adjust panel glass dims while a slider is dragged", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await openAdjust(page);
+    const panel = adjustPanel(page);
+    await expect(panel).not.toHaveAttribute("data-tuning", "true");
+    const thumb = page.getByRole("slider", { name: "Image alpha" });
+    const box = (await thumb.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await expect(panel).toHaveAttribute("data-tuning", "true");
+    const glass = page.getByTestId("context-l2-anchor").locator(".landmarks-float").first();
+    await expect.poll(async () => Number(await glass.evaluate((el) => getComputedStyle(el).opacity))).toBeCloseTo(
+      0.32,
+      2,
+    );
+    await page.mouse.up();
+    await expect(panel).not.toHaveAttribute("data-tuning", "true");
+    await expect.poll(async () => Number(await glass.evaluate((el) => getComputedStyle(el).opacity))).toBe(1);
+    // A Mode tap does not dim.
+    await panel.getByTestId("adjust-image").getByRole("radio", { name: "MIP" }).click();
+    await expect(panel).not.toHaveAttribute("data-tuning", "true");
+  });
+
   test("the projection toggles set the image and label modes", async ({ page }) => {
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");

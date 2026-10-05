@@ -200,6 +200,10 @@ function ProjectionRow({
 /** The bar's two panels; one is open at a time. */
 type Panel = "adjust" | "cross";
 
+/** Soft Float slider chrome / Radix slots a drag starts on. */
+const SLIDER_HIT =
+  '.landmarks-slider-control, [data-slot="slider"], [data-slot="slider-thumb"], [data-slot="slider-track"]';
+
 /**
  * Context bar while Inspect has a cube open: the view options (camera, Move,
  * Reset view) and two panels that rise above their buttons, one at a time.
@@ -208,6 +212,8 @@ type Panel = "adjust" | "cross";
  * alpha and gamma. Cross-section holds the X/Y/Z cuts, which render live and
  * commit `volume_cut` on release (`onCutCommit`). Both panels are height-capped
  * and scroll inside (landmarks.css), so they never cover most of the cube.
+ * While a slider is dragged (`tuning`), the open panel glass dims so the cube
+ * under it stays readable.
  */
 export function InspectToolbar({
   settings,
@@ -232,7 +238,25 @@ export function InspectToolbar({
   onReset: (section: Section | "all") => void;
 }) {
   const [panel, setPanel] = useState<Panel | null>(null);
-  const toggle = (p: Panel) => setPanel((open) => (open === p ? null : p));
+  // True only while a pointer is down on a slider inside the open panel.
+  const [tuning, setTuning] = useState(false);
+  const toggle = (p: Panel) => {
+    setPanel((open) => (open === p ? null : p));
+    setTuning(false);
+  };
+  // Attach end listeners in the same turn as pointerdown so a quick click cannot
+  // leave tuning stuck true before a useEffect runs.
+  const onPanelPointerDownCapture = (e: React.PointerEvent) => {
+    if (!(e.target as Element | null)?.closest?.(SLIDER_HIT)) return;
+    setTuning(true);
+    const end = () => {
+      setTuning(false);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  };
   const [menuContainer, setMenuContainer] = useState<HTMLElement | null>(null);
   // The cube sizes the contrast range from the contrast it draws; hold the max
   // from pointer down to commit so it cannot run away under the dragged thumb.
@@ -265,7 +289,14 @@ export function InspectToolbar({
 
   // Image and Labels side by side (stacked in a narrow widget).
   const adjustPanel = (
-    <div className="landmarks-adjust" data-testid="context-cube-adjust" role="region" aria-label="Adjust">
+    <div
+      className="landmarks-adjust"
+      data-testid="context-cube-adjust"
+      data-tuning={tuning ? "true" : undefined}
+      role="region"
+      aria-label="Adjust"
+      onPointerDownCapture={onPanelPointerDownCapture}
+    >
       <div className="landmarks-adjust__cols">
         <div className="landmarks-adjust__col" data-testid="adjust-image">
           <AdjustSection
@@ -402,8 +433,10 @@ export function InspectToolbar({
     <div
       className="landmarks-adjust landmarks-cross"
       data-testid="context-cube-cross"
+      data-tuning={tuning ? "true" : undefined}
       role="region"
       aria-label="Cross-section"
+      onPointerDownCapture={onPanelPointerDownCapture}
     >
       <AdjustSection
         title="Cross-section"
@@ -431,6 +464,7 @@ export function InspectToolbar({
     if (e.key !== "Escape" || panel !== p) return;
     if ((e.target as Element | null)?.closest?.('[role="menu"]')) return;
     setPanel(null);
+    setTuning(false);
   };
 
   return (

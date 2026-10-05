@@ -1182,6 +1182,20 @@
   margin-block: -1px;
 }
 
+/* While a slider is dragged, fade the open Inspect bar panel glass so the cube
+   under it stays readable. data-tuning lives on the panel; :has fades its Soft
+   Float wrapper once (not the L1 bar). */
+.landmarks-float:has([data-tuning="true"]) {
+  opacity: 0.32;
+  transition: opacity var(--duration-quick) var(--ease-out);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landmarks-float:has([data-tuning="true"]) {
+    transition: none;
+  }
+}
+
 .landmarks-adjust__cols {
   display: flex;
   align-items: flex-start;
