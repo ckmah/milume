@@ -224,6 +224,53 @@ const IN_CUT = `
       && p.y >= yLo - 0.002 && p.y <= yHi + 0.002
       && p.z >= zLo - 0.002 && p.z <= zHi + 0.002;`;
 
+// An open cut is its own program. A branch inside the ghost march still
+// costs that march on SwiftShader.
+const OPEN_RENDERING = {
+  _BEFORE_RENDER: `${CELL_SETUP}
+  vec4 acc = vec4(0.0);
+  float maxImage = -1.0;
+  vec4 cells = vec4(0.0);
+  float cellMax = 0.0;
+  vec3 cellMaxRgb = vec3(0.0);`,
+  _RENDER: `
+    if (cubeRender.imageMip > 0.5) {
+      maxImage = max(maxImage, intensityValue0);
+    } else if (acc.a < 0.95) {
+      vec4 im = imageSample(intensityValue0);
+      acc.rgb += (1.0 - acc.a) * im.a * im.rgb;
+      acc.a += (1.0 - acc.a) * im.a;
+    }
+    if (cellsOn && (cubeRender.cellMip > 0.5 || cells.a < 0.95)) {
+      ${CELL_SAMPLE}
+      if (cubeRender.cellMip > 0.5) {
+        if (cell.a > cellMax) {
+          cellMax = cell.a;
+          cellMaxRgb = cell.rgb;
+        }
+      } else {
+        cells.rgb += (1.0 - cells.a) * cell.a * cell.rgb;
+        cells.a += (1.0 - cells.a) * cell.a;
+      }
+    }
+    bool imageDone = cubeRender.imageMip < 0.5 && acc.a >= 0.95;
+    bool cellsDone = !cellsOn || (cubeRender.cellMip < 0.5 && cells.a >= 0.95);
+    if (imageDone && cellsDone) {
+      break;
+    }`,
+  _AFTER_RENDER: `
+  vec4 imageOut = acc;
+  if (cubeRender.imageMip > 0.5) {
+    vec4 im = imageSample(maxImage);
+    imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
+  }
+  vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb * cellMax, cellMax) : cells;
+  color = vec4(
+    cellsOut.rgb + (1.0 - cellsOut.a) * imageOut.rgb,
+    cellsOut.a + (1.0 - cellsOut.a) * imageOut.a
+  );`,
+};
+
 const RENDERING = {
   _BEFORE_RENDER: `${CELL_SETUP}
   vec4 acc = vec4(0.0);
@@ -422,7 +469,12 @@ function bindCells(layer: LayerLike): CellVolume | null {
 class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
   static componentName = "CubeExtension";
   static extensionName = "CubeExtension";
-  rendering = RENDERING;
+  rendering: typeof OPEN_RENDERING;
+
+  constructor(rendering: typeof OPEN_RENDERING) {
+    super();
+    this.rendering = rendering;
+  }
 
   getVivShaderTemplates() {
     return { modules: [cubeRenderModule] };
@@ -515,8 +567,8 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
   }
 }
 
-/** One instance: the projections are uniforms, so the program never changes with them. */
-export const CUBE_EXTENSIONS: unknown[] = [new CubeExtension()];
+export const CUBE_EXTENSIONS_OPEN: unknown[] = [new CubeExtension(OPEN_RENDERING)];
+export const CUBE_EXTENSIONS_GHOST: unknown[] = [new CubeExtension(RENDERING)];
 
 function srgbToLinear(c: number): number {
   const s = c / 255;

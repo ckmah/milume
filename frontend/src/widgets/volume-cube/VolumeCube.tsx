@@ -7,7 +7,14 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 import type { ChunkCache } from "./chunk-cache";
-import { CUBE_EXTENSIONS, OUTSIDE_CUT_ALPHA, type CellColoring, type HighlightGroup, type RenderSettings } from "./cell-lut-extension";
+import {
+  CUBE_EXTENSIONS_GHOST,
+  CUBE_EXTENSIONS_OPEN,
+  OUTSIDE_CUT_ALPHA,
+  type CellColoring,
+  type HighlightGroup,
+  type RenderSettings,
+} from "./cell-lut-extension";
 import {
   type CutFace,
   cutBoxPre,
@@ -768,7 +775,7 @@ export function VolumeCube({
               cutFrac,
               cubeCutBox: outsideCut && cubeFrame ? cutBoxPre(shownCut, winX, winY, stackZ, cubeFrame.size) : null,
               resolution: 0,
-              extensions: CUBE_EXTENSIONS,
+              extensions: outsideCut ? CUBE_EXTENSIONS_GHOST : CUBE_EXTENSIONS_OPEN,
               imageMode,
               labelMode,
               cellVolume: cells,
