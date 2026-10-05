@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useRef } from "react";
 
-import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
+import type { CellColoring } from "@/widgets/volume-cube/cell-lut-extension";
 import type { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
 import type { CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
@@ -33,7 +33,7 @@ export function CubeImmersive({
   patch,
   cut,
   dark,
-  groups,
+  coloring,
   cache,
   budgets,
   snapshots,
@@ -48,7 +48,7 @@ export function CubeImmersive({
   /** The cut inside the current window (absolute µm). */
   cut: CubeCut;
   dark: boolean;
-  groups: HighlightGroup[];
+  coloring: CellColoring;
   /** The widget's decoded-chunk cache, shared with the preview. */
   cache: ChunkCache;
   /** Voxel budgets: `preview` sizes the coarse first step, `dock` the fine level. */
@@ -156,7 +156,7 @@ export function CubeImmersive({
           resetTick={settings.resetTick}
           showImage={settings.showImage}
           showLabels={settings.showLabels}
-          groups={groups}
+          coloring={coloring}
           render={settings.render}
           dark={dark}
           height="100%"

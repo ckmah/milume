@@ -17,6 +17,7 @@ export type CubeSettings = {
   resetTick: number;
   /** The image in the cube views (dock and preview); off leaves only labels. */
   showImage: boolean;
+  /** Default on: a store with labels opens showing its cells. */
   showLabels: boolean;
   render: RenderSettings;
   contrast: [number, number];
@@ -47,7 +48,7 @@ export function useCubeSettings(
     preset: "top",
     resetTick: 0,
     showImage: true,
-    showLabels: false,
+    showLabels: true,
     render: DEFAULT_RENDER,
     contrast: initialContrast,
     cut: initialCut,

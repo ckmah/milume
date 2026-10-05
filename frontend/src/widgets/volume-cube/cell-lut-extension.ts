@@ -13,10 +13,11 @@ import { DEFAULT_RENDER, type RenderSettings, paletteLut } from "./palettes";
  * from the `render` prop; with `showImage` false the image adds nothing (a
  * uniform, no refetch). Once labels load, `labelVolume` (an RG8 3D texture on
  * the same grid, see `cell-volume.ts`) holds each voxel's local cell index and
- * a surface flag. Cells draw as shells: only surface voxels contribute, and
- * interiors stay clear. A small RGBA lookup texture (`cellLut`) maps local
- * index -> shell colour and alpha for a highlighted cell; texel 0 is the colour
- * and alpha of the shells that are not highlighted.
+ * a surface flag. Cells draw as filled volumes: a surface voxel contributes at
+ * the cell's own alpha and an interior voxel at `CELL_FILL` of it, so each cell
+ * reads as a body with a defined rim and two touching cells stay apart. A small
+ * RGBA lookup texture (`cellLut`) maps local index -> colour and alpha per cell;
+ * texel 0 is the colour and alpha of the cells the lookup gives none.
  *
  * Showing, hiding or recolouring cells rewrites only the lookup texture (a few
  * KB), never the volume textures, so the Labels switch and a new highlight are
@@ -43,6 +44,16 @@ export { DEFAULT_RENDER, type RenderSettings } from "./palettes";
 
 /** A 256-texel image colour map from `paletteLut`. */
 export type ImagePalette = { data: Uint8Array; width: number; height: number };
+
+/**
+ * Per-sample alpha of a cell's interior, as a fraction of its surface's. The
+ * lowest value that reads as a body rather than an outline. Measured on a 2 µm
+ * slab through the toy cells, core over rim runs 0.07 at a fill of 0 and 0.29
+ * from 0.35 up, against the spec's filled-or-shell separator of 0.25. Staying
+ * at that knee keeps a cell as see-through as a filled cell can be, so deeper
+ * cells and the image behind them still read.
+ */
+export const CELL_FILL = 0.35;
 
 type CubeUniforms = Partial<RenderSettings> & {
   cellsOn?: number;
@@ -129,14 +140,13 @@ vec4 cellColor(ivec3 q) {
   ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
   int idx = b.x + 256 * (b.y & 127);
   if (idx == 0) return vec4(0.0);
-  // Cells are shells: interior voxels draw nothing.
-  if (b.y < 128) return vec4(0.0);
   ivec2 size = textureSize(cellLut, 0).xy;
   vec4 own = vec4(0.0);
   if (idx < size.x * size.y) own = texelFetch(cellLut, ivec3(idx % size.x, idx / size.x, 0), 0);
-  // A highlighted cell's shell in its own colour, otherwise the shared outline.
+  // A cell the lookup colours in its own colour, otherwise the shared neutral.
   vec4 c = own.a > 0.0 ? own : texelFetch(cellLut, ivec3(0), 0);
-  return vec4(c.rgb, c.a * cubeRender.cellAlpha);
+  float fill = b.y < 128 ? ${CELL_FILL.toFixed(3)} : 1.0;
+  return vec4(c.rgb, c.a * fill * cubeRender.cellAlpha);
 }
 `,
 };
@@ -215,8 +225,8 @@ type LayerLike = {
   props: {
     /** The shown window's labels, or null. */
     cellVolume?: CellVolume | null;
-    /** Highlight groups while Labels is on; null hides every cell. */
-    cellGroups?: readonly HighlightGroup[] | null;
+    /** How to colour the cells while Labels is on; null hides every cell. */
+    cellColoring?: CellColoring | null;
     /** Default true; false: the image adds nothing to the ray (labels still draw). */
     showImage?: boolean;
     /** Default "additive": accumulate the image's samples; "mip": its maximum along the ray. */
@@ -239,7 +249,7 @@ type LayerLike = {
     } | null;
     cellLutTexture?: Texture | null;
     /** What `cellLutTexture` was built for. */
-    cellLutFor?: { cells: CellVolume | null; groups: readonly HighlightGroup[] | null } | null;
+    cellLutFor?: { cells: CellVolume | null; coloring: CellColoring | null } | null;
     boundCells?: CellVolume | null;
     /** Format of the image texture last drawn. */
     boundImage?: ImageFormat | null;
@@ -344,18 +354,18 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
     const { model, paletteTexture, noCellsTexture } = layer.state;
     if (!model || !paletteTexture || !noCellsTexture) return;
     const cells = bindCells(layer);
-    const groups = layer.props.cellGroups ?? null;
+    const coloring = layer.props.cellColoring ?? null;
     // The lookup follows the labels actually bound, so a window Viv is still
     // replacing keeps its own colours.
     const lutFor = layer.state.cellLutFor;
-    if (!layer.state.cellLutTexture || !lutFor || lutFor.cells !== cells || lutFor.groups !== groups) {
+    if (!layer.state.cellLutTexture || !lutFor || lutFor.cells !== cells || lutFor.coloring !== coloring) {
       layer.state.cellLutTexture?.destroy();
-      const lut = cells && groups ? buildCellLut(groups, cells.cells) : EMPTY_CELL_LUT;
+      const lut = cells && coloring ? buildCellLut(coloring, cells.cells) : EMPTY_CELL_LUT;
       layer.state.cellLutTexture = lookupTexture(layer, lut);
-      layer.state.cellLutFor = { cells, groups };
+      layer.state.cellLutFor = { cells, coloring };
     }
     const labelVolume = cells?.texture(layer.context.device) ?? null;
-    const cellsOn = labelVolume && groups ? 1 : 0;
+    const cellsOn = labelVolume && coloring ? 1 : 0;
     model.setBindings({
       labelVolume: labelVolume ?? noCellsTexture,
       cellLut: layer.state.cellLutTexture,
@@ -415,25 +425,75 @@ function hexToLinear(hex: string): [number, number, number] | null {
 
 export type HighlightGroup = { name: string; color: string; labels: number[] };
 
-/** Per-sample alpha of a highlighted cell's shell, before the Labels alpha slider (default 0.6, see `DEFAULT_RENDER`). */
-const HIGHLIGHT_ALPHA = 0.9;
-/** Shells of other cells: the orange default with nothing highlighted, faint behind highlights. */
-const OUTLINE = { color: "#f97316", alpha: 0.4, behindHighlight: 0.12 };
+/**
+ * How the cube colours the shown window's cells.
+ *
+ * `instances` is the look with no category to colour by: every cell takes its
+ * own hue from its label id, so a whole segmentation reads at once. `groups`
+ * is the look with a category or a focus: each group's cells in the category
+ * colour, every other cell in the shared neutral.
+ */
+export type CellColoring =
+  | { kind: "instances" }
+  | { kind: "groups"; groups: readonly HighlightGroup[] };
+
+/** Per-sample alpha of a cell the lookup colours, before the Labels alpha slider (default, see `DEFAULT_RENDER`). */
+const CELL_ALPHA = 0.9;
+/**
+ * The cells a group does not cover: achromatic on purpose. The orange this
+ * used (#f97316) sits 3.6° from tab10's #ff7f0e, which `default_categorical_palette`
+ * hands out second, so two categories were enough for "no category" to read as
+ * one. Grey cannot collide with a hue.
+ */
+const OTHERS = { color: "#d4d4d4", alpha: 0.4, behindGroups: 0.12 };
+
+/**
+ * Turns of hue between consecutive label ids. Segmentation ids run along the
+ * mosaic, so cells next to each other in id are often next to each other in
+ * space, and a step of the golden ratio's fractional part keeps the smallest
+ * gap in any run of ids as wide as it can be.
+ */
+const HUE_STEP = 0.618033988749895;
+/** Instance hues stay off full saturation, so a cell's colour survives the image behind it. */
+const INSTANCE_SATURATION = 0.72;
+
+/** Sector table of HSV -> RGB at full value, indexed by `floor(hue * 6)`. */
+const HUE_SECTORS: ((lo: number, f: number) => [number, number, number])[] = [
+  (lo, f) => [1, lo + (1 - lo) * f, lo],
+  (lo, f) => [1 - (1 - lo) * f, 1, lo],
+  (lo, f) => [lo, 1, lo + (1 - lo) * f],
+  (lo, f) => [lo, 1 - (1 - lo) * f, 1],
+  (lo, f) => [lo + (1 - lo) * f, lo, 1],
+  (lo, f) => [1, lo, 1 - (1 - lo) * f],
+];
+
+/** A label id's own colour, as linear RGB bytes (see `hexToLinear` for why linear). */
+export function instanceColor(id: number): [number, number, number] {
+  const sector = ((((id * HUE_STEP) % 1) + 1) % 1) * 6;
+  const k = Math.min(5, Math.floor(sector));
+  const rgb = HUE_SECTORS[k]!(1 - INSTANCE_SATURATION, sector - k);
+  return rgb.map((c) => Math.round(srgbToLinear(Math.round(c * 255)) * 255)) as [number, number, number];
+}
 
 /**
  * Lookup texture for one window's cells (`cells[i]`: the global id of local
- * index i) under the given highlight groups. Texel 0: the shared outline;
- * texel i: cell i's shell colour, or clear when it is in no group (a later
- * group wins).
+ * index i). Texel 0: the colour of cells the lookup gives none; texel i: cell
+ * i's own colour, or clear when it has none (a later group wins).
  */
-export function buildCellLut(groups: readonly HighlightGroup[], cells: readonly number[]): CellLut {
+export function buildCellLut(coloring: CellColoring, cells: readonly number[]): CellLut {
   const n = Math.max(1, cells.length);
   const width = Math.min(CELL_LUT_WIDTH, n);
   const height = Math.ceil(n / width);
   const data = new Uint8Array(width * height * 4);
-  const outline = hexToLinear(OUTLINE.color)!;
-  data.set([...outline, Math.round(255 * (groups.length ? OUTLINE.behindHighlight : OUTLINE.alpha))], 0);
-  const shell = Math.round(255 * HIGHLIGHT_ALPHA);
+  const alpha = Math.round(255 * CELL_ALPHA);
+  if (coloring.kind === "instances") {
+    // Texel 0 stays clear: every cell has a colour of its own.
+    for (let i = 1; i < cells.length; i++) data.set([...instanceColor(cells[i]!), alpha], i * 4);
+    return { data, width, height };
+  }
+  const { groups } = coloring;
+  const others = hexToLinear(OTHERS.color)!;
+  data.set([...others, Math.round(255 * (groups.length ? OTHERS.behindGroups : OTHERS.alpha))], 0);
   const colour = new Map<number, [number, number, number]>();
   for (const g of groups) {
     const rgb = hexToLinear(g.color);
@@ -442,7 +502,7 @@ export function buildCellLut(groups: readonly HighlightGroup[], cells: readonly 
   }
   for (let i = 1; i < cells.length; i++) {
     const rgb = colour.get(cells[i]!);
-    if (rgb) data.set([rgb[0], rgb[1], rgb[2], shell], i * 4);
+    if (rgb) data.set([rgb[0], rgb[1], rgb[2], alpha], i * 4);
   }
   return { data, width, height };
 }

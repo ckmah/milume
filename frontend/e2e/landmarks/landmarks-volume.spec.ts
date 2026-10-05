@@ -63,10 +63,16 @@ const openCross = (page: Page) =>
 const crossPanel = (page: Page) => page.getByTestId("context-cube-cross");
 /** Whichever of the bar's panels is open (one at a time). */
 const openPanel = (page: Page) => page.locator('[data-testid="context-cube-adjust"], [data-testid="context-cube-cross"]');
-/** Flip one of the Adjust panel's Show switches ("Show image", "Show labels"), then close the panel. */
-async function toggleShow(page: Page, name: "Show image" | "Show labels") {
+/**
+ * Put one of the Adjust panel's Show switches ("Show image", "Show labels")
+ * in state `on`, then close the panel. Idempotent, so a test asks for the state
+ * it needs instead of flipping whatever the default happens to be.
+ */
+async function setShow(page: Page, name: "Show image" | "Show labels", on: boolean) {
   await openAdjust(page);
-  await adjustPanel(page).getByRole("switch", { name }).click();
+  const sw = adjustPanel(page).getByRole("switch", { name });
+  if ((await sw.isChecked()) !== on) await sw.click();
+  await expect(sw).toBeChecked({ checked: on });
   await page.keyboard.press("Escape");
   await expect(adjustPanel(page)).toHaveCount(0);
 }
@@ -1190,6 +1196,8 @@ test.describe("Landmarks inspect cube", () => {
     await openCubeAtCentre(page);
     const bar = page.getByTestId("context-inspect-toolbar");
     const view = cubeWindow(page).locator(".volume-cube__view");
+    // The image alone, so the uniform-only check below has one channel to count.
+    await setShow(page, "Show labels", false);
     await expect(view).toHaveAttribute("data-channels", "1");
 
     await bar.getByRole("radio", { name: "Top view" }).click();
@@ -1238,12 +1246,12 @@ test.describe("Landmarks inspect cube", () => {
     await openAdjust(page);
     const panel = adjustPanel(page);
     await expect(panel.getByRole("heading")).toHaveText(["Image", "Labels"]);
-    // Each of Image and Labels opens with its Show switch: image on, labels off.
+    // Each of Image and Labels opens with its Show switch, and both open on.
     const showImage = panel.getByRole("switch", { name: "Show image" });
     const showLabelsSwitch = panel.getByRole("switch", { name: "Show labels" });
     await expect(panel.getByRole("switch")).toHaveCount(2);
     await expect(showImage).toBeChecked();
-    await expect(showLabelsSwitch).not.toBeChecked();
+    await expect(showLabelsSwitch).toBeChecked();
     const slider = (name: string, n = 0) => page.getByRole("slider", { name }).nth(n);
     const nudge = async (name: string, key: string, n = 0) => {
       await slider(name, n).focus();
@@ -1298,14 +1306,14 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-label-mode", "additive");
     v = await adjustValues();
     expect(v.labels).toEqual(initial.labels);
-    await expect(showLabelsSwitch).toBeChecked();
+    await expect(showLabelsSwitch).not.toBeChecked();
 
     await changeAdjust();
     await panel.getByRole("button", { name: "Reset all" }).click();
     await expect(view).toHaveAttribute("data-label-mode", "additive");
     expect(await adjustValues()).toEqual(initial);
     await expect(showImage).not.toBeChecked();
-    await expect(showLabelsSwitch).toBeChecked();
+    await expect(showLabelsSwitch).not.toBeChecked();
     await expect(view).toHaveAttribute("data-image", "off");
 
     // Cross-section: its sliders and its own Reset, which opens every cut and
@@ -1561,7 +1569,6 @@ test.describe("Landmarks inspect cube", () => {
 
   test("peek tabs and docks float over the open cube; focusing a category there recolours it", async ({ page }) => {
     await openCubeAtCentre(page, { at: [130, 170] });
-    await toggleShow(page, "Show labels");
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-highlight", "2");
     const right = page.locator(".landmarks__chrome-dock--right");
@@ -1596,9 +1603,9 @@ test.describe("Landmarks inspect cube", () => {
   test("highlight follows focus: everything, a category, a Selection", async ({ page }) => {
     // The 300 µm square holds all three cells: type1 and type0.
     await openCubeAtCentre(page, { at: [130, 170] });
-    await toggleShow(page, "Show labels");
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-labels", "on");
+    await expect(view).toHaveAttribute("data-coloring", "groups");
     await expect(view).toHaveAttribute("data-channels", "2");
     await expect(view).toHaveAttribute("data-label-format", "rg8");
     await expect(view).toHaveAttribute("data-label-cells", "3");
@@ -1653,9 +1660,10 @@ test.describe("Landmarks inspect cube", () => {
     // The image at one byte per voxel.
     await expect(view).toHaveAttribute("data-image-format", "r8unorm");
     expect((await page.evaluate(() => (window as any).__tex3dWidths)).r8).toContain(101);
+    await setShow(page, "Show labels", false);
     const off = await view.screenshot();
 
-    await toggleShow(page, "Show labels");
+    await setShow(page, "Show labels", true);
     await expect(view).toHaveAttribute("data-channels", "2");
     await expect(view).toHaveAttribute("data-label-cells", "2");
     await expect(view).toHaveAttribute("data-highlight", "2");
@@ -1682,10 +1690,11 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-image-mode", "mip");
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-pan", "0,0");
+    await setShow(page, "Show labels", false);
     const off = await view.screenshot();
 
     // Image MIP + Labels Additive (the hover preview's look): as saturated as Additive/Additive.
-    await toggleShow(page, "Show labels");
+    await setShow(page, "Show labels", true);
     await expect(view).toHaveAttribute("data-label-mode", "additive");
     await expect(view).toHaveAttribute("data-label-cells", "2");
     await expect(view).toHaveAttribute("data-refining", "false");
@@ -1716,25 +1725,23 @@ test.describe("Landmarks inspect cube", () => {
     expect(mip.type0.y).toBeLessThan(mip.type1.y - 20);
   });
 
-  test("labels draw as shells: a cell's rim is coloured, its core is not", async ({ page }) => {
+  test("labels draw as filled bodies: a cell's core is coloured, its rim brighter", async ({ page }) => {
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
     // The image off, so only the cells draw; a 2 µm slab through the cells' middle
     // (viewed from the top) shows each cell's cross-section: its rim, and its
     // interior when it is filled.
-    await toggleShow(page, "Show image");
-    await toggleShow(page, "Show labels");
+    await setShow(page, "Show image", false);
     await expect(view).toHaveAttribute("data-labels", "on");
     await expect(view).toHaveAttribute("data-refining", "false");
     await setModel(page, { volume_cut: [0, 256, 0, 256, 31, 33] });
     await expect(view).toHaveAttribute("data-refining", "false");
     const { rim, core } = await ringVsCore(page, await view.screenshot());
     expect(rim).toBeGreaterThan(0);
-    // Measured core/rim: old filled cells, rim 8790 / core 2912 = 0.33; shells, rim 2649 /
-    // core 236 = 0.09 (the slab clips the pole of the smallest cell, a small solid cap).
-    // 0.25 sits between the two.
-    expect(core).toBeLessThan(rim * 0.25);
+    // Measured core/rim on this slab: shells (CELL_FILL 0) 0.07, filled (0.35) 0.29.
+    // 0.25 sits between the two, as it did when the cells were shells.
+    expect(core).toBeGreaterThan(rim * 0.25);
   });
 
   test("the dock shows the coarse level first, then refines", { tag: "@isolated" }, async ({ page }) => {
@@ -1764,7 +1771,6 @@ test.describe("Landmarks inspect cube", () => {
   test("the hosted cube has no category legend", async ({ page }) => {
     // Nothing focused: every cell in the window is highlighted.
     await openCubeAtCentre(page, { at: [160, 150] });
-    await toggleShow(page, "Show labels");
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-labels", "on");
     await expect(view).not.toHaveAttribute("data-highlight", "0");
@@ -2150,14 +2156,15 @@ test.describe("Landmarks inspect cube", () => {
     await expect(dock).toHaveAttribute("data-pan", "0,0");
     const imageOn = await dock.screenshot();
 
-    await toggleShow(page, "Show image");
+    await setShow(page, "Show labels", false);
+    await setShow(page, "Show image", false);
     await expect(dock).toHaveAttribute("data-image", "off");
     // Image and labels off: an empty cube in its frame.
     const empty = await dock.screenshot();
     expect(await brightPixels(page, empty)).toBeLessThan((await brightPixels(page, imageOn)) / 4);
 
     // Labels still draw with no image behind them.
-    await toggleShow(page, "Show labels");
+    await setShow(page, "Show labels", true);
     await expect(dock).toHaveAttribute("data-labels", "on");
     await expect(dock).toHaveAttribute("data-channels", "2");
     await expect(dock).toHaveAttribute("data-image", "off");
@@ -2175,7 +2182,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(pv).toHaveAttribute("data-labels", "on");
 
     // Back on: both views show the image again.
-    await toggleShow(page, "Show image");
+    await setShow(page, "Show image", true);
     await expect(pv).toHaveAttribute("data-image", "on");
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(cubeWindow(page)).toBeVisible();
