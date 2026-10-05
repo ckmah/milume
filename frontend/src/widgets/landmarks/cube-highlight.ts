@@ -1,6 +1,11 @@
-import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
+import type { CellColoring, HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
 
 const MARGIN_UM = 10;
+
+/** Cells drawn in the shared neutral: no group covers any of them. */
+const NO_GROUPS: CellColoring = { kind: "groups", groups: [] };
+/** Every cell in its own hue: there is no category to group them by. */
+const INSTANCES: CellColoring = { kind: "instances" };
 
 export type CubeHighlightInput = {
   points: Float32Array; // points_data decoded: [nx, ny, valueA, _] per cell
@@ -32,15 +37,23 @@ function inRing(x: number, y: number, ring: number[][]): boolean {
 }
 
 /**
- * Cells the cube fills, grouped by category, for the cells near the window:
- * nothing focused -> every cell; a category -> its cells; a Selection -> its
- * cells, by category. Continuous colour-by -> none (outlines only).
+ * How the cube colours the cells near the window.
+ *
+ * With a category to group by: nothing focused -> every cell in its category
+ * colour; a category -> its cells; a Selection -> its cells, by category.
+ * Without one, every cell takes its own hue instead, so the segmentation still
+ * reads. That covers a store with no categorical column, colouring by genes or
+ * by an embedding, and a table that does not link cells to label ids. A hidden
+ * focused Selection colours nothing.
  */
-export function cubeHighlightGroups(input: CubeHighlightInput): HighlightGroup[] {
+export function cubeCellColoring(input: CubeHighlightInput): CellColoring {
   const { points, labelIds, codes, columns, window: win } = input;
   const n = Math.floor(points.length / 4);
   const col = columns.findIndex((c) => c.name === input.activeCategory);
-  if (!labelIds || !codes || col < 0 || input.colorBy !== "categorical" || !win || labelIds.length !== n) return [];
+  if (!win) return NO_GROUPS;
+  if (col < 0 || input.colorBy !== "categorical") return INSTANCES;
+  // The cube has the labels; without the table's ids it cannot tell which cell is which row.
+  if (!labelIds || !codes || labelIds.length !== n) return INSTANCES;
   const { labels, palette } = columns[col]!;
   const [x0, x1] = input.xBounds;
   const [y0, y1] = input.yBounds;
@@ -50,7 +63,7 @@ export function cubeHighlightGroups(input: CubeHighlightInput): HighlightGroup[]
     member = (i) => codes[col * n + i] === input.focus.index;
   } else if (input.focus.kind === "selection") {
     const sel = input.selections[input.focus.index];
-    if (!sel || sel.hidden) return [];
+    if (!sel || sel.hidden) return NO_GROUPS;
     if (sel.point_indices?.length) {
       const set = new Set(sel.point_indices);
       member = (i) => set.has(i);
@@ -76,7 +89,8 @@ export function cubeHighlightGroups(input: CubeHighlightInput): HighlightGroup[]
     if (!ids) byCode.set(code, (ids = []));
     ids.push(id);
   }
-  return [...byCode.entries()]
+  const groups: HighlightGroup[] = [...byCode.entries()]
     .sort((a, b) => a[0] - b[0])
     .map(([code, ids]) => ({ name: labels[code] ?? String(code), color: palette[code % palette.length] ?? "#22d3ee", labels: ids }));
+  return { kind: "groups", groups };
 }

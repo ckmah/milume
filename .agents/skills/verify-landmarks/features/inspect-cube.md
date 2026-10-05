@@ -7,8 +7,8 @@ press that is dragged and released, places it (no selection) and opens the
 **immersive cube**: a `role="dialog"` named "Cube" that fills the plot area
 (`.landmarks__body`, or the whole widget in fullscreen) and covers the map. It
 shows the window coarse from the cache first, then level 0 (full resolution),
-with labels drawn as shells and a highlight that follows the category panel's
-focus. Shift+drag (or the bar's **Move** tool) pans the live window in XY from
+with labels on, drawn as filled cell bodies, and a colouring that follows the
+category panel's focus. Shift+drag (or the bar's **Move** tool) pans the live window in XY from
 inside the cube. Esc closes the cube and stays in Inspect; a second Esc, or
 **Exit Inspect** on the pill, leaves Inspect for the tool used before.
 
@@ -52,22 +52,25 @@ The context region (a coarse, dimmed region around the window) was removed 2026-
 - The cube host catches the press in the capture phase, so the orbit controller never sees a pan: the camera stays (`data-axes`, `data-pitch`, `data-zoom` unchanged). A pointer delta maps to µm on the XY plane through the camera target (`volume-cube/pan.ts`); the tissue follows the pointer (drag right → `inspect_cx` decreases top-down; drag down → `inspect_cy` decreases), and the distance scales with the drag
 - The centre is clamped to the volume's XY extent. `inspect_cx`/`inspect_cy` are written (`engine.moveInspectWindow`, the map's square follows) and saved at most every 40 ms, with a final save when the pan ends: on release, on a move with no primary button (a lost release), on blur, or when the cube closes mid-drag (Esc, a tool key). Other pointers' moves and releases are ignored. The cut's settle commit then writes `volume_cut` as after a map drag. The loaded tissue slides (`data-pan`), then the fine level for the new window swaps in (`data-pan="0,0"`)
 
-### Labels as shells
+### Labels as filled cell bodies
 
-- Labels draw only each cell's surface voxels (no interior fill). A highlighted cell (by category, or in the focused category/Selection) is a shell in its category colour at `HIGHLIGHT_ALPHA` 0.9; other cells are an orange shell (`OUTLINE.alpha` 0.4, or `behindHighlight` 0.12 while something is highlighted); every shell is scaled by the Labels **Alpha** slider (default 0.6, `DEFAULT_RENDER.cellAlpha`). Face-on, a shell's cap still reads as a disc; a cut shows the ring
-- Highlight follows the Landmarks category panel: nothing focused colours every cell in the window by category, a focused category colours only its cells, a focused Selection colours its cells by category
-- Show labels: on loads the labels (first use) and shows them with the highlight; off hides labels and highlights (`data-labels="off"`)
+- Labels are **on by default** (`showLabels` in `use-cube-settings.ts`): a store with labels opens the cube showing its cells, with no trip to Adjust. Show labels off hides them (`data-labels="off"`)
+- Each cell draws as a filled body, not a shell: a surface voxel contributes at the cell's own alpha (`CELL_ALPHA` 0.9) and an interior voxel at `CELL_FILL` (0.35) of it, so a cell reads as a body with a brighter rim and two touching cells still separate. Every sample is then scaled by the Labels **Alpha** slider (default 0.6, `DEFAULT_RENDER.cellAlpha`). `CELL_FILL` is the knee of a measured sweep, so a filled cell stays as see-through as it can be and the image behind it still reads
+- Colouring is one of two kinds (`CellColoring` in `cell-lut-extension.ts`, decided by `cubeCellColoring` in `landmarks/cube-highlight.ts`), mirrored as `data-coloring="instances|groups|off"`:
+  - **`instances`** — no category to colour by (no active category, a continuous `color_by`, or a labels volume the table cannot be mapped onto): every cell takes its own hue from its label id, so a whole segmentation reads at once. Hues step by the golden ratio's fractional part (`HUE_STEP`) at `INSTANCE_SATURATION` 0.72
+  - **`groups`** — a category or a focus: each group's cells in the category colour, every other cell in the shared neutral `OTHERS` (`#d4d4d4`, alpha 0.4, or `behindGroups` 0.12 while a group is coloured). The neutral is achromatic on purpose: the orange it replaced (`#f97316`) sat 3.6° from tab10's `#ff7f0e`, which `default_categorical_palette` hands out second, so two categories were enough for an uncovered cell to read as a category one
+- Colouring follows the Landmarks category panel: nothing focused colours every cell in the window by the active category, a focused category colours only its cells, a focused Selection colours its cells by category, a hidden focused Selection colours none (`groups: []`, every cell neutral)
 
 ### Inspect bar (bottom) and its panels
 
 - The Inspect bar (`data-testid="context-inspect-toolbar"`, row `context-toolbar-l1`) shows while in Inspect with a 3D image, before a window is placed too: `Top | Iso | Side` (radios "Top view", "Oblique view", "Side view") · **Move** · **Reset view** · **Adjust** · **Cross-section**. Nothing else: no switch, projection or palette on the bar. Cross-section shows "Loading volume…" (no sliders) until the cube has reported its ranges
 - One panel at a time rises right-aligned above its button. Each trigger has `aria-expanded` and `aria-haspopup="dialog"`; each panel is the one `role="region"` named after it (Cross-section's inner section is not a second one). Esc while a panel is open closes only the panel (the cube stays): the engine defers to the open trigger (`[data-inspect-panel-group] [aria-haspopup="dialog"][aria-expanded="true"]`) instead of emitting `close`. Both panels are height-capped (`max-height: min(45cqh, 22rem)`, `cqh` of the widget box) and scroll inside, so they never cover most of the cube
-- **Adjust** (`data-testid="context-cube-adjust"`, `aria-label="Adjust"`): two columns, **Image** (`adjust-image`) and **Labels** (`adjust-labels`), stacked below 640 px. Each column title carries its Show switch (`Show image`, default on; `Show labels`, default off, disabled with no labels) and a Reset (`Reset image`, `Reset labels`).
+- **Adjust** (`data-testid="context-cube-adjust"`, `aria-label="Adjust"`): two columns, **Image** (`adjust-image`) and **Labels** (`adjust-labels`), stacked below 640 px. Each column title carries its Show switch (`Show image`, default on; `Show labels`, default on, disabled with no labels) and a Reset (`Reset image`, `Reset labels`).
   - Image: Mode (`aria-label="Image projection"`, `Additive` | `MIP`), Palette (dropdown, swatch and name), Contrast (range; defaults to the volume's `contrast_limits`), Alpha (`Image alpha`, 1), Gamma (`Image gamma`, 1, on a log2 scale)
   - Labels: Mode (`aria-label="Labels projection"`, `Additive` | `MIP`), Alpha (`Label alpha`, 0.6)
   - **Reset all** (foot) resets Image and Labels (sliders and projections), not the cuts. Resets never change the Show switches. Every capsule is one width (10 rem), in both panels
 - **Cross-section** (`data-testid="context-cube-cross"`, `aria-label="Cross-section"`; its section `data-testid="context-cube-cuts"`): X cut, Y cut, Z cut (range sliders in µm) and `Reset cross-section`, which opens every cut and commits `volume_cut` like a slider release
-- Projection is per layer (`imageMode` / `labelMode`, client-local; `data-image-mode` / `data-label-mode` on `.volume-cube__view`, both `additive` by default). Image Additive accumulates samples; image MIP takes the maximum and is drawn opaque, so Image Alpha acts as brightness there. Labels Additive accumulates shells front to back; labels MIP takes the single strongest shell. Labels composite over the image in every combination. A toggle changes uniforms only (one shader, no recompile). The hover preview draws `imageMode="mip"`, `labelMode="additive"`
+- Projection is per layer (`imageMode` / `labelMode`, client-local; `data-image-mode` / `data-label-mode` on `.volume-cube__view`, both `additive` by default). Image Additive accumulates samples; image MIP takes the maximum and is drawn opaque, so Image Alpha acts as brightness there. Labels Additive accumulates cell samples front to back; labels MIP takes the single strongest one. Labels composite over the image in every combination. A toggle changes uniforms only (one shader, no recompile). The hover preview draws `imageMode="mip"`, `labelMode="additive"`
 - Show image (client-local `showImage` → `VolumeCube` `showImage`): off, the image drops from the ray (no refetch); labels still draw, and with both off the cube is an empty frame. `data-image="on|off"` on `.volume-cube__view`, in the cube and the hover preview
 - Cuts render live and commit `volume_cut` on release; X/Y are window-relative (an untouched/open edge tracks the window as it moves) while Z is absolute. An open Z (`volume_cut` set to `[]` from Python) shows the stack's edges in the Z readout, never ±Infinity. `volume_cut` also commits once, ~250 ms after a window move or pan settles, only while the cube is open
 
@@ -131,21 +134,33 @@ await setModel(page, { selected_kind: "type", selected_index: 0 });
 await expect(view).toHaveAttribute("data-highlight", "1");
 ```
 
-Labels, the image and the projections are in the Adjust panel (Esc then closes only the panel):
+Labels, the image and the projections are in the Adjust panel (Esc then closes
+only the panel). Labels are on when the cube opens, so a test that needs them
+off asks for that state rather than flipping the switch (the spec's `setShow`):
 
 ```ts
+await expect(view).toHaveAttribute("data-labels", "on");
+await expect(view).toHaveAttribute("data-coloring", "groups");
+
 await bar.getByRole("button", { name: "Adjust" }).click();
 const adjust = page.getByTestId("context-cube-adjust");
-await adjust.getByRole("switch", { name: "Show labels" }).click();
-await expect(view).toHaveAttribute("data-labels", "on");
+await expect(adjust.getByRole("switch", { name: "Show labels" })).toBeChecked();
 await adjust.getByTestId("adjust-image").getByRole("radio", { name: "MIP" }).click();
 await expect(view).toHaveAttribute("data-image-mode", "mip");
 await page.keyboard.press("Escape"); // closes Adjust only
+
+// No category to colour by: every cell takes its own hue from its label id.
+await setModel(page, { active_category: "" });
+await expect(view).toHaveAttribute("data-coloring", "instances");
 ```
 
 Helpers: `bootLandmarksVolumeHarness`, `canvasBox`, `getModel`, `setModel` (all
 in `frontend/e2e/helpers.ts`); the spec's own `openCubeAtCentre`, `moveWindow`,
-`dragCube`, `openAdjust`, `openCross`, `toggleShow`, `save`. Selectors:
+`dragCube`, `openAdjust`, `openCross`, `setShow`, `save`. Pixel measurement:
+`brightPixels`, `categoryPixels` (category hue counts plus a `flat` unsaturated
+counter in one shot), `newCategoryPixels` (the hues a second shot added),
+`newHueClusters` (10° hue buckets present only in the second shot),
+`ringVsCore`. Selectors:
 `getByRole("radio", { name: "Inspect", exact: true })`,
 `getByTestId("inspect-pill")` (`getByRole("button", { name: "Exit Inspect" | "Save window" })`),
 `getByTestId("inspect-status")`, `getByRole("dialog", { name: "Cube" })`,
@@ -195,12 +210,15 @@ Pan:
 - Functional: `"the Move tool makes a plain drag pan; the distance scales with the drag"` — Move is `aria-pressed="true"` and `data-pan-mode="true"`; a drag twice as long pans 1.7–2.3× as far; a horizontal drag leaves `inspect_cy`, a downward one lowers it; no orbit; Esc closes the cube and Move reads `aria-pressed="false"`.
 - Functional: `"panning clamps the window centre to the volume"` — repeated drags stop `inspect_cx` at 0 (the toy volume's edge); `inspect_cy` stays inside 0–256.
 
-Shells and projections:
+Label defaults and projections:
 
-- Pixels: `"labels draw as shells: a cell's rim is coloured, its core is not"` — image off, labels on, a 2 µm Z slab through the toy cells (`volume_cut [0,256,0,256,31,33]`): category-coloured core pixels < 0.25 × rim pixels (measured: filled 0.33, shells 0.09).
+- Functional: `"the cube opens showing the cells, with no trip to Adjust"` — a freshly opened cube reads `data-labels="on"` and `data-label-cells="3"` before anything is clicked, the Adjust panel's `Show labels` switch is already checked, and turning it off gives `data-labels="off"`.
+- Pixels: `"labels draw as filled bodies: a cell's core is coloured, its rim brighter"` — image off, labels on, a 2 µm Z slab through the toy cells (`volume_cut [0,256,0,256,31,33]`): rim pixels > 0 and core pixels > 0.25 × rim (measured on this slab: `CELL_FILL` 0 gives 0.07, 0.35 gives 0.29). The whole cube cannot show this — the shader's `cells.a >= 0.95` break saturates on surface voxels alone — so the assertion needs the cut.
+- Pixels: `"with no category to colour by, every cell takes its own hue"` — clearing the active category flips `data-coloring` from `groups` to `instances`; `newHueClusters` (10° buckets over 1000 px that are in the after shot and not the before, so the axis legend's own green stays out) is exactly `[80, 220, 300]`, one new hue per toy cell, and both category hue counts fall below a tenth of their grouped baseline.
+- Pixels: `"a cell outside the focused category is neutral, never another category's colour"` — focusing `type1` drops type0's hue below a tenth of its unfocused count, keeps type1 above 200 px, and adds over 2000 unsaturated (`flat`) pixels: the uncovered cells are achromatic, so no hue tolerance can read them as a category.
 - Pixels: `"with Labels on each toy cell renders in its category colour in the dock"` (`@isolated`, `?window=100`, centre (130.5, 170.5): cells 2 and 3 only, `data-label-cells="2"`) — in the default Additive/Additive, > 200 type1-blue and > 200 type0-orange pixels appear when labels turn on, orange right of and above blue (an X or Y flip fails); the odd 101-voxel box checks unaligned R8/RG8 rows (`texStorage3D` widths contain 101) and `data-image-format="r8unorm"`. A local/global label-index mix-up changes the colours.
-- Pixels: `"each toy cell keeps its category colour with Image MIP, under Labels Additive and Labels MIP"` — same window; Image MIP + Labels Additive (the preview's look) and Image MIP + Labels MIP (saturation cutoff 0.12; one shell at 0.9 × 0.6 is pale over the image MIP) both keep > 200 pixels per category in the right places.
-- Functional: `"highlight follows focus: everything, a category, a Selection"` — also checks `data-label-format="rg8"` and `data-label-cells="3"`.
+- Pixels: `"each toy cell keeps its category colour with Image MIP, under Labels Additive and Labels MIP"` — same window; Image MIP + Labels Additive (the preview's look) and Image MIP + Labels MIP (saturation cutoff 0.12; one cell sample at 0.9 × 0.6 is pale over the image MIP) both keep > 200 pixels per category in the right places.
+- Functional: `"highlight follows focus: everything, a category, a Selection"` — also checks `data-coloring="groups"`, `data-label-format="rg8"` and `data-label-cells="3"`.
 - Functional: `"the hosted cube has no category legend"` — `getByLabel("Highlighted cells")` has zero count.
 - Pixels: `"Show image off hides the image in the dock and the preview; labels still draw"` (`?window=100`) — `data-image` `on` → `off`; under a quarter of the bright pixels; labels on adds > 200 category pixels; the preview reads `data-image="off"` and `data-labels="on"`.
 
@@ -233,7 +251,7 @@ Docks:
 
 ## Gotchas
 
-- The `.volume-cube__view` inside `getByRole("dialog", { name: "Cube" })` carries the full `data-*` mirror (`data-channels`, `data-image-format`, `data-label-format`, `data-label-cells`, `data-image-mode`, `data-label-mode`, `data-pan`, `data-pan-mode`, `data-panning`, `data-palette`, `data-image-gamma`, `data-highlight`, `data-image`, `data-labels`, `data-level`, `data-refining`, `data-overlays`, `data-zoom`, `data-pitch`); scope selectors to the cube or the preview under test.
+- The `.volume-cube__view` inside `getByRole("dialog", { name: "Cube" })` carries the full `data-*` mirror (`data-channels`, `data-image-format`, `data-label-format`, `data-label-cells`, `data-image-mode`, `data-label-mode`, `data-pan`, `data-pan-mode`, `data-panning`, `data-palette`, `data-image-gamma`, `data-highlight`, `data-coloring`, `data-image`, `data-labels`, `data-level`, `data-refining`, `data-overlays`, `data-zoom`, `data-pitch`); scope selectors to the cube or the preview under test.
 - The cube covers the map while open, so a test that presses or drags on the map closes it first (Esc; an open panel takes the first Esc), then drags; the release reopens the cube (`moveWindow` in the spec). A hover over the map with the cube open reaches nothing.
 - In Inspect the tool pill is gone: `getByRole("radio", { name: "Inspect" })` and the other tool radios do not exist until Inspect is left. Leave with the pill's Exit or Esc (with no cube open), or `setModel(page, { mode })`.
 - `Move` on the Inspect bar (a toggle button) is not the tool pill's Move radio (`getByRole("radio", { name: "Move" })`), which only exists outside Inspect.

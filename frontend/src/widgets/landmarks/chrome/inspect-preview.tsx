@@ -1,6 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
+import type { CellColoring } from "@/widgets/volume-cube/cell-lut-extension";
 import { CHUNK_CACHE_BYTES, type ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
 import type { CubeBounds, CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
@@ -156,7 +156,7 @@ export function InspectPreview({
   engine,
   rootEl,
   settings,
-  groups,
+  coloring,
   dark,
   cache,
   budgets,
@@ -169,7 +169,7 @@ export function InspectPreview({
   /** The widget root: the float's container, and where the map canvas is found. */
   rootEl: HTMLElement | null;
   settings: CubeSettings;
-  groups: HighlightGroup[];
+  coloring: CellColoring;
   dark: boolean;
   cache: ChunkCache;
   budgets: { preview: number; dock: number };
@@ -423,7 +423,7 @@ export function InspectPreview({
           resetTick={0}
           showImage={settings.showImage}
           showLabels={settings.showLabels}
-          groups={groups}
+          coloring={coloring}
           render={settings.render}
           dark={dark}
           height={PREVIEW_PX}

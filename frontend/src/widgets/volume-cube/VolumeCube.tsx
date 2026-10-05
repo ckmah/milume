@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 import type { ChunkCache } from "./chunk-cache";
-import { CUBE_EXTENSIONS, type HighlightGroup, type RenderSettings } from "./cell-lut-extension";
+import { CUBE_EXTENSIONS, type CellColoring, type HighlightGroup, type RenderSettings } from "./cell-lut-extension";
 import { type CellVolume, TOO_MANY_CELLS, markVivVolume } from "./cell-volume";
 import { AxisLegend } from "./axis-legend";
 import type { ImageFormat } from "./image-volume";
@@ -79,7 +79,7 @@ export type VolumeCubeProps = {
   contrast: [number, number];
   /** Default "additive": the image's samples accumulate; "mip": its maximum along each ray. */
   imageMode?: "additive" | "mip";
-  /** Default "additive": label shells accumulate front to back; "mip": the strongest shell along each ray. */
+  /** Default "additive": label samples accumulate front to back; "mip": the strongest one along each ray. */
   labelMode?: "additive" | "mip";
   /**
    * Applied when it changes: the preset's rotation (framed as its home view with
@@ -95,7 +95,7 @@ export type VolumeCubeProps = {
   /** Default true. False: the raycast adds no image signal; labels still draw (both off: an empty frame). */
   showImage?: boolean;
   showLabels: boolean;
-  groups: HighlightGroup[];
+  coloring: CellColoring;
   render: RenderSettings;
   dark: boolean;
   /** Default 520 (px). */
@@ -297,7 +297,7 @@ export function VolumeCube({
   resetTick,
   showImage = true,
   showLabels,
-  groups,
+  coloring,
   render,
   dark,
   height = 520,
@@ -504,7 +504,7 @@ export function VolumeCube({
   const [imageFormat, setImageFormat] = useState<ImageFormat | null>(null);
   const onImageBound = useCallback((f: ImageFormat | null) => setImageFormat(f), []);
   const cellsOnGpu = Boolean(cells && gpuCells === cells);
-  const cellGroups = showLabels ? groups : null;
+  const cellColoring = showLabels ? coloring : null;
   const imagePalette = useMemo(() => paletteLut(render.palette), [render.palette]);
 
   // Frame, camera and cuts live in the requested window; the shown volume pans
@@ -744,7 +744,7 @@ export function VolumeCube({
               imageMode,
               labelMode,
               cellVolume: cells,
-              cellGroups,
+              cellColoring,
               onCellsBound,
               onImageBound,
               imagePalette,
@@ -769,7 +769,7 @@ export function VolumeCube({
       imageMode,
       labelMode,
       cells,
-      cellGroups,
+      cellColoring,
       onCellsBound,
       onImageBound,
       imagePalette,
@@ -817,8 +817,11 @@ export function VolumeCube({
     if (labelsMismatch || labelsFailure) labelsState = "error";
     else labelsState = hasCells ? "on" : "loading";
   }
+  const groups = coloring.kind === "groups" ? coloring.groups : NO_GROUPS;
   const highlighted = showLabels && hasCells ? groups.filter((g) => g.labels.length > 0) : NO_GROUPS;
   const legend = showLegend ? highlighted : NO_GROUPS;
+  // Only cells actually on the GPU are coloured, so the mirror follows them.
+  const coloringState = showLabels && hasCells ? coloring.kind : "off";
   const channels = showLabels && cellsOnGpu ? 2 : 1;
   const levelIndex = level ? level.index : 0;
 
@@ -925,6 +928,7 @@ export function VolumeCube({
       data-image-format={imageFormat ?? "none"}
       data-label-format={cellsOnGpu ? "rg8" : "none"}
       data-label-cells={cells?.count ?? 0}
+      data-coloring={coloringState}
       data-highlight={highlighted.length}
       data-image-mode={imageMode}
       data-label-mode={labelMode}

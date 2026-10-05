@@ -4,7 +4,7 @@ import { Rise } from "cube-motion/react";
 import { useNotebookTheme } from "@/hooks/use-notebook-theme";
 import { cn } from "@/lib/utils";
 
-import type { HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
+import type { CellColoring } from "@/widgets/volume-cube/cell-lut-extension";
 import { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
 import { PREVIEW_REGION_BUDGET } from "@/widgets/volume-cube/window-source";
@@ -29,7 +29,7 @@ import {
 } from "./chrome";
 import type { ChipSnapshot } from "./chrome/cube-snapshots";
 import { FLOAT_PANEL } from "./chrome/sections";
-import { cubeHighlightGroups } from "./cube-highlight";
+import { cubeCellColoring } from "./cube-highlight";
 import { INSPECT_WINDOW_UM, mountEngine, type EngineHandle } from "./engine";
 import {
   GEOMETRY_MODE_IDS,
@@ -46,7 +46,8 @@ const SHELL_HEIGHT = 720;
 const MIN_HEIGHT = 400;
 const MAX_HEIGHT = 1400;
 const NARROW_BREAKPOINT = 640;
-const NO_GROUPS: HighlightGroup[] = [];
+/** No cube open: nothing to colour. */
+const NO_COLORING: CellColoring = { kind: "groups", groups: [] };
 
 const ALL_MODES = [
   ...INTERACTION_MODE_IDS,
@@ -118,9 +119,9 @@ export function LandmarksView({
     () => (hasVolume && lm.category_codes ? decodeI32Base64(lm.category_codes) : null),
     [hasVolume, lm.category_codes],
   );
-  const groups = useMemo(() => {
-    if (!cube.open || !points || lm.inspect_cx == null || lm.inspect_cy == null) return NO_GROUPS;
-    return cubeHighlightGroups({
+  const coloring = useMemo(() => {
+    if (!cube.open || !points || lm.inspect_cx == null || lm.inspect_cy == null) return NO_COLORING;
+    return cubeCellColoring({
       points,
       xBounds: lm.x_bounds,
       yBounds: lm.y_bounds,
@@ -445,7 +446,7 @@ export function LandmarksView({
             patch={patchCube}
             cut={inspectCube.cut}
             dark={dark}
-            groups={groups}
+            coloring={coloring}
             cache={chunkCache}
             budgets={budgets}
             snapshots={snapshots}
@@ -464,7 +465,7 @@ export function LandmarksView({
             engine={engine}
             rootEl={rootEl}
             settings={cube}
-            groups={groups}
+            coloring={coloring}
             dark={dark}
             cache={chunkCache}
             budgets={budgets}
