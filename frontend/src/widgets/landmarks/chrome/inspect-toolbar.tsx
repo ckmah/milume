@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useLayoutEffect, useState } from "react";
 import {
   BoxIcon,
   ChevronDownIcon,
@@ -200,6 +200,9 @@ function ProjectionRow({
 /** The bar's two panels; one is open at a time. */
 type Panel = "adjust" | "cross";
 
+const SLIDER_HIT =
+  '.landmarks-slider-control, [data-slot="slider"], [data-slot="slider-thumb"], [data-slot="slider-track"]';
+
 /**
  * Context bar while Inspect has a cube open: the view options (camera, Move,
  * Reset view) and two panels that rise above their buttons, one at a time.
@@ -208,6 +211,8 @@ type Panel = "adjust" | "cross";
  * alpha and gamma. Cross-section holds the X/Y/Z cuts, which render live and
  * commit `volume_cut` on release (`onCutCommit`). Both panels are height-capped
  * and scroll inside (landmarks.css), so they never cover most of the cube.
+ * While a slider is dragged (`tuning`), the open panel glass dims so the cube
+ * under it stays readable.
  */
 export function InspectToolbar({
   settings,
@@ -232,7 +237,35 @@ export function InspectToolbar({
   onReset: (section: Section | "all") => void;
 }) {
   const [panel, setPanel] = useState<Panel | null>(null);
-  const toggle = (p: Panel) => setPanel((open) => (open === p ? null : p));
+  // True only while a pointer is down on a slider inside the open panel.
+  const [tuning, setTuning] = useState(false);
+  const toggle = (p: Panel) => {
+    setPanel((open) => (open === p ? null : p));
+    setTuning(false);
+  };
+  // Layout, not a passive effect: the listener has to be on window before this
+  // gesture's pointerup, and a click can end in the same frame.
+  useLayoutEffect(() => {
+    if (!tuning) return;
+    // Capture moving onto the thumb while the button is still down is not a release.
+    const end = (event: Event) => {
+      if (event.type === "lostpointercapture" && (event as PointerEvent).buttons !== 0) return;
+      setTuning(false);
+    };
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+    window.addEventListener("lostpointercapture", end);
+    return () => {
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      window.removeEventListener("lostpointercapture", end);
+    };
+  }, [tuning]);
+  const onPanelPointerDownCapture = (e: React.PointerEvent) => {
+    const target = e.target;
+    if (!(target instanceof Element) || !target.closest(SLIDER_HIT)) return;
+    setTuning(true);
+  };
   const [menuContainer, setMenuContainer] = useState<HTMLElement | null>(null);
   // The cube sizes the contrast range from the contrast it draws; hold the max
   // from pointer down to commit so it cannot run away under the dragged thumb.
@@ -265,7 +298,14 @@ export function InspectToolbar({
 
   // Image and Labels side by side (stacked in a narrow widget).
   const adjustPanel = (
-    <div className="landmarks-adjust" data-testid="context-cube-adjust" role="region" aria-label="Adjust">
+    <div
+      className="landmarks-adjust"
+      data-testid="context-cube-adjust"
+      data-tuning={tuning ? "true" : undefined}
+      role="region"
+      aria-label="Adjust"
+      onPointerDownCapture={onPanelPointerDownCapture}
+    >
       <div className="landmarks-adjust__cols">
         <div className="landmarks-adjust__col" data-testid="adjust-image">
           <AdjustSection
@@ -402,8 +442,10 @@ export function InspectToolbar({
     <div
       className="landmarks-adjust landmarks-cross"
       data-testid="context-cube-cross"
+      data-tuning={tuning ? "true" : undefined}
       role="region"
       aria-label="Cross-section"
+      onPointerDownCapture={onPanelPointerDownCapture}
     >
       <AdjustSection
         title="Cross-section"
@@ -431,6 +473,7 @@ export function InspectToolbar({
     if (e.key !== "Escape" || panel !== p) return;
     if ((e.target as Element | null)?.closest?.('[role="menu"]')) return;
     setPanel(null);
+    setTuning(false);
   };
 
   return (

@@ -1244,6 +1244,58 @@ test.describe("Landmarks inspect cube", () => {
     expect(cross.height).toBeLessThanOrEqual(widget.height * 0.5);
   });
 
+  test("dragging a slider dims the open panel until release", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await openAdjust(page);
+    const panel = adjustPanel(page);
+    const bar = page.getByTestId("context-toolbar-l1");
+    await expect(panel).not.toHaveAttribute("data-tuning", "true");
+
+    const alpha = page.getByRole("slider", { name: "Image alpha" });
+    const control = page.locator(".landmarks-slider-control").filter({ has: alpha });
+    const box = (await control.boundingBox())!;
+    const start = Number(await alpha.getAttribute("aria-valuenow"));
+    await page.mouse.move(box.x + box.width * 0.85, box.y + box.height / 2);
+    await page.mouse.down();
+    await expect(panel).toHaveAttribute("data-tuning", "true");
+    const glass = panel.locator("xpath=..");
+    await expect(glass).toHaveClass(/landmarks-float/);
+    await expect.poll(async () => Number(await glass.evaluate((el) => getComputedStyle(el).opacity))).toBeCloseTo(
+      0.32,
+      2,
+    );
+    expect(await panel.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+    expect(await bar.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+    await page.mouse.move(box.x + box.width * 0.35, box.y + box.height / 2, { steps: 6 });
+    await expect(panel).toHaveAttribute("data-tuning", "true");
+    await expect.poll(async () => Number(await alpha.getAttribute("aria-valuenow"))).toBeLessThan(start);
+    await page.mouse.up();
+    await expect(panel).not.toHaveAttribute("data-tuning", "true");
+    await expect.poll(async () => Number(await glass.evaluate((el) => getComputedStyle(el).opacity))).toBe(1);
+
+    await panel.getByRole("switch", { name: "Show image" }).click();
+    await expect(panel).not.toHaveAttribute("data-tuning", "true");
+    await panel.getByTestId("adjust-image").getByRole("radio", { name: "MIP" }).click();
+    await expect(panel).not.toHaveAttribute("data-tuning", "true");
+
+    await page.keyboard.press("Escape");
+    await openCross(page);
+    const cross = crossPanel(page);
+    const zHi = page.getByRole("slider", { name: "Z cut" }).nth(1);
+    const zBox = (await zHi.boundingBox())!;
+    await page.mouse.move(zBox.x + zBox.width / 2, zBox.y + zBox.height / 2);
+    await page.mouse.down();
+    await expect(cross).toHaveAttribute("data-tuning", "true");
+    const crossGlass = cross.locator("xpath=..");
+    await expect.poll(async () => Number(await crossGlass.evaluate((el) => getComputedStyle(el).opacity))).toBeCloseTo(
+      0.32,
+      2,
+    );
+    expect(await bar.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
+    await page.mouse.up();
+    await expect(cross).not.toHaveAttribute("data-tuning", "true");
+  });
+
   test("the projection toggles set the image and label modes", async ({ page }) => {
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
