@@ -1,4 +1,3 @@
-import { Morph } from "cube-motion/react";
 import { BookmarkCheckIcon, BookmarkPlusIcon, BoxIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -8,14 +7,15 @@ import { cn } from "@/lib/utils";
 import { ChromeTooltip, TOOLBAR_CLASS, ToolbarDivider, chromeHitClass, chromeHitTextClass } from "./primitives";
 import { FullscreenButton, ZoomControls } from "./topbar";
 
+export type InspectLoad =
+  | { readonly state: "refining" }
+  | { readonly state: "ready" }
+  | { readonly state: "error"; readonly message: string };
+
 export type InspectPillProps = {
-  /** The cube is open (else armed: placing a window). */
   open: boolean;
   sizeUm: number;
-  /** The live window centre (µm), or null before one is placed. */
-  centre: { x: number; y: number } | null;
-  status: "refining" | "ready" | "error";
-  statusError: string;
+  load: InspectLoad;
   saved: boolean;
   canSave: boolean;
   fullscreen: boolean;
@@ -27,12 +27,12 @@ export type InspectPillProps = {
   onResetZoom: () => void;
 };
 
-/**
- * The top pill while in Inspect, in place of the tool pill; its dotted outline
- * marks the mode as temporary. Armed (placing a window): a hint, the map's zoom
- * and full screen. Open (the cube shows): the window, its load status, Save and
- * full screen. Exit leaves Inspect.
- */
+export function toInspectLoad(load: InspectLoad["state"], loadError: string): InspectLoad {
+  if (load === "error") return { state: "error", message: loadError };
+  if (load === "refining") return { state: "refining" };
+  return { state: "ready" };
+}
+
 export function InspectPill(p: InspectPillProps) {
   return (
     <TooltipProvider delayDuration={80} skipDelayDuration={0}>
@@ -65,12 +65,7 @@ export function InspectPill(p: InspectPillProps) {
         </span>
         {p.open ? (
           <>
-            {p.centre ? (
-              <span className="landmarks-meta landmarks__inspect-centre tabular-nums" data-testid="inspect-centre">
-                {Math.round(p.centre.x)}, {Math.round(p.centre.y)} µm
-              </span>
-            ) : null}
-            <StatusChip status={p.status} error={p.statusError} />
+            <StatusChip load={p.load} />
             <ToolbarDivider />
             <Button
               type="button"
@@ -89,10 +84,7 @@ export function InspectPill(p: InspectPillProps) {
           </>
         ) : (
           <>
-            <span className="landmarks-meta">
-              Click to place a <span className="landmarks__inspect-hint-size">{Math.round(p.sizeUm)} µm </span>
-              window
-            </span>
+            <span className="landmarks-meta">Click to place</span>
             <ToolbarDivider />
             <ZoomControls onZoomIn={p.onZoomIn} onZoomOut={p.onZoomOut} onReset={p.onResetZoom} />
           </>
@@ -104,23 +96,20 @@ export function InspectPill(p: InspectPillProps) {
   );
 }
 
-/** The open cube's load: "Refining" (shimmering) crossfades to "Ready"; an error replaces both. */
-function StatusChip({ status, error }: { status: "refining" | "ready" | "error"; error: string }) {
+function StatusChip({ load }: { load: InspectLoad }) {
   return (
     <span
       data-testid="inspect-status"
-      data-state={status}
+      data-state={load.state}
       role="status"
-      className="landmarks__inspect-status"
-      title={status === "error" ? error : undefined}
+      className={cn("landmarks__inspect-status", load.state === "ready" && "sr-only")}
+      title={load.state === "error" ? load.message : undefined}
     >
-      {status === "error" ? (
-        <span className="text-destructive">{error || "Could not load"}</span>
-      ) : (
-        // The shimmer sits on a span inside the face: Morph cancels every
-        // animation on the faces themselves, CSS ones included.
-        <Morph active={status === "ready"} off={<span className="landmarks__shimmer">Refining</span>} on="Ready" />
-      )}
+      {load.state === "refining" ? (
+        <span className="landmarks__shimmer">Refining</span>
+      ) : load.state === "error" ? (
+        <span className="text-destructive">{load.message}</span>
+      ) : null}
     </span>
   );
 }

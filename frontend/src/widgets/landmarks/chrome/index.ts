@@ -1,5 +1,6 @@
 export { Topbar } from "./topbar";
-export { InspectPill } from "./inspect-pill";
+export { InspectPill, toInspectLoad } from "./inspect-pill";
+export type { InspectLoad, InspectPillProps } from "./inspect-pill";
 export { LayersPanel } from "./layers-panel";
 export { ExplorePanel } from "./explore-panel";
 export { InfoPanel } from "./info-panel";
