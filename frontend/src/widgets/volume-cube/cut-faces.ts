@@ -7,8 +7,11 @@ import { cameraDirection } from "./axis-legend";
  */
 export const CUT_RIM_PX = 16;
 
-/** A face-on normal has no screen direction to drag along. */
-const MIN_SCREEN_NORMAL = 0.25;
+const FACE_ON_NORMAL = 0.25;
+
+function faceOn(screenNormalLength: number): boolean {
+  return screenNormalLength < FACE_ON_NORMAL;
+}
 
 export type CutAxis = "x" | "y" | "z";
 export type CutFace = { axis: CutAxis; edge: 0 | 1 };
@@ -21,16 +24,13 @@ export type PreBox = { lo: Vec3; hi: Vec3 };
 
 type Camera = { zoom: number; rotationX: number; rotationOrbit: number };
 
-/** Data +axis in post-model space. Z_UP is rotateX(-90°), so +y data is +z and +z data is +y. */
-const AXIS_WORLD: Record<CutAxis, Vec3> = {
-  x: [1, 0, 0],
-  y: [0, 0, 1],
-  z: [0, 1, 0],
-};
-
 /** `Z_UP` (rotateX -90°): pre-model [x, y, z] becomes [x, z, -y]. */
 export function postModel([x, y, z]: Vec3): Vec3 {
   return [x, z, -y];
+}
+
+function preY(dataFraction: number, span: number): number {
+  return (1 - dataFraction) * span;
 }
 
 /**
@@ -50,8 +50,8 @@ export function cutBoxPre(
   const sz = stackZ[1] - stackZ[0] || 1;
   const x0 = ((cut[0] - winX[0]) / sx) * w;
   const x1 = ((cut[1] - winX[0]) / sx) * w;
-  const py0 = (1 - (cut[2] - winY[0]) / sy) * h;
-  const py1 = (1 - (cut[3] - winY[0]) / sy) * h;
+  const py0 = preY((cut[2] - winY[0]) / sy, h);
+  const py1 = preY((cut[3] - winY[0]) / sy, h);
   const z0 = ((cut[4] - stackZ[0]) / sz) * d;
   const z1 = ((cut[5] - stackZ[0]) / sz) * d;
   return {
@@ -130,8 +130,13 @@ function projectPoint(pre: Vec3, view: Camera, target: readonly number[], rect: 
   return { x: rect.width / 2 + cx * s, y: rect.height / 2 - cy * s };
 }
 
+function dataAxisWorld(axis: CutAxis): Vec3 {
+  const alongData: Vec3 = axis === "x" ? [1, 0, 0] : axis === "y" ? [0, preY(1, 1) - preY(0, 1), 0] : [0, 0, 1];
+  return postModel(alongData);
+}
+
 function screenNormal(face: CutFace, view: Camera): { x: number; y: number; len: number } {
-  const n = AXIS_WORLD[face.axis];
+  const n = dataAxisWorld(face.axis);
   const sign = face.edge === 0 ? -1 : 1;
   const [x, y] = cameraDirection([n[0] * sign, n[1] * sign, n[2] * sign], view.rotationX, view.rotationOrbit);
   const len = Math.hypot(x, y);
@@ -176,7 +181,7 @@ export function pickCutFace(
   let best: { face: CutFace; score: number } | null = null;
   for (const face of FACES) {
     const normal = screenNormal(face, view).len;
-    if (normal < MIN_SCREEN_NORMAL) continue;
+    if (faceOn(normal)) continue;
     const corners = faceCorners(box, face).map((c) => projectPoint(c, view, target, rect));
     const dist = rimDistance(point, corners);
     if (dist > CUT_RIM_PX) continue;
@@ -194,7 +199,7 @@ export function cutFaceAnchors(
 ): string {
   const parts: string[] = [];
   for (const { face, corners } of projectFaces(box, view, target, rect)) {
-    if (screenNormal(face, view).len < MIN_SCREEN_NORMAL) continue;
+    if (faceOn(screenNormal(face, view).len)) continue;
     let best = { len: -1, mid: corners[0]! };
     for (let i = 0; i < corners.length; i++) {
       const a = corners[i]!;
@@ -213,7 +218,7 @@ export function cutFaceAnchors(
  */
 export function dragToFaceDelta(dx: number, dy: number, face: CutFace, view: Camera, umPerWorld: number): number {
   const n = screenNormal(face, view);
-  if (n.len < MIN_SCREEN_NORMAL) return 0;
+  if (faceOn(n.len)) return 0;
   const along = (dx * n.x + -dy * n.y) / n.len;
   const sign = face.edge === 0 ? -1 : 1;
   return (sign * along * umPerWorld) / 2 ** view.zoom;

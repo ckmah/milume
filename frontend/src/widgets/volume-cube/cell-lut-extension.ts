@@ -165,6 +165,10 @@ uniform highp sampler3D labelVolume;
 
 vec3 srgbToLinear(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
 
+vec4 scaleOutside(vec4 finished) {
+  return finished * cubeRender.outsideAlpha;
+}
+
 // Image value after contrast -> (linear rgb, per-sample alpha); clear with the image off.
 vec4 imageSample(float v) {
   float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
@@ -281,7 +285,6 @@ const RENDERING = {
   // The projection is opaque: weighting it by the sample alpha (g) as well
   // would square the ramp and darken everything below full intensity. With
   // the image off only the labels remain, at their own alpha.
-  // Outside the cut, that finished colour is scaled once (outsideAlpha).
   vec4 imageOut = acc;
   vec4 imageG = accG;
   if (cubeRender.imageMip > 0.5) {
@@ -298,8 +301,7 @@ const RENDERING = {
       imageG = vec4(0.0);
     }
   }
-  imageG.rgb *= cubeRender.outsideAlpha;
-  imageG.a *= cubeRender.outsideAlpha;
+  imageG = scaleOutside(imageG);
   vec4 vol = vec4(
     imageOut.rgb + (1.0 - imageOut.a) * imageG.rgb,
     imageOut.a + (1.0 - imageOut.a) * imageG.a
@@ -308,8 +310,7 @@ const RENDERING = {
   // ones. Premultiplied, like the accumulated samples, for the "over" below.
   vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb * cellMax, cellMax) : cells;
   vec4 cellsGhost = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgbG * cellMaxG, cellMaxG) : cellsG;
-  cellsGhost.rgb *= cubeRender.outsideAlpha;
-  cellsGhost.a *= cubeRender.outsideAlpha;
+  cellsGhost = scaleOutside(cellsGhost);
   vec4 lab = vec4(
     cellsOut.rgb + (1.0 - cellsOut.a) * cellsGhost.rgb,
     cellsOut.a + (1.0 - cellsOut.a) * cellsGhost.a

@@ -549,18 +549,13 @@ export function VolumeCube({
   const yShown = clampRange(cut[2], cut[3], winY[0], winY[1]);
   const zShown = clampRange(cut[4], cut[5], stackZ[0], stackZ[1]);
 
-  // Cuts in the loaded volume's voxel space, already clamped to the requested
-  // window (so a panning volume is clipped to the frame). Viv's texture stores
-  // rows reversed: a Y cut on data rows [a, b] is texture rows [height - b, height - a].
-  // The ray marches the whole window. The cut is a fraction of that box (cutFrac):
-  // tissue outside it stays in the ray, drawn faint.
-  const xSlice = useMemo(() => {
+  const windowXSlice = useMemo(() => {
     const step = levelVoxel ? levelVoxel[2] : 1;
     const x0 = shownBox ? shownBox.x0 : 0;
     return clampRange((winX[0] - oxUm) / step - x0, (winX[1] - oxUm) / step - x0, 0, shownW);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winX[0], winX[1], oxUm, shownW, shownBox?.x0, levelVoxel?.[2]]);
-  const ySlice = useMemo(() => {
+  const windowYSlice = useMemo(() => {
     const step = levelVoxel ? levelVoxel[1] : 1;
     const y0 = shownBox ? shownBox.y0 : 0;
     const [a, b] = clampRange((winY[0] - oyUm) / step - y0, (winY[1] - oyUm) / step - y0, 0, shownH);
@@ -575,16 +570,19 @@ export function VolumeCube({
     () => (panX === 0 && panY === 0 ? Z_UP : Z_UP.clone().translate([panX, panY * ry, 0])),
     [panX, panY, ry],
   );
-  const zSlice = useMemo(() => {
+  const windowZSlice = useMemo(() => {
     const scale = levelVoxel ? levelVoxel[0] : 1;
     return clampRange((stackZ[0] - ozUm) / scale, (stackZ[1] - ozUm) / scale, 0, levelDepth);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stackZ[0], stackZ[1], ozUm, levelDepth, levelVoxel?.[0]]);
   const shownCut: CubeCut = [xShown[0], xShown[1], yShown[0], yShown[1], zShown[0], zShown[1]];
+  const [cx0, cx1, cy0, cy1, cz0, cz1] = shownCut;
+  const [wx0, wx1] = winX;
+  const [wy0, wy1] = winY;
+  const [wz0, wz1] = stackZ;
   const cutFrac = useMemo(
-    () => cutFractions(shownCut, winX, winY, stackZ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [shownCut[0], shownCut[1], shownCut[2], shownCut[3], shownCut[4], shownCut[5], winX[0], winX[1], winY[0], winY[1], stackZ[0], stackZ[1]],
+    () => cutFractions([cx0, cx1, cy0, cy1, cz0, cz1], [wx0, wx1], [wy0, wy1], [wz0, wz1]),
+    [cx0, cx1, cy0, cy1, cz0, cz1, wx0, wx1, wy0, wy1, wz0, wz1],
   );
   const outsideCut = !cutIsOpen(shownCut, winX, winY, stackZ);
 
@@ -764,9 +762,9 @@ export function VolumeCube({
               colors: IMAGE_COLORS,
               channelsVisible: ONE_CHANNEL_VISIBLE,
               selections: ONE_CHANNEL,
-              xSlice,
-              ySlice,
-              zSlice,
+              xSlice: windowXSlice,
+              ySlice: windowYSlice,
+              zSlice: windowZSlice,
               cutFrac,
               cubeCutBox: outsideCut && cubeFrame ? cutBoxPre(shownCut, winX, winY, stackZ, cubeFrame.size) : null,
               resolution: 0,
@@ -793,9 +791,9 @@ export function VolumeCube({
       loader,
       onViewportLoad,
       contrastLimits,
-      xSlice,
-      ySlice,
-      zSlice,
+      windowXSlice,
+      windowYSlice,
+      windowZSlice,
       cutFrac,
       outsideCut,
       shownCut[0],

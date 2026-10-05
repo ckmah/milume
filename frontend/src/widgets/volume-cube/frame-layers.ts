@@ -3,6 +3,7 @@ import { LineLayer, TextLayer } from "@deck.gl/layers";
 import type { Matrix4 } from "@math.gl/core";
 import { VolumeView } from "@hms-dbmi/viv";
 
+import type { PreBox } from "./cut-faces";
 import { CubeVolumeLayer } from "./image-volume";
 import { type PlacedOverlays, overlayLayers, vivTag } from "./overlay-layers";
 
@@ -129,12 +130,8 @@ export function frameLayers(frame: CubeFrame, modelMatrix: Matrix4, viewId = "3d
   ];
 }
 
-/** The cut box, in the same pre-model units as the window frame. Absent when the cut is the whole window. */
-export function cutFrameLayers(
-  box: { lo: [number, number, number]; hi: [number, number, number] },
-  modelMatrix: Matrix4,
-  viewId = "3d",
-) {
+export function cutFrameLayers(box: PreBox | null | undefined, modelMatrix: Matrix4, viewId = "3d") {
+  if (!box) return [];
   const [x0, y0, z0] = box.lo;
   const [x1, y1, z1] = box.hi;
   const c = [
@@ -154,7 +151,7 @@ export function cutFrameLayers(
   ];
   const color = [248, 250, 252, 230];
   const segments: Segment[] = pairs.map(([a, b]) => ({ from: c[a]!, to: c[b]!, color }));
-  return new LineLayer<Segment>({
+  return [new LineLayer<Segment>({
     modelMatrix,
     coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
     pickable: false,
@@ -165,7 +162,7 @@ export function cutFrameLayers(
     getColor: (s) => s.color as [number, number, number, number],
     getWidth: 2,
     widthUnits: "pixels",
-  });
+  })];
 }
 
 /** Viv's VolumeView plus the frame, so both share one deck and one camera. */
@@ -200,8 +197,7 @@ export class FramedVolumeView extends VolumeView {
     if (!frame) return [...layers, ...extra];
     // Overlays go over the frame's lines and under its axis labels.
     const [lines, labels] = frameLayers(frame, matrix, id);
-    const cutBox = props.cubeCutBox as { lo: [number, number, number]; hi: [number, number, number] } | null;
-    const cutLines = cutBox ? [cutFrameLayers(cutBox, matrix, id)] : [];
+    const cutLines = cutFrameLayers(props.cubeCutBox as PreBox | null, matrix, id);
     return [...layers, lines, ...cutLines, ...extra, labels];
   }
 }

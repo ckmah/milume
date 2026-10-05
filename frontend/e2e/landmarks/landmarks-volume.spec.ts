@@ -1384,8 +1384,6 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.up();
     await expect.poll(async () => (await cutOf(page))[5]).toBeLessThan(before - 1);
     await expect(view).toHaveAttribute("data-outside", "ghost");
-    // The cut-away stack stays on screen, under the bright threshold the other
-    // cube tests use (60) and above the empty frame.
     const faint = await view.screenshot();
     const mid = await page.evaluate(async (png) => {
       const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
