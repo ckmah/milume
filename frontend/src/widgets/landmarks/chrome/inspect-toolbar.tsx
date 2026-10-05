@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useLayoutEffect, useState } from "react";
 import {
   BoxIcon,
   ChevronDownIcon,
@@ -200,7 +200,6 @@ function ProjectionRow({
 /** The bar's two panels; one is open at a time. */
 type Panel = "adjust" | "cross";
 
-/** Soft Float slider chrome / Radix slots a drag starts on. */
 const SLIDER_HIT =
   '.landmarks-slider-control, [data-slot="slider"], [data-slot="slider-thumb"], [data-slot="slider-track"]';
 
@@ -244,18 +243,28 @@ export function InspectToolbar({
     setPanel((open) => (open === p ? null : p));
     setTuning(false);
   };
-  // Attach end listeners in the same turn as pointerdown so a quick click cannot
-  // leave tuning stuck true before a useEffect runs.
-  const onPanelPointerDownCapture = (e: React.PointerEvent) => {
-    if (!(e.target as Element | null)?.closest?.(SLIDER_HIT)) return;
-    setTuning(true);
-    const end = () => {
+  // Layout, not a passive effect: the listener has to be on window before this
+  // gesture's pointerup, and a click can end in the same frame.
+  useLayoutEffect(() => {
+    if (!tuning) return;
+    // Capture moving onto the thumb while the button is still down is not a release.
+    const end = (event: Event) => {
+      if (event.type === "lostpointercapture" && (event as PointerEvent).buttons !== 0) return;
       setTuning(false);
-      window.removeEventListener("pointerup", end);
-      window.removeEventListener("pointercancel", end);
     };
     window.addEventListener("pointerup", end);
     window.addEventListener("pointercancel", end);
+    window.addEventListener("lostpointercapture", end);
+    return () => {
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      window.removeEventListener("lostpointercapture", end);
+    };
+  }, [tuning]);
+  const onPanelPointerDownCapture = (e: React.PointerEvent) => {
+    const target = e.target;
+    if (!(target instanceof Element) || !target.closest(SLIDER_HIT)) return;
+    setTuning(true);
   };
   const [menuContainer, setMenuContainer] = useState<HTMLElement | null>(null);
   // The cube sizes the contrast range from the contrast it draws; hold the max

@@ -1182,16 +1182,19 @@
   margin-block: -1px;
 }
 
-/* While a slider is dragged, fade the open Inspect bar panel glass so the cube
-   under it stays readable. data-tuning lives on the panel; :has fades its Soft
-   Float wrapper once (not the L1 bar). */
-.landmarks-float:has([data-tuning="true"]) {
+/* While a slider is dragged, the open Inspect bar panel glass goes translucent
+   so the cube under it stays readable. The child combinator skips the L1 bar,
+   which is also .landmarks-float and wraps this panel. */
+.landmarks-float:has(> .landmarks-adjust) {
+  transition: opacity 120ms var(--ease-out, ease);
+}
+
+.landmarks-float:has(> [data-tuning="true"]) {
   opacity: 0.32;
-  transition: opacity var(--duration-quick) var(--ease-out);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .landmarks-float:has([data-tuning="true"]) {
+  .landmarks-float:has(> .landmarks-adjust) {
     transition: none;
   }
 }
