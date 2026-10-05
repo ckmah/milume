@@ -1023,7 +1023,8 @@ export function VolumeCube({
     if (wantsPan(e) || (e.button === 0 && faceAt(e.clientX, e.clientY))) e.stopPropagation();
   };
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (cutDragging) return;
+    // A hover update re-renders the controlled camera and drops an in-progress orbit.
+    if (cutDragging || (e.buttons & 1) !== 0) return;
     const face = faceAt(e.clientX, e.clientY);
     const key = face ? faceKey(face) : "";
     setHoverFace((prev) => (prev === key ? prev : key));
