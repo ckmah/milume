@@ -7,22 +7,16 @@ import { cn } from "@/lib/utils";
 import { ChromeTooltip, TOOLBAR_CLASS, ToolbarDivider, chromeHitClass, chromeHitTextClass } from "./primitives";
 import { FullscreenButton, ZoomControls } from "./topbar";
 
-/** What the open pill may say about the cube. Ready and refining carry no message. */
 export type InspectLoad =
   | { readonly state: "refining" }
   | { readonly state: "ready" }
   | { readonly state: "error"; readonly message: string };
 
 export type InspectPillProps = {
-  /** False is armed: the hint and the map zoom. True is the quiet window row. */
   open: boolean;
-  /** Side length in µm. Shown beside "Inspect" only while open, as "{n} µm". */
   sizeUm: number;
-  /** Open-pill chip. Ignored while armed. */
   load: InspectLoad;
-  /** Live window matches a saved inspect selection. */
   saved: boolean;
-  /** A window exists to save (cx and cy placed). */
   canSave: boolean;
   fullscreen: boolean;
   onExit: () => void;
@@ -33,10 +27,6 @@ export type InspectPillProps = {
   onResetZoom: () => void;
 };
 
-/**
- * Error keeps `loadError`, including an empty string.
- * Any other load drops `loadError`, so a stale failure cannot show on a settled cube.
- */
 export function toInspectLoad(load: InspectLoad["state"], loadError: string): InspectLoad {
   if (load === "error") return { state: "error", message: loadError };
   if (load === "refining") return { state: "refining" };
@@ -106,14 +96,13 @@ export function InspectPill(p: InspectPillProps) {
   );
 }
 
-/** Stays mounted for the whole open session, including ready, so a later word on this node is announced. */
 function StatusChip({ load }: { load: InspectLoad }) {
   return (
     <span
       data-testid="inspect-status"
       data-state={load.state}
       role="status"
-      className="landmarks__inspect-status"
+      className={cn("landmarks__inspect-status", load.state === "ready" && "sr-only")}
       title={load.state === "error" ? load.message : undefined}
     >
       {load.state === "refining" ? (
