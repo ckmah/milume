@@ -145,7 +145,7 @@ makes Inspect a temporary, self-contained mode, still without new traits:
   combination. The hover preview keeps its look (image MIP, labels additive).
 - **Chrome.** In Inspect the top tool pill is swapped for a dashed-outline
   Inspect pill (Exit, hint, map zoom, full screen; with the cube open: the
-  window, a Refining / Ready status, Save, full screen), and the cube's own
+  window, a refining-or-error chip, Save, full screen), and the cube's own
   title / Save / Close row is gone. Esc closes the cube; a second Esc (or Exit)
   leaves Inspect for the previous tool. The bottom bar holds the camera, Move,
   Reset view, Adjust (Image and Labels columns) and Cross-section (the cuts),

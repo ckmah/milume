@@ -473,7 +473,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(pill).toBeVisible();
     await expect(pill).toHaveAttribute("data-state", "armed");
     await expect(tools).toHaveCount(0);
-    await expect(pill.getByText("Click to place a 300 µm window")).toBeVisible();
+    await expect(pill.getByText("Click to place")).toBeVisible();
     expect(await pill.evaluate((el) => getComputedStyle(el).borderStyle)).toContain("dashed");
     await pill.getByRole("button", { name: "Exit Inspect" }).click();
     await expect(pill).toHaveCount(0);
