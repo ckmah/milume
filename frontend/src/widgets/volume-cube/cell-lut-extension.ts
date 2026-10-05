@@ -55,12 +55,21 @@ export type ImagePalette = { data: Uint8Array; width: number; height: number };
  */
 export const CELL_FILL = 0.35;
 
+/** Opacity of tissue outside the cut, applied to that region's finished colour. */
+export const OUTSIDE_CUT_ALPHA = 0.12;
+
 type CubeUniforms = Partial<RenderSettings> & {
   cellsOn?: number;
   imageOn?: number;
   imageScale?: number;
   imageMip?: number;
   cellMip?: number;
+  cutX0?: number;
+  cutX1?: number;
+  cutY0?: number;
+  cutY1?: number;
+  cutZ0?: number;
+  cutZ1?: number;
 };
 
 // The module must not share a sampler's name: luma.gl keys a module's
@@ -76,6 +85,13 @@ const cubeRenderModule = {
     imageScale: "f32",
     imageMip: "f32",
     cellMip: "f32",
+    cutX0: "f32",
+    cutX1: "f32",
+    cutY0: "f32",
+    cutY1: "f32",
+    cutZ0: "f32",
+    cutZ1: "f32",
+    outsideAlpha: "f32",
   },
   defaultUniforms: {
     imageAlpha: 1,
@@ -86,6 +102,13 @@ const cubeRenderModule = {
     imageScale: 1,
     imageMip: 0,
     cellMip: 0,
+    cutX0: 0,
+    cutX1: 1,
+    cutY0: 0,
+    cutY1: 1,
+    cutZ0: 0,
+    cutZ1: 1,
+    outsideAlpha: OUTSIDE_CUT_ALPHA,
   },
   // Only the numbers reach the uniform block; the palette is a texture.
   getUniforms: (render: CubeUniforms = {}) => ({
@@ -97,6 +120,13 @@ const cubeRenderModule = {
     imageScale: render.imageScale ?? 1,
     imageMip: render.imageMip ?? 0,
     cellMip: render.cellMip ?? 0,
+    cutX0: render.cutX0 ?? 0,
+    cutX1: render.cutX1 ?? 1,
+    cutY0: render.cutY0 ?? 0,
+    cutY1: render.cutY1 ?? 1,
+    cutZ0: render.cutZ0 ?? 0,
+    cutZ1: render.cutZ1 ?? 1,
+    outsideAlpha: OUTSIDE_CUT_ALPHA,
   }),
   // Viv's contrast ramp on the raw value: a unorm image texture (r8unorm,
   // r16unorm) samples as value / max, and imageScale (max; 1 for float)
@@ -116,6 +146,13 @@ uniform cubeRenderUniforms {
   float imageScale;
   float imageMip;
   float cellMip;
+  float cutX0;
+  float cutX1;
+  float cutY0;
+  float cutY1;
+  float cutZ0;
+  float cutZ1;
+  float outsideAlpha;
 } cubeRender;
 
 // All 3D textures, the lookups one texel deep: luma.gl validates the program
@@ -165,37 +202,77 @@ const CELL_SAMPLE = `
 // the maximum (MIP); the labels accumulate cell samples front to back
 // (Additive) or keep the strongest one (MIP). Labels composite over the image
 // either way.
+// Samples outside the cut accumulate on their own and are scaled once at the
+// end, so a thick region stays faint instead of summing back to opaque.
 // Viv steps p after _RENDER, so _RENDER may break but must not continue.
 // Either layer stops sampling once it is saturated (as the per-mode templates did).
+const IN_CUT = `
+    vec2 xS = fragmentUniforms3D.xSlice;
+    vec2 yS = fragmentUniforms3D.ySlice;
+    vec2 zS = fragmentUniforms3D.zSlice;
+    float xLo = mix(xS.x, xS.y, cubeRender.cutX0);
+    float xHi = mix(xS.x, xS.y, cubeRender.cutX1);
+    float yLo = mix(yS.x, yS.y, cubeRender.cutY0);
+    float yHi = mix(yS.x, yS.y, cubeRender.cutY1);
+    float zLo = mix(zS.x, zS.y, cubeRender.cutZ0);
+    float zHi = mix(zS.x, zS.y, cubeRender.cutZ1);
+    bool inCut = p.x >= xLo - 0.002 && p.x <= xHi + 0.002
+      && p.y >= yLo - 0.002 && p.y <= yHi + 0.002
+      && p.z >= zLo - 0.002 && p.z <= zHi + 0.002;`;
+
 const RENDERING = {
   _BEFORE_RENDER: `${CELL_SETUP}
   vec4 acc = vec4(0.0);
+  vec4 accG = vec4(0.0);
   float maxImage = -1.0;
+  float maxImageG = -1.0;
   vec4 cells = vec4(0.0);
+  vec4 cellsG = vec4(0.0);
   float cellMax = 0.0;
-  vec3 cellMaxRgb = vec3(0.0);`,
+  vec3 cellMaxRgb = vec3(0.0);
+  float cellMaxG = 0.0;
+  vec3 cellMaxRgbG = vec3(0.0);
+  bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
+    || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
+    || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;`,
   _RENDER: `
+    ${IN_CUT}
     if (cubeRender.imageMip > 0.5) {
-      maxImage = max(maxImage, intensityValue0);
-    } else if (acc.a < 0.95) {
+      if (inCut) maxImage = max(maxImage, intensityValue0);
+      else maxImageG = max(maxImageG, intensityValue0);
+    } else if (inCut) {
+      if (acc.a < 0.95) {
+        vec4 im = imageSample(intensityValue0);
+        acc.rgb += (1.0 - acc.a) * im.a * im.rgb;
+        acc.a += (1.0 - acc.a) * im.a;
+      }
+    } else if (accG.a < 0.95) {
       vec4 im = imageSample(intensityValue0);
-      acc.rgb += (1.0 - acc.a) * im.a * im.rgb;
-      acc.a += (1.0 - acc.a) * im.a;
+      accG.rgb += (1.0 - accG.a) * im.a * im.rgb;
+      accG.a += (1.0 - accG.a) * im.a;
     }
-    if (cellsOn && (cubeRender.cellMip > 0.5 || cells.a < 0.95)) {
+    if (cellsOn && (cubeRender.cellMip > 0.5 || (inCut ? cells.a : cellsG.a) < 0.95)) {
       ${CELL_SAMPLE}
       if (cubeRender.cellMip > 0.5) {
-        if (cell.a > cellMax) {
-          cellMax = cell.a;
-          cellMaxRgb = cell.rgb;
+        if (inCut) {
+          if (cell.a > cellMax) {
+            cellMax = cell.a;
+            cellMaxRgb = cell.rgb;
+          }
+        } else if (cell.a > cellMaxG) {
+          cellMaxG = cell.a;
+          cellMaxRgbG = cell.rgb;
         }
-      } else {
+      } else if (inCut) {
         cells.rgb += (1.0 - cells.a) * cell.a * cell.rgb;
         cells.a += (1.0 - cells.a) * cell.a;
+      } else {
+        cellsG.rgb += (1.0 - cellsG.a) * cell.a * cell.rgb;
+        cellsG.a += (1.0 - cellsG.a) * cell.a;
       }
     }
-    bool imageDone = cubeRender.imageMip < 0.5 && acc.a >= 0.95;
-    bool cellsDone = !cellsOn || (cubeRender.cellMip < 0.5 && cells.a >= 0.95);
+    bool imageDone = cubeRender.imageMip < 0.5 && acc.a >= 0.95 && (!ghosting || accG.a >= 0.95);
+    bool cellsDone = !cellsOn || (cubeRender.cellMip < 0.5 && cells.a >= 0.95 && (!ghosting || cellsG.a >= 0.95));
     if (imageDone && cellsDone) {
       break;
     }`,
@@ -204,18 +281,43 @@ const RENDERING = {
   // The projection is opaque: weighting it by the sample alpha (g) as well
   // would square the ramp and darken everything below full intensity. With
   // the image off only the labels remain, at their own alpha.
+  // Outside the cut, that finished colour is scaled once (outsideAlpha).
   vec4 imageOut = acc;
+  vec4 imageG = accG;
   if (cubeRender.imageMip > 0.5) {
-    vec4 im = imageSample(maxImage);
-    imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
+    if (!ghosting || maxImage >= 0.0) {
+      vec4 im = imageSample(max(maxImage, 0.0));
+      imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
+    } else {
+      imageOut = vec4(0.0);
+    }
+    if (maxImageG >= 0.0) {
+      vec4 imG = imageSample(maxImageG);
+      imageG = vec4(imG.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
+    } else {
+      imageG = vec4(0.0);
+    }
   }
+  imageG.rgb *= cubeRender.outsideAlpha;
+  imageG.a *= cubeRender.outsideAlpha;
+  vec4 vol = vec4(
+    imageOut.rgb + (1.0 - imageOut.a) * imageG.rgb,
+    imageOut.a + (1.0 - imageOut.a) * imageG.a
+  );
   // The labels: the strongest cell sample along the ray, or the accumulated
   // ones. Premultiplied, like the accumulated samples, for the "over" below.
   vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb * cellMax, cellMax) : cells;
+  vec4 cellsGhost = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgbG * cellMaxG, cellMaxG) : cellsG;
+  cellsGhost.rgb *= cubeRender.outsideAlpha;
+  cellsGhost.a *= cubeRender.outsideAlpha;
+  vec4 lab = vec4(
+    cellsOut.rgb + (1.0 - cellsOut.a) * cellsGhost.rgb,
+    cellsOut.a + (1.0 - cellsOut.a) * cellsGhost.a
+  );
   // Labels over the image.
   color = vec4(
-    cellsOut.rgb + (1.0 - cellsOut.a) * imageOut.rgb,
-    cellsOut.a + (1.0 - cellsOut.a) * imageOut.a
+    lab.rgb + (1.0 - lab.a) * vol.rgb,
+    lab.a + (1.0 - lab.a) * vol.a
   );`,
 };
 
@@ -240,6 +342,8 @@ type LayerLike = {
     onImageBound?: (format: ImageFormat | null) => void;
     imagePalette?: ImagePalette | null;
     render?: RenderSettings | null;
+    /** Cut edges as fractions of the ray box. Omitted: the whole box. */
+    cutFrac?: number[] | null;
     /** Set by Viv's VolumeLayer: `data[0]` is the image volume being drawn. */
     channelData?: { data?: unknown[] } | null;
   };
@@ -381,6 +485,7 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       layer.state.boundImage = imageFormat;
       layer.props.onImageBound?.(imageFormat);
     }
+    const frac = layer.props.cutFrac;
     const uniforms: CubeUniforms = {
       ...(layer.props.render ?? DEFAULT_RENDER),
       cellsOn,
@@ -388,6 +493,12 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       imageScale: image?.scale ?? 1,
       imageMip: layer.props.imageMode === "mip" ? 1 : 0,
       cellMip: layer.props.labelMode === "mip" ? 1 : 0,
+      cutX0: frac?.[0] ?? 0,
+      cutX1: frac?.[1] ?? 1,
+      cutY0: frac?.[2] ?? 0,
+      cutY1: frac?.[3] ?? 1,
+      cutZ0: frac?.[4] ?? 0,
+      cutZ1: frac?.[5] ?? 1,
     };
     model.shaderInputs.setProps({ cubeRender: uniforms });
   }

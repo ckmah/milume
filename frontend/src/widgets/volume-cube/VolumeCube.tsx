@@ -7,7 +7,18 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 import type { ChunkCache } from "./chunk-cache";
-import { CUBE_EXTENSIONS, type CellColoring, type HighlightGroup, type RenderSettings } from "./cell-lut-extension";
+import { CUBE_EXTENSIONS, OUTSIDE_CUT_ALPHA, type CellColoring, type HighlightGroup, type RenderSettings } from "./cell-lut-extension";
+import {
+  type CutFace,
+  cutBoxPre,
+  cutFaceAnchors,
+  cutFractions,
+  cutIsOpen,
+  dragToFaceDelta,
+  faceKey,
+  moveCutEdge,
+  pickCutFace,
+} from "./cut-faces";
 import { type CellVolume, TOO_MANY_CELLS, markVivVolume } from "./cell-volume";
 import { AxisLegend } from "./axis-legend";
 import type { ImageFormat } from "./image-volume";
@@ -138,6 +149,12 @@ export type VolumeCubeProps = {
   onPan?: (dxUm: number, dyUm: number) => void;
   /** The pan's release (or cancel). */
   onPanEnd?: () => void;
+  /**
+   * Set to drag the volume's faces: a press on a face outline moves that cut
+   * edge (µm, live), and the release commits it. The face interior still orbits.
+   */
+  onCutLive?: (cut: CubeCut) => void;
+  onCutCommit?: (cut: CubeCut) => void;
 };
 
 type ViewState = {
@@ -319,6 +336,8 @@ export function VolumeCube({
   panMode = false,
   onPan,
   onPanEnd,
+  onCutLive,
+  onCutCommit,
 }: VolumeCubeProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const fixedHeight = typeof height === "number";
@@ -533,19 +552,21 @@ export function VolumeCube({
   // Cuts in the loaded volume's voxel space, already clamped to the requested
   // window (so a panning volume is clipped to the frame). Viv's texture stores
   // rows reversed: a Y cut on data rows [a, b] is texture rows [height - b, height - a].
+  // The ray marches the whole window. The cut is a fraction of that box (cutFrac):
+  // tissue outside it stays in the ray, drawn faint.
   const xSlice = useMemo(() => {
     const step = levelVoxel ? levelVoxel[2] : 1;
     const x0 = shownBox ? shownBox.x0 : 0;
-    return clampRange((xShown[0] - oxUm) / step - x0, (xShown[1] - oxUm) / step - x0, 0, shownW);
+    return clampRange((winX[0] - oxUm) / step - x0, (winX[1] - oxUm) / step - x0, 0, shownW);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [xShown[0], xShown[1], oxUm, shownW, shownBox?.x0, levelVoxel?.[2]]);
+  }, [winX[0], winX[1], oxUm, shownW, shownBox?.x0, levelVoxel?.[2]]);
   const ySlice = useMemo(() => {
     const step = levelVoxel ? levelVoxel[1] : 1;
     const y0 = shownBox ? shownBox.y0 : 0;
-    const [a, b] = clampRange((yShown[0] - oyUm) / step - y0, (yShown[1] - oyUm) / step - y0, 0, shownH);
+    const [a, b] = clampRange((winY[0] - oyUm) / step - y0, (winY[1] - oyUm) / step - y0, 0, shownH);
     return [shownH - b, shownH - a] as [number, number];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [yShown[0], yShown[1], oyUm, shownH, shownBox?.y0, levelVoxel?.[1]]);
+  }, [winY[0], winY[1], oyUm, shownH, shownBox?.y0, levelVoxel?.[1]]);
   // Place the loaded volume in the requested window's world frame: x shifts by
   // the boxes' x0 offset; y by their y1 offset, because texture rows run reversed.
   const panX = shownBox && liveBox ? shownBox.x0 - liveBox.x0 : 0;
@@ -556,9 +577,16 @@ export function VolumeCube({
   );
   const zSlice = useMemo(() => {
     const scale = levelVoxel ? levelVoxel[0] : 1;
-    return clampRange((zShown[0] - ozUm) / scale, (zShown[1] - ozUm) / scale, 0, levelDepth);
+    return clampRange((stackZ[0] - ozUm) / scale, (stackZ[1] - ozUm) / scale, 0, levelDepth);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zShown[0], zShown[1], ozUm, levelDepth, levelVoxel?.[0]]);
+  }, [stackZ[0], stackZ[1], ozUm, levelDepth, levelVoxel?.[0]]);
+  const shownCut: CubeCut = [xShown[0], xShown[1], yShown[0], yShown[1], zShown[0], zShown[1]];
+  const cutFrac = useMemo(
+    () => cutFractions(shownCut, winX, winY, stackZ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [shownCut[0], shownCut[1], shownCut[2], shownCut[3], shownCut[4], shownCut[5], winX[0], winX[1], winY[0], winY[1], stackZ[0], stackZ[1]],
+  );
+  const outsideCut = !cutIsOpen(shownCut, winX, winY, stackZ);
 
   // Centre of the whole window box in world units (physical scale, then Z_UP).
   // Deliberately not the cut region's centre: cross-sections must not move the cube.
@@ -739,6 +767,8 @@ export function VolumeCube({
               xSlice,
               ySlice,
               zSlice,
+              cutFrac,
+              cubeCutBox: outsideCut && cubeFrame ? cutBoxPre(shownCut, winX, winY, stackZ, cubeFrame.size) : null,
               resolution: 0,
               extensions: CUBE_EXTENSIONS,
               imageMode,
@@ -766,6 +796,20 @@ export function VolumeCube({
       xSlice,
       ySlice,
       zSlice,
+      cutFrac,
+      outsideCut,
+      shownCut[0],
+      shownCut[1],
+      shownCut[2],
+      shownCut[3],
+      shownCut[4],
+      shownCut[5],
+      winX[0],
+      winX[1],
+      winY[0],
+      winY[1],
+      stackZ[0],
+      stackZ[1],
       imageMode,
       labelMode,
       cells,
@@ -873,53 +917,135 @@ export function VolumeCube({
   const wantsPan = (e: { button: number; shiftKey: boolean }) =>
     Boolean(onPan) && e.button === 0 && (panMode || e.shiftKey);
 
+  const handleBox = cubeFrame ? cutBoxPre(shownCut, winX, winY, stackZ, cubeFrame.size) : null;
+  const handlesRef = useLatest({
+    onCutLive,
+    onCutCommit,
+    viewState,
+    aimTarget,
+    handleBox,
+    shownCut,
+    winX,
+    winY,
+    stackZ,
+    interactive,
+  });
+  const [hoverFace, setHoverFace] = useState("");
+  const [cutDragging, setCutDragging] = useState(false);
+  const faceAt = (clientX: number, clientY: number): CutFace | null => {
+    const h = handlesRef.current;
+    const node = hostRef.current;
+    if (!h.onCutLive || !h.interactive || !h.viewState || !h.handleBox || !node) return null;
+    const rect = node.getBoundingClientRect();
+    return pickCutFace(
+      { x: clientX - rect.left, y: clientY - rect.top },
+      h.handleBox,
+      h.viewState,
+      h.aimTarget,
+      { width: rect.width, height: rect.height },
+    );
+  };
+
   const onPointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!wantsPan(e)) return;
+    if (wantsPan(e)) {
+      e.stopPropagation();
+      e.preventDefault();
+      stopPan();
+      const abort = new AbortController();
+      panAbort.current = abort;
+      const pointer = e.pointerId;
+      let last = { x: e.clientX, y: e.clientY };
+      setPanning(true);
+      const end = () => {
+        setPanning(false);
+        stopPan();
+      };
+      const opts = { signal: abort.signal };
+      window.addEventListener(
+        "pointermove",
+        (m: PointerEvent) => {
+          if (m.pointerId !== pointer) return;
+          // A release lost outside the page: hovering must not keep panning.
+          if (!(m.buttons & 1)) return end();
+          const view = viewRef.current;
+          if (!view) return;
+          const d = dragToWindowDelta(m.clientX - last.x, m.clientY - last.y, view, umRef.current);
+          last = { x: m.clientX, y: m.clientY };
+          onPanRef.current?.(d.x, d.y);
+        },
+        opts,
+      );
+      const release = (u: PointerEvent) => {
+        if (u.pointerId === pointer) end();
+      };
+      window.addEventListener("pointerup", release, opts);
+      window.addEventListener("pointercancel", release, opts);
+      window.addEventListener("blur", end, opts);
+      return;
+    }
+    const face = e.button === 0 ? faceAt(e.clientX, e.clientY) : null;
+    if (!face) return;
     e.stopPropagation();
     e.preventDefault();
-    stopPan();
     const abort = new AbortController();
-    panAbort.current = abort;
     const pointer = e.pointerId;
     let last = { x: e.clientX, y: e.clientY };
-    setPanning(true);
-    const end = () => {
-      setPanning(false);
-      stopPan();
+    let live = handlesRef.current.shownCut;
+    setCutDragging(true);
+    setHoverFace(faceKey(face));
+    const end = (commit: boolean) => {
+      if (abort.signal.aborted) return;
+      abort.abort();
+      setCutDragging(false);
+      if (commit) handlesRef.current.onCutCommit?.(live);
     };
     const opts = { signal: abort.signal };
     window.addEventListener(
       "pointermove",
       (m: PointerEvent) => {
         if (m.pointerId !== pointer) return;
-        // A release lost outside the page: hovering must not keep panning.
-        if (!(m.buttons & 1)) return end();
-        const view = viewRef.current;
-        if (!view) return;
-        const d = dragToWindowDelta(m.clientX - last.x, m.clientY - last.y, view, umRef.current);
+        if (!(m.buttons & 1)) return end(true);
+        const h = handlesRef.current;
+        if (!h.viewState) return;
+        const delta = dragToFaceDelta(m.clientX - last.x, m.clientY - last.y, face, h.viewState, umRef.current);
         last = { x: m.clientX, y: m.clientY };
-        onPanRef.current?.(d.x, d.y);
+        live = moveCutEdge(live, face, delta, { x: h.winX, y: h.winY, z: h.stackZ });
+        h.onCutLive?.(live);
       },
       opts,
     );
     const release = (u: PointerEvent) => {
-      if (u.pointerId === pointer) end();
+      if (u.pointerId === pointer) end(true);
     };
     window.addEventListener("pointerup", release, opts);
     window.addEventListener("pointercancel", release, opts);
-    window.addEventListener("blur", end, opts);
+    window.addEventListener("blur", () => end(true), opts);
   };
   const onMouseDownCapture = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (wantsPan(e)) e.stopPropagation();
+    if (wantsPan(e) || (e.button === 0 && faceAt(e.clientX, e.clientY))) e.stopPropagation();
   };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (cutDragging) return;
+    const face = faceAt(e.clientX, e.clientY);
+    const key = face ? faceKey(face) : "";
+    setHoverFace((prev) => (prev === key ? prev : key));
+  };
+  const anchors =
+    onCutLive && viewState && handleBox ? cutFaceAnchors(handleBox, viewState, aimTarget, box) : "";
 
   return (
     <div
       ref={hostRef}
       onPointerDownCapture={onPointerDownCapture}
       onMouseDownCapture={onMouseDownCapture}
+      onPointerMove={onPointerMove}
       data-pan-mode={String(panMode)}
       data-panning={String(panning)}
+      data-cut-face={hoverFace}
+      data-cut-dragging={String(cutDragging)}
+      data-outside={outsideCut ? "ghost" : "open"}
+      data-outside-alpha={String(OUTSIDE_CUT_ALPHA)}
+      data-cut-anchors={anchors}
       className={cn("volume-cube__view relative w-full overflow-hidden rounded-md", background && "bg-neutral-950")}
       style={{ height }}
       data-image={showImage ? "on" : "off"}

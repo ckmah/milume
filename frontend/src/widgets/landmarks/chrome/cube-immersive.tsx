@@ -41,6 +41,8 @@ export function CubeImmersive({
   onSnapshot,
   onPan,
   onPanEnd,
+  onCutLive,
+  onCutCommit,
 }: {
   lm: LandmarksModel;
   settings: CubeSettings;
@@ -63,6 +65,9 @@ export function CubeImmersive({
   onPan: (dxUm: number, dyUm: number) => void;
   /** The pan's release. */
   onPanEnd: () => void;
+  /** A drag on a volume face, live, then committed on release. */
+  onCutLive: (cut: CubeCut) => void;
+  onCutCommit: (cut: CubeCut) => void;
 }) {
   const loadRef = useRef<CubeLoadState | null>(null);
   const onLoadState = useCallback(
@@ -173,6 +178,8 @@ export function CubeImmersive({
           panMode={settings.move}
           onPan={onPan}
           onPanEnd={onPanEnd}
+          onCutLive={onCutLive}
+          onCutCommit={onCutCommit}
         />
       </Suspense>
     </section>

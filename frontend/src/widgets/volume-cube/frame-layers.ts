@@ -129,6 +129,45 @@ export function frameLayers(frame: CubeFrame, modelMatrix: Matrix4, viewId = "3d
   ];
 }
 
+/** The cut box, in the same pre-model units as the window frame. Absent when the cut is the whole window. */
+export function cutFrameLayers(
+  box: { lo: [number, number, number]; hi: [number, number, number] },
+  modelMatrix: Matrix4,
+  viewId = "3d",
+) {
+  const [x0, y0, z0] = box.lo;
+  const [x1, y1, z1] = box.hi;
+  const c = [
+    [x0, y0, z0],
+    [x1, y0, z0],
+    [x1, y1, z0],
+    [x0, y1, z0],
+    [x0, y0, z1],
+    [x1, y0, z1],
+    [x1, y1, z1],
+    [x0, y1, z1],
+  ];
+  const pairs = [
+    [0, 1], [1, 2], [2, 3], [3, 0],
+    [4, 5], [5, 6], [6, 7], [7, 4],
+    [0, 4], [1, 5], [2, 6], [3, 7],
+  ];
+  const color = [248, 250, 252, 230];
+  const segments: Segment[] = pairs.map(([a, b]) => ({ from: c[a]!, to: c[b]!, color }));
+  return new LineLayer<Segment>({
+    modelMatrix,
+    coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
+    pickable: false,
+    id: `cube-cut-lines${vivTag(viewId)}`,
+    data: segments,
+    getSourcePosition: (s) => s.from as [number, number, number],
+    getTargetPosition: (s) => s.to as [number, number, number],
+    getColor: (s) => s.color as [number, number, number, number],
+    getWidth: 2,
+    widthUnits: "pixels",
+  });
+}
+
 /** Viv's VolumeView plus the frame, so both share one deck and one camera. */
 export class FramedVolumeView extends VolumeView {
   private readonly controller: boolean;
@@ -161,6 +200,8 @@ export class FramedVolumeView extends VolumeView {
     if (!frame) return [...layers, ...extra];
     // Overlays go over the frame's lines and under its axis labels.
     const [lines, labels] = frameLayers(frame, matrix, id);
-    return [...layers, lines, ...extra, labels];
+    const cutBox = props.cubeCutBox as { lo: [number, number, number]; hi: [number, number, number] } | null;
+    const cutLines = cutBox ? [cutFrameLayers(cutBox, matrix, id)] : [];
+    return [...layers, lines, ...cutLines, ...extra, labels];
   }
 }
