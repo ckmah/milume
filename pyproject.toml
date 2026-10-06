@@ -36,6 +36,7 @@ demo = [
     "marimo>=0.24.0",
     "scanpy>=1.10",
     "spatialdata>=0.2",
+    "spatialdata-io; python_version >= '3.12'",
 ]
 test = [
     "geopandas>=1.1.4",
@@ -58,6 +59,9 @@ dev = [
     "shapely>=2.1.2",
     "watchfiles>=1.2.0",
 ]
+
+[tool.uv.sources]
+spatialdata-io = { git = "https://github.com/ckmah/spatialdata-io", rev = "pyxa-reader" }
 
 [build-system]
 requires = ["hatchling"]
