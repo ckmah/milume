@@ -1407,17 +1407,86 @@
   }
 }
 
+/* Cut plates sit on the grabbable faces. Near and hover strengthen the fill
+   and the drag stroke; the direction mark is the white stem. */
+.volume-cube__plates,
+.volume-cube__plates * {
+  pointer-events: none;
+}
+.volume-cube__plates {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.volume-cube__plate {
+  fill: var(--cut-plate);
+  fill-opacity: 0.16;
+  stroke: var(--cut-plate);
+  stroke-opacity: 0.8;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.volume-cube__plates [data-phase="near"] .volume-cube__plate {
+  fill-opacity: 0.24;
+  stroke-opacity: 1;
+  stroke-width: 2.5;
+}
+.volume-cube__plates [data-phase="hover"] .volume-cube__plate,
+.volume-cube__plates [data-phase="drag"] .volume-cube__plate {
+  stroke-opacity: 1;
+  stroke-width: 2.5;
+}
+.volume-cube__plates [data-phase="hover"] .volume-cube__plate {
+  fill-opacity: 0.32;
+}
+.volume-cube__plates [data-phase="drag"] .volume-cube__plate {
+  fill-opacity: 0.42;
+}
+.volume-cube__plate-dir {
+  stroke: #fff;
+  stroke-width: 1.5;
+  fill: #fff;
+}
+.volume-cube__plate-dir line {
+  fill: none;
+}
+.volume-cube__cut-range {
+  position: absolute;
+  height: 1.5rem;
+  padding: 0 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--foreground);
+}
+
+/* Near a plate the cursor stays an arrow. On the plate it resizes along the
+   drag. The Move tool still pans, so its grab cursor wins. */
+.volume-cube__view[data-cut-near]:not([data-cut-near=""])[data-cut-face=""] canvas {
+  cursor: default !important;
+}
+.volume-cube__view[data-cut-cursor="ew-resize"] canvas {
+  cursor: ew-resize !important;
+}
+.volume-cube__view[data-cut-cursor="ns-resize"] canvas {
+  cursor: ns-resize !important;
+}
+.volume-cube__view[data-cut-cursor="nesw-resize"] canvas {
+  cursor: nesw-resize !important;
+}
+.volume-cube__view[data-cut-cursor="nwse-resize"] canvas {
+  cursor: nwse-resize !important;
+}
 /* The Move tool: a drag pans the window (deck sets its own cursor on the canvas). */
 .volume-cube__view[data-pan-mode="true"] canvas {
   cursor: grab !important;
 }
 .volume-cube__view[data-panning="true"] canvas {
-  cursor: grabbing !important;
-}
-.volume-cube__view[data-cut-face]:not([data-cut-face=""]) canvas {
-  cursor: grab;
-}
-.volume-cube__view[data-cut-dragging="true"] canvas {
   cursor: grabbing !important;
 }
 
