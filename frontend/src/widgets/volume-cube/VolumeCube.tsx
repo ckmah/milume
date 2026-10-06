@@ -989,7 +989,54 @@ export function VolumeCube({
       return;
     }
     const face = e.button === 0 ? faceAt(e.clientX, e.clientY) : null;
-    if (!face) return;
+    if (!face) {
+      // Deck's orbit is absolute from panstart, and a slow frame drops isDragging so the rest of the drag no-ops.
+      if (e.button !== 0 || !handlesRef.current.interactive) return;
+      const view = viewRef.current;
+      const node = hostRef.current;
+      if (!view || !node) return;
+      const rect = node.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      e.stopPropagation();
+      e.preventDefault();
+      const start = {
+        x: e.clientX,
+        y: e.clientY,
+        rotationX: view.rotationX,
+        rotationOrbit: view.rotationOrbit,
+        w: rect.width,
+        h: rect.height,
+      };
+      const abort = new AbortController();
+      const pointer = e.pointerId;
+      const end = () => abort.abort();
+      const opts = { signal: abort.signal };
+      window.addEventListener(
+        "pointermove",
+        (m: PointerEvent) => {
+          if (m.pointerId !== pointer) return;
+          if (!(m.buttons & 1)) return end();
+          const dy = (m.clientY - start.y) / start.h;
+          let dx = (m.clientX - start.x) / start.w;
+          if (start.rotationX < -90 || start.rotationX > 90) dx *= -1;
+          const rotationX = Math.max(MIN_PITCH, Math.min(MAX_PITCH, start.rotationX + dy * 180));
+          const rotationOrbit = start.rotationOrbit + dx * 180;
+          setViewState((prev) => {
+            if (!prev) return prev;
+            if (prev.rotationX === rotationX && prev.rotationOrbit === rotationOrbit) return prev;
+            return { ...prev, rotationX, rotationOrbit };
+          });
+        },
+        opts,
+      );
+      const release = (u: PointerEvent) => {
+        if (u.pointerId === pointer) end();
+      };
+      window.addEventListener("pointerup", release, opts);
+      window.addEventListener("pointercancel", release, opts);
+      window.addEventListener("blur", end, opts);
+      return;
+    }
     e.stopPropagation();
     e.preventDefault();
     const abort = new AbortController();
@@ -1027,7 +1074,8 @@ export function VolumeCube({
     window.addEventListener("blur", () => end(true), opts);
   };
   const onMouseDownCapture = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (wantsPan(e) || (e.button === 0 && faceAt(e.clientX, e.clientY))) e.stopPropagation();
+    // Left-drag is pan, face-cut, or the orbit above. Deck must not start a second gesture.
+    if (e.button === 0 && handlesRef.current.interactive) e.stopPropagation();
   };
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     // A hover update re-renders the controlled camera and drops an in-progress orbit.

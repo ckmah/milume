@@ -169,6 +169,11 @@ vec4 scaleOutside(vec4 finished) {
   return finished * cubeRender.outsideAlpha;
 }
 
+// Alpha of that many composited samples. A step of 1 leaves a unchanged.
+float cover(float a, float steps) {
+  return 1.0 - pow(clamp(1.0 - a, 0.0, 1.0), steps);
+}
+
 // Image value after contrast -> (linear rgb, per-sample alpha); clear with the image off.
 vec4 imageSample(float v) {
   float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
@@ -285,7 +290,16 @@ const RENDERING = {
   vec3 cellMaxRgbG = vec3(0.0);
   bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
     || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
-    || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;`,
+    || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
+  // The texture fetch is outside this hook, so only a larger dt skips it. A two-voxel
+  // slab stays at one voxel; a thick cut would otherwise march every voxel because the
+  // outside accumulator never reaches the early-out.
+  float stepScale = 1.0;
+  float span = min(min(cubeRender.cutX1 - cubeRender.cutX0, cubeRender.cutY1 - cubeRender.cutY0), cubeRender.cutZ1 - cubeRender.cutZ0);
+  if (span > 0.2) {
+    stepScale = 8.0;
+    dt *= stepScale;
+  }`,
   _RENDER: `
     ${IN_CUT}
     if (cubeRender.imageMip > 0.5) {
@@ -294,13 +308,15 @@ const RENDERING = {
     } else if (inCut) {
       if (acc.a < 0.95) {
         vec4 im = imageSample(intensityValue0);
-        acc.rgb += (1.0 - acc.a) * im.a * im.rgb;
-        acc.a += (1.0 - acc.a) * im.a;
+        float a = cover(im.a, stepScale);
+        acc.rgb += (1.0 - acc.a) * a * im.rgb;
+        acc.a += (1.0 - acc.a) * a;
       }
     } else if (accG.a < 0.95) {
       vec4 im = imageSample(intensityValue0);
-      accG.rgb += (1.0 - accG.a) * im.a * im.rgb;
-      accG.a += (1.0 - accG.a) * im.a;
+      float a = cover(im.a, stepScale);
+      accG.rgb += (1.0 - accG.a) * a * im.rgb;
+      accG.a += (1.0 - accG.a) * a;
     }
     if (cellsOn && (cubeRender.cellMip > 0.5 || (inCut ? cells.a : cellsG.a) < 0.95)) {
       ${CELL_SAMPLE}
@@ -315,11 +331,13 @@ const RENDERING = {
           cellMaxRgbG = cell.rgb;
         }
       } else if (inCut) {
-        cells.rgb += (1.0 - cells.a) * cell.a * cell.rgb;
-        cells.a += (1.0 - cells.a) * cell.a;
+        float a = cover(cell.a, stepScale);
+        cells.rgb += (1.0 - cells.a) * a * cell.rgb;
+        cells.a += (1.0 - cells.a) * a;
       } else {
-        cellsG.rgb += (1.0 - cellsG.a) * cell.a * cell.rgb;
-        cellsG.a += (1.0 - cellsG.a) * cell.a;
+        float a = cover(cell.a, stepScale);
+        cellsG.rgb += (1.0 - cellsG.a) * a * cell.rgb;
+        cellsG.a += (1.0 - cellsG.a) * a;
       }
     }
     bool imageDone = cubeRender.imageMip < 0.5 && acc.a >= 0.95 && (!ghosting || accG.a >= 0.95);
