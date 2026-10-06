@@ -31,21 +31,20 @@ peek.__doc__ = (
     """
     + _LANDMARKS_API_DOC
     + """
+Returns
+-------
+LandmarksWidget
+    Widget handle ``w``. Synced traitlets include ``w.selections`` and
+    ``w.landmarks``; join to ``adata`` with
+    :meth:`~milume.landmarks.LandmarksWidget.get_obs_names` /
+    :meth:`~milume.landmarks.LandmarksWidget.assign_obs_mask`.
 
-    Returns
-    -------
-    LandmarksWidget
-        Widget handle ``w``. Synced traitlets include ``w.selections`` and
-        ``w.landmarks``; join to ``adata`` with
-        :meth:`~milume.landmarks.LandmarksWidget.get_obs_names` /
-        :meth:`~milume.landmarks.LandmarksWidget.assign_obs_mask`.
-
-    Examples
-    --------
-    >>> import milume
-    >>> w = milume.peek(adata, color="cell_type")
-    >>> w = milume.peek(sdata)  # table, labels, image inferred
-    """
+Examples
+--------
+>>> import milume
+>>> w = milume.peek(adata, color="cell_type")
+>>> w = milume.peek(sdata)  # table, labels, image inferred
+"""
 )
 
 
