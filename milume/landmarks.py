@@ -276,30 +276,58 @@ def _spatial_metrics(
 class LandmarksWidget(AnyWidget):
     """Draw selections and landmarks on AnnData spatial coordinates.
 
-    ``LandmarksWidget(adata, color=..., genes=...)`` is the only constructor.
-    Put coordinates in ``obsm["spatial"]``. Neighbor expand runs in the browser
-    (spatial index); no ``obsp`` graphs are required or synced. The widget keeps
-    a reference to ``adata`` (no ``obs.copy()``, no full-``X`` densify at
-    construct beyond the eager gene pack). ``genes=None`` (default) packs every
-    ``var_name`` for view-only coloring; pass a name or list to restrict.
-    Chrome follows the notebook cell width; height starts at 720px and is
-    resizable. Marker radius comes from median nearest-neighbor distance.
+    Interactive anywidget for spatial maps. Pass AnnData with
+    ``obsm[spatial_key]`` or SpatialData (table and Inspect cube inferred).
+    Shorthand: ``milume.peek(data, **kwargs)``.
 
-    Notebook API (synced on every edit): ``landmarks``, ``selections``,
-    ``selected_kind``, ``selected_index``, plus ``inspect_cx`` / ``inspect_cy`` /
-    ``inspect_size_um`` for the Inspect window. The window is a fixed 300 µm
-    square; the browser writes ``inspect_size_um`` when a press places it, and
-    Python only reads it. ``inspect_cx`` / ``inspect_cy`` follow the placed
-    square; setting them from Python moves the cube's window (the map square
-    stays where it was placed). A click only places the window (its release opens
-    the immersive cube over the plot area); panning inside the cube also moves
-    ``inspect_cx`` / ``inspect_cy``. Save (on the Inspect pill) keeps the window
-    as an inspect Selection, named ``"<top category> · <count>"``. UI
-    chrome state (mode, genes, color, neighborhoods) stays in the browser;
-    raster bin features and probe scores
-    are built client-side from the eager gene / embedding / category packs.
-    Persist hits with ``get_obs_names`` / ``assign_obs_mask`` (via
-    ``selection_mask`` / ``point_indices``), not positional indices.
+    The widget keeps a reference to ``adata`` (no ``obs.copy()``, no full-``X``
+    densify at construct). Chrome follows the notebook cell width; height starts
+    at 720px and is resizable. Marker radius comes from median nearest-neighbor
+    distance. Neighbourhood expand runs in the browser from coordinates; no
+    ``obsp`` graphs are required.
+
+    Parameters
+    ----------
+    adata
+        AnnData with spatial coordinates, or SpatialData (volume inferred).
+    spatial_key
+        ``obsm`` key for x/y coordinates (default ``"spatial"``).
+    color
+        ``obs`` column or ``var_names`` gene for point colour. When omitted,
+        the first detected categorical column is used.
+    genes
+        Genes to pack for view-only colouring. ``None`` (default) packs every
+        ``var_name``; pass a name or list to restrict the eager catalog.
+    table, image, labels
+        SpatialData-only overrides for the inferred table, multiscale image, and
+        labels layer.
+    contrast_limits
+        SpatialData-only image contrast ``(min, max)`` for the Inspect cube.
+
+    Notebook traitlets
+    ------------------
+    Synced on every edit (read and write from Python):
+
+    ``selections``, ``landmarks``
+        Region dicts. Join to ``adata`` with :meth:`get_obs_names` /
+        :meth:`assign_obs_mask` (``obs_names`` / ``point_indices``, not
+        positional row indices).
+    ``selected_kind``, ``selected_index``
+        Active item (``""`` / ``-1`` when none).
+    ``inspect_cx``, ``inspect_cy``, ``inspect_size_um``
+        Inspect window centre (µm) and side length (300 µm square). The browser
+        writes size at placement; setting centre from Python moves the cube.
+    ``active_category``, ``active_genes``
+        View-only colour picks mirrored from chrome.
+
+    SpatialData Inspect also exposes ``volume`` (cube config) and ``volume_cut``
+    (µm cut box, written on slider release).
+
+    Notes
+    -----
+    UI chrome (mode, neighbourhoods, raster controls) stays in the browser and
+    is not part of the notebook API. Raster bins and probe scores are built
+    client-side from the eager gene, embedding, and category packs.
     """
 
     _esm = widget_esm("landmarks")
@@ -424,10 +452,14 @@ class LandmarksWidget(AnyWidget):
         labels: str | bool | None = None,
         contrast_limits: tuple[float, float] | None = None,
     ) -> None:
-        """Build from AnnData, or from a SpatialData (cube inferred).
+        """Build from AnnData or SpatialData.
 
-            w = LandmarksWidget(adata, color="cell_type")
-            w = LandmarksWidget(sdata)  # table, labels, 3D image and frame inferred
+        See the class docstring for parameters and notebook traitlets.
+
+        Examples
+        --------
+        >>> w = LandmarksWidget(adata, color="cell_type")
+        >>> w = LandmarksWidget(sdata)  # table, labels, image, frame inferred
         """
         import numpy as np
 
