@@ -25,10 +25,10 @@ def peek(data, **kwargs) -> LandmarksWidget:
 peek.__doc__ = (
     """Open a Milume surface on AnnData or SpatialData.
 
-    Main notebook entry point for interactive landmarks. Constructs
-    :class:`~milume.landmarks.LandmarksWidget` with the same keyword arguments.
+Main notebook entry point for interactive landmarks. Constructs
+:class:`~milume.landmarks.LandmarksWidget` with the same keyword arguments.
 
-    """
+"""
     + _LANDMARKS_API_DOC
     + """
 Returns
