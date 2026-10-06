@@ -453,6 +453,8 @@ export function LandmarksView({
             onSnapshot={bumpSnapshotVersion}
             onPan={inspectCube.panWindow}
             onPanEnd={inspectCube.panEnd}
+            onCutLive={inspectCube.onCutLive}
+            onCutCommit={inspectCube.onCutCommit}
           />
         ) : null}
 

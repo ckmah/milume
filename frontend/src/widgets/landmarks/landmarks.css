@@ -1414,6 +1414,12 @@
 .volume-cube__view[data-panning="true"] canvas {
   cursor: grabbing !important;
 }
+.volume-cube__view[data-cut-face]:not([data-cut-face=""]) canvas {
+  cursor: grab;
+}
+.volume-cube__view[data-cut-dragging="true"] canvas {
+  cursor: grabbing !important;
+}
 
 .landmarks--fs .landmarks__chrome-context,
 .landmarks:fullscreen .landmarks__chrome-context,

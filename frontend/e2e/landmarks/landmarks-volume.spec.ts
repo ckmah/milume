@@ -1360,6 +1360,47 @@ test.describe("Landmarks inspect cube", () => {
     await expect.poll(async () => ((await getModel(page, "volume_cut")) as number[])[5]).toBe(54);
   });
 
+  test("dragging a volume face commits that cut and leaves the outside faint", async ({ page }) => {
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page);
+    const bar = page.getByTestId("context-inspect-toolbar");
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-outside", "open");
+    await expect(view).toHaveAttribute("data-outside-alpha", "0.12");
+    await bar.getByRole("radio", { name: "Side view" }).click();
+    await expect(view).toHaveAttribute("data-pitch", "0");
+    const anchors = await view.getAttribute("data-cut-anchors");
+    const z1 = anchors?.match(/z1:(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+    expect(z1, anchors ?? "").toBeTruthy();
+    const host = await view.boundingBox();
+    expect(host).toBeTruthy();
+    const x = host!.x + Number(z1![1]);
+    const y = host!.y + Number(z1![2]);
+    const before = (await cutOf(page))[5];
+    await page.mouse.move(x, y);
+    await page.mouse.down();
+    await page.mouse.move(x, y + 48, { steps: 6 });
+    await page.mouse.up();
+    await expect.poll(async () => (await cutOf(page))[5]).toBeLessThan(before - 1);
+    await expect(view).toHaveAttribute("data-outside", "ghost");
+    const faint = await view.screenshot();
+    const mid = await page.evaluate(async (png) => {
+      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(bitmap, 0, 0);
+      const { data } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      let n = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const max = Math.max(data[i]!, data[i + 1]!, data[i + 2]!);
+        if (max > 12 && max < 55) n++;
+      }
+      return n;
+    }, faint.toString("base64"));
+    expect(mid).toBeGreaterThan(30);
+  });
+
   test("Adjust: Image and Labels sections, each with a Reset, and Reset all; Cross-section has its own Reset", async ({
     page,
   }) => {
