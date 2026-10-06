@@ -15,6 +15,9 @@ const NEAR_SAMPLE_PX = (CUT_RIM_PX + CUT_NEAR_PX) / 2;
 
 const FACE_ON_NORMAL = 0.25;
 
+/** Edge-on faces project to a line. The plate is at least this thick, in screen px. */
+const MIN_PLATE_PX = 12;
+
 function faceOn(screenNormalLength: number): boolean {
   return screenNormalLength < FACE_ON_NORMAL;
 }
@@ -211,7 +214,7 @@ export function projectCutFaces(
   for (const face of FACES) {
     const normal = screenNormal(face, view);
     if (faceOn(normal.len)) continue;
-    const corners = faceCorners(box, face).map((c) => projectPoint(c, view, target, rect));
+    const corners = visibleCorners(faceCorners(box, face).map((c) => projectPoint(c, view, target, rect)));
     const len = normal.len || 1;
     plates.push({
       face,
@@ -270,7 +273,7 @@ export function pickCutFace(
   return cutPointerTarget(point, box, view, target, rect).face;
 }
 
-function longestEdge(corners: Pt[]): { mid: Pt; out: Pt } {
+function longestEdge(corners: Pt[]): { a: Pt; b: Pt; mid: Pt; out: Pt } {
   let best = { len: -1, a: corners[0]!, b: corners[1]! };
   for (let i = 0; i < corners.length; i++) {
     const a = corners[i]!;
@@ -289,7 +292,23 @@ function longestEdge(corners: Pt[]): { mid: Pt; out: Pt } {
     px = -px;
     py = -py;
   }
-  return { mid, out: { x: px, y: py } };
+  return { a: best.a, b: best.b, mid, out: { x: px, y: py } };
+}
+
+/** A face aimed edge-on is a strip along its outline, so the plate still reads. */
+function visibleCorners(corners: Pt[]): Pt[] {
+  const edge = longestEdge(corners);
+  const proj = corners.map((p) => (p.x - edge.mid.x) * edge.out.x + (p.y - edge.mid.y) * edge.out.y);
+  const span = Math.max(...proj) - Math.min(...proj);
+  if (span >= MIN_PLATE_PX) return corners;
+  const half = MIN_PLATE_PX / 2;
+  const { a, b, out } = edge;
+  return [
+    { x: a.x + out.x * half, y: a.y + out.y * half },
+    { x: b.x + out.x * half, y: b.y + out.y * half },
+    { x: b.x - out.x * half, y: b.y - out.y * half },
+    { x: a.x - out.x * half, y: a.y - out.y * half },
+  ];
 }
 
 /** A point just outside one edge, in the near band and off every plate. */

@@ -1428,20 +1428,20 @@
   stroke-width: 1.5;
   stroke-linejoin: round;
 }
-.volume-cube__plates [data-phase="near"] .volume-cube__plate {
+.volume-cube__plate[data-phase="near"] {
   fill-opacity: 0.24;
   stroke-opacity: 1;
   stroke-width: 2.5;
 }
-.volume-cube__plates [data-phase="hover"] .volume-cube__plate,
-.volume-cube__plates [data-phase="drag"] .volume-cube__plate {
+.volume-cube__plate[data-phase="hover"],
+.volume-cube__plate[data-phase="drag"] {
   stroke-opacity: 1;
   stroke-width: 2.5;
 }
-.volume-cube__plates [data-phase="hover"] .volume-cube__plate {
+.volume-cube__plate[data-phase="hover"] {
   fill-opacity: 0.32;
 }
-.volume-cube__plates [data-phase="drag"] .volume-cube__plate {
+.volume-cube__plate[data-phase="drag"] {
   fill-opacity: 0.42;
 }
 .volume-cube__plate-dir {

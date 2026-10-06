@@ -1368,7 +1368,8 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-outside", "open");
     await expect(view).toHaveAttribute("data-outside-alpha", "0.12");
-    // An open window still draws a plate on every grabbable face.
+    // An open window still draws a plate on every grabbable face. The polygon
+    // carries the attributes: an SVG group has no box of its own.
     await expect(view.locator("[data-cut-plate]").first()).toBeVisible();
     await expect(view.locator('[data-cut-plate][data-phase="rest"]').first()).toBeVisible();
     await bar.getByRole("radio", { name: "Side view" }).click();

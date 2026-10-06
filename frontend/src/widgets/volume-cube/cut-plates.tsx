@@ -95,13 +95,15 @@ function Plate({ plate, phase }: { plate: ProjectedCutFace; phase: CutPlatePhase
   const showDir = phase !== "rest";
   const x2 = plate.center.x + plate.dir.x * 22;
   const y2 = plate.center.y + plate.dir.y * 22;
+  const color = { "--cut-plate": axisRgb(plate.face.axis) } as React.CSSProperties;
   return (
-    <g
-      data-cut-plate={faceKey(plate.face)}
-      data-phase={phase}
-      style={{ "--cut-plate": axisRgb(plate.face.axis) } as React.CSSProperties}
-    >
-      <polygon className="volume-cube__plate" points={points} />
+    <g style={color}>
+      <polygon
+        className="volume-cube__plate"
+        points={points}
+        data-cut-plate={faceKey(plate.face)}
+        data-phase={phase}
+      />
       {showDir ? (
         <g className="volume-cube__plate-dir">
           <line x1={plate.center.x} y1={plate.center.y} x2={x2} y2={y2} />
