@@ -18,14 +18,17 @@ import {
 import {
   type CutFace,
   cutBoxPre,
-  cutFaceAnchors,
+  cutFaceMarks,
   cutFractions,
   cutIsOpen,
+  cutPointerTarget,
+  cutResizeCursor,
   dragToFaceDelta,
   faceKey,
   moveCutEdge,
-  pickCutFace,
+  projectCutFaces,
 } from "./cut-faces";
+import { CutPlates } from "./cut-plates";
 import { type CellVolume, TOO_MANY_CELLS, markVivVolume } from "./cell-volume";
 import { AxisLegend } from "./axis-legend";
 import type { ImageFormat } from "./image-volume";
@@ -936,13 +939,14 @@ export function VolumeCube({
     interactive,
   });
   const [hoverFace, setHoverFace] = useState("");
+  const [nearFace, setNearFace] = useState("");
   const [cutDragging, setCutDragging] = useState(false);
-  const faceAt = (clientX: number, clientY: number): CutFace | null => {
+  const pointerAt = (clientX: number, clientY: number): { face: CutFace | null; near: CutFace | null } => {
     const h = handlesRef.current;
     const node = hostRef.current;
-    if (!h.onCutLive || !h.interactive || !h.viewState || !h.handleBox || !node) return null;
+    if (!h.onCutLive || !h.interactive || !h.viewState || !h.handleBox || !node) return { face: null, near: null };
     const rect = node.getBoundingClientRect();
-    return pickCutFace(
+    return cutPointerTarget(
       { x: clientX - rect.left, y: clientY - rect.top },
       h.handleBox,
       h.viewState,
@@ -988,7 +992,7 @@ export function VolumeCube({
       window.addEventListener("blur", end, opts);
       return;
     }
-    const face = e.button === 0 ? faceAt(e.clientX, e.clientY) : null;
+    const face = e.button === 0 ? pointerAt(e.clientX, e.clientY).face : null;
     if (!face) {
       // Deck's orbit is absolute from panstart, and a slow frame drops isDragging so the rest of the drag no-ops.
       if (e.button !== 0 || !handlesRef.current.interactive) return;
@@ -1045,6 +1049,7 @@ export function VolumeCube({
     let live = handlesRef.current.shownCut;
     setCutDragging(true);
     setHoverFace(faceKey(face));
+    setNearFace("");
     const end = (commit: boolean) => {
       if (abort.signal.aborted) return;
       abort.abort();
@@ -1080,12 +1085,17 @@ export function VolumeCube({
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     // A hover update re-renders the controlled camera and drops an in-progress orbit.
     if (cutDragging || (e.buttons & 1) !== 0) return;
-    const face = faceAt(e.clientX, e.clientY);
-    const key = face ? faceKey(face) : "";
+    const hit = pointerAt(e.clientX, e.clientY);
+    const key = hit.face ? faceKey(hit.face) : "";
+    const nearKey = hit.near ? faceKey(hit.near) : "";
     setHoverFace((prev) => (prev === key ? prev : key));
+    setNearFace((prev) => (prev === nearKey ? prev : nearKey));
   };
-  const anchors =
-    onCutLive && viewState && handleBox ? cutFaceAnchors(handleBox, viewState, aimTarget, box) : "";
+  const platesOn = Boolean(onCutLive && interactive && viewState && handleBox);
+  const plates = platesOn ? projectCutFaces(handleBox!, viewState!, aimTarget, box) : [];
+  const marks = platesOn ? cutFaceMarks(handleBox!, viewState!, aimTarget, box) : { anchors: "", centers: "", near: "" };
+  const aimed = plates.find((plate) => faceKey(plate.face) === hoverFace);
+  const cutCursor = aimed && viewState ? cutResizeCursor(aimed.face, viewState) : "";
 
   return (
     <div
@@ -1096,10 +1106,14 @@ export function VolumeCube({
       data-pan-mode={String(panMode)}
       data-panning={String(panning)}
       data-cut-face={hoverFace}
+      data-cut-near={nearFace}
       data-cut-dragging={String(cutDragging)}
+      data-cut-cursor={cutCursor}
       data-outside={outsideCut ? "ghost" : "open"}
       data-outside-alpha={String(OUTSIDE_CUT_ALPHA)}
-      data-cut-anchors={anchors}
+      data-cut-anchors={marks.anchors}
+      data-cut-centers={marks.centers}
+      data-cut-near-anchors={marks.near}
       className={cn("volume-cube__view relative w-full overflow-hidden rounded-md", background && "bg-neutral-950")}
       style={{ height }}
       data-image={showImage ? "on" : "off"}
@@ -1134,6 +1148,17 @@ export function VolumeCube({
         />
       ) : null}
       {status ? <p className="p-4 text-sm text-neutral-400">{status}</p> : null}
+      {platesOn && viewState ? (
+        <CutPlates
+          plates={plates}
+          hover={hoverFace}
+          near={nearFace}
+          dragging={cutDragging}
+          cut={shownCut}
+          width={box.width}
+          height={box.height}
+        />
+      ) : null}
       {layerProps && viewState ? (
         <AxisLegend rotationX={viewState.rotationX} rotationOrbit={viewState.rotationOrbit} />
       ) : null}

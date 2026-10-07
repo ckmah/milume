@@ -1368,22 +1368,55 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-outside", "open");
     await expect(view).toHaveAttribute("data-outside-alpha", "0.12");
+    // An open window still draws a plate on every grabbable face. The polygon
+    // carries the attributes: an SVG group has no box of its own.
+    await expect(view.locator("[data-cut-plate]").first()).toBeVisible();
+    await expect(view.locator('[data-cut-plate][data-phase="rest"]').first()).toBeVisible();
     await bar.getByRole("radio", { name: "Side view" }).click();
     await expect(view).toHaveAttribute("data-pitch", "0");
-    const anchors = await view.getAttribute("data-cut-anchors");
-    const z1 = anchors?.match(/z1:(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-    expect(z1, anchors ?? "").toBeTruthy();
+    const point = (attr: string | null, key: string) => {
+      const hit = attr?.match(new RegExp(`${key}:(-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)`));
+      expect(hit, attr ?? "").toBeTruthy();
+      return { x: Number(hit![1]), y: Number(hit![2]) };
+    };
     const host = await view.boundingBox();
     expect(host).toBeTruthy();
-    const x = host!.x + Number(z1![1]);
-    const y = host!.y + Number(z1![2]);
+    const at = (p: { x: number; y: number }) => ({ x: host!.x + p.x, y: host!.y + p.y });
+    const anchorsBefore = await view.getAttribute("data-cut-anchors");
+    const near = at(point(await view.getAttribute("data-cut-near-anchors"), "z1"));
+    const rim = at(point(anchorsBefore, "z1"));
+    const center = at(point(await view.getAttribute("data-cut-centers"), "z1"));
+    const canvas = view.locator("canvas");
+    const cursor = () => canvas.evaluate((el) => getComputedStyle(el).cursor);
+
+    await page.mouse.move(near.x, near.y);
+    await expect(view).toHaveAttribute("data-cut-near", "z1");
+    await expect(view).toHaveAttribute("data-cut-face", "");
+    await expect(view.locator('[data-cut-plate="z1"]')).toHaveAttribute("data-phase", "near");
+    expect(await cursor()).toBe("default");
+    await expect(view.locator("[data-cut-range]")).toContainText(/Z \d+–\d+ µm/);
+
+    await page.mouse.move(rim.x, rim.y);
+    await expect(view).toHaveAttribute("data-cut-face", "z1");
+    await expect(view).toHaveAttribute("data-cut-near", "");
+    await expect(view.locator('[data-cut-plate="z1"]')).toHaveAttribute("data-phase", "hover");
+    expect(await cursor()).toMatch(/resize/);
+
     const before = (await cutOf(page))[5];
-    await page.mouse.move(x, y);
+    await page.mouse.move(center.x, center.y);
+    await expect(view).toHaveAttribute("data-cut-face", "z1");
     await page.mouse.down();
-    await page.mouse.move(x, y + 48, { steps: 6 });
+    await expect(view).toHaveAttribute("data-cut-dragging", "true");
+    await expect(view.locator('[data-cut-plate="z1"]')).toHaveAttribute("data-phase", "drag");
+    expect(await cursor()).toMatch(/resize/);
+    await page.mouse.move(center.x, center.y + 48, { steps: 6 });
+    await expect(view).toHaveAttribute("data-cut-dragging", "true");
+    await expect(view.locator("[data-cut-range]")).toBeVisible();
     await page.mouse.up();
+    await expect(view).toHaveAttribute("data-cut-dragging", "false");
     await expect.poll(async () => (await cutOf(page))[5]).toBeLessThan(before - 1);
     await expect(view).toHaveAttribute("data-outside", "ghost");
+    expect(await view.getAttribute("data-cut-anchors")).not.toBe(anchorsBefore);
     const faint = await view.screenshot();
     const mid = await page.evaluate(async (png) => {
       const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
