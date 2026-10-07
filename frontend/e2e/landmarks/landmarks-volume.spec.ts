@@ -1769,9 +1769,8 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("peek tabs and docks float over the open cube; focusing a category there recolours it", async ({ page }) => {
-    await openCubeAtCentre(page, { at: [130, 170], raster: true });
+    await openCubeAtCentre(page, { at: [130, 170] });
     const view = cubeWindow(page).locator(".volume-cube__view");
-    await expect(view).toHaveAttribute("data-highlight", "2");
     const right = page.locator(".landmarks__chrome-dock--right");
     await expect(right).toHaveAttribute("data-collapsed", "true");
     // Both peek tabs sit over the cube, clear of the Inspect pill's Save and Exit
@@ -1794,10 +1793,12 @@ test.describe("Landmarks inspect cube", () => {
     expect(onTop).toBe(true);
     for (const a of actions) await a.click({ trial: true, timeout: 5_000 });
 
-    // Focus a category in the dock: the cube highlights only its cells (type1: cells 1 and 3).
+    // Focus a category in the dock (points mode UI): raster mode shows the highlight in the cube.
     await right.getByRole("button", { name: "Expand cell_type" }).click();
     await right.getByRole("listitem").filter({ hasText: "type1" }).click();
     await expect.poll(() => getModel(page, "selected_kind")).toBe("type");
+    await expect.poll(() => getModel(page, "selected_index")).toBe(0);
+    await setModel(page, { render_mode: "raster" });
     await expect(view).toHaveAttribute("data-highlight", "1");
   });
 
