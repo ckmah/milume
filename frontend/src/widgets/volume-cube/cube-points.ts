@@ -60,7 +60,7 @@ export function scatterPointLayers(
       radiusMinPixels: 1.5,
       stroked: false,
       filled: true,
-      billboard: false,
+      billboard: true,
       pickable: false,
       parameters: { depthCompare: "less-equal" as const, depthWriteEnabled: true },
     }),
