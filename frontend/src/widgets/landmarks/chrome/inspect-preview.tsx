@@ -22,6 +22,7 @@ import {
 import type { CubeSettings } from "../use-cube-settings";
 import type { EngineHandle, InspectEvent } from "../engine";
 import type { LandmarksModel } from "../use-landmarks-model";
+import { useCubeScatterPoints } from "../use-cube-scatter-points";
 
 // Lazy only in the dev harness (see cube-immersive.tsx).
 const VolumeCube = lazy(() =>
@@ -391,8 +392,10 @@ export function InspectPreview({
       last.hover.y <= extent.y[1],
   );
   const visible = active && hovering && inside && !failed;
-  if (!last) return null;
-  const { hover } = last;
+  const hover = last?.hover;
+  const scatterPoints = useCubeScatterPoints(engine, lm, hover?.x, hover?.y, hover?.sizeUm ?? 0);
+  const showPoints = scatterPoints.length > 0 || (lm.render_mode || "points") === "points";
+  if (!last || !hover) return null;
 
   return (
     <div
@@ -432,6 +435,8 @@ export function InspectPreview({
           showLegend={false}
           background={false}
           overlays={overlays}
+          scatterPoints={scatterPoints}
+          showPoints={showPoints}
           chunkCache={cache}
           onLevels={onLevels}
           onShown={onShown}

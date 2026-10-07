@@ -6385,6 +6385,30 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     getPoints() {
       return getPointsData().map((p) => [p.x, p.y]);
     },
+    /**
+     * Scatter points inside an Inspect window for the 3D cube: map µm position,
+     * fill colour and radius (µm), using the same accessors as the 2D layer.
+     */
+    getScatterPointsInWindow(cx, cy, sizeUm) {
+      const data = getPointsData();
+      if (!data.length) return [];
+      const half = sizeUm / 2;
+      const probeField =
+        pointSimilarityOn() || rasterSimilarityOn()
+          ? activePointProbeScores()
+          : null;
+      const out = [];
+      for (const d of data) {
+        if (Math.abs(d.x - cx) > half || Math.abs(d.y - cy) > half) continue;
+        out.push({
+          x: d.x,
+          y: d.y,
+          color: fillColorForPoint(d, probeField),
+          radius: radiusForPoint(d),
+        });
+      }
+      return out;
+    },
     destroy,
   };
   if (typeof window !== "undefined") {
