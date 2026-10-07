@@ -1940,6 +1940,8 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("with no category to colour by, every cell takes its own hue", async ({ page }) => {
+    // Labels only: scatter points keep the 2D palette when no category is active.
+    await setModel(page, { render_mode: "raster" });
     await openCubeAtCentre(page, { at: [130, 170] });
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-coloring", "groups");
@@ -2512,6 +2514,39 @@ test.describe("Landmarks inspect cube", () => {
     // Beside the window, inside the volume: not drawn either.
     await setModel(page, { landmarks: [top, line("left", [[5, 40], [40, 80]])] });
     await expect(view).toHaveAttribute("data-overlays", "1");
+  });
+
+  test("the cube shows scatter points when the points layer is on", async ({ page }) => {
+    await openCubeAtCentre(page, { at: [130, 170] });
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-points", "3");
+    await expect(view).toHaveAttribute("data-labels", "on");
+    await expect(view).toHaveAttribute("data-image", "on");
+  });
+
+  test("toggling to raster hides scatter points in the cube", async ({ page }) => {
+    await openCubeAtCentre(page, { at: [130, 170] });
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-points", "3");
+    await page.getByTestId("view-cta").getByRole("switch", { name: "points/raster" }).click();
+    await expect.poll(async () => await getModel(page, "render_mode")).toBe("raster");
+    await expect(view).toHaveAttribute("data-points", "0");
+    await expect(view).toHaveAttribute("data-labels", "on");
+    await page.getByTestId("view-cta").getByRole("switch", { name: "points/raster" }).click();
+    await expect.poll(async () => await getModel(page, "render_mode")).toBe("points");
+    await expect(view).toHaveAttribute("data-points", "3");
+  });
+
+  test("the hover preview shows scatter points when the points layer is on", async ({ page }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    const view = preview(page).locator(".volume-cube__view");
+    await expect(preview(page)).toBeVisible();
+    await expect(view).toHaveAttribute("data-points", "3");
+    await page.getByTestId("view-cta").getByRole("switch", { name: "points/raster" }).click();
+    await expect(view).toHaveAttribute("data-points", "0");
   });
 
   test("leaving Inspect hides the preview but keeps its cube for the next hover", async ({ page }) => {

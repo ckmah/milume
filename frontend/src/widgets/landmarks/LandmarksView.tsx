@@ -441,6 +441,7 @@ export function LandmarksView({
         {cubeOpen ? (
           <CubeImmersive
             lm={lm}
+            engine={engine}
             settings={cube}
             patch={patchCube}
             cut={inspectCube.cut}

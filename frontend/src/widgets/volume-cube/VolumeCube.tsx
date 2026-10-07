@@ -33,6 +33,7 @@ import { type CellVolume, TOO_MANY_CELLS, markVivVolume } from "./cell-volume";
 import { AxisLegend } from "./axis-legend";
 import type { ImageFormat } from "./image-volume";
 import type { Range, ViewPreset } from "./CubeControls";
+import { type MapScatterPoint, placeScatterPoints } from "./cube-points";
 import { type CubeFrame, FramedVolumeView, labelPad } from "./frame-layers";
 import { type CubeOverlay, placeOverlays } from "./overlay-layers";
 import { paletteLut } from "./palettes";
@@ -139,6 +140,10 @@ export type VolumeCubeProps = {
   background?: boolean;
   /** Map geometry (µm) drawn on the stack's top face, clipped to the window. */
   overlays?: CubeOverlay[] | null;
+  /** Cell scatter points (map µm) drawn inside the volume when `showPoints`. */
+  scatterPoints?: MapScatterPoint[] | null;
+  /** Default false. True: draw `scatterPoints` in the cube (the 2D points layer). */
+  showPoints?: boolean;
   /** Decoded chunks shared across the widget's cubes. */
   chunkCache?: ChunkCache | null;
   /** Hold the cache's background prefetch while this cube's target loads. */
@@ -338,6 +343,8 @@ export function VolumeCube({
   showLegend = true,
   background = true,
   overlays = null,
+  scatterPoints = null,
+  showPoints = false,
   chunkCache = null,
   pausesPrefetch = false,
   onRendered,
@@ -738,16 +745,26 @@ export function VolumeCube({
   // the frame (so it slides with the window, as the volume does) and clipped to it.
   const lvx = levelVoxel?.[2] ?? 1;
   const lvy = levelVoxel?.[1] ?? 1;
+  const toWorldXY = useCallback(
+    ([x, y]: [number, number]): [number, number] => {
+      const { x0, y1 } = liveBox ?? { x0: 0, y1: 0 };
+      return [(x - oxUm) / lvx - x0, (y1 - (y - oyUm) / lvy) * ry];
+    },
+    [liveBox, oxUm, oyUm, lvx, lvy, ry],
+  );
+  const windowRect = useMemo(
+    () => ({ x0: 0, x1: winW, y0: 0, y1: winH * ry }),
+    [winW, winH, ry],
+  );
+  const scatterZ = cubeFrame ? cubeFrame.size[2] / 2 : 0;
   const placedOverlays = useMemo(() => {
     if (!overlays?.length || !liveBox || !cubeFrame) return null;
-    const { x0, y1 } = liveBox;
-    // Texture rows run reversed: the window's top edge (row y0) is at world y = height.
-    const toWorld = ([x, y]: [number, number]): [number, number] => [
-      (x - oxUm) / lvx - x0,
-      (y1 - (y - oyUm) / lvy) * ry,
-    ];
-    return placeOverlays(overlays, toWorld, { x0: 0, x1: winW, y0: 0, y1: winH * ry }, levelDepth * rz);
-  }, [overlays, liveBox, cubeFrame, oxUm, oyUm, lvx, lvy, ry, rz, winW, winH, levelDepth]);
+    return placeOverlays(overlays, toWorldXY, windowRect, levelDepth * rz);
+  }, [overlays, liveBox, cubeFrame, toWorldXY, windowRect, levelDepth, rz]);
+  const placedScatterPoints = useMemo(() => {
+    if (!showPoints || !scatterPoints?.length || !liveBox || !cubeFrame) return null;
+    return placeScatterPoints(scatterPoints, toWorldXY, windowRect, scatterZ);
+  }, [showPoints, scatterPoints, liveBox, cubeFrame, toWorldXY, windowRect, scatterZ]);
 
   const views = useMemo(
     () => [new FramedVolumeView({ id: "3d", target: aimTarget, useFixedAxis: true, controller: interactive } as never)],
@@ -793,6 +810,7 @@ export function VolumeCube({
               clippingPlanes: [],
               cubeFrame,
               cubeOverlays: placedOverlays,
+              cubeScatterPoints: placedScatterPoints,
             },
           ]
         : null,
@@ -829,6 +847,7 @@ export function VolumeCube({
       showImage,
       cubeFrame,
       placedOverlays,
+      placedScatterPoints,
       volumeMatrix,
     ],
   );
@@ -1132,6 +1151,7 @@ export function VolumeCube({
       data-level={shown?.level.index ?? -1}
       data-refining={String(refining)}
       data-overlays={placedOverlays?.count ?? 0}
+      data-points={showPoints ? (placedScatterPoints?.length ?? 0) : 0}
       data-zoom={viewState ? viewState.zoom.toFixed(2) : ""}
       data-pitch={viewState ? Math.round(viewState.rotationX) : ""}
     >

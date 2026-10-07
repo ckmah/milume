@@ -6,10 +6,11 @@ import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
 import type { CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
 import { PREVIEW_REGION_SCALE } from "@/widgets/volume-cube/window-source";
 
-import { INSPECT_WINDOW_UM } from "../engine";
+import { INSPECT_WINDOW_UM, type EngineHandle } from "../engine";
 import type { CubeSettings, CubeSettingsPatch } from "../use-cube-settings";
 import { inspectWindowOf } from "../use-inspect-cube";
 import type { LandmarksModel } from "../use-landmarks-model";
+import { useCubeScatterPoints } from "../use-cube-scatter-points";
 import { type ChipSnapshot, SNAPSHOT_SETTLE_MS, snapshotOf, windowKey } from "./cube-snapshots";
 
 // Lazy only in the dev harness: the widget build inlines dynamic imports
@@ -29,6 +30,7 @@ const VOXEL_ZYX: [number, number, number] = [1, 1, 1];
  */
 export function CubeImmersive({
   lm,
+  engine,
   settings,
   patch,
   cut,
@@ -45,6 +47,7 @@ export function CubeImmersive({
   onCutCommit,
 }: {
   lm: LandmarksModel;
+  engine: EngineHandle | null;
   settings: CubeSettings;
   patch: (p: CubeSettingsPatch) => void;
   /** The cut inside the current window (absolute µm). */
@@ -131,6 +134,8 @@ export function CubeImmersive({
 
   const volume = lm.volume ?? {};
   const size = lm.inspect_size_um || INSPECT_WINDOW_UM;
+  const scatterPoints = useCubeScatterPoints(engine, lm, lm.inspect_cx, lm.inspect_cy, size);
+  const showPoints = scatterPoints.length > 0 || (lm.render_mode || "points") === "points";
 
   return (
     <section
@@ -167,6 +172,8 @@ export function CubeImmersive({
           height="100%"
           showLegend={false}
           overlays={overlays}
+          scatterPoints={scatterPoints}
+          showPoints={showPoints}
           coarse={{ scale: PREVIEW_REGION_SCALE, budget: budgets.preview }}
           budget={budgets.dock}
           chunkCache={cache}

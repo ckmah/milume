@@ -5,6 +5,7 @@ import { VolumeView } from "@hms-dbmi/viv";
 
 import type { PreBox } from "./cut-faces";
 import { CubeVolumeLayer } from "./image-volume";
+import { type PlacedScatterPoint, scatterPointLayers } from "./cube-points";
 import { type PlacedOverlays, overlayLayers, vivTag } from "./overlay-layers";
 
 /**
@@ -193,11 +194,13 @@ export class FramedVolumeView extends VolumeView {
     // Overlays (already placed in the window) share it too.
     const matrix = (props.frameMatrix ?? props.modelMatrix) as Matrix4;
     const overlays = props.cubeOverlays as PlacedOverlays | null | undefined;
+    const scatter = props.cubeScatterPoints as PlacedScatterPoint[] | null | undefined;
     const extra = overlays ? overlayLayers(overlays, matrix, id) : [];
-    if (!frame) return [...layers, ...extra];
-    // Overlays go over the frame's lines and under its axis labels.
+    const scatterLayers = scatter?.length ? scatterPointLayers(scatter, matrix, id) : [];
+    if (!frame) return [...layers, ...scatterLayers, ...extra];
+    // Scatter points sit inside the volume; overlays go over the frame's lines.
     const [lines, labels] = frameLayers(frame, matrix, id);
     const cutLines = cutFrameLayers(props.cubeCutBox as PreBox | null, matrix, id);
-    return [...layers, lines, ...cutLines, ...extra, labels];
+    return [...layers, ...scatterLayers, lines, ...cutLines, ...extra, labels];
   }
 }
