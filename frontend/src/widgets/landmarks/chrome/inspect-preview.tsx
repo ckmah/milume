@@ -424,8 +424,8 @@ export function InspectPreview({
           home="top"
           reframeOnPreset
           resetTick={0}
-          showImage={settings.showImage}
-          showLabels={settings.showLabels}
+          showImage={showPoints ? false : settings.showImage}
+          showLabels={showPoints ? false : settings.showLabels}
           coloring={coloring}
           render={settings.render}
           dark={dark}

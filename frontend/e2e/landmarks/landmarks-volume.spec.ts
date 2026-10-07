@@ -343,7 +343,11 @@ async function screenAt(page: Page, box: Box, [x, y]: [number, number]) {
 }
 
 /** Click in Inspect at the canvas centre, or at map point `at` (µm). */
-async function openCubeAtCentre(page: Page, { at }: { at?: [number, number] } = {}) {
+async function openCubeAtCentre(
+  page: Page,
+  { at, raster }: { at?: [number, number]; raster?: boolean } = {},
+) {
+  if (raster) await setModel(page, { render_mode: "raster" });
   await page.getByRole("radio", { name: "Inspect", exact: true }).click();
   const box = await canvasBox(page);
   const p = at ? await screenAt(page, box, at) : { x: box.x + box.width * 0.5, y: box.y + box.height * 0.5 };
@@ -1316,7 +1320,7 @@ test.describe("Landmarks inspect cube", () => {
 
   test("inspect toolbar: presets, MIP, palette, alpha/gamma, committed Z cut", async ({ page }) => {
     test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
-    await openCubeAtCentre(page);
+    await openCubeAtCentre(page, { raster: true });
     const bar = page.getByTestId("context-inspect-toolbar");
     const view = cubeWindow(page).locator(".volume-cube__view");
     // The image alone, so the uniform-only check below has one channel to count.
@@ -1438,7 +1442,7 @@ test.describe("Landmarks inspect cube", () => {
     page,
   }) => {
     test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
-    await openCubeAtCentre(page);
+    await openCubeAtCentre(page, { raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     await openAdjust(page);
     const panel = adjustPanel(page);
@@ -1765,7 +1769,7 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("peek tabs and docks float over the open cube; focusing a category there recolours it", async ({ page }) => {
-    await openCubeAtCentre(page, { at: [130, 170] });
+    await openCubeAtCentre(page, { at: [130, 170], raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-highlight", "2");
     const right = page.locator(".landmarks__chrome-dock--right");
@@ -1799,7 +1803,7 @@ test.describe("Landmarks inspect cube", () => {
 
   test("highlight follows focus: everything, a category, a Selection", async ({ page }) => {
     // The 300 µm square holds all three cells: type1 and type0.
-    await openCubeAtCentre(page, { at: [130, 170] });
+    await openCubeAtCentre(page, { at: [130, 170], raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-labels", "on");
     await expect(view).toHaveAttribute("data-coloring", "groups");
@@ -1842,7 +1846,7 @@ test.describe("Landmarks inspect cube", () => {
     // and not cell 1: the first cell encoded is global 2, so local index 1 is
     // global 2 and a local/global mix-up changes the colours.
     await loadFresh(page, "window=100");
-    await openCubeAtCentre(page, { at: [130, 170] });
+    await openCubeAtCentre(page, { at: [130, 170], raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     // Half-µm centre: the level-0 box is X 80-181, Y 120-221, an odd 101 voxels
     // wide (R8 image rows of 101 bytes and RG8 label rows of 202, not 4-byte
@@ -1877,7 +1881,7 @@ test.describe("Landmarks inspect cube", () => {
   test("each toy cell keeps its category colour with Image MIP, under Labels Additive and Labels MIP", async ({ page }) => {
     // The window and cells of the test above: cell 2 (type0) right of and above cell 3 (type1).
     await reloadWith(page, "window=100");
-    await openCubeAtCentre(page, { at: [130, 170] });
+    await openCubeAtCentre(page, { at: [130, 170], raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     await setModel(page, { inspect_cx: 130.5, inspect_cy: 170.5 });
     await openAdjust(page);
@@ -1923,7 +1927,7 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("the cube opens showing the cells, with no trip to Adjust", async ({ page }) => {
-    await openCubeAtCentre(page, { at: [130, 170] });
+    await openCubeAtCentre(page, { at: [130, 170], raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
     // Nothing touched since the click that opened it.
@@ -1968,7 +1972,7 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("a cell outside the focused category is neutral, never another category's colour", async ({ page }) => {
-    await openCubeAtCentre(page, { at: [130, 170] });
+    await openCubeAtCentre(page, { at: [130, 170], raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     await setShow(page, "Show image", false);
     await expect(view).toHaveAttribute("data-refining", "false");
@@ -1990,7 +1994,7 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("labels draw as filled bodies: a cell's core is coloured, its rim brighter", async ({ page }) => {
-    await openCubeAtCentre(page);
+    await openCubeAtCentre(page, { raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
     // The image off, so only the cells draw; a 2 µm slab through the cells' middle
@@ -2034,7 +2038,7 @@ test.describe("Landmarks inspect cube", () => {
 
   test("the hosted cube has no category legend", async ({ page }) => {
     // Nothing focused: every cell in the window is highlighted.
-    await openCubeAtCentre(page, { at: [160, 150] });
+    await openCubeAtCentre(page, { at: [160, 150], raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-labels", "on");
     await expect(view).not.toHaveAttribute("data-highlight", "0");
@@ -2413,7 +2417,7 @@ test.describe("Landmarks inspect cube", () => {
 
   test("Show image off hides the image in the dock and the preview; labels still draw", async ({ page }) => {
     await reloadWith(page, "window=100");
-    await openCubeAtCentre(page, { at: [130, 170] });
+    await openCubeAtCentre(page, { at: [130, 170], raster: true });
     const dock = cubeWindow(page).locator(".volume-cube__view");
     await expect(dock).toHaveAttribute("data-image", "on");
     await expect(dock).toHaveAttribute("data-refining", "false");
@@ -2521,8 +2525,8 @@ test.describe("Landmarks inspect cube", () => {
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-points", "3");
-    await expect(view).toHaveAttribute("data-labels", "on");
-    await expect(view).toHaveAttribute("data-image", "on");
+    await expect(view).toHaveAttribute("data-labels", "off");
+    await expect(view).toHaveAttribute("data-image", "off");
   });
 
   test("toggling to raster hides scatter points in the cube", async ({ page }) => {
@@ -2536,6 +2540,8 @@ test.describe("Landmarks inspect cube", () => {
     await page.getByTestId("view-cta").getByRole("switch", { name: "points/raster" }).click();
     await expect.poll(async () => await getModel(page, "render_mode")).toBe("points");
     await expect(view).toHaveAttribute("data-points", "3");
+    await expect(view).toHaveAttribute("data-labels", "off");
+    await expect(view).toHaveAttribute("data-image", "off");
   });
 
   test("the hover preview shows scatter points when the points layer is on", async ({ page }) => {
@@ -2545,8 +2551,12 @@ test.describe("Landmarks inspect cube", () => {
     const view = preview(page).locator(".volume-cube__view");
     await expect(preview(page)).toBeVisible();
     await expect(view).toHaveAttribute("data-points", "3");
+    await expect(view).toHaveAttribute("data-labels", "off");
+    await expect(view).toHaveAttribute("data-image", "off");
     await page.getByTestId("view-cta").getByRole("switch", { name: "points/raster" }).click();
     await expect(view).toHaveAttribute("data-points", "0");
+    await expect(view).toHaveAttribute("data-labels", "on");
+    await expect(view).toHaveAttribute("data-image", "on");
   });
 
   test("leaving Inspect hides the preview but keeps its cube for the next hover", async ({ page }) => {

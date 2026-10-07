@@ -164,8 +164,8 @@ export function CubeImmersive({
           home="top"
           reframeOnPreset
           resetTick={settings.resetTick}
-          showImage={settings.showImage}
-          showLabels={settings.showLabels}
+          showImage={showPoints ? false : settings.showImage}
+          showLabels={showPoints ? false : settings.showLabels}
           coloring={coloring}
           render={settings.render}
           dark={dark}
