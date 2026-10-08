@@ -5,8 +5,9 @@ labels:
   - landmarks-ui
 body:
   - type: markdown
-    value: |
-      Use this for LandmarksWidget / Inspect chrome work. Outcome and acceptance are required before implementation; PM should not have to backfill an empty issue later.
+    attributes:
+      value: |
+        Use this for LandmarksWidget / Inspect chrome work. Outcome and acceptance are required before implementation; PM should not have to backfill an empty issue later.
 
   - type: textarea
     id: outcome
