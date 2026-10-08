@@ -598,7 +598,10 @@ export function VolumeCube({
   const zLo = tightenZToSignal ? Math.max(zBaseLo, signalLo) : zBaseLo;
   const zHiEx = tightenZToSignal ? Math.min(zBaseHiEx, signalHi) : zBaseHiEx;
   const stepZ = levelVoxel?.[0] ?? szUm;
-  const stackZ: Range = [ozUm + zLo * stepZ, ozUm + zHiEx * stepZ];
+  // Before a level is picked there is no stack to trim: report the image's whole depth,
+  // so a cut committed (or saved) that early is not clamped to a one-plane stack.
+  const extentZ = base ? ozUm + axisSize(base, "z") * szUm : ozUm;
+  const stackZ: Range = level ? [ozUm + zLo * stepZ, ozUm + zHiEx * stepZ] : [ozUm, extentZ];
 
   const xShown = clampRange(cut[0], cut[1], winX[0], winX[1]);
   const yShown = clampRange(cut[2], cut[3], winY[0], winY[1]);
