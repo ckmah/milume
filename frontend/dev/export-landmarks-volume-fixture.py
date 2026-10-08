@@ -1,27 +1,35 @@
 #!/usr/bin/env python3
-"""Export the landmarks-volume harness: a toy SpatialData store plus the widget fixture.
+"""Export the landmarks-volume harness: SpatialData on disk plus widget fixture JSON.
 
-Writes ``landmarks-volume/public/toy.sdata.zarr`` (served by Vite's public dir) and
-``landmarks-volume-fixture.json`` from ``LandmarksWidget(sdata, color="cell_type")``.
+Profiles:
+
+- ``toy`` (default): synthetic store for CI and Playwright (deterministic geometry).
+- ``xsmall``: Hugging Face ``Stellaromics/demo`` ``xsmall/`` Pyxa slice (~5 MB mosaic).
+
+Each profile writes ``landmarks-volume/public/<profile>.sdata.zarr`` and a matching
+``landmarks-volume-fixture[.xsmall].json``. Vite serves zarr from the public dir and
+rewrites ``volume`` URLs to static paths instead of the widget loopback server.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import shutil
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from milume import LandmarksWidget  # noqa: E402
 from milume.volume_cube import TOY_CONTRAST_LIMITS  # noqa: E402
+from milume.volume_source import image_contrast_limits  # noqa: E402
 from tests.helpers import toy_spatialdata  # noqa: E402
 
 DEV = Path(__file__).resolve().parent
-STORE = DEV / "landmarks-volume" / "public" / "toy.sdata.zarr"
-OUT = DEV / "landmarks-volume-fixture.json"
+PUBLIC = DEV / "landmarks-volume" / "public"
 
 FIXTURE_KEYS = [
     "mode",
@@ -80,22 +88,81 @@ FIXTURE_KEYS = [
 VOLUME_KEYS = ["volume", "volume_label_ids", "volume_cut", "inspect_size_um"]
 
 
-def main() -> None:
-    if STORE.exists():
-        shutil.rmtree(STORE)
-    STORE.parent.mkdir(parents=True, exist_ok=True)
-    sdata = toy_spatialdata(STORE)
-    widget = LandmarksWidget(sdata, color="cell_type", contrast_limits=TOY_CONTRAST_LIMITS)
+def _static_volume_urls(volume: dict[str, object], store_name: str) -> dict[str, object]:
+    out = dict(volume)
+    for key in ("image_url", "labels_url"):
+        url = str(out.get(key) or "")
+        if not url:
+            continue
+        path = urlparse(url).path
+        out[key] = f"/{store_name}{path}"
+    return out
+
+
+def _write_store_toy(store: Path):
+    if store.exists():
+        shutil.rmtree(store)
+    store.parent.mkdir(parents=True, exist_ok=True)
+    return toy_spatialdata(store)
+
+
+def _write_store_xsmall(store: Path):
+    import spatialdata as sd
+    from huggingface_hub import snapshot_download
+    from spatialdata_io.experimental import pyxa
+
+    if store.exists():
+        shutil.rmtree(store)
+    store.parent.mkdir(parents=True, exist_ok=True)
+    data_dir = (
+        Path(
+            snapshot_download(
+                "Stellaromics/demo",
+                repo_type="dataset",
+                allow_patterns="xsmall/*",
+                ignore_patterns="*cell_assigned_gene*",
+            )
+        )
+        / "xsmall"
+    )
+    pyxa_sdata = pyxa(data_dir, cell_assigned_gene=False, segmentation_geometries=False)
+    pyxa_sdata.write(store)
+    return sd.read_zarr(store)
+
+
+def export_profile(profile: str) -> None:
+    if profile == "toy":
+        store_name = "toy.sdata.zarr"
+        out = DEV / "landmarks-volume-fixture.json"
+        sdata = _write_store_toy(PUBLIC / store_name)
+        widget = LandmarksWidget(sdata, color="cell_type", contrast_limits=TOY_CONTRAST_LIMITS)
+    elif profile == "xsmall":
+        store_name = "xsmall.sdata.zarr"
+        out = DEV / "landmarks-volume-fixture.xsmall.json"
+        sdata = _write_store_xsmall(PUBLIC / store_name)
+        image_key = next(iter(sdata.images))
+        contrast = image_contrast_limits(sdata.images[image_key])
+        widget = LandmarksWidget(sdata, color="ROI", contrast_limits=contrast)
+    else:
+        raise SystemExit(f"unknown profile {profile!r} (expected toy or xsmall)")
+
     widget.set_render_mode("points")
     payload = {key: getattr(widget, key) for key in FIXTURE_KEYS + VOLUME_KEYS}
-    # Served by Vite from the harness public dir instead of the widget's local server.
-    payload["volume"] = {
-        **payload["volume"],
-        "image_url": "/toy.sdata.zarr/images/mosaic/",
-        "labels_url": "/toy.sdata.zarr/labels/cells/",
-    }
-    OUT.write_text(json.dumps(payload, indent=2) + "\n")
-    print(f"wrote {STORE} and {OUT} ({OUT.stat().st_size / 1e3:.1f} KB)")
+    payload["volume"] = _static_volume_urls(payload["volume"], store_name)
+    out.write_text(json.dumps(payload, indent=2) + "\n")
+    print(f"wrote {PUBLIC / store_name} and {out} ({out.stat().st_size / 1e3:.1f} KB)")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--profile",
+        choices=("toy", "xsmall"),
+        default="toy",
+        help="toy: synthetic CI fixture; xsmall: HF Stellaromics/demo xsmall (requires --extra demo)",
+    )
+    args = parser.parse_args()
+    export_profile(args.profile)
 
 
 if __name__ == "__main__":

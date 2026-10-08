@@ -61,6 +61,7 @@ CI runs the same build; consumers never need Node.
 | Refresh mock state | `npm run dev:fixture` |
 | Live variant mode | dev server + `live.mjs` + `live-poll.mjs` |
 | Real data / traitlets | `watch:landmarks` + marimo demo |
+| Inspect cube, real xsmall | `dev:fixture:volume-xsmall` then `dev:landmarks-volume-xsmall` |
 | Typecheck | `npm run typecheck` |
 | Publish bundles | `npm run build` |
 
@@ -89,6 +90,13 @@ ANYWIDGET_HMR=1 uv run --extra demo marimo edit demos/<demo>.py
 
 Landmarks-with-a-cube harness (Playwright / manual, toy SpatialData with a 3D image):
 `cd frontend && npm run dev:landmarks-volume`.
+
+Real Pyxa tissue for inspect work (HF `Stellaromics/demo` `xsmall/`, not used in CI):
+
+```bash
+cd frontend && npm run dev:fixture:volume-xsmall   # once: download + export zarr + JSON
+cd frontend && npm run dev:landmarks-volume-xsmall
+```
 
 ## Gotchas
 
