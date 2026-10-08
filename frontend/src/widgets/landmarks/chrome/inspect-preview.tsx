@@ -160,7 +160,6 @@ export function InspectPreview({
   dark,
   cache,
   budgets,
-  overlays,
 }: {
   /** In Inspect: outside it the float stays hidden and queues no prefetch. */
   active: boolean;
@@ -173,8 +172,8 @@ export function InspectPreview({
   dark: boolean;
   cache: ChunkCache;
   budgets: { preview: number; dock: number };
-  /** The user's landmarks (µm), drawn on the cube's top face. */
-  overlays: CubeOverlay[] | null;
+  /** The user's landmarks (µm). The hover preview does not draw them. */
+  overlays?: CubeOverlay[] | null;
 }) {
   const volume = lm.volume ?? {};
   const voxelSizeUm = volume.voxel_size_um ?? VOXEL_ZYX;

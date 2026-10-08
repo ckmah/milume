@@ -238,6 +238,9 @@ function LayerControl({
   panel: React.ReactNode;
 }) {
   return (
+    // A panel group: the engine's Esc handler finds the open trigger here and
+    // clicks it, which closes only this menu (never the cube or Inspect).
+    <span data-inspect-panel-group="" className="contents">
     <ToolStack open={open} align="start" panel={panel}>
       <ChromeTooltip label={`${title} · right-click for settings`}>
         <Button
@@ -247,7 +250,7 @@ function LayerControl({
           data-testid={testId}
           disabled={disabled}
           className={cn(chromeHitWideClass, "gap-1 px-2")}
-          aria-label={`${title}. Right-click for settings.`}
+          aria-label={`${title}. Right-click for settings menu.`}
           aria-pressed={active}
           aria-expanded={open}
           aria-haspopup="dialog"
@@ -261,6 +264,11 @@ function LayerControl({
             e.stopPropagation();
             if (!disabled) onOpenChange(!open);
           }}
+          onClick={(e) => {
+            // Pointer clicks toggle the layer on pointerdown. A click with no
+            // pointer (the engine's Esc, or the keyboard) closes an open menu.
+            if (e.detail === 0 && open) onOpenChange(false);
+          }}
         >
           {icon}
           <span className="text-xs font-medium">{title}</span>
@@ -268,6 +276,7 @@ function LayerControl({
         </Button>
       </ChromeTooltip>
     </ToolStack>
+    </span>
   );
 }
 
