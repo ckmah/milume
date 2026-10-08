@@ -13,11 +13,11 @@ if (!repo || !token) {
 
 const map = {};
 for (const n of findLinkedIssueNumbers(body)) {
-  const json = execFileSync(
-    "gh",
-    ["api", `repos/${repo}/issues/${n}`, "--jq", ".body"],
-    { encoding: "utf8", env: { ...process.env, GH_TOKEN: token } },
-  );
-  map[n] = JSON.parse(json);
+  // Parse the full issue JSON: `--jq .body` prints the body as raw text, which is not JSON.
+  const json = execFileSync("gh", ["api", `repos/${repo}/issues/${n}`], {
+    encoding: "utf8",
+    env: { ...process.env, GH_TOKEN: token },
+  });
+  map[n] = JSON.parse(json).body ?? "";
 }
 writeFileSync("issue-bodies.json", JSON.stringify(map));
