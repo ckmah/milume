@@ -198,8 +198,34 @@ jobs:
 
   # One stable check to require in branch protection: path-gated jobs may be skipped,
   # which a required check cannot tolerate; this job passes unless a tier failed.
+  post-ui-evidence-comment:
+    needs: [changes, e2e-landmarks]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.landmarks == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: playwright-test-results-landmarks-*
+          path: artifacts
+          merge-multiple: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Comment Playwright artifact pointers on PR
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node frontend/scripts/post-pr-playwright-comment.mjs
+
   gate:
-    needs: [changes, e2e-core, e2e-landmarks]
+    needs: [changes, e2e-core, e2e-landmarks, post-ui-evidence-comment]
     if: always()
     runs-on: ubuntu-latest
     steps:

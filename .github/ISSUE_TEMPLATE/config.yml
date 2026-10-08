@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Landmarks / widget UI (required outcome + acceptance)
+    url: https://github.com/ckmah/milume/issues/new?template=landmarks-ui.yml
+    about: Use for Inspect chrome and LandmarksWidget UI work

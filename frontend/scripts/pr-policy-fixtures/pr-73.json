@@ -1,0 +1,6 @@
+{
+  "body": "## Why\n\nQuiet Inspect pill meta.\n\n## Verification\n\n- npm run verify passed\n",
+  "changedPaths": ["frontend/src/widgets/landmarks/chrome/inspect-pill.tsx"],
+  "isDraft": false,
+  "issueBodies": {}
+}

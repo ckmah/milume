@@ -22,6 +22,9 @@
     "test:e2e:update:core": "playwright test e2e/core --update-snapshots=all",
     "test:e2e:update:landmarks": "playwright test e2e/landmarks --update-snapshots=all",
     "check:chrome": "node scripts/check-chrome.mjs",
+    "check:pr-policy": "node scripts/check-pr-policy.mjs",
+    "check:widget-issue": "node scripts/check-widget-issue.mjs",
+    "test:agent-policy": "node --test scripts/check-agent-policy.test.mjs",
     "verify": "node scripts/verify.mjs"
   },
   "overrides": {

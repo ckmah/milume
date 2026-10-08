@@ -1,0 +1,6 @@
+{
+  "body": "## Summary\n\nInspect immersive cube rework.\n\n## Verification\n\n- e2e green\n- Screenshot visuals are not yet posted on this PR.\n",
+  "changedPaths": ["frontend/src/widgets/landmarks/chrome/InspectToolbar.tsx"],
+  "isDraft": false,
+  "issueBodies": {}
+}

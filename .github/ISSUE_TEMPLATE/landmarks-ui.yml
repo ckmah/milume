@@ -1,0 +1,49 @@
+name: Landmarks / widget UI
+description: Outcome and visual acceptance for Inspect or Landmarks chrome changes
+title: "[landmarks-ui] "
+labels:
+  - landmarks-ui
+body:
+  - type: markdown
+    value: |
+      Use this for LandmarksWidget / Inspect chrome work. Outcome and acceptance are required before implementation; PM should not have to backfill an empty issue later.
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What changes for the scientist in one or two sentences?
+      placeholder: "Inspect shows the same points as the 2D map, aligned with the volume."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: Testable checklist (Playwright when the surface is automatable).
+      placeholder: |
+        - [ ] Points visible when the existing View toggle is in points mode
+        - [ ] Color parity with the 2D map
+        - [ ] Playwright covers the toggle
+    validations:
+      required: true
+
+  - type: textarea
+    id: visual
+    attributes:
+      label: Visual acceptance
+      description: What screenshots or short video reviewers should see in the PR (include layer overlap / exclusivity when relevant).
+      placeholder: |
+        - Screenshot of Inspect with the feature on
+        - If modes are mutually exclusive (e.g. points vs raster), say so explicitly
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Non-goals, product links, or constraints from DESIGN.md
+    validations:
+      required: false
