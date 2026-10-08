@@ -31,6 +31,9 @@ app/plugins/impeccable-live.client.ts
 src/plugins/impeccable-live.client.ts
 # impeccable-live-ignore-end
 
+# Generated HF xsmall volume harness (run npm run dev:fixture:volume-xsmall)
+/dev/landmarks-volume-fixture.xsmall.json
+
 # Playwright
 /test-results/
 /playwright-report/
