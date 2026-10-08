@@ -1,0 +1,2 @@
+- need visual indicators for where they are and to highlight when mouse gets close
+- user needs feedback on behavior while dragging e.g. need hover and active states
