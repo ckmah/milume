@@ -1,5 +1,5 @@
 {
-  "body": "Closes #79\n\n![Inspect cube with points](https://cursor.com/agents/bc-cdd96d08/artifacts?path=%2Fopt%2Fcursor%2Fartifacts%2Fpr80-inspect-cube-points.png)\n",
+  "body": "Closes #79\n\n![Inspect cube with scatter points on](https://github.com/user-attachments/assets/59fac573-c139-4015-9f63-dbaa005a14b6)\n",
   "changedPaths": ["frontend/src/widgets/volume-cube/cube-points.ts"],
   "isDraft": false,
   "issueBodies": {

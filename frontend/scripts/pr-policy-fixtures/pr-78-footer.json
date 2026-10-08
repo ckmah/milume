@@ -1,0 +1,6 @@
+{
+  "body": "Closes #77\n\n## Summary\n\nGrabbable cut plates for Inspect. Playwright volume spec passed. No specimen shot.\n\n<img alt=\"Open in Web\" src=\"https://cursor.com/assets/images/open-in-web-dark.png\">\n<img alt=\"Open in Cursor\" src=\"https://cursor.com/assets/images/open-in-cursor-dark.png\">\n",
+  "changedPaths": ["frontend/src/widgets/volume-cube/cut-plates.tsx"],
+  "isDraft": false,
+  "issueBodies": {}
+}

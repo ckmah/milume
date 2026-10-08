@@ -7,9 +7,14 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 const CLOSE_RE = /\b(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#\d+\b/i;
 
-/** Markdown / HTML / common agent artifact patterns for embedded UI evidence. */
-const VISUAL_EVIDENCE_RE =
-  /!\[[^\]]*\]\([^)]+\)|<img\s[^>]*src=|\.(?:png|jpe?g|gif|webp|webm|mp4)(?:\?[^)\s]*)?\)|cursor\.com\/agents\/[^/]+\/artifacts\?path=/i;
+/**
+ * Screenshots GitHub actually renders in the PR body.
+ * Cursor agent artifact URLs and the Open-in-Cursor footer badges do not count:
+ * #78 merged with only the footer, and #80/#82 needed a human re-upload to
+ * github.com/user-attachments because the artifact links stayed broken.
+ */
+const RENDERED_VISUAL_RE =
+  /https:\/\/(?:github\.com\/user-attachments\/|user-images\.githubusercontent\.com\/|private-user-images\.githubusercontent\.com\/|media\.githubusercontent\.com\/)\S+/i;
 
 export function isUiPullRequest(changedPaths) {
   const tiers = JSON.parse(readFileSync(join(root, ".github", "e2e-tiers.json"), "utf8"));
@@ -33,7 +38,7 @@ export function hasClosingKeyword(text) {
 
 /** @param {string} text */
 export function hasVisualEvidence(text) {
-  return VISUAL_EVIDENCE_RE.test(text ?? "");
+  return RENDERED_VISUAL_RE.test(text ?? "");
 }
 
 /**
@@ -60,7 +65,7 @@ export function validateUiPullRequest({ changedPaths, body, isDraft, issueBodies
 
   if (!isDraft && !hasVisualEvidence(body)) {
     errors.push(
-      "ready (non-draft) UI pull request needs embedded screenshots or video in the PR body (markdown image, <img>, .webm/.png link, or Cursor artifact URL) — not only CI artifacts",
+      "ready (non-draft) UI pull request needs a screenshot or video in the PR body that GitHub renders (https://github.com/user-attachments/...). Cursor artifact links and the Open in Cursor footer badges do not count",
     );
   }
 
