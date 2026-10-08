@@ -192,15 +192,16 @@ export class FramedVolumeView extends VolumeView {
     // The frame marks the requested window: it keeps its place while a loaded
     // window pans under it (`frameMatrix`), and otherwise shares the volume's.
     // Overlays (already placed in the window) share it too.
-    const matrix = (props.frameMatrix ?? props.modelMatrix) as Matrix4;
+    const frameMatrix = (props.frameMatrix ?? props.modelMatrix) as Matrix4;
+    const volumeMatrix = props.modelMatrix as Matrix4;
     const overlays = props.cubeOverlays as PlacedOverlays | null | undefined;
     const scatter = props.cubeScatterPoints as PlacedScatterPoint[] | null | undefined;
-    const extra = overlays ? overlayLayers(overlays, matrix, id) : [];
-    const scatterLayers = scatter?.length ? scatterPointLayers(scatter, matrix, id) : [];
+    const extra = overlays ? overlayLayers(overlays, frameMatrix, id) : [];
+    const scatterLayers = scatter?.length ? scatterPointLayers(scatter, volumeMatrix, id) : [];
     if (!frame) return [...layers, ...scatterLayers, ...extra];
     // Scatter points sit inside the volume; overlays go over the frame's lines.
-    const [lines, labels] = frameLayers(frame, matrix, id);
-    const cutLines = cutFrameLayers(props.cubeCutBox as PreBox | null, matrix, id);
+    const [lines, labels] = frameLayers(frame, frameMatrix, id);
+    const cutLines = cutFrameLayers(props.cubeCutBox as PreBox | null, frameMatrix, id);
     return [...layers, ...scatterLayers, lines, ...cutLines, ...extra, labels];
   }
 }

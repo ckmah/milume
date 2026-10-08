@@ -493,6 +493,11 @@ class LandmarksWidget(AnyWidget):
 
         x_arr = np.asarray(xy[:, 0], dtype=np.float64, copy=False)
         y_arr = np.asarray(xy[:, 1], dtype=np.float64, copy=False)
+        z_arr = (
+            np.asarray(xy[:, 2], dtype=np.float64, copy=False)
+            if xy.shape[1] >= 3
+            else np.full(n, np.nan, dtype=np.float64)
+        )
         xmin, xmax, ymin, ymax, point_size, buffer_width = _spatial_metrics(
             x_arr, y_arr
         )
@@ -559,7 +564,7 @@ class LandmarksWidget(AnyWidget):
         )
         if gene_color is not None:
             color_mode = "continuous"
-        points = np.column_stack([nx, ny, value_a, np.zeros(n, dtype=np.float32)])
+        points = np.column_stack([nx, ny, value_a, z_arr.astype(np.float32)])
 
         self._adata = adata
         self._expr_frame = None

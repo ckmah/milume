@@ -19,7 +19,7 @@ import type { LandmarksModel } from "./use-landmarks-model";
 type Range = [number, number];
 
 /** A section of the Inspect toolbar's panels, for its Reset: Adjust's Image and Labels, and Cross-section's cuts. */
-export type AdjustSection = "image" | "labels" | "cuts";
+export type AdjustSection = "image" | "labels" | "points" | "cuts";
 
 /** An inspect Selection's window: centre and side (µm), and its cut (absolute µm, or `[]`). */
 export type InspectWindow = { cx: number; cy: number; size_um: number; cut: number[] };
@@ -187,7 +187,7 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
       const cutChanged = !(Array.isArray(current) && current.join(",") === key);
       const sels = (facade.get("selections") as SelectionItem[] | null) ?? [];
       const index = facade.get("selected_kind") === "selection" ? Number(facade.get("selected_index")) : -1;
-      const entry = inspectWindowOf(sels[index]);
+      const entry = inspectWindowOf(index >= 0 && index < sels.length ? sels[index] : undefined);
       const live =
         entry != null &&
         entry.cx === facade.get("inspect_cx") &&
@@ -354,22 +354,23 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   // settles: write the live window's cut first, so the entry holds its own cut.
   // The window is read from the model, which the engine sets before any render.
   const save = useCallback(() => {
-    if (!engine) return;
-    const { rel, volume: v } = latest.current;
+    if (!engine?.saveInspect) return;
     const x = facade.get("inspect_cx") as number | null;
     const y = facade.get("inspect_cy") as number | null;
     if (x == null || y == null) return;
     const size = (facade.get("inspect_size_um") as number) || INSPECT_WINDOW_UM;
-    // The engine's own window can be stale here (e.g. Python moved inspect_cx/cy
-    // directly, with no press and no setInspectWindow call): sync it to the
-    // model's values first, so the saved entry always equals what the dock shows.
     engine.setInspectWindow(x, y, size);
-    if (v && atPlacement(placedRef.current, x, y)) {
+    const { rel, volume: v, win: w } = latest.current;
+    if (v && w) {
       placedRef.current = null;
-      write(committedCut(rel, cutWindow(x, y, size, { x: origin[2], y: origin[1] }, v), v));
+      try {
+        write(committedCut(rel, w, v));
+      } catch {
+        // Still save the window; cut sync is best-effort before the engine snapshot.
+      }
     }
     engine.saveInspect();
-  }, [engine, facade, write, origin]);
+  }, [engine, facade, write]);
 
   const panSavedAt = useRef(0);
   const panWindow = useCallback(
@@ -414,7 +415,9 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
       if (all || section === "labels") {
         patchCube({ labelMode: "additive", render: { cellAlpha: DEFAULT_RENDER.cellAlpha } });
       }
-      // "all" is Adjust's Reset all: Image and Labels; the cuts have Cross-section's own Reset.
+      if (all || section === "points") {
+        patchCube({ showPoints: false });
+      }
       if (section === "cuts") {
         patchCube({ cut: OPEN_CUT });
         const { win: w, volume: v } = latest.current;

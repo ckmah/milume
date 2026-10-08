@@ -13,9 +13,9 @@ import { DEFAULT_RENDER, type RenderSettings, paletteLut } from "./palettes";
  * from the `render` prop; with `showImage` false the image adds nothing (a
  * uniform, no refetch). Once labels load, `labelVolume` (an RG8 3D texture on
  * the same grid, see `cell-volume.ts`) holds each voxel's local cell index and
- * a surface flag. Cells draw as filled volumes: a surface voxel contributes at
- * the cell's own alpha and an interior voxel at `CELL_FILL` of it, so each cell
- * reads as a body with a defined rim and two touching cells stay apart. A small
+ * a surface flag. Neighbouring cells separate by colour. `cellAlpha` scales the
+ * finished label layer, so a low alpha stays see-through instead of stacking
+ * to opaque along the ray. A small
  * RGBA lookup texture (`cellLut`) maps local index -> colour and alpha per cell;
  * texel 0 is the colour and alpha of the cells the lookup gives none.
  *
@@ -44,19 +44,6 @@ export { DEFAULT_RENDER, type RenderSettings } from "./palettes";
 
 /** A 256-texel image colour map from `paletteLut`. */
 export type ImagePalette = { data: Uint8Array; width: number; height: number };
-
-/**
- * Per-sample alpha of a cell's interior, as a fraction of its surface's. The
- * lowest value that reads as a body rather than an outline. Measured on a 2 µm
- * slab through the toy cells, core over rim runs 0.07 at a fill of 0 and 0.29
- * from 0.35 up, against the spec's filled-or-shell separator of 0.25. Staying
- * at that knee keeps a cell as see-through as a filled cell can be, so deeper
- * cells and the image behind them still read.
- */
-export const CELL_FILL = 0.35;
-
-/** Opacity of tissue outside the cut, applied to that region's finished colour. */
-export const OUTSIDE_CUT_ALPHA = 0.12;
 
 type CubeUniforms = Partial<RenderSettings> & {
   cellsOn?: number;
@@ -91,7 +78,6 @@ const cubeRenderModule = {
     cutY1: "f32",
     cutZ0: "f32",
     cutZ1: "f32",
-    outsideAlpha: "f32",
   },
   defaultUniforms: {
     imageAlpha: 1,
@@ -108,7 +94,6 @@ const cubeRenderModule = {
     cutY1: 1,
     cutZ0: 0,
     cutZ1: 1,
-    outsideAlpha: OUTSIDE_CUT_ALPHA,
   },
   // Only the numbers reach the uniform block; the palette is a texture.
   getUniforms: (render: CubeUniforms = {}) => ({
@@ -126,7 +111,6 @@ const cubeRenderModule = {
     cutY1: render.cutY1 ?? 1,
     cutZ0: render.cutZ0 ?? 0,
     cutZ1: render.cutZ1 ?? 1,
-    outsideAlpha: OUTSIDE_CUT_ALPHA,
   }),
   // Viv's contrast ramp on the raw value: a unorm image texture (r8unorm,
   // r16unorm) samples as value / max, and imageScale (max; 1 for float)
@@ -152,7 +136,6 @@ uniform cubeRenderUniforms {
   float cutY1;
   float cutZ0;
   float cutZ1;
-  float outsideAlpha;
 } cubeRender;
 
 // All 3D textures, the lookups one texel deep: luma.gl validates the program
@@ -164,10 +147,6 @@ uniform highp sampler3D cellLut;
 uniform highp sampler3D labelVolume;
 
 vec3 srgbToLinear(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
-
-vec4 scaleOutside(vec4 finished) {
-  return finished * cubeRender.outsideAlpha;
-}
 
 // Alpha of that many composited samples. A step of 1 leaves a unchanged.
 float cover(float a, float steps) {
@@ -191,8 +170,7 @@ vec4 cellColor(ivec3 q) {
   if (idx < size.x * size.y) own = texelFetch(cellLut, ivec3(idx % size.x, idx / size.x, 0), 0);
   // A cell the lookup colours in its own colour, otherwise the shared neutral.
   vec4 c = own.a > 0.0 ? own : texelFetch(cellLut, ivec3(0), 0);
-  float fill = b.y < 128 ? ${CELL_FILL.toFixed(3)} : 1.0;
-  return vec4(c.rgb, c.a * fill * cubeRender.cellAlpha);
+  return c;
 }
 `,
 };
@@ -211,8 +189,6 @@ const CELL_SAMPLE = `
 // the maximum (MIP); the labels accumulate cell samples front to back
 // (Additive) or keep the strongest one (MIP). Labels composite over the image
 // either way.
-// Samples outside the cut accumulate on their own and are scaled once at the
-// end, so a thick region stays faint instead of summing back to opaque.
 // Viv steps p after _RENDER, so _RENDER may break but must not continue.
 // Either layer stops sampling once it is saturated (as the per-mode templates did).
 const IN_CUT = `
@@ -229,33 +205,40 @@ const IN_CUT = `
       && p.y >= yLo - 0.002 && p.y <= yHi + 0.002
       && p.z >= zLo - 0.002 && p.z <= zHi + 0.002;`;
 
-// An open cut is its own program. A branch inside the ghost march still
-// costs that march on SwiftShader.
-const OPEN_RENDERING = {
+const RENDERING = {
   _BEFORE_RENDER: `${CELL_SETUP}
   vec4 acc = vec4(0.0);
   float maxImage = -1.0;
   vec4 cells = vec4(0.0);
   float cellMax = 0.0;
-  vec3 cellMaxRgb = vec3(0.0);`,
+  vec3 cellMaxRgb = vec3(0.0);
+  bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
+    || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
+    || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
+  float stepScale = 1.0;`,
   _RENDER: `
-    if (cubeRender.imageMip > 0.5) {
-      maxImage = max(maxImage, intensityValue0);
-    } else if (acc.a < 0.95) {
-      vec4 im = imageSample(intensityValue0);
-      acc.rgb += (1.0 - acc.a) * im.a * im.rgb;
-      acc.a += (1.0 - acc.a) * im.a;
-    }
-    if (cellsOn && (cubeRender.cellMip > 0.5 || cells.a < 0.95)) {
-      ${CELL_SAMPLE}
-      if (cubeRender.cellMip > 0.5) {
-        if (cell.a > cellMax) {
-          cellMax = cell.a;
-          cellMaxRgb = cell.rgb;
+    ${IN_CUT}
+    if (!(ghosting && !inCut)) {
+      if (cubeRender.imageMip > 0.5) {
+        maxImage = max(maxImage, intensityValue0);
+      } else if (acc.a < 0.95) {
+        vec4 im = imageSample(intensityValue0);
+        float a = cover(im.a, stepScale);
+        acc.rgb += (1.0 - acc.a) * a * im.rgb;
+        acc.a += (1.0 - acc.a) * a;
+      }
+      if (cellsOn && (cubeRender.cellMip > 0.5 || cells.a < 0.95)) {
+        ${CELL_SAMPLE}
+        if (cubeRender.cellMip > 0.5) {
+          if (cell.a > cellMax) {
+            cellMax = cell.a;
+            cellMaxRgb = cell.rgb;
+          }
+        } else {
+          float a = cover(cell.a, stepScale);
+          cells.rgb += (1.0 - cells.a) * a * cell.rgb;
+          cells.a += (1.0 - cells.a) * a;
         }
-      } else {
-        cells.rgb += (1.0 - cells.a) * cell.a * cell.rgb;
-        cells.a += (1.0 - cells.a) * cell.a;
       }
     }
     bool imageDone = cubeRender.imageMip < 0.5 && acc.a >= 0.95;
@@ -270,120 +253,10 @@ const OPEN_RENDERING = {
     imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
   }
   vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb * cellMax, cellMax) : cells;
+  cellsOut *= cubeRender.cellAlpha;
   color = vec4(
     cellsOut.rgb + (1.0 - cellsOut.a) * imageOut.rgb,
     cellsOut.a + (1.0 - cellsOut.a) * imageOut.a
-  );`,
-};
-
-const RENDERING = {
-  _BEFORE_RENDER: `${CELL_SETUP}
-  vec4 acc = vec4(0.0);
-  vec4 accG = vec4(0.0);
-  float maxImage = -1.0;
-  float maxImageG = -1.0;
-  vec4 cells = vec4(0.0);
-  vec4 cellsG = vec4(0.0);
-  float cellMax = 0.0;
-  vec3 cellMaxRgb = vec3(0.0);
-  float cellMaxG = 0.0;
-  vec3 cellMaxRgbG = vec3(0.0);
-  bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
-    || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
-    || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
-  // The texture fetch is outside this hook, so only a larger dt skips it. A two-voxel
-  // slab stays at one voxel; a thick cut would otherwise march every voxel because the
-  // outside accumulator never reaches the early-out.
-  float stepScale = 1.0;
-  float span = min(min(cubeRender.cutX1 - cubeRender.cutX0, cubeRender.cutY1 - cubeRender.cutY0), cubeRender.cutZ1 - cubeRender.cutZ0);
-  if (span > 0.2) {
-    stepScale = 8.0;
-    dt *= stepScale;
-  }`,
-  _RENDER: `
-    ${IN_CUT}
-    if (cubeRender.imageMip > 0.5) {
-      if (inCut) maxImage = max(maxImage, intensityValue0);
-      else maxImageG = max(maxImageG, intensityValue0);
-    } else if (inCut) {
-      if (acc.a < 0.95) {
-        vec4 im = imageSample(intensityValue0);
-        float a = cover(im.a, stepScale);
-        acc.rgb += (1.0 - acc.a) * a * im.rgb;
-        acc.a += (1.0 - acc.a) * a;
-      }
-    } else if (accG.a < 0.95) {
-      vec4 im = imageSample(intensityValue0);
-      float a = cover(im.a, stepScale);
-      accG.rgb += (1.0 - accG.a) * a * im.rgb;
-      accG.a += (1.0 - accG.a) * a;
-    }
-    if (cellsOn && (cubeRender.cellMip > 0.5 || (inCut ? cells.a : cellsG.a) < 0.95)) {
-      ${CELL_SAMPLE}
-      if (cubeRender.cellMip > 0.5) {
-        if (inCut) {
-          if (cell.a > cellMax) {
-            cellMax = cell.a;
-            cellMaxRgb = cell.rgb;
-          }
-        } else if (cell.a > cellMaxG) {
-          cellMaxG = cell.a;
-          cellMaxRgbG = cell.rgb;
-        }
-      } else if (inCut) {
-        float a = cover(cell.a, stepScale);
-        cells.rgb += (1.0 - cells.a) * a * cell.rgb;
-        cells.a += (1.0 - cells.a) * a;
-      } else {
-        float a = cover(cell.a, stepScale);
-        cellsG.rgb += (1.0 - cellsG.a) * a * cell.rgb;
-        cellsG.a += (1.0 - cellsG.a) * a;
-      }
-    }
-    bool imageDone = cubeRender.imageMip < 0.5 && acc.a >= 0.95 && (!ghosting || accG.a >= 0.95);
-    bool cellsDone = !cellsOn || (cubeRender.cellMip < 0.5 && cells.a >= 0.95 && (!ghosting || cellsG.a >= 0.95));
-    if (imageDone && cellsDone) {
-      break;
-    }`,
-  _AFTER_RENDER: `
-  // The image: opaque maximum projection, or the accumulated samples.
-  // The projection is opaque: weighting it by the sample alpha (g) as well
-  // would square the ramp and darken everything below full intensity. With
-  // the image off only the labels remain, at their own alpha.
-  vec4 imageOut = acc;
-  vec4 imageG = accG;
-  if (cubeRender.imageMip > 0.5) {
-    if (!ghosting || maxImage >= 0.0) {
-      vec4 im = imageSample(max(maxImage, 0.0));
-      imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
-    } else {
-      imageOut = vec4(0.0);
-    }
-    if (maxImageG >= 0.0) {
-      vec4 imG = imageSample(maxImageG);
-      imageG = vec4(imG.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
-    } else {
-      imageG = vec4(0.0);
-    }
-  }
-  imageG = scaleOutside(imageG);
-  vec4 vol = vec4(
-    imageOut.rgb + (1.0 - imageOut.a) * imageG.rgb,
-    imageOut.a + (1.0 - imageOut.a) * imageG.a
-  );
-  // The labels: the strongest cell sample along the ray, or the accumulated
-  // ones. Premultiplied, like the accumulated samples, for the "over" below.
-  vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb * cellMax, cellMax) : cells;
-  vec4 cellsGhost = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgbG * cellMaxG, cellMaxG) : cellsG;
-  cellsGhost = scaleOutside(cellsGhost);
-  vec4 lab = vec4(
-    cellsOut.rgb + (1.0 - cellsOut.a) * cellsGhost.rgb,
-    cellsOut.a + (1.0 - cellsOut.a) * cellsGhost.a
-  );
-  // Labels over the image.
-  color = vec4(
-    lab.rgb + (1.0 - lab.a) * vol.rgb,
-    lab.a + (1.0 - lab.a) * vol.a
   );`,
 };
 
@@ -487,9 +360,9 @@ function bindCells(layer: LayerLike): CellVolume | null {
 class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
   static componentName = "CubeExtension";
   static extensionName = "CubeExtension";
-  rendering: typeof OPEN_RENDERING;
+  rendering: typeof RENDERING;
 
-  constructor(rendering: typeof OPEN_RENDERING) {
+  constructor(rendering: typeof RENDERING) {
     super();
     this.rendering = rendering;
   }
@@ -585,8 +458,7 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
   }
 }
 
-export const CUBE_EXTENSIONS_OPEN: unknown[] = [new CubeExtension(OPEN_RENDERING)];
-export const CUBE_EXTENSIONS_GHOST: unknown[] = [new CubeExtension(RENDERING)];
+export const CUBE_EXTENSIONS: unknown[] = [new CubeExtension(RENDERING)];
 
 function srgbToLinear(c: number): number {
   const s = c / 255;

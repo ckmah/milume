@@ -50,6 +50,7 @@ export function IconBtn({
   title,
   active,
   onClick,
+  onContextMenu,
   disabled,
   children,
   testId,
@@ -60,6 +61,7 @@ export function IconBtn({
   title: string;
   active?: boolean;
   onClick: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
   disabled?: boolean;
   children: React.ReactNode;
   testId?: string;
@@ -85,6 +87,7 @@ export function IconBtn({
           e.stopPropagation();
           onClick();
         }}
+        onContextMenu={onContextMenu}
       >
         {children}
         {expandable ? (

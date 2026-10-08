@@ -1,12 +1,8 @@
 import {
-  cloneElement,
-  isValidElement,
-  useCallback,
   useState,
   type ComponentType,
   type ReactElement,
   type ReactNode,
-  type Ref,
 } from "react";
 import {
   BoxIcon,
@@ -122,16 +118,7 @@ export function ToolbarDivider() {
   );
 }
 
-function mergeRefs<T>(...refs: Array<Ref<T> | undefined>) {
-  return (value: T) => {
-    for (const ref of refs) {
-      if (typeof ref === "function") ref(value);
-      else if (ref && typeof ref === "object") {
-        (ref as { current: T }).current = value;
-      }
-    }
-  };
-}
+import { useWidgetPortal } from "./widget-portal-context";
 
 export function ChromeTooltip({
   label,
@@ -143,25 +130,11 @@ export function ChromeTooltip({
   shortcut?: string;
   children: ReactElement;
 }) {
-  const [container, setContainer] = useState<HTMLElement | null>(null);
-  const setTriggerNode = useCallback((node: HTMLElement | null) => {
-    setContainer(
-      node?.closest(".milume-widget, .landmarks") as HTMLElement | null,
-    );
-  }, []);
-
-  const child = isValidElement(children)
-    ? cloneElement(children as ReactElement<{ ref?: Ref<HTMLElement> }>, {
-        ref: mergeRefs(
-          (children as ReactElement<{ ref?: Ref<HTMLElement> }>).props.ref,
-          setTriggerNode,
-        ),
-      })
-    : children;
+  const container = useWidgetPortal();
 
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{child}</TooltipTrigger>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipPrimitive.Portal container={container ?? undefined}>
         <TooltipPrimitive.Content
           data-slot="tooltip-content"

@@ -2,10 +2,12 @@ import { useId, useLayoutEffect, useState } from "react";
 import {
   BoxIcon,
   ChevronDownIcon,
+  CircleDot,
   HandIcon,
+  ImageIcon,
   RotateCcwIcon,
-  SlidersHorizontalIcon,
   SquareSplitVerticalIcon,
+  Tags,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -32,12 +34,14 @@ import {
   TOOLBAR_CAPTION,
   TOOLBAR_CLASS,
   ToolbarDivider,
+  ChromeTooltip,
   chromeHitTextClass,
   chromeHitWideClass,
   chromeMenuClass,
 } from "./primitives";
 import { IconBtn, ToolStack } from "./selection-toolbar";
 import { SoftFloatCapsuleSlider, SoftFloatSliderRow } from "./soft-float-slider";
+import { useWidgetPortal } from "./widget-portal-context";
 
 
 const GAMMA_LOG2 = 2.32;
@@ -197,27 +201,85 @@ function ProjectionRow({
   );
 }
 
-/** The bar's two panels; one is open at a time. */
-type Panel = "adjust" | "cross";
-
 const SLIDER_HIT =
   '.landmarks-slider-control, [data-slot="slider"], [data-slot="slider-thumb"], [data-slot="slider-track"]';
 
+const LAYER_MENU_HIT =
+  ".landmarks-layer-panel, [data-slot='dropdown-menu-content'], [data-testid^='layer-toggle-']";
+
+/** Document listeners see the shadow host in a notebook. The real control is on composedPath. */
+function pointerInLayerMenu(e: PointerEvent): boolean {
+  const hit = (node: EventTarget | null) =>
+    node instanceof Element && Boolean(node.closest(LAYER_MENU_HIT));
+  const path = typeof e.composedPath === "function" ? e.composedPath() : [];
+  return path.some(hit) || hit(e.target);
+}
+
+/** Layer visibility on left click; settings panel on right click (same stack as Cross-section). */
+function LayerControl({
+  testId,
+  title,
+  icon,
+  active,
+  disabled,
+  open,
+  onOpenChange,
+  onToggle,
+  panel,
+}: {
+  testId: string;
+  title: string;
+  icon: React.ReactNode;
+  active: boolean;
+  disabled?: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onToggle: () => void;
+  panel: React.ReactNode;
+}) {
+  return (
+    <ToolStack open={open} align="start" panel={panel}>
+      <ChromeTooltip label={`${title} · right-click for settings`}>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          data-testid={testId}
+          disabled={disabled}
+          className={cn(chromeHitWideClass, "gap-1 px-2")}
+          aria-label={`${title}. Right-click for settings.`}
+          aria-pressed={active}
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            if (!disabled) onToggle();
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!disabled) onOpenChange(!open);
+          }}
+        >
+          {icon}
+          <span className="text-xs font-medium">{title}</span>
+          <ChevronDownIcon aria-hidden className="size-2.5 shrink-0 opacity-70" />
+        </Button>
+      </ChromeTooltip>
+    </ToolStack>
+  );
+}
+
 /**
- * Context bar while Inspect has a cube open: the view options (camera, Move,
- * Reset view) and two panels that rise above their buttons, one at a time.
- * Adjust holds an Image and a Labels column, each with its Show switch, its own
- * projection (Additive | MIP) and Reset; Image also has the palette, contrast,
- * alpha and gamma. Cross-section holds the X/Y/Z cuts, which render live and
- * commit `volume_cut` on release (`onCutCommit`). Both panels are height-capped
- * and scroll inside (landmarks.css), so they never cover most of the cube.
- * While a slider is dragged (`tuning`), the open panel glass dims so the cube
- * under it stays readable.
+ * Context bar while Inspect has a cube open: camera, Move, Reset view, and
+ * Image / Labels / Points toggles. Right-click a layer for its settings menu.
  */
 export function InspectToolbar({
   settings,
   patch,
   labelsAvailable,
+  pointsAvailable,
   cut,
   cutRanges,
   onCutLive,
@@ -227,22 +289,18 @@ export function InspectToolbar({
   settings: CubeSettings;
   patch: (p: CubeSettingsPatch) => void;
   labelsAvailable: boolean;
-  /** The cut as shown, inside the window (absolute µm). */
+  pointsAvailable: boolean;
   cut: CubeCut;
-  /** Clamped window X/Y and the stack's Z; null until the volume is open. */
   cutRanges: { x: Range; y: Range; z: Range } | null;
   onCutLive: (cut: CubeCut) => void;
   onCutCommit: (cut: CubeCut) => void;
-  /** Back to defaults: one section, or "all" of Adjust (Image and Labels; not the cuts). */
   onReset: (section: Section | "all") => void;
 }) {
-  const [panel, setPanel] = useState<Panel | null>(null);
-  // True only while a pointer is down on a slider inside the open panel.
+  const [crossOpen, setCrossOpen] = useState(false);
+  const [imageOpen, setImageOpen] = useState(false);
+  const [labelsOpen, setLabelsOpen] = useState(false);
+  const [pointsOpen, setPointsOpen] = useState(false);
   const [tuning, setTuning] = useState(false);
-  const toggle = (p: Panel) => {
-    setPanel((open) => (open === p ? null : p));
-    setTuning(false);
-  };
   // Layout, not a passive effect: the listener has to be on window before this
   // gesture's pointerup, and a click can end in the same frame.
   useLayoutEffect(() => {
@@ -261,16 +319,62 @@ export function InspectToolbar({
       window.removeEventListener("lostpointercapture", end);
     };
   }, [tuning]);
+  const layerMenuOpen = imageOpen || labelsOpen || pointsOpen;
+  useLayoutEffect(() => {
+    if (!layerMenuOpen) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (pointerInLayerMenu(e)) return;
+      setImageOpen(false);
+      setLabelsOpen(false);
+      setPointsOpen(false);
+      setTuning(false);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [layerMenuOpen]);
+  const menuContainer = useWidgetPortal();
+  const [heldContrastMax, setHeldContrastMax] = useState<number | null>(null);
+  const { bounds, render } = settings;
+
   const onPanelPointerDownCapture = (e: React.PointerEvent) => {
     const target = e.target;
     if (!(target instanceof Element) || !target.closest(SLIDER_HIT)) return;
     setTuning(true);
   };
-  const [menuContainer, setMenuContainer] = useState<HTMLElement | null>(null);
-  // The cube sizes the contrast range from the contrast it draws; hold the max
-  // from pointer down to commit so it cannot run away under the dragged thumb.
-  const [heldContrastMax, setHeldContrastMax] = useState<number | null>(null);
-  const { bounds, render } = settings;
+
+  const closeInspectPanels = () => {
+    setCrossOpen(false);
+    setImageOpen(false);
+    setLabelsOpen(false);
+    setPointsOpen(false);
+    setTuning(false);
+  };
+
+  const openLayerPanel = (layer: "image" | "labels" | "points", open: boolean) => {
+    if (!open) {
+      if (layer === "image") setImageOpen(false);
+      if (layer === "labels") setLabelsOpen(false);
+      if (layer === "points") setPointsOpen(false);
+      return;
+    }
+    setCrossOpen(false);
+    setImageOpen(layer === "image");
+    setLabelsOpen(layer === "labels");
+    setPointsOpen(layer === "points");
+  };
+
+  const layerPanel = (title: string, body: React.ReactNode) => (
+    <div
+      className="landmarks-adjust landmarks-layer-panel"
+      data-inspect-panel-group=""
+      data-tuning={tuning ? "true" : undefined}
+      role="region"
+      aria-label={title}
+      onPointerDownCapture={onPanelPointerDownCapture}
+    >
+      {body}
+    </div>
+  );
 
   const withAxis = (axis: 0 | 1 | 2, v: Range): CubeCut => {
     const next = [...cut] as CubeCut;
@@ -292,152 +396,6 @@ export function InspectToolbar({
     />
   );
 
-  const contrastMax =
-    heldContrastMax ?? bounds?.contrastMax ?? Math.max(255, Math.ceil(settings.contrast[1] * 4));
-  const gammaLog2 = Math.log2(render.imageGamma);
-
-  // Image and Labels side by side (stacked in a narrow widget).
-  const adjustPanel = (
-    <div
-      className="landmarks-adjust"
-      data-testid="context-cube-adjust"
-      data-tuning={tuning ? "true" : undefined}
-      role="region"
-      aria-label="Adjust"
-      onPointerDownCapture={onPanelPointerDownCapture}
-    >
-      <div className="landmarks-adjust__cols">
-        <div className="landmarks-adjust__col" data-testid="adjust-image">
-          <AdjustSection
-            title="Image"
-            show={{ checked: settings.showImage, onChange: (on) => patch({ showImage: on }) }}
-            onReset={() => onReset("image")}
-          >
-            <ProjectionRow
-              label="Image projection"
-              value={settings.imageMode}
-              onChange={(imageMode) => patch({ imageMode })}
-            />
-            <div className="landmarks-slider-row">
-              <Label className="landmarks-slider-caption">Palette</Label>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Palette"
-                    className={cn(chromeHitWideClass, "landmarks-adjust__control justify-start gap-2")}
-                  >
-                    <PaletteSwatch name={render.palette} />
-                    <span className="flex-1 truncate text-left text-xs">{render.palette}</span>
-                    <ChevronDownIcon aria-hidden className="size-2.5 shrink-0 opacity-70" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  side="bottom"
-                  align="start"
-                  sideOffset={4}
-                  container={menuContainer}
-                  className={chromeMenuClass}
-                  onCloseAutoFocus={(e) => e.preventDefault()}
-                >
-                  <DropdownMenuRadioGroup
-                    value={render.palette}
-                    onValueChange={(v) => patch({ render: { palette: v as PaletteName } })}
-                  >
-                    {PALETTES.map((name) => (
-                      <DropdownMenuRadioItem key={name} value={name} className="gap-2 py-1 text-xs">
-                        <PaletteSwatch name={name} />
-                        {name}
-                      </DropdownMenuRadioItem>
-                    ))}
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-            <div
-              onPointerDownCapture={() => setHeldContrastMax(contrastMax)}
-              onLostPointerCapture={() => setHeldContrastMax(null)}
-            >
-              <RangeRow
-                label="Contrast"
-                unit=""
-                min={0}
-                max={contrastMax}
-                step={1}
-                value={settings.contrast}
-                onLive={(v) => patch({ contrast: v })}
-                onCommit={(v) => {
-                  patch({ contrast: v });
-                  setHeldContrastMax(null);
-                }}
-              />
-            </div>
-            <SoftFloatCapsuleSlider
-              aria-label="Image alpha"
-              caption="Alpha"
-              min={0}
-              max={1}
-              step={0.05}
-              value={render.imageAlpha}
-              displayValue={render.imageAlpha.toFixed(2)}
-              onValueChange={(v) => patch({ render: { imageAlpha: v } })}
-            />
-            <SoftFloatCapsuleSlider
-              aria-label="Image gamma"
-              caption="Gamma"
-              min={-GAMMA_LOG2}
-              max={GAMMA_LOG2}
-              step={0.05}
-              value={gammaLog2}
-              displayValue={(2 ** gammaLog2).toFixed(2)}
-              onValueChange={(v) => patch({ render: { imageGamma: 2 ** v } })}
-            />
-          </AdjustSection>
-        </div>
-        <div className="landmarks-adjust__col" data-testid="adjust-labels">
-          <AdjustSection
-            title="Labels"
-            show={{
-              checked: settings.showLabels,
-              disabled: !labelsAvailable,
-              onChange: (on) => patch({ showLabels: on }),
-            }}
-            onReset={() => onReset("labels")}
-          >
-            <ProjectionRow
-              label="Labels projection"
-              value={settings.labelMode}
-              onChange={(labelMode) => patch({ labelMode })}
-            />
-            <SoftFloatCapsuleSlider
-              aria-label="Label alpha"
-              caption="Alpha"
-              min={0}
-              max={1}
-              step={0.05}
-              value={render.cellAlpha}
-              displayValue={render.cellAlpha.toFixed(2)}
-              onValueChange={(v) => patch({ render: { cellAlpha: v } })}
-            />
-          </AdjustSection>
-        </div>
-      </div>
-      <div className="landmarks-adjust__foot">
-        <Button
-          type="button"
-          variant="ghost"
-          size="xs"
-          className={cn(chromeHitTextClass, "landmarks-adjust__reset")}
-          onClick={() => onReset("all")}
-        >
-          Reset all
-        </Button>
-      </div>
-    </div>
-  );
-
   const crossPanel = (
     <div
       className="landmarks-adjust landmarks-cross"
@@ -447,12 +405,7 @@ export function InspectToolbar({
       aria-label="Cross-section"
       onPointerDownCapture={onPanelPointerDownCapture}
     >
-      <AdjustSection
-        title="Cross-section"
-        testId="context-cube-cuts"
-        named={false}
-        onReset={() => onReset("cuts")}
-      >
+      <AdjustSection title="Cross-section" testId="context-cube-cuts" named={false} onReset={() => onReset("cuts")}>
         {cutRanges ? (
           <>
             {cutRow(0, "X cut", cutRanges.x, true)}
@@ -466,15 +419,137 @@ export function InspectToolbar({
     </div>
   );
 
-  // Esc closes only the open panel. The root Esc handler (which would otherwise
-  // close the whole cube) and the engine's skip `[data-inspect-panel-group]`;
-  // Esc in an open menu (the palette) closes only the menu.
-  const closeOnEsc = (p: Panel) => (e: React.KeyboardEvent) => {
-    if (e.key !== "Escape" || panel !== p) return;
-    if ((e.target as Element | null)?.closest?.('[role="menu"]')) return;
-    setPanel(null);
-    setTuning(false);
+  const closePanelsOnEsc = (e: React.KeyboardEvent) => {
+    if (e.key !== "Escape") return;
+    if (!crossOpen && !imageOpen && !labelsOpen && !pointsOpen) return;
+    if ((e.target as Element | null)?.closest?.("[data-slot='dropdown-menu-content']")) return;
+    closeInspectPanels();
   };
+
+  const contrastMax =
+    heldContrastMax ?? bounds?.contrastMax ?? Math.max(255, Math.ceil(settings.contrast[1] * 4));
+  const gammaLog2 = Math.log2(render.imageGamma);
+
+  const imageMenu = (
+    <AdjustSection title="Image" testId="adjust-image" onReset={() => onReset("image")}>
+      <ProjectionRow
+        label="Image projection"
+        value={settings.imageMode}
+        onChange={(imageMode) => patch({ imageMode })}
+      />
+      <div className="landmarks-slider-row">
+        <Label className="landmarks-slider-caption">Palette</Label>
+        <DropdownMenu modal={false}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label="Palette"
+              className={cn(chromeHitWideClass, "landmarks-adjust__control justify-start gap-2")}
+            >
+              <PaletteSwatch name={render.palette} />
+              <span className="flex-1 truncate text-left text-xs">{render.palette}</span>
+              <ChevronDownIcon aria-hidden className="size-2.5 shrink-0 opacity-70" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            side="top"
+            align="start"
+            sideOffset={4}
+            container={menuContainer}
+            collisionBoundary={menuContainer ? [menuContainer] : undefined}
+            collisionPadding={12}
+            className={chromeMenuClass}
+            onCloseAutoFocus={(e) => e.preventDefault()}
+            onInteractOutside={(e) => {
+              if ((e.target as Element | null)?.closest?.(".landmarks-layer-panel")) e.preventDefault();
+            }}
+          >
+            <DropdownMenuRadioGroup
+              value={render.palette}
+              onValueChange={(v) => patch({ render: { palette: v as PaletteName } })}
+            >
+              {PALETTES.map((name) => (
+                <DropdownMenuRadioItem key={name} value={name} className="gap-2 py-1 text-xs">
+                  <PaletteSwatch name={name} />
+                  {name}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+      <div
+        onPointerDownCapture={() => setHeldContrastMax(contrastMax)}
+        onLostPointerCapture={() => setHeldContrastMax(null)}
+      >
+        <RangeRow
+          label="Contrast"
+          unit=""
+          min={0}
+          max={contrastMax}
+          step={1}
+          value={settings.contrast}
+          onLive={(v) => patch({ contrast: v })}
+          onCommit={(v) => {
+            patch({ contrast: v });
+            setHeldContrastMax(null);
+          }}
+        />
+      </div>
+      <SoftFloatCapsuleSlider
+        aria-label="Image alpha"
+        caption="Alpha"
+        min={0}
+        max={1}
+        step={0.05}
+        value={render.imageAlpha}
+        displayValue={render.imageAlpha.toFixed(2)}
+        onValueChange={(v) => patch({ render: { imageAlpha: v } })}
+      />
+      <SoftFloatCapsuleSlider
+        aria-label="Image gamma"
+        caption="Gamma"
+        min={-GAMMA_LOG2}
+        max={GAMMA_LOG2}
+        step={0.05}
+        value={gammaLog2}
+        displayValue={(2 ** gammaLog2).toFixed(2)}
+        onValueChange={(v) => patch({ render: { imageGamma: 2 ** v } })}
+      />
+    </AdjustSection>
+  );
+
+  const labelsMenu = (
+    <AdjustSection title="Labels" testId="adjust-labels" onReset={() => onReset("labels")}>
+      <ProjectionRow
+        label="Labels projection"
+        value={settings.labelMode}
+        onChange={(labelMode) => patch({ labelMode })}
+      />
+      <SoftFloatCapsuleSlider
+        aria-label="Label alpha"
+        caption="Alpha"
+        min={0}
+        max={1}
+        step={0.05}
+        value={render.cellAlpha}
+        displayValue={render.cellAlpha.toFixed(2)}
+        onValueChange={(v) => patch({ render: { cellAlpha: v } })}
+      />
+    </AdjustSection>
+  );
+
+  const pointsMenu = (
+    <AdjustSection title="Points" testId="adjust-points" onReset={() => onReset("points")}>
+      <p className={cn(TOOLBAR_CAPTION, "m-0 py-1")}>
+        {pointsAvailable
+          ? "Cell centres from the map layer."
+          : "Switch the map to points to show scatter in the cube."}
+      </p>
+    </AdjustSection>
+  );
 
   return (
     <TooltipProvider delayDuration={80} skipDelayDuration={0}>
@@ -485,12 +560,9 @@ export function InspectToolbar({
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
         onWheel={(e) => e.stopPropagation()}
+        onKeyDown={closePanelsOnEsc}
       >
-        <div
-          ref={(node) => setMenuContainer(node?.closest(".milume-widget, .landmarks") as HTMLElement | null)}
-          className={TOOLBAR_CLASS}
-          data-testid="context-toolbar-l1"
-        >
+        <div className={TOOLBAR_CLASS} data-testid="context-toolbar-l1">
           <ToggleGroup
             type="single"
             size="sm"
@@ -524,34 +596,59 @@ export function InspectToolbar({
             <RotateCcwIcon className="size-4" />
           </IconBtn>
           <ToolbarDivider />
-          <span
-            data-testid="context-cube-adjust-group"
-            data-inspect-panel-group=""
-            className="contents"
-            onKeyDown={closeOnEsc("adjust")}
-          >
-            <ToolStack open={panel === "adjust"} align="end" panel={adjustPanel}>
-              <IconBtn
-                title="Adjust"
-                active={panel === "adjust"}
-                expandable
-                ariaExpanded={panel === "adjust"}
-                ariaHasPopup="dialog"
-                onClick={() => toggle("adjust")}
-              >
-                <SlidersHorizontalIcon className="size-4" />
-              </IconBtn>
-            </ToolStack>
-          </span>
-          <span data-inspect-panel-group="" className="contents" onKeyDown={closeOnEsc("cross")}>
-            <ToolStack open={panel === "cross"} align="end" panel={crossPanel}>
+          <LayerControl
+            testId="layer-toggle-image"
+            title="Image"
+            icon={<ImageIcon className="size-4" />}
+            active={settings.showImage}
+            open={imageOpen}
+            onOpenChange={(open) => openLayerPanel("image", open)}
+            onToggle={() => patch({ showImage: !settings.showImage })}
+            panel={layerPanel("Image", imageMenu)}
+          />
+          <LayerControl
+            testId="layer-toggle-labels"
+            title="Labels"
+            icon={<Tags className="size-4" />}
+            active={settings.showLabels}
+            disabled={!labelsAvailable}
+            open={labelsOpen}
+            onOpenChange={(open) => openLayerPanel("labels", open)}
+            onToggle={() => patch({ showLabels: !settings.showLabels })}
+            panel={layerPanel("Labels", labelsMenu)}
+          />
+          <LayerControl
+            testId="layer-toggle-points"
+            title="Points"
+            icon={<CircleDot className="size-4" />}
+            active={settings.showPoints}
+            disabled={!pointsAvailable}
+            open={pointsOpen}
+            onOpenChange={(open) => openLayerPanel("points", open)}
+            onToggle={() => patch({ showPoints: !settings.showPoints })}
+            panel={layerPanel("Points", pointsMenu)}
+          />
+          <span data-inspect-panel-group="" className="contents">
+            <ToolStack open={crossOpen} align="end" panel={crossPanel}>
               <IconBtn
                 title="Cross-section"
-                active={panel === "cross"}
+                testId="context-cross-toggle"
+                active={crossOpen}
                 expandable
-                ariaExpanded={panel === "cross"}
+                ariaExpanded={crossOpen}
                 ariaHasPopup="dialog"
-                onClick={() => toggle("cross")}
+                onClick={() => {
+                  if (crossOpen) {
+                    setCrossOpen(false);
+                    setTuning(false);
+                    return;
+                  }
+                  setImageOpen(false);
+                  setLabelsOpen(false);
+                  setPointsOpen(false);
+                  setCrossOpen(true);
+                  setTuning(false);
+                }}
               >
                 <SquareSplitVerticalIcon className="size-4" />
               </IconBtn>

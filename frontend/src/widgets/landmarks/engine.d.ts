@@ -133,7 +133,13 @@ export type EngineHandle = {
     cx: number,
     cy: number,
     sizeUm: number,
-  ): { x: number; y: number; color: [number, number, number, number]; radius: number }[];
+  ): {
+    x: number;
+    y: number;
+    z?: number;
+    color: [number, number, number, number];
+    radius: number;
+  }[];
   destroy(): void;
 };
 

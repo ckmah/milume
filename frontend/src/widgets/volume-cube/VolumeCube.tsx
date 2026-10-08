@@ -7,10 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 import type { ChunkCache } from "./chunk-cache";
+import { contentZIndexSpan, type ContentZSpan } from "./content-z-span";
 import {
-  CUBE_EXTENSIONS_GHOST,
-  CUBE_EXTENSIONS_OPEN,
-  OUTSIDE_CUT_ALPHA,
+  CUBE_EXTENSIONS,
   type CellColoring,
   type HighlightGroup,
   type RenderSettings,
@@ -20,8 +19,10 @@ import {
   cutBoxPre,
   cutFaceMarks,
   cutFractions,
+  cutFractionsForSlices,
   cutIsOpen,
   cutPointerTarget,
+  umZToWorldHeight,
   cutResizeCursor,
   dragToFaceDelta,
   faceKey,
@@ -170,6 +171,10 @@ export type VolumeCubeProps = {
    */
   onCutLive?: (cut: CubeCut) => void;
   onCutCommit?: (cut: CubeCut) => void;
+  /** Display only this fraction of the loaded z stack [lo, hi], default [0, 1]. */
+  zStackFraction?: readonly [number, number];
+  /** When true (default), shrink z to planes with image signal above contrast min. */
+  tightenZToSignal?: boolean;
 };
 
 type ViewState = {
@@ -355,10 +360,14 @@ export function VolumeCube({
   onPanEnd,
   onCutLive,
   onCutCommit,
+  zStackFraction,
+  tightenZToSignal = true,
 }: VolumeCubeProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const fixedHeight = typeof height === "number";
   const [box, setBox] = useState({ width: 640, height: 520 });
+  /** Canvas size in CSS px (for deck-aligned cut-plate projection). */
+  const [viewPixelSize, setViewPixelSize] = useState({ width: 640, height: 520 });
   const [image, setImage] = useState<ZarrSource[] | null>(null);
   const [labels, setLabels] = useState<ZarrSource[] | null>(null);
   const [error, setError] = useState("");
@@ -381,6 +390,9 @@ export function VolumeCube({
         const width = fixedHeight ? Math.round(rect.width) : Math.max(320, Math.round(rect.width));
         const height = fixedHeight ? Math.round(rect.height) : Math.max(360, Math.round(rect.height));
         setBox((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+        setViewPixelSize((prev) =>
+          prev.width === rect.width && prev.height === rect.height ? prev : { width: rect.width, height: rect.height },
+        );
       });
     };
     apply();
@@ -518,6 +530,11 @@ export function VolumeCube({
   // identity, from memory here). Labels arriving for the same window leave it be.
   const shownImage = shown?.image ?? null;
   const loader = useMemo(() => (shownImage ? [shownImage] : null), [shownImage]);
+  const [contentZSpan, setContentZSpan] = useState<ContentZSpan | null>(null);
+  useEffect(() => {
+    setContentZSpan(null);
+  }, [shownImage]);
+  const imageSignalMin = contrast[0];
   // Tags each volume Viv reads with its window, so the shader draws the labels
   // of the image Viv is drawing (see CellVolume). Viv has read the whole window
   // by then (its own copy, laid out for upload), so the fetched block goes.
@@ -525,11 +542,25 @@ export function VolumeCube({
     () =>
       shownImage
         ? (volumes: { data: unknown }[]) => {
-            markVivVolume(volumes[0]?.data, shownImage);
+            const raw = volumes[0]?.data;
+            if (tightenZToSignal && raw && typeof raw === "object" && "length" in raw) {
+              const zAxis = shownImage.labels.indexOf("z");
+              const depth = zAxis >= 0 ? shownImage.shape[zAxis]! : 1;
+              setContentZSpan(
+                contentZIndexSpan(
+                  raw as ArrayLike<number>,
+                  shownImage.width,
+                  shownImage.height,
+                  depth,
+                  imageSignalMin,
+                ),
+              );
+            }
+            markVivVolume(raw, shownImage);
             shownImage.release();
           }
         : undefined,
-    [shownImage],
+    [shownImage, imageSignalMin, tightenZToSignal],
   );
   const cells = shown?.cells ?? null;
   const hasCells = Boolean(cells);
@@ -556,15 +587,23 @@ export function VolumeCube({
   const base = image?.[0];
   const extentX = base ? oxUm + axisSize(base, "x") * sxUm : oxUm;
   const extentY = base ? oyUm + axisSize(base, "y") * syUm : oyUm;
-  const extentZ = base ? ozUm + axisSize(base, "z") * szUm : ozUm;
   const half = window_size_um / 2;
   const winX = clampRange(window_cx - half, window_cx + half, oxUm, extentX);
   const winY = clampRange(window_cy - half, window_cy + half, oyUm, extentY);
-  const stackZ: Range = [ozUm, extentZ];
+  const zFrac = zStackFraction ?? [0, 1];
+  const zBaseLo = Math.floor(levelDepth * zFrac[0]);
+  const zBaseHiEx = Math.max(zBaseLo + 1, Math.ceil(levelDepth * zFrac[1]));
+  const signalLo = contentZSpan?.[0] ?? zBaseLo;
+  const signalHi = contentZSpan?.[1] ?? zBaseHiEx;
+  const zLo = tightenZToSignal ? Math.max(zBaseLo, signalLo) : zBaseLo;
+  const zHiEx = tightenZToSignal ? Math.min(zBaseHiEx, signalHi) : zBaseHiEx;
+  const stepZ = levelVoxel?.[0] ?? szUm;
+  const stackZ: Range = [ozUm + zLo * stepZ, ozUm + zHiEx * stepZ];
 
   const xShown = clampRange(cut[0], cut[1], winX[0], winX[1]);
   const yShown = clampRange(cut[2], cut[3], winY[0], winY[1]);
   const zShown = clampRange(cut[4], cut[5], stackZ[0], stackZ[1]);
+  const contentDepthVox = Math.max(0, zHiEx - zLo);
 
   const windowXSlice = useMemo(() => {
     const step = levelVoxel ? levelVoxel[2] : 1;
@@ -583,31 +622,67 @@ export function VolumeCube({
   // the boxes' x0 offset; y by their y1 offset, because texture rows run reversed.
   const panX = shownBox && liveBox ? shownBox.x0 - liveBox.x0 : 0;
   const panY = shownBox && liveBox ? liveBox.y1 - shownBox.y1 : 0;
-  const volumeMatrix = useMemo(
-    () => (panX === 0 && panY === 0 ? Z_UP : Z_UP.clone().translate([panX, panY * ry, 0])),
-    [panX, panY, ry],
-  );
-  const windowZSlice = useMemo(() => {
-    const scale = levelVoxel ? levelVoxel[0] : 1;
-    return clampRange((stackZ[0] - ozUm) / scale, (stackZ[1] - ozUm) / scale, 0, levelDepth);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stackZ[0], stackZ[1], ozUm, levelDepth, levelVoxel?.[0]]);
+  const volumeZShift = zLo * rz;
+  const volumeMatrix = useMemo(() => {
+    const m = Z_UP.clone();
+    if (panX !== 0 || panY !== 0) m.translate([panX, panY * ry, 0]);
+    if (volumeZShift !== 0) m.translate([0, 0, -volumeZShift]);
+    return panX === 0 && panY === 0 && volumeZShift === 0 ? Z_UP : m;
+  }, [panX, panY, ry, volumeZShift]);
+  const windowZSlice = useMemo((): [number, number] => [zLo, zHiEx], [zLo, zHiEx]);
+  const frameZOriginUm = ozUm + zLo * stepZ;
   const shownCut: CubeCut = [xShown[0], xShown[1], yShown[0], yShown[1], zShown[0], zShown[1]];
   const [cx0, cx1, cy0, cy1, cz0, cz1] = shownCut;
-  const [wx0, wx1] = winX;
-  const [wy0, wy1] = winY;
-  const [wz0, wz1] = stackZ;
-  const cutFrac = useMemo(
-    () => cutFractions([cx0, cx1, cy0, cy1, cz0, cz1], [wx0, wx1], [wy0, wy1], [wz0, wz1]),
-    [cx0, cx1, cy0, cy1, cz0, cz1, wx0, wx1, wy0, wy1, wz0, wz1],
-  );
+  const cutFrac = useMemo(() => {
+    const cut: CubeCut = [cx0, cx1, cy0, cy1, cz0, cz1];
+    if (!levelVoxel) {
+      return cutFractions(cut, winX, winY, stackZ);
+    }
+    const stepX = levelVoxel[2];
+    const stepY = levelVoxel[1];
+    const stepZ = levelVoxel[0];
+    const x0v = shownBox?.x0 ?? 0;
+    const y0v = shownBox?.y0 ?? 0;
+    const texX = (um: number) => (um - oxUm) / stepX - x0v;
+    const texY = (um: number) => shownH - ((um - oyUm) / stepY - y0v);
+    const texZ = (um: number) => (um - ozUm) / stepZ;
+    return cutFractionsForSlices(cut, windowXSlice, windowYSlice, windowZSlice, texX, texY, texZ);
+  }, [
+    cx0,
+    cx1,
+    cy0,
+    cy1,
+    cz0,
+    cz1,
+    shownBox,
+    levelVoxel,
+    winX,
+    winY,
+    stackZ,
+    windowXSlice,
+    windowYSlice,
+    windowZSlice,
+    oxUm,
+    oyUm,
+    ozUm,
+    shownH,
+  ]);
   const outsideCut = !cutIsOpen(shownCut, winX, winY, stackZ);
+  const cutZMap = useMemo(
+    () =>
+      levelVoxel
+        ? { ozUm, stepZ: levelVoxel[0], zSlice: windowZSlice as [number, number] }
+        : undefined,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ozUm, levelVoxel?.[0], windowZSlice[0], windowZSlice[1]],
+  );
+  const cutZFrac: [number, number] = [cutFrac[4]!, cutFrac[5]!];
 
   // Centre of the whole window box in world units (physical scale, then Z_UP).
   // Deliberately not the cut region's centre: cross-sections must not move the cube.
   const aimTarget = useMemo(
-    () => Array.from(Z_UP.transformPoint([winW / 2, (winH / 2) * ry, (levelDepth / 2) * rz])),
-    [winW, winH, ry, rz, levelDepth],
+    () => Array.from(Z_UP.transformPoint([winW / 2, (winH / 2) * ry, (contentDepthVox / 2) * rz])),
+    [winW, winH, ry, rz, contentDepthVox],
   );
   fixedTargetRef.current = aimTarget;
 
@@ -617,7 +692,7 @@ export function VolumeCube({
     if (!level) return null;
     const wx = Math.min(axisSize(level.source, "x"), window_size_um / (sxUm * level.factor[2]));
     const wy = Math.min(axisSize(level.source, "y"), window_size_um / (syUm * level.factor[1])) * ry;
-    const depth = levelDepth * rz;
+    const depth = contentDepthVox * rz;
     // Screen footprint of the upright box at orbit 45 and ISO_PITCH: the horizontal
     // diagonal across, and the stack height foreshortened plus the tilted top face.
     const pitch = (ISO_PITCH * Math.PI) / 180;
@@ -636,7 +711,7 @@ export function VolumeCube({
       // From the front: X across and the stack up; the front face is half the window nearer.
       side: [{ width: wx * m, height: depth * m, near: wy / 2 }],
     };
-  }, [level, window_size_um, sxUm, syUm, ry, levelDepth, rz]);
+  }, [level, window_size_um, sxUm, syUm, ry, contentDepthVox, rz]);
   const framing = useLatest({ fits, box });
 
   // The first view is the preset asked for by then, else the home view: a
@@ -735,10 +810,15 @@ export function VolumeCube({
     () =>
       // No frame around an empty window (Inspect outside the volume).
       levelVoxel && winW > 0 && winH > 0
-        ? { size: [winW, winH * ry, levelDepth * rz], umPerUnit: levelVoxel[2], zOriginUm: ozUm, dark }
+        ? {
+            size: [winW, winH * ry, contentDepthVox * rz],
+            umPerUnit: levelVoxel[2],
+            zOriginUm: frameZOriginUm,
+            dark,
+          }
         : null,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [winW, winH, ry, rz, levelDepth, levelVoxel?.[2], ozUm, dark],
+    [winW, winH, ry, rz, contentDepthVox, levelVoxel?.[2], frameZOriginUm, dark],
   );
 
   // Map geometry on the stack's top face, placed in the requested window like
@@ -756,15 +836,36 @@ export function VolumeCube({
     () => ({ x0: 0, x1: winW, y0: 0, y1: winH * ry }),
     [winW, winH, ry],
   );
-  const scatterZ = cubeFrame ? cubeFrame.size[2] / 2 : 0;
+  const scatterZMid = cubeFrame ? cubeFrame.size[2] / 2 : 0;
+  const scatterZAt = useCallback(
+    (p: { z?: number }) => {
+      if (!cubeFrame || !levelVoxel) return scatterZMid;
+      const zUm = p.z;
+      if (zUm == null || !Number.isFinite(zUm)) return scatterZMid;
+      const z = umZToWorldHeight(zUm, ozUm, levelVoxel[0], windowZSlice, cubeFrame.size[2]);
+      return Math.min(cubeFrame.size[2], Math.max(0, z));
+    },
+    [cubeFrame, levelVoxel, scatterZMid, ozUm, windowZSlice],
+  );
   const placedOverlays = useMemo(() => {
     if (!overlays?.length || !liveBox || !cubeFrame) return null;
-    return placeOverlays(overlays, toWorldXY, windowRect, levelDepth * rz);
-  }, [overlays, liveBox, cubeFrame, toWorldXY, windowRect, levelDepth, rz]);
+    return placeOverlays(overlays, toWorldXY, windowRect, cubeFrame.size[2]);
+  }, [overlays, liveBox, cubeFrame, toWorldXY, windowRect]);
+  const scatterInCut = useMemo(() => {
+    if (!scatterPoints?.length) return scatterPoints ?? [];
+    if (!outsideCut) return scatterPoints;
+    const [x0, x1, y0, y1, z0, z1] = shownCut;
+    return scatterPoints.filter((p) => {
+      if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) return false;
+      const z = p.z;
+      if (z == null || !Number.isFinite(z)) return true;
+      return z >= z0 && z <= z1;
+    });
+  }, [scatterPoints, outsideCut, shownCut]);
   const placedScatterPoints = useMemo(() => {
-    if (!showPoints || !scatterPoints?.length || !liveBox || !cubeFrame) return null;
-    return placeScatterPoints(scatterPoints, toWorldXY, windowRect, scatterZ);
-  }, [showPoints, scatterPoints, liveBox, cubeFrame, toWorldXY, windowRect, scatterZ]);
+    if (!showPoints || !scatterInCut.length || !liveBox || !cubeFrame) return null;
+    return placeScatterPoints(scatterInCut, toWorldXY, windowRect, scatterZAt, cubeFrame.umPerUnit);
+  }, [showPoints, scatterInCut, liveBox, cubeFrame, toWorldXY, windowRect, scatterZAt]);
 
   const views = useMemo(
     () => [new FramedVolumeView({ id: "3d", target: aimTarget, useFixedAxis: true, controller: interactive } as never)],
@@ -793,9 +894,12 @@ export function VolumeCube({
               ySlice: windowYSlice,
               zSlice: windowZSlice,
               cutFrac,
-              cubeCutBox: outsideCut && cubeFrame ? cutBoxPre(shownCut, winX, winY, stackZ, cubeFrame.size) : null,
+              cubeCutBox:
+                outsideCut && cubeFrame
+                  ? cutBoxPre(shownCut, winX, winY, stackZ, cubeFrame.size, cutZMap, cutZFrac)
+                  : null,
               resolution: 0,
-              extensions: outsideCut ? CUBE_EXTENSIONS_GHOST : CUBE_EXTENSIONS_OPEN,
+              extensions: CUBE_EXTENSIONS,
               imageMode,
               labelMode,
               cellVolume: cells,
@@ -944,7 +1048,7 @@ export function VolumeCube({
   const wantsPan = (e: { button: number; shiftKey: boolean }) =>
     Boolean(onPan) && e.button === 0 && (panMode || e.shiftKey);
 
-  const handleBox = cubeFrame ? cutBoxPre(shownCut, winX, winY, stackZ, cubeFrame.size) : null;
+  const handleBox = cubeFrame ? cutBoxPre(shownCut, winX, winY, stackZ, cubeFrame.size, cutZMap, cutZFrac) : null;
   const handlesRef = useLatest({
     onCutLive,
     onCutCommit,
@@ -960,10 +1064,12 @@ export function VolumeCube({
   const [hoverFace, setHoverFace] = useState("");
   const [nearFace, setNearFace] = useState("");
   const [cutDragging, setCutDragging] = useState(false);
-  const pointerAt = (clientX: number, clientY: number): { face: CutFace | null; near: CutFace | null } => {
+  const pointerAt = (clientX: number, clientY: number) => {
     const h = handlesRef.current;
     const node = hostRef.current;
-    if (!h.onCutLive || !h.interactive || !h.viewState || !h.handleBox || !node) return { face: null, near: null };
+    if (!h.onCutLive || !h.interactive || !h.viewState || !h.handleBox || !node) {
+      return { face: null as CutFace | null, near: null as CutFace | null, dragDir: null };
+    }
     const rect = node.getBoundingClientRect();
     return cutPointerTarget(
       { x: clientX - rect.left, y: clientY - rect.top },
@@ -1011,7 +1117,9 @@ export function VolumeCube({
       window.addEventListener("blur", end, opts);
       return;
     }
-    const face = e.button === 0 ? pointerAt(e.clientX, e.clientY).face : null;
+    const hit = e.button === 0 ? pointerAt(e.clientX, e.clientY) : null;
+    const face = hit?.face ?? null;
+    const dragDir = hit?.dragDir ?? null;
     if (!face) {
       // Deck's orbit is absolute from panstart, and a slow frame drops isDragging so the rest of the drag no-ops.
       if (e.button !== 0 || !handlesRef.current.interactive) return;
@@ -1083,7 +1191,14 @@ export function VolumeCube({
         if (!(m.buttons & 1)) return end(true);
         const h = handlesRef.current;
         if (!h.viewState) return;
-        const delta = dragToFaceDelta(m.clientX - last.x, m.clientY - last.y, face, h.viewState, umRef.current);
+        const delta = dragToFaceDelta(
+          m.clientX - last.x,
+          m.clientY - last.y,
+          face,
+          h.viewState,
+          umRef.current,
+          dragDir ?? undefined,
+        );
         last = { x: m.clientX, y: m.clientY };
         live = moveCutEdge(live, face, delta, { x: h.winX, y: h.winY, z: h.stackZ });
         h.onCutLive?.(live);
@@ -1111,8 +1226,10 @@ export function VolumeCube({
     setNearFace((prev) => (prev === nearKey ? prev : nearKey));
   };
   const platesOn = Boolean(onCutLive && interactive && viewState && handleBox);
-  const plates = platesOn ? projectCutFaces(handleBox!, viewState!, aimTarget, box) : [];
-  const marks = platesOn ? cutFaceMarks(handleBox!, viewState!, aimTarget, box) : { anchors: "", centers: "", near: "" };
+  const plates = platesOn ? projectCutFaces(handleBox!, viewState!, aimTarget, viewPixelSize) : [];
+  const marks = platesOn
+    ? cutFaceMarks(handleBox!, viewState!, aimTarget, viewPixelSize)
+    : { anchors: "", centers: "", near: "" };
   const aimed = plates.find((plate) => faceKey(plate.face) === hoverFace);
   const cutCursor = aimed && viewState ? cutResizeCursor(aimed.face, viewState) : "";
 
@@ -1128,8 +1245,7 @@ export function VolumeCube({
       data-cut-near={nearFace}
       data-cut-dragging={String(cutDragging)}
       data-cut-cursor={cutCursor}
-      data-outside={outsideCut ? "ghost" : "open"}
-      data-outside-alpha={String(OUTSIDE_CUT_ALPHA)}
+      data-outside={outsideCut ? "cut" : "open"}
       data-cut-anchors={marks.anchors}
       data-cut-centers={marks.centers}
       data-cut-near-anchors={marks.near}
@@ -1175,8 +1291,8 @@ export function VolumeCube({
           near={nearFace}
           dragging={cutDragging}
           cut={shownCut}
-          width={box.width}
-          height={box.height}
+          width={viewPixelSize.width}
+          height={viewPixelSize.height}
         />
       ) : null}
       {layerProps && viewState ? (

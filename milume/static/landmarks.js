@@ -2632,6 +2632,9 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     if (b64 === pointsCache.b64 && xBounds === pointsCache.xBounds && yBounds === pointsCache.yBounds) {
       return pointsCache.data;
     }
+    if (!Array.isArray(xBounds) || xBounds.length < 2 || !Array.isArray(yBounds) || yBounds.length < 2) {
+      return [];
+    }
     const [xMin, xMax] = xBounds;
     const [yMin, yMax] = yBounds;
     const key = `${b64.length}:${xMin}:${xMax}:${yMin}:${yMax}:${b64.slice(0, 32)}:${b64.slice(-32)}`;
@@ -2644,11 +2647,13 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const data = new Array(n);
     for (let i = 0; i < n; i++) {
       const o = i * 4;
+      const zUm = raw[o + 3];
       data[i] = {
         i,
         x: xMin + ((raw[o] + 1) / 2) * (xMax - xMin),
         y: yMin + ((raw[o + 1] + 1) / 2) * (yMax - yMin),
         valueA: raw[o + 2],
+        z: Number.isFinite(zUm) ? zUm : undefined,
       };
     }
     pointsCache = { key, data, b64, xBounds, yBounds };
@@ -6403,6 +6408,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         out.push({
           x: d.x,
           y: d.y,
+          z: d.z,
           color: fillColorForPoint(d, probeField),
           radius: radiusForPoint(d),
         });
