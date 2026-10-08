@@ -1674,8 +1674,8 @@ test.describe("Landmarks inspect cube", () => {
       inspectPill(page).getByRole("button", { name: "Save window" }),
       inspectPill(page).getByRole("button", { name: "Exit Inspect" }),
     ];
-    for (const a of actions) await a.click({ trial: true, timeout: 5_000 });
-    await page.getByRole("button", { name: "Show left panel" }).click({ trial: true, timeout: 5_000 });
+    for (const a of actions) await a.click({ trial: true, timeout: 15_000 });
+    await page.getByRole("button", { name: "Show left panel" }).click({ trial: true, timeout: 15_000 });
     await page.getByRole("button", { name: "Show right panel" }).click();
     await expect(right).toHaveAttribute("data-collapsed", "false");
     await expect(cubeWindow(page)).toBeVisible();
@@ -1686,7 +1686,7 @@ test.describe("Landmarks inspect cube", () => {
       [b.x + b.width / 2, b.y + Math.min(b.height / 2, 40)],
     );
     expect(onTop).toBe(true);
-    for (const a of actions) await a.click({ trial: true, timeout: 5_000 });
+    for (const a of actions) await a.click({ trial: true, timeout: 15_000 });
 
     // Focus a category in the dock (points mode UI): raster mode shows the highlight in the cube.
     await right.getByRole("button", { name: "Expand cell_type" }).click();

@@ -6,6 +6,9 @@ const webServerCommands: Record<string, string> = {
   "landmarks-volume":
     "npm run dev:landmarks-volume -- --host 127.0.0.1 --port 5173 --strictPort",
 };
+// The inspect cube redraws a ray-marched volume (image and labels) per frame; on the
+// CI SwiftShader runner one frame of an orbit or cut drag can take over a second.
+const volumeOnCi = harness === "landmarks-volume" && Boolean(process.env.CI);
 const webServerCommand =
   webServerCommands[harness] ?? webServerCommands.landmarks;
 
@@ -19,9 +22,9 @@ export default defineConfig({
   testDir: "./e2e",
   // The inspect-cube spec needs the toy SpatialData served by its own harness.
   testIgnore: harness === "landmarks-volume" ? undefined : "**/landmarks-volume.spec.ts",
-  timeout: 90_000,
+  timeout: volumeOnCi ? 240_000 : 90_000,
   expect: {
-    timeout: 15_000,
+    timeout: volumeOnCi ? 30_000 : 15_000,
     toHaveScreenshot: {
       maxDiffPixelRatio: 0.02,
       animations: "disabled",
