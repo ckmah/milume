@@ -24,6 +24,13 @@ const entries =
 const singleWidget = Object.keys(entries).length === 1;
 
 const devWidget = process.env.DEV_WIDGET;
+/** landmarks-volume harness data: toy (CI) or xsmall (HF Pyxa, local dev). */
+const volumeProfile =
+  process.env.MILUME_VOLUME_PROFILE === "xsmall" ? "xsmall" : "toy";
+const volumeFixtureFile =
+  volumeProfile === "xsmall"
+    ? "landmarks-volume-fixture.xsmall.json"
+    : "landmarks-volume-fixture.json";
 const harnessRoots: Record<string, string> = {
   "landmarks-volume": path.resolve(devDir, "landmarks-volume"),
 };
@@ -78,9 +85,7 @@ function serveLandmarksVolumeFixture() {
       if (devWidget !== "landmarks-volume") return;
       server.middlewares.use("/fixture.json", (_req, res) => {
         res.setHeader("Content-Type", "application/json");
-        fs.createReadStream(
-          path.resolve(devDir, "landmarks-volume-fixture.json"),
-        ).pipe(res);
+        fs.createReadStream(path.resolve(devDir, volumeFixtureFile)).pipe(res);
       });
     },
   };
@@ -94,7 +99,13 @@ export default defineConfig(({ command }) => {
       root: harnessRoot,
       // One dep cache per harness: they pre-bundle different deps (Viv or not), and a
       // shared cache reused by another harness re-optimizes mid-test and reloads the page.
-      cacheDir: path.resolve(rootDir, "node_modules/.vite", devWidget ?? "landmarks"),
+      cacheDir: path.resolve(
+        rootDir,
+        "node_modules/.vite",
+        devWidget === "landmarks-volume"
+          ? `landmarks-volume-${volumeProfile}`
+          : (devWidget ?? "landmarks"),
+      ),
       // Missing OME-Zarr keys must 404. SPA fallback serves index.html (200),
       // and zarrita then fails to parse it instead of opening the v2 store.
       appType: usesViv ? "mpa" : "spa",
