@@ -45,21 +45,26 @@ test("draft PR #78 without Closes fails pr-policy", () => {
   assert.match(r.stderr, /Closes/i);
 });
 
-test("PR #80 with Closes and visuals passes pr-policy", () => {
-  const errors = validateUiPullRequest({
-    body: "Closes #79\n\n![points](https://example.com/a.png)\n",
-    changedPaths: ["frontend/src/widgets/volume-cube/cube-points.ts"],
-    isDraft: false,
-    issueBodies: {
-      79: "## Outcome\n\nx\n\n## Acceptance\n\n- [ ] y\n\n## Visual acceptance\n\nz\n",
-    },
-  });
-  assert.deepEqual(errors, []);
+test("PR #80 user-attachments pass pr-policy", () => {
+  const r = run("check-pr-policy.mjs", ["--fixture", "pr-80-ok"]);
+  assert.equal(r.status, 0, r.stderr);
+});
+
+test("PR #80 cursor artifact links fail pr-policy", () => {
+  const r = run("check-pr-policy.mjs", ["--fixture", "pr-80-cursor-artifact"]);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /user-attachments/);
+});
+
+test("ready PR #78 with only footer badges fails pr-policy", () => {
+  const r = run("check-pr-policy.mjs", ["--fixture", "pr-78-footer"]);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /footer badges/);
 });
 
 test("linked thin issue fails when PR closes it", () => {
   const errors = validateUiPullRequest({
-    body: "Closes #77\n\n![x](https://example.com/x.png)\n",
+    body: "Closes #77\n\n![x](https://github.com/user-attachments/assets/59fac573-c139-4015-9f63-dbaa005a14b6)\n",
     changedPaths: ["frontend/src/widgets/volume-cube/cut-plates.tsx"],
     isDraft: false,
     issueBodies: { 77: "- bullets only\n" },

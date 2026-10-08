@@ -40,7 +40,7 @@ const lines = [
   "Landmarks e2e uploaded HTML reports and failure screenshots as **workflow artifacts**. Download them from this run:",
   runUrl ? `- ${runUrl}` : "- (workflow run URL unavailable)",
   "",
-  "Before marking a UI PR ready, embed the relevant screenshot(s) or a short video in the PR body — `check:pr-policy` fails if only Actions artifacts exist.",
+  "Before marking a UI PR ready, upload the relevant screenshot or a short video so the PR body contains a `https://github.com/user-attachments/` URL. `check:pr-policy` does not accept Actions artifacts, `cursor.com/agents/.../artifacts` links, or the Open in Cursor footer badges.",
 ];
 if (pngs.length) {
   lines.push("", "Failure screenshots from this run (filenames; download via artifacts):");
