@@ -360,7 +360,10 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     if (x == null || y == null) return;
     const size = (facade.get("inspect_size_um") as number) || INSPECT_WINDOW_UM;
     engine.setInspectWindow(x, y, size);
-    const { rel, volume: v, win: w } = latest.current;
+    // The window from the model, not the last render's: a Save in the same task
+    // as a move must store the cut in the moved window.
+    const { rel, volume: v } = latest.current;
+    const w = v ? cutWindow(x, y, size, { x: origin[2], y: origin[1] }, v) : null;
     if (v && w) {
       placedRef.current = null;
       try {
@@ -370,7 +373,7 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
       }
     }
     engine.saveInspect();
-  }, [engine, facade, write]);
+  }, [engine, facade, write, origin]);
 
   const panSavedAt = useRef(0);
   const panWindow = useCallback(

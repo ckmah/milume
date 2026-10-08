@@ -73,11 +73,18 @@ async function setShow(page: Page, layer: "image" | "labels" | "points", on: boo
   await expect(btn).toHaveAttribute("aria-pressed", on ? "true" : "false");
 }
 
-/** Narrow the Z high cut by dragging the Z₁ face in Side view. */
+/**
+ * Narrow the Z high cut by dragging the Z₁ face in Side view; returns the committed Z₁ (µm).
+ * The cube's Z extent is trimmed to the planes with image signal, so a drag of `dy` px lands
+ * on a value set by the toy image, not a fixed step: tests compare against what this returns.
+ */
 async function trimZHigh(page: Page, dy = 48) {
   const bar = page.getByTestId("context-inspect-toolbar");
   const view = cubeWindow(page).locator(".volume-cube__view");
   await bar.getByRole("radio", { name: "Side view" }).click();
+  await expect(view).toHaveAttribute("data-pitch", "0");
+  // The plates are placed once the volume's frame is known.
+  await expect(view).toHaveAttribute("data-cut-centers", /z1:/);
   const host = await view.boundingBox();
   expect(host).toBeTruthy();
   const attr = await view.getAttribute("data-cut-centers");
@@ -88,6 +95,11 @@ async function trimZHigh(page: Page, dy = 48) {
   await page.mouse.down();
   await page.mouse.move(center.x, center.y + dy, { steps: 6 });
   await page.mouse.up();
+  // The toy volume is 64 µm deep; a trimmed Z₁ sits well inside it.
+  await expect.poll(async () => (await cutOf(page))[5] ?? 64).toBeLessThan(60);
+  const cut = await cutOf(page);
+  expect(cut[5]!).toBeGreaterThan(cut[4]!);
+  return cut[5]!;
 }
 
 /** Pixels of a screenshot brighter than `min` (max of r, g, b). */
@@ -139,9 +151,9 @@ const CATEGORY_HUES = { type1: 205, type0: 28 };
  * colour before. Counts and mean x, y (px) per
  * category. Comparing the two leaves out the frame's axes and the axis legend.
  */
-async function newCategoryPixels(page: Page, before: Buffer, after: Buffer, minSaturation = 0.4) {
+async function newCategoryPixels(page: Page, before: Buffer, after: Buffer, minSaturation = 0.4, hueTolerance = 15) {
   return page.evaluate(
-    async ({ before, after, hues, minSaturation }) => {
+    async ({ before, after, hues, minSaturation, hueTolerance }) => {
       const pixels = async (png: string) => {
         const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
         const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
@@ -156,7 +168,7 @@ async function newCategoryPixels(page: Page, before: Buffer, after: Buffer, minS
         if (max < 40 || d / max < minSaturation) return "";
         let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
         h = (h * 60 + 360) % 360;
-        for (const [k, hue] of Object.entries(hues)) if (Math.abs(((h - hue + 540) % 360) - 180) <= 15) return k;
+        for (const [k, hue] of Object.entries(hues)) if (Math.abs(((h - hue + 540) % 360) - 180) <= hueTolerance) return k;
         return "";
       };
       const [was, now] = [await pixels(before), await pixels(after)];
@@ -177,18 +189,26 @@ async function newCategoryPixels(page: Page, before: Buffer, after: Buffer, minS
       }
       return out;
     },
-    { before: before.toString("base64"), after: after.toString("base64"), hues: CATEGORY_HUES, minSaturation },
+    { before: before.toString("base64"), after: after.toString("base64"), hues: CATEGORY_HUES, minSaturation, hueTolerance },
   );
 }
+
+/**
+ * Labels draw at 0.4 alpha (the default), so over a bright image a cell is a pale tint of its
+ * category colour: measured (Linux SwiftShader) over the toy image's white MIP, type0's orange
+ * lands at hue 13° and saturation 0.21, type1's blue at 215° and 0.13. These cutoffs keep the
+ * grey image (saturation about 0.02) out and both tints in.
+ */
+const TINT = { minSaturation: 0.1, hueTolerance: 20 } as const;
 
 /**
  * Category-coloured pixels of one screenshot, by the same hue test as
  * `newCategoryPixels` but with no before image: for a count that has to fall
  * (a cell leaving its category colour), there is nothing for a diff to catch.
  */
-async function categoryPixels(page: Page, png: Buffer) {
+async function categoryPixels(page: Page, png: Buffer, minSaturation = 0.4, hueTolerance = 15) {
   return page.evaluate(
-    async ({ png, hues }) => {
+    async ({ png, hues, minSaturation, hueTolerance }) => {
       const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
       const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
       const ctx = canvas.getContext("2d")!;
@@ -201,18 +221,18 @@ async function categoryPixels(page: Page, png: Buffer) {
         const max = Math.max(r, g, b);
         const d = max - Math.min(r, g, b);
         if (max < 40) continue;
-        if (d / max < 0.4) {
+        if (d / max < minSaturation) {
           flat++;
           continue;
         }
         let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
         h = (h * 60 + 360) % 360;
         for (const [k, hue] of Object.entries(hues))
-          if (Math.abs(((h - hue + 540) % 360) - 180) <= 15) out[k as keyof typeof hues]++;
+          if (Math.abs(((h - hue + 540) % 360) - 180) <= hueTolerance) out[k as keyof typeof hues]++;
       }
       return { ...out, flat };
     },
-    { png: png.toString("base64"), hues: CATEGORY_HUES },
+    { png: png.toString("base64"), hues: CATEGORY_HUES, minSaturation, hueTolerance },
   );
 }
 
@@ -223,9 +243,9 @@ async function categoryPixels(page: Page, png: Buffer) {
  * its own. Instance colours are hues nothing else picks, so the clusters count
  * the cells that colour tells apart.
  */
-async function newHueClusters(page: Page, before: Buffer, after: Buffer) {
+async function newHueClusters(page: Page, before: Buffer, after: Buffer, minSaturation = 0.4) {
   return page.evaluate(
-    async ({ before, after }) => {
+    async ({ before, after, minSaturation }) => {
       const clusters = async (png: string) => {
         const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
         const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
@@ -237,7 +257,7 @@ async function newHueClusters(page: Page, before: Buffer, after: Buffer) {
           const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
           const max = Math.max(r, g, b);
           const d = max - Math.min(r, g, b);
-          if (max < 40 || d / max < 0.4) continue;
+          if (max < 40 || d / max < minSaturation) continue;
           let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
           h = (h * 60 + 360) % 360;
           const k = Math.floor(h / 10) * 10;
@@ -248,7 +268,7 @@ async function newHueClusters(page: Page, before: Buffer, after: Buffer) {
       const [was, now] = [await clusters(before), await clusters(after)];
       return [...now].filter((k) => !was.has(k)).sort((a, b) => a - b);
     },
-    { before: before.toString("base64"), after: after.toString("base64") },
+    { before: before.toString("base64"), after: after.toString("base64"), minSaturation },
   );
 }
 
@@ -792,8 +812,7 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.click(at.x, at.y);
     await expect(cubeWindow(page)).toBeVisible();
     expect(await selectionsOf(page)).toEqual([]);
-    await trimZHigh(page);
-    await expect.poll(async () => (await cutOf(page))[5]).toBe(54);
+    const z1 = await trimZHigh(page);
 
     expect(await save(page)).toBe(0);
     const [sel] = await selectionsOf(page);
@@ -801,6 +820,7 @@ test.describe("Landmarks inspect cube", () => {
     const cx = Number(await getModel(page, "inspect_cx"));
     const cy = Number(await getModel(page, "inspect_cy"));
     expect(sel.window).toEqual({ cx, cy, size_um: 300, cut: await cutOf(page) });
+    expect(sel.window.cut[5]).toBe(z1);
     const inside = await page.evaluate((w) => {
       const pts = (window as any).__landmarksEngine.getPoints() as [number, number][];
       return pts.flatMap((p, i) =>
@@ -859,6 +879,10 @@ test.describe("Landmarks inspect cube", () => {
     const size = Number(await getModel(page, "inspect_size_um"));
     const trim = 10;
     await setModel(page, { volume_cut: [0, cx0 + size / 2 - trim, 0, 256, 0, 64] });
+    // The cube has loaded and taken the cut (it is drawn) before the move.
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-outside", "cut");
 
     // Move the window and Save in one task: well inside the cut's settle delay.
     await page.evaluate((b) => {
@@ -876,6 +900,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(sel.window.cx).toBeGreaterThan(cx0);
     expect(sel.window.cut[0]).toBe(0); // open: the volume's edge
     expect(sel.window.cut[1]).toBeCloseTo(sel.window.cx + size / 2 - trim, 3);
+    expect(sel.window.cut.slice(4)).toEqual([0, 64]);
     expect(await cutOf(page)).toEqual(sel.window.cut);
   });
 
@@ -1275,17 +1300,22 @@ test.describe("Landmarks inspect cube", () => {
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-image-mode", "additive");
     await expect(view).toHaveAttribute("data-label-mode", "additive");
+    // Each projection lives in its own layer's menu.
     await openAdjust(page);
     const image = page.getByLabel("Image projection", { exact: true });
-    const labels = page.getByLabel("Labels projection", { exact: true });
     await expect(image.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
-    await expect(labels.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
     await image.getByRole("radio", { name: "MIP" }).click();
-    await labels.getByRole("radio", { name: "MIP" }).click();
     await expect(view).toHaveAttribute("data-image-mode", "mip");
-    await expect(view).toHaveAttribute("data-label-mode", "mip");
     await expect(image.getByRole("radio", { name: "MIP" })).toHaveAttribute("aria-checked", "true");
+    await page.keyboard.press("Escape");
+    await openLayerMenu(page, "labels");
+    const labels = page.getByLabel("Labels projection", { exact: true });
+    await expect(labels.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
+    await labels.getByRole("radio", { name: "MIP" }).click();
+    await expect(view).toHaveAttribute("data-label-mode", "mip");
     await expect(labels.getByRole("radio", { name: "MIP" })).toHaveAttribute("aria-checked", "true");
+    // The image's projection is unchanged by the labels'.
+    await expect(view).toHaveAttribute("data-image-mode", "mip");
   });
 
   test("inspect toolbar: presets, MIP, palette, alpha/gamma, committed Z cut", async ({ page }) => {
@@ -1328,7 +1358,6 @@ test.describe("Landmarks inspect cube", () => {
 
     await expect(view).toHaveAttribute("data-outside", "open");
     await trimZHigh(page);
-    await expect.poll(async () => ((await getModel(page, "volume_cut")) as number[])[5]).toBe(54);
     await expect(view).toHaveAttribute("data-outside", "cut");
   });
 
@@ -1396,71 +1425,83 @@ test.describe("Landmarks inspect cube", () => {
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(layerToggle(page, "image")).toHaveAttribute("aria-pressed", "true");
     await expect(layerToggle(page, "labels")).toHaveAttribute("aria-pressed", "true");
-    await openAdjust(page);
-    const panel = adjustPanel(page);
-    await expect(panel.getByRole("heading")).toHaveText(["Image"]);
     const slider = (name: string, n = 0) => page.getByRole("slider", { name }).nth(n);
     const nudge = async (name: string, key: string, n = 0) => {
       await slider(name, n).focus();
       await page.keyboard.press(`Shift+${key}`);
     };
     const now = async (name: string, n = 0) => Number(await slider(name, n).getAttribute("aria-valuenow"));
-    const adjustValues = async () => ({
-      image: [await now("Contrast", 0), await now("Contrast", 1), await now("Image alpha"), await now("Image gamma")],
-      labels: [await now("Label alpha")],
-      // Each layer's projection is reset with its section.
-      modes: [await view.getAttribute("data-image-mode"), await view.getAttribute("data-label-mode")],
-    });
-    // Defaults: the volume's contrast_limits, image alpha 1, gamma 1 (0 on its log2 scale), label alpha 0.4, both Additive.
-    const initial = await adjustValues();
-    expect(initial.image).toEqual([0, 48, 1, 0]);
-    expect(initial.labels).toEqual([0.4]);
-    expect(initial.modes).toEqual(["additive", "additive"]);
-    // All sliders are one width, in both panels.
+    // Each layer's sliders live in its own menu, so each is read with that menu open.
+    const imageValues = async () => [
+      await now("Contrast", 0),
+      await now("Contrast", 1),
+      await now("Image alpha"),
+      await now("Image gamma"),
+    ];
+    const labelValues = async () => [await now("Label alpha")];
+    const modes = async () => [await view.getAttribute("data-image-mode"), await view.getAttribute("data-label-mode")];
     const widthsOf = (region: Locator) =>
       region.locator(".landmarks-slider-control").evaluateAll((els) =>
         els.map((el) => Math.round(el.getBoundingClientRect().width)),
       );
+
+    // Image menu. Defaults: the volume's contrast_limits, image alpha 1, gamma 1 (0 on its log2 scale), Additive.
+    await openAdjust(page);
+    const panel = adjustPanel(page);
+    await expect(panel.getByRole("heading")).toHaveText(["Image"]);
+    const initialImage = await imageValues();
+    expect(initialImage).toEqual([0, 48, 1, 0]);
+    expect(await modes()).toEqual(["additive", "additive"]);
     const widths = await widthsOf(panel);
+    await nudge("Contrast", "ArrowLeft", 1);
+    await nudge("Image alpha", "ArrowLeft");
+    await nudge("Image gamma", "ArrowRight");
+    await panel.getByRole("radio", { name: "MIP" }).click();
+    await expect(view).toHaveAttribute("data-image-mode", "mip");
+    expect(await imageValues()).not.toEqual(initialImage);
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
 
-    const changeAdjust = async () => {
-      await nudge("Contrast", "ArrowLeft", 1);
-      await nudge("Image alpha", "ArrowLeft");
-      await nudge("Image gamma", "ArrowRight");
-      await page.keyboard.press("Escape");
-      await openLayerMenu(page, "labels");
-      await nudge("Label alpha", "ArrowLeft");
-      await page.getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
-      await openAdjust(page);
-      await panel.getByRole("radio", { name: "MIP" }).click();
-      const v = await adjustValues();
-      expect(v.image).not.toEqual(initial.image);
-      expect(v.labels).not.toEqual(initial.labels);
-      await expect(view).toHaveAttribute("data-image-mode", "mip");
-      await expect(view).toHaveAttribute("data-label-mode", "mip");
-    };
+    // Labels menu. Defaults: label alpha 0.4, Additive.
+    await openLayerMenu(page, "labels");
+    const labelsPanel = page.getByTestId("adjust-labels");
+    const initialLabels = await labelValues();
+    expect(initialLabels).toEqual([0.4]);
+    await nudge("Label alpha", "ArrowLeft");
+    await labelsPanel.getByRole("radio", { name: "MIP" }).click();
+    await expect(view).toHaveAttribute("data-label-mode", "mip");
+    expect(await labelValues()).not.toEqual(initialLabels);
 
-    await changeAdjust();
-    await setShow(page, "image", false);
+    // Resets restore sliders and projection only: the bar toggles stay as the user set them.
     await setShow(page, "labels", false);
+    await labelsPanel.getByRole("button", { name: "Reset labels" }).click();
+    await expect(view).toHaveAttribute("data-label-mode", "additive");
+    expect(await labelValues()).toEqual(initialLabels);
+    await expect(layerToggle(page, "labels")).toHaveAttribute("aria-pressed", "false");
+    // The Labels Reset leaves the image's settings alone.
+    await expect(view).toHaveAttribute("data-image-mode", "mip");
+    await page.keyboard.press("Escape");
+    await expect(labelsPanel).toHaveCount(0);
+
+    await openAdjust(page);
+    expect(await imageValues()).not.toEqual(initialImage);
+    await setShow(page, "image", false);
     await panel.getByRole("button", { name: "Reset image" }).click();
     await expect(view).toHaveAttribute("data-image-mode", "additive");
-    let v = await adjustValues();
-    expect(v.image).toEqual(initial.image);
-    expect(v.labels).not.toEqual(initial.labels);
-    expect(v.modes).toEqual(["additive", "mip"]);
+    expect(await imageValues()).toEqual(initialImage);
     await expect(layerToggle(page, "image")).toHaveAttribute("aria-pressed", "false");
-    await openLayerMenu(page, "labels");
-    await page.getByTestId("adjust-labels").getByRole("button", { name: "Reset labels" }).click();
     await expect(view).toHaveAttribute("data-label-mode", "additive");
-    v = await adjustValues();
-    expect(v.labels).toEqual(initial.labels);
-    await expect(layerToggle(page, "labels")).toHaveAttribute("aria-pressed", "false");
-    await setShow(page, "points", false);
-    await expect(view).toHaveAttribute("data-points", "0");
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+
+    // Points only exist in points mode; their Reset restores the default (off).
+    await setModel(page, { render_mode: "points" });
+    await setShow(page, "points", true);
+    await expect(view).not.toHaveAttribute("data-points", "0");
     await openLayerMenu(page, "points");
     await page.getByTestId("adjust-points").getByRole("button", { name: "Reset points" }).click();
     await expect(layerToggle(page, "points")).toHaveAttribute("aria-pressed", "false");
+    await expect(view).toHaveAttribute("data-points", "0");
     expect(widths[0]).toBeGreaterThanOrEqual(150);
     expect(widths[0]).toBeLessThanOrEqual(170);
   });
@@ -1518,15 +1559,20 @@ test.describe("Landmarks inspect cube", () => {
     await page.waitForTimeout(600);
     expect(await cutOf(page)).toEqual([0, 256, 0, 256, 10, 40]);
 
+    // An empty cut means the whole window: the cube opens up, and the widget does
+    // not write a full range back over Python's [].
     await setModel(page, { volume_cut: [] });
     await page.waitForTimeout(600);
-    expect(await cutOf(page)).toEqual([0, 256, 0, 256, 0, 64]);
+    expect(await cutOf(page)).toEqual([]);
+    await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-outside", "open");
   });
 
   test("a Z-only cut leaves X and Y whole for any window, edge windows too", async ({ page }) => {
     const box = await openCubeAtCentre(page);
-    await trimZHigh(page);
-    await expect.poll(async () => cutOf(page)).toEqual([0, 256, 0, 256, 0, 54]);
+    const z1 = await trimZHigh(page);
+    const zOnly = await cutOf(page);
+    expect(zOnly.slice(0, 4)).toEqual([0, 256, 0, 256]);
+    expect(zOnly[5]).toBe(z1);
 
     const zoom = () => page.evaluate(() => (window as any).__landmarksEngine.getViewState().zoom as number);
     const zoom0 = await zoom();
@@ -1535,7 +1581,7 @@ test.describe("Landmarks inspect cube", () => {
     await moveWindow(page, box, [0.25, 0.5], [0.25, 0.5]);
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(50);
     await page.waitForTimeout(600);
-    expect(await cutOf(page)).toEqual([0, 256, 0, 256, 0, 54]);
+    expect(await cutOf(page)).toEqual(zOnly);
   });
 
   test("leaving Inspect closes the cube and frees the map; Esc from its chrome closes it", async ({ page }) => {
@@ -1719,7 +1765,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-label-cells", "2");
     await expect(view).toHaveAttribute("data-highlight", "2");
     expect((await page.evaluate(() => (window as any).__tex3dWidths)).rg8).toContain(101);
-    const on = await newCategoryPixels(page, off, await view.screenshot());
+    const on = await newCategoryPixels(page, off, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
     // Cell 3 (type1, blue) and cell 2 (type0, orange) both show...
     expect(on.type1.count).toBeGreaterThan(200);
     expect(on.type0.count).toBeGreaterThan(200);
@@ -1735,7 +1781,7 @@ test.describe("Landmarks inspect cube", () => {
     const view = cubeWindow(page).locator(".volume-cube__view");
     await setModel(page, { inspect_cx: 130.5, inspect_cy: 170.5 });
     await openAdjust(page);
-    await adjustPanel(page).getByTestId("adjust-image").getByRole("radio", { name: "MIP" }).click();
+    await adjustPanel(page).getByRole("radio", { name: "MIP" }).click();
     await page.keyboard.press("Escape");
     await expect(adjustPanel(page)).toHaveCount(0);
     await expect(view).toHaveAttribute("data-image-mode", "mip");
@@ -1750,26 +1796,21 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-label-cells", "2");
     await expect(view).toHaveAttribute("data-refining", "false");
     const additive = await view.screenshot();
-    const add = await newCategoryPixels(page, off, additive);
-    // Measured (macOS Metal): type1 12923 px, type0 52450 px at the 0.4 cutoff.
+    const add = await newCategoryPixels(page, off, additive, TINT.minSaturation, TINT.hueTolerance);
     expect(add.type1.count).toBeGreaterThan(200);
     expect(add.type0.count).toBeGreaterThan(200);
     expect(add.type0.x).toBeGreaterThan(add.type1.x + 20);
     expect(add.type0.y).toBeLessThan(add.type1.y - 20);
 
-    // Image MIP + Labels MIP: the strongest cell sample per pixel, one at 0.9 x 0.6
-    // = 0.54 alpha over the white image MIP, is pale. Measured category pixels
-    // (type1 / type0) by saturation cutoff: 0.4: 0 / 0; 0.3: 0 / 62786;
-    // 0.2: 98 / 62786; 0.15: 31584 / 62786 (as at 0.1). So the blue cells sit at
-    // saturation 0.15-0.2 and the orange at 0.3-0.4; 0.12 keeps a margin below
-    // both (the grey image is near 0).
-    await openAdjust(page);
-    await adjustPanel(page).getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
+    // Image MIP + Labels MIP: the strongest cell sample per pixel at the 0.4 label
+    // alpha over the white image MIP is the same pale tint as above (see TINT).
+    await openLayerMenu(page, "labels");
+    await page.getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
     await page.keyboard.press("Escape");
-    await expect(adjustPanel(page)).toHaveCount(0);
+    await expect(page.getByTestId("adjust-labels")).toHaveCount(0);
     await expect(view).toHaveAttribute("data-label-mode", "mip");
     await expect(view).toHaveAttribute("data-refining", "false");
-    const mip = await newCategoryPixels(page, off, await view.screenshot(), 0.12);
+    const mip = await newCategoryPixels(page, off, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
     expect(mip.type1.count).toBeGreaterThan(200);
     expect(mip.type0.count).toBeGreaterThan(200);
     expect(mip.type0.x).toBeGreaterThan(mip.type1.x + 20);
@@ -1800,7 +1841,9 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-coloring", "groups");
     await expect(view).toHaveAttribute("data-refining", "false");
     const byCategory = await view.screenshot();
-    const before = await categoryPixels(page, byCategory);
+    // At the 0.4 label alpha the category tints are pale; 0.2 saturation keeps them
+    // (measured: type1 10164, type0 12440 px) and drops the instance hues' pale rims.
+    const before = await categoryPixels(page, byCategory, 0.2);
 
     // The store's only categorical column goes: there is nothing left to group by.
     await setModel(page, { active_category: "" });
@@ -1809,11 +1852,17 @@ test.describe("Landmarks inspect cube", () => {
     const shot = await view.screenshot();
     // Labels 1, 2 and 3 land on hues 222°, 85° and 307° (HUE_STEP per id), so
     // the three toy cells show as three clusters and neither category hue (205°
-    // type1, 28° type0) is among them.
-    expect(await newHueClusters(page, byCategory, shot)).toEqual([80, 220, 300]);
+    // type1, 28° type0) is among them. At the 0.4 label alpha the tints blend with
+    // the image, so a cluster can shift a bucket or pale: match each within 15°.
+    const clusters = await newHueClusters(page, byCategory, shot, 0.15);
+    const near = (hue: number, tol: number) =>
+      clusters.some((k) => Math.abs(((k + 5 - hue + 540) % 360) - 180) <= tol);
+    for (const hue of [85, 222, 307]) expect(near(hue, 15), `${hue}° in ${clusters}`).toBe(true);
+    expect(clusters).not.toContain(200);
+    expect(clusters).not.toContain(20);
     // Both category counts collapse to the chrome's own few hundred pixels: the
     // axis legend holds hues inside the 15° the category test allows.
-    const after = await categoryPixels(page, shot);
+    const after = await categoryPixels(page, shot, 0.2);
     expect(before.type1).toBeGreaterThan(5000);
     expect(before.type0).toBeGreaterThan(5000);
     expect(after.type1).toBeLessThan(before.type1 / 10);
@@ -1910,11 +1959,10 @@ test.describe("Landmarks inspect cube", () => {
   test("Selections rows restore each saved window and cut; a saved entry keeps its cut", async ({ page }) => {
     const box = await openCubeAtCentre(page);
     const cx = () => getModel(page, "inspect_cx").then(Number);
-    await trimZHigh(page);
-    await expect.poll(async () => (await cutOf(page))[5]).toBe(54);
+    const z1 = await trimZHigh(page);
     expect(await save(page)).toBe(0);
     const first = (await selectionsOf(page))[0];
-    expect(first.window.cut[5]).toBe(54);
+    expect(first.window.cut[5]).toBe(z1);
 
     await moveWindow(page, box, [0.2, 0.25], [0.2, 0.25]);
     await expect.poll(cx).not.toBeCloseTo(first.window.cx, 1);
@@ -1930,7 +1978,7 @@ test.describe("Landmarks inspect cube", () => {
     await openSelectionsDock(page);
     await selectionRow(page, 0).click();
     await expect.poll(cx).toBeCloseTo(first.window.cx, 3);
-    await expect.poll(async () => (await cutOf(page))[5]).toBe(54);
+    await expect.poll(async () => (await cutOf(page))[5]).toBe(z1);
     await selectionRow(page, 1).click();
     await expect.poll(cx).toBeCloseTo(second.window.cx, 3);
     await expect.poll(async () => (await cutOf(page))[5]).toBe(64);
@@ -2034,6 +2082,8 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("the preview float sits beside the hover square, inside the widget, under the tools", async ({ page }) => {
+    // The float is 480 px: a wider page leaves room for it on either side of the square.
+    await page.setViewportSize({ width: 1700, height: 1000 });
     await reloadWith(page, "window=100");
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     await page.evaluate(() => {
@@ -2127,18 +2177,28 @@ test.describe("Landmarks inspect cube", () => {
     // 560 px wide and the minimum 400 px tall: every inset corner covers the centre.
     await page.setViewportSize({ width: 560, height: 900 });
     await bootLandmarksVolumeHarness(page);
-    const handle = (await page.getByRole("button", { name: "Resize height" }).boundingBox())!;
-    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(handle.x + handle.width / 2, 0, { steps: 4 });
-    await page.mouse.up();
-    await expect.poll(async () => (await page.locator(".landmarks").first().boundingBox())!.height).toBeLessThan(420);
-    await expectFloatClearOfCursor(page, [
-      [0.5, 0.5],
-      [0.45, 0.45],
-      [0.55, 0.55],
-      [0.5, 0.3],
-    ]);
+    // The harness's DialKit panel (bottom-left, harness only) covers the resize handle at this
+    // width: hide it for this test (the page is shared, so restore it after).
+    const dialkit = page.locator(".dialkit-root");
+    const hideDialkit = (hidden: boolean) =>
+      dialkit.evaluateAll((els, hidden) => els.forEach((el) => ((el as HTMLElement).style.visibility = hidden ? "hidden" : "")), hidden);
+    await hideDialkit(true);
+    try {
+      const handle = (await page.getByRole("button", { name: "Resize height" }).boundingBox())!;
+      await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(handle.x + handle.width / 2, 0, { steps: 4 });
+      await page.mouse.up();
+      await expect.poll(async () => (await page.locator(".landmarks").first().boundingBox())!.height).toBeLessThan(420);
+      await expectFloatClearOfCursor(page, [
+        [0.5, 0.5],
+        [0.45, 0.45],
+        [0.55, 0.55],
+        [0.5, 0.3],
+      ]);
+    } finally {
+      await hideDialkit(false);
+    }
   });
 
   test("the preview is frameless: no panel chrome, a transparent cube", async ({ page }) => {
@@ -2320,7 +2380,7 @@ test.describe("Landmarks inspect cube", () => {
     await setModel(page, { landmarks: [line("hidden", [[20, 128], [240, 140]], { hidden: true })] });
     await expect(view).toHaveAttribute("data-overlays", "0");
 
-    // The hover preview draws them too (it shows with the cube closed).
+    // The hover preview is image-only: it never draws landmarks (it shows with the cube closed).
     await setModel(page, {
       landmarks: [line("across", [[20, 128], [240, 140]]), { id: "p", type: "point", vertices: [[128, 100]] }],
     });
@@ -2330,7 +2390,7 @@ test.describe("Landmarks inspect cube", () => {
     const box = await canvasBox(page);
     await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5, { steps: 3 });
     await expect(preview(page)).toBeVisible();
-    await expect(preview(page).locator(".volume-cube__view")).toHaveAttribute("data-overlays", "2");
+    await expect(preview(page).locator(".volume-cube__view")).toHaveAttribute("data-overlays", "0");
   });
 
   test("a window inside the volume draws only the landmarks crossing it, top edge included", async ({ page }) => {
@@ -2385,18 +2445,19 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-image", "on");
   });
 
-  test("the hover preview never draws scatter points", async ({ page }) => {
+  test("the hover preview is image-only: no scatter points or labels in either render mode", async ({ page }) => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     const box = await canvasBox(page);
     await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.5);
     const view = preview(page).locator(".volume-cube__view");
     await expect(preview(page)).toBeVisible();
     await expect(view).toHaveAttribute("data-points", "0");
-    await expect(view).toHaveAttribute("data-labels", "on");
+    await expect(view).toHaveAttribute("data-labels", "off");
     await expect(view).toHaveAttribute("data-image", "on");
     await page.getByTestId("view-cta").getByRole("switch", { name: "points/raster" }).click();
+    await expect.poll(async () => await getModel(page, "render_mode")).toBe("raster");
     await expect(view).toHaveAttribute("data-points", "0");
-    await expect(view).toHaveAttribute("data-labels", "on");
+    await expect(view).toHaveAttribute("data-labels", "off");
     await expect(view).toHaveAttribute("data-image", "on");
   });
 
