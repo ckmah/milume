@@ -94,7 +94,7 @@ Landmarks-with-a-cube harness (Playwright / manual, toy SpatialData with a 3D im
 Real Pyxa tissue for inspect work (HF `Stellaromics/demo` `xsmall/`, not used in CI):
 
 ```bash
-cd frontend && npm run dev:fixture:volume-xsmall   # once: download + export zarr + JSON
+cd frontend && npm run dev:fixture:volume-xsmall   # once: HF download, Pyxa labels + mosaic, export zarr + JSON
 cd frontend && npm run dev:landmarks-volume-xsmall
 ```
 

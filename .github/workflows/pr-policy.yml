@@ -27,15 +27,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # lib/pr-policy.mjs uses path.matchesGlob (stable in Node 22).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
+      # Ask the API for the PR's files instead of diffing against a shallow base
+      # (a depth-1 fetch of the base has no merge base with the PR head: exit 128).
       - name: Collect changed paths
         id: paths
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          git fetch origin "${{ github.base_ref }}" --depth=1
-          git diff --name-only "origin/${{ github.base_ref }}..." >> changed.txt
-          echo "paths<<EOF" >> "$GITHUB_OUTPUT"
-          cat changed.txt >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          gh api --paginate "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files" --jq '.[].filename' > changed.txt
+          echo "Changed files: $(wc -l < changed.txt)"
+          {
+            echo "paths<<EOF"
+            cat changed.txt
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Fetch linked issue bodies
         env:

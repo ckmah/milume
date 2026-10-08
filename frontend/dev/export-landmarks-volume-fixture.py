@@ -125,7 +125,12 @@ def _write_store_xsmall(store: Path):
         )
         / "xsmall"
     )
-    pyxa_sdata = pyxa(data_dir, cell_assigned_gene=False, segmentation_geometries=False)
+    pyxa_sdata = pyxa(
+        data_dir,
+        cell_assigned_gene=False,
+        segmentation_geometries=True,
+        labels=True,
+    )
     pyxa_sdata.write(store)
     return sd.read_zarr(store)
 
