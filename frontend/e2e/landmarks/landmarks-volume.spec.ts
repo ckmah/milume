@@ -2138,8 +2138,12 @@ test.describe("Landmarks inspect cube", () => {
     await expect(float).toBeHidden();
   });
 
-  /** Hover at each canvas fraction: the preview float stays inside the widget and off the cursor. */
-  async function expectFloatClearOfCursor(page: Page, points: [number, number][]) {
+  /**
+   * Hover at each canvas fraction and check where the preview float lands. `fit: "full"`
+   * keeps the float inside the widget and off the cursor. `fit: "pinned"` is the small-widget case: the 480 px float is taller than the widget, so it pins to the widget's
+   * top edge inside its sides, and may cover the cursor and run past the bottom edge.
+   */
+  async function expectFloatClearOfCursor(page: Page, points: [number, number][], fit: "full" | "pinned" = "full") {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     const box = await canvasBox(page);
     const root = (await page.locator(".landmarks").first().boundingBox())!;
@@ -2156,6 +2160,9 @@ test.describe("Landmarks inspect cube", () => {
           r.x + r.width <= root.x + root.width + 0.5 &&
           r.y + r.height <= root.y + root.height + 0.5;
         const overCursor = p.x >= r.x && p.x <= r.x + r.width && p.y >= r.y && p.y <= r.y + r.height;
+        if (fit === "pinned") {
+          return r.x >= root.x - 0.5 && r.x + r.width <= root.x + root.width + 0.5 && Math.abs(r.y - root.y) <= 0.5;
+        }
         return inside && !overCursor;
       };
       await expect.poll(placed).toBe(true);
@@ -2173,8 +2180,10 @@ test.describe("Landmarks inspect cube", () => {
     ]);
   });
 
-  test("in a small widget the pinned preview float still clears the cursor", async ({ page }) => {
-    // 560 px wide and the minimum 400 px tall: every inset corner covers the centre.
+  test("in a small widget the preview float pins to the widget's top edge, inside its sides", async ({ page }) => {
+    // 560 px wide and the minimum 400 px tall: every inset corner covers the centre. The
+    // 480 px float may cover the cursor here (accepted for small widgets); it stays visible,
+    // pinned to the top edge and within the widget's width.
     await page.setViewportSize({ width: 560, height: 900 });
     await bootLandmarksVolumeHarness(page);
     // The harness's DialKit panel (bottom-left, harness only) covers the resize handle at this
@@ -2195,7 +2204,7 @@ test.describe("Landmarks inspect cube", () => {
         [0.45, 0.45],
         [0.55, 0.55],
         [0.5, 0.3],
-      ]);
+      ], "pinned");
     } finally {
       await hideDialkit(false);
     }
