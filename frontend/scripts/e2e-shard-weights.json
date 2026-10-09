@@ -1,0 +1,7 @@
+{
+  "default": 1,
+  "patterns": [
+    { "match": "the Move tool makes a plain drag pan", "weight": 100 },
+    { "match": "panning clamps the window centre", "weight": 100 }
+  ]
+}

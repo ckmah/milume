@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
@@ -43,6 +44,24 @@ test("draft PR #78 without Closes fails pr-policy", () => {
   const r = run("check-pr-policy.mjs", ["--fixture", "pr-78-draft"]);
   assert.notEqual(r.status, 0);
   assert.match(r.stderr, /Closes/i);
+});
+
+test("volume e2e heavy pan tests are pinned to different shards", () => {
+  const cwd = join(scripts, "..");
+  const env = { ...process.env, E2E_HARNESS: "landmarks-volume" };
+  const shardHits = [];
+  for (let i = 1; i <= 3; i++) {
+    const r = spawnSync("node", ["scripts/e2e-shard.mjs", `${i}/3`, "e2e/landmarks/landmarks-volume.spec.ts", "--list"], {
+      encoding: "utf8",
+      cwd,
+      env,
+      maxBuffer: 64 * 1024 * 1024,
+    });
+    assert.equal(r.status, 0, r.stderr || r.stdout);
+    if (r.stdout.includes("panning clamps")) shardHits.push(i);
+    if (r.stdout.includes("Move tool makes a plain drag pan")) shardHits.push(i);
+  }
+  assert.deepEqual([...new Set(shardHits)].sort(), [1, 2]);
 });
 
 test("PR #80 with Closes and visuals passes pr-policy", () => {

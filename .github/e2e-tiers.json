@@ -20,6 +20,7 @@
     "frontend/e2e/fixtures.ts",
     "frontend/playwright.config.ts",
     "frontend/scripts/e2e-shard.mjs",
+    "frontend/scripts/e2e-shard-weights.json",
     "frontend/scripts/check-pr-policy.mjs",
     "frontend/scripts/check-widget-issue.mjs",
     "frontend/scripts/check-agent-policy.test.mjs",
