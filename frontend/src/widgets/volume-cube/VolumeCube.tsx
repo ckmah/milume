@@ -530,6 +530,9 @@ export function VolumeCube({
   const [contentZSpan, setContentZSpan] = useState<ContentZSpan | null>(null);
   /** `contentZSpan` applies only while this is the image Viv is drawing. */
   const contentZSpanImage = useRef<typeof shownImage>(null);
+  useLayoutEffect(() => {
+    contentZSpanImage.current = null;
+  }, [shownImage]);
   const imageSignalMin = contrast[0];
   // Tags each volume Viv reads with its window, so the shader draws the labels
   // of the image Viv is drawing (see CellVolume). Viv has read the whole window
