@@ -528,6 +528,8 @@ export function VolumeCube({
   const shownImage = shown?.image ?? null;
   const loader = useMemo(() => (shownImage ? [shownImage] : null), [shownImage]);
   const [contentZSpan, setContentZSpan] = useState<ContentZSpan | null>(null);
+  /** `contentZSpan` applies only while this is the image Viv is drawing. */
+  const contentZSpanImage = useRef<typeof shownImage>(null);
   const imageSignalMin = contrast[0];
   // Tags each volume Viv reads with its window, so the shader draws the labels
   // of the image Viv is drawing (see CellVolume). Viv has read the whole window
@@ -540,6 +542,7 @@ export function VolumeCube({
             if (tightenZToSignal && raw && typeof raw === "object" && "length" in raw) {
               const zAxis = shownImage.labels.indexOf("z");
               const depth = zAxis >= 0 ? shownImage.shape[zAxis]! : 1;
+              contentZSpanImage.current = shownImage;
               setContentZSpan(
                 contentZIndexSpan(
                   raw as ArrayLike<number>,
@@ -587,8 +590,9 @@ export function VolumeCube({
   const zFrac = zStackFraction ?? [0, 1];
   const zBaseLo = Math.floor(levelDepth * zFrac[0]);
   const zBaseHiEx = Math.max(zBaseLo + 1, Math.ceil(levelDepth * zFrac[1]));
-  const signalLo = contentZSpan?.[0] ?? zBaseLo;
-  const signalHi = contentZSpan?.[1] ?? zBaseHiEx;
+  const zSpan = contentZSpanImage.current === shownImage ? contentZSpan : null;
+  const signalLo = zSpan?.[0] ?? zBaseLo;
+  const signalHi = zSpan?.[1] ?? zBaseHiEx;
   const zLo = tightenZToSignal ? Math.max(zBaseLo, signalLo) : zBaseLo;
   const zHiEx = tightenZToSignal ? Math.min(zBaseHiEx, signalHi) : zBaseHiEx;
   const stepZ = levelVoxel?.[0] ?? szUm;
