@@ -173,25 +173,7 @@ export type SelectionItem = {
   [key: string]: unknown;
 };
 
-/**
- * Valid selection members for neighborhood seeds (matches `selectionMemberIndices` in landmarks.js).
- */
-export function selectionMemberCount(
-  sel: SelectionItem | undefined,
-  pointCount: number,
-): number {
-  if (!sel || sel.hidden) return 0;
-  const raw = sel.point_indices;
-  if (Array.isArray(raw) && raw.length) {
-    let c = 0;
-    for (let i = 0; i < raw.length; i++) {
-      const idx = Number(raw[i]);
-      if (Number.isInteger(idx) && idx >= 0 && idx < pointCount) c++;
-    }
-    return c;
-  }
-  return 0;
-}
+export { selectionMemberCount } from "./selection-members.js";
 
 export type CategoryColumn = {
   name: string;
