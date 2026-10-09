@@ -8,8 +8,11 @@
  * labels onto them by cell_id. Brain edges-on sweeps stay well under 200 ms at slice scale.
  */
 
-/** `null` = no edge-count cap (lines stay on). */
-export const KNN_EDGE_MAX_EDGE_COUNT = null;
+/**
+ * Colon A2 subsample sweep (2026-10): first-toggle p95 crosses ~200 ms at
+ * predicted edges 120_000 (10k seeds × k=12 @ 25k cells); last safe point 102_000.
+ */
+export const KNN_EDGE_MAX_EDGE_COUNT = 102_000;
 
 export function shouldDrawKnnEdgeLines(pointCount, seedCount, edgeCount = 0) {
   const edges = edgeCount | 0;

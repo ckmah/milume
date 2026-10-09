@@ -1,15 +1,11 @@
 /**
- * Colon A2 subsample sweep: edges-on toggle vs edge count at tissue scale.
+ * Colon A2 subsample sweep (positions + Cluster from colon rows only).
  *
- * Colon A2 tissue-scale sweep (positions + Cluster from colon rows only — not brain slices).
- *
- * Prerequisites:
  *   npm run dev:landmarks
- *   npm run dev:fixture:colon -- --cells 5000  (repeat for 10k, 25k, 50k, 100k; full optional)
- *
+ *   npm run dev:fixture:colon -- --cells 5000   # … 10k, 25k, 50k, 100k; full = 358k
  *   node frontend/scripts/neighborhood-colon-subsample-sweep.mjs
  */
-import { writeFileSync } from "node:fs";
+import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { chromium } from "@playwright/test";
 
 import {
@@ -19,16 +15,177 @@ import {
   p95,
 } from "./lib/neighborhood-sweep-stats.mjs";
 
+const OUT_PATH = "/opt/cursor/artifacts/issue-92-colon-a2-subsample-sweep.json";
 const K = 12;
 const CELL_SIZES = [5000, 10_000, 25_000, 50_000, 100_000, 358_173];
 const SEED_TARGETS = [300, 3000, 10_000, 30_000];
+const FALLBACK_SEED_TARGETS = [300, 1500, 3000, 5000];
 const RUNS = 5;
 const WARM_PER_RUN = 4;
 const THRESHOLD_MS = 200;
+const TRIAL_TIMEOUT_MS = Number(process.env.SWEEP_TRIAL_TIMEOUT_MS || 240_000);
 
 function fixtureUrl(cellCount) {
   if (cellCount >= 358_173) return "/colon-a2-fixture.json";
   return `/colon-a2-n${cellCount}-fixture.json`;
+}
+
+function effectiveSeedCount(n, seedTarget) {
+  return Math.min(seedTarget, Math.max(1, Math.floor(n * 0.85)));
+}
+
+function defaultState() {
+  return {
+    dataset:
+      "Stellaromics/demo colon A2 (colon rows only; positions + Cluster paired)",
+    k: K,
+    runsPerScenario: RUNS,
+    warmTogglesPerRun: WARM_PER_RUN,
+    thresholdMs: THRESHOLD_MS,
+    capRule: "first-toggle p95 >= thresholdMs on k-NN (predicted edges = seeds×k)",
+    trials: [],
+    blockErrors: [],
+    largestCompletedCellCount: 0,
+    status: "running",
+  };
+}
+
+function loadState() {
+  try {
+    return JSON.parse(readFileSync(OUT_PATH, "utf8"));
+  } catch {
+    return defaultState();
+  }
+}
+
+function aggregateTrials(trials) {
+  const byKey = new Map();
+  for (const t of trials) {
+    if (t.error) continue;
+    const key = `${t.cellCount}|${t.mode}|${t.seedTarget}`;
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key).push(t);
+  }
+  const blocks = new Map();
+  for (const [key, rows] of byKey) {
+    const [cellCount, mode, seedTarget] = key.split("|");
+    const firstToggles = rows.map((r) => r.firstToggleMs);
+    const warmAll = rows.flatMap((r) => r.warmSamplesMs);
+    const edgeCount = Math.max(...rows.map((r) => r.edgeCount ?? 0));
+    const sample = rows[0];
+    const blockKey = cellCount;
+    if (!blocks.has(blockKey)) {
+      blocks.set(blockKey, {
+        cellCount: Number(cellCount),
+        fixtureUrl: fixtureUrl(Number(cellCount)),
+        pointCount: sample.pointCount,
+        spatialIndexReadyMs: sample.spatialIndexReadyMs,
+        scenarios: [],
+      });
+    }
+    blocks.get(blockKey).scenarios.push({
+      seedTarget: Number(seedTarget),
+      seedCount: sample.seedCount,
+      mode,
+      edgeCount,
+      predictedEdges: sample.predictedEdges,
+      firstToggleMedianMs: median(firstToggles),
+      firstToggleP95Ms: p95(firstToggles),
+      warmMedianMs: median(warmAll),
+      warmP95Ms: p95(warmAll),
+      firstToggleSamples: firstToggles,
+      warmSamples: warmAll,
+    });
+  }
+  return [...blocks.values()].sort((a, b) => a.cellCount - b.cellCount);
+}
+
+function finalize(state) {
+  const blocks = aggregateTrials(state.trials);
+  const fitRows = [];
+  for (const block of blocks) {
+    for (const s of block.scenarios) {
+      if (s.mode !== "knn" || !s.predictedEdges) continue;
+      fitRows.push({
+        cellCount: block.pointCount,
+        seedCount: s.seedCount,
+        edgeCount: s.edgeCount,
+        predictedEdges: s.predictedEdges,
+        firstToggleP95Ms: s.firstToggleP95Ms,
+      });
+    }
+  }
+  fitRows.sort((a, b) => a.predictedEdges - b.predictedEdges);
+  const fitPredicted = fitRows.length >= 2
+    ? linReg(
+        fitRows.map((r) => r.predictedEdges),
+        fitRows.map((r) => r.firstToggleP95Ms),
+      )
+    : { intercept: 0, slope: 0, r2: 0 };
+  const fitActual = fitRows.length >= 2
+    ? linReg(
+        fitRows.map((r) => r.edgeCount),
+        fitRows.map((r) => r.firstToggleP95Ms),
+      )
+    : { intercept: 0, slope: 0, r2: 0 };
+  const fitCells = fitRows.length >= 2
+    ? linReg(
+        fitRows.map((r) => r.cellCount),
+        fitRows.map((r) => r.firstToggleP95Ms),
+      )
+    : { intercept: 0, slope: 0, r2: 0 };
+  const capRows = fitRows.map((r) => ({
+    edgeCount: r.predictedEdges,
+    firstToggleP95: r.firstToggleP95Ms,
+  }));
+  const { cap, crossing } = capFromFirstToggleP95(capRows, THRESHOLD_MS);
+  const completed = blocks.map((b) => b.cellCount);
+  const largestCompleted = completed.length ? Math.max(...completed) : 0;
+  return {
+    ...state,
+    blocks,
+    fitFirstToggleP95VsPredictedEdges: fitPredicted,
+    fitFirstToggleP95VsActualEdges: fitActual,
+    fitFirstToggleP95VsCellCount: fitCells,
+    recommendedKnnEdgeMaxEdgeCount: cap,
+    crossingFirstToggleP95: crossing,
+    largestCompletedCellCount: largestCompleted,
+    status: state.status,
+  };
+}
+
+function persist(state, retries = 5) {
+  const body = JSON.stringify(finalize(state), null, 2);
+  const tmp = `${OUT_PATH}.tmp`;
+  for (let i = 0; i < retries; i++) {
+    try {
+      writeFileSync(tmp, body);
+      renameSync(tmp, OUT_PATH);
+      return;
+    } catch (e) {
+      if (i === retries - 1) throw e;
+    }
+  }
+}
+
+function trialDone(state, trial) {
+  state.trials.push(trial);
+  persist(state);
+}
+
+async function withTimeout(promise, ms, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`trial timeout (${label}) after ${ms}ms`)),
+      ms,
+    );
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function benchOnce(page, { seedIndices, mode, fresh, k }) {
@@ -49,8 +206,7 @@ async function benchOnce(page, { seedIndices, mode, fresh, k }) {
 }
 
 async function runScenario(page, { n, seedTarget, mode, runIndex }) {
-  // Leave non-seed cells so k-NN has neighbor roles (whole-tissue seed sets are empty).
-  const sc = Math.min(seedTarget, Math.max(1, Math.floor(n * 0.85)));
+  const sc = effectiveSeedCount(n, seedTarget);
   const seedIndices = await page.evaluate(
     ({ n, sc, runIndex, mode, seedTarget }) => {
       function mulberry32(seed) {
@@ -88,10 +244,11 @@ async function runScenario(page, { n, seedTarget, mode, runIndex }) {
     warm.push(r.ms);
   }
   return {
+    seedCount: sc,
+    predictedEdges: mode === "knn" ? sc * K : 0,
     firstToggleMs: first.ms,
     warmSamplesMs: warm,
     edgeCount: first.edgeCount ?? 0,
-    predictedEdges: sc * K,
     knnEdgeLinesDrawn: first.knnEdgeLinesDrawn,
     neighborQueryMs: first.deckBuildProfile?.neighborQueryMs,
   };
@@ -99,135 +256,153 @@ async function runScenario(page, { n, seedTarget, mode, runIndex }) {
 
 async function loadFixture(page, cellCount) {
   const url = fixtureUrl(cellCount);
+  const navTimeout = cellCount >= 100_000 ? 600_000 : 300_000;
   await page.goto(`http://127.0.0.1:5173/?fixture=${encodeURIComponent(url)}`, {
-    waitUntil: "networkidle",
+    waitUntil: "domcontentloaded",
+    timeout: navTimeout,
   });
   await page.waitForFunction(
     () => {
       const s = window.__landmarksEngine?.getPerfSnapshot?.();
       return s?.spatialIndexBuilt && s?.usingBinaryScatterColors;
     },
-    { timeout: cellCount >= 100_000 ? 600_000 : 300_000 },
+    { timeout: navTimeout },
   );
   const snap = await page.evaluate(() => window.__landmarksEngine.getPerfSnapshot());
   return { url, ...snap };
 }
 
-async function main() {
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
-  const results = [];
+function trialKey(cellCount, mode, seedTarget, runIndex) {
+  return `${cellCount}:${mode}:${seedTarget}:run${runIndex}`;
+}
 
-  for (const cellCount of CELL_SIZES) {
-    console.log("=== cells", cellCount, "===");
-    let snap;
-    try {
-      snap = await loadFixture(page, cellCount);
-    } catch (e) {
-      console.error("skip", cellCount, e.message);
-      results.push({ cellCount, error: String(e), scenarios: [] });
-      continue;
-    }
-    const n = snap.pointCount;
-    const scenarios = [];
-    for (const seedTarget of SEED_TARGETS) {
-      if (seedTarget > n) continue;
-      const effectiveSeeds = Math.min(seedTarget, Math.max(1, Math.floor(n * 0.85)));
-      if (effectiveSeeds < Math.min(50, seedTarget)) continue;
-      for (const mode of ["knn", "radius"]) {
-        const firstToggles = [];
-        const warmAll = [];
-        let edgeCount = 0;
-        for (let run = 0; run < RUNS; run++) {
-          const row = await runScenario(page, { n, seedTarget, mode, runIndex: run });
-          firstToggles.push(row.firstToggleMs);
-          warmAll.push(...row.warmSamplesMs);
-          edgeCount = Math.max(edgeCount, row.edgeCount);
-          console.log(
+function alreadyRan(state, cellCount, mode, seedTarget, runIndex) {
+  const id = trialKey(cellCount, mode, seedTarget, runIndex);
+  return state.trials.some((t) => t.id === id && !t.error);
+}
+
+async function runBlock(browser, state, cellCount, seedTargets) {
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  page.setDefaultTimeout(TRIAL_TIMEOUT_MS);
+  let snap;
+  try {
+    snap = await loadFixture(page, cellCount);
+  } catch (e) {
+    state.blockErrors.push({
+      cellCount,
+      phase: "load",
+      message: String(e?.message || e),
+    });
+    persist(state);
+    await context.close();
+    return "load_failed";
+  }
+  const n = snap.pointCount;
+  for (const seedTarget of seedTargets) {
+    if (seedTarget > n) continue;
+    const sc = effectiveSeedCount(n, seedTarget);
+    if (sc < Math.min(50, seedTarget)) continue;
+    for (const mode of ["knn", "radius"]) {
+      for (let run = 0; run < RUNS; run++) {
+        const id = trialKey(cellCount, mode, seedTarget, run);
+        if (alreadyRan(state, cellCount, mode, seedTarget, run)) continue;
+        const label = `${cellCount} ${mode} seeds=${seedTarget} run${run}`;
+        try {
+          const row = await withTimeout(
+            runScenario(page, { n, seedTarget, mode, runIndex: run }),
+            TRIAL_TIMEOUT_MS,
+            label,
+          );
+          trialDone(state, {
+            id,
             cellCount,
-            mode,
+            pointCount: n,
+            spatialIndexReadyMs: snap.spatialIndexReadyMs,
             seedTarget,
-            `run${run}`,
+            seedCount: row.seedCount,
+            mode,
+            runIndex: run,
+            ...row,
+          });
+          console.log(
+            label,
             "first",
             row.firstToggleMs.toFixed(1),
             "edge",
             row.edgeCount,
           );
+        } catch (e) {
+          const msg = String(e?.message || e);
+          console.error("FAIL", label, msg);
+          trialDone(state, {
+            id,
+            cellCount,
+            pointCount: n,
+            spatialIndexReadyMs: snap.spatialIndexReadyMs,
+            seedTarget,
+            seedCount: sc,
+            mode,
+            runIndex: run,
+            error: msg,
+          });
+          state.blockErrors.push({ cellCount, phase: "trial", trial: id, message: msg });
+          persist(state);
+          if (/context was destroyed|crash|OOM|out of memory|target closed/i.test(msg)) {
+            await context.close();
+            return "fatal";
+          }
         }
-        scenarios.push({
-          seedTarget,
-          seedCount: effectiveSeeds,
-          mode,
-          edgeCount,
-          predictedEdges: Math.min(seedTarget, n) * (mode === "knn" ? K : 0),
-          firstToggleMedianMs: median(firstToggles),
-          firstToggleP95Ms: p95(firstToggles),
-          warmMedianMs: median(warmAll),
-          warmP95Ms: p95(warmAll),
-          firstToggleSamples: firstToggles,
-          warmSamples: warmAll,
-        });
       }
     }
-    results.push({
-      cellCount,
-      fixtureUrl: fixtureUrl(cellCount),
-      pointCount: n,
-      spatialIndexReadyMs: snap.spatialIndexReadyMs,
-      scenarios,
-    });
   }
+  state.largestCompletedCellCount = Math.max(state.largestCompletedCellCount, cellCount);
+  persist(state);
+  await context.close();
+  return "ok";
+}
 
-  const fitRows = [];
-  for (const block of results) {
-    for (const s of block.scenarios ?? []) {
-      if (s.mode !== "knn") continue;
-      const predicted = s.seedCount * K;
-      fitRows.push({
-        cellCount: block.pointCount,
-        seedCount: s.seedCount,
-        edgeCount: s.edgeCount,
-        predictedEdges: predicted,
-        firstToggleP95Ms: s.firstToggleP95Ms,
-      });
+async function main() {
+  const resume = process.env.SWEEP_RESUME === "1";
+  const state = resume ? loadState() : defaultState();
+  if (resume) state.status = "running";
+  else persist(state);
+
+  const browser = await chromium.launch({
+    args: ["--disable-dev-shm-usage", "--no-sandbox"],
+  });
+
+  for (const cellCount of CELL_SIZES) {
+    console.log("=== cells", cellCount, "===");
+    let result = await runBlock(browser, state, cellCount, SEED_TARGETS);
+    if (result === "fatal" && cellCount >= 50_000) {
+      console.log("=== fallback seeds at", cellCount, "===");
+      result = await runBlock(browser, state, cellCount, FALLBACK_SEED_TARGETS);
+    }
+    if (result === "load_failed") {
+      state.blockErrors.push({ cellCount, phase: "load", message: "skipped size" });
+      persist(state);
+      continue;
+    }
+    if (result === "fatal") {
+      state.status = `stopped_after_${cellCount}`;
+      persist(state);
+      console.error("Stopping sweep after fatal failure at", cellCount);
+      break;
     }
   }
-  fitRows.sort((a, b) => a.edgeCount - b.edgeCount);
-  const fitEdges = linReg(
-    fitRows.map((r) => r.predictedEdges),
-    fitRows.map((r) => r.firstToggleP95Ms),
-  );
-  const fitEdgesActual = linReg(
-    fitRows.map((r) => r.edgeCount),
-    fitRows.map((r) => r.firstToggleP95Ms),
-  );
-  const fitCells = linReg(
-    fitRows.map((r) => r.cellCount),
-    fitRows.map((r) => r.firstToggleP95Ms),
-  );
-  const capRows = fitRows.map((r) => ({
-    edgeCount: r.predictedEdges,
-    firstToggleP95: r.firstToggleP95Ms,
-  }));
-  const { cap, crossing } = capFromFirstToggleP95(capRows, THRESHOLD_MS);
 
-  const out = {
-    dataset: "Stellaromics/demo colon A2 (pyxa_studio_v1 + cell_metadata, Studio-kept)",
-    k: K,
-    runsPerScenario: RUNS,
-    warmTogglesPerRun: WARM_PER_RUN,
-    thresholdMs: THRESHOLD_MS,
-    capRule: "first-toggle p95 >= thresholdMs",
-    recommendedKnnEdgeMaxEdgeCount: cap,
-    crossingFirstToggleP95: crossing,
-    fitFirstToggleP95VsPredictedEdges: fitEdges,
-    fitFirstToggleP95VsActualEdges: fitEdgesActual,
-    fitFirstToggleP95VsCellCount: fitCells,
-    blocks: results,
-  };
-  const path = "/opt/cursor/artifacts/issue-92-colon-a2-subsample-sweep.json";
-  writeFileSync(path, JSON.stringify(out, null, 2));
-  console.log("wrote", path, "cap", cap);
+  state.status = state.status === "running" ? "complete" : state.status;
+  persist(state);
+  const final = finalize(state);
+  console.log(
+    "wrote",
+    OUT_PATH,
+    "cap",
+    final.recommendedKnnEdgeMaxEdgeCount,
+    "largest",
+    final.largestCompletedCellCount,
+  );
   await browser.close();
 }
 
