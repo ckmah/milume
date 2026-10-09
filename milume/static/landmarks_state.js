@@ -54,7 +54,7 @@ export function typeFocusIndices(model) {
 
 /**
  * Select or toggle a category group row.
- * Plain click: exclusive select; click again on the sole row clears.
+ * Plain click: exclusive select (same as main's setSelected for one group).
  * Modifier click: toggle membership (Cmd on macOS, Ctrl elsewhere).
  */
 export function selectTypeIndex(model, labelIndex, { additive = false } = {}) {
@@ -63,11 +63,7 @@ export function selectTypeIndex(model, labelIndex, { additive = false } = {}) {
 
   let indices = typeFocusIndices(model);
   if (!additive) {
-    if (indices.length === 1 && indices[0] === labelIndex) {
-      indices = [];
-    } else {
-      indices = [labelIndex];
-    }
+    indices = [labelIndex];
   } else {
     const set = new Set(indices);
     if (set.has(labelIndex)) set.delete(labelIndex);
@@ -81,6 +77,8 @@ export function selectTypeIndex(model, labelIndex, { additive = false } = {}) {
     model.set("selected_type_indices", []);
   } else {
     model.set("selected_kind", "type");
+    // Index before indices so notebook observers can coerce single-focus, then
+    // the full union overwrites for multi-select.
     model.set("selected_index", labelIndex);
     model.set("selected_type_indices", indices);
   }
@@ -294,10 +292,7 @@ export function setSelected(model, kind, index) {
   if (kind !== "type") {
     model.set("selected_type_indices", []);
   } else if (index >= 0) {
-    const raw = model.get("selected_type_indices");
-    if (!Array.isArray(raw) || !raw.length) {
-      model.set("selected_type_indices", [index]);
-    }
+    model.set("selected_type_indices", [index]);
   } else {
     model.set("selected_type_indices", []);
   }

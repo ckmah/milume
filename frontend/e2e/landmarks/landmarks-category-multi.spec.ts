@@ -2,7 +2,7 @@ import { expect, type Page } from "@playwright/test";
 
 import { test } from "../fixtures";
 
-import { bootLandmarksHarness, getModel, setModel, waitForEngine } from "../helpers";
+import { bootLandmarksHarness, getModel, waitForEngine } from "../helpers";
 
 /** Harness-only second column on the committed xsmall fixture (even/odd split). */
 async function installHarnessTwinGroups(page: Page) {
@@ -30,6 +30,22 @@ async function installHarnessTwinGroups(page: Page) {
     model.set("point_palette", ["#1f77b4", "#ff7f0e"]);
     model.set("category_codes", codeB64);
     model.set("color_by", "categorical");
+    model.set("type_neighborhoods", [
+      {
+        id: "group_a",
+        column: "harness_twin",
+        neighborhood: "knn",
+        neighborhood_k: 8,
+        neighborhood_radius: 0,
+      },
+      {
+        id: "group_b",
+        column: "harness_twin",
+        neighborhood: "knn",
+        neighborhood_k: 8,
+        neighborhood_radius: 0,
+      },
+    ]);
     model.set("selected_kind", "");
     model.set("selected_index", -1);
     model.set("selected_type_indices", []);
@@ -60,31 +76,31 @@ test.describe("Landmarks category multi-select", () => {
     const rowA = right.getByRole("listitem").filter({ hasText: "group_a" });
     const rowB = right.getByRole("listitem").filter({ hasText: "group_b" });
 
+    const seedCount = () =>
+      page.evaluate(
+        () => (window as any).__landmarksEngine.getNeighborhoodOverlay().seedRoleCount as number,
+      );
+
     await rowA.click();
     await expect.poll(() => getModel(page, "selected_kind")).toBe("type");
     await expect.poll(() => getModel(page, "selected_index")).toBe(0);
     await expect.poll(() => getModel(page, "selected_type_indices")).toEqual([0]);
+    await expect.poll(seedCount).toBeGreaterThan(0);
+    const seedsA = await seedCount();
+
+    await rowA.click();
+    await expect.poll(() => getModel(page, "selected_type_indices")).toEqual([0]);
 
     await rowB.click({ modifiers: ["Control"] });
     await expect.poll(() => getModel(page, "selected_type_indices")).toEqual([0, 1]);
-
-    const scopeBoth = await page.evaluate(() => {
-      const model = (window as any).__landmarksModel;
-      const b64 = model.get("category_codes") || "";
-      const raw = new Int32Array(
-        Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)).buffer,
-      );
-      let c = 0;
-      for (let i = 0; i < raw.length; i++) if (raw[i] === 0 || raw[i] === 1) c += 1;
-      return c;
-    });
-    expect(scopeBoth).toBeGreaterThan(0);
+    await expect.poll(seedCount).toBeGreaterThan(seedsA);
 
     await rowA.click({ modifiers: ["Control"] });
     await expect.poll(() => getModel(page, "selected_type_indices")).toEqual([1]);
 
-    await rowB.click();
+    await rowB.click({ modifiers: ["Control"] });
     await expect.poll(() => getModel(page, "selected_kind")).toBe("");
     await expect.poll(() => getModel(page, "selected_type_indices")).toEqual([]);
+    await expect.poll(seedCount).toBe(0);
   });
 });

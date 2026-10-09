@@ -788,6 +788,22 @@ class LandmarksWidget(AnyWidget):
         if logged:
             self.gene_log1p = False
 
+    @traitlets.observe("selected_kind", "selected_index")
+    def _sync_selected_type_indices(self, change: dict) -> None:
+        """Notebook single-type focus: ``selected_index`` owns the union."""
+        if change.get("new") == change.get("old"):
+            return
+        kind = str(self.selected_kind or "")
+        if kind != "type":
+            if change.get("name") == "selected_kind":
+                self.selected_type_indices = []
+            return
+        idx = int(self.selected_index)
+        if idx < 0:
+            self.selected_type_indices = []
+            return
+        self.selected_type_indices = [idx]
+
     @traitlets.observe("active_genes")
     def _on_active_genes(self, change: dict) -> None:
         if change.get("new") == change.get("old"):
@@ -1025,7 +1041,14 @@ class LandmarksWidget(AnyWidget):
 
         kind = str(self.selected_kind or "")
         if kind == "selection":
-            return self.get_obs_names(adata, "all", spatial_key=spatial_key)
+            selections = list(self.selections or [])
+            idx = int(self.selected_index)
+            if idx < 0 or idx >= len(selections):
+                return np.asarray([], dtype=str)
+            sel_id = selections[idx].get("id")
+            if not sel_id:
+                return np.asarray([], dtype=str)
+            return self.get_obs_names(adata, str(sel_id), spatial_key=spatial_key)
         if kind != "type":
             return np.asarray([], dtype=str)
         indices = list(self.selected_type_indices or [])
