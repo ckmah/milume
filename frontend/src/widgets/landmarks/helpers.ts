@@ -173,6 +173,8 @@ export type SelectionItem = {
   [key: string]: unknown;
 };
 
+export { selectionMemberCount } from "./selection-members.js";
+
 export type CategoryColumn = {
   name: string;
   labels?: string[];

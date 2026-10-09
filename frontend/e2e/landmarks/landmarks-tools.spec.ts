@@ -83,13 +83,17 @@ test.describe("LandmarksWidget tool completeness", () => {
   test("point buffer promotes contained points to a selection", async ({
     page,
   }) => {
+    const { xMin, spanX, yMin, spanY } = await bounds(page);
+    const cx = xMin + spanX * 0.5;
+    const cy = yMin + spanY * 0.5;
+    const buffer = Math.max(spanX, spanY) * 0.12;
     await setModel(page, {
       landmarks: [
         {
           id: "seed-point",
           type: "point",
-          vertices: [[2650, 320]],
-          buffer_width: 80,
+          vertices: [[cx, cy]],
+          buffer_width: buffer,
           buffer_side: "both",
           line_style: "solid",
           color: "#00e5ff",

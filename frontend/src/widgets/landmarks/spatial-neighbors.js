@@ -2,6 +2,24 @@
 
 import { KdTreeMap } from "@thi.ng/geom-accel";
 
+let scratchSeed = null;
+let scratchVisit = null;
+let scratchN = 0;
+
+/** Pre-size visit buffers so the first neighborhood query avoids allocation. */
+export function warmNeighborQueryScratch(pointCount) {
+  ensureScratch(pointCount | 0);
+}
+
+function ensureScratch(n) {
+  if (!scratchSeed || scratchN < n) {
+    scratchN = n;
+    scratchSeed = new Uint8Array(n);
+    scratchVisit = new Uint8Array(n);
+  }
+  return { isSeed: scratchSeed, visited: scratchVisit };
+}
+
 /**
  * Build a KD-tree over point positions. Values are point indices.
  * @param {Array<{x:number,y:number,z?:number}>} pts
@@ -38,21 +56,34 @@ export function queryNeighbors(tree, pts, seedIdxs, opts) {
   if (mode === "radius" && !(radius > 0)) return { edges, neighbors };
 
   const dim = tree.dim | 0;
-  const seen = new Set();
-  const seedSet = new Set(seedIdxs);
-  // Large cap for radius queries; knn uses takeK (+1 to skip self).
-  const limit = mode === "knn" ? takeK + 1 : Math.max(pts.length, 1);
+  const n = pts.length;
+  const { isSeed, visited } = ensureScratch(n);
+  for (let i = 0; i < seedIdxs.length; i++) {
+    const si = seedIdxs[i] | 0;
+    if (si >= 0 && si < n) isSeed[si] = 1;
+  }
+  const limit = mode === "knn" ? takeK + 1 : Math.max(n, 1);
   const maxDist = mode === "knn" ? Number.POSITIVE_INFINITY : radius;
+  const q2 = dim === 3 ? [0, 0, 0] : [0, 0];
 
-  for (const si of seedIdxs) {
-    const s = pts[si];
+  for (let si = 0; si < seedIdxs.length; si++) {
+    const seedIdx = seedIdxs[si] | 0;
+    const s = pts[seedIdx];
     if (!s) continue;
-    const q = dim === 3 ? [s.x, s.y, s.z ?? 0] : [s.x, s.y];
-    const hits = tree.queryValues(q, maxDist, limit) || [];
-    for (const j of hits) {
-      if (j === si || seedSet.has(j)) continue;
-      if (!seen.has(j)) {
-        seen.add(j);
+    if (dim === 3) {
+      q2[0] = s.x;
+      q2[1] = s.y;
+      q2[2] = s.z ?? 0;
+    } else {
+      q2[0] = s.x;
+      q2[1] = s.y;
+    }
+    const hits = tree.queryValues(q2, maxDist, limit) || [];
+    for (let hi = 0; hi < hits.length; hi++) {
+      const j = hits[hi] | 0;
+      if (j === seedIdx || isSeed[j]) continue;
+      if (!visited[j]) {
+        visited[j] = 1;
         neighbors.push(j);
       }
       if (wantEdges) {
@@ -66,6 +97,12 @@ export function queryNeighbors(tree, pts, seedIdxs, opts) {
         });
       }
     }
+  }
+
+  for (let i = 0; i < neighbors.length; i++) visited[neighbors[i]] = 0;
+  for (let i = 0; i < seedIdxs.length; i++) {
+    const si = seedIdxs[i] | 0;
+    if (si >= 0 && si < n) isSeed[si] = 0;
   }
   return { edges, neighbors };
 }

@@ -179,14 +179,25 @@ test.describe("LandmarksWidget", () => {
     }
     await page.keyboard.up("Shift");
 
-    // knn neighborhood: edges instead of the gradient.
+    // k-NN neighborhood: edge lines only for small selections (see neighborhood-perf.js).
     const sels = (await getModel(page, "selections")) as any[];
+    const smallSeeds = Array.from({ length: 40 }, (_, i) => i);
     await setModel(page, {
-      selections: [{ ...sels[0], neighborhood: "knn", neighborhood_k: 8 }, ...sels.slice(1)],
+      selections: [
+        {
+          id: "knn-small",
+          type: "points",
+          point_indices: smallSeeds,
+          neighborhood: "knn",
+          neighborhood_k: 8,
+        },
+        ...sels.slice(1),
+      ],
       selected_kind: "selection",
       selected_index: 0,
     });
     await expect.poll(async () => (await hoodOverlay()).mode).toBe("knn");
+    await expect.poll(async () => (await hoodOverlay()).knnEdgeLinesDrawn).toBe(true);
     await expect.poll(async () => (await hoodOverlay()).edgeCount).toBeGreaterThan(0);
     hood = await hoodOverlay();
     expect(hood.radiusGradient).toBe(false);
@@ -303,6 +314,14 @@ test.describe("LandmarksWidget", () => {
   test("context toolbar promote from selection neighborhood", async ({
     page,
   }) => {
+    const xb = (await getModel(page, "x_bounds")) as [number, number];
+    const yb = (await getModel(page, "y_bounds")) as [number, number];
+    const [x0, x1] = xb;
+    const [y0, y1] = yb;
+    const mx = (x0 + x1) * 0.5;
+    const my = (y0 + y1) * 0.5;
+    const dx = (x1 - x0) * 0.35;
+    const dy = (y1 - y0) * 0.35;
     await setModel(page, {
       selected_kind: "selection",
       selected_index: 0,
@@ -311,10 +330,10 @@ test.describe("LandmarksWidget", () => {
           id: "lasso-1",
           type: "polygon",
           vertices: [
-            [2800, 600],
-            [3100, 600],
-            [3100, 900],
-            [2800, 900],
+            [mx - dx, my - dy],
+            [mx + dx, my - dy],
+            [mx + dx, my + dy],
+            [mx - dx, my + dy],
           ],
           neighborhood: "knn",
           neighborhood_k: 4,

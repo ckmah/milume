@@ -39,7 +39,17 @@ import {
   pointInRing,
   distPointToSeg,
 } from "./landmarks_geometry.js";
-import { buildSpatialIndex, queryNeighbors } from "../../frontend/src/widgets/landmarks/spatial-neighbors.js";
+import {
+  buildSpatialIndex,
+  queryNeighbors,
+  warmNeighborQueryScratch,
+} from "../../frontend/src/widgets/landmarks/spatial-neighbors.js";
+import {
+  hashSeedIndices,
+  neighborGeomCacheKey,
+  shouldDrawKnnEdgeLines,
+} from "../../frontend/src/widgets/landmarks/neighborhood-perf.js";
+import { bakeRadiusDistanceField } from "../../frontend/src/widgets/landmarks/neighborhood-radius-bake.js";
 import {
   DEFAULT_BIN_SIZE,
   buildRaster,
@@ -90,8 +100,6 @@ const NEIGH_EDGE_WIDTH = 0.75;
 const NEIGH_GRADIENT_PEAK_ALPHA = 0.18;
 /** Muted teal wash (DESIGN neighborhood-teal desaturated) for the field only. */
 const NEIGH_GRADIENT_COLOR = "#8ebfb6";
-const NEIGH_GRADIENT_MAX_DIM = 512;
-const NEIGH_GRADIENT_MAX_DIM_LARGE = 256;
 const SEED_ROLE = 2;
 const NEIGH_ROLE = 1;
 /** Selected / seed points grow slightly when a type or selection is focused. */
@@ -408,6 +416,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   let pointRoles = null;
   let pointRoleMode = false;
   let hoodEdges = [];
+  let hoodKnnEdgeLinesDrawn = false;
+  let focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
   let hoodRadiusBake = null; // { key, dist, w, h, bounds, seedCount, textureSize, rMax }
   let hoodRadiusGradient = null; // remapped view { key, image, bounds, seedCount, textureSize, radius, bakeRMax }
   let zoomBy = () => { };
@@ -419,6 +429,25 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   /** Lazily densified CSC → col-major Float32Array (nObs × nGenes), same layout as gene_values. */
   let geneDenseFromCsc = null;
   let spatialIndex = null;
+  let spatialIndexPointCount = 0;
+  let spatialIndexBuildHandle = 0;
+  let spatialIndexReadyMs = null;
+  let perfEpochMs = performance.now();
+  /** Harness: force k-NN edge PathLayer for cutoff sweeps. */
+  let benchForceKnnEdges = false;
+  /** GPU scatter: base fill colors (full opacity), rebuilt when coloring changes. */
+  let pointFillColors = null;
+  let pointDimColors = null;
+  let pointFillColorsKey = "";
+  let pointPositionBuffer = null;
+  let pointPositionBufferSource = null;
+  let hoodHighlightData = [];
+  let hoodHighlightKey = "";
+  let deckLayersPublishSeq = 0;
+  let pointFillColorsBuildHandle = 0;
+  let scatterDisplayColors = null;
+  let scatterDisplayRadii = null;
+  let scatterRoleRevision = 0;
   let embeddingValues = null;
   let embeddingMatrix = null; // Float32Array row-major n×d raw
   let embeddingMatrixDim = 0;
@@ -500,8 +529,278 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   }
   refreshEmbeddingMatrix();
 
+  function invalidatePointColorBuffers() {
+    pointFillColors = null;
+    pointDimColors = null;
+    pointFillColorsKey = "";
+    if (pointFillColorsBuildHandle && typeof cancelIdleCallback === "function") {
+      cancelIdleCallback(pointFillColorsBuildHandle);
+    }
+    pointFillColorsBuildHandle = 0;
+  }
+
+  function schedulePointFillColorsBuild() {
+    if (pointFillColorsBuildHandle) return;
+    const run = () => {
+      pointFillColorsBuildHandle = 0;
+      const data = getPointsData();
+      if (!data.length) return;
+      const probeField =
+        pointSimilarityOn() || rasterSimilarityOn()
+          ? activePointProbeScores()
+          : null;
+      ensurePointFillColors(probeField);
+    };
+    if (typeof requestIdleCallback === "function") {
+      pointFillColorsBuildHandle = requestIdleCallback(run, { timeout: 2500 });
+    } else {
+      setTimeout(run, 0);
+    }
+  }
+
+  function rebuildPointFillColorsFast(probeField) {
+    const data = getPointsData();
+    const n = data.length;
+    const colors = new Uint8ClampedArray(n * 4);
+    const mode = model.get("color_by") || "categorical";
+    if (!probeField && mode === "categorical" && categoryCodes) {
+      const cols = model.get("category_columns") || [];
+      const ci = activeCategoryIndex();
+      const col = ci >= 0 ? cols[ci] : null;
+      const palette = (col && col.palette) || model.get("point_palette") || [FALLBACK_POINT];
+      const row = ci >= 0 ? ci * n : 0;
+      for (let i = 0; i < n; i++) {
+        const code = col ? categoryCodes[row + i] | 0 : Math.round(data[i].valueA);
+        const rgba = hexToRgbaBytes(
+          palette[((code % palette.length) + palette.length) % palette.length],
+          POINT_OPACITY,
+        );
+        const o = i * 4;
+        colors[o] = rgba[0];
+        colors[o + 1] = rgba[1];
+        colors[o + 2] = rgba[2];
+        colors[o + 3] = rgba[3];
+      }
+      pointFillColors = colors;
+      pointFillColorsKey = pointColorCacheKey(probeField);
+      pointDimColors = null;
+      return colors;
+    }
+    for (let i = 0; i < n; i++) {
+      writeFillColorForPoint(data[i], probeField, colors, i * 4);
+    }
+    pointFillColors = colors;
+    pointFillColorsKey = pointColorCacheKey(probeField);
+    pointDimColors = null;
+    return colors;
+  }
+
+  function invalidatePointGeometryBuffers() {
+    pointPositionBuffer = null;
+    pointPositionBufferSource = null;
+    scatterDisplayColors = null;
+    scatterDisplayRadii = null;
+    invalidatePointColorBuffers();
+  }
+
+  function syncScatterRoleAttributes() {
+    const data = getPointsData();
+    const n = data.length;
+    if (!n) return;
+    const size = model.get("point_size") ?? 2;
+    const probeField =
+      pointSimilarityOn() || rasterSimilarityOn()
+        ? activePointProbeScores()
+        : null;
+    const base = ensurePointFillColors(probeField);
+    if (!scatterDisplayColors || scatterDisplayColors.length !== n * 4) {
+      scatterDisplayColors = new Uint8ClampedArray(n * 4);
+    }
+    if (!scatterDisplayRadii || scatterDisplayRadii.length !== n) {
+      scatterDisplayRadii = new Float32Array(n);
+    }
+    if (!pointRoleMode || !pointRoles) {
+      scatterDisplayColors.set(base);
+      scatterDisplayRadii.fill(size);
+      scatterRoleRevision++;
+      return;
+    }
+    for (let i = 0; i < n; i++) {
+      const role = pointRoles[i] || 0;
+      const o = i * 4;
+      scatterDisplayColors[o] = base[o];
+      scatterDisplayColors[o + 1] = base[o + 1];
+      scatterDisplayColors[o + 2] = base[o + 2];
+      if (role === SEED_ROLE || role === NEIGH_ROLE) {
+        scatterDisplayColors[o + 3] = 255;
+        scatterDisplayRadii[i] =
+          role === SEED_ROLE ? size * SELECTED_SIZE_SCALE : size;
+      } else {
+        scatterDisplayColors[o + 3] = Math.round((base[o + 3] || 255) * OTHER_ALPHA_SCALE);
+        scatterDisplayRadii[i] = size * OTHER_SIZE_SCALE;
+      }
+    }
+    scatterRoleRevision++;
+  }
+
+  function ensurePointPositionBuffer(data) {
+    if (!data.length) {
+      pointPositionBuffer = null;
+      pointPositionBufferSource = null;
+      return;
+    }
+    if (data === pointPositionBufferSource && pointPositionBuffer) return;
+    const n = data.length;
+    const buf = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const o = i * 3;
+      buf[o] = data[i].x;
+      buf[o + 1] = data[i].y;
+      buf[o + 2] = 0;
+    }
+    pointPositionBuffer = buf;
+    pointPositionBufferSource = data;
+  }
+
+  function pointColorCacheKey(probeField) {
+    return [
+      pointsCache.key,
+      POINT_OPACITY,
+      model.get("point_palette"),
+      model.get("color_by"),
+      model.get("active_genes"),
+      model.get("gene_values"),
+      model.get("gene_scale_mode"),
+      model.get("gene_log1p"),
+      model.get("embedding_values"),
+      model.get("embedding_channel_labels"),
+      model.get("embedding_matrix"),
+      clientRasterKey,
+      model.get("raster_n_bins"),
+      model.get("raster_feature_dim"),
+      model.get("raster_query_bin"),
+      model.get("raster_similarity_enabled"),
+      model.get("raster_embedding_dims"),
+      hoverBinIndex,
+      hoverPointIndex,
+      pinnedPointIndex,
+      probeScrubSeq,
+      pinnedProbeWorld,
+      currentMode,
+      model.get("category_columns"),
+      model.get("active_category"),
+      probeField ? 1 : 0,
+    ].join("|");
+  }
+
+  function writeFillColorForPoint(d, probeField, out, offset) {
+    const opacity = POINT_OPACITY;
+    const sim = similarityRgbaForPoint(d.i, opacity, probeField);
+    if (sim) {
+      out[offset] = sim[0];
+      out[offset + 1] = sim[1];
+      out[offset + 2] = sim[2];
+      out[offset + 3] = sim[3];
+      return;
+    }
+    const mode = model.get("color_by") || "categorical";
+    let rgba;
+    if (mode === "embedding") {
+      rgba =
+        blendEmbeddingColors(d.i, opacity) ||
+        hexToRgbaBytes("#6b7280", opacity * 0.35);
+    } else if (mode === "continuous") {
+      const activeGenes = model.get("active_genes") || [];
+      if (activeGenes.length > 0) {
+        rgba =
+          blendGeneColors(d.i, opacity) ||
+          hexToRgbaBytes("#6b7280", opacity * 0.35);
+      } else {
+        rgba = hexToRgbaBytes("#6b7280", opacity);
+      }
+    } else {
+      const cols = model.get("category_columns") || [];
+      const ci = activeCategoryIndex();
+      const col = ci >= 0 ? cols[ci] : null;
+      const palette = (col && col.palette) || model.get("point_palette") || [FALLBACK_POINT];
+      const code = col ? categoryCodeAt(d.i) : Math.round(d.valueA);
+      rgba = hexToRgbaBytes(palette[((code % palette.length) + palette.length) % palette.length], opacity);
+    }
+    out[offset] = rgba[0];
+    out[offset + 1] = rgba[1];
+    out[offset + 2] = rgba[2];
+    out[offset + 3] = rgba[3];
+  }
+
+  function ensurePointFillColors(probeField) {
+    const data = getPointsData();
+    const n = data.length;
+    const key = pointColorCacheKey(probeField);
+    if (pointFillColors && key === pointFillColorsKey && pointFillColors.length === n * 4) {
+      return pointFillColors;
+    }
+    return rebuildPointFillColorsFast(probeField);
+  }
+
+  function scheduleSpatialIndexBuild(sync = false) {
+    const pts = getPointsData();
+    if (!pts.length) {
+      spatialIndex = null;
+      return;
+    }
+    if (spatialIndex && !sync) return;
+    if (sync) {
+      if (spatialIndexBuildHandle) {
+        cancelIdleCallback(spatialIndexBuildHandle);
+        spatialIndexBuildHandle = 0;
+      }
+      spatialIndex = buildSpatialIndex(pts);
+      spatialIndexPointCount = pts.length;
+      if (spatialIndexReadyMs == null) spatialIndexReadyMs = performance.now() - perfEpochMs;
+      warmNeighborQueryScratch(pts.length);
+      return;
+    }
+    if (spatialIndexBuildHandle) return;
+    const run = () => {
+      spatialIndexBuildHandle = 0;
+      spatialIndex = buildSpatialIndex(pts);
+      spatialIndexPointCount = pts.length;
+      if (spatialIndexReadyMs == null) spatialIndexReadyMs = performance.now() - perfEpochMs;
+      warmNeighborQueryScratch(pts.length);
+    };
+    if (typeof requestIdleCallback === "function") {
+      spatialIndexBuildHandle = requestIdleCallback(run, { timeout: 1500 });
+    } else {
+      setTimeout(run, 0);
+    }
+  }
+
+  function ensureSpatialIndexForQuery() {
+    const pts = getPointsData();
+    if (spatialIndex && spatialIndexPointCount === pts.length) return spatialIndex;
+    if (spatialIndexBuildHandle) {
+      if (typeof cancelIdleCallback === "function") {
+        cancelIdleCallback(spatialIndexBuildHandle);
+      }
+      spatialIndexBuildHandle = 0;
+    }
+    spatialIndex = buildSpatialIndex(pts);
+    spatialIndexPointCount = pts.length;
+    if (spatialIndexReadyMs == null) spatialIndexReadyMs = performance.now() - perfEpochMs;
+    warmNeighborQueryScratch(pts.length);
+    return spatialIndex;
+  }
+
   function refreshSpatialIndex() {
-    spatialIndex = buildSpatialIndex(getPointsData());
+    if (spatialIndexBuildHandle) {
+      if (typeof cancelIdleCallback === "function") {
+        cancelIdleCallback(spatialIndexBuildHandle);
+      }
+      spatialIndexBuildHandle = 0;
+    }
+    spatialIndex = null;
+    spatialIndexPointCount = 0;
+    scheduleSpatialIndexBuild(true);
   }
 
   function isRasterMode() {
@@ -2657,7 +2956,11 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       };
     }
     pointsCache = { key, data, b64, xBounds, yBounds };
-    spatialIndex = buildSpatialIndex(data);
+    invalidatePointGeometryBuffers();
+    spatialIndex = null;
+    spatialIndexPointCount = 0;
+    scheduleSpatialIndexBuild();
+    schedulePointFillColorsBuild();
     return data;
   }
 
@@ -2669,69 +2972,46 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const { ScatterplotLayer } = deckModules;
     const data = getPointsData();
     if (!data.length) return [];
+    ensurePointPositionBuffer(data);
     // point_size is radius in the same units as x/y (µm for micron data).
     const size = model.get("point_size") ?? 2;
-    const roleTrigger = [
-      size,
-      pointRoleMode,
-      model.get("selected_kind"),
-      model.get("selected_index"),
-      model.get("type_neighborhoods"),
-      model.get("selections"),
-      model.get("active_category"),
-    ];
-    const fillTriggers = [
-      model.get("point_palette"),
-      POINT_OPACITY,
-      model.get("color_by"),
-      model.get("active_genes"),
-      model.get("gene_values"),
-      model.get("gene_scale_mode"),
-      model.get("gene_log1p"),
-      model.get("embedding_values"),
-      model.get("embedding_channel_labels"),
-      model.get("embedding_matrix"),
-      clientRasterKey,
-      model.get("raster_n_bins"),
-      model.get("raster_feature_dim"),
-      model.get("raster_query_bin"),
-      model.get("raster_similarity_enabled"),
-      model.get("raster_embedding_dims"),
-      hoverBinIndex,
-      hoverPointIndex,
-      pinnedPointIndex,
-      // Circle follows cursor separately; point colors only change when the
-      // quantized / bin query changes (probeScrubSeq) or pin moves.
-      probeScrubSeq,
-      pinnedProbeWorld,
-      currentMode,
-      ...roleTrigger,
-    ];
-    // Cells are never GPU-picked: a pick pass over 10^5+ points stalls hover and
-    // wheel zoom. Probe scrub uses DOM mousemove + unproject.
-    // Hoist probe field once; getFillColor must stay O(1) per point.
     const probeField =
       pointSimilarityOn() || rasterSimilarityOn()
         ? activePointProbeScores()
         : null;
-    return [
+    const fillKey = pointColorCacheKey(probeField);
+    const colorTriggers = [fillKey, pointRoleMode ? "hood-dim" : "rest"];
+    const layers = [];
+    const scatterData = {
+      length: data.length,
+      attributes: {
+        getPosition: { value: pointPositionBuffer, size: 3 },
+      },
+    };
+
+    syncScatterRoleAttributes();
+    scatterData.attributes.getFillColor = {
+      value: scatterDisplayColors,
+      size: 4,
+      normalized: true,
+    };
+    scatterData.attributes.getRadius = { value: scatterDisplayRadii, size: 1 };
+    layers.push(
       new ScatterplotLayer({
         id: "landmarks-points",
-        data,
-        getPosition: (d) => [d.x, d.y, 0],
-        getFillColor: (d) => fillColorForPoint(d, probeField),
-        getRadius: (d) => radiusForPoint(d),
+        data: scatterData,
         radiusUnits: "common",
         radiusMinPixels: 1.5,
         stroked: false,
         filled: true,
         pickable: false,
         updateTriggers: {
-          getFillColor: fillTriggers,
-          getRadius: roleTrigger,
+          getFillColor: [fillKey, scatterRoleRevision],
+          getRadius: [size, scatterRoleRevision],
         },
       }),
-    ];
+    );
+    return layers;
   }
 
   function landmarkLabelAnchor(lm, pathPts) {
@@ -3243,7 +3523,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
 
   function lookupGraphNeighbors(graph, pts, seedIdxs, opts) {
     // graph unused — client KD-tree replaces CSR sync.
-    return queryNeighbors(spatialIndex || buildSpatialIndex(pts), pts, seedIdxs, opts);
+    const tree = ensureSpatialIndexForQuery();
+    return queryNeighbors(tree, pts, seedIdxs, opts);
   }
 
   function buildNeighborhoodLayers() {
@@ -3275,7 +3556,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       );
     }
     // kNN: restyled seed→neighbor edges (thin, low-opacity design-token teal).
-    if (hood.neighborhood === "knn" && hoodEdges.length) {
+    if (hood.neighborhood === "knn" && hoodKnnEdgeLinesDrawn && hoodEdges.length) {
       layers.push(
         new PathLayer({
           id: "neighborhood-knn",
@@ -3397,10 +3678,19 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     );
   }
 
+  let lastDeckBuildProfile = {
+    prepareFocusGeomMs: 0,
+    buildLayersMs: 0,
+    neighborQueryMs: 0,
+    roleScatterSyncMs: 0,
+  };
+
   function buildDeckLayers() {
+    const tPrep = performance.now();
     prepareFocusGeom();
-    // Selection emphasis lives on the points layer (size + dimming); no outline layers.
-    return [
+    lastDeckBuildProfile.prepareFocusGeomMs = performance.now() - tPrep;
+    const tLay = performance.now();
+    const layers = [
       ...buildRasterLayers(),
       ...buildProbeOutlineLayers(),
       ...buildNeighborhoodLayers(),
@@ -3409,6 +3699,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       ...buildDraftLayers(),
       ...buildVolumeWindowLayers(),
     ].filter(Boolean);
+    lastDeckBuildProfile.buildLayersMs = performance.now() - tLay;
+    return layers;
   }
 
   /** The placed window `{ x, y, size }` (µm); the hover square is `{ x, y, px, py }`. */
@@ -4362,88 +4654,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     setDeckLayers();
   }
 
-  function hashSeedIndices(seeds) {
-    let h = seeds.length * 73856093;
-    for (let i = 0; i < seeds.length; i++) h = (Math.imul(h, 31) + (seeds[i] | 0)) | 0;
-    return h;
-  }
-
-  /**
-   * Bake a min-distance-to-nearest-seed field at r_max (world/common µm).
-   * AABB is expanded by r_max once; seed world positions stay fixed (never
-   * uniformly scale the AABB when r changes — that would pull seeds together).
-   * Rebaked only when seeds or r_max change — not on pan/zoom or current-r slider.
-   */
-  function bakeRadiusDistanceField(pts, seeds, rMax) {
-    if (!seeds.length || !(rMax > 0)) return null;
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    const positions = [];
-    for (let i = 0; i < seeds.length; i++) {
-      const s = pts[seeds[i]];
-      if (!s) continue;
-      positions.push(s);
-      if (s.x < minX) minX = s.x;
-      if (s.y < minY) minY = s.y;
-      if (s.x > maxX) maxX = s.x;
-      if (s.y > maxY) maxY = s.y;
-    }
-    if (!positions.length) return null;
-    minX -= rMax;
-    minY -= rMax;
-    maxX += rMax;
-    maxY += rMax;
-    const spanX = Math.max(maxX - minX, 1e-6);
-    const spanY = Math.max(maxY - minY, 1e-6);
-    const maxDim =
-      positions.length > 800 ? NEIGH_GRADIENT_MAX_DIM_LARGE : NEIGH_GRADIENT_MAX_DIM;
-    const scale = maxDim / Math.max(spanX, spanY);
-    const w = Math.max(1, Math.min(maxDim, Math.ceil(spanX * scale)));
-    const h = Math.max(1, Math.min(maxDim, Math.ceil(spanY * scale)));
-    const sx = w / spanX;
-    const sy = h / spanY;
-    // World-unit distance; Infinity sentinel → no seed within r_max.
-    const dist = new Float32Array(w * h);
-    dist.fill(Number.POSITIVE_INFINITY);
-    const rPxX = rMax * sx;
-    const rPxY = rMax * sy;
-
-    for (let si = 0; si < positions.length; si++) {
-      const s = positions[si];
-      // Canvas y=0 is top; map world maxY → row 0 so BitmapLayer bounds top matches.
-      const cx = (s.x - minX) * sx;
-      const cy = (maxY - s.y) * sy;
-      const x0 = Math.max(0, Math.floor(cx - rPxX));
-      const x1 = Math.min(w - 1, Math.ceil(cx + rPxX));
-      const y0 = Math.max(0, Math.floor(cy - rPxY));
-      const y1 = Math.min(h - 1, Math.ceil(cy + rPxY));
-      for (let y = y0; y <= y1; y++) {
-        const dyWorld = ((y + 0.5 - cy) / sy);
-        const row = y * w;
-        for (let x = x0; x <= x1; x++) {
-          const dxWorld = ((x + 0.5 - cx) / sx);
-          const d = Math.hypot(dxWorld, dyWorld);
-          if (d > rMax) continue;
-          const idx = row + x;
-          if (d < dist[idx]) dist[idx] = d;
-        }
-      }
-    }
-
-    return {
-      dist,
-      w,
-      h,
-      // [left, bottom, right, top] in world/common units (fixed at r_max)
-      bounds: [minX, minY, maxX, maxY],
-      seedCount: positions.length,
-      rMax,
-      textureSize: [w, h],
-    };
-  }
-
   /**
    * Remap a baked distance field to the visible soft-gradient canvas for current r.
    * O(texture) — no per-seed restamp. Min-distance + monotonic falloff ≡ max-blend
@@ -4510,44 +4720,100 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
 
   function prepareFocusGeom() {
     const pts = getPointsData();
-    pointRoles = new Uint8Array(pts.length);
-    pointRoleMode = false;
-    hoodEdges = [];
     const focus = cellLayerFocus();
     if (!focus) {
+      focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
+      pointRoles = null;
+      pointRoleMode = false;
+      hoodEdges = [];
+      hoodKnnEdgeLinesDrawn = false;
       hoodRadiusBake = null;
       hoodRadiusGradient = null;
+      syncScatterRoleAttributes();
       return;
     }
     const seeds = seedIndicesFor(focus);
     if (!seeds.length) {
+      focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
+      pointRoles = null;
+      pointRoleMode = false;
+      hoodEdges = [];
+      hoodKnnEdgeLinesDrawn = false;
       hoodRadiusBake = null;
       hoodRadiusGradient = null;
+      syncScatterRoleAttributes();
       return;
     }
-    // Category / selection focus: enlarge seeds and dim others.
-    pointRoleMode = true;
-    for (const i of seeds) pointRoles[i] = SEED_ROLE;
     const hood = neighborhoodFor(focus);
     if (!hood || hood.neighborhood === "off") {
+      // Hide neighborhood chrome but keep focusGeomCache so hood off→on with the same
+      // seeds reuses neighbor indices / edge geometry instead of rebuilding PathLayer data.
+      pointRoles = null;
+      pointRoleMode = false;
+      hoodEdges = [];
+      hoodKnnEdgeLinesDrawn = false;
       hoodRadiusBake = null;
       hoodRadiusGradient = null;
+      syncScatterRoleAttributes();
       return;
     }
-    const graph = null;
+    const k = Math.min(Number(hood.neighborhood_k) || 12, maxNeighborhoodK());
+    let r = Number(hood.neighborhood_radius) || 0;
+    const rMax = maxNeighborhoodRadius();
+    if (rMax > 0) r = Math.min(r, rMax);
+    const pointsKey = pointsCache.key || `${pts.length}`;
+    const cacheKey = neighborGeomCacheKey({
+      pointsKey,
+      focusKind: focus.kind,
+      focusIndex: focus.index,
+      hoodMode: hood.neighborhood,
+      hoodK: k,
+      hoodRadius: r,
+      seedCount: seeds.length,
+      seedHash: hashSeedIndices(seeds),
+    });
+    if (focusGeomCache.key === cacheKey && focusGeomCache.pointRoles) {
+      pointRoles = focusGeomCache.pointRoles;
+      pointRoleMode = true;
+      hoodEdges = focusGeomCache.hoodEdges;
+      hoodKnnEdgeLinesDrawn = focusGeomCache.knnEdgeLinesDrawn;
+      if (hood.neighborhood === "radius" && r > 0 && rMax > 0) {
+        ensureRadiusGradient(pts, seeds, r, rMax);
+      }
+      const tSync = performance.now();
+      syncScatterRoleAttributes();
+      lastDeckBuildProfile.roleScatterSyncMs = performance.now() - tSync;
+      return;
+    }
+
+    const tRoles = performance.now();
+    pointRoles = new Uint8Array(pts.length);
+    pointRoleMode = true;
+    hoodEdges = [];
+    hoodKnnEdgeLinesDrawn = false;
+    for (const i of seeds) pointRoles[i] = SEED_ROLE;
+    lastDeckBuildProfile.roleAllocMs = performance.now() - tRoles;
+
     if (hood.neighborhood === "radius" || hood.neighborhood === "knn") {
-      const k = Math.min(Number(hood.neighborhood_k) || 12, maxNeighborhoodK());
-      let r = Number(hood.neighborhood_radius) || 0;
-      const rMax = maxNeighborhoodRadius();
-      if (rMax > 0) r = Math.min(r, rMax);
-      if (!spatialIndex) refreshSpatialIndex();
-      const result = lookupGraphNeighbors(graph, pts, seeds, {
+      const tIndex = performance.now();
+      ensureSpatialIndexForQuery();
+      lastDeckBuildProfile.spatialEnsureMs = performance.now() - tIndex;
+      const predictedEdges =
+        hood.neighborhood === "knn" ? (seeds.length | 0) * (k | 0) : 0;
+      const wantEdges =
+        hood.neighborhood === "knn" &&
+        (benchForceKnnEdges ||
+          shouldDrawKnnEdgeLines(pts.length, seeds.length, predictedEdges));
+      const tQuery = performance.now();
+      const result = lookupGraphNeighbors(null, pts, seeds, {
         mode: hood.neighborhood,
         k,
         radius: r,
-        edges: hood.neighborhood === "knn",
+        edges: wantEdges,
       });
-      hoodEdges = result.edges;
+      lastDeckBuildProfile.neighborQueryMs = performance.now() - tQuery;
+      hoodEdges = wantEdges ? result.edges : [];
+      hoodKnnEdgeLinesDrawn = wantEdges && hoodEdges.length > 0;
       for (const i of result.neighbors) {
         if (pointRoles[i] !== SEED_ROLE) pointRoles[i] = NEIGH_ROLE;
       }
@@ -4561,6 +4827,16 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       hoodRadiusBake = null;
       hoodRadiusGradient = null;
     }
+
+    focusGeomCache = {
+      key: cacheKey,
+      pointRoles,
+      hoodEdges,
+      knnEdgeLinesDrawn: hoodKnnEdgeLinesDrawn,
+    };
+    const tSync = performance.now();
+    syncScatterRoleAttributes();
+    lastDeckBuildProfile.roleScatterSyncMs = performance.now() - tSync;
   }
 
   function updateSelectedLandmark(patch) {
@@ -5999,8 +6275,15 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   });
   onChange("points_data", () => {
     pointsCache = { key: "", data: [] };
+    focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
+    hoodHighlightData = [];
+    hoodHighlightKey = "";
+    invalidatePointGeometryBuffers();
     geneDenseFromCsc = null;
-    refreshSpatialIndex();
+    spatialIndex = null;
+    spatialIndexPointCount = 0;
+    scheduleSpatialIndexBuild();
+    schedulePointFillColorsBuild();
     clientRasterKey = "";
     if (!deckgl) {
       initDeck();
@@ -6022,6 +6305,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   onChange("category_codes", () => {
     refreshCategoryCodes();
     clientRasterKey = "";
+    invalidatePointColorBuffers();
+    schedulePointFillColorsBuild();
     setDeckLayers();
   });
   onChange("gene_values", () => {
@@ -6148,6 +6433,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         return;
       }
       setDeckLayers();
+      scheduleSpatialIndexBuild();
+      schedulePointFillColorsBuild();
       resizeObserver = new ResizeObserver(() => resizeDeck());
       resizeObserver.observe(main);
     });
@@ -6303,9 +6590,20 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       const gradient = mode === "radius" && hoodRadiusGradient?.image
         ? hoodRadiusGradient
         : null;
+      let neighborRoleCount = 0;
+      let seedRoleCount = 0;
+      if (pointRoles) {
+        for (let i = 0; i < pointRoles.length; i++) {
+          if (pointRoles[i] === NEIGH_ROLE) neighborRoleCount++;
+          else if (pointRoles[i] === SEED_ROLE) seedRoleCount++;
+        }
+      }
       return {
         mode,
         edgeCount: hoodEdges.length,
+        knnEdgeLinesDrawn: hoodKnnEdgeLinesDrawn,
+        neighborRoleCount,
+        seedRoleCount,
         // Legacy: stroked per-seed disks removed; always 0 in radius gradient mode.
         radiusDiskCount: 0,
         radiusGradient: Boolean(gradient),
@@ -6319,6 +6617,105 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         k: Number(hood?.neighborhood_k) || 0,
       };
     },
+    /**
+     * End-to-end neighborhood toggle timing (harness / profiling).
+     * @param {{ seedCount: number, mode?: 'knn'|'radius'|'off', k?: number, offFirst?: boolean }} opts
+     */
+    benchNeighborhoodToggle(opts = {}) {
+      const seedCount = Math.max(0, opts.seedCount | 0);
+      const mode = opts.mode || "knn";
+      const offFirst = opts.offFirst !== false;
+      benchForceKnnEdges = !!opts.forceKnnEdges;
+      if (opts.freshSelection) {
+        focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
+      }
+      const pts = getPointsData();
+      const seeds =
+        Array.isArray(opts.seedIndices) && opts.seedIndices.length
+          ? opts.seedIndices.map((i) => i | 0).filter((i) => i >= 0 && i < pts.length)
+          : Array.from(
+              { length: Math.min(seedCount, pts.length) },
+              (_, i) => i,
+            );
+      const rMax = maxNeighborhoodRadius();
+      const radius = rMax > 0 ? rMax * 0.35 : 0;
+      const apply = (hood) => {
+        model.set("selections", [
+          {
+            id: opts.freshSelection ? `bench-hood-${opts.seedCount}-${performance.now()}` : "bench-hood",
+            type: "points",
+            point_indices: seeds,
+            neighborhood: hood,
+            neighborhood_k: opts.k ?? 12,
+            neighborhood_radius: radius,
+          },
+        ]);
+        model.set("selected_kind", "selection");
+        model.set("selected_index", 0);
+      };
+      if (offFirst) apply("off");
+      const t0 = performance.now();
+      apply(mode);
+      setDeckLayers();
+      return new Promise((resolve) => {
+        const finish = () => {
+          benchForceKnnEdges = false;
+          const overlay = handle.getNeighborhoodOverlay();
+          resolve({
+            ms: performance.now() - t0,
+            mode,
+            seedCount: seeds.length,
+            spatialIndexBuilt: Boolean(spatialIndex),
+            hoodHighlightCount: hoodHighlightData.length,
+            deckBuildProfile: { ...lastDeckBuildProfile },
+            ...overlay,
+          });
+        };
+        if (!deckgl?.isInitialized) {
+          requestAnimationFrame(() => requestAnimationFrame(finish));
+          return;
+        }
+        deckgl.setProps({
+          onAfterRender: () => {
+            deckgl.setProps({ onAfterRender: null });
+            finish();
+          },
+        });
+      });
+    },
+    profileNeighborhoodToggle(opts = {}) {
+      const marks = [];
+      const mark = (name) => {
+        performance.mark(name);
+        marks.push(name);
+      };
+      mark("hood-toggle-start");
+      return handle.benchNeighborhoodToggle(opts).then((result) => {
+        mark("hood-toggle-end");
+        const measures = [];
+        if (marks.length >= 2) {
+          try {
+            const m = performance.measure(
+              "hood-toggle-e2e",
+              marks[0],
+              marks[marks.length - 1],
+            );
+            measures.push({ name: m.name, duration: m.duration });
+          } catch {
+            /* ignore */
+          }
+        }
+        return { ...result, measures };
+      });
+    },
+    getPerfSnapshot: () => ({
+      spatialIndexBuilt: Boolean(spatialIndex),
+      spatialIndexReadyMs,
+      pointCount: getPointsData().length,
+      hoodHighlightCount: hoodHighlightData.length,
+      pointRoleMode,
+      usingBinaryScatterColors: Boolean(pointFillColors),
+    }),
     getHover: () => (hoverTarget ? { ...hoverTarget } : null),
     subscribeHover: (fn) => {
       if (typeof fn !== "function") return () => {};

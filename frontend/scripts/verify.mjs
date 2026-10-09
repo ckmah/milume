@@ -37,7 +37,10 @@ if (frontendChanged) {
 }
 if (hit.python) plan.push([".", "uv run pytest"]);
 if (hit.core || hit.infra) plan.push(["frontend", "npm run test:e2e:core"]);
-if (hit.landmarks || hit.infra) plan.push(["frontend", "npm run test:e2e:landmarks"]);
+if (hit.landmarks || hit.infra) {
+  plan.push(["frontend", "npm run test:unit"]);
+  plan.push(["frontend", "npm run test:e2e:landmarks"]);
+}
 
 console.log(`base ${base.slice(0, 8)}, ${changed.size} changed file(s)`);
 if (!plan.length) console.log("docs / non-runtime only: nothing to run beyond CI.");

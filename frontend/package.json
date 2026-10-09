@@ -5,7 +5,9 @@
   "scripts": {
     "build": "cross-env MILUME_BUILD_WIDGET=landmarks vite build",
     "dev:landmarks": "vite",
-    "dev:fixture": "uv run --directory .. python frontend/dev/export-fixture.py",
+    "dev:fixture": "uv run --extra demo --directory .. python frontend/dev/export-pyxa-harness-fixture.py --profile xsmall",
+    "dev:fixture:pyxa-small": "uv run --extra demo --directory .. python frontend/dev/export-pyxa-harness-fixture.py --profile small",
+    "dev:fixture:colon": "uv run --extra demo --directory .. python frontend/dev/export-colon-a2-harness-fixture.py",
     "watch": "cross-env MILUME_BUILD_WIDGET=landmarks vite build --watch",
     "watch:landmarks": "cross-env MILUME_BUILD_WIDGET=landmarks vite build --watch",
     "dev:landmarks-volume": "cross-env DEV_WIDGET=landmarks-volume vite",
@@ -25,6 +27,7 @@
     "check:pr-policy": "node scripts/check-pr-policy.mjs",
     "check:widget-issue": "node scripts/check-widget-issue.mjs",
     "test:agent-policy": "node --test scripts/check-agent-policy.test.mjs",
+    "test:unit": "node --test src/widgets/landmarks/neighbor-golden.test.mjs src/widgets/landmarks/neighborhood-perf.test.mjs",
     "verify": "node scripts/verify.mjs"
   },
   "overrides": {

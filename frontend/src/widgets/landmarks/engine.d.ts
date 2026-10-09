@@ -58,9 +58,47 @@ export type EngineHandle = {
     lineWidth: number;
     lineAlpha: number;
   }>;
+  benchNeighborhoodToggle(opts?: {
+    seedCount: number;
+    mode?: "knn" | "radius" | "off";
+    k?: number;
+    offFirst?: boolean;
+  }): Promise<{
+    ms: number;
+    mode: string;
+    seedCount: number;
+    spatialIndexBuilt: boolean;
+    hoodHighlightCount: number;
+    edgeCount: number;
+    knnEdgeLinesDrawn: boolean;
+    neighborRoleCount: number;
+    seedRoleCount: number;
+  }>;
+  profileNeighborhoodToggle(
+    opts?: {
+      seedCount: number;
+      mode?: "knn" | "radius" | "off";
+      k?: number;
+      offFirst?: boolean;
+    },
+  ): Promise<{
+    ms: number;
+    measures: Array<{ name: string; duration: number }>;
+  }>;
+  getPerfSnapshot(): {
+    spatialIndexBuilt: boolean;
+    pointCount: number;
+    hoodHighlightCount: number;
+    pointRoleMode: boolean;
+    usingBinaryScatterColors: boolean;
+  };
   getNeighborhoodOverlay(): {
     mode: string;
     edgeCount: number;
+    /** False when k-NN edges are suppressed for performance (neighbor coloring unchanged). */
+    knnEdgeLinesDrawn: boolean;
+    neighborRoleCount: number;
+    seedRoleCount: number;
     /** Always 0 — stroked per-seed disks removed in favor of soft gradient. */
     radiusDiskCount: number;
     radiusGradient: boolean;
