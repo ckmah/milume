@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 
 import { Card } from "@/components/ui/card";
 import { FieldDescription } from "@/components/ui/field";
@@ -10,6 +10,7 @@ import { inspectWindowOf } from "../use-inspect-cube";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { type ChipSnapshot, windowKey } from "./cube-snapshots";
 import { LayerRow } from "./primitives";
+import { useWidgetPortal } from "./widget-portal-context";
 import { SelectionCard } from "./selection-card";
 import { FLOAT_PANEL, FLOAT_PANEL_CLIP, SECTION_LABEL } from "./sections";
 
@@ -50,15 +51,7 @@ export function LayersPanel({
     [selections, snapshots, snapshotVersion],
   );
   const rootRef = useRef<HTMLDivElement>(null);
-  const [menuContainer, setMenuContainer] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    setMenuContainer(
-      (rootRef.current?.closest(
-        ".milume-widget, .landmarks",
-      ) as HTMLElement | null) ?? null,
-    );
-  }, []);
+  const menuContainer = useWidgetPortal();
 
   return (
     <div

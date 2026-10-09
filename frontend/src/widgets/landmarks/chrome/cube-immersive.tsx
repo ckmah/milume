@@ -45,6 +45,7 @@ export function CubeImmersive({
   onPanEnd,
   onCutLive,
   onCutCommit,
+  labelAlpha,
 }: {
   lm: LandmarksModel;
   engine: EngineHandle | null;
@@ -71,6 +72,8 @@ export function CubeImmersive({
   /** A drag on a volume face, live, then committed on release. */
   onCutLive: (cut: CubeCut) => void;
   onCutCommit: (cut: CubeCut) => void;
+  /** Harness DialKit. Omitted: the Labels alpha slider in cube settings. */
+  labelAlpha?: number;
 }) {
   const loadRef = useRef<CubeLoadState | null>(null);
   const onLoadState = useCallback(
@@ -135,7 +138,7 @@ export function CubeImmersive({
   const volume = lm.volume ?? {};
   const size = lm.inspect_size_um || INSPECT_WINDOW_UM;
   const scatterPoints = useCubeScatterPoints(engine, lm, lm.inspect_cx, lm.inspect_cy, size);
-  const showPoints = scatterPoints.length > 0 || (lm.render_mode || "points") === "points";
+  const drawPoints = settings.showPoints && scatterPoints.length > 0;
 
   return (
     <section
@@ -164,16 +167,18 @@ export function CubeImmersive({
           home="top"
           reframeOnPreset
           resetTick={settings.resetTick}
-          showImage={showPoints ? false : settings.showImage}
-          showLabels={showPoints ? false : settings.showLabels}
+          showImage={settings.showImage}
+          showLabels={settings.showLabels}
           coloring={coloring}
-          render={settings.render}
+          render={
+            labelAlpha == null ? settings.render : { ...settings.render, cellAlpha: labelAlpha }
+          }
           dark={dark}
           height="100%"
           showLegend={false}
           overlays={overlays}
           scatterPoints={scatterPoints}
-          showPoints={showPoints}
+          showPoints={drawPoints}
           coarse={{ scale: PREVIEW_REGION_SCALE, budget: budgets.preview }}
           budget={budgets.dock}
           chunkCache={cache}

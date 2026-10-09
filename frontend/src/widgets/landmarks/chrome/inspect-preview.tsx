@@ -22,7 +22,6 @@ import {
 import type { CubeSettings } from "../use-cube-settings";
 import type { EngineHandle, InspectEvent } from "../engine";
 import type { LandmarksModel } from "../use-landmarks-model";
-import { useCubeScatterPoints } from "../use-cube-scatter-points";
 
 // Lazy only in the dev harness (see cube-immersive.tsx).
 const VolumeCube = lazy(() =>
@@ -30,7 +29,7 @@ const VolumeCube = lazy(() =>
 );
 
 /** The preview cube's side (CSS px). */
-export const PREVIEW_PX = 240;
+export const PREVIEW_PX = 480;
 /** The float's side: the cube itself (no frame around it). */
 const FLOAT_PX = PREVIEW_PX;
 /** Gap between the hover square's edge and the float. */
@@ -161,7 +160,6 @@ export function InspectPreview({
   dark,
   cache,
   budgets,
-  overlays,
 }: {
   /** In Inspect: outside it the float stays hidden and queues no prefetch. */
   active: boolean;
@@ -174,8 +172,8 @@ export function InspectPreview({
   dark: boolean;
   cache: ChunkCache;
   budgets: { preview: number; dock: number };
-  /** The user's landmarks (µm), drawn on the cube's top face. */
-  overlays: CubeOverlay[] | null;
+  /** The user's landmarks (µm). The hover preview does not draw them. */
+  overlays?: CubeOverlay[] | null;
 }) {
   const volume = lm.volume ?? {};
   const voxelSizeUm = volume.voxel_size_um ?? VOXEL_ZYX;
@@ -393,8 +391,6 @@ export function InspectPreview({
   );
   const visible = active && hovering && inside && !failed;
   const hover = last?.hover;
-  const scatterPoints = useCubeScatterPoints(engine, lm, hover?.x, hover?.y, hover?.sizeUm ?? 0);
-  const showPoints = scatterPoints.length > 0 || (lm.render_mode || "points") === "points";
   if (!last || !hover) return null;
 
   return (
@@ -424,19 +420,20 @@ export function InspectPreview({
           home="top"
           reframeOnPreset
           resetTick={0}
-          showImage={showPoints ? false : settings.showImage}
-          showLabels={showPoints ? false : settings.showLabels}
+          showImage
+          showLabels={false}
           coloring={coloring}
           render={settings.render}
           dark={dark}
           height={PREVIEW_PX}
+          zStackFraction={[0.25, 0.75]}
+          tightenZToSignal={false}
           region={region ? { scale: PREVIEW_REGION_SCALE, budget: budgets.preview, cx: region.cx, cy: region.cy } : null}
           interactive={false}
           showLegend={false}
           background={false}
-          overlays={overlays}
-          scatterPoints={scatterPoints}
-          showPoints={showPoints}
+          overlays={null}
+          showPoints={false}
           chunkCache={cache}
           onLevels={onLevels}
           onShown={onShown}

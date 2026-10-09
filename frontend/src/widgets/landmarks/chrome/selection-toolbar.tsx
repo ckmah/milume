@@ -50,6 +50,7 @@ export function IconBtn({
   title,
   active,
   onClick,
+  onContextMenu,
   disabled,
   children,
   testId,
@@ -60,6 +61,7 @@ export function IconBtn({
   title: string;
   active?: boolean;
   onClick: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
   disabled?: boolean;
   children: React.ReactNode;
   testId?: string;
@@ -85,6 +87,7 @@ export function IconBtn({
           e.stopPropagation();
           onClick();
         }}
+        onContextMenu={onContextMenu}
       >
         {children}
         {expandable ? (
@@ -184,8 +187,11 @@ export function ToolStack({
 }: {
   open: boolean;
   panel: React.ReactNode;
-  /** "end" lines the panel's right edge up with the control's, so it extends left. */
-  align?: "center" | "end";
+  /**
+   * "end" lines the panel's right edge up with the control's, so it extends left;
+   * "start" lines up the left edges, so it extends right.
+   */
+  align?: "start" | "center" | "end";
   children: React.ReactNode;
 }) {
   return (
@@ -195,6 +201,7 @@ export function ToolStack({
           className={cn(
             "pointer-events-auto absolute bottom-[calc(100%+0.375rem)] z-10",
             align === "end" && "right-0",
+            align === "start" && "left-0",
           )}
           data-testid="context-l2-anchor"
         >

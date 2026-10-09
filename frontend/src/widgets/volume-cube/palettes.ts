@@ -10,11 +10,11 @@ export type RenderSettings = {
   imageAlpha: number;
   /** Exponent on the contrast-limited image value. */
   imageGamma: number;
-  /** Scales every cell's per-sample alpha. */
+  /** Scales the finished label layer. Per-sample alpha would stack to opaque along the ray. */
   cellAlpha: number;
 };
 
-export const DEFAULT_RENDER: RenderSettings = { palette: "gray", imageAlpha: 1, imageGamma: 1, cellAlpha: 0.6 };
+export const DEFAULT_RENDER: RenderSettings = { palette: "gray", imageAlpha: 1, imageGamma: 1, cellAlpha: 0.4 };
 
 // sRGB stops, evenly spaced. Gray is generated instead (see `grayRamp`).
 const STOPS: Record<Exclude<PaletteName, "gray">, string[]> = {

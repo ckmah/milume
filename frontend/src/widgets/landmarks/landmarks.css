@@ -1422,27 +1422,24 @@
 }
 .volume-cube__plate {
   fill: var(--cut-plate);
-  fill-opacity: 0.16;
   stroke: var(--cut-plate);
-  stroke-opacity: 0.8;
-  stroke-width: 1.5;
   stroke-linejoin: round;
 }
+.volume-cube__plate[data-phase="rest"] {
+  fill-opacity: 0;
+  stroke-opacity: 0;
+  stroke-width: 1.5;
+}
 .volume-cube__plate[data-phase="near"] {
-  fill-opacity: 0.24;
-  stroke-opacity: 1;
-  stroke-width: 2.5;
+  fill-opacity: 0;
+  stroke-opacity: 0.55;
+  stroke-width: 2;
 }
 .volume-cube__plate[data-phase="hover"],
 .volume-cube__plate[data-phase="drag"] {
+  fill-opacity: 0;
   stroke-opacity: 1;
-  stroke-width: 2.5;
-}
-.volume-cube__plate[data-phase="hover"] {
-  fill-opacity: 0.32;
-}
-.volume-cube__plate[data-phase="drag"] {
-  fill-opacity: 0.42;
+  stroke-width: 2.75;
 }
 .volume-cube__plate-dir {
   stroke: #fff;

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { DialRoot, useDialKit } from "dialkit";
+import "dialkit/styles.css";
 
 import "@/styles/globals.css";
 import "@/widgets/landmarks/landmarks.css";
@@ -28,6 +30,9 @@ function optionsFrom(search: string) {
  * opens the immersive cube over the plot area on release. The engine exposes `window.__landmarksEngine` / `__landmarksModel`.
  */
 function LandmarksVolumeHarness() {
+  const labels = useDialKit("Labels", {
+    cellAlpha: [0.4, 0, 1, 0.05],
+  });
   const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
   const [model, setModel] = useState<AnyModel | null>(null);
   const [loadError, setLoadError] = useState("");
@@ -76,11 +81,13 @@ function LandmarksVolumeHarness() {
             defaultHeight={820}
             cubeBudgets={options.cubeBudgets}
             inspectWindowUm={options.inspectWindowUm}
+            labelAlpha={labels.cellAlpha}
           />
         ) : (
           <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>
         )}
       </div>
+      <DialRoot position="bottom-left" theme="dark" />
     </div>
   );
 }

@@ -8,6 +8,8 @@ import { vivTag } from "./overlay-layers";
 export type MapScatterPoint = {
   x: number;
   y: number;
+  /** Absolute Z in µm along the volume stack; omit or non-finite for mid-stack fallback. */
+  z?: number;
   color: [number, number, number, number];
   radius: number;
 };
@@ -29,13 +31,16 @@ export function placeScatterPoints(
   points: MapScatterPoint[],
   toWorld: (p: Pt) => Pt,
   rect: Rect,
-  z: number,
+  zAt: (p: MapScatterPoint) => number,
+  /** µm per pre-model world unit (level X voxel size), same as the 2D map uses for µm. */
+  umPerWorld: number,
 ): PlacedScatterPoint[] {
+  const rScale = umPerWorld > 0 ? 1 / umPerWorld : 1;
   const placed: PlacedScatterPoint[] = [];
   for (const p of points) {
     const [x, y] = toWorld([p.x, p.y]);
     if (x < rect.x0 || x > rect.x1 || y < rect.y0 || y > rect.y1) continue;
-    placed.push({ position: [x, y, z], color: p.color, radius: p.radius });
+    placed.push({ position: [x, y, zAt(p)], color: p.color, radius: p.radius * rScale });
   }
   return placed;
 }

@@ -1,5 +1,10 @@
+import { OrbitViewport } from "@deck.gl/core";
+
 import type { CubeCut } from "./VolumeCube";
 import { cameraDirection } from "./axis-legend";
+
+/** Matches VolumeCube and deck's OrbitView default. */
+export const CUBE_FOVY = 50;
 
 /**
  * Screen px around a cut face's outline that starts a drag, together with the
@@ -46,12 +51,32 @@ function preY(dataFraction: number, span: number): number {
  * The cut box in the frame's pre-model units.
  * Data +y runs toward pre-model -y (the frame's map-down axis).
  */
+/** Z from µm through the same slice mapping the volume ray march uses. */
+export type CutZMap = { ozUm: number; stepZ: number; zSlice: Range };
+
+/** Map absolute z (µm) to pre-model height along the cube box, matching Viv `zSlice` + ray `p.z`. */
+export function umZToWorldHeight(
+  zUm: number,
+  ozUm: number,
+  stepZ: number,
+  zSlice: Range,
+  depth: number,
+): number {
+  const span = zSlice[1] - zSlice[0] || 1;
+  const tz = (zUm - ozUm) / stepZ;
+  return ((tz - zSlice[0]) / span) * depth;
+}
+
+/** Cut box in the inspect window's pre-model units (same space as the outer wireframe). */
 export function cutBoxPre(
   cut: CubeCut,
   winX: Range,
   winY: Range,
   stackZ: Range,
   size: Vec3,
+  zMap?: CutZMap,
+  /** Z edges as fractions of the ray box (same as `cutFrac[4]` / `[5]`); keeps plates on the clip. */
+  cutZFrac?: Range,
 ): PreBox {
   const [w, h, d] = size;
   const sx = winX[1] - winX[0] || 1;
@@ -61,8 +86,15 @@ export function cutBoxPre(
   const x1 = ((cut[1] - winX[0]) / sx) * w;
   const py0 = preY((cut[2] - winY[0]) / sy, h);
   const py1 = preY((cut[3] - winY[0]) / sy, h);
-  const z0 = ((cut[4] - stackZ[0]) / sz) * d;
-  const z1 = ((cut[5] - stackZ[0]) / sz) * d;
+  const mapZ = (um: number) => {
+    if (!zMap) return ((um - stackZ[0]) / sz) * d;
+    const tz = (um - zMap.ozUm) / zMap.stepZ;
+    const zs = zMap.zSlice;
+    const span = zs[1] - zs[0] || 1;
+    return ((tz - zs[0]) / span) * d;
+  };
+  const z0 = cutZFrac ? cutZFrac[0] * d : mapZ(cut[4]!);
+  const z1 = cutZFrac ? cutZFrac[1] * d : mapZ(cut[5]!);
   return {
     lo: [Math.min(x0, x1), Math.min(py0, py1), Math.min(z0, z1)],
     hi: [Math.max(x0, x1), Math.max(py0, py1), Math.max(z0, z1)],
@@ -95,6 +127,33 @@ export function cutFractions(cut: CubeCut, winX: Range, winY: Range, stackZ: Ran
   const y1 = (winY[1] - cut[2]) / sy;
   const z0 = (cut[4] - stackZ[0]) / sz;
   const z1 = (cut[5] - stackZ[0]) / sz;
+  return [x0, x1, y0, y1, z0, z1].map((v) => Math.min(1, Math.max(0, v)));
+}
+
+/**
+ * Cut edges as fractions of the Viv slice ranges the ray march uses.
+ * Map µm with the same texture coords as `xSlice` / `ySlice` / `zSlice`.
+ */
+export function cutFractionsForSlices(
+  cut: CubeCut,
+  xSlice: Range,
+  ySlice: Range,
+  zSlice: Range,
+  texX: (um: number) => number,
+  texY: (um: number) => number,
+  texZ: (um: number) => number,
+): number[] {
+  const sx = xSlice[1] - xSlice[0] || 1;
+  const sy = ySlice[1] - ySlice[0] || 1;
+  const sz = zSlice[1] - zSlice[0] || 1;
+  const x0 = (texX(cut[0]!) - xSlice[0]) / sx;
+  const x1 = (texX(cut[1]!) - xSlice[0]) / sx;
+  const tyLo = texY(cut[2]!);
+  const tyHi = texY(cut[3]!);
+  const y0 = (Math.min(tyLo, tyHi) - ySlice[0]) / sy;
+  const y1 = (Math.max(tyLo, tyHi) - ySlice[0]) / sy;
+  const z0 = (texZ(cut[4]!) - zSlice[0]) / sz;
+  const z1 = (texZ(cut[5]!) - zSlice[0]) / sz;
   return [x0, x1, y0, y1, z0, z1].map((v) => Math.min(1, Math.max(0, v)));
 }
 
@@ -131,12 +190,25 @@ export function faceKey(face: CutFace): string {
   return `${face.axis}${face.edge}`;
 }
 
+function orbitViewport(view: Camera, target: readonly number[], rect: { width: number; height: number }) {
+  return new OrbitViewport({
+    id: "3d",
+    width: rect.width,
+    height: rect.height,
+    fovy: CUBE_FOVY,
+    orbitAxis: "Y",
+    target: [target[0]!, target[1]!, target[2]!],
+    zoom: view.zoom,
+    rotationOrbit: view.rotationOrbit,
+    rotationX: view.rotationX,
+  });
+}
+
+/** Screen position (top-left origin) for a cut-box corner in pre-model units. */
 function projectPoint(pre: Vec3, view: Camera, target: readonly number[], rect: { width: number; height: number }): Pt {
-  const p = postModel(pre);
-  const rel = [p[0] - target[0]!, p[1] - target[1]!, p[2] - target[2]!];
-  const [cx, cy] = cameraDirection(rel, view.rotationX, view.rotationOrbit);
-  const s = 2 ** view.zoom;
-  return { x: rect.width / 2 + cx * s, y: rect.height / 2 - cy * s };
+  const world = postModel(pre);
+  const [x, y] = orbitViewport(view, target, rect).project(world);
+  return { x, y };
 }
 
 function dataAxisWorld(axis: CutAxis): Vec3 {
@@ -232,23 +304,38 @@ type Scored = { face: CutFace; score: number; toward: number };
 function prefer(best: Scored | null, next: Scored): boolean {
   if (!best) return true;
   if (next.score < best.score - 0.5) return true;
-  return Math.abs(next.score - best.score) <= 0.5 && next.toward > best.toward;
+  if (next.score > best.score + 0.5) return false;
+  return next.toward > best.toward;
 }
 
 /**
  * The plate under `point`, and the nearest plate in the near band when the
  * pointer is not on one. The plate is the face interior or the `CUT_RIM_PX` outline.
  */
+function plateDragDir(
+  face: CutFace,
+  box: PreBox,
+  view: Camera,
+  target: readonly number[],
+  rect: { width: number; height: number },
+): Pt | null {
+  for (const plate of projectCutFaces(box, view, target, rect)) {
+    if (plate.face.axis === face.axis && plate.face.edge === face.edge) return plate.dir;
+  }
+  return null;
+}
+
 export function cutPointerTarget(
   point: Pt,
   box: PreBox,
   view: Camera,
   target: readonly number[],
   rect: { width: number; height: number },
-): { face: CutFace | null; near: CutFace | null } {
+): { face: CutFace | null; near: CutFace | null; dragDir: Pt | null } {
   let hover: Scored | null = null;
   let near: Scored | null = null;
-  for (const plate of projectCutFaces(box, view, target, rect)) {
+  const plates = projectCutFaces(box, view, target, rect).sort((a, b) => b.toward - a.toward);
+  for (const plate of plates) {
     const inside = pointInPoly(point, plate.corners);
     const rim = rimDistance(point, plate.corners);
     if (inside || rim <= CUT_RIM_PX) {
@@ -259,7 +346,12 @@ export function cutPointerTarget(
       if (prefer(near, next)) near = next;
     }
   }
-  return { face: hover?.face ?? null, near: hover ? null : (near?.face ?? null) };
+  const face = hover?.face ?? null;
+  return {
+    face,
+    near: hover ? null : (near?.face ?? null),
+    dragDir: face ? plateDragDir(face, box, view, target, rect) : null,
+  };
 }
 
 /** The face whose plate is under `point` (view-local px), or null. */
@@ -381,12 +473,33 @@ export function cutFaceAnchors(
  * µm to add to the face's edge so it follows the pointer along the data axis.
  * `dx`/`dy` are screen px, +dy down.
  */
-export function dragToFaceDelta(dx: number, dy: number, face: CutFace, view: Camera, umPerWorld: number): number {
+/** Pre-model Y runs opposite data Y, so cut indices 2/3 swap against y0/y1 faces. */
+function cutEdgeIndex(face: CutFace): 0 | 1 {
+  return face.axis === "y" ? ((face.edge ^ 1) as 0 | 1) : face.edge;
+}
+
+/** Screen drag along the plate's outward axis → µm delta on the matching cut edge. */
+function dragSignForDataEdge(face: CutFace): number {
+  // Y plates use visual edge; moveCutEdge still maps y0/y1 → cut indices via cutEdgeIndex.
+  const edge = face.axis === "y" ? face.edge : cutEdgeIndex(face);
+  return edge === 0 ? -1 : 1;
+}
+
+export function dragToFaceDelta(
+  dx: number,
+  dy: number,
+  face: CutFace,
+  view: Camera,
+  umPerWorld: number,
+  screenOutward?: Pt,
+): number {
+  const scale = umPerWorld / 2 ** view.zoom;
+  const sign = dragSignForDataEdge(face);
+  if (screenOutward) return sign * (dx * screenOutward.x + dy * screenOutward.y) * scale;
   const n = screenNormal(face, view);
   if (faceOn(n.len)) return 0;
   const along = (dx * n.x + -dy * n.y) / n.len;
-  const sign = face.edge === 0 ? -1 : 1;
-  return (sign * along * umPerWorld) / 2 ** view.zoom;
+  return sign * along * scale;
 }
 
 const MIN_SPAN = 1;
@@ -400,11 +513,12 @@ export function moveCutEdge(
 ): CubeCut {
   const next = [...cut] as CubeCut;
   const base = face.axis === "x" ? 0 : face.axis === "y" ? 2 : 4;
-  const i = base + face.edge;
-  const other = base + (face.edge === 0 ? 1 : 0);
+  const edge = cutEdgeIndex(face);
+  const i = base + edge;
+  const other = base + (edge === 0 ? 1 : 0);
   const [lo, hi] = bounds[face.axis];
   let v = Math.max(lo, Math.min(hi, next[i]! + deltaUm));
-  if (face.edge === 0) v = Math.min(v, next[other]! - MIN_SPAN);
+  if (edge === 0) v = Math.min(v, next[other]! - MIN_SPAN);
   else v = Math.max(v, next[other]! + MIN_SPAN);
   v = Math.max(lo, Math.min(hi, v));
   next[i] = v;

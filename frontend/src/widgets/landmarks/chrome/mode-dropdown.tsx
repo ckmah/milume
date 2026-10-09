@@ -17,6 +17,7 @@ import {
   chromeMenuClass,
   modeIcon,
 } from "./primitives";
+import { useWidgetPortal } from "./widget-portal-context";
 
 /** Last-used mode per group (keyed by `modes.join()`), remembered across renders. */
 const lastUsedByGroup = new Map<string, string>();
@@ -45,7 +46,7 @@ export function ModeDropdown({
   fallbackLabel: string;
   menuNoun: string;
 }) {
-  const [menuContainer, setMenuContainer] = useState<HTMLElement | null>(null);
+  const menuContainer = useWidgetPortal();
   const [open, setOpen] = useState(false);
 
   if (!modes.length) return null;
@@ -77,13 +78,6 @@ export function ModeDropdown({
               aria-label={`${label}. Right-click for ${menuNoun} menu.`}
               aria-pressed={active}
               aria-haspopup="menu"
-              ref={(node) => {
-                setMenuContainer(
-                  node?.closest(
-                    ".milume-widget, .landmarks",
-                  ) as HTMLElement | null,
-                );
-              }}
               onPointerDown={(e) => {
                 // Left click: arm the last-used mode only (do not open menu).
                 if (e.button === 0) {

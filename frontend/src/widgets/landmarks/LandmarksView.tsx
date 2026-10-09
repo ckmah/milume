@@ -30,6 +30,7 @@ import {
 } from "./chrome";
 import type { ChipSnapshot } from "./chrome/cube-snapshots";
 import { FLOAT_PANEL } from "./chrome/sections";
+import { WidgetPortalContext } from "./chrome/widget-portal-context";
 import { cubeCellColoring } from "./cube-highlight";
 import { INSPECT_WINDOW_UM, mountEngine, type EngineHandle } from "./engine";
 import {
@@ -62,6 +63,7 @@ export function LandmarksView({
   defaultHeight = SHELL_HEIGHT,
   cubeBudgets,
   inspectWindowUm,
+  labelAlpha,
 }: {
   hostEl: HTMLElement;
   model: AnyModel;
@@ -71,13 +73,19 @@ export function LandmarksView({
   cubeBudgets?: { preview: number; dock: number };
   /** Harness only: the Inspect window's side (µm); the toy volume is smaller than the default 300. */
   inspectWindowUm?: number;
+  /** Harness only: live Labels alpha from DialKit. */
+  labelAlpha?: number;
 }) {
   const dark = useNotebookTheme(hostEl.parentElement);
   const facade = useMemo(() => wrapLandmarksModel(model), [model]);
   const lm = useLandmarksModel(facade);
   const plotHostRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
-  const [rootEl, setRootEl] = useState<HTMLElement | null>(null);
+  const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const el = rootRef.current;
+    if (el) setRootEl((prev) => (prev === el ? prev : el));
+  }, []);
   const engineRef = useRef<EngineHandle | null>(null);
   const [engine, setEngine] = useState<EngineHandle | null>(null);
   const [shellHeight, setShellHeight] = useState(defaultHeight);
@@ -338,11 +346,9 @@ export function LandmarksView({
   );
 
   return (
+    <WidgetPortalContext.Provider value={rootEl}>
     <div
-      ref={(node) => {
-        rootRef.current = node;
-        setRootEl((prev) => (prev === node ? prev : node));
-      }}
+      ref={rootRef}
       className={cn(
         "milume-widget landmarks relative min-w-0 w-full",
         dark && "dark landmarks--dark",
@@ -426,6 +432,7 @@ export function LandmarksView({
             settings={cube}
             patch={patchCube}
             labelsAvailable={Boolean(lm.volume?.labels_url)}
+            pointsAvailable={(lm.render_mode || "points") === "points"}
             cut={inspectCube.cut}
             cutRanges={inspectCube.cutRanges}
             onCutLive={inspectCube.onCutLive}
@@ -456,6 +463,7 @@ export function LandmarksView({
             onPanEnd={inspectCube.panEnd}
             onCutLive={inspectCube.onCutLive}
             onCutCommit={inspectCube.onCutCommit}
+            labelAlpha={labelAlpha}
           />
         ) : null}
 
@@ -595,5 +603,6 @@ export function LandmarksView({
         <LandmarkCanvasMenu lm={lm} engine={engine} rootEl={rootEl} />
       </div>
     </div>
+    </WidgetPortalContext.Provider>
   );
 }

@@ -27,9 +27,9 @@ function rangeLabel(cut: CutTuple, axis: CutAxis): string {
 }
 
 /**
- * Axis-tinted plates on the grabbable cut faces. Pointer events pass through
- * to the view, which hits the plate interior. The white inset box stays in
- * `cutFrameLayers`.
+ * Axis-tinted plates on the grabbable cut faces (visible on hover and drag only).
+ * Pointer events pass through to the view, which hits the plate interior.
+ * The white inset box stays in `cutFrameLayers`.
  */
 export function CutPlates({
   plates,

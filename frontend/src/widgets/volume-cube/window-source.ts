@@ -115,6 +115,24 @@ export function boxIsEmpty(box: Box): boolean {
   return box.x1 <= box.x0 || box.y1 <= box.y0 || box.z1 <= box.z0;
 }
 
+type Range = [number, number];
+
+/** Absolute µm bounds of a voxel box at one pyramid level. */
+export function boxUmRanges(
+  box: Box,
+  level: Level,
+  frame: Frame,
+): { x: Range; y: Range; z: Range } {
+  const [fz, fy, fx] = level.factor;
+  const [sz, sy, sx] = frame.voxelSize;
+  const [oz, oy, ox] = frame.origin;
+  return {
+    x: [ox + box.x0 * sx * fx, ox + box.x1 * sx * fx],
+    y: [oy + box.y0 * sy * fy, oy + box.y1 * sy * fy],
+    z: [oz + box.z0 * sz * fz, oz + box.z1 * sz * fz],
+  };
+}
+
 /** One box of `source` in a single `zarr.get` (each chunk read once), `selection` on the other axes. */
 export function fetchBox(
   source: ZarrSource,
