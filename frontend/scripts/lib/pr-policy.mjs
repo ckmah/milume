@@ -17,18 +17,6 @@ export function isUiPullRequest(changedPaths) {
   return changedPaths.some((f) => uiGlobs.some((g) => matchesGlob(f, g)));
 }
 
-/** Harness / e2e-only diffs still run the UI tier in CI but do not change widget chrome. */
-export function touchesWidgetProduct(changedPaths) {
-  const globs = [
-    "frontend/src/widgets/**",
-    "frontend/src/components/**",
-    "frontend/src/styles/**",
-    "frontend/src/lib/**",
-    "frontend/src/hooks/**",
-  ];
-  return changedPaths.some((f) => globs.some((g) => matchesGlob(f, g)));
-}
-
 /** @param {string} body */
 export function findLinkedIssueNumbers(body) {
   const nums = new Set();
@@ -61,21 +49,19 @@ export function validateUiPullRequest({ changedPaths, body, isDraft, issueBodies
     );
   }
 
-  if (touchesWidgetProduct(changedPaths)) {
-    const linked = findLinkedIssueNumbers(body);
-    for (const n of linked) {
-      const issueBody = issueBodies[n];
-      if (issueBody === undefined) continue;
-      for (const e of validateWidgetIssueBody(issueBody)) {
-        errors.push(`linked issue #${n}: ${e}`);
-      }
+  const linked = findLinkedIssueNumbers(body);
+  for (const n of linked) {
+    const issueBody = issueBodies[n];
+    if (issueBody === undefined) continue;
+    for (const e of validateWidgetIssueBody(issueBody)) {
+      errors.push(`linked issue #${n}: ${e}`);
     }
+  }
 
-    if (!isDraft && !hasVisualEvidence(body)) {
-      errors.push(
-        "ready (non-draft) UI pull request needs embedded screenshots or video in the PR body (markdown image, <img>, .webm/.png link, or Cursor artifact URL) — not only CI artifacts",
-      );
-    }
+  if (!isDraft && !hasVisualEvidence(body)) {
+    errors.push(
+      "ready (non-draft) UI pull request needs embedded screenshots or video in the PR body (markdown image, <img>, .webm/.png link, or Cursor artifact URL) — not only CI artifacts",
+    );
   }
 
   return errors;

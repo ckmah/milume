@@ -1216,6 +1216,11 @@ test.describe("Landmarks inspect cube", () => {
       await dragCube(page, view, 250, 0, panDrag);
     }
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBe(0);
+    const cxClamped = Number(await getModel(page, "inspect_cx"));
+    // Two more drags past the edge: centre must stay at the clamp, not creep further.
+    await dragCube(page, view, 250, 0, panDrag);
+    await dragCube(page, view, 250, 0, panDrag);
+    expect(Number(await getModel(page, "inspect_cx"))).toBe(cxClamped);
     const cy = Number(await getModel(page, "inspect_cy"));
     expect(cy).toBeGreaterThanOrEqual(0);
     expect(cy).toBeLessThanOrEqual(256);

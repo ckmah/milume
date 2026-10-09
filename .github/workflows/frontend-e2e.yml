@@ -130,7 +130,7 @@ jobs:
           if-no-files-found: ignore
 
   # The volume spec is ~70 tests of software-GL cube rendering: split it across runners,
-  # sharded by weight (scripts/e2e-shard.mjs) so the heavy pan tests do not land on one runner.
+  # duration-weighted LPT sharding (scripts/e2e-shard.mjs + e2e-shard-weights.json).
   # Only the default-harness leg owns snapshots, so it alone runs for update_snapshots.
   e2e-landmarks:
     needs: changes

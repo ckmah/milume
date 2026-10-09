@@ -1,6 +1,5 @@
-// Runs shard i of n of one Playwright spec. Heavy tests (weights in e2e-shard-weights.json)
-// are pinned to different shards; the rest are dealt round-robin by title so no runner
-// inherits the whole file (#100).
+// Runs shard i of n of one Playwright spec. Tests are assigned by duration-weighted
+// LPT (longest first to the lightest shard) using e2e-shard-weights.json (#100).
 //   node scripts/e2e-shard.mjs 2/3 e2e/landmarks/landmarks-volume.spec.ts [playwright flags]
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -35,12 +34,10 @@ const collect = (suite) => {
 };
 for (const suite of JSON.parse(list.stdout).suites) collect(suite);
 
-for (const t of tests) t.weight = weightFor(t.title, weightConfig);
-
 const buckets = assignShards(tests, total, weightConfig);
 const mine = buckets[index - 1];
-const heavyOnShard = mine.filter((t) => t.weight > (weightConfig.default ?? 1)).length;
-console.log(`shard ${index}/${total}: ${mine.length} of ${tests.length} tests (${heavyOnShard} weighted)`);
+const load = mine.reduce((sum, t) => sum + weightFor(t.title, weightConfig), 0);
+console.log(`shard ${index}/${total}: ${mine.length} of ${tests.length} tests (~${load}s estimated)`);
 const locations = mine.map((t) => `${spec}:${t.line}`);
 
 const run = spawnSync("npx", ["playwright", "test", ...locations, ...flags], { stdio: "inherit" });

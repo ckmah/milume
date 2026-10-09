@@ -47,28 +47,18 @@ test("draft PR #78 without Closes fails pr-policy", () => {
   assert.match(r.stderr, /Closes/i);
 });
 
-test("volume e2e heavy pan tests are pinned to different shards", () => {
-  const weights = JSON.parse(readFileSync(join(scripts, "e2e-shard-weights.json"), "utf8"));
+test("volume e2e LPT sharding spreads the two slowest pans across shards", () => {
+  const weights = { defaultWeight: 1, durations: { a: 100, b: 100, c: 1, d: 1, e: 1 } };
   const tests = [
-    { title: "panning clamps the window centre to the volume", line: 1 },
-    { title: "the Move tool makes a plain drag pan; the distance scales with the drag", line: 2 },
-    { title: "alpha example", line: 3 },
-    { title: "beta example", line: 4 },
-    { title: "gamma example", line: 5 },
+    { title: "a", line: 1 },
+    { title: "b", line: 2 },
+    { title: "c", line: 3 },
+    { title: "d", line: 4 },
+    { title: "e", line: 5 },
   ];
   const buckets = assignShards(tests, 3, weights);
   const shardOf = (line) => buckets.findIndex((b) => b.some((t) => t.line === line)) + 1;
   assert.notEqual(shardOf(1), shardOf(2));
-});
-
-test("e2e-only PR closing a CI issue skips widget-issue and PR visuals", () => {
-  const errors = validateUiPullRequest({
-    body: "Closes #100\n\nTiming table only.\n",
-    changedPaths: ["frontend/e2e/landmarks/landmarks-volume.spec.ts", "frontend/scripts/e2e-shard.mjs"],
-    isDraft: false,
-    issueBodies: { 100: "### Outcome\n\nx\n\n### Acceptance\n\n- [ ] y\n" },
-  });
-  assert.deepEqual(errors, []);
 });
 
 test("PR #80 with Closes and visuals passes pr-policy", () => {
