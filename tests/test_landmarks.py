@@ -77,6 +77,116 @@ def test_get_obs_names_by_selection_shape(selection, expected):
     assert list(w.get_obs_names(adata, selection_id="missing")) == []
 
 
+def test_select_type_resets_union_from_python():
+    adata = adata_xy(
+        [0.0, 1.0, 2.0, 3.0],
+        np.zeros(4),
+        color=["a", "b", "a", "b"],
+    )
+    w = LandmarksWidget(adata, color="label")
+    w.selected_kind = "type"
+    w.selected_type_indices = [0, 1]
+    w.select_type(1)
+    assert w.selected_type_indices == [1]
+
+
+def _type_focus_browser_state(
+    *,
+    selected_index: int,
+    selected_type_indices: list[int],
+) -> dict:
+    return {
+        "selected_kind": "type",
+        "selected_index": selected_index,
+        "selected_type_indices": list(selected_type_indices),
+    }
+
+
+def test_browser_sync_ctrl_click_union_survives_set_state():
+    """Replay front-end comm state (set_state) for additive multi-select."""
+    adata = adata_xy(
+        [0.0, 1.0, 2.0, 3.0],
+        np.zeros(4),
+        color=["a", "b", "a", "b"],
+    )
+    w = LandmarksWidget(adata, color="label")
+    w.set_state(_type_focus_browser_state(selected_index=0, selected_type_indices=[0]))
+    assert w.selected_type_indices == [0]
+
+    sent: list[dict] = []
+    orig_send = w._send
+
+    def capture_send(msg, *args, **kwargs):
+        sent.append(msg)
+        return orig_send(msg, *args, **kwargs)
+
+    w._send = capture_send
+    # Worst-case trait apply order: index before indices (would collapse with an observer).
+    payload = _type_focus_browser_state(selected_index=1, selected_type_indices=[0, 1])
+    w.set_state(dict(sorted(payload.items(), key=lambda kv: kv[0])))
+
+    assert w.selected_type_indices == [0, 1]
+    echo_updates = [
+        m
+        for m in sent
+        if isinstance(m, dict) and m.get("method") == "echo_update"
+    ]
+    assert echo_updates
+    echoed = echo_updates[-1]["state"].get("selected_type_indices")
+    assert echoed == [0, 1]
+
+
+def test_browser_sync_remove_one_group_set_state():
+    adata = adata_xy(
+        [0.0, 1.0, 2.0, 3.0],
+        np.zeros(4),
+        color=["a", "b", "a", "b"],
+    )
+    w = LandmarksWidget(adata, color="label")
+    w.set_state(_type_focus_browser_state(selected_index=1, selected_type_indices=[0, 1]))
+    w.set_state(
+        dict(
+            sorted(
+                _type_focus_browser_state(
+                    selected_index=0,
+                    selected_type_indices=[1],
+                ).items(),
+                key=lambda kv: kv[0],
+            )
+        )
+    )
+    assert w.selected_type_indices == [1]
+
+
+def test_get_focus_obs_names_focused_selection():
+    adata = adata_xy([0.0, 2.0, 2.0], [0.0, 2.0, 0.0])
+    w = LandmarksWidget(adata)
+    w.selections = [
+        {"id": "s0", "type": "points", "point_indices": [0]},
+        {"id": "s1", "type": "points", "point_indices": [1, 2]},
+    ]
+    w.selected_kind = "selection"
+    w.selected_index = 0
+    assert list(w.get_focus_obs_names(adata)) == ["c0"]
+    w.selected_index = 1
+    assert set(w.get_focus_obs_names(adata)) == {"c1", "c2"}
+
+
+def test_get_focus_obs_names_type_union():
+    adata = adata_xy(
+        [0.0, 1.0, 2.0, 3.0],
+        np.zeros(4),
+        color=["a", "b", "a", "b"],
+    )
+    w = LandmarksWidget(adata, color="label")
+    w.selected_kind = "type"
+    w.selected_index = 0
+    w.selected_type_indices = [0]
+    assert list(w.get_focus_obs_names(adata)) == ["c0", "c2"]
+    w.selected_type_indices = [0, 1]
+    assert set(w.get_focus_obs_names(adata)) == {"c0", "c1", "c2", "c3"}
+
+
 def test_category_colors_match_the_legend():
     x = [0.0, 1.0, 2.0]
     y = [0.0, 1.0, 2.0]

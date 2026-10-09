@@ -32,6 +32,8 @@ export {
   setRasterThreshold,
   setRenderMode,
   setSelected,
+  selectTypeIndex,
+  typeFocusIndices,
   toggleLandmarkHidden,
   toggleSelectionHidden,
   withHood,

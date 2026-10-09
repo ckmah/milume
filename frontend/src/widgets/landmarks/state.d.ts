@@ -68,6 +68,14 @@ export declare function setSelected(
   index: number,
 ): void;
 
+export declare function typeFocusIndices(model: AnyModel): number[];
+
+export declare function selectTypeIndex(
+  model: AnyModel,
+  labelIndex: number,
+  opts?: { additive?: boolean },
+): void;
+
 export declare function setMode(model: AnyModel, mode: string): void;
 
 export declare function setRenderMode(model: AnyModel, mode: string): void;

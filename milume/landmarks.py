@@ -302,8 +302,10 @@ Synced on every edit (read and write from Python):
     Region dicts. Join to ``adata`` with :meth:`get_obs_names` /
     :meth:`assign_obs_mask` (``obs_names`` / ``point_indices``, not
     positional row indices).
-``selected_kind``, ``selected_index``
-    Active item (``""`` / ``-1`` when none).
+``selected_kind``, ``selected_index``, ``selected_type_indices``
+    Active item (``""`` / ``-1`` when none). Type focus may list several
+    ``selected_type_indices`` within the active category set (browser
+    multi-select). From Python, :meth:`select_type` sets a single group.
 ``inspect_cx``, ``inspect_cy``, ``inspect_size_um``
     Inspect window centre (µm) and side length (300 µm square). The browser
     writes size at placement; setting centre from Python moves the cube.
@@ -343,6 +345,10 @@ class LandmarksWidget(AnyWidget):
     landmarks = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
     selected_kind = traitlets.Unicode("").tag(sync=True)
     selected_index = traitlets.Int(-1).tag(sync=True)
+    # Indices into ``legend_labels`` for the active category when ``selected_kind`` is ``type``.
+    selected_type_indices = traitlets.List(traitlets.Int(), default_value=[]).tag(
+        sync=True
+    )
     # Inspect window centre (µm; None until a press places it) and side (a fixed 300 µm,
     # written by the browser at placement; Python reads it).
     inspect_cx = traitlets.Float(allow_none=True, default_value=None).tag(sync=True)
@@ -829,6 +835,7 @@ class LandmarksWidget(AnyWidget):
         if m == "raster" and str(self.selected_kind or "") == "type":
             self.selected_kind = ""
             self.selected_index = -1
+            self.selected_type_indices = []
         self.render_mode = m
 
     def set_raster_basis(
@@ -1007,6 +1014,68 @@ class LandmarksWidget(AnyWidget):
     def clear(self) -> None:
         self.clear_selections()
         self.clear_landmarks()
+
+    def select_type(self, index: int) -> None:
+        """Focus one category group in the active set (replaces a multi-select union).
+
+        The browser may set ``selected_type_indices`` to several groups; this
+        helper is the notebook path for single-group focus without fighting
+        front-end sync.
+        """
+        idx = int(index)
+        with self.hold_sync():
+            if idx < 0:
+                self.selected_kind = ""
+                self.selected_index = -1
+                self.selected_type_indices = []
+            else:
+                self.selected_kind = "type"
+                self.selected_index = idx
+                self.selected_type_indices = [idx]
+
+    def get_focus_obs_names(
+        self,
+        adata: Any,
+        *,
+        spatial_key: str = "spatial",
+    ) -> "np.ndarray":
+        """``obs_names`` for the current type or selection focus (multi-type union)."""
+        import numpy as np
+
+        kind = str(self.selected_kind or "")
+        if kind == "selection":
+            selections = list(self.selections or [])
+            idx = int(self.selected_index)
+            if idx < 0 or idx >= len(selections):
+                return np.asarray([], dtype=str)
+            sel_id = selections[idx].get("id")
+            if not sel_id:
+                return np.asarray([], dtype=str)
+            return self.get_obs_names(adata, str(sel_id), spatial_key=spatial_key)
+        if kind != "type":
+            return np.asarray([], dtype=str)
+        indices = list(self.selected_type_indices or [])
+        if not indices and int(self.selected_index) >= 0:
+            indices = [int(self.selected_index)]
+        if not indices:
+            return np.asarray([], dtype=str)
+        active = str(self.active_category or "")
+        cols = list(self.category_columns or [])
+        col_idx = next((i for i, c in enumerate(cols) if c.get("name") == active), -1)
+        if col_idx < 0:
+            return np.asarray([], dtype=str)
+        b64 = str(self.category_codes or "")
+        if not b64:
+            return np.asarray([], dtype=str)
+        raw = np.frombuffer(base64.b64decode(b64), dtype=np.int32)
+        n = int(getattr(self, "_data_x", np.empty(0)).shape[0])
+        if n <= 0 or raw.size < n * len(cols):
+            return np.asarray([], dtype=str)
+        codes = raw[col_idx * n : (col_idx + 1) * n]
+        want = {int(i) for i in indices if int(i) >= 0}
+        mask = np.isin(codes, list(want))
+        names = np.asarray(self._obs_names.astype(str))
+        return names[np.asarray(mask, dtype=bool)]
 
     def get_obs_names(
         self,

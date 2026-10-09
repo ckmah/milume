@@ -146,7 +146,11 @@ export function LandmarksView({
       })),
       activeCategory: lm.active_category,
       colorBy: lm.color_by,
-      focus: { kind: lm.selected_kind, index: lm.selected_index },
+      focus: {
+        kind: lm.selected_kind,
+        index: lm.selected_index,
+        typeIndices: lm.selected_type_indices,
+      },
       selections: lm.selections,
       window: { cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um || INSPECT_WINDOW_UM },
     });
@@ -162,6 +166,7 @@ export function LandmarksView({
     lm.color_by,
     lm.selected_kind,
     lm.selected_index,
+    lm.selected_type_indices,
     lm.selections,
     lm.inspect_cx,
     lm.inspect_cy,

@@ -26,6 +26,7 @@ import {
   deleteLandmarkVertex,
   reverseLandmark,
   convertLandmarkType,
+  typeFocusIndices,
 } from "./landmarks_state.js";
 import {
   BUFFERABLE,
@@ -4584,8 +4585,13 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const pts = getPointsData();
     if (!focus) return [];
     if (focus.kind === "type") {
+      const typeIx = typeFocusIndices(model);
+      const codes =
+        typeIx.length > 0 ? typeIx : focus.index >= 0 ? [focus.index] : [];
+      if (!codes.length) return [];
+      const want = new Set(codes);
       return pts.reduce((acc, _p, i) => {
-        if (categoryCodeAt(i) === focus.index) acc.push(i);
+        if (want.has(categoryCodeAt(i))) acc.push(i);
         return acc;
       }, []);
     }
@@ -4621,10 +4627,17 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const point_indices = Array.from(seen).sort((a, b) => a - b);
     if (!point_indices.length) return;
     const selections = [...(model.get("selections") || [])];
-    const label =
-      focus.kind === "type"
-        ? String((model.get("legend_labels") || [])[focus.index] || "type")
-        : String(selections[focus.index]?.id || "selection");
+    let label;
+    if (focus.kind === "type") {
+      const labels = model.get("legend_labels") || [];
+      const typeIx = typeFocusIndices(model);
+      const names = (typeIx.length ? typeIx : [focus.index])
+        .map((ti) => String(labels[ti] || ""))
+        .filter(Boolean);
+      label = names.length > 1 ? names.join("+") : names[0] || "type";
+    } else {
+      label = String(selections[focus.index]?.id || "selection");
+    }
     selections.push(
       withHood({
         id: selectionName(point_indices, "selection", selections),
@@ -4808,10 +4821,15 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const rMax = maxNeighborhoodRadius();
     if (rMax > 0) r = Math.min(r, rMax);
     const pointsKey = pointsCache.key || `${pts.length}`;
+    const typeIx = focus.kind === "type" ? typeFocusIndices(model) : [];
+    const focusIndexKey =
+      focus.kind === "type"
+        ? hashSeedIndices(typeIx.length ? typeIx : [focus.index])
+        : focus.index;
     const cacheKey = neighborGeomCacheKey({
       pointsKey,
       focusKind: focus.kind,
-      focusIndex: focus.index,
+      focusIndex: focusIndexKey,
       hoodMode: hood.neighborhood,
       hoodK: k,
       hoodRadius: r,
@@ -6287,7 +6305,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       if (k === "landmarks") for (const fn of landmarkListeners) fn();
     });
   });
-  ["selected_index", "selected_kind"].forEach((k) => {
+  ["selected_index", "selected_kind", "selected_type_indices"].forEach((k) => {
     onChange(k, () => {
       activeVertexIndex = -1;
       hoverVertexIndex = -1;

@@ -1,6 +1,7 @@
 import { GENE_COLORS } from "../helpers";
 import type { CategoryColumn, SelectionItem } from "../helpers";
 import { decodeF32Base64, decodeI32Base64 } from "../binary";
+import { typeFocusIndicesFromState } from "../type-focus";
 import { CLOUD_CUBE, isoProject, mixChannelRgb } from "./rgb-cube";
 
 export type CompositionSlice = {
@@ -47,6 +48,7 @@ export function resolvePointMask(opts: {
   n: number;
   selectedKind: string;
   selectedIndex: number;
+  selectedTypeIndices?: number[];
   selections: SelectionItem[];
   pointsDataB64: string;
   categoryCodesB64: string;
@@ -59,6 +61,7 @@ export function resolvePointMask(opts: {
     n,
     selectedKind,
     selectedIndex,
+    selectedTypeIndices,
     selections,
     pointsDataB64,
     categoryCodesB64,
@@ -69,15 +72,22 @@ export function resolvePointMask(opts: {
   const mask = new Uint8Array(n);
   mask.fill(1);
 
-  if (filterByType && selectedKind === "type" && selectedIndex >= 0) {
+  if (filterByType && selectedKind === "type") {
+    const typeIx = typeFocusIndicesFromState({
+      selected_kind: selectedKind,
+      selected_index: selectedIndex,
+      selected_type_indices: selectedTypeIndices,
+    });
+    if (!typeIx.length) return mask;
     const colIdx = categoryColumns.findIndex((c) => c.name === activeCategory);
     if (colIdx < 0 || !categoryCodesB64) {
       mask.fill(0);
       return mask;
     }
     const codes = decodeI32Base64(categoryCodesB64);
+    const want = new Set(typeIx);
     for (let i = 0; i < n; i++) {
-      mask[i] = codes[colIdx * n + i] === selectedIndex ? 1 : 0;
+      mask[i] = want.has(codes[colIdx * n + i]) ? 1 : 0;
     }
     return mask;
   }

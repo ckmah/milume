@@ -43,6 +43,7 @@ export function useCubeScatterPoints(
     lm.embedding_channel_labels,
     lm.selected_kind,
     lm.selected_index,
+    lm.selected_type_indices,
     lm.selections,
     lm.type_neighborhoods,
     lm.raster_similarity_enabled,

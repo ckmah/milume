@@ -49,6 +49,7 @@ import {
 } from "./sections";
 import { SoftFloatSlidingTabsList } from "./sliding-tabs";
 import { useWidgetPortalContainer } from "./use-widget-portal";
+import { isTypeRowActive } from "../type-focus";
 
 const AVATAR_MAX = 5;
 
@@ -138,6 +139,7 @@ function CategoryCollapsibleRow({
   active_category,
   selected_kind,
   selected_index,
+  selected_type_indices,
 }: {
   col: CategoryColumn;
   lm: LandmarksModel;
@@ -145,6 +147,7 @@ function CategoryCollapsibleRow({
   active_category: string;
   selected_kind: string;
   selected_index: number;
+  selected_type_indices: number[];
 }) {
   const [open, setOpen] = useState(false);
   const isShown = signal === "categories" && col.name === active_category;
@@ -208,18 +211,20 @@ function CategoryCollapsibleRow({
             {(col.labels || []).map((label, i) => (
               <LayerRow
                 key={`${col.name}-${label}`}
-                active={
-                  selected_kind === "type" &&
-                  col.name === active_category &&
-                  selected_index === i
-                }
+                active={isTypeRowActive(i, {
+                  selected_kind,
+                  selected_index,
+                  selected_type_indices,
+                  active_category,
+                  columnName: col.name,
+                })}
                 color={
                   (col.palette || [])[
                     i % Math.max((col.palette || []).length, 1)
                   ]
                 }
                 label={label}
-                onSelect={() => lm.selectType(col, i)}
+                onSelect={(e) => lm.selectType(col, i, e)}
               />
             ))}
           </ItemGroup>
@@ -241,6 +246,7 @@ export function CategoriesControls({
     active_category,
     selected_kind,
     selected_index,
+    selected_type_indices,
   } = lm;
   const rasterOn = (lm.render_mode || "points") === "raster";
 
@@ -317,6 +323,7 @@ export function CategoriesControls({
           active_category={active_category}
           selected_kind={selected_kind}
           selected_index={selected_index}
+          selected_type_indices={selected_type_indices || []}
         />
       ))}
     </div>
