@@ -490,7 +490,8 @@ export type HighlightGroup = { name: string; color: string; labels: number[] };
  */
 export type CellColoring =
   | { kind: "instances" }
-  | { kind: "groups"; groups: readonly HighlightGroup[] };
+  | { kind: "groups"; groups: readonly HighlightGroup[] }
+  | { kind: "expression"; byLabel: ReadonlyMap<number, [number, number, number]> };
 
 /** Per-sample alpha of a cell the lookup colours, before the Labels alpha slider (default, see `DEFAULT_RENDER`). */
 const CELL_ALPHA = 0.9;
@@ -522,6 +523,11 @@ const HUE_SECTORS: ((lo: number, f: number) => [number, number, number])[] = [
   (lo, f) => [1, lo, 1 - (1 - lo) * f],
 ];
 
+/** sRGB 0–255 → linear RGB bytes for the cell LUT (matches category palette path). */
+export function srgbBytesToLinear(rgb: [number, number, number]): [number, number, number] {
+  return rgb.map((c) => Math.round(srgbToLinear(c) * 255)) as [number, number, number];
+}
+
 /** A label id's own colour, as linear RGB bytes (see `hexToLinear` for why linear). */
 export function instanceColor(id: number): [number, number, number] {
   const sector = ((((id * HUE_STEP) % 1) + 1) % 1) * 6;
@@ -544,6 +550,15 @@ export function buildCellLut(coloring: CellColoring, cells: readonly number[]): 
   if (coloring.kind === "instances") {
     // Texel 0 stays clear: every cell has a colour of its own.
     for (let i = 1; i < cells.length; i++) data.set([...instanceColor(cells[i]!), alpha], i * 4);
+    return { data, width, height };
+  }
+  if (coloring.kind === "expression") {
+    const others = hexToLinear(OTHERS.color)!;
+    data.set([...others, Math.round(255 * OTHERS.behindGroups)], 0);
+    for (let i = 1; i < cells.length; i++) {
+      const rgb = coloring.byLabel.get(cells[i]!);
+      if (rgb) data.set([rgb[0], rgb[1], rgb[2], alpha], i * 4);
+    }
     return { data, width, height };
   }
   const { groups } = coloring;

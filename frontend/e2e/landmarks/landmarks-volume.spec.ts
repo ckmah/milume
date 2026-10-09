@@ -1749,6 +1749,47 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-highlight", "2");
   });
 
+  test("Inspect labels color by gene expression with the 2D genes legend", async ({ page }) => {
+    await openCubeAtCentre(page, { at: [130, 170], raster: true });
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    const right = page.locator(".landmarks__chrome-dock--right");
+    if ((await right.getAttribute("data-collapsed")) === "true") {
+      await page.getByRole("button", { name: "Show right panel" }).click();
+    }
+    await expect(right).toHaveAttribute("data-collapsed", "false");
+    await right.getByRole("tab", { name: "genes" }).click();
+    await expect(view).toHaveAttribute("data-coloring", "groups");
+
+    await setModel(page, { active_genes: ["0"], color_by: "continuous" });
+    await expect(view).toHaveAttribute("data-coloring", "expression");
+    await expect(right.getByTestId("genes-channel-legend")).toBeVisible();
+
+    const parity = await page.evaluate(() => {
+      const engine = (window as any).__landmarksEngine;
+      const model = (window as any).__landmarksModel;
+      const cx = model.get("inspect_cx") as number;
+      const cy = model.get("inspect_cy") as number;
+      const size = model.get("inspect_size_um") as number;
+      const pts = engine.getScatterPointsInWindow(cx, cy, size) as {
+        x: number;
+        y: number;
+        color: [number, number, number, number];
+      }[];
+      const hi = pts.reduce((best, p) => (p.color[0] > (best?.color[0] ?? -1) ? p : best), pts[0]);
+      const lo = pts.reduce((best, p) => (p.color[0] < (best?.color[0] ?? 999) ? p : best), pts[0]);
+      return {
+        hiR: hi?.color[0] ?? 0,
+        loR: lo?.color[0] ?? 0,
+        spread: (hi?.color[0] ?? 0) - (lo?.color[0] ?? 0),
+      };
+    });
+    expect(parity.spread).toBeGreaterThan(40);
+
+    await right.getByRole("tab", { name: "category" }).click();
+    await expect(view).toHaveAttribute("data-coloring", "groups");
+    await expect(right.getByTestId("genes-channel-legend")).toHaveCount(0);
+  });
+
   test("with Labels on each toy cell renders in its category colour in the dock", { tag: "@isolated" }, async ({ page }) => {
     // Record the width of every R8 (image) and RG8 (labels) 3D texture allocated.
     await page.addInitScript(() => {
