@@ -12,6 +12,7 @@ import { inspectWindowOf } from "../use-inspect-cube";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { useCubeScatterPoints } from "../use-cube-scatter-points";
 import { type ChipSnapshot, SNAPSHOT_SETTLE_MS, snapshotOf, windowKey } from "./cube-snapshots";
+import { ChromeLoadIndicator } from "./load-indicator";
 
 // Lazy only in the dev harness: the widget build inlines dynamic imports
 // (`inlineDynamicImports`, vite.config.ts), so landmarks.mjs always carries Viv.
@@ -150,7 +151,16 @@ export function CubeImmersive({
       onMouseDown={(e) => e.stopPropagation()}
       onWheel={(e) => e.stopPropagation()}
     >
-      <Suspense fallback={<p className="p-4 text-xs text-muted-foreground">Loading cube…</p>}>
+      <Suspense
+        fallback={
+          <ChromeLoadIndicator
+            testId="cube-load-immersive"
+            overlay
+            phase="loading"
+            message="Loading cube…"
+          />
+        }
+      >
         <VolumeCube
           imageUrl={volume.image_url ?? ""}
           labelsUrl={volume.labels_url ?? ""}
@@ -192,6 +202,7 @@ export function CubeImmersive({
           onPanEnd={onPanEnd}
           onCutLive={onCutLive}
           onCutCommit={onCutCommit}
+          loadStatusTestId="cube-load-immersive"
         />
       </Suspense>
     </section>

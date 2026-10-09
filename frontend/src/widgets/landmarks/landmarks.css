@@ -1341,6 +1341,27 @@
   }
 }
 
+@keyframes landmarks-progress {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+
+.landmarks__progress-bar {
+  animation: landmarks-progress 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landmarks__progress-bar {
+    animation: none;
+    width: 100%;
+    opacity: 0.45;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .landmarks__inspect-status[data-state="refining"] .landmarks__shimmer {
     animation: none;

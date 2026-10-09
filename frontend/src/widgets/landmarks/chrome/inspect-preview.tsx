@@ -439,6 +439,7 @@ export function InspectPreview({
           onShown={onShown}
           onBounds={onBounds}
           onLoadState={onLoadState}
+          loadStatusTestId="cube-load-preview"
         />
       </Suspense>
     </div>

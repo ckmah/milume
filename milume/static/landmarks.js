@@ -405,6 +405,32 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   let plotH = 0;
   let currentViewState = null;
   let viewStateListeners = [];
+  /** `loading` until deck's first fit; `error` on init failure or timeout. */
+  let plotBootstrap = { state: "loading" };
+  let plotBootstrapListeners = [];
+  const PLOT_BOOTSTRAP_TIMEOUT_MS = 45_000;
+  let plotBootstrapTimer = setTimeout(() => {
+    if (plotBootstrap.state !== "loading") return;
+    setPlotBootstrap({
+      state: "error",
+      message: "Map took too long to load",
+    });
+  }, PLOT_BOOTSTRAP_TIMEOUT_MS);
+  function setPlotBootstrap(next) {
+    if (plotBootstrap.state === next.state && plotBootstrap.message === next.message) return;
+    plotBootstrap = next;
+    if (next.state !== "loading" && plotBootstrapTimer) {
+      clearTimeout(plotBootstrapTimer);
+      plotBootstrapTimer = 0;
+    }
+    for (const fn of plotBootstrapListeners) {
+      try {
+        fn(plotBootstrap);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
   let hoverListeners = [];
   let landmarkMenuListeners = [];
   let layerRaf = 0;
@@ -3940,6 +3966,9 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     });
     if (resetWidget) resetWidget.setProps({ initialViewState: currentViewState });
     fittedOnce = true;
+    if (plotBootstrap.state === "loading") {
+      setPlotBootstrap({ state: "ready" });
+    }
     for (const fn of viewStateListeners) {
       try {
         fn(currentViewState);
@@ -4100,6 +4129,16 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     webglCanvas.style.display = "block";
     applyPlotBackground();
     try {
+      const hook =
+        typeof window !== "undefined" ? window.__landmarksPlotBootstrapHook : null;
+      if (hook?.fail) {
+        throw new Error(
+          typeof hook.fail === "string" ? hook.fail : "Map failed to load (test)",
+        );
+      }
+      if (hook?.delayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, hook.delayMs));
+      }
       const {
         Deck,
         OrthographicView,
@@ -4293,12 +4332,19 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         },
       });
       syncInteractionMode();
+      requestAnimationFrame(() => {
+        if (!deckgl) return;
+        syncCanvasBuffer();
+        fitDeckToBounds();
+        publishDeckLayers(buildDeckLayers());
+        if (typeof deckgl.redraw === "function") deckgl.redraw(true);
+      });
     } catch (err) {
       console.error("landmarks deck init failed", err);
-      const msg = document.createElement("div");
-      msg.className = "landmarks__error";
-      msg.textContent = `Deck renderer failed: ${err?.message || err}`;
-      plotStack.appendChild(msg);
+      setPlotBootstrap({
+        state: "error",
+        message: `Deck renderer failed: ${err?.message || err}`,
+      });
     }
   }
 
@@ -6443,6 +6489,9 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
 
   function destroy() {
     destroyed = true;
+    if (plotBootstrapTimer) clearTimeout(plotBootstrapTimer);
+    plotBootstrapTimer = 0;
+    plotBootstrapListeners = [];
     abort.abort();
     endInspectGesture();
     unsubs.forEach((fn) => fn());
@@ -6524,6 +6573,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       viewStateListeners.push(fn);
       return () => {
         viewStateListeners = viewStateListeners.filter((f) => f !== fn);
+      };
+    },
+    getPlotBootstrap: () => ({ ...plotBootstrap }),
+    subscribePlotBootstrap: (fn) => {
+      if (typeof fn !== "function") return () => {};
+      plotBootstrapListeners.push(fn);
+      return () => {
+        plotBootstrapListeners = plotBootstrapListeners.filter((f) => f !== fn);
       };
     },
     getViewportWorldBounds: () => {

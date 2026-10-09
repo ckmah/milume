@@ -23,6 +23,8 @@ import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+
+import { ChromeLoadIndicator } from "./load-indicator";
 import type { Range, ViewPreset } from "@/widgets/volume-cube/CubeControls";
 import { PALETTES, type PaletteName, paletteLut } from "@/widgets/volume-cube/palettes";
 import type { CubeCut } from "@/widgets/volume-cube/VolumeCube";
@@ -422,7 +424,12 @@ export function InspectToolbar({
             {cutRow(2, "Z cut", cutRanges.z, false)}
           </>
         ) : (
-          <p className={cn(TOOLBAR_CAPTION, "m-0 py-1")}>Loading volume…</p>
+          <ChromeLoadIndicator
+            testId="inspect-cross-load"
+            phase="loading"
+            message="Loading volume…"
+            className="py-1"
+          />
         )}
       </AdjustSection>
     </div>
