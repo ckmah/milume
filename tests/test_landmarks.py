@@ -77,6 +77,21 @@ def test_get_obs_names_by_selection_shape(selection, expected):
     assert list(w.get_obs_names(adata, selection_id="missing")) == []
 
 
+def test_get_focus_obs_names_type_union():
+    adata = adata_xy(
+        [0.0, 1.0, 2.0, 3.0],
+        np.zeros(4),
+        color=["a", "b", "a", "b"],
+    )
+    w = LandmarksWidget(adata, color="label")
+    w.selected_kind = "type"
+    w.selected_index = 0
+    w.selected_type_indices = [0]
+    assert list(w.get_focus_obs_names(adata)) == ["c0", "c2"]
+    w.selected_type_indices = [0, 1]
+    assert set(w.get_focus_obs_names(adata)) == {"c0", "c1", "c2", "c3"}
+
+
 def test_category_colors_match_the_legend():
     x = [0.0, 1.0, 2.0]
     y = [0.0, 1.0, 2.0]

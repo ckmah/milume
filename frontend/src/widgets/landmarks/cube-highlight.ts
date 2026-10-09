@@ -1,4 +1,5 @@
 import type { CellColoring, HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
+import { typeFocusIndicesFromState } from "./type-focus";
 
 const MARGIN_UM = 10;
 
@@ -16,7 +17,7 @@ export type CubeHighlightInput = {
   columns: { name: string; labels: string[]; palette: string[] }[];
   activeCategory: string;
   colorBy: string; // "categorical" | "continuous"
-  focus: { kind: string; index: number };
+  focus: { kind: string; index: number; typeIndices?: number[] };
   selections: {
     point_indices?: number[];
     polygon?: number[][];
@@ -59,8 +60,16 @@ export function cubeCellColoring(input: CubeHighlightInput): CellColoring {
   const [y0, y1] = input.yBounds;
   const half = win.size / 2 + MARGIN_UM;
   let member: ((i: number) => boolean) | null = null;
-  if (input.focus.kind === "type" && input.focus.index >= 0) {
-    member = (i) => codes[col * n + i] === input.focus.index;
+  if (input.focus.kind === "type") {
+    const typeIx = typeFocusIndicesFromState({
+      selected_kind: input.focus.kind,
+      selected_index: input.focus.index,
+      selected_type_indices: input.focus.typeIndices,
+    });
+    if (typeIx.length) {
+      const want = new Set(typeIx);
+      member = (i) => want.has(codes[col * n + i]!);
+    }
   } else if (input.focus.kind === "selection") {
     const sel = input.selections[input.focus.index];
     if (!sel || sel.hidden) return NO_GROUPS;

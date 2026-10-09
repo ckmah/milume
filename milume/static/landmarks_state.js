@@ -30,6 +30,61 @@ export function applyActiveCategory(model, col) {
   model.set("legend_title", col.name || "");
   model.set("color_by", "categorical");
   model.set("raster_basis", "composition");
+  model.set("selected_type_indices", []);
+}
+
+/** Label indices for the active type focus (multi-select within one category set). */
+export function typeFocusIndices(model) {
+  if (model.get("selected_kind") !== "type") return [];
+  const raw = model.get("selected_type_indices");
+  if (Array.isArray(raw) && raw.length) {
+    const out = [];
+    const seen = new Set();
+    for (const v of raw) {
+      const i = v | 0;
+      if (i < 0 || seen.has(i)) continue;
+      seen.add(i);
+      out.push(i);
+    }
+    return out.sort((a, b) => a - b);
+  }
+  const idx = model.get("selected_index") | 0;
+  return idx >= 0 ? [idx] : [];
+}
+
+/**
+ * Select or toggle a category group row.
+ * Plain click: exclusive select; click again on the sole row clears.
+ * Modifier click: toggle membership (Cmd on macOS, Ctrl elsewhere).
+ */
+export function selectTypeIndex(model, labelIndex, { additive = false } = {}) {
+  const labels = model.get("legend_labels") || [];
+  if (labelIndex < 0 || labelIndex >= labels.length) return;
+
+  let indices = typeFocusIndices(model);
+  if (!additive) {
+    if (indices.length === 1 && indices[0] === labelIndex) {
+      indices = [];
+    } else {
+      indices = [labelIndex];
+    }
+  } else {
+    const set = new Set(indices);
+    if (set.has(labelIndex)) set.delete(labelIndex);
+    else set.add(labelIndex);
+    indices = [...set].sort((a, b) => a - b);
+  }
+
+  if (!indices.length) {
+    model.set("selected_kind", "");
+    model.set("selected_index", -1);
+    model.set("selected_type_indices", []);
+  } else {
+    model.set("selected_kind", "type");
+    model.set("selected_index", labelIndex);
+    model.set("selected_type_indices", indices);
+  }
+  flushNotebook(model);
 }
 
 export function setActiveGenes(model, names) {
@@ -104,6 +159,7 @@ export function setRenderMode(model, mode) {
   if (next === "raster" && model.get("selected_kind") === "type") {
     model.set("selected_kind", "");
     model.set("selected_index", -1);
+    model.set("selected_type_indices", []);
     flushNotebook(model);
   }
 }
@@ -205,21 +261,25 @@ export function patchNeighborhood(
     return;
   }
   if (kind !== "type") return;
-  const label = legendLabels[index];
-  if (!label) return;
+  let targets = typeFocusIndices(model);
+  if (!targets.length && index >= 0) targets = [index];
   const rows = [...typeNeighborhoods];
-  const i = rows.findIndex(
-    (r) => r.id === label && (!r.column || r.column === activeCategory),
-  );
-  const nextRow = {
-    ...DEFAULT_HOOD,
-    id: label,
-    column: activeCategory,
-    ...(i >= 0 ? rows[i] : {}),
-    ...patch,
-  };
-  if (i >= 0) rows[i] = nextRow;
-  else rows.push(nextRow);
+  for (const ti of targets) {
+    const label = legendLabels[ti];
+    if (!label) continue;
+    const i = rows.findIndex(
+      (r) => r.id === label && (!r.column || r.column === activeCategory),
+    );
+    const nextRow = {
+      ...DEFAULT_HOOD,
+      id: label,
+      column: activeCategory,
+      ...(i >= 0 ? rows[i] : {}),
+      ...patch,
+    };
+    if (i >= 0) rows[i] = nextRow;
+    else rows.push(nextRow);
+  }
   model.set("type_neighborhoods", rows);
 }
 
@@ -231,6 +291,16 @@ export function patchLandmark(model, index, patch, landmarks) {
 export function setSelected(model, kind, index) {
   model.set("selected_kind", kind || "");
   model.set("selected_index", index);
+  if (kind !== "type") {
+    model.set("selected_type_indices", []);
+  } else if (index >= 0) {
+    const raw = model.get("selected_type_indices");
+    if (!Array.isArray(raw) || !raw.length) {
+      model.set("selected_type_indices", [index]);
+    }
+  } else {
+    model.set("selected_type_indices", []);
+  }
   flushNotebook(model);
 }
 

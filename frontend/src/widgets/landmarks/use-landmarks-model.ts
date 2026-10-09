@@ -37,6 +37,7 @@ import {
   setRasterThreshold as setRasterThresholdTrait,
   setRenderMode as setRenderModeTrait,
   setSelected,
+  selectTypeIndex as selectTypeIndexTrait,
   toggleLandmarkHidden as toggleLandmarkHiddenTrait,
   toggleSelectionHidden as toggleSelectionHiddenTrait,
 } from "./state";
@@ -56,6 +57,7 @@ export type LandmarksState = {
   landmarks: LandmarkItem[];
   selected_kind: string;
   selected_index: number;
+  selected_type_indices: number[];
   category_columns: CategoryColumn[];
   active_category: string;
   gene_columns: GeneColumn[];
@@ -113,6 +115,7 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
   "landmarks",
   "selected_kind",
   "selected_index",
+  "selected_type_indices",
   "category_columns",
   "active_category",
   "gene_columns",
@@ -169,7 +172,11 @@ export type LandmarksModel = LandmarksState & {
   setActiveGenes(names: string[]): void;
   setGeneScaleMode(mode: GeneScaleMode): void;
   setGeneLog1p(enabled: boolean): void;
-  selectType(col: CategoryColumn, labelIndex: number): void;
+  selectType(
+    col: CategoryColumn,
+    labelIndex: number,
+    event?: { metaKey?: boolean; ctrlKey?: boolean },
+  ): void;
   patchNeighborhood(patch: Record<string, unknown>): void;
   patchLandmark(patch: Record<string, unknown>): void;
   deleteSelection(index: number): void;
@@ -221,11 +228,12 @@ export function useLandmarksModel(model: AnyModel): LandmarksModel {
     setGeneLog1p(enabled) {
       setGeneLog1pTrait(model, enabled);
     },
-    selectType(col, labelIndex) {
+    selectType(col, labelIndex, event) {
       if (col.name !== state.active_category) {
         applyActiveCategory(model, col);
       }
-      setSelected(model, "type", labelIndex);
+      const additive = !!(event?.metaKey || event?.ctrlKey);
+      selectTypeIndexTrait(model, labelIndex, { additive });
     },
     patchNeighborhood(patch) {
       patchNeighborhoodTrait(
