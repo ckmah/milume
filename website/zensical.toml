@@ -1,0 +1,86 @@
+[project]
+site_name = "milume"
+site_url = "https://ckmah.github.io/milume/docs/"
+site_description = "Interactive notebook widgets for spatial omics — install guides and widget reference."
+site_author = "ckmah"
+copyright = "Copyright &copy; ckmah — milume"
+repo_url = "https://github.com/ckmah/milume"
+repo_name = "ckmah/milume"
+
+docs_dir = "content"
+site_dir = "dist"
+
+extra_css = ["stylesheets/bridge.css"]
+
+nav = [
+  { Home = "index.md" },
+  { Install = "install.md" },
+  { LandmarksWidget = "landmarks.md" },
+  { "API — LandmarksWidget" = "api/landmarks.md" },
+]
+
+[project.extra]
+homepage = "https://ckmah.github.io/milume/"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/ckmah/milume"
+
+[project.plugins.mkdocstrings]
+handlers = { python = { paths = [".."] } }
+
+[project.theme]
+language = "en"
+features = [
+  "content.code.copy",
+  "content.tabs.link",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.instant",
+  "navigation.instant.prefetch",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme)"
+toggle.icon = "lucide/sun-moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "teal"
+accent = "teal"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "teal"
+accent = "teal"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to system preference"
+
+[project.markdown_extensions]
+abbr = {}
+admonition = {}
+attr_list = {}
+def_list = {}
+footnotes = {}
+md_in_html = {}
+toc.permalink = true
+pymdownx.details = {}
+pymdownx.highlight.anchor_linenums = true
+pymdownx.highlight.line_spans = "__span"
+pymdownx.highlight.pygments_lang_class = true
+pymdownx.inlinehilite = {}
+pymdownx.keys = {}
+pymdownx.superfences = {}
+pymdownx.tabbed.alternate_style = true
+pymdownx.tasklist.custom_checkbox = true

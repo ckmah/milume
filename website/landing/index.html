@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>milume — notebook widgets for spatial omics</title>
+    <meta
+      name="description"
+      content="Interactive notebook widgets for spatial omics. Python owns analysis; the browser owns presentation; state stays in sync."
+    />
+    <link rel="canonical" href="https://ckmah.github.io/milume/" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=Unbounded:wght@500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <a class="wordmark" href="./">milume</a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="docs/">Docs</a>
+        <a href="llms.txt">llms.txt</a>
+        <a href="https://github.com/ckmah/milume">GitHub</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero" aria-label="Introduction">
+        <div class="hero-plane" aria-hidden="true">
+          <img
+            class="hero-media"
+            src="assets/landmarks_widget_dark.png"
+            alt=""
+            width="1600"
+            height="1000"
+            fetchpriority="high"
+          />
+          <div class="hero-veil"></div>
+        </div>
+
+        <div class="hero-copy">
+          <p class="brand">milume</p>
+          <h1>Notebook widgets for spatial omics that stay in sync with Python.</h1>
+          <p class="lede">
+            Draw landmarks and selections on tissue coordinates in
+            <code>AnnData</code>. Persist hits as <code>obs_names</code> — analysis
+            stays in the notebook.
+          </p>
+          <div class="cta-group">
+            <div class="install" role="group" aria-label="Install command">
+              <code id="install-cmd">pip install milume</code>
+              <button type="button" class="copy-btn" data-copy="#install-cmd">
+                Copy
+              </button>
+            </div>
+            <a class="btn btn-primary" href="docs/install/">Docs</a>
+            <a
+              class="btn btn-ghost"
+              href="https://molab.marimo.io/github/ckmah/milume/blob/main/demos/landmarks.py"
+              >Open demo</a
+            >
+          </div>
+        </div>
+      </section>
+
+      <section class="demos" aria-labelledby="demos-heading">
+        <div class="demos-inner">
+          <h2 id="demos-heading">Try a demo</h2>
+          <ul class="demo-grid">
+            <li>
+              <a
+                class="demo-card"
+                href="https://molab.marimo.io/github/stellaromics/pyxa_scverse_demo/blob/main/colon_a2.py"
+              >
+                <img
+                  src="assets/landmarks_widget_light.png"
+                  alt=""
+                  width="800"
+                  height="500"
+                  loading="lazy"
+                />
+                <div class="demo-card-body">
+                  <h3>Colon A2 · Stellaromics</h3>
+                  <p>
+                    LandmarksWidget on Stellaromics colon tissue — open the marimo
+                    notebook on molab.
+                  </p>
+                </div>
+              </a>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="proof" aria-labelledby="proof-heading">
+        <div class="proof-inner">
+          <h2 id="proof-heading">LandmarksWidget</h2>
+          <p>
+            Lasso, rectangle, ellipse; point, line, spline, shape. Color by category
+            or gene. Neighbor expand runs in the browser. Read selections back with
+            <code>get_obs_names</code>.
+          </p>
+          <figure class="proof-figure">
+            <img
+              src="assets/landmarks_widget_light.png"
+              alt="LandmarksWidget showing a tissue point scatter with selection tools"
+              width="1600"
+              height="1000"
+              loading="lazy"
+            />
+          </figure>
+          <p class="proof-links">
+            <a href="docs/landmarks/">Landmarks guide</a>
+            ·
+            <a href="docs/api/landmarks/">API reference</a>
+            ·
+            <a href="https://github.com/ckmah/milume">Source on GitHub</a>
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        <a class="wordmark" href="./">milume</a>
+        · MIT ·
+        <a href="docs/">Documentation</a>
+        ·
+        <a href="index.md">index.md</a>
+      </p>
+    </footer>
+
+    <script src="main.js" defer></script>
+  </body>
+</html>
