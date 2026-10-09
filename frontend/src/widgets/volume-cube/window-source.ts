@@ -280,6 +280,27 @@ export function regionBox(level: Level, frame: Frame, cx: number, cy: number, si
 }
 
 /** Chunk coordinates one chunk outside `box` in Y and X (full Z), in `source.labels` order. */
+/** Whether `inner` lies inside `outer` on Y and X (Z is always the full stack). */
+export function boxInsideXY(inner: Box, outer: Box): boolean {
+  return inner.x0 >= outer.x0 && inner.x1 <= outer.x1 && inner.y0 >= outer.y0 && inner.y1 <= outer.y1;
+}
+
+/**
+ * Slide `live` within `shown` so the window footprint stays inside the loaded
+ * voxels while a newer window is still fetching. Z is unchanged.
+ */
+export function clampLiveBoxInsideShown(live: Box, shown: Box): Box {
+  if (boxInsideXY(live, shown)) return live;
+  const w = live.x1 - live.x0;
+  const h = live.y1 - live.y0;
+  const sw = shown.x1 - shown.x0;
+  const sh = shown.y1 - shown.y0;
+  if (w > sw || h > sh) return live;
+  const x0 = Math.min(Math.max(live.x0, shown.x0), shown.x1 - w);
+  const y0 = Math.min(Math.max(live.y0, shown.y0), shown.y1 - h);
+  return { ...live, x0, x1: x0 + w, y0, y1: y0 + h };
+}
+
 export function chunkRing(source: ZarrSource, box: Box): number[][] {
   const chunks = source._data.chunks;
   const at = (axis: string) => source.labels.indexOf(axis);

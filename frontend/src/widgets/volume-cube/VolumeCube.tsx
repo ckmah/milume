@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Matrix4 } from "@math.gl/core";
 import { VivViewer, loadOmeZarr } from "@hms-dbmi/viv";
 
@@ -54,6 +54,7 @@ import {
   pickLevel,
   pyramidLevels,
   regionBox,
+  clampLiveBoxInsideShown,
   windowBox,
 } from "./window-source";
 
@@ -531,9 +532,6 @@ export function VolumeCube({
   const shownImage = shown?.image ?? null;
   const loader = useMemo(() => (shownImage ? [shownImage] : null), [shownImage]);
   const [contentZSpan, setContentZSpan] = useState<ContentZSpan | null>(null);
-  useEffect(() => {
-    setContentZSpan(null);
-  }, [shownImage]);
   const imageSignalMin = contrast[0];
   // Tags each volume Viv reads with its window, so the shader draws the labels
   // of the image Viv is drawing (see CellVolume). Viv has read the whole window
@@ -621,10 +619,16 @@ export function VolumeCube({
     return [shownH - b, shownH - a] as [number, number];
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [winY[0], winY[1], oyUm, shownH, shownBox?.y0, levelVoxel?.[1]]);
+  // While a new window loads, pan only within the voxels already on the GPU so
+  // the canvas never goes blank; the live window still drives cuts and fetches.
+  const panBox = useMemo(() => {
+    if (!liveBox || !shownBox) return liveBox;
+    return clampLiveBoxInsideShown(liveBox, shownBox);
+  }, [liveBox, shownBox]);
   // Place the loaded volume in the requested window's world frame: x shifts by
   // the boxes' x0 offset; y by their y1 offset, because texture rows run reversed.
-  const panX = shownBox && liveBox ? shownBox.x0 - liveBox.x0 : 0;
-  const panY = shownBox && liveBox ? liveBox.y1 - shownBox.y1 : 0;
+  const panX = shownBox && panBox ? shownBox.x0 - panBox.x0 : 0;
+  const panY = shownBox && panBox ? panBox.y1 - shownBox.y1 : 0;
   const volumeZShift = zLo * rz;
   const volumeMatrix = useMemo(() => {
     const m = Z_UP.clone();
@@ -830,10 +834,10 @@ export function VolumeCube({
   const lvy = levelVoxel?.[1] ?? 1;
   const toWorldXY = useCallback(
     ([x, y]: [number, number]): [number, number] => {
-      const { x0, y1 } = liveBox ?? { x0: 0, y1: 0 };
+      const { x0, y1 } = panBox ?? { x0: 0, y1: 0 };
       return [(x - oxUm) / lvx - x0, (y1 - (y - oyUm) / lvy) * ry];
     },
-    [liveBox, oxUm, oyUm, lvx, lvy, ry],
+    [panBox, oxUm, oyUm, lvx, lvy, ry],
   );
   const windowRect = useMemo(
     () => ({ x0: 0, x1: winW, y0: 0, y1: winH * ry }),
@@ -870,15 +874,28 @@ export function VolumeCube({
     return placeScatterPoints(scatterInCut, toWorldXY, windowRect, scatterZAt, cubeFrame.umPerUnit);
   }, [showPoints, scatterInCut, liveBox, cubeFrame, toWorldXY, windowRect, scatterZAt]);
 
-  const views = useMemo(
-    () => [new FramedVolumeView({ id: "3d", target: aimTarget, useFixedAxis: true, controller: interactive } as never)],
-    [aimTarget, interactive],
-  );
+  const orbitViewRef = useRef<FramedVolumeView | null>(null);
+  const views = useMemo(() => {
+    if (!orbitViewRef.current) {
+      orbitViewRef.current = new FramedVolumeView({
+        id: "3d",
+        target: [0, 0, 0],
+        useFixedAxis: true,
+        controller: interactive,
+      } as never);
+    }
+    return [orbitViewRef.current];
+  }, [interactive]);
   const onRenderedRef = useLatest(onRendered);
   const deckProps = useMemo(
     () => ({
-      onAfterRender: ({ gl }: { gl: WebGL2RenderingContext }) =>
-        onRenderedRef.current?.(gl.canvas as HTMLCanvasElement),
+      onAfterRender: ({ gl }: { gl: WebGL2RenderingContext }) => {
+        if (typeof window !== "undefined") {
+          const w = window as unknown as { __volumeCubeRenderCount?: number };
+          w.__volumeCubeRenderCount = (w.__volumeCubeRenderCount ?? 0) + 1;
+        }
+        onRenderedRef.current?.(gl.canvas as HTMLCanvasElement);
+      },
     }),
     [onRenderedRef],
   );
@@ -1067,6 +1084,8 @@ export function VolumeCube({
   const [hoverFace, setHoverFace] = useState("");
   const [nearFace, setNearFace] = useState("");
   const [cutDragging, setCutDragging] = useState(false);
+  const hoverRaf = useRef(0);
+  const lastPointer = useRef({ x: Number.NaN, y: Number.NaN });
   const pointerAt = (clientX: number, clientY: number) => {
     const h = handlesRef.current;
     const node = hostRef.current;
@@ -1222,12 +1241,20 @@ export function VolumeCube({
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     // A hover update re-renders the controlled camera and drops an in-progress orbit.
     if (cutDragging || (e.buttons & 1) !== 0) return;
-    const hit = pointerAt(e.clientX, e.clientY);
-    const key = hit.face ? faceKey(hit.face) : "";
-    const nearKey = hit.near ? faceKey(hit.near) : "";
-    setHoverFace((prev) => (prev === key ? prev : key));
-    setNearFace((prev) => (prev === nearKey ? prev : nearKey));
+    const { clientX: x, clientY: y } = e;
+    if (x === lastPointer.current.x && y === lastPointer.current.y) return;
+    lastPointer.current = { x, y };
+    if (hoverRaf.current) return;
+    hoverRaf.current = requestAnimationFrame(() => {
+      hoverRaf.current = 0;
+      const hit = pointerAt(lastPointer.current.x, lastPointer.current.y);
+      const key = hit.face ? faceKey(hit.face) : "";
+      const nearKey = hit.near ? faceKey(hit.near) : "";
+      setHoverFace((prev) => (prev === key ? prev : key));
+      setNearFace((prev) => (prev === nearKey ? prev : nearKey));
+    });
   };
+  useEffect(() => () => cancelAnimationFrame(hoverRaf.current), []);
   const platesOn = Boolean(onCutLive && interactive && viewState && handleBox);
   const plates = platesOn ? projectCutFaces(handleBox!, viewState!, aimTarget, viewPixelSize) : [];
   const marks = platesOn
@@ -1275,15 +1302,12 @@ export function VolumeCube({
       data-pitch={viewState ? Math.round(viewState.rotationX) : ""}
     >
       {layerProps && displayViewStates ? (
-        <VivViewer
-          {...({
-            layerProps,
-            views,
-            viewStates: displayViewStates,
-            onViewStateChange,
-            useDevicePixels: false,
-            deckProps,
-          } as unknown as React.ComponentProps<typeof VivViewer>)}
+        <VolumeCubeDeck
+          layerProps={layerProps}
+          views={views}
+          viewStates={displayViewStates}
+          onViewStateChange={onViewStateChange}
+          deckProps={deckProps}
         />
       ) : null}
       {status ? <p className="p-4 text-sm text-neutral-400">{status}</p> : null}
@@ -1317,6 +1341,36 @@ export function VolumeCube({
     </div>
   );
 }
+
+type VolumeCubeDeckProps = {
+  layerProps: Record<string, unknown>[];
+  views: FramedVolumeView[];
+  viewStates: ViewState[];
+  onViewStateChange: (args: { viewId: string; viewState: ViewState }) => ViewState;
+  deckProps: { onAfterRender: (args: { gl: WebGL2RenderingContext }) => void };
+};
+
+/** Viv deck only: cut-face hover updates skip this subtree so deck does not redraw. */
+const VolumeCubeDeck = memo(function VolumeCubeDeck({
+  layerProps,
+  views,
+  viewStates,
+  onViewStateChange,
+  deckProps,
+}: VolumeCubeDeckProps) {
+  return (
+    <VivViewer
+      {...({
+        layerProps,
+        views,
+        viewStates,
+        onViewStateChange,
+        useDevicePixels: false,
+        deckProps,
+      } as unknown as React.ComponentProps<typeof VivViewer>)}
+    />
+  );
+});
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
