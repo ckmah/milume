@@ -56,7 +56,7 @@ def test_raster_basis_follows_genes_embedding_and_composition():
     assert w.render_mode == "points"
 
 
-def test_raster_bin_size_scales_with_median_nearest_neighbor():
+def test_raster_defaults_to_8_um_bins_and_24_um_window():
     from milume import LandmarksWidget
 
     adata = adata_xy(
@@ -67,7 +67,21 @@ def test_raster_bin_size_scales_with_median_nearest_neighbor():
         genes={"g1": [0.0, 1.0, 2.0, 3.0]},
     )
     w = LandmarksWidget(adata, color="cell_class", genes=["g1"])
-    assert w.raster_bin_size == pytest.approx(22.36067977)
+    assert w.raster_bin_size == pytest.approx(8.0)
+    assert w.raster_window_radius == pytest.approx(24.0)
+
+
+def test_raster_scales_when_coordinates_look_like_pixels():
+    from milume import LandmarksWidget
+
+    adata = adata_xy(
+        [5100.0, 5200.0, 5300.0, 10100.0],
+        [200.0, 400.0, 600.0, 200.0],
+        color=["A", "A", "A", "B"],
+        color_key="cell_class",
+    )
+    w = LandmarksWidget(adata, color="cell_class")
+    assert w.raster_bin_size > 50.0
     assert w.raster_window_radius == pytest.approx(3.0 * w.raster_bin_size)
 
 

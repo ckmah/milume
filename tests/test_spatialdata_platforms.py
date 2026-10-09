@@ -63,6 +63,58 @@ def test_cosmx_get_obs_names_without_passing_adata(cosmx_sdata):
     assert set(names) == set(t.obs_names.astype(str))
 
 
+def test_cosmx_selection_picks_one_fov_in_global_px(cosmx_sdata):
+    t = cosmx_sdata.tables["table"]
+    attrs = t.uns["spatialdata_attrs"]
+    assert attrs["region_key"] == "fov_labels"
+    assert attrs["instance_key"] == "cell_ID"
+
+    w = LandmarksWidget(cosmx_sdata, spatial_key="global")
+    w.selections = [
+        {
+            "id": "fov1",
+            "type": "rectangle",
+            "cx": 5200.0,
+            "cy": 400.0,
+            "width": 500.0,
+            "height": 800.0,
+        }
+    ]
+    picked = set(w.get_obs_names(selection_id="fov1"))
+    fov1 = set(t.obs_names[t.obs["fov"].astype(int) == 1].astype(str))
+    assert picked == fov1
+    assert len(picked) == 3
+
+
+def test_xenium_selection_matches_spatial_subset(xenium_sdata):
+    t = xenium_sdata.tables["table"]
+    attrs = t.uns["spatialdata_attrs"]
+    assert attrs["region"] == "cell_labels"
+    assert attrs["instance_key"] == "cell_labels"
+
+    xy = t.obsm["spatial"]
+    xmid = float(np.median(xy[:, 0]))
+    ymin, ymax = float(xy[:, 1].min()), float(xy[:, 1].max())
+
+    w = LandmarksWidget(xenium_sdata)
+    w.selections = [
+        {
+            "id": "left_half",
+            "type": "polygon",
+            "vertices": [
+                [float(xy[:, 0].min()) - 5.0, ymin - 5.0],
+                [xmid, ymin - 5.0],
+                [xmid, ymax + 5.0],
+                [float(xy[:, 0].min()) - 5.0, ymax + 5.0],
+            ],
+        }
+    ]
+    picked = set(w.get_obs_names(selection_id="left_half"))
+    expected = set(t.obs_names[xy[:, 0] < xmid].astype(str))
+    assert picked == expected
+    assert 100 < len(picked) < t.n_obs
+
+
 def test_xenium_widget_loads_real_ovary_tiny(xenium_sdata):
     w = LandmarksWidget(xenium_sdata)
     assert w._data_x.shape[0] == 632

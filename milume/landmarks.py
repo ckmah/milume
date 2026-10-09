@@ -273,14 +273,23 @@ def _spatial_metrics(
     )
 
 
-def _default_raster_scales(x_arr: "np.ndarray", y_arr: "np.ndarray") -> tuple[float, float]:
-    """Bin size and aggregation window in the same units as ``x_arr`` / ``y_arr``.
+# Median NN above this (in coordinate units) is treated as pixel space, not µm.
+_MICROMETER_NN_CEILING = 35.0
 
-    Uses median nearest-neighbor spacing so CosMx global pixels and µm Pyxa
-    both get sensible defaults (fixed 8 µm bins are wrong in pixel space).
+
+def _default_raster_scales(x_arr: "np.ndarray", y_arr: "np.ndarray") -> tuple[float, float]:
+    """Default raster bin and window in the same units as ``x_arr`` / ``y_arr``.
+
+    Pyxa / Xenium (µm spacing) keep the fixed 8 µm bin and 24 µm window. When median
+    nearest-neighbour spacing looks like pixels (CosMx ``global``), scale from spacing.
     """
     nn = _median_nn_distance(x_arr, y_arr)
-    if nn is None or not np.isfinite(nn) or nn <= 0:
+    if (
+        nn is None
+        or not np.isfinite(nn)
+        or nn <= 0
+        or nn <= _MICROMETER_NN_CEILING
+    ):
         return DEFAULT_BIN_SIZE, DEFAULT_WINDOW_RADIUS
     bin_size = max(2.0 * nn, 1e-9)
     return bin_size, 3.0 * bin_size
