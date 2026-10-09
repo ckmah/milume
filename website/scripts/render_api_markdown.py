@@ -3,10 +3,9 @@
 
 from __future__ import annotations
 
-import inspect
-from textwrap import dedent
+from pathlib import Path
 
-from milume.landmarks import _LANDMARKS_API_DOC, LandmarksWidget
+import griffe
 
 # Public notebook API methods defined on LandmarksWidget in milume/landmarks.py.
 _NOTEBOOK_METHODS = (
@@ -26,15 +25,11 @@ _NOTEBOOK_METHODS = (
 )
 
 
-def _signature(name: str, method: object) -> str:
-    try:
-        sig = inspect.signature(method)
-    except (TypeError, ValueError):
-        return f"def {name}(...)"
-    return f"def {name}{sig}"
-
-
 def render_landmarks_widget_api() -> str:
+    root = Path(__file__).resolve().parents[2]
+    module = griffe.load("milume.landmarks", search_paths=[str(root)])
+    widget = module.classes["LandmarksWidget"]
+
     parts = [
         "# LandmarksWidget API",
         "",
@@ -42,18 +37,24 @@ def render_landmarks_widget_api() -> str:
         "For narrative guides, see [LandmarksWidget](../landmarks.md).",
         "",
     ]
-    if _LANDMARKS_API_DOC:
-        parts.extend([dedent(_LANDMARKS_API_DOC).strip(), "", "---", ""])
 
-    class_doc = inspect.getdoc(LandmarksWidget) or ""
-    parts.extend([f"## `LandmarksWidget`", "", class_doc, ""])
+    api_attr = module.attributes.get("_LANDMARKS_API_DOC")
+    if api_attr is not None and api_attr.value is not None:
+        parts.extend([str(api_attr.value).strip(), "", "---", ""])
+
+    class_doc = widget.docstring.value if widget.docstring else ""
+    parts.extend([f"## `{widget.name}`", "", class_doc.strip(), ""])
 
     for name in _NOTEBOOK_METHODS:
-        method = getattr(LandmarksWidget, name, None)
-        if method is None:
+        member = widget.members.get(name)
+        if member is None:
             continue
-        doc = inspect.getdoc(method) or ""
-        parts.extend([f"### `{_signature(name, method)}`", "", doc, ""])
+        doc = member.docstring.value if member.docstring else ""
+        try:
+            signature = member.signature()
+        except (AttributeError, TypeError):
+            signature = f"{name}(...)"
+        parts.extend([f"### `def {signature}`", "", doc.strip(), ""])
 
     return "\n".join(parts).strip() + "\n"
 
