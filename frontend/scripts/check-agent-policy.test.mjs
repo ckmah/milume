@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { assignShards } from "./lib/e2e-shard-plan.mjs";
 import { validateUiPullRequest } from "./lib/pr-policy.mjs";
 import { validateWidgetIssueBody } from "./lib/widget-issue.mjs";
 
@@ -43,6 +45,20 @@ test("draft PR #78 without Closes fails pr-policy", () => {
   const r = run("check-pr-policy.mjs", ["--fixture", "pr-78-draft"]);
   assert.notEqual(r.status, 0);
   assert.match(r.stderr, /Closes/i);
+});
+
+test("volume e2e LPT sharding spreads the two slowest pans across shards", () => {
+  const weights = { defaultWeight: 1, durations: { a: 100, b: 100, c: 1, d: 1, e: 1 } };
+  const tests = [
+    { title: "a", line: 1 },
+    { title: "b", line: 2 },
+    { title: "c", line: 3 },
+    { title: "d", line: 4 },
+    { title: "e", line: 5 },
+  ];
+  const buckets = assignShards(tests, 3, weights);
+  const shardOf = (line) => buckets.findIndex((b) => b.some((t) => t.line === line)) + 1;
+  assert.notEqual(shardOf(1), shardOf(2));
 });
 
 test("PR #80 with Closes and visuals passes pr-policy", () => {

@@ -434,15 +434,21 @@ async function shiftPointer(page: Page, steps: PointerStep[]) {
   }, steps);
 }
 
-/** Press at the cube view's centre, drag (dx, dy) px in 4 steps and release; `shift` holds Shift throughout. */
-async function dragCube(page: Page, view: Locator, dx: number, dy: number, { shift = false }: { shift?: boolean }) {
+/** Press at the cube view's centre, drag (dx, dy) px and release; `shift` holds Shift throughout. */
+async function dragCube(
+  page: Page,
+  view: Locator,
+  dx: number,
+  dy: number,
+  { shift = false, steps = 4 }: { shift?: boolean; steps?: number } = {},
+) {
   const b = (await view.boundingBox())!;
   const x = b.x + b.width / 2;
   const y = b.y + b.height / 2;
   if (shift) await page.keyboard.down("Shift");
   await page.mouse.move(x, y);
   await page.mouse.down();
-  await page.mouse.move(x + dx, y + dy, { steps: 4 });
+  await page.mouse.move(x + dx, y + dy, { steps });
   await page.mouse.up();
   if (shift) await page.keyboard.up("Shift");
 }
@@ -1175,16 +1181,18 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-pan-mode", "true");
     const cx0 = Number(await getModel(page, "inspect_cx"));
     const cy0 = Number(await getModel(page, "inspect_cy"));
-    await dragCube(page, view, 40, 0, {});
+    // One-step drags: enough for pan hit-testing; avoids four software-GL frames per pan on CI.
+    const panDrag = { steps: 1 };
+    await dragCube(page, view, 40, 0, panDrag);
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(cx0);
     const d1 = cx0 - Number(await getModel(page, "inspect_cx"));
-    await dragCube(page, view, 80, 0, {});
+    await dragCube(page, view, 80, 0, panDrag);
     const d2 = cx0 - d1 - Number(await getModel(page, "inspect_cx"));
     expect(d2 / d1).toBeGreaterThan(1.7);
     expect(d2 / d1).toBeLessThan(2.3);
     // A horizontal drag leaves y; dragging down moves the window up the map (y decreases).
     expect(Number(await getModel(page, "inspect_cy"))).toBe(cy0);
-    await dragCube(page, view, 0, 40, {});
+    await dragCube(page, view, 0, 40, panDrag);
     await expect.poll(async () => Number(await getModel(page, "inspect_cy"))).toBeLessThan(cy0);
     // Never an orbit while Move is on.
     await expect(view.getByLabel("Axes")).toHaveAttribute("data-axes", "0,-90,0");
@@ -1202,8 +1210,17 @@ test.describe("Landmarks inspect cube", () => {
     await page.getByRole("radio", { name: "Top view" }).click();
     await page.getByRole("button", { name: "Move" }).click();
     // Drag right until the window would leave the toy volume (0..256 µm, origin 0): it stops at x = 0.
-    for (let i = 0; i < 12; i++) await dragCube(page, view, 250, 0, {});
+    const panDrag = { steps: 1 };
+    for (let i = 0; i < 8; i++) {
+      if (Number(await getModel(page, "inspect_cx")) === 0) break;
+      await dragCube(page, view, 250, 0, panDrag);
+    }
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBe(0);
+    const cxClamped = Number(await getModel(page, "inspect_cx"));
+    // Two more drags past the edge: centre must stay at the clamp, not creep further.
+    await dragCube(page, view, 250, 0, panDrag);
+    await dragCube(page, view, 250, 0, panDrag);
+    expect(Number(await getModel(page, "inspect_cx"))).toBe(cxClamped);
     const cy = Number(await getModel(page, "inspect_cy"));
     expect(cy).toBeGreaterThanOrEqual(0);
     expect(cy).toBeLessThanOrEqual(256);
