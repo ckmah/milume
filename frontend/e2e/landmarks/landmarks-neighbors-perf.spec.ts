@@ -2,7 +2,17 @@ import { expect, type Page } from "@playwright/test";
 
 import { test } from "../fixtures";
 
-import { bootLandmarksHarness, setModel } from "../helpers";
+import { bootLandmarksHarness, setModel, waitForEngine } from "../helpers";
+
+const COLON_10K_FIXTURE = "/colon-a2-n10000-fixture.json";
+
+async function bootColonFixture(page: Page, fixture = COLON_10K_FIXTURE) {
+  await page.evaluate(() => {
+    delete (window as any).__KNN_EDGE_MAX_OVERRIDE;
+  });
+  await page.goto(`/?fixture=${encodeURIComponent(fixture)}`, { waitUntil: "networkidle" });
+  await waitForEngine(page);
+}
 
 async function ensureLeftPanelOpen(page: Page) {
   const left = page.locator(".landmarks__chrome-dock--left");
@@ -84,6 +94,89 @@ test.describe("neighborhood perf (#92)", () => {
         path: "/opt/cursor/artifacts/issue-92-neighbors-knn-small-with-edges.png",
       });
     }
+  });
+
+  test("k-NN edge cap note matches valid seed count on colon (production cap)", {
+    tag: "@isolated",
+  }, async ({ page }) => {
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    const hasColon = await page.evaluate(
+      async (f) => {
+        try {
+          return (await fetch(f)).ok;
+        } catch {
+          return false;
+        }
+      },
+      COLON_10K_FIXTURE,
+    );
+    test.skip(!hasColon, "colon 10k harness fixture missing (npm run dev:fixture:colon -- --cells 10000)");
+
+    await bootColonFixture(page);
+    const n = await page.evaluate(() => window.__landmarksEngine.getPoints().length);
+    expect(n).toBeGreaterThanOrEqual(10_000);
+
+    const seeds5k = Array.from({ length: 5000 }, (_, i) => i);
+    await setModel(page, {
+      selections: [
+        {
+          id: "colon-5k-seeds",
+          type: "points",
+          point_indices: seeds5k,
+          neighborhood: "knn",
+          neighborhood_k: 12,
+        },
+      ],
+      selected_kind: "selection",
+      selected_index: 0,
+    });
+    let card = await hoverSelectionCard(page);
+    await expect(card.getByTestId("knn-edges-cap-note")).toHaveCount(0);
+    const hoodUnder = await page.evaluate(() =>
+      (window as any).__landmarksEngine.getNeighborhoodOverlay(),
+    );
+    expect(hoodUnder.knnEdgeLinesDrawn).toBe(true);
+
+    // Stale indices past point count must not inflate the cap note (5k cells, not 9k×12).
+    const padded = [...seeds5k, ...Array.from({ length: 4000 }, () => 9_999_999)];
+    await setModel(page, {
+      selections: [
+        {
+          id: "colon-padded",
+          type: "points",
+          point_indices: padded,
+          neighborhood: "knn",
+          neighborhood_k: 12,
+        },
+      ],
+      selected_kind: "selection",
+      selected_index: 0,
+    });
+    card = await hoverSelectionCard(page);
+    await expect(card.getByTestId("knn-edges-cap-note")).toHaveCount(0);
+
+    const seeds9k = Array.from({ length: 9000 }, (_, i) => i);
+    await setModel(page, {
+      selections: [
+        {
+          id: "colon-9k-seeds",
+          type: "points",
+          point_indices: seeds9k,
+          neighborhood: "knn",
+          neighborhood_k: 12,
+        },
+      ],
+      selected_kind: "selection",
+      selected_index: 0,
+    });
+    card = await hoverSelectionCard(page);
+    const note = card.getByTestId("knn-edges-cap-note");
+    await expect(note).toBeVisible();
+    await expect(note).toContainText("Edges hidden above 102k for speed");
+    const hoodOver = await page.evaluate(() =>
+      (window as any).__landmarksEngine.getNeighborhoodOverlay(),
+    );
+    expect(hoodOver.knnEdgeLinesDrawn).toBe(false);
   });
 
   test("k-NN edge cap note on selection hover card", { tag: "@isolated" }, async ({ page }) => {

@@ -4,6 +4,7 @@ import { decodeF32Base64 } from "../binary";
 import { inspectWindowOf } from "../use-inspect-cube";
 import type { LandmarksModel } from "../use-landmarks-model";
 import type { ChipSnapshot } from "./cube-snapshots";
+import { selectionMemberCount } from "../helpers";
 import { knnEdgeCapHiddenNote } from "../neighborhood-perf.js";
 import { compositionSlices, resolvePointMask } from "./info-stats";
 import { META_LINE } from "./sections";
@@ -104,7 +105,10 @@ export function SelectionCard({
   }, [win, stackZ, points_data, mask, x_bounds, y_bounds]);
   if (!sel) return null;
   const total = Math.max(count, 1);
-  const seedCount = sel.point_indices?.length ?? count;
+  const seedCount =
+    Array.isArray(sel.point_indices) && sel.point_indices.length
+      ? selectionMemberCount(sel, n)
+      : count;
   const hoodK = Number(sel.neighborhood_k) || 12;
   const edgesCapNote = knnEdgeCapHiddenNote(sel.neighborhood || "off", seedCount, hoodK);
 
