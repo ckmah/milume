@@ -4746,7 +4746,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     }
     const hood = neighborhoodFor(focus);
     if (!hood || hood.neighborhood === "off") {
-      focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
+      // Hide neighborhood chrome but keep focusGeomCache so hood off→on with the same
+      // seeds reuses neighbor indices / edge geometry instead of rebuilding PathLayer data.
       pointRoles = null;
       pointRoleMode = false;
       hoodEdges = [];
