@@ -1,0 +1,21 @@
+/* Thin brand bridge only — accent + wordmark link feel. Docs stay Read-mode. */
+:root {
+  --srx-phosphor: #5ec4a8;
+  --srx-phosphor-ink: #06241c;
+}
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #0f766e;
+  --md-accent-fg-color: #0f766e;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: var(--srx-phosphor);
+  --md-accent-fg-color: var(--srx-phosphor);
+}
+
+.md-header__topic .md-ellipsis,
+.md-nav__title .md-ellipsis {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
