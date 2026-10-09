@@ -11,7 +11,8 @@ Focused Selection neighborhood: Shift+wheel adjusts radius; radius mode shows gr
 - Active selection highlights points without a persisted outline stroke; focusing a landmark leaves every selection unhighlighted
 - Shift + vertical or horizontal wheel changes `selections[i].neighborhood_radius`
 - Radius neighborhood: gradient bitmap overlay covering the radius, no k-NN edges ([ADR 0004](../../../docs/adr/0004-neighborhood-visuals.md))
-- k-NN neighborhood: `edgeCount > 0`, no radius gradient
+- k-NN neighborhood: `edgeCount > 0` when `knnEdgeLinesDrawn` (small selections), no radius gradient
+- k-NN edge suppression: `landmarks-neighbors-perf.spec.ts` (large vs small seed counts)
 
 ## How to get to it (user POV)
 

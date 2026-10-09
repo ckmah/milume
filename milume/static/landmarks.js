@@ -41,6 +41,12 @@ import {
 } from "./landmarks_geometry.js";
 import { buildSpatialIndex, queryNeighbors } from "../../frontend/src/widgets/landmarks/spatial-neighbors.js";
 import {
+  hashSeedIndices,
+  neighborGeomCacheKey,
+  shouldDrawKnnEdgeLines,
+} from "../../frontend/src/widgets/landmarks/neighborhood-perf.js";
+import { bakeRadiusDistanceField } from "../../frontend/src/widgets/landmarks/neighborhood-radius-bake.js";
+import {
   DEFAULT_BIN_SIZE,
   buildRaster,
   defaultWindowRadius,
@@ -90,8 +96,6 @@ const NEIGH_EDGE_WIDTH = 0.75;
 const NEIGH_GRADIENT_PEAK_ALPHA = 0.18;
 /** Muted teal wash (DESIGN neighborhood-teal desaturated) for the field only. */
 const NEIGH_GRADIENT_COLOR = "#8ebfb6";
-const NEIGH_GRADIENT_MAX_DIM = 512;
-const NEIGH_GRADIENT_MAX_DIM_LARGE = 256;
 const SEED_ROLE = 2;
 const NEIGH_ROLE = 1;
 /** Selected / seed points grow slightly when a type or selection is focused. */
@@ -408,6 +412,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   let pointRoles = null;
   let pointRoleMode = false;
   let hoodEdges = [];
+  let hoodKnnEdgeLinesDrawn = false;
+  let focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
   let hoodRadiusBake = null; // { key, dist, w, h, bounds, seedCount, textureSize, rMax }
   let hoodRadiusGradient = null; // remapped view { key, image, bounds, seedCount, textureSize, radius, bakeRMax }
   let zoomBy = () => { };
@@ -3275,7 +3281,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       );
     }
     // kNN: restyled seed→neighbor edges (thin, low-opacity design-token teal).
-    if (hood.neighborhood === "knn" && hoodEdges.length) {
+    if (hood.neighborhood === "knn" && hoodKnnEdgeLinesDrawn && hoodEdges.length) {
       layers.push(
         new PathLayer({
           id: "neighborhood-knn",
@@ -4362,88 +4368,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     setDeckLayers();
   }
 
-  function hashSeedIndices(seeds) {
-    let h = seeds.length * 73856093;
-    for (let i = 0; i < seeds.length; i++) h = (Math.imul(h, 31) + (seeds[i] | 0)) | 0;
-    return h;
-  }
-
-  /**
-   * Bake a min-distance-to-nearest-seed field at r_max (world/common µm).
-   * AABB is expanded by r_max once; seed world positions stay fixed (never
-   * uniformly scale the AABB when r changes — that would pull seeds together).
-   * Rebaked only when seeds or r_max change — not on pan/zoom or current-r slider.
-   */
-  function bakeRadiusDistanceField(pts, seeds, rMax) {
-    if (!seeds.length || !(rMax > 0)) return null;
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    const positions = [];
-    for (let i = 0; i < seeds.length; i++) {
-      const s = pts[seeds[i]];
-      if (!s) continue;
-      positions.push(s);
-      if (s.x < minX) minX = s.x;
-      if (s.y < minY) minY = s.y;
-      if (s.x > maxX) maxX = s.x;
-      if (s.y > maxY) maxY = s.y;
-    }
-    if (!positions.length) return null;
-    minX -= rMax;
-    minY -= rMax;
-    maxX += rMax;
-    maxY += rMax;
-    const spanX = Math.max(maxX - minX, 1e-6);
-    const spanY = Math.max(maxY - minY, 1e-6);
-    const maxDim =
-      positions.length > 800 ? NEIGH_GRADIENT_MAX_DIM_LARGE : NEIGH_GRADIENT_MAX_DIM;
-    const scale = maxDim / Math.max(spanX, spanY);
-    const w = Math.max(1, Math.min(maxDim, Math.ceil(spanX * scale)));
-    const h = Math.max(1, Math.min(maxDim, Math.ceil(spanY * scale)));
-    const sx = w / spanX;
-    const sy = h / spanY;
-    // World-unit distance; Infinity sentinel → no seed within r_max.
-    const dist = new Float32Array(w * h);
-    dist.fill(Number.POSITIVE_INFINITY);
-    const rPxX = rMax * sx;
-    const rPxY = rMax * sy;
-
-    for (let si = 0; si < positions.length; si++) {
-      const s = positions[si];
-      // Canvas y=0 is top; map world maxY → row 0 so BitmapLayer bounds top matches.
-      const cx = (s.x - minX) * sx;
-      const cy = (maxY - s.y) * sy;
-      const x0 = Math.max(0, Math.floor(cx - rPxX));
-      const x1 = Math.min(w - 1, Math.ceil(cx + rPxX));
-      const y0 = Math.max(0, Math.floor(cy - rPxY));
-      const y1 = Math.min(h - 1, Math.ceil(cy + rPxY));
-      for (let y = y0; y <= y1; y++) {
-        const dyWorld = ((y + 0.5 - cy) / sy);
-        const row = y * w;
-        for (let x = x0; x <= x1; x++) {
-          const dxWorld = ((x + 0.5 - cx) / sx);
-          const d = Math.hypot(dxWorld, dyWorld);
-          if (d > rMax) continue;
-          const idx = row + x;
-          if (d < dist[idx]) dist[idx] = d;
-        }
-      }
-    }
-
-    return {
-      dist,
-      w,
-      h,
-      // [left, bottom, right, top] in world/common units (fixed at r_max)
-      bounds: [minX, minY, maxX, maxY],
-      seedCount: positions.length,
-      rMax,
-      textureSize: [w, h],
-    };
-  }
-
   /**
    * Remap a baked distance field to the visible soft-gradient canvas for current r.
    * O(texture) — no per-seed restamp. Min-distance + monotonic falloff ≡ max-blend
@@ -4510,44 +4434,83 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
 
   function prepareFocusGeom() {
     const pts = getPointsData();
-    pointRoles = new Uint8Array(pts.length);
-    pointRoleMode = false;
-    hoodEdges = [];
     const focus = cellLayerFocus();
     if (!focus) {
+      focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
+      pointRoles = null;
+      pointRoleMode = false;
+      hoodEdges = [];
+      hoodKnnEdgeLinesDrawn = false;
       hoodRadiusBake = null;
       hoodRadiusGradient = null;
       return;
     }
     const seeds = seedIndicesFor(focus);
     if (!seeds.length) {
+      focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
+      pointRoles = null;
+      pointRoleMode = false;
+      hoodEdges = [];
+      hoodKnnEdgeLinesDrawn = false;
       hoodRadiusBake = null;
       hoodRadiusGradient = null;
       return;
     }
-    // Category / selection focus: enlarge seeds and dim others.
-    pointRoleMode = true;
-    for (const i of seeds) pointRoles[i] = SEED_ROLE;
     const hood = neighborhoodFor(focus);
     if (!hood || hood.neighborhood === "off") {
+      focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
+      pointRoles = null;
+      pointRoleMode = false;
+      hoodEdges = [];
+      hoodKnnEdgeLinesDrawn = false;
       hoodRadiusBake = null;
       hoodRadiusGradient = null;
       return;
     }
-    const graph = null;
+    const k = Math.min(Number(hood.neighborhood_k) || 12, maxNeighborhoodK());
+    let r = Number(hood.neighborhood_radius) || 0;
+    const rMax = maxNeighborhoodRadius();
+    if (rMax > 0) r = Math.min(r, rMax);
+    const pointsKey = pointsCache.key || `${pts.length}`;
+    const cacheKey = neighborGeomCacheKey({
+      pointsKey,
+      focusKind: focus.kind,
+      focusIndex: focus.index,
+      hoodMode: hood.neighborhood,
+      hoodK: k,
+      hoodRadius: r,
+      seedCount: seeds.length,
+      seedHash: hashSeedIndices(seeds),
+    });
+    if (focusGeomCache.key === cacheKey && focusGeomCache.pointRoles) {
+      pointRoles = focusGeomCache.pointRoles;
+      pointRoleMode = true;
+      hoodEdges = focusGeomCache.hoodEdges;
+      hoodKnnEdgeLinesDrawn = focusGeomCache.knnEdgeLinesDrawn;
+      if (hood.neighborhood === "radius" && r > 0 && rMax > 0) {
+        ensureRadiusGradient(pts, seeds, r, rMax);
+      }
+      return;
+    }
+
+    pointRoles = new Uint8Array(pts.length);
+    pointRoleMode = true;
+    hoodEdges = [];
+    hoodKnnEdgeLinesDrawn = false;
+    for (const i of seeds) pointRoles[i] = SEED_ROLE;
+
     if (hood.neighborhood === "radius" || hood.neighborhood === "knn") {
-      const k = Math.min(Number(hood.neighborhood_k) || 12, maxNeighborhoodK());
-      let r = Number(hood.neighborhood_radius) || 0;
-      const rMax = maxNeighborhoodRadius();
-      if (rMax > 0) r = Math.min(r, rMax);
       if (!spatialIndex) refreshSpatialIndex();
-      const result = lookupGraphNeighbors(graph, pts, seeds, {
+      const wantEdges =
+        hood.neighborhood === "knn" && shouldDrawKnnEdgeLines(pts.length, seeds.length);
+      const result = lookupGraphNeighbors(null, pts, seeds, {
         mode: hood.neighborhood,
         k,
         radius: r,
-        edges: hood.neighborhood === "knn",
+        edges: wantEdges,
       });
-      hoodEdges = result.edges;
+      hoodEdges = wantEdges ? result.edges : [];
+      hoodKnnEdgeLinesDrawn = wantEdges && hoodEdges.length > 0;
       for (const i of result.neighbors) {
         if (pointRoles[i] !== SEED_ROLE) pointRoles[i] = NEIGH_ROLE;
       }
@@ -4561,6 +4524,13 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       hoodRadiusBake = null;
       hoodRadiusGradient = null;
     }
+
+    focusGeomCache = {
+      key: cacheKey,
+      pointRoles,
+      hoodEdges,
+      knnEdgeLinesDrawn: hoodKnnEdgeLinesDrawn,
+    };
   }
 
   function updateSelectedLandmark(patch) {
@@ -5999,6 +5969,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   });
   onChange("points_data", () => {
     pointsCache = { key: "", data: [] };
+    focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
     geneDenseFromCsc = null;
     refreshSpatialIndex();
     clientRasterKey = "";
@@ -6303,9 +6274,20 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       const gradient = mode === "radius" && hoodRadiusGradient?.image
         ? hoodRadiusGradient
         : null;
+      let neighborRoleCount = 0;
+      let seedRoleCount = 0;
+      if (pointRoles) {
+        for (let i = 0; i < pointRoles.length; i++) {
+          if (pointRoles[i] === NEIGH_ROLE) neighborRoleCount++;
+          else if (pointRoles[i] === SEED_ROLE) seedRoleCount++;
+        }
+      }
       return {
         mode,
         edgeCount: hoodEdges.length,
+        knnEdgeLinesDrawn: hoodKnnEdgeLinesDrawn,
+        neighborRoleCount,
+        seedRoleCount,
         // Legacy: stroked per-seed disks removed; always 0 in radius gradient mode.
         radiusDiskCount: 0,
         radiusGradient: Boolean(gradient),

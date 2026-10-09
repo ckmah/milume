@@ -160,6 +160,9 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npx playwright install chromium --with-deps
+      - name: Landmarks unit tests
+        if: matrix.id == 'default'
+        run: npm run test:unit
       - name: Run landmarks e2e
         if: ${{ env.UPDATE != 'true' }}
         run: ${{ matrix.cmd }}

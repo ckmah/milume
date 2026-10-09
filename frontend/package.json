@@ -25,6 +25,7 @@
     "check:pr-policy": "node scripts/check-pr-policy.mjs",
     "check:widget-issue": "node scripts/check-widget-issue.mjs",
     "test:agent-policy": "node --test scripts/check-agent-policy.test.mjs",
+    "test:unit": "node --test src/widgets/landmarks/neighbor-golden.test.mjs",
     "verify": "node scripts/verify.mjs"
   },
   "overrides": {

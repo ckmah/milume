@@ -61,6 +61,10 @@ export type EngineHandle = {
   getNeighborhoodOverlay(): {
     mode: string;
     edgeCount: number;
+    /** False when k-NN edges are suppressed for performance (neighbor coloring unchanged). */
+    knnEdgeLinesDrawn: boolean;
+    neighborRoleCount: number;
+    seedRoleCount: number;
     /** Always 0 — stroked per-seed disks removed in favor of soft gradient. */
     radiusDiskCount: number;
     radiusGradient: boolean;
