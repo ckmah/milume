@@ -1,7 +1,7 @@
 /**
- * Local SwiftShader timings for issue #91 (hover path + orbit drag).
+ * Local SwiftShader timings for issue #91 (face-hover path + orbit drag).
  * Usage: node scripts/volume-perf-bench.mjs
- * Requires: npm run dev:landmarks-volume in another terminal, or relies on playwright webServer.
+ * Requires: DEV_WIDGET=landmarks-volume vite on http://127.0.0.1:5173
  */
 import { chromium } from "@playwright/test";
 
@@ -26,6 +26,17 @@ async function bench(page) {
     null,
     { timeout: 120_000 },
   );
+  // #83 regression: image under labels + face-hover plates while moving the pointer.
+  const labels = page.getByTestId("layer-toggle-labels");
+  if ((await labels.getAttribute("aria-pressed")) !== "true") await labels.click();
+  await expectLabelsOn(page);
+  await page.getByRole("radio", { name: "Side view" }).click();
+  await expect(view).toHaveAttribute("data-pitch", "0");
+  await page.waitForFunction(
+    () => Boolean(document.querySelector(".volume-cube__view")?.getAttribute("data-cut-centers")?.includes("z1:")),
+    null,
+    { timeout: 60_000 },
+  );
 
   const box = await view.boundingBox();
   if (!box) throw new Error("no cube view box");
@@ -34,8 +45,12 @@ async function bench(page) {
     window.__volumeCubeRenderCount = 0;
   });
   const hoverStart = performance.now();
+  // Sweep across projected cut faces (top edge toward z1 plate, then along the front face).
   for (let i = 0; i < HOVER_STEPS; i++) {
-    await page.mouse.move(box.x + box.width * (0.35 + i * 0.012), box.y + box.height * (0.35 + (i % 5) * 0.02));
+    const t = i / (HOVER_STEPS - 1);
+    const x = box.x + box.width * (0.22 + t * 0.56);
+    const y = box.y + box.height * (0.18 + Math.sin(t * Math.PI * 2) * 0.08 + t * 0.35);
+    await page.mouse.move(x, y);
   }
   await page.waitForTimeout(300);
   const hoverMs = performance.now() - hoverStart;
@@ -56,6 +71,14 @@ async function bench(page) {
   const orbitRenders = await page.evaluate(() => window.__volumeCubeRenderCount ?? 0);
 
   return { hoverMs, hoverRenders, orbitMs, orbitRenders };
+}
+
+async function expectLabelsOn(page) {
+  await page.waitForFunction(
+    () => document.querySelector(".volume-cube__view")?.getAttribute("data-labels") === "on",
+    null,
+    { timeout: 120_000 },
+  );
 }
 
 const browser = await chromium.launch();

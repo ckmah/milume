@@ -17,19 +17,15 @@ import {
 import {
   type CutFace,
   cutBoxPre,
-  cutFaceMarks,
   cutFractions,
   cutFractionsForSlices,
   cutIsOpen,
   cutPointerTarget,
   umZToWorldHeight,
-  cutResizeCursor,
   dragToFaceDelta,
-  faceKey,
   moveCutEdge,
-  projectCutFaces,
 } from "./cut-faces";
-import { CutPlates } from "./cut-plates";
+import { VolumeCubeCutChrome, type VolumeCubeCutChromeHandle } from "./cut-hover-chrome";
 import { type CellVolume, TOO_MANY_CELLS, markVivVolume } from "./cell-volume";
 import { AxisLegend } from "./axis-legend";
 import type { ImageFormat } from "./image-volume";
@@ -1081,12 +1077,8 @@ export function VolumeCube({
     stackZ,
     interactive,
   });
-  const [hoverFace, setHoverFace] = useState("");
-  const [nearFace, setNearFace] = useState("");
-  const [cutDragging, setCutDragging] = useState(false);
-  const hoverRaf = useRef(0);
-  const lastPointer = useRef({ x: Number.NaN, y: Number.NaN });
-  const pointerAt = (clientX: number, clientY: number) => {
+  const cutChromeRef = useRef<VolumeCubeCutChromeHandle>(null);
+  const pointerAt = useCallback((clientX: number, clientY: number) => {
     const h = handlesRef.current;
     const node = hostRef.current;
     if (!h.onCutLive || !h.interactive || !h.viewState || !h.handleBox || !node) {
@@ -1100,7 +1092,7 @@ export function VolumeCube({
       h.aimTarget,
       { width: rect.width, height: rect.height },
     );
-  };
+  }, []);
 
   const onPointerDownCapture = (e: React.PointerEvent<HTMLDivElement>) => {
     if (wantsPan(e)) {
@@ -1196,13 +1188,11 @@ export function VolumeCube({
     const pointer = e.pointerId;
     let last = { x: e.clientX, y: e.clientY };
     let live = handlesRef.current.shownCut;
-    setCutDragging(true);
-    setHoverFace(faceKey(face));
-    setNearFace("");
+    cutChromeRef.current?.beginCutFace(face);
     const end = (commit: boolean) => {
       if (abort.signal.aborted) return;
       abort.abort();
-      setCutDragging(false);
+      cutChromeRef.current?.endCutFace();
       if (commit) handlesRef.current.onCutCommit?.(live);
     };
     const opts = { signal: abort.signal };
@@ -1238,47 +1228,16 @@ export function VolumeCube({
     // Left-drag is pan, face-cut, or the orbit above. Deck must not start a second gesture.
     if (e.button === 0 && handlesRef.current.interactive) e.stopPropagation();
   };
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    // A hover update re-renders the controlled camera and drops an in-progress orbit.
-    if (cutDragging || (e.buttons & 1) !== 0) return;
-    const { clientX: x, clientY: y } = e;
-    if (x === lastPointer.current.x && y === lastPointer.current.y) return;
-    lastPointer.current = { x, y };
-    if (hoverRaf.current) return;
-    hoverRaf.current = requestAnimationFrame(() => {
-      hoverRaf.current = 0;
-      const hit = pointerAt(lastPointer.current.x, lastPointer.current.y);
-      const key = hit.face ? faceKey(hit.face) : "";
-      const nearKey = hit.near ? faceKey(hit.near) : "";
-      setHoverFace((prev) => (prev === key ? prev : key));
-      setNearFace((prev) => (prev === nearKey ? prev : nearKey));
-    });
-  };
-  useEffect(() => () => cancelAnimationFrame(hoverRaf.current), []);
   const platesOn = Boolean(onCutLive && interactive && viewState && handleBox);
-  const plates = platesOn ? projectCutFaces(handleBox!, viewState!, aimTarget, viewPixelSize) : [];
-  const marks = platesOn
-    ? cutFaceMarks(handleBox!, viewState!, aimTarget, viewPixelSize)
-    : { anchors: "", centers: "", near: "" };
-  const aimed = plates.find((plate) => faceKey(plate.face) === hoverFace);
-  const cutCursor = aimed && viewState ? cutResizeCursor(aimed.face, viewState) : "";
 
   return (
     <div
       ref={hostRef}
       onPointerDownCapture={onPointerDownCapture}
       onMouseDownCapture={onMouseDownCapture}
-      onPointerMove={onPointerMove}
       data-pan-mode={String(panMode)}
       data-panning={String(panning)}
-      data-cut-face={hoverFace}
-      data-cut-near={nearFace}
-      data-cut-dragging={String(cutDragging)}
-      data-cut-cursor={cutCursor}
       data-outside={outsideCut ? "cut" : "open"}
-      data-cut-anchors={marks.anchors}
-      data-cut-centers={marks.centers}
-      data-cut-near-anchors={marks.near}
       className={cn("volume-cube__view relative w-full overflow-hidden rounded-md", background && "bg-neutral-950")}
       style={{ height }}
       data-image={showImage ? "on" : "off"}
@@ -1311,17 +1270,17 @@ export function VolumeCube({
         />
       ) : null}
       {status ? <p className="p-4 text-sm text-neutral-400">{status}</p> : null}
-      {platesOn && viewState ? (
-        <CutPlates
-          plates={plates}
-          hover={hoverFace}
-          near={nearFace}
-          dragging={cutDragging}
-          cut={shownCut}
-          width={viewPixelSize.width}
-          height={viewPixelSize.height}
-        />
-      ) : null}
+      <VolumeCubeCutChrome
+        ref={cutChromeRef}
+        hostRef={hostRef}
+        pointerAt={pointerAt}
+        platesOn={platesOn}
+        handleBox={handleBox}
+        viewState={viewState}
+        aimTarget={aimTarget}
+        viewPixelSize={viewPixelSize}
+        shownCut={shownCut}
+      />
       {layerProps && viewState ? (
         <AxisLegend rotationX={viewState.rotationX} rotationOrbit={viewState.rotationOrbit} />
       ) : null}
