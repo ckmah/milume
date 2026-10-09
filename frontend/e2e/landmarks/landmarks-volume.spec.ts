@@ -1826,9 +1826,10 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-image", "on");
     await expect(view).toHaveAttribute("data-coloring", "groups");
     await expect(view).toHaveAttribute("data-channels", "2");
-    const shown = await categoryPixels(page, await view.screenshot());
-    expect(shown.type1).toBeGreaterThan(200);
-    expect(shown.type0).toBeGreaterThan(200);
+    await expect(view).toHaveAttribute("data-label-format", "rg8");
+    const pixels = async () => categoryPixels(page, await view.screenshot());
+    await expect.poll(async () => (await pixels()).type1).toBeGreaterThan(200);
+    await expect.poll(async () => (await pixels()).type0).toBeGreaterThan(200);
     // The switch agrees with what the cube draws.
     await expect(layerToggle(page, "labels")).toHaveAttribute("aria-pressed", "true");
   });
