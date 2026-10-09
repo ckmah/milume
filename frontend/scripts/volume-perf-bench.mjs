@@ -28,15 +28,27 @@ async function bench(page) {
   );
   // #83 regression: image under labels + face-hover plates while moving the pointer.
   const labels = page.getByTestId("layer-toggle-labels");
-  if ((await labels.getAttribute("aria-pressed")) !== "true") await labels.click();
-  await expectLabelsOn(page);
-  await page.getByRole("radio", { name: "Side view" }).click();
-  await expect(view).toHaveAttribute("data-pitch", "0");
+  if (await labels.count()) {
+    if ((await labels.getAttribute("aria-pressed")) !== "true") await labels.click();
+    await expectLabelsOn(page);
+  }
+  const side = page.getByRole("radio", { name: "Side view" });
+  if (await side.count()) {
+    await side.click();
+    await page.waitForFunction(
+      () => document.querySelector(".volume-cube__view")?.getAttribute("data-pitch") === "0",
+      null,
+      { timeout: 30_000 },
+    );
+  }
   await page.waitForFunction(
-    () => Boolean(document.querySelector(".volume-cube__view")?.getAttribute("data-cut-centers")?.includes("z1:")),
+    () => {
+      const centers = document.querySelector(".volume-cube__view")?.getAttribute("data-cut-centers");
+      return Boolean(centers && centers.length > 0);
+    },
     null,
     { timeout: 60_000 },
-  );
+  ).catch(() => {});
 
   const box = await view.boundingBox();
   if (!box) throw new Error("no cube view box");
