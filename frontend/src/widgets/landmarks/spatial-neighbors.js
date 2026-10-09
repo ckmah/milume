@@ -6,6 +6,11 @@ let scratchSeed = null;
 let scratchVisit = null;
 let scratchN = 0;
 
+/** Pre-size visit buffers so the first neighborhood query avoids allocation. */
+export function warmNeighborQueryScratch(pointCount) {
+  ensureScratch(pointCount | 0);
+}
+
 function ensureScratch(n) {
   if (!scratchSeed || scratchN < n) {
     scratchN = n;

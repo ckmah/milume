@@ -1,24 +1,26 @@
 /**
  * Neighborhood performance helpers (issue #92).
  *
- * k-NN edge PathLayer cutoff from end-to-end harness sweeps (re-measured after
- * binary scatter + hood overlay). Prefer edge-count cap — PathLayer cost scales
- * with segment count, not seed count alone.
+ * k-NN edge PathLayer cutoff rule (PM): hide lines only above the selection size
+ * where edges-on end-to-end toggle exceeds ~200 ms on HF ``Stellaromics/demo``
+ * ``small/`` (4,372 Pyxa cells).
+ *
+ * Edges-on sweep (2026-10, ``frontend/scripts/neighborhood-edge-cutoff-sweep.mjs``)
+ * never crossed 200 ms through whole-tissue (≤ ~52k segments at k=12) — keep
+ * edge lines on at all realistic sizes; cap disabled below.
  */
 
-/**
- * Hide k-NN edge lines when segment count would exceed this (seeds × k), measured
- * on Pyxa small / colon A2 harness after scatter role optimization.
- */
-export const KNN_EDGE_MAX_EDGE_COUNT = 25_000;
-
-/** Legacy guard for very large tissues when edge estimate is unavailable. */
-export const KNN_EDGE_MAX_POINT_COUNT = 500_000;
+/** `null` = no edge-count cap (lines stay on). */
+export const KNN_EDGE_MAX_EDGE_COUNT = null;
 
 export function shouldDrawKnnEdgeLines(pointCount, seedCount, edgeCount = 0) {
   const edges = edgeCount | 0;
-  if (edges > KNN_EDGE_MAX_EDGE_COUNT) return false;
-  if ((pointCount | 0) > KNN_EDGE_MAX_POINT_COUNT) return false;
+  if (
+    KNN_EDGE_MAX_EDGE_COUNT != null &&
+    edges > (KNN_EDGE_MAX_EDGE_COUNT | 0)
+  ) {
+    return false;
+  }
   return true;
 }
 

@@ -39,7 +39,11 @@ import {
   pointInRing,
   distPointToSeg,
 } from "./landmarks_geometry.js";
-import { buildSpatialIndex, queryNeighbors } from "../../frontend/src/widgets/landmarks/spatial-neighbors.js";
+import {
+  buildSpatialIndex,
+  queryNeighbors,
+  warmNeighborQueryScratch,
+} from "../../frontend/src/widgets/landmarks/spatial-neighbors.js";
 import {
   hashSeedIndices,
   neighborGeomCacheKey,
@@ -427,6 +431,10 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   let spatialIndex = null;
   let spatialIndexPointCount = 0;
   let spatialIndexBuildHandle = 0;
+  let spatialIndexReadyMs = null;
+  let perfEpochMs = performance.now();
+  /** Harness: force k-NN edge PathLayer for cutoff sweeps. */
+  let benchForceKnnEdges = false;
   /** GPU scatter: base fill colors (full opacity), rebuilt when coloring changes. */
   let pointFillColors = null;
   let pointDimColors = null;
@@ -748,6 +756,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       }
       spatialIndex = buildSpatialIndex(pts);
       spatialIndexPointCount = pts.length;
+      if (spatialIndexReadyMs == null) spatialIndexReadyMs = performance.now() - perfEpochMs;
+      warmNeighborQueryScratch(pts.length);
       return;
     }
     if (spatialIndexBuildHandle) return;
@@ -755,6 +765,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       spatialIndexBuildHandle = 0;
       spatialIndex = buildSpatialIndex(pts);
       spatialIndexPointCount = pts.length;
+      if (spatialIndexReadyMs == null) spatialIndexReadyMs = performance.now() - perfEpochMs;
+      warmNeighborQueryScratch(pts.length);
     };
     if (typeof requestIdleCallback === "function") {
       spatialIndexBuildHandle = requestIdleCallback(run, { timeout: 1500 });
@@ -774,6 +786,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     }
     spatialIndex = buildSpatialIndex(pts);
     spatialIndexPointCount = pts.length;
+    if (spatialIndexReadyMs == null) spatialIndexReadyMs = performance.now() - perfEpochMs;
+    warmNeighborQueryScratch(pts.length);
     return spatialIndex;
   }
 
@@ -4787,7 +4801,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         hood.neighborhood === "knn" ? (seeds.length | 0) * (k | 0) : 0;
       const wantEdges =
         hood.neighborhood === "knn" &&
-        shouldDrawKnnEdgeLines(pts.length, seeds.length, predictedEdges);
+        (benchForceKnnEdges ||
+          shouldDrawKnnEdgeLines(pts.length, seeds.length, predictedEdges));
       const tQuery = performance.now();
       const result = lookupGraphNeighbors(null, pts, seeds, {
         mode: hood.neighborhood,
@@ -6609,6 +6624,10 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       const seedCount = Math.max(0, opts.seedCount | 0);
       const mode = opts.mode || "knn";
       const offFirst = opts.offFirst !== false;
+      benchForceKnnEdges = !!opts.forceKnnEdges;
+      if (opts.freshSelection) {
+        focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
+      }
       const pts = getPointsData();
       const seeds = Array.from(
         { length: Math.min(seedCount, pts.length) },
@@ -6619,7 +6638,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       const apply = (hood) => {
         model.set("selections", [
           {
-            id: "bench-hood",
+            id: opts.freshSelection ? `bench-hood-${opts.seedCount}-${performance.now()}` : "bench-hood",
             type: "points",
             point_indices: seeds,
             neighborhood: hood,
@@ -6636,6 +6655,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       setDeckLayers();
       return new Promise((resolve) => {
         const finish = () => {
+          benchForceKnnEdges = false;
           const overlay = handle.getNeighborhoodOverlay();
           resolve({
             ms: performance.now() - t0,
@@ -6686,6 +6706,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     },
     getPerfSnapshot: () => ({
       spatialIndexBuilt: Boolean(spatialIndex),
+      spatialIndexReadyMs,
       pointCount: getPointsData().length,
       hoodHighlightCount: hoodHighlightData.length,
       pointRoleMode,

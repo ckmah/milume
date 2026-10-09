@@ -35,10 +35,10 @@ function neighborDigest(neighbors) {
 const pts = decodePoints(fixture.points_data, fixture.x_bounds, fixture.y_bounds);
 const tree = buildSpatialIndex(pts);
 
-// Golden vectors from spatial-neighbors on dev/fixture (main); do not change without product sign-off.
+// Golden vectors from spatial-neighbors on dev/fixture.json (HF xsmall); do not change without product sign-off.
 const GOLDEN = {
-  knn_seeds_0_1_2_k12: "1bcfb4d637e6fe262553f25e63b08e7f44d5826831fa89e8b5047e1f94fc8ec0",
-  radius_seeds_0_1_2_r26: "6e7742b03f8cf9dd360072806b72d4fcd9d09d913c81d6f6ce93cb593a8cc25a",
+  knn_seeds_0_1_2_k12: "2b47950448a5ff40437534e66cfd0fbd65c2ef6c9ffc924e6fb6db117dfea71f",
+  radius_seeds_0_1_2: "08c9225d7fca3833c7672d3ea5b138339975d93a7322fafc3e0e176833e698db",
 };
 
 test("k-NN neighbor indices match golden hash", () => {
@@ -54,12 +54,13 @@ test("k-NN neighbor indices match golden hash", () => {
 
 test("radius neighbor indices match golden hash", () => {
   const seeds = [0, 1, 2];
-  const r = 26.401789346775608;
+  const rMax = Number(fixture.neighbor_radius_max) || 0;
+  const r = rMax > 0 ? rMax * 0.35 : 26.401789346775608;
   const { neighbors } = queryNeighbors(tree, pts, seeds, {
     mode: "radius",
     radius: r,
     edges: false,
   });
   const digest = neighborDigest(neighbors);
-  assert.equal(digest, GOLDEN.radius_seeds_0_1_2_r26);
+  assert.equal(digest, GOLDEN.radius_seeds_0_1_2);
 });

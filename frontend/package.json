@@ -5,7 +5,8 @@
   "scripts": {
     "build": "cross-env MILUME_BUILD_WIDGET=landmarks vite build",
     "dev:landmarks": "vite",
-    "dev:fixture": "uv run --directory .. python frontend/dev/export-fixture.py",
+    "dev:fixture": "uv run --extra demo --directory .. python frontend/dev/export-pyxa-harness-fixture.py --profile xsmall",
+    "dev:fixture:pyxa-small": "uv run --extra demo --directory .. python frontend/dev/export-pyxa-harness-fixture.py --profile small",
     "watch": "cross-env MILUME_BUILD_WIDGET=landmarks vite build --watch",
     "watch:landmarks": "cross-env MILUME_BUILD_WIDGET=landmarks vite build --watch",
     "dev:landmarks-volume": "cross-env DEV_WIDGET=landmarks-volume vite",

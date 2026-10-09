@@ -9,10 +9,13 @@ test.describe("neighborhood perf (#92)", () => {
     await bootLandmarksHarness(page);
   });
 
-  test("large selection: k-NN coloring without edge lines", async ({ page }) => {
+  test("large selection: k-NN neighbor coloring (edges on when under cutoff)", async ({ page }) => {
     const n = (await page.evaluate(() => window.__landmarksEngine.getPoints().length)) as number;
-    // Past KNN_EDGE_MAX_EDGE_COUNT (seeds × k) on the harness fixture.
-    const largeSeeds = Array.from({ length: Math.min(2200, n) }, (_, i) => i);
+    // Large but not whole-tissue (all-seed selections have no neighbor roles).
+    const largeSeeds = Array.from(
+      { length: Math.min(120, Math.max(1, Math.floor(n / 2))) },
+      (_, i) => i,
+    );
     await setModel(page, {
       selections: [
         {
@@ -30,11 +33,12 @@ test.describe("neighborhood perf (#92)", () => {
       page.evaluate(() => (window as any).__landmarksEngine.getNeighborhoodOverlay());
     await expect.poll(async () => (await hood()).mode).toBe("knn");
     const overlay = await hood();
-    expect(overlay.knnEdgeLinesDrawn).toBe(false);
-    expect(overlay.edgeCount).toBe(0);
+    expect(overlay.neighborRoleCount).toBeGreaterThan(0);
+    expect(overlay.knnEdgeLinesDrawn).toBe(true);
+    expect(overlay.edgeCount).toBeGreaterThan(0);
     if (process.env.E2E_PR_SCREENSHOTS === "1") {
       await page.locator(".landmarks").first().screenshot({
-        path: "/opt/cursor/artifacts/issue-92-neighbors-knn-large-no-edges.png",
+        path: "/opt/cursor/artifacts/issue-92-neighbors-knn-large-with-edges.png",
       });
     }
   });

@@ -13,6 +13,6 @@ demos/*.lock
 frontend/node_modules/
 milume/static/bundled/
 .playwright-mcp/
-frontend/dev/colon-a2-scale-fixture.json
+frontend/dev/pyxa-small-fixture.json
 
 # Agent scratch (SDD ledgers, reports, screenshots)
