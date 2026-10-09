@@ -37,7 +37,7 @@ def test_cosmx_default_spatial_piles_fovs(cosmx_sdata):
 def test_cosmx_widget_requires_global_key(cosmx_sdata):
     t = cosmx_sdata.tables["table"]
     w = LandmarksWidget(cosmx_sdata, spatial_key="global")
-    assert w._data_x.shape[0] == 218
+    assert w._data_x.shape[0] == 6
     np.testing.assert_allclose(w._data_x, t.obsm["global"][:, 0], rtol=0, atol=1e-6)
     assert w.raster_bin_size > 8.0
 
@@ -45,7 +45,7 @@ def test_cosmx_widget_requires_global_key(cosmx_sdata):
 def test_cosmx_integer_obsm_spatial_numpy2(cosmx_sdata):
     """CosMx table keeps int64 local coords; widget must not use copy=False."""
     w = LandmarksWidget(cosmx_sdata, spatial_key="global")
-    assert w._data_x.shape[0] == 218
+    assert w._data_x.shape[0] == 6
 
 
 def test_cosmx_no_noisy_missing_cube_warning(cosmx_sdata):
@@ -59,7 +59,7 @@ def test_cosmx_get_obs_names_without_passing_adata(cosmx_sdata):
     w = LandmarksWidget(cosmx_sdata, spatial_key="global")
     names = w.get_obs_names(selection_id="all")
     t = cosmx_sdata.tables["table"]
-    assert len(names) == 218
+    assert len(names) == 6
     assert set(names) == set(t.obs_names.astype(str))
 
 

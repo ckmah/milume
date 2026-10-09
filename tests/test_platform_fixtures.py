@@ -12,7 +12,7 @@ from tests.platform_fixtures import read_cosmx, read_xenium
 def test_cosmx_fixture_reads():
     sd = read_cosmx()
     t = sd.tables["table"]
-    assert t.shape[0] == 218
+    assert t.shape[0] == 6
     attrs = t.uns["spatialdata_attrs"]
     assert sorted(attrs["region"]) == ["1_labels", "2_labels"]
     assert attrs["instance_key"] == "cell_ID"

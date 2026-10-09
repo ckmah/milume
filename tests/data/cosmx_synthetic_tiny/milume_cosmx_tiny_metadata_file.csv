@@ -1,0 +1,7 @@
+cell_ID,fov,CenterX_global_px,CenterY_global_px,CenterX_local_px,CenterY_local_px
+1,1,5100,200,10,20
+2,1,5200,400,20,40
+3,1,5300,600,30,60
+1,2,10100,200,10,20
+2,2,10200,400,20,40
+3,2,10300,600,30,60

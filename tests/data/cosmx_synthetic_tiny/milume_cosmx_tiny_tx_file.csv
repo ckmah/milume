@@ -1,0 +1,4 @@
+fov,cell_ID,x_local_px,y_local_px,target
+1,1,1.0,3.0,GeneA
+1,2,2.0,4.0,GeneB
+2,1,1.0,3.0,GeneA
