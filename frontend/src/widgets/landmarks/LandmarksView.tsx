@@ -27,6 +27,7 @@ import {
   InspectNoVolumePill,
   PanelCollapseButton,
   PanelPeekTab,
+  PlotLoadIndicator,
 } from "./chrome";
 import type { ChipSnapshot } from "./chrome/cube-snapshots";
 import { FLOAT_PANEL } from "./chrome/sections";
@@ -43,6 +44,7 @@ import { wrapLandmarksModel } from "./model";
 import { isWindowSaved, useInspectCube } from "./use-inspect-cube";
 import { useLandmarksModel } from "./use-landmarks-model";
 import { useWidgetFullscreen } from "./use-widget-fullscreen";
+import { usePlotBootstrap } from "./use-plot-bootstrap";
 
 const SHELL_HEIGHT = 720;
 const MIN_HEIGHT = 400;
@@ -88,6 +90,7 @@ export function LandmarksView({
   }, []);
   const engineRef = useRef<EngineHandle | null>(null);
   const [engine, setEngine] = useState<EngineHandle | null>(null);
+  const plotBootstrap = usePlotBootstrap(engine);
   const [shellHeight, setShellHeight] = useState(defaultHeight);
   const [narrow, setNarrow] = useState(false);
   const [collapsed, setCollapsed] = useState({ left: false, right: false });
@@ -373,6 +376,7 @@ export function LandmarksView({
               ref={plotHostRef}
               className="landmarks__plot-host relative min-h-0 flex-1 w-full h-full"
             />
+            <PlotLoadIndicator bootstrap={plotBootstrap} />
             <CanvasRulers lm={lm} engine={engine} />
           </div>
         </div>

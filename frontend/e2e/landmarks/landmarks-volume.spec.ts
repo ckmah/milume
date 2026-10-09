@@ -2,7 +2,14 @@ import { expect, type Locator, type Page } from "@playwright/test";
 
 import { test } from "../fixtures";
 
-import { bootLandmarksVolumeHarness, canvasBox, getModel, setModel } from "../helpers";
+import {
+  bootLandmarksVolumeHarness,
+  canvasBox,
+  getModel,
+  setModel,
+  stabilizeUi,
+  waitForEngine,
+} from "../helpers";
 
 /**
  * Landmarks over a toy SpatialData (`E2E_HARNESS=landmarks-volume`): Inspect
@@ -2546,5 +2553,58 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.5, { steps: 3 });
     await expect(preview(page)).toBeVisible();
     expect(await view.evaluate((el) => Boolean((el as any).__kept))).toBe(true);
+  });
+
+  test("the cube panel shows loading until the volume draws, then clears", { tag: "@isolated" }, async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __volumeCubeLoadHook?: { delayMs: number } }).__volumeCubeLoadHook = {
+        delayMs: 700,
+      };
+    });
+    await page.goto("/", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await stabilizeUi(page);
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    const panel = cubeWindow(page).getByTestId("cube-load-immersive");
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveAttribute("data-state", "loading");
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false", { timeout: 30_000 });
+    await expect(panel).toHaveCount(0);
+  });
+
+  test("a failed volume load shows an error in the cube panel", { tag: "@isolated" }, async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __volumeCubeLoadHook?: { abortImage: boolean } }).__volumeCubeLoadHook = {
+        abortImage: true,
+      };
+    });
+    await page.goto("/", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await stabilizeUi(page);
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    const panel = cubeWindow(page).getByTestId("cube-load-immersive");
+    await expect(panel).toHaveAttribute("data-state", "error");
+    await expect(panel).toContainText("Volume load failed");
+    await expect(page.getByTestId("inspect-status")).toHaveAttribute("data-state", "error");
+  });
+
+  test("Cross-section shows a loading readout before cut ranges exist", async ({ page }) => {
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    await page
+      .getByTestId("context-inspect-toolbar")
+      .getByRole("button", { name: "Cross-section", exact: true })
+      .click();
+    await expect(page.getByTestId("inspect-cross-load")).toHaveAttribute("data-state", "loading");
+    const box = await canvasBox(page);
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await expect(page.getByTestId("inspect-cross-load")).toHaveCount(0);
+    await expect(page.getByRole("slider", { name: "Z cut" }).first()).toBeVisible();
   });
 });

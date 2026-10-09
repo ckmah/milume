@@ -16,6 +16,11 @@ export type InspectEvent =
   /** Esc in Inspect; `press` when it ended a press on the map (which then only ends). */
   | { type: "close"; press: boolean };
 
+export type PlotBootstrapState =
+  | { readonly state: "loading" }
+  | { readonly state: "ready" }
+  | { readonly state: "error"; readonly message: string };
+
 export type EngineHandle = {
   zoomBy(delta: number, opts?: { animate?: boolean; duration?: number }): void;
   resetZoom(): void;
@@ -49,6 +54,8 @@ export type EngineHandle = {
     opts?: { animate?: boolean; duration?: number },
   ): void;
   subscribeViewState(fn: (viewState: Record<string, unknown>) => void): () => void;
+  getPlotBootstrap(): PlotBootstrapState;
+  subscribePlotBootstrap(fn: (state: PlotBootstrapState) => void): () => void;
   getViewportWorldBounds(): [number, number, number, number] | null;
   panTo(x: number, y: number, opts?: { animate?: boolean; duration?: number }): void;
   getSelectionOverlay(): Array<{

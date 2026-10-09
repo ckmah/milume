@@ -3,6 +3,8 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import { Matrix4 } from "@math.gl/core";
 import { VivViewer, loadOmeZarr } from "@hms-dbmi/viv";
 
+import { ChromeLoadIndicator } from "@/widgets/landmarks/chrome/load-indicator";
+
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -172,6 +174,8 @@ export type VolumeCubeProps = {
   zStackFraction?: readonly [number, number];
   /** When true (default), shrink z to planes with image signal above contrast min. */
   tightenZToSignal?: boolean;
+  /** `data-testid` on the load / error overlay (immersive vs preview differ). */
+  loadStatusTestId?: string;
 };
 
 type ViewState = {
@@ -203,6 +207,7 @@ const FOVY = 50;
 const NO_GROUPS: HighlightGroup[] = [];
 /** Coalesce the separate window_cx / window_cy updates of one inspect click. */
 const WINDOW_DEBOUNCE_MS = 120;
+const VOLUME_LOAD_TIMEOUT_MS = 60_000;
 
 const IMAGE_COLORS: [number, number, number][] = [[220, 225, 230]];
 /** Viv's per-channel props for the one image channel (stable, so Viv never refetches for them). */
@@ -359,6 +364,7 @@ export function VolumeCube({
   onCutCommit,
   zStackFraction,
   tightenZToSignal = true,
+  loadStatusTestId = "cube-load-panel",
 }: VolumeCubeProps) {
   const hostRef = useRef<HTMLDivElement>(null);
   const fixedHeight = typeof height === "number";
@@ -409,6 +415,17 @@ export function VolumeCube({
     if (!imageUrl) return;
     (async () => {
       try {
+        const hook =
+          typeof window !== "undefined"
+            ? (window as unknown as { __volumeCubeLoadHook?: { abortImage?: boolean; delayMs?: number } })
+                .__volumeCubeLoadHook
+            : undefined;
+        if (hook?.abortImage) {
+          throw new Error("Volume load failed (test)");
+        }
+        if (hook?.delayMs && hook.delayMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, hook.delayMs));
+        }
         const loaded = await loadOmeZarr(absoluteUrl(imageUrl), { type: "multiscales" });
         const pyramid = loaded.data as unknown as ZarrSource[];
         pyramid.forEach((level, i) => chunkCache?.attach(level._data, `${imageUrl}#${i}`));
@@ -422,6 +439,14 @@ export function VolumeCube({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageUrl]);
+
+  useEffect(() => {
+    if (!imageUrl || image || error) return;
+    const timer = window.setTimeout(() => {
+      setError((prev) => prev || "Volume load timed out");
+    }, VOLUME_LOAD_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [imageUrl, image, error]);
 
   // Labels load on first use and then stay: the Labels switch and highlights
   // only rewrite a colour lookup, never the loaded volume.
@@ -1276,7 +1301,14 @@ export function VolumeCube({
           deckProps={deckProps}
         />
       ) : null}
-      {status ? <p className="p-4 text-sm text-neutral-400">{status}</p> : null}
+      {status ? (
+        <ChromeLoadIndicator
+          testId={loadStatusTestId}
+          overlay
+          phase={status.startsWith("Loading") ? "loading" : "error"}
+          message={status}
+        />
+      ) : null}
       <VolumeCubeCutChrome
         ref={cutChromeRef}
         hostRef={hostRef}
