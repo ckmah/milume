@@ -2219,6 +2219,9 @@ dev = [
     { name = "pytest" },
     { name = "ruff" },
     { name = "shapely" },
+    { name = "spatialdata", version = "0.7.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "spatialdata", version = "0.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "spatialdata-io", marker = "python_full_version >= '3.12'" },
     { name = "watchfiles" },
     { name = "zensical" },
 ]
@@ -2257,6 +2260,8 @@ dev = [
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "ruff", specifier = ">=0.16.6" },
     { name = "shapely", specifier = ">=2.1.2" },
+    { name = "spatialdata", specifier = ">=0.2" },
+    { name = "spatialdata-io", marker = "python_full_version >= '3.12'", git = "https://github.com/ckmah/spatialdata-io?branch=pyxa-reader" },
     { name = "watchfiles", specifier = ">=1.2.0" },
     { name = "zensical", specifier = ">=0.0.69" },
 ]

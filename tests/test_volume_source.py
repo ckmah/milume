@@ -26,8 +26,7 @@ def test_infers_table_labels_image_and_frame(sdata):
 def test_overrides_and_opt_out(sdata):
     _, src = resolve_volume(sdata, labels="cells", image="mosaic", table="table")
     assert src.image == "mosaic"
-    with pytest.warns(UserWarning, match="no 3D image"):
-        _, none = resolve_volume(sdata, image=False)
+    _, none = resolve_volume(sdata, image=False)
     assert none is None
 
 
@@ -42,8 +41,21 @@ def test_in_memory_sdata_has_no_cube(sdata):
 
 def test_several_tables_need_a_name(sdata):
     sdata.tables["other"] = sdata.tables["table"].copy()
-    with pytest.raises(ValueError, match="table="):
+    with pytest.raises(ValueError, match="annotates"):
         resolve_volume(sdata)
+
+
+def test_non_integer_instance_key_omits_label_ids_with_warning(sdata):
+    table = sdata.tables["table"]
+    table.obs["cell_id"] = [f"id-{i}" for i in range(table.n_obs)]
+    table.uns["spatialdata_attrs"] = {
+        **table.uns["spatialdata_attrs"],
+        "instance_key": "cell_id",
+    }
+    with pytest.warns(UserWarning, match="not integer"):
+        _, src = resolve_volume(sdata)
+    assert src is not None
+    assert src.label_ids is None
 
 
 def test_a_table_with_several_regions_is_not_the_linked_one(sdata):

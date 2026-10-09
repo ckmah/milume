@@ -59,6 +59,8 @@ dev = [
     "pytest>=8.3.3",
     "ruff>=0.16.6",
     "shapely>=2.1.2",
+    "spatialdata>=0.2",
+    "spatialdata-io; python_version >= '3.12'",
     "watchfiles>=1.2.0",
     "zensical>=0.0.69",
 ]

@@ -57,15 +57,27 @@ def _frame(element: Any, cs: str) -> tuple[tuple[float, ...], tuple[float, ...],
     from spatialdata.transformations import get_transformation
 
     arr = _level0(element)
+    if not {"z", "y", "x"} <= set(arr.dims):
+        raise ValueError("not a 3D element")
     shape = tuple(int(arr.sizes[a]) for a in ("z", "y", "x"))
-    affine = get_transformation(element, to_coordinate_system=cs).to_affine_matrix(
-        input_axes=("z", "y", "x"), output_axes=("z", "y", "x")
-    )
+    try:
+        affine = get_transformation(element, to_coordinate_system=cs).to_affine_matrix(
+            input_axes=("z", "y", "x"), output_axes=("z", "y", "x")
+        )
+    except (KeyError, ValueError) as err:
+        raise ValueError(f"no scale + translation transform to {cs!r}") from err
     if not np.allclose(affine[:3, :3], np.diag(np.diag(affine[:3, :3]))):
         raise ValueError("the cube supports scale + translation transforms only")
     scale = tuple(float(v) for v in np.diag(affine[:3, :3]))
     origin = tuple(float(v) for v in affine[:3, 3])
     return scale, origin, shape
+
+
+def _frame_or_none(element: Any, cs: str):
+    try:
+        return _frame(element, cs)
+    except ValueError:
+        return None
 
 
 def _pick_table(sdata: Any, table: str | None) -> str:
@@ -83,7 +95,12 @@ def _pick_table(sdata: Any, table: str | None) -> str:
     linked = [n for n in names if links_labels(n)]
     if len(linked) == 1:
         return linked[0]
-    raise ValueError(f"several tables {names}: pass table=<name>")
+    detail = []
+    for n in names:
+        region = sdata.tables[n].uns.get("spatialdata_attrs", {}).get("region")
+        regions = [region] if isinstance(region, str) else list(region or [])
+        detail.append(f"{n!r} (annotates {regions})" if regions else repr(n))
+    raise ValueError(f"several tables {', '.join(detail)}: pass table=<name>")
 
 
 def resolve_volume(
@@ -96,8 +113,10 @@ def resolve_volume(
     """The table to plot and, when the cube is possible, its volume source.
 
     ``image`` / ``labels``: an element name, ``None`` to infer, or ``False`` to
-    leave it out. Warns (and returns no source) when there is no 3D image or the
-    SpatialData is not backed by a Zarr store on disk.
+    leave it out. No 3D image means no cube (silently: most SpatialData are 2D);
+    warns (and returns no source) when a 3D image cannot be served, i.e. the
+    SpatialData is not backed by a Zarr store on disk or its transform is not
+    scale + translation.
     """
     table_name = _pick_table(sdata, table)
     adata = sdata.tables[table_name]
@@ -112,7 +131,8 @@ def resolve_volume(
     if labels_name is not None:
         from spatialdata.transformations import get_transformation
 
-        cs = next(iter(get_transformation(sdata.labels[labels_name], get_all=True)))
+        systems = list(get_transformation(sdata.labels[labels_name], get_all=True))
+        cs = "global" if "global" in systems else systems[0]
 
     image_name = None
     if image is not False:
@@ -121,20 +141,27 @@ def resolve_volume(
         else:
             images3d = [n for n, e in sdata.images.items() if "z" in _level0(e).dims]
             if labels_name is not None:
-                target = _frame(sdata.labels[labels_name], cs)
-                aligned = [n for n in images3d if _frame(sdata.images[n], cs) == target]
+                target = _frame_or_none(sdata.labels[labels_name], cs)
+                aligned = [
+                    n
+                    for n in images3d
+                    if target is not None and _frame_or_none(sdata.images[n], cs) == target
+                ]
                 image_name = (aligned or images3d or [None])[0]
             elif len(images3d) == 1:
                 image_name = images3d[0]
     if image_name is None:
-        warnings.warn("no 3D image in this SpatialData: Landmarks has no cube", UserWarning, stacklevel=2)
         return adata, None
     if getattr(sdata, "path", None) is None:
         warnings.warn("SpatialData is not backed by a Zarr store on disk: no cube", UserWarning, stacklevel=2)
         return adata, None
 
-    voxel, origin, shape = _frame(sdata.images[image_name], cs)
-    if labels_name is not None and _frame(sdata.labels[labels_name], cs) != (voxel, origin, shape):
+    try:
+        voxel, origin, shape = _frame(sdata.images[image_name], cs)
+    except ValueError as err:
+        warnings.warn(f"image {image_name!r} in {cs!r}: {err}: no cube", UserWarning, stacklevel=2)
+        return adata, None
+    if labels_name is not None and _frame_or_none(sdata.labels[labels_name], cs) != (voxel, origin, shape):
         warnings.warn(
             f"labels {labels_name!r} are on another grid than {image_name!r}: cube shows the image only",
             UserWarning,
@@ -142,6 +169,22 @@ def resolve_volume(
         )
         labels_name = None
     label_ids = None
-    if labels_name is not None and attrs.get("instance_key") in adata.obs:
-        label_ids = adata.obs[attrs["instance_key"]].to_numpy().astype(np.int32)
+    instance_key = attrs.get("instance_key")
+    if labels_name is not None and instance_key in adata.obs:
+        import pandas as pd
+
+        col = adata.obs[instance_key]
+        if pd.api.types.is_integer_dtype(col) or (
+            col.dtype == object and all(isinstance(v, (int, np.integer)) for v in col.dropna().head(8))
+        ):
+            label_ids = col.to_numpy().astype(np.int32)
+        elif col.dtype.kind in "iu":
+            label_ids = col.to_numpy().astype(np.int32)
+        else:
+            warnings.warn(
+                f"table {table_name!r} instance_key {instance_key!r} is not integer: "
+                "cube label ids omitted",
+                UserWarning,
+                stacklevel=2,
+            )
     return adata, VolumeSource(table_name, image_name, labels_name, Path(sdata.path), voxel, origin, shape, label_ids)
