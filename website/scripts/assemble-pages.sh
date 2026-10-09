@@ -22,5 +22,6 @@ mkdir -p "${OUT}/docs"
 cp -a "${WEBSITE}/dist/." "${OUT}/docs/"
 
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/agent-index.py"
+uv run --directory "${ROOT}" python "${WEBSITE}/scripts/check-agent-md.py" "${OUT}"
 
 echo "Assembled Pages site at ${OUT}"

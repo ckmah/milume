@@ -43,22 +43,8 @@ obs_names = w.get_obs_names()
 
 Full guide: [LandmarksWidget](landmarks.md).
 
-## Quickstart — GalleryWidget
-
-```python
-from milume import GalleryWidget
-
-g = GalleryWidget(
-    items=[
-        {"title": "Landmarks", "description": "Tissue selections"},
-        {"title": "Recipes", "description": "Analysis cards"},
-    ]
-)
-g.selected_index  # synced; -1 when none
-```
-
 ## Next
 
 - [LandmarksWidget](landmarks.md)
-- [GalleryWidget](gallery.md)
+- [LandmarksWidget API](api/landmarks.md)
 - [Open Landmarks demo](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/landmarks.py)

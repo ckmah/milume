@@ -30,7 +30,6 @@ Visitors land on GitHub Pages at `https://ckmah.github.io/milume/`. Landing CTAs
 
 - Public install path: `pip install milume` (PyPI). Source install via `uv` is documented for contributors.
 - Hero widget: `LandmarksWidget(adata, color=..., genes=...)` with `obsm["spatial"]`.
-- Also shipping: `GalleryWidget` with synced `selected_index`.
 - Do not invent customer counts, benchmarks, or unshipped widgets.
 - Do not point Zensical `docs_dir` at repo engineering `docs/`.
 - Do not block site shipping on a pending PyPI 1.0.1 approval.
@@ -50,9 +49,9 @@ Landing (Persuade) and docs (Read) share only a thin brand bridge: product name,
 ## Evidence on Hand
 
 - README table of widgets + molab demo badges.
-- In-repo screenshots: `assets/landmarks_widget_{light,dark}.png`, `assets/gallery_widget_{light,dark}.png`.
+- In-repo screenshots: `assets/landmarks_widget_{light,dark}.png`.
 - Domain language in `CONTEXT.md`; Landmarks ↔ GeoDataFrame contract in engineering `docs/landmarks-spatialdata-contract.md` (promote excerpts only when useful).
-- Constructor and notebook API documented on `LandmarksWidget` / `GalleryWidget` in package source.
+- Constructor and notebook API documented on `LandmarksWidget` in package source.
 
 ## Product Principles
 

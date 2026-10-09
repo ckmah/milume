@@ -16,7 +16,6 @@ nav = [
   { Home = "index.md" },
   { Install = "install.md" },
   { LandmarksWidget = "landmarks.md" },
-  { GalleryWidget = "gallery.md" },
   { "API — LandmarksWidget" = "api/landmarks.md" },
 ]
 

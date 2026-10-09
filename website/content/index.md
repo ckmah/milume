@@ -7,8 +7,7 @@ browser owns presentation; state syncs through typed traitlets.
 
 1. [Install](install.md) — `pip install milume`
 2. [LandmarksWidget](landmarks.md) — draw on tissue coordinates
-3. [GalleryWidget](gallery.md) — compact selectable cards
-4. [LandmarksWidget API](api/landmarks.md) — mkdocstrings reference
+3. [LandmarksWidget API](api/landmarks.md) — generated API reference
 
 ## Agents
 
@@ -19,7 +18,7 @@ browser owns presentation; state syncs through typed traitlets.
 ## Try a demo
 
 - [LandmarksWidget on molab](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/landmarks.py)
-- [GalleryWidget on molab](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/gallery.py)
+- [Colon A2 on molab](https://molab.marimo.io/github/stellaromics/pyxa_scverse_demo/blob/main/colon_a2.py)
 
 ## Project home
 
