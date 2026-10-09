@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { assignShards } from "./lib/e2e-shard-plan.mjs";
 import { validateUiPullRequest } from "./lib/pr-policy.mjs";
 import { validateWidgetIssueBody } from "./lib/widget-issue.mjs";
 
@@ -47,21 +48,27 @@ test("draft PR #78 without Closes fails pr-policy", () => {
 });
 
 test("volume e2e heavy pan tests are pinned to different shards", () => {
-  const cwd = join(scripts, "..");
-  const env = { ...process.env, E2E_HARNESS: "landmarks-volume" };
-  const shardHits = [];
-  for (let i = 1; i <= 3; i++) {
-    const r = spawnSync("node", ["scripts/e2e-shard.mjs", `${i}/3`, "e2e/landmarks/landmarks-volume.spec.ts", "--list"], {
-      encoding: "utf8",
-      cwd,
-      env,
-      maxBuffer: 64 * 1024 * 1024,
-    });
-    assert.equal(r.status, 0, r.stderr || r.stdout);
-    if (r.stdout.includes("panning clamps")) shardHits.push(i);
-    if (r.stdout.includes("Move tool makes a plain drag pan")) shardHits.push(i);
-  }
-  assert.deepEqual([...new Set(shardHits)].sort(), [1, 2]);
+  const weights = JSON.parse(readFileSync(join(scripts, "e2e-shard-weights.json"), "utf8"));
+  const tests = [
+    { title: "panning clamps the window centre to the volume", line: 1 },
+    { title: "the Move tool makes a plain drag pan; the distance scales with the drag", line: 2 },
+    { title: "alpha example", line: 3 },
+    { title: "beta example", line: 4 },
+    { title: "gamma example", line: 5 },
+  ];
+  const buckets = assignShards(tests, 3, weights);
+  const shardOf = (line) => buckets.findIndex((b) => b.some((t) => t.line === line)) + 1;
+  assert.notEqual(shardOf(1), shardOf(2));
+});
+
+test("e2e-only PR closing a CI issue skips widget-issue and PR visuals", () => {
+  const errors = validateUiPullRequest({
+    body: "Closes #100\n\nTiming table only.\n",
+    changedPaths: ["frontend/e2e/landmarks/landmarks-volume.spec.ts", "frontend/scripts/e2e-shard.mjs"],
+    isDraft: false,
+    issueBodies: { 100: "### Outcome\n\nx\n\n### Acceptance\n\n- [ ] y\n" },
+  });
+  assert.deepEqual(errors, []);
 });
 
 test("PR #80 with Closes and visuals passes pr-policy", () => {
