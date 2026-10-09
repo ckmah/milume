@@ -4,7 +4,9 @@ import { decodeF32Base64 } from "../binary";
 import { inspectWindowOf } from "../use-inspect-cube";
 import type { LandmarksModel } from "../use-landmarks-model";
 import type { ChipSnapshot } from "./cube-snapshots";
+import { knnEdgeCapHiddenNote } from "../neighborhood-perf.js";
 import { compositionSlices, resolvePointMask } from "./info-stats";
+import { META_LINE } from "./sections";
 
 /** Points in `points_data` (Nx4 float32, base64). */
 function pointCount(b64: string): number {
@@ -102,6 +104,9 @@ export function SelectionCard({
   }, [win, stackZ, points_data, mask, x_bounds, y_bounds]);
   if (!sel) return null;
   const total = Math.max(count, 1);
+  const seedCount = sel.point_indices?.length ?? count;
+  const hoodK = Number(sel.neighborhood_k) || 12;
+  const edgesCapNote = knnEdgeCapHiddenNote(sel.neighborhood || "off", seedCount, hoodK);
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -120,6 +125,11 @@ export function SelectionCard({
             {line}
           </p>
         ))}
+        {edgesCapNote ? (
+          <p className={META_LINE} data-testid="knn-edges-cap-note">
+            {edgesCapNote}
+          </p>
+        ) : null}
       </div>
       {slices.length ? (
         <div className="flex flex-col gap-1">

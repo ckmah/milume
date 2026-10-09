@@ -14,12 +14,46 @@
  */
 export const KNN_EDGE_MAX_EDGE_COUNT = 102_000;
 
+/** E2E only: `window.__KNN_EDGE_MAX_OVERRIDE` lowers the cap without rebuilding. */
+export function effectiveKnnEdgeMaxEdgeCount() {
+  const g = typeof globalThis !== "undefined" ? globalThis : {};
+  const o = g.__KNN_EDGE_MAX_OVERRIDE;
+  if (o != null && Number.isFinite(Number(o))) return Number(o) | 0;
+  return KNN_EDGE_MAX_EDGE_COUNT;
+}
+
+/** Compact label for UI copy (e.g. 102_000 → `102k`). */
+export function formatKnnEdgeCapLabel(maxEdges) {
+  const v = Math.abs(maxEdges | 0);
+  if (v >= 1000) {
+    const k = v / 1000;
+    const text = Number.isInteger(k) ? String(k) : k.toFixed(1).replace(/\.0$/, "");
+    return `${text}k`;
+  }
+  return String(v);
+}
+
+/** True when k-NN edge lines are suppressed by the predicted-edge cap (seeds × k). */
+export function knnEdgesHiddenByCap(neighborhood, seedCount, k = 12) {
+  if (neighborhood !== "knn") return false;
+  const max = effectiveKnnEdgeMaxEdgeCount();
+  if (max == null) return false;
+  const predicted = (seedCount | 0) * (Math.max(1, k | 0) | 0);
+  return predicted > (max | 0);
+}
+
+/** One-line selection-card copy when edges are capped; `null` when cap is disabled. */
+export function knnEdgeCapHiddenNote(neighborhood, seedCount, k = 12) {
+  if (!knnEdgesHiddenByCap(neighborhood, seedCount, k)) return null;
+  const max = effectiveKnnEdgeMaxEdgeCount();
+  if (max == null) return null;
+  return `Edges hidden above ${formatKnnEdgeCapLabel(max)} for speed`;
+}
+
 export function shouldDrawKnnEdgeLines(pointCount, seedCount, edgeCount = 0) {
   const edges = edgeCount | 0;
-  if (
-    KNN_EDGE_MAX_EDGE_COUNT != null &&
-    edges > (KNN_EDGE_MAX_EDGE_COUNT | 0)
-  ) {
+  const max = effectiveKnnEdgeMaxEdgeCount();
+  if (max != null && edges > (max | 0)) {
     return false;
   }
   return true;
