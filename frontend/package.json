@@ -7,6 +7,7 @@
     "dev:landmarks": "vite",
     "dev:fixture": "uv run --extra demo --directory .. python frontend/dev/export-pyxa-harness-fixture.py --profile xsmall",
     "dev:fixture:pyxa-small": "uv run --extra demo --directory .. python frontend/dev/export-pyxa-harness-fixture.py --profile small",
+    "dev:fixture:colon": "uv run --extra demo --directory .. python frontend/dev/export-colon-a2-harness-fixture.py",
     "watch": "cross-env MILUME_BUILD_WIDGET=landmarks vite build --watch",
     "watch:landmarks": "cross-env MILUME_BUILD_WIDGET=landmarks vite build --watch",
     "dev:landmarks-volume": "cross-env DEV_WIDGET=landmarks-volume vite",

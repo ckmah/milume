@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""Export landmarks harness JSON from Hugging Face Stellaromics/demo Pyxa slices.
+"""Export landmarks harness JSON from Hugging Face Stellaromics/demo **mouse brain** Pyxa slices.
 
-Profiles:
+Profiles (``xsmall/``, ``small/`` on HF — **not colon**):
 - ``xsmall``: ~187 cells (~10 MB HF tree) — default CI harness ``fixture.json``.
-- ``small``: 4,372 cells (~200 MB HF tree) — perf / edge-cutoff sweeps (gitignored JSON).
+- ``small``: 4,372 cells (~200 MB HF tree) — timing / edge sweeps (gitignored JSON).
+
+Do **not** join colon annotations onto these slices by ``cell_id`` / Region_N-style IDs:
+brain and colon demo IDs overlap (~3.6k collisions). Use colon export for colon biology.
 """
 
 from __future__ import annotations
@@ -181,6 +184,10 @@ def main() -> None:
         adata,
         spatial_key="spatial",
         color=color_key,
+    )
+    # Harness label only — mouse brain demo slice for timing/CI, not colon tissue.
+    widget.legend_title = (
+        f"{color_key or 'points'} (mouse brain · Stellaromics/demo {args.profile}/)"
     )
     widget.selected_kind = ""
     widget.selected_index = -1

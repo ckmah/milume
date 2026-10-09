@@ -1,8 +1,8 @@
 /**
- * End-to-end neighborhood toggle: first vs warm medians + KD-tree ready time.
+ * End-to-end neighborhood toggle on mouse brain harness fixtures (timing/CI, not colon).
  *
- *   node frontend/scripts/neighborhood-toggle-bench.mjs
- *   PYXA_SMALL=1 node frontend/scripts/neighborhood-toggle-bench.mjs
+ *   node frontend/scripts/neighborhood-toggle-bench.mjs          # xsmall CI
+ *   PYXA_SMALL=1 node frontend/scripts/neighborhood-toggle-bench.mjs  # small/
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";

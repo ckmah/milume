@@ -1,5 +1,5 @@
 /**
- * Colon A2 edges-on toggle vs edge count (force PathLayer on).
+ * Mouse brain ``small/`` edges-on toggle vs edge count (timing only, not colon).
  *
  *   node frontend/scripts/neighborhood-edge-cutoff-sweep.mjs
  */
@@ -7,7 +7,7 @@ import { writeFileSync } from "node:fs";
 import { chromium } from "@playwright/test";
 
 const K = 12;
-/** Swept on HF ``small/`` (4,372 cells); last entry = whole tissue. */
+/** HF ``Stellaromics/demo/small/`` mouse brain (4,372 cells); last entry = whole slice. */
 const SEED_SIZES = [
   1, 25, 50, 100, 150, 200, 295, 400, 600, 800, 1000, 1500, 2000, 2500, 3000,
   3500, 4000, 4372,

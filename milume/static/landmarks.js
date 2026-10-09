@@ -6629,10 +6629,13 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
       }
       const pts = getPointsData();
-      const seeds = Array.from(
-        { length: Math.min(seedCount, pts.length) },
-        (_, i) => i,
-      );
+      const seeds =
+        Array.isArray(opts.seedIndices) && opts.seedIndices.length
+          ? opts.seedIndices.map((i) => i | 0).filter((i) => i >= 0 && i < pts.length)
+          : Array.from(
+              { length: Math.min(seedCount, pts.length) },
+              (_, i) => i,
+            );
       const rMax = maxNeighborhoodRadius();
       const radius = rMax > 0 ? rMax * 0.35 : 0;
       const apply = (hood) => {

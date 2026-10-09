@@ -1,13 +1,11 @@
 /**
  * Neighborhood performance helpers (issue #92).
  *
- * k-NN edge PathLayer cutoff rule (PM): hide lines only above the selection size
- * where edges-on end-to-end toggle exceeds ~200 ms on HF ``Stellaromics/demo``
- * ``small/`` (4,372 Pyxa cells).
+ * k-NN edge PathLayer cutoff (PM): hide lines when edges-on first-toggle p95 exceeds
+ * ~200 ms on **colon** subsamples (``frontend/scripts/neighborhood-colon-subsample-sweep.mjs``).
  *
- * Edges-on sweep (2026-10, ``frontend/scripts/neighborhood-edge-cutoff-sweep.mjs``)
- * never crossed 200 ms through whole-tissue (≤ ~52k segments at k=12) — keep
- * edge lines on at all realistic sizes; cap disabled below.
+ * Mouse brain ``small/``/``xsmall/`` (HF Pyxa) are for timing/CI only — do not join colon
+ * labels onto them by cell_id. Brain edges-on sweeps stay well under 200 ms at slice scale.
  */
 
 /** `null` = no edge-count cap (lines stay on). */
