@@ -304,7 +304,8 @@ Synced on every edit (read and write from Python):
     positional row indices).
 ``selected_kind``, ``selected_index``, ``selected_type_indices``
     Active item (``""`` / ``-1`` when none). Type focus may list several
-    ``selected_type_indices`` within the active category set.
+    ``selected_type_indices`` within the active category set (browser
+    multi-select). From Python, :meth:`select_type` sets a single group.
 ``inspect_cx``, ``inspect_cy``, ``inspect_size_um``
     Inspect window centre (µm) and side length (300 µm square). The browser
     writes size at placement; setting centre from Python moves the cube.
@@ -788,22 +789,6 @@ class LandmarksWidget(AnyWidget):
         if logged:
             self.gene_log1p = False
 
-    @traitlets.observe("selected_kind", "selected_index")
-    def _sync_selected_type_indices(self, change: dict) -> None:
-        """Notebook single-type focus: ``selected_index`` owns the union."""
-        if change.get("new") == change.get("old"):
-            return
-        kind = str(self.selected_kind or "")
-        if kind != "type":
-            if change.get("name") == "selected_kind":
-                self.selected_type_indices = []
-            return
-        idx = int(self.selected_index)
-        if idx < 0:
-            self.selected_type_indices = []
-            return
-        self.selected_type_indices = [idx]
-
     @traitlets.observe("active_genes")
     def _on_active_genes(self, change: dict) -> None:
         if change.get("new") == change.get("old"):
@@ -1029,6 +1014,24 @@ class LandmarksWidget(AnyWidget):
     def clear(self) -> None:
         self.clear_selections()
         self.clear_landmarks()
+
+    def select_type(self, index: int) -> None:
+        """Focus one category group in the active set (replaces a multi-select union).
+
+        The browser may set ``selected_type_indices`` to several groups; this
+        helper is the notebook path for single-group focus without fighting
+        front-end sync.
+        """
+        idx = int(index)
+        with self.hold_sync():
+            if idx < 0:
+                self.selected_kind = ""
+                self.selected_index = -1
+                self.selected_type_indices = []
+            else:
+                self.selected_kind = "type"
+                self.selected_index = idx
+                self.selected_type_indices = [idx]
 
     def get_focus_obs_names(
         self,
