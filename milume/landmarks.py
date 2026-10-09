@@ -273,6 +273,19 @@ def _spatial_metrics(
     )
 
 
+def _default_raster_scales(x_arr: "np.ndarray", y_arr: "np.ndarray") -> tuple[float, float]:
+    """Bin size and aggregation window in the same units as ``x_arr`` / ``y_arr``.
+
+    Uses median nearest-neighbor spacing so CosMx global pixels and µm Pyxa
+    both get sensible defaults (fixed 8 µm bins are wrong in pixel space).
+    """
+    nn = _median_nn_distance(x_arr, y_arr)
+    if nn is None or not np.isfinite(nn) or nn <= 0:
+        return DEFAULT_BIN_SIZE, DEFAULT_WINDOW_RADIUS
+    bin_size = max(2.0 * nn, 1e-9)
+    return bin_size, 3.0 * bin_size
+
+
 _LANDMARKS_API_DOC = """\
 Parameters
 ----------
@@ -481,8 +494,11 @@ class LandmarksWidget(AnyWidget):
             raise TypeError("LandmarksWidget(data) requires an AnnData or a SpatialData")
 
         if spatial_key not in adata.obsm:
-            raise ValueError(f"adata.obsm[{spatial_key!r}] is required")
-        xy = np.asarray(adata.obsm[spatial_key], dtype=np.float64, copy=False)
+            raise ValueError(
+                f"adata.obsm[{spatial_key!r}] is required: pass spatial_key=<an obsm key> or add "
+                "positions to the table first"
+            )
+        xy = np.asarray(adata.obsm[spatial_key], dtype=np.float64)
         if xy.ndim != 2 or xy.shape[1] < 2:
             raise ValueError(f"adata.obsm[{spatial_key!r}] must be (n, ≥2)")
         if xy.shape[0] != adata.n_obs:
@@ -491,16 +507,17 @@ class LandmarksWidget(AnyWidget):
         if n == 0:
             raise ValueError("adata must contain at least one observation")
 
-        x_arr = np.asarray(xy[:, 0], dtype=np.float64, copy=False)
-        y_arr = np.asarray(xy[:, 1], dtype=np.float64, copy=False)
+        x_arr = np.asarray(xy[:, 0], dtype=np.float64)
+        y_arr = np.asarray(xy[:, 1], dtype=np.float64)
         z_arr = (
-            np.asarray(xy[:, 2], dtype=np.float64, copy=False)
+            np.asarray(xy[:, 2], dtype=np.float64)
             if xy.shape[1] >= 3
             else np.full(n, np.nan, dtype=np.float64)
         )
         xmin, xmax, ymin, ymax, point_size, buffer_width = _spatial_metrics(
             x_arr, y_arr
         )
+        raster_bin_size, raster_window_radius = _default_raster_scales(x_arr, y_arr)
         diag = math.hypot(xmax - xmin, ymax - ymin)
         radius_max = float(_DEFAULT_RADIUS_MAX_FRAC * diag)
         nx = (2.0 * (x_arr - xmin) / (xmax - xmin) - 1.0).astype(np.float32)
@@ -623,8 +640,8 @@ class LandmarksWidget(AnyWidget):
             embedding_matrix="",
             embedding_matrix_dim=0,
             render_mode="points",
-            raster_bin_size=DEFAULT_BIN_SIZE,
-            raster_window_radius=float(DEFAULT_WINDOW_RADIUS),
+            raster_bin_size=float(raster_bin_size),
+            raster_window_radius=float(raster_window_radius),
             raster_basis="composition",
             raster_embedding_key=embedding_key,
             raster_embedding_keys=embedding_keys,
@@ -1010,7 +1027,7 @@ class LandmarksWidget(AnyWidget):
 
     def get_obs_names(
         self,
-        adata: Any,
+        adata: Any = None,
         selection_id: str | None = "all",
         *,
         spatial_key: str = "spatial",
@@ -1020,24 +1037,31 @@ class LandmarksWidget(AnyWidget):
         Uses :func:`selection_mask` (geometry or stored ``point_indices``).
         Neighborhood expand is client-side; promote freezes membership into
         ``point_indices`` before syncing.
+
+        With no ``adata`` the widget's own coordinates and names are used, so
+        the result cannot depend on which ``spatial_key`` you pass.
         """
         import numpy as np
 
-        xy = np.asarray(adata.obsm[spatial_key], dtype=np.float64)
         cached = getattr(self, "_data_x", None)
-        if cached is None or xy.shape[0] != int(cached.shape[0]):
-            raise ValueError(
-                "adata row count != widget points; rebuild the widget after filtering"
-            )
+        if adata is None:
+            x, y, names = cached, self._data_y, np.asarray(self._obs_names.astype(str))
+        else:
+            xy = np.asarray(adata.obsm[spatial_key], dtype=np.float64)
+            if cached is None or xy.shape[0] != int(cached.shape[0]):
+                raise ValueError(
+                    "adata row count != widget points; rebuild the widget after filtering"
+                )
+            x, y, names = xy[:, 0], xy[:, 1], np.asarray(adata.obs_names.astype(str))
         mask = selection_mask(
             list(self.selections),
-            xy[:, 0],
-            xy[:, 1],
+            x,
+            y,
             selection_id,
             x_scale=self._x_scale,
             y_scale=self._y_scale,
         )
-        return np.asarray(adata.obs_names.astype(str))[np.asarray(mask, dtype=bool)]
+        return names[np.asarray(mask, dtype=bool)]
 
     def assign_obs_mask(
         self,
