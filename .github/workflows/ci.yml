@@ -33,6 +33,13 @@ jobs:
       - run: npm run build
         working-directory: frontend
 
-      - run: uv sync --group dev --extra test
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/milume-test-data
+          key: milume-xenium-ovary-tiny-${{ hashFiles('tests/platform_fixtures.py') }}
+          restore-keys: |
+            milume-xenium-ovary-tiny-
+
+      - run: uv sync --group dev
       - run: uv run pytest
       - run: uv build

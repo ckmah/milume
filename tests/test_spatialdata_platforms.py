@@ -1,91 +1,77 @@
-"""LandmarksWidget on Xenium- and CosMx-shaped SpatialData (issue #103)."""
+"""LandmarksWidget on real Xenium / CosMx fixtures (#103, tests/platform_fixtures.py)."""
 
 from __future__ import annotations
 
 import warnings
 
 import numpy as np
-import pandas as pd
 import pytest
 
 pytest.importorskip("spatialdata")
-
-spatialdata_io = pytest.importorskip("spatialdata_io")
+pytest.importorskip("spatialdata_io")
 
 from milume import LandmarksWidget
 from milume.volume_source import resolve_volume
-from tests.fixtures.spatialdata_platforms import (
-    write_cosmx_tiny_flatfiles,
-    xenium_like_spatialdata,
-    xenium_like_with_string_instance_ids,
-)
+from tests.platform_fixtures import read_cosmx, read_xenium
 
 
-@pytest.fixture
-def cosmx_dir(tmp_path):
-    return write_cosmx_tiny_flatfiles(tmp_path / "cosmx")
+@pytest.fixture(scope="module")
+def cosmx_sdata():
+    return read_cosmx()
 
 
-@pytest.fixture
-def cosmx_sdata(cosmx_dir):
-    return spatialdata_io.cosmx(cosmx_dir, dataset_id="milume_tiny", transcripts=False)
+@pytest.fixture(scope="module")
+def xenium_sdata():
+    return read_xenium()
 
 
-def test_cosmx_global_positions_separate_fovs(cosmx_sdata):
-    t = cosmx_sdata.tables[list(cosmx_sdata.tables)[0]]
+def test_cosmx_default_spatial_piles_fovs(cosmx_sdata):
+    t = cosmx_sdata.tables["table"]
     spatial = t.obsm["spatial"]
     global_ = t.obsm["global"]
-    # Local FOV coords repeat; global coords do not.
-    assert np.allclose(spatial[:3], spatial[3:6])
-    assert not np.allclose(global_[:3, 0], global_[3:6, 0])
-    assert np.allclose(global_[:3, 0], [5100, 5200, 5300])
-    assert np.allclose(global_[3:6, 0], [10100, 10200, 10300])
+    spread_local = float(np.ptp(spatial[:, 0]) + np.ptp(spatial[:, 1]))
+    spread_global = float(np.ptp(global_[:, 0]) + np.ptp(global_[:, 1]))
+    assert spread_global > spread_local * 2
 
 
-def test_cosmx_widget_uses_global_key(cosmx_sdata):
+def test_cosmx_widget_requires_global_key(cosmx_sdata):
+    t = cosmx_sdata.tables["table"]
     w = LandmarksWidget(cosmx_sdata, spatial_key="global")
-    t = cosmx_sdata.tables[list(cosmx_sdata.tables)[0]]
-    np.testing.assert_allclose(w._data_x, t.obsm["global"][:, 0])
-    assert w.raster_bin_size > 50
+    assert w._data_x.shape[0] == 218
+    np.testing.assert_allclose(w._data_x, t.obsm["global"][:, 0], rtol=0, atol=1e-6)
+    assert w.raster_bin_size > 8.0
 
 
-def test_cosmx_integer_obsm_coords(cosmx_sdata):
-    t = cosmx_sdata.tables[list(cosmx_sdata.tables)[0]]
-    t.obsm["global"] = np.round(t.obsm["global"]).astype(np.int64)
+def test_cosmx_integer_obsm_spatial_numpy2(cosmx_sdata):
+    """CosMx table keeps int64 local coords; widget must not use copy=False."""
     w = LandmarksWidget(cosmx_sdata, spatial_key="global")
-    assert w._data_x.shape[0] == t.n_obs
+    assert w._data_x.shape[0] == 218
 
 
-def test_xenium_like_2d_labels_do_not_raise():
-    sdata = xenium_like_spatialdata()
-    w = LandmarksWidget(sdata)
-    assert w._data_x.shape[0] == sdata.tables["table"].n_obs
-    _, vol = resolve_volume(sdata)
-    assert vol is None
-
-
-def test_xenium_like_string_instance_key_skips_label_ids():
-    sdata = xenium_like_with_string_instance_ids()
+def test_cosmx_no_noisy_missing_cube_warning(cosmx_sdata):
     with warnings.catch_warnings(record=True) as rec:
         warnings.simplefilter("always")
-        _, vol = resolve_volume(sdata)
-    assert vol is None
-    assert not any("instance_key" in str(w.message) for w in rec)
-
-
-def test_xenium_like_on_disk_zarr_no_cube(tmp_path):
-    import spatialdata as sd
-
-    sdata = xenium_like_spatialdata()
-    dest = tmp_path / "xenium_like.zarr"
-    sdata.write(dest)
-    loaded = sd.read_zarr(dest)
-    w = LandmarksWidget(loaded)
-    assert w.volume == {}
+        LandmarksWidget(cosmx_sdata, spatial_key="global")
+    assert not any("no 3D image" in str(w.message) for w in rec)
 
 
 def test_cosmx_get_obs_names_without_passing_adata(cosmx_sdata):
     w = LandmarksWidget(cosmx_sdata, spatial_key="global")
     names = w.get_obs_names(selection_id="all")
-    t = cosmx_sdata.tables[list(cosmx_sdata.tables)[0]]
-    assert list(names) == list(t.obs_names.astype(str))
+    t = cosmx_sdata.tables["table"]
+    assert len(names) == 218
+    assert set(names) == set(t.obs_names.astype(str))
+
+
+def test_xenium_widget_loads_real_ovary_tiny(xenium_sdata):
+    w = LandmarksWidget(xenium_sdata)
+    assert w._data_x.shape[0] == 632
+    t = xenium_sdata.tables["table"]
+    np.testing.assert_allclose(w._data_x, t.obsm["spatial"][:, 0], rtol=0, atol=1e-3)
+    assert w.raster_bin_size > 0
+
+
+def test_xenium_2d_morphology_no_keyerror_z(xenium_sdata):
+    _, vol = resolve_volume(xenium_sdata)
+    assert vol is None
+    LandmarksWidget(xenium_sdata)

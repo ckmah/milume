@@ -2167,12 +2167,10 @@ test = [
     { name = "geopandas" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "pandas", version = "3.0.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "pillow" },
     { name = "pytest" },
     { name = "shapely" },
     { name = "spatialdata", version = "0.7.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "spatialdata", version = "0.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "spatialdata-io", marker = "python_full_version >= '3.12'" },
 ]
 
 [package.dev-dependencies]
@@ -2181,6 +2179,9 @@ dev = [
     { name = "pytest" },
     { name = "ruff" },
     { name = "shapely" },
+    { name = "spatialdata", version = "0.7.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "spatialdata", version = "0.8.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "spatialdata-io", marker = "python_full_version >= '3.12'" },
     { name = "watchfiles" },
 ]
 
@@ -2198,7 +2199,6 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.24" },
     { name = "pandas", specifier = ">=2.0" },
     { name = "pandas", marker = "extra == 'test'", specifier = ">=2.0" },
-    { name = "pillow", marker = "extra == 'test'", specifier = ">=10" },
     { name = "polars", specifier = ">=1.0" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3.3" },
     { name = "scanpy", marker = "extra == 'demo'", specifier = ">=1.10" },
@@ -2208,7 +2208,6 @@ requires-dist = [
     { name = "spatialdata", marker = "extra == 'demo'", specifier = ">=0.2" },
     { name = "spatialdata", marker = "extra == 'test'", specifier = ">=0.2" },
     { name = "spatialdata-io", marker = "python_full_version >= '3.12' and extra == 'demo'", git = "https://github.com/ckmah/spatialdata-io?branch=pyxa-reader" },
-    { name = "spatialdata-io", marker = "python_full_version >= '3.12' and extra == 'test'", git = "https://github.com/ckmah/spatialdata-io?branch=pyxa-reader" },
     { name = "traitlets", specifier = ">=5.0" },
 ]
 provides-extras = ["demo", "test"]
@@ -2219,6 +2218,8 @@ dev = [
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "ruff", specifier = ">=0.16.6" },
     { name = "shapely", specifier = ">=2.1.2" },
+    { name = "spatialdata", specifier = ">=0.2" },
+    { name = "spatialdata-io", marker = "python_full_version >= '3.12'", git = "https://github.com/ckmah/spatialdata-io?branch=pyxa-reader" },
     { name = "watchfiles", specifier = ">=1.2.0" },
 ]
 

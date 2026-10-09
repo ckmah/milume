@@ -42,11 +42,9 @@ demo = [
 test = [
     "geopandas>=1.1.4",
     "pandas>=2.0",
-    "pillow>=10",
     "pytest>=8.3.3",
     "shapely>=2.1.2",
     "spatialdata>=0.2",
-    "spatialdata-io; python_version >= '3.12'",
 ]
 
 [project.urls]
@@ -60,6 +58,8 @@ dev = [
     "pytest>=8.3.3",
     "ruff>=0.16.6",
     "shapely>=2.1.2",
+    "spatialdata>=0.2",
+    "spatialdata-io; python_version >= '3.12'",
     "watchfiles>=1.2.0",
 ]
 

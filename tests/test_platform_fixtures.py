@@ -6,7 +6,7 @@ Widget-level assertions belong to the #103 loader PR; this only pins the fixture
 from __future__ import annotations
 
 import numpy as np
-from platform_fixtures import read_cosmx, read_xenium
+from tests.platform_fixtures import read_cosmx, read_xenium
 
 
 def test_cosmx_fixture_reads():
