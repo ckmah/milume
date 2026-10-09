@@ -1826,9 +1826,10 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-image", "on");
     await expect(view).toHaveAttribute("data-coloring", "groups");
     await expect(view).toHaveAttribute("data-channels", "2");
-    const shown = await categoryPixels(page, await view.screenshot());
-    expect(shown.type1).toBeGreaterThan(200);
-    expect(shown.type0).toBeGreaterThan(200);
+    await expect(view).toHaveAttribute("data-label-format", "rg8");
+    const pixels = async () => categoryPixels(page, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
+    await expect.poll(async () => (await pixels()).type1, { timeout: 60_000 }).toBeGreaterThan(200);
+    await expect.poll(async () => (await pixels()).type0, { timeout: 60_000 }).toBeGreaterThan(200);
     // The switch agrees with what the cube draws.
     await expect(layerToggle(page, "labels")).toHaveAttribute("aria-pressed", "true");
   });
@@ -2468,6 +2469,47 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-points", "0");
     await expect(view).toHaveAttribute("data-labels", "off");
     await expect(view).toHaveAttribute("data-image", "on");
+  });
+
+  test("shift-pan while refining keeps the cube canvas lit", async ({ page }) => {
+    await reloadWith(page, "window=100&budgets=20000,80000");
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    const canvas = view.locator("canvas");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const baseline = await brightPixels(page, await canvas.screenshot(), 40);
+    expect(baseline).toBeGreaterThan(800);
+    const floor = Math.floor(baseline * 0.28);
+    const host = (await view.boundingBox())!;
+    await page.keyboard.down("Shift");
+    await page.mouse.move(host.x + host.width * 0.5, host.y + host.height * 0.52);
+    await page.mouse.down();
+    for (let step = 1; step <= 8; step++) {
+      await page.mouse.move(host.x + host.width * (0.5 + step * 0.035), host.y + host.height * 0.52);
+      const lit = await brightPixels(page, await canvas.screenshot(), 40);
+      expect(lit, `lit pixels at pan step ${step}`).toBeGreaterThan(floor);
+    }
+    await page.mouse.up();
+    await page.keyboard.up("Shift");
+    await expect(view).toHaveAttribute("data-refining", "false");
+  });
+
+  test("map drag to reposition opens the cube without blank frames while refining", async ({ page }) => {
+    await reloadWith(page, "window=100&budgets=20000,80000");
+    const box = await openCubeAtCentre(page);
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await dragOnMap(page, box, [0.5, 0.5], [0.64, 0.5]);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    const canvas = view.locator("canvas");
+    await expect(view).toBeVisible();
+    const floor = 500;
+    for (let i = 0; i < 6; i++) {
+      const lit = await brightPixels(page, await canvas.screenshot(), 40);
+      expect(lit, `lit pixels while settling (${i})`).toBeGreaterThan(floor);
+      await page.waitForTimeout(250);
+    }
+    await expect(view).toHaveAttribute("data-refining", "false");
   });
 
   test("leaving Inspect hides the preview but keeps its cube for the next hover", async ({ page }) => {
