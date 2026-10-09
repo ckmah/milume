@@ -1,23 +1,24 @@
 /**
  * Neighborhood performance helpers (issue #92).
  *
- * k-NN edge PathLayer cutoff from harness sweeps (2026-10):
- * - Pyxa small (~4.3k points): toggle median ~490ms at 295 seeds; ~200ms crossing ~120 seeds.
- * - Colon A2 (~358k points): toggle ~3.7s at 1 seed / 12 edges (deck scatter dominates).
+ * k-NN edge PathLayer cutoff from end-to-end harness sweeps (re-measured after
+ * binary scatter + hood overlay). Prefer edge-count cap — PathLayer cost scales
+ * with segment count, not seed count alone.
  */
-
-/** Hide k-NN edge lines above this seed count on small/medium tissues. */
-export const KNN_EDGE_MAX_SEED_COUNT = 120;
 
 /**
- * Above this scatter size, k-NN toggle exceeds 200ms even for minimal selections
- * (colon A2 sweep); edge lines stay off regardless of seed count.
+ * Hide k-NN edge lines when segment count would exceed this (seeds × k), measured
+ * on Pyxa small / colon A2 harness after scatter role optimization.
  */
-export const KNN_EDGE_MAX_POINT_COUNT = 10_000;
+export const KNN_EDGE_MAX_EDGE_COUNT = 25_000;
 
-export function shouldDrawKnnEdgeLines(pointCount, seedCount) {
+/** Legacy guard for very large tissues when edge estimate is unavailable. */
+export const KNN_EDGE_MAX_POINT_COUNT = 500_000;
+
+export function shouldDrawKnnEdgeLines(pointCount, seedCount, edgeCount = 0) {
+  const edges = edgeCount | 0;
+  if (edges > KNN_EDGE_MAX_EDGE_COUNT) return false;
   if ((pointCount | 0) > KNN_EDGE_MAX_POINT_COUNT) return false;
-  if ((seedCount | 0) > KNN_EDGE_MAX_SEED_COUNT) return false;
   return true;
 }
 

@@ -45,7 +45,8 @@ export function HarnessShell() {
   // E2E only: remount the widget on a fresh model without reloading the page,
   // so a worker boots Vite + deck.gl once instead of once per test.
   useEffect(() => {
-    (window as unknown as { __harnessReset?: () => Promise<void> }).__harnessReset = async () => {
+    (window as unknown as { __harnessReset?: () => Promise<void> }).__harnessReset =
+      async () => {
       resetModeDropdownMemory();
       applyHarnessTheme("dark");
       setTheme("dark");

@@ -38,10 +38,14 @@ export function createMockModel(
  * Load ``/fixture.json`` at runtime so Vite does not transform the multi‑MB
  * base64 payload into the module graph (slow cold start / HMR after regen).
  */
-export async function loadFixtureModel(
-  url = "/fixture.json",
-): Promise<AnyModel> {
-  const res = await fetch(url);
+function harnessFixtureUrl() {
+  if (typeof window === "undefined") return "/fixture.json";
+  const fromQuery = new URLSearchParams(window.location.search).get("fixture");
+  return fromQuery ? fromQuery : "/fixture.json";
+}
+
+export async function loadFixtureModel(url?: string): Promise<AnyModel> {
+  const res = await fetch(url ?? harnessFixtureUrl());
   if (!res.ok) {
     throw new Error(`Failed to load harness fixture ${url}: ${res.status}`);
   }

@@ -11,7 +11,8 @@ test.describe("neighborhood perf (#92)", () => {
 
   test("large selection: k-NN coloring without edge lines", async ({ page }) => {
     const n = (await page.evaluate(() => window.__landmarksEngine.getPoints().length)) as number;
-    const largeSeeds = Array.from({ length: Math.min(200, n) }, (_, i) => i);
+    // Past KNN_EDGE_MAX_EDGE_COUNT (seeds × k) on the harness fixture.
+    const largeSeeds = Array.from({ length: Math.min(2200, n) }, (_, i) => i);
     await setModel(page, {
       selections: [
         {

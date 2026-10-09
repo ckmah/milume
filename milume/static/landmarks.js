@@ -425,6 +425,21 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   /** Lazily densified CSC → col-major Float32Array (nObs × nGenes), same layout as gene_values. */
   let geneDenseFromCsc = null;
   let spatialIndex = null;
+  let spatialIndexPointCount = 0;
+  let spatialIndexBuildHandle = 0;
+  /** GPU scatter: base fill colors (full opacity), rebuilt when coloring changes. */
+  let pointFillColors = null;
+  let pointDimColors = null;
+  let pointFillColorsKey = "";
+  let pointPositionBuffer = null;
+  let pointPositionBufferSource = null;
+  let hoodHighlightData = [];
+  let hoodHighlightKey = "";
+  let deckLayersPublishSeq = 0;
+  let pointFillColorsBuildHandle = 0;
+  let scatterDisplayColors = null;
+  let scatterDisplayRadii = null;
+  let scatterRoleRevision = 0;
   let embeddingValues = null;
   let embeddingMatrix = null; // Float32Array row-major n×d raw
   let embeddingMatrixDim = 0;
@@ -506,8 +521,272 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   }
   refreshEmbeddingMatrix();
 
+  function invalidatePointColorBuffers() {
+    pointFillColors = null;
+    pointDimColors = null;
+    pointFillColorsKey = "";
+    if (pointFillColorsBuildHandle && typeof cancelIdleCallback === "function") {
+      cancelIdleCallback(pointFillColorsBuildHandle);
+    }
+    pointFillColorsBuildHandle = 0;
+  }
+
+  function schedulePointFillColorsBuild() {
+    if (pointFillColorsBuildHandle) return;
+    const run = () => {
+      pointFillColorsBuildHandle = 0;
+      const data = getPointsData();
+      if (!data.length) return;
+      const probeField =
+        pointSimilarityOn() || rasterSimilarityOn()
+          ? activePointProbeScores()
+          : null;
+      ensurePointFillColors(probeField);
+    };
+    if (typeof requestIdleCallback === "function") {
+      pointFillColorsBuildHandle = requestIdleCallback(run, { timeout: 2500 });
+    } else {
+      setTimeout(run, 0);
+    }
+  }
+
+  function rebuildPointFillColorsFast(probeField) {
+    const data = getPointsData();
+    const n = data.length;
+    const colors = new Uint8ClampedArray(n * 4);
+    const mode = model.get("color_by") || "categorical";
+    if (!probeField && mode === "categorical" && categoryCodes) {
+      const cols = model.get("category_columns") || [];
+      const ci = activeCategoryIndex();
+      const col = ci >= 0 ? cols[ci] : null;
+      const palette = (col && col.palette) || model.get("point_palette") || [FALLBACK_POINT];
+      const row = ci >= 0 ? ci * n : 0;
+      for (let i = 0; i < n; i++) {
+        const code = col ? categoryCodes[row + i] | 0 : Math.round(data[i].valueA);
+        const rgba = hexToRgbaBytes(
+          palette[((code % palette.length) + palette.length) % palette.length],
+          POINT_OPACITY,
+        );
+        const o = i * 4;
+        colors[o] = rgba[0];
+        colors[o + 1] = rgba[1];
+        colors[o + 2] = rgba[2];
+        colors[o + 3] = rgba[3];
+      }
+      pointFillColors = colors;
+      pointFillColorsKey = pointColorCacheKey(probeField);
+      pointDimColors = null;
+      return colors;
+    }
+    for (let i = 0; i < n; i++) {
+      writeFillColorForPoint(data[i], probeField, colors, i * 4);
+    }
+    pointFillColors = colors;
+    pointFillColorsKey = pointColorCacheKey(probeField);
+    pointDimColors = null;
+    return colors;
+  }
+
+  function invalidatePointGeometryBuffers() {
+    pointPositionBuffer = null;
+    pointPositionBufferSource = null;
+    scatterDisplayColors = null;
+    scatterDisplayRadii = null;
+    invalidatePointColorBuffers();
+  }
+
+  function syncScatterRoleAttributes() {
+    const data = getPointsData();
+    const n = data.length;
+    if (!n) return;
+    const size = model.get("point_size") ?? 2;
+    const probeField =
+      pointSimilarityOn() || rasterSimilarityOn()
+        ? activePointProbeScores()
+        : null;
+    const base = ensurePointFillColors(probeField);
+    if (!scatterDisplayColors || scatterDisplayColors.length !== n * 4) {
+      scatterDisplayColors = new Uint8ClampedArray(n * 4);
+    }
+    if (!scatterDisplayRadii || scatterDisplayRadii.length !== n) {
+      scatterDisplayRadii = new Float32Array(n);
+    }
+    if (!pointRoleMode || !pointRoles) {
+      scatterDisplayColors.set(base);
+      scatterDisplayRadii.fill(size);
+      scatterRoleRevision++;
+      return;
+    }
+    for (let i = 0; i < n; i++) {
+      const role = pointRoles[i] || 0;
+      const o = i * 4;
+      scatterDisplayColors[o] = base[o];
+      scatterDisplayColors[o + 1] = base[o + 1];
+      scatterDisplayColors[o + 2] = base[o + 2];
+      if (role === SEED_ROLE || role === NEIGH_ROLE) {
+        scatterDisplayColors[o + 3] = 255;
+        scatterDisplayRadii[i] =
+          role === SEED_ROLE ? size * SELECTED_SIZE_SCALE : size;
+      } else {
+        scatterDisplayColors[o + 3] = Math.round((base[o + 3] || 255) * OTHER_ALPHA_SCALE);
+        scatterDisplayRadii[i] = size * OTHER_SIZE_SCALE;
+      }
+    }
+    scatterRoleRevision++;
+  }
+
+  function ensurePointPositionBuffer(data) {
+    if (!data.length) {
+      pointPositionBuffer = null;
+      pointPositionBufferSource = null;
+      return;
+    }
+    if (data === pointPositionBufferSource && pointPositionBuffer) return;
+    const n = data.length;
+    const buf = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const o = i * 3;
+      buf[o] = data[i].x;
+      buf[o + 1] = data[i].y;
+      buf[o + 2] = 0;
+    }
+    pointPositionBuffer = buf;
+    pointPositionBufferSource = data;
+  }
+
+  function pointColorCacheKey(probeField) {
+    return [
+      pointsCache.key,
+      POINT_OPACITY,
+      model.get("point_palette"),
+      model.get("color_by"),
+      model.get("active_genes"),
+      model.get("gene_values"),
+      model.get("gene_scale_mode"),
+      model.get("gene_log1p"),
+      model.get("embedding_values"),
+      model.get("embedding_channel_labels"),
+      model.get("embedding_matrix"),
+      clientRasterKey,
+      model.get("raster_n_bins"),
+      model.get("raster_feature_dim"),
+      model.get("raster_query_bin"),
+      model.get("raster_similarity_enabled"),
+      model.get("raster_embedding_dims"),
+      hoverBinIndex,
+      hoverPointIndex,
+      pinnedPointIndex,
+      probeScrubSeq,
+      pinnedProbeWorld,
+      currentMode,
+      model.get("category_columns"),
+      model.get("active_category"),
+      probeField ? 1 : 0,
+    ].join("|");
+  }
+
+  function writeFillColorForPoint(d, probeField, out, offset) {
+    const opacity = POINT_OPACITY;
+    const sim = similarityRgbaForPoint(d.i, opacity, probeField);
+    if (sim) {
+      out[offset] = sim[0];
+      out[offset + 1] = sim[1];
+      out[offset + 2] = sim[2];
+      out[offset + 3] = sim[3];
+      return;
+    }
+    const mode = model.get("color_by") || "categorical";
+    let rgba;
+    if (mode === "embedding") {
+      rgba =
+        blendEmbeddingColors(d.i, opacity) ||
+        hexToRgbaBytes("#6b7280", opacity * 0.35);
+    } else if (mode === "continuous") {
+      const activeGenes = model.get("active_genes") || [];
+      if (activeGenes.length > 0) {
+        rgba =
+          blendGeneColors(d.i, opacity) ||
+          hexToRgbaBytes("#6b7280", opacity * 0.35);
+      } else {
+        rgba = hexToRgbaBytes("#6b7280", opacity);
+      }
+    } else {
+      const cols = model.get("category_columns") || [];
+      const ci = activeCategoryIndex();
+      const col = ci >= 0 ? cols[ci] : null;
+      const palette = (col && col.palette) || model.get("point_palette") || [FALLBACK_POINT];
+      const code = col ? categoryCodeAt(d.i) : Math.round(d.valueA);
+      rgba = hexToRgbaBytes(palette[((code % palette.length) + palette.length) % palette.length], opacity);
+    }
+    out[offset] = rgba[0];
+    out[offset + 1] = rgba[1];
+    out[offset + 2] = rgba[2];
+    out[offset + 3] = rgba[3];
+  }
+
+  function ensurePointFillColors(probeField) {
+    const data = getPointsData();
+    const n = data.length;
+    const key = pointColorCacheKey(probeField);
+    if (pointFillColors && key === pointFillColorsKey && pointFillColors.length === n * 4) {
+      return pointFillColors;
+    }
+    return rebuildPointFillColorsFast(probeField);
+  }
+
+  function scheduleSpatialIndexBuild(sync = false) {
+    const pts = getPointsData();
+    if (!pts.length) {
+      spatialIndex = null;
+      return;
+    }
+    if (spatialIndex && !sync) return;
+    if (sync) {
+      if (spatialIndexBuildHandle) {
+        cancelIdleCallback(spatialIndexBuildHandle);
+        spatialIndexBuildHandle = 0;
+      }
+      spatialIndex = buildSpatialIndex(pts);
+      spatialIndexPointCount = pts.length;
+      return;
+    }
+    if (spatialIndexBuildHandle) return;
+    const run = () => {
+      spatialIndexBuildHandle = 0;
+      spatialIndex = buildSpatialIndex(pts);
+      spatialIndexPointCount = pts.length;
+    };
+    if (typeof requestIdleCallback === "function") {
+      spatialIndexBuildHandle = requestIdleCallback(run, { timeout: 1500 });
+    } else {
+      setTimeout(run, 0);
+    }
+  }
+
+  function ensureSpatialIndexForQuery() {
+    const pts = getPointsData();
+    if (spatialIndex && spatialIndexPointCount === pts.length) return spatialIndex;
+    if (spatialIndexBuildHandle) {
+      if (typeof cancelIdleCallback === "function") {
+        cancelIdleCallback(spatialIndexBuildHandle);
+      }
+      spatialIndexBuildHandle = 0;
+    }
+    spatialIndex = buildSpatialIndex(pts);
+    spatialIndexPointCount = pts.length;
+    return spatialIndex;
+  }
+
   function refreshSpatialIndex() {
-    spatialIndex = buildSpatialIndex(getPointsData());
+    if (spatialIndexBuildHandle) {
+      if (typeof cancelIdleCallback === "function") {
+        cancelIdleCallback(spatialIndexBuildHandle);
+      }
+      spatialIndexBuildHandle = 0;
+    }
+    spatialIndex = null;
+    spatialIndexPointCount = 0;
+    scheduleSpatialIndexBuild(true);
   }
 
   function isRasterMode() {
@@ -2663,7 +2942,11 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       };
     }
     pointsCache = { key, data, b64, xBounds, yBounds };
-    spatialIndex = buildSpatialIndex(data);
+    invalidatePointGeometryBuffers();
+    spatialIndex = null;
+    spatialIndexPointCount = 0;
+    scheduleSpatialIndexBuild();
+    schedulePointFillColorsBuild();
     return data;
   }
 
@@ -2675,69 +2958,46 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const { ScatterplotLayer } = deckModules;
     const data = getPointsData();
     if (!data.length) return [];
+    ensurePointPositionBuffer(data);
     // point_size is radius in the same units as x/y (µm for micron data).
     const size = model.get("point_size") ?? 2;
-    const roleTrigger = [
-      size,
-      pointRoleMode,
-      model.get("selected_kind"),
-      model.get("selected_index"),
-      model.get("type_neighborhoods"),
-      model.get("selections"),
-      model.get("active_category"),
-    ];
-    const fillTriggers = [
-      model.get("point_palette"),
-      POINT_OPACITY,
-      model.get("color_by"),
-      model.get("active_genes"),
-      model.get("gene_values"),
-      model.get("gene_scale_mode"),
-      model.get("gene_log1p"),
-      model.get("embedding_values"),
-      model.get("embedding_channel_labels"),
-      model.get("embedding_matrix"),
-      clientRasterKey,
-      model.get("raster_n_bins"),
-      model.get("raster_feature_dim"),
-      model.get("raster_query_bin"),
-      model.get("raster_similarity_enabled"),
-      model.get("raster_embedding_dims"),
-      hoverBinIndex,
-      hoverPointIndex,
-      pinnedPointIndex,
-      // Circle follows cursor separately; point colors only change when the
-      // quantized / bin query changes (probeScrubSeq) or pin moves.
-      probeScrubSeq,
-      pinnedProbeWorld,
-      currentMode,
-      ...roleTrigger,
-    ];
-    // Cells are never GPU-picked: a pick pass over 10^5+ points stalls hover and
-    // wheel zoom. Probe scrub uses DOM mousemove + unproject.
-    // Hoist probe field once; getFillColor must stay O(1) per point.
     const probeField =
       pointSimilarityOn() || rasterSimilarityOn()
         ? activePointProbeScores()
         : null;
-    return [
+    const fillKey = pointColorCacheKey(probeField);
+    const colorTriggers = [fillKey, pointRoleMode ? "hood-dim" : "rest"];
+    const layers = [];
+    const scatterData = {
+      length: data.length,
+      attributes: {
+        getPosition: { value: pointPositionBuffer, size: 3 },
+      },
+    };
+
+    syncScatterRoleAttributes();
+    scatterData.attributes.getFillColor = {
+      value: scatterDisplayColors,
+      size: 4,
+      normalized: true,
+    };
+    scatterData.attributes.getRadius = { value: scatterDisplayRadii, size: 1 };
+    layers.push(
       new ScatterplotLayer({
         id: "landmarks-points",
-        data,
-        getPosition: (d) => [d.x, d.y, 0],
-        getFillColor: (d) => fillColorForPoint(d, probeField),
-        getRadius: (d) => radiusForPoint(d),
+        data: scatterData,
         radiusUnits: "common",
         radiusMinPixels: 1.5,
         stroked: false,
         filled: true,
         pickable: false,
         updateTriggers: {
-          getFillColor: fillTriggers,
-          getRadius: roleTrigger,
+          getFillColor: [fillKey, scatterRoleRevision],
+          getRadius: [size, scatterRoleRevision],
         },
       }),
-    ];
+    );
+    return layers;
   }
 
   function landmarkLabelAnchor(lm, pathPts) {
@@ -3249,7 +3509,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
 
   function lookupGraphNeighbors(graph, pts, seedIdxs, opts) {
     // graph unused — client KD-tree replaces CSR sync.
-    return queryNeighbors(spatialIndex || buildSpatialIndex(pts), pts, seedIdxs, opts);
+    const tree = ensureSpatialIndexForQuery();
+    return queryNeighbors(tree, pts, seedIdxs, opts);
   }
 
   function buildNeighborhoodLayers() {
@@ -3403,10 +3664,19 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     );
   }
 
+  let lastDeckBuildProfile = {
+    prepareFocusGeomMs: 0,
+    buildLayersMs: 0,
+    neighborQueryMs: 0,
+    roleScatterSyncMs: 0,
+  };
+
   function buildDeckLayers() {
+    const tPrep = performance.now();
     prepareFocusGeom();
-    // Selection emphasis lives on the points layer (size + dimming); no outline layers.
-    return [
+    lastDeckBuildProfile.prepareFocusGeomMs = performance.now() - tPrep;
+    const tLay = performance.now();
+    const layers = [
       ...buildRasterLayers(),
       ...buildProbeOutlineLayers(),
       ...buildNeighborhoodLayers(),
@@ -3415,6 +3685,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       ...buildDraftLayers(),
       ...buildVolumeWindowLayers(),
     ].filter(Boolean);
+    lastDeckBuildProfile.buildLayersMs = performance.now() - tLay;
+    return layers;
   }
 
   /** The placed window `{ x, y, size }` (µm); the hover square is `{ x, y, px, py }`. */
@@ -4443,6 +4715,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       hoodKnnEdgeLinesDrawn = false;
       hoodRadiusBake = null;
       hoodRadiusGradient = null;
+      syncScatterRoleAttributes();
       return;
     }
     const seeds = seedIndicesFor(focus);
@@ -4454,6 +4727,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       hoodKnnEdgeLinesDrawn = false;
       hoodRadiusBake = null;
       hoodRadiusGradient = null;
+      syncScatterRoleAttributes();
       return;
     }
     const hood = neighborhoodFor(focus);
@@ -4465,6 +4739,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       hoodKnnEdgeLinesDrawn = false;
       hoodRadiusBake = null;
       hoodRadiusGradient = null;
+      syncScatterRoleAttributes();
       return;
     }
     const k = Math.min(Number(hood.neighborhood_k) || 12, maxNeighborhoodK());
@@ -4490,25 +4765,37 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       if (hood.neighborhood === "radius" && r > 0 && rMax > 0) {
         ensureRadiusGradient(pts, seeds, r, rMax);
       }
+      const tSync = performance.now();
+      syncScatterRoleAttributes();
+      lastDeckBuildProfile.roleScatterSyncMs = performance.now() - tSync;
       return;
     }
 
+    const tRoles = performance.now();
     pointRoles = new Uint8Array(pts.length);
     pointRoleMode = true;
     hoodEdges = [];
     hoodKnnEdgeLinesDrawn = false;
     for (const i of seeds) pointRoles[i] = SEED_ROLE;
+    lastDeckBuildProfile.roleAllocMs = performance.now() - tRoles;
 
     if (hood.neighborhood === "radius" || hood.neighborhood === "knn") {
-      if (!spatialIndex) refreshSpatialIndex();
+      const tIndex = performance.now();
+      ensureSpatialIndexForQuery();
+      lastDeckBuildProfile.spatialEnsureMs = performance.now() - tIndex;
+      const predictedEdges =
+        hood.neighborhood === "knn" ? (seeds.length | 0) * (k | 0) : 0;
       const wantEdges =
-        hood.neighborhood === "knn" && shouldDrawKnnEdgeLines(pts.length, seeds.length);
+        hood.neighborhood === "knn" &&
+        shouldDrawKnnEdgeLines(pts.length, seeds.length, predictedEdges);
+      const tQuery = performance.now();
       const result = lookupGraphNeighbors(null, pts, seeds, {
         mode: hood.neighborhood,
         k,
         radius: r,
         edges: wantEdges,
       });
+      lastDeckBuildProfile.neighborQueryMs = performance.now() - tQuery;
       hoodEdges = wantEdges ? result.edges : [];
       hoodKnnEdgeLinesDrawn = wantEdges && hoodEdges.length > 0;
       for (const i of result.neighbors) {
@@ -4531,6 +4818,9 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       hoodEdges,
       knnEdgeLinesDrawn: hoodKnnEdgeLinesDrawn,
     };
+    const tSync = performance.now();
+    syncScatterRoleAttributes();
+    lastDeckBuildProfile.roleScatterSyncMs = performance.now() - tSync;
   }
 
   function updateSelectedLandmark(patch) {
@@ -5970,8 +6260,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   onChange("points_data", () => {
     pointsCache = { key: "", data: [] };
     focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
+    hoodHighlightData = [];
+    hoodHighlightKey = "";
+    invalidatePointGeometryBuffers();
     geneDenseFromCsc = null;
-    refreshSpatialIndex();
+    spatialIndex = null;
+    spatialIndexPointCount = 0;
+    scheduleSpatialIndexBuild();
+    schedulePointFillColorsBuild();
     clientRasterKey = "";
     if (!deckgl) {
       initDeck();
@@ -5993,6 +6289,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   onChange("category_codes", () => {
     refreshCategoryCodes();
     clientRasterKey = "";
+    invalidatePointColorBuffers();
+    schedulePointFillColorsBuild();
     setDeckLayers();
   });
   onChange("gene_values", () => {
@@ -6119,6 +6417,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         return;
       }
       setDeckLayers();
+      scheduleSpatialIndexBuild();
+      schedulePointFillColorsBuild();
       resizeObserver = new ResizeObserver(() => resizeDeck());
       resizeObserver.observe(main);
     });
@@ -6301,6 +6601,96 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         k: Number(hood?.neighborhood_k) || 0,
       };
     },
+    /**
+     * End-to-end neighborhood toggle timing (harness / profiling).
+     * @param {{ seedCount: number, mode?: 'knn'|'radius'|'off', k?: number, offFirst?: boolean }} opts
+     */
+    benchNeighborhoodToggle(opts = {}) {
+      const seedCount = Math.max(0, opts.seedCount | 0);
+      const mode = opts.mode || "knn";
+      const offFirst = opts.offFirst !== false;
+      const pts = getPointsData();
+      const seeds = Array.from(
+        { length: Math.min(seedCount, pts.length) },
+        (_, i) => i,
+      );
+      const rMax = maxNeighborhoodRadius();
+      const radius = rMax > 0 ? rMax * 0.35 : 0;
+      const apply = (hood) => {
+        model.set("selections", [
+          {
+            id: "bench-hood",
+            type: "points",
+            point_indices: seeds,
+            neighborhood: hood,
+            neighborhood_k: opts.k ?? 12,
+            neighborhood_radius: radius,
+          },
+        ]);
+        model.set("selected_kind", "selection");
+        model.set("selected_index", 0);
+      };
+      if (offFirst) apply("off");
+      const t0 = performance.now();
+      apply(mode);
+      setDeckLayers();
+      return new Promise((resolve) => {
+        const finish = () => {
+          const overlay = handle.getNeighborhoodOverlay();
+          resolve({
+            ms: performance.now() - t0,
+            mode,
+            seedCount: seeds.length,
+            spatialIndexBuilt: Boolean(spatialIndex),
+            hoodHighlightCount: hoodHighlightData.length,
+            deckBuildProfile: { ...lastDeckBuildProfile },
+            ...overlay,
+          });
+        };
+        if (!deckgl?.isInitialized) {
+          requestAnimationFrame(() => requestAnimationFrame(finish));
+          return;
+        }
+        deckgl.setProps({
+          onAfterRender: () => {
+            deckgl.setProps({ onAfterRender: null });
+            finish();
+          },
+        });
+      });
+    },
+    profileNeighborhoodToggle(opts = {}) {
+      const marks = [];
+      const mark = (name) => {
+        performance.mark(name);
+        marks.push(name);
+      };
+      mark("hood-toggle-start");
+      return handle.benchNeighborhoodToggle(opts).then((result) => {
+        mark("hood-toggle-end");
+        const measures = [];
+        if (marks.length >= 2) {
+          try {
+            const m = performance.measure(
+              "hood-toggle-e2e",
+              marks[0],
+              marks[marks.length - 1],
+            );
+            measures.push({ name: m.name, duration: m.duration });
+          } catch {
+            /* ignore */
+          }
+        }
+        return { ...result, measures };
+      });
+    },
+    getPerfSnapshot: () => ({
+      spatialIndexBuilt: Boolean(spatialIndex),
+      pointCount: getPointsData().length,
+      hoodHighlightCount: hoodHighlightData.length,
+      pointRoleMode,
+      usingBinaryScatterColors: Boolean(pointFillColors),
+    }),
     getHover: () => (hoverTarget ? { ...hoverTarget } : null),
     subscribeHover: (fn) => {
       if (typeof fn !== "function") return () => {};
