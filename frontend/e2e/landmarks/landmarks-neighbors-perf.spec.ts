@@ -163,7 +163,7 @@ test.describe("neighborhood perf (#92)", () => {
     card = await hoverSelectionCard(page);
     const note = card.getByTestId("knn-edges-cap-note");
     await expect(note).toBeVisible();
-    await expect(note).toContainText("Edges hidden above 1k for speed");
+    await expect(note).toHaveText("Edge lines hidden for large selections");
 
     await setModel(page, {
       selections: [

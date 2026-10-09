@@ -22,30 +22,33 @@ test("selectionMemberCount ignores out-of-range point_indices", () => {
 
 test("k-NN cap at production constant (colon-scale seed counts)", () => {
   const max = KNN_EDGE_MAX_EDGE_COUNT;
-  assert.equal(max, 102_000);
+  assert.equal(max, 36_000);
 
-  const under5k = 5000 * K;
-  const over9k = 9000 * K;
-  assert.ok(under5k < max);
-  assert.ok(over9k > max);
+  const under2500 = 2500 * K;
+  const over3500 = 3500 * K;
+  assert.ok(under2500 <= max);
+  assert.ok(over3500 > max);
 
-  assert.equal(knnEdgesHiddenByCap("knn", 5000, K), false);
-  assert.equal(knnEdgesHiddenByCap("knn", 9000, K), true);
-  assert.equal(knnEdgesHiddenByCap("radius", 9000, K), false);
-  assert.equal(knnEdgesHiddenByCap("off", 9000, K), false);
+  assert.equal(knnEdgesHiddenByCap("knn", 2500, K), false);
+  assert.equal(knnEdgesHiddenByCap("knn", 3500, K), true);
+  assert.equal(knnEdgesHiddenByCap("radius", 3500, K), false);
+  assert.equal(knnEdgesHiddenByCap("off", 3500, K), false);
 
-  assert.equal(knnEdgeCapHiddenNote("knn", 5000, K), null);
-  assert.match(knnEdgeCapHiddenNote("knn", 9000, K), /Edges hidden above 102k for speed/);
+  assert.equal(knnEdgeCapHiddenNote("knn", 2500, K), null);
+  assert.equal(
+    knnEdgeCapHiddenNote("knn", 3500, K),
+    "Edge lines hidden for large selections",
+  );
 
-  assert.equal(shouldDrawKnnEdgeLines(N_COLON_10K, 5000, under5k), true);
-  assert.equal(shouldDrawKnnEdgeLines(N_COLON_10K, 9000, over9k), false);
+  assert.equal(shouldDrawKnnEdgeLines(N_COLON_10K, 2500, under2500), true);
+  assert.equal(shouldDrawKnnEdgeLines(N_COLON_10K, 3500, over3500), false);
 });
 
 test("cap note uses valid seed count when indices are padded", () => {
-  const seeds5k = Array.from({ length: 5000 }, (_, i) => i);
-  const padded = [...seeds5k, ...Array.from({ length: 4000 }, () => 9_999_999)];
+  const seeds2500 = Array.from({ length: 2500 }, (_, i) => i);
+  const padded = [...seeds2500, ...Array.from({ length: 4000 }, () => 9_999_999)];
   const valid = selectionMemberCount({ point_indices: padded }, N_COLON_10K);
-  assert.equal(valid, 5000);
+  assert.equal(valid, 2500);
   assert.equal(knnEdgeCapHiddenNote("knn", valid, K), null);
   assert.equal(knnEdgesHiddenByCap("knn", padded.length, K), true);
   assert.equal(knnEdgesHiddenByCap("knn", valid, K), false);

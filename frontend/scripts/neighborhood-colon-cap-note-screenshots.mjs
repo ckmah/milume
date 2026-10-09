@@ -1,11 +1,14 @@
 /**
- * Selection hover cards on colon 10k: under vs over production k-NN edge cap.
- * Prerequisites: npm run dev:landmarks, colon-a2-n10000-fixture.json in dev/.
+ * Selection hover cards on colon 10k: under vs over production k-NN edge cap (36k).
+ *   npm run dev:landmarks
+ *   node frontend/scripts/neighborhood-colon-cap-note-screenshots.mjs
  */
 import { chromium } from "@playwright/test";
 
 const FIXTURE = "/colon-a2-n10000-fixture.json";
 const K = 12;
+const UNDER_SEEDS = 2500;
+const OVER_SEEDS = 3500;
 
 async function boot(page) {
   await page.goto(
@@ -60,22 +63,22 @@ async function main() {
   const page = await browser.newPage();
   await boot(page);
 
-  const seeds5k = Array.from({ length: 5000 }, (_, i) => i);
-  await setKnn(page, seeds5k, "cap-under");
+  const under = Array.from({ length: UNDER_SEEDS }, (_, i) => i);
+  await setKnn(page, under, "cap-under");
   await shotCard(
     page,
-    "/opt/cursor/artifacts/issue-92-knn-edge-cap-note-colon-seeds5000-k12-under.png",
+    `/opt/cursor/artifacts/issue-92-knn-edge-cap-note-colon-seeds${UNDER_SEEDS}-k${K}-under.png`,
   );
 
-  const seeds9k = Array.from({ length: 9000 }, (_, i) => i);
-  await setKnn(page, seeds9k, "cap-over");
+  const over = Array.from({ length: OVER_SEEDS }, (_, i) => i);
+  await setKnn(page, over, "cap-over");
   await shotCard(
     page,
-    "/opt/cursor/artifacts/issue-92-knn-edge-cap-note-colon-seeds9000-k12-over.png",
+    `/opt/cursor/artifacts/issue-92-knn-edge-cap-note-colon-seeds${OVER_SEEDS}-k${K}-over.png`,
   );
 
   await browser.close();
-  console.log("saved colon cap note screenshots (seeds5000 / seeds9000, k=12)");
+  console.log("saved colon cap note screenshots", UNDER_SEEDS, OVER_SEEDS, "k=", K);
 }
 
 main().catch((e) => {

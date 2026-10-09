@@ -9,10 +9,11 @@
  */
 
 /**
- * Colon A2 subsample sweep (2026-10): first-toggle p95 crosses ~200 ms at
- * predicted edges 120_000 (10k seeds × k=12 @ 25k cells); last safe point 102_000.
+ * Colon A2 subsample sweep (2026-10): at k=12, 3k seeds (36k predicted edges),
+ * first-toggle p95 stays under ~200 ms on 50k–358k-cell tissues. Higher caps came
+ * from unrealistic rows (e.g. 10k cells with ~85% selected), not full-tissue scale.
  */
-export const KNN_EDGE_MAX_EDGE_COUNT = 102_000;
+export const KNN_EDGE_MAX_EDGE_COUNT = 36_000;
 
 /** E2E only: `window.__KNN_EDGE_MAX_OVERRIDE` lowers the cap without rebuilding. */
 export function effectiveKnnEdgeMaxEdgeCount() {
@@ -45,9 +46,7 @@ export function knnEdgesHiddenByCap(neighborhood, seedCount, k = 12) {
 /** One-line selection-card copy when edges are capped; `null` when cap is disabled. */
 export function knnEdgeCapHiddenNote(neighborhood, seedCount, k = 12) {
   if (!knnEdgesHiddenByCap(neighborhood, seedCount, k)) return null;
-  const max = effectiveKnnEdgeMaxEdgeCount();
-  if (max == null) return null;
-  return `Edges hidden above ${formatKnnEdgeCapLabel(max)} for speed`;
+  return "Edge lines hidden for large selections";
 }
 
 export function shouldDrawKnnEdgeLines(pointCount, seedCount, edgeCount = 0) {
