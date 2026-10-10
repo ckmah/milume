@@ -49,13 +49,26 @@ jobs:
     if: needs.should-run.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: write
+      pull-requests: write
     defaults:
       run:
         working-directory: frontend
     steps:
+      - name: Resolve PR head SHA (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        id: prhead
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ needs.should-run.outputs.pr }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .head.sha)
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          ref: ${{ steps.prhead.outputs.sha || github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-node@v4
         with:

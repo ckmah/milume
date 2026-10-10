@@ -31,8 +31,11 @@ const roots = ["frontend/test-results", "test-results"].filter((d) => {
     return false;
   }
 });
-const pngs = roots.flatMap((d) => walkPng(d)).filter((p) => /ui-evidence|^\d{2}-/.test(p) || /\d{2}-/.test(p));
-const shots = pngs.filter((p) => /\d{2}-/.test(p)).slice(0, 8);
+const shots = roots
+  .flatMap((d) => walkPng(d))
+  .filter((p) => /[/\\]\d{2}-[^/\\]+\.png$/.test(p))
+  .sort()
+  .slice(0, 8);
 if (!shots.length) {
   console.log("no ui-evidence pngs found under test-results");
   process.exit(0);
@@ -48,7 +51,16 @@ execFileSync(
   { stdio: "inherit", env: { ...process.env, GH_TOKEN: token } },
 );
 
-const release = JSON.parse(api(`repos/${repo}/releases/tags/${tag}`));
+let release;
+for (let attempt = 0; attempt < 5; attempt++) {
+  try {
+    release = JSON.parse(api(`repos/${repo}/releases/tags/${tag}`));
+    break;
+  } catch {
+    execFileSync("sleep", ["2"]);
+  }
+}
+if (!release) throw new Error(`release not found for tag ${tag}`);
 const assets = release.assets ?? [];
 const lines = [
   marker,
@@ -58,7 +70,7 @@ const lines = [
   "",
 ];
 for (const shot of shots) {
-  const base = shot.split("/").pop()!;
+  const base = shot.split("/").pop();
   const asset = assets.find((a) => a.name === base);
   const url = asset?.browser_download_url;
   if (url) lines.push(`### ${base}`, "", `![${base}](${url})`, "");
