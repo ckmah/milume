@@ -4,7 +4,7 @@
  * Requires: MILUME_VOLUME_PROFILE=small vite on http://127.0.0.1:5173
  */
 import { chromium } from "@playwright/test";
-import { mkdirSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 
 const tag = process.env.ISSUE_117_TAG;
 if (!tag || !/^(before|after)$/.test(tag)) {
@@ -56,23 +56,30 @@ try {
     await bar.getByRole("radio", { name }).click();
     await page.waitForTimeout(800);
     if (preset === "iso") {
+      const zoomFile = `${outDir}/issue-117-pyxa-iso-zoom.txt`;
       const box = await view.boundingBox();
       if (!box) throw new Error("no cube view box");
       const cx = box.x + box.width * 0.5;
       const cy = box.y + box.height * 0.55;
       await page.mouse.move(cx, cy);
-      for (let w = 0; w < 5; w++) {
-        await page.mouse.wheel(0, 140);
-        await page.waitForTimeout(80);
+      const readZoom = () => Number(view.getAttribute("data-zoom"));
+      const target = existsSync(zoomFile) ? Number(readFileSync(zoomFile, "utf8")) : null;
+      if (target != null && Number.isFinite(target)) {
+        for (let n = 0; n < 24; n++) {
+          const z = Number(await readZoom());
+          if (!Number.isFinite(z)) break;
+          if (Math.abs(z - target) < 0.04) break;
+          await page.mouse.wheel(0, z < target ? -120 : 120);
+          await page.waitForTimeout(60);
+        }
+      } else {
+        for (let w = 0; w < 6; w++) {
+          await page.mouse.wheel(0, 140);
+          await page.waitForTimeout(80);
+        }
+        const z = await readZoom();
+        if (z) writeFileSync(zoomFile, String(z));
       }
-      await page.waitForFunction(
-        () => {
-          const z = Number(document.querySelector(".volume-cube__view")?.getAttribute("data-zoom"));
-          return Number.isFinite(z) && z > 0;
-        },
-        null,
-        { timeout: 30_000 },
-      );
       await page.waitForTimeout(600);
     }
   };
