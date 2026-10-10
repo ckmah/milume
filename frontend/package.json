@@ -19,6 +19,7 @@
     "test:e2e:core": "playwright test e2e/core && npm run test:e2e:core:hero",
     "test:e2e:core:hero": "cd .. && uv run bash website/scripts/assemble-pages.sh && cd frontend && playwright test --config=playwright.website.config.ts",
     "test:e2e:landmarks": "cross-env E2E_HARNESS=landmarks-volume playwright test e2e/landmarks/landmarks-volume.spec.ts && playwright test e2e/landmarks",
+    "test:e2e:marimo-volume": "playwright test -c playwright.marimo.config.ts",
     "test:e2e:install": "playwright install chromium",
     "test:e2e:mac": "cross-env PLAYWRIGHT_CHANNEL=chrome playwright test",
     "test:e2e:update": "playwright test --update-snapshots=all",
@@ -32,7 +33,7 @@
     "check:pr-policy": "node scripts/check-pr-policy.mjs",
     "check:widget-issue": "node scripts/check-widget-issue.mjs",
     "test:agent-policy": "node --test scripts/check-agent-policy.test.mjs",
-    "test:unit": "node --test src/widgets/landmarks/neighbor-golden.test.mjs src/widgets/landmarks/neighborhood-perf.test.mjs src/widgets/landmarks/gene-expression-blend.test.mjs src/widgets/landmarks/landmark-stable-color.test.mjs",
+    "test:unit": "node --test src/widgets/landmarks/neighbor-golden.test.mjs src/widgets/landmarks/neighborhood-perf.test.mjs src/widgets/landmarks/gene-expression-blend.test.mjs src/widgets/landmarks/landmark-stable-color.test.mjs && npx tsx --test src/widgets/volume-cube/comm-buffer.test.mjs",
     "verify": "node scripts/verify.mjs"
   },
   "overrides": {

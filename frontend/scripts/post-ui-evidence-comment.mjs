@@ -45,22 +45,39 @@ const api = (...args) =>
   execFileSync("gh", ["api", ...args], { encoding: "utf8", env: { ...process.env, GH_TOKEN: token } });
 
 const tag = `ui-evidence-pr-${pr}-run-${runId}`;
-execFileSync(
+const createdJson = execFileSync(
   "gh",
-  ["release", "create", tag, "--draft", "--title", `UI evidence PR #${pr}`, "--notes", "Auto-generated Playwright captures for PR review.", ...shots],
-  { stdio: "inherit", env: { ...process.env, GH_TOKEN: token } },
+  [
+    "release",
+    "create",
+    tag,
+    "--draft",
+    "--title",
+    `UI evidence PR #${pr}`,
+    "--notes",
+    "Auto-generated Playwright captures for PR review.",
+    ...shots,
+    "--json",
+    "id,html_url,tag_name",
+  ],
+  { encoding: "utf8", env: { ...process.env, GH_TOKEN: token } },
 );
-
+const created = JSON.parse(createdJson.trim());
 let release;
 for (let attempt = 0; attempt < 5; attempt++) {
   try {
-    release = JSON.parse(api(`repos/${repo}/releases/tags/${tag}`));
+    release = JSON.parse(api(`repos/${repo}/releases/${created.id}`));
     break;
   } catch {
+    const listed = JSON.parse(
+      api(`repos/${repo}/releases`, "-f", `per_page=30`),
+    );
+    release = listed.find((r) => r.tag_name === tag || r.id === created.id);
+    if (release) break;
     execFileSync("sleep", ["2"]);
   }
 }
-if (!release) throw new Error(`release not found for tag ${tag}`);
+if (!release) throw new Error(`release not found for tag ${tag} (id ${created.id})`);
 const assets = release.assets ?? [];
 const lines = [
   marker,
