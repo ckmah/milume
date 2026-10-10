@@ -27,14 +27,31 @@ function sh(cmd, opts = {}) {
   return (r.stdout || "").trim();
 }
 
+const harnessPaths = [
+  "frontend/vite.config.ts",
+  "frontend/dev/mock-model.ts",
+  "frontend/dev/export-landmarks-volume-fixture.py",
+];
+if (captureProfile === "small") {
+  harnessPaths.push("frontend/dev/landmarks-volume-fixture.small.json");
+}
+
+/** Keep harness/fixture wiring identical when comparing main source to PR. */
+function overlayHarnessFrom(prSha) {
+  for (const rel of harnessPaths) {
+    sh(`git -C ${root} checkout ${prSha} -- ${rel}`);
+  }
+}
+
 function restartVite() {
   sh(`tmux -f /exec-daemon/tmux.portal.conf kill-session -t ${session} 2>/dev/null || true`);
-  sh(`rm -rf ${frontend}/node_modules/.vite/landmarks-volume-small`);
+  sh(
+    `find ${frontend}/node_modules/.vite -maxdepth 1 -name 'landmarks-volume-*' -exec rm -rf {} + 2>/dev/null || true`,
+  );
   sh(
     `tmux -f /exec-daemon/tmux.portal.conf new-session -d -s ${session} -c ${frontend} -- bash -lc ` +
-      `"npx cross-env DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=small npx vite --host 127.0.0.1 --port ${port}"`,
+      `"npx cross-env DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=${captureProfile} npx vite --host 127.0.0.1 --port ${port}"`,
   );
-  const expectedLabelIdsLen = 23320;
   for (let i = 0; i < 90; i++) {
     try {
       sh(`curl -sf ${base}/ >/dev/null`);
@@ -254,6 +271,7 @@ const mainSha = sh(`git -C ${root} rev-parse ${process.env.BENCH_MAIN_REF || "or
 
 console.log("=== BEFORE (origin/main)", mainSha);
 sh(`git -C ${root} checkout --quiet ${mainSha}`);
+overlayHarnessFrom(prSha);
 restartVite();
 spawnSync("sleep", ["8"]);
 await captureSet("before");

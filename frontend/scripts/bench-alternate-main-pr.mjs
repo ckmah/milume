@@ -22,6 +22,20 @@ function sh(cmd, opts = {}) {
 
 const profile = process.env.BENCH_VOLUME_PROFILE === "small" ? "small" : "toy";
 const expectedLabelIdsLen = profile === "small" ? 23320 : 16;
+const harnessPaths = [
+  "frontend/vite.config.ts",
+  "frontend/dev/mock-model.ts",
+  "frontend/dev/export-landmarks-volume-fixture.py",
+];
+if (profile === "small") {
+  harnessPaths.push("frontend/dev/landmarks-volume-fixture.small.json");
+}
+
+function overlayHarnessFrom(prSha) {
+  for (const rel of harnessPaths) {
+    sh(`git -C ${root} checkout ${prSha} -- ${rel}`);
+  }
+}
 
 function restartVite() {
   sh(`tmux -f /exec-daemon/tmux.portal.conf kill-session -t ${session} 2>/dev/null || true`);
@@ -80,6 +94,7 @@ try {
     for (const rev of ["main", "pr"]) {
       const sha = rev === "main" ? mainRev : prRev;
       sh(`git -C ${root} checkout --quiet ${sha}`);
+      if (rev === "main") overlayHarnessFrom(prRev);
       restartVite();
       spawnSync("sleep", ["2"]);
       const t0 = Date.now();

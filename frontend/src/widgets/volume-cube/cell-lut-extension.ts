@@ -430,11 +430,8 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       layer.props.onImageBound?.(imageFormat);
     }
     const frac = layer.props.cutFrac;
-    const render = layer.props.render ?? DEFAULT_RENDER;
     const uniforms: CubeUniforms = {
-      imageAlpha: render.imageAlpha,
-      imageGamma: render.imageGamma,
-      cellAlpha: render.cellAlpha,
+      ...(layer.props.render ?? DEFAULT_RENDER),
       cellsOn,
       imageOn,
       imageScale: image?.scale ?? 1,
