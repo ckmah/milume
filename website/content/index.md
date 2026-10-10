@@ -1,18 +1,13 @@
 # milume
 
-<<<<<<< HEAD
 <div class="milume-docs-hero" data-milume-hero data-assets-base="assets/" markdown="0">
   <canvas class="milume-hero__canvas" width="1600" height="900"></canvas>
   <img class="milume-hero__poster" src="assets/hero-poster.png" alt="" width="1600" height="900" decoding="async" />
 </div>
 
-Interactive notebook widgets for spatial omics. Python owns analysis; the
-browser owns presentation; state syncs through typed traitlets.
-=======
 [LandmarksWidget](quickstart.md) draws selections and landmarks on tissue
 coordinates in `AnnData` or `SpatialData`. Python owns analysis; the browser
 owns presentation; geometry syncs through traitlets.
->>>>>>> 0f8dc37 (docs(site): polish Pages docs for issue #116)
 
 ```python
 import milume
