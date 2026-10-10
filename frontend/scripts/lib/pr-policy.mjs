@@ -7,6 +7,9 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 const CLOSE_RE = /\b(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#\d+\b/i;
 
+/** Meta/CI tracking issues (not landmarks-ui); skip widget-issue template on linked bodies. */
+const WIDGET_ISSUE_TEMPLATE_EXEMPT = new Set([128]);
+
 /** Markdown / HTML / common agent artifact patterns for embedded UI evidence. */
 const VISUAL_EVIDENCE_RE =
   /!\[[^\]]*\]\([^)]+\)|<img\s[^>]*src=|\.(?:png|jpe?g|gif|webp|webm|mp4)(?:\?[^)\s]*)?\)|cursor\.com\/agents\/[^/]+\/artifacts\?path=/i;
@@ -51,6 +54,7 @@ export function validateUiPullRequest({ changedPaths, body, isDraft, issueBodies
 
   const linked = findLinkedIssueNumbers(body);
   for (const n of linked) {
+    if (WIDGET_ISSUE_TEMPLATE_EXEMPT.has(n)) continue;
     const issueBody = issueBodies[n];
     if (issueBody === undefined) continue;
     for (const e of validateWidgetIssueBody(issueBody)) {

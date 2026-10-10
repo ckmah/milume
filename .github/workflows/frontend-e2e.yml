@@ -1,11 +1,9 @@
 name: Frontend e2e
 
-# Path-gated Playwright tiers (skips when the change set has no frontend/):
-#   core        — shared shadcn / Soft Float chrome
-#   landmarks   — LandmarksWidget
+# Path-gated Playwright tiers (`changes` job); `gate` always reports. Screenshots off
+# unless workflow_dispatch update_snapshots or the UI evidence workflow (E2E_SCREENSHOTS=1).
 
 on:
-  # The `changes` job path-filters tiers; `gate` always runs (even when tiers skip).
   pull_request:
   push:
     branches: [main]
@@ -65,7 +63,6 @@ jobs:
         run: npm run test:e2e:core
         env:
           CI: true
-          E2E_SCREENSHOTS: "1"
       - name: Update core snapshots
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_snapshots == true }}
         run: npm run test:e2e:core -- --update-snapshots=all
@@ -129,11 +126,15 @@ jobs:
         if: matrix.id == 'default'
         run: npm run test:unit
       - name: Run landmarks e2e
-        if: ${{ env.UPDATE != 'true' }}
+        if: >-
+          ${{ env.UPDATE != 'true' && (
+            matrix.id == 'default' ||
+            github.event_name != 'pull_request' ||
+            github.event.pull_request.draft == false
+          ) }}
         run: ${{ matrix.cmd }}
         env:
           CI: true
-          E2E_SCREENSHOTS: "1"
           E2E_HARNESS: ${{ matrix.harness }}
       - name: Update landmarks snapshots
         if: ${{ env.UPDATE == 'true' && matrix.id == 'default' }}

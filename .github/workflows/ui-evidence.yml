@@ -1,0 +1,106 @@
+name: UI evidence
+
+# Until this workflow is on main, trigger via the `ui-evidence` label (or ready_for_review).
+# workflow_dispatch works only after merge to the default branch.
+
+on:
+  pull_request:
+    types: [ready_for_review, labeled]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number (workflow_dispatch only)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  should-run:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+      pr: ${{ steps.check.outputs.pr }}
+    steps:
+      - id: check
+        env:
+          ACTION: ${{ github.event.action }}
+          LABEL: ${{ github.event.label.name }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          INPUT_PR: ${{ inputs.pr_number }}
+        run: |
+          set -euo pipefail
+          run=false
+          pr=""
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            run=true
+            pr="${INPUT_PR}"
+          elif [[ "${ACTION}" == "labeled" && "${LABEL}" == "ui-evidence" ]]; then
+            run=true
+            pr="${{ github.event.pull_request.number }}"
+          elif [[ "${ACTION}" == "ready_for_review" && "${DRAFT}" == "false" ]]; then
+            run=true
+            pr="${{ github.event.pull_request.number }}"
+          fi
+          echo "run=${run}" >> "$GITHUB_OUTPUT"
+          echo "pr=${pr}" >> "$GITHUB_OUTPUT"
+
+  capture:
+    needs: should-run
+    if: needs.should-run.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      pull-requests: write
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Resolve PR head SHA (workflow_dispatch)
+        if: github.event_name == 'workflow_dispatch'
+        id: prhead
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ needs.should-run.outputs.pr }}
+        run: |
+          set -euo pipefail
+          sha=$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq .head.sha)
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.prhead.outputs.sha || github.event.pull_request.head.sha || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+      - uses: ./.github/actions/playwright-browser
+
+      - name: Capture landmarks + core evidence
+        run: npm run test:ui-evidence:landmarks && npm run test:ui-evidence:core
+        env:
+          CI: true
+          E2E_SCREENSHOTS: "1"
+          E2E_VIEWPORT_H: "720"
+
+      - name: Capture volume evidence
+        run: npm run test:ui-evidence:volume
+        env:
+          CI: true
+          E2E_SCREENSHOTS: "1"
+          E2E_VIEWPORT_H: "720"
+          E2E_HARNESS: landmarks-volume
+
+      - name: Post PR comment with embedded shots
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ needs.should-run.outputs.pr }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+        run: node scripts/post-ui-evidence-comment.mjs

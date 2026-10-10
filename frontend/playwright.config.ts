@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const harness = process.env.E2E_HARNESS ?? "landmarks";
+const viewportHeight = Number(process.env.E2E_VIEWPORT_H ?? 900);
 const webServerCommands: Record<string, string> = {
   landmarks: "npm run dev:landmarks -- --host 127.0.0.1 --port 5173 --strictPort",
   "landmarks-volume":
@@ -50,7 +51,7 @@ export default defineConfig({
     trace: "on-first-retry",
     // Videos only on CI failure — avoids requiring ffmpeg locally.
     video: process.env.CI ? "retain-on-failure" : "off",
-    viewport: { width: 1280, height: 900 },
+    viewport: { width: 1280, height: viewportHeight },
     deviceScaleFactor: 1,
     launchOptions: { args: [...gpuArgs, "--disable-lcd-text", "--font-render-hinting=none"] },
   },
@@ -58,7 +59,7 @@ export default defineConfig({
     name: "chromium",
     use: {
       ...devices["Desktop Chrome"],
-      viewport: { width: 1280, height: 900 },
+      viewport: { width: 1280, height: viewportHeight },
       deviceScaleFactor: 1,
       channel: (process.env.PLAYWRIGHT_CHANNEL as "chrome" | undefined) || undefined,
     },
