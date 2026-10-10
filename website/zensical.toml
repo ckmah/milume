@@ -28,7 +28,7 @@ icon = "fontawesome/brands/github"
 link = "https://github.com/ckmah/milume"
 
 [project.plugins.mkdocstrings]
-handlers = { python = { paths = [".."], docstring_style = "numpy", docstring_options = { ignore_init_summary = true } } }
+handlers = { python = { paths = [".."], options = { docstring_style = "numpy", docstring_section_style = "table", docstring_options = { ignore_init_summary = true } } } }
 
 [project.theme]
 language = "en"

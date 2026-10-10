@@ -14,6 +14,8 @@ _INTERNAL_DOCS_LINK = re.compile(
     r"https://github\.com/ckmah/milume/blob/[^)\s]+/docs/",
     re.IGNORECASE,
 )
+_SPHINX_ROLE = re.compile(r":\w+:`")
+_DOCTEST_LINE = re.compile(r"^\s*>>>")
 
 
 def paths_to_check(site_root: Path) -> list[Path]:
@@ -35,6 +37,17 @@ def lint_agent_text(text: str) -> list[str]:
             break
     if _INTERNAL_DOCS_LINK.search(text):
         issues.append("links to internal engineering docs/ on GitHub")
+    if _SPHINX_ROLE.search(text):
+        issues.append("contains Sphinx :role:`...` markup")
+    in_fence = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            in_fence = not in_fence
+            continue
+        if not in_fence and _DOCTEST_LINE.match(line):
+            issues.append("contains >>> doctest line outside a fenced code block")
+            break
     return issues
 
 

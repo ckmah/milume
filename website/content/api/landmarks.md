@@ -6,8 +6,7 @@ Generated from the public Python API. For a walkthrough, see
 ## `milume.peek`
 
 Open a Milume surface on AnnData or SpatialData. This is the main notebook
-entry point; it constructs :class:`~milume.landmarks.LandmarksWidget` with the
-same keyword arguments.
+entry point; it constructs `LandmarksWidget` with the same keyword arguments.
 
 ```python
 import milume
@@ -17,9 +16,7 @@ w = milume.peek(sdata)  # table, labels, image inferred
 ```
 
 Returns a `LandmarksWidget` handle. Synced traitlets include `w.selections` and
-`w.landmarks`; join to `adata` with
-:meth:`~milume.landmarks.LandmarksWidget.get_obs_names` /
-:meth:`~milume.landmarks.LandmarksWidget.assign_obs_mask`.
+`w.landmarks`; join to `adata` with `get_obs_names` / `assign_obs_mask`.
 
 ## Constructor parameters and traitlets
 

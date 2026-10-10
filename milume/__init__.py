@@ -26,7 +26,7 @@ peek.__doc__ = (
     """Open a Milume surface on AnnData or SpatialData.
 
 Main notebook entry point for interactive landmarks. Constructs
-:class:`~milume.landmarks.LandmarksWidget` with the same keyword arguments.
+`LandmarksWidget` with the same keyword arguments.
 
 """
     + _LANDMARKS_API_DOC
@@ -36,8 +36,7 @@ Returns
 LandmarksWidget
     Widget handle ``w``. Synced traitlets include ``w.selections`` and
     ``w.landmarks``; join to ``adata`` with
-    :meth:`~milume.landmarks.LandmarksWidget.get_obs_names` /
-    :meth:`~milume.landmarks.LandmarksWidget.assign_obs_mask`.
+    `get_obs_names` / `assign_obs_mask`.
 
 Examples
 --------

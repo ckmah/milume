@@ -8,6 +8,8 @@ from pathlib import Path
 
 import griffe
 
+from agent_md_format import format_agent_docstring, strip_sphinx_roles
+
 # Public notebook API methods defined on LandmarksWidget in milume/landmarks.py.
 _NOTEBOOK_METHODS = (
     "set_points",
@@ -105,7 +107,7 @@ def render_landmarks_widget_api() -> str:
             [
                 f"## `def {peek_sig}`",
                 "",
-                _peek_doc(root),
+                format_agent_docstring(_peek_doc(root)),
                 "",
                 "---",
                 "",
@@ -113,7 +115,9 @@ def render_landmarks_widget_api() -> str:
         )
 
     class_doc = widget.docstring.value if widget.docstring else ""
-    parts.extend([f"## `{widget.name}`", "", class_doc.strip(), ""])
+    parts.extend(
+        [f"## `{widget.name}`", "", format_agent_docstring(class_doc.strip()), ""]
+    )
 
     for name in _NOTEBOOK_METHODS:
         member = widget.members.get(name)
@@ -124,9 +128,17 @@ def render_landmarks_widget_api() -> str:
             signature = member.signature()
         except (AttributeError, TypeError):
             signature = f"{name}(...)"
-        parts.extend([f"### `def {signature}`", "", doc.strip(), ""])
+        parts.extend(
+            [
+                f"### `def {signature}`",
+                "",
+                format_agent_docstring(doc.strip()) if doc.strip() else "",
+                "",
+            ]
+        )
 
-    return "\n".join(parts).strip() + "\n"
+    body = "\n".join(parts).strip() + "\n"
+    return strip_sphinx_roles(body)
 
 
 if __name__ == "__main__":
