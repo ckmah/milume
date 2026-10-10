@@ -11,15 +11,7 @@ permissions:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
-    outputs:
-      ui: ${{ steps.filter.outputs.core == 'true' || steps.filter.outputs.landmarks == 'true' }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dorny/paths-filter@v3
-        id: filter
-        with:
-          filters: .github/e2e-tiers.json
+    uses: ./.github/workflows/detect-changes.yml
 
   ui-pr-policy:
     needs: changes
@@ -64,6 +56,8 @@ jobs:
         run: node scripts/check-pr-policy.mjs --issue-bodies-file ../issue-bodies.json --draft "$PR_DRAFT"
 
   agent-policy-tests:
+    needs: changes
+    if: needs.changes.outputs.policy == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

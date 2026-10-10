@@ -34,11 +34,28 @@
     "frontend/vite.config.*",
     "frontend/index.html",
     ".github/workflows/frontend-e2e.yml",
+    ".github/workflows/detect-changes.yml",
+    ".github/actions/playwright-browser/**",
     ".github/e2e-tiers.json"
   ],
   "python": [
     "milume/**",
     "tests/**",
     "pyproject.toml"
+  ],
+  "policy": [
+    "AGENTS.md",
+    ".github/ISSUE_TEMPLATE/**",
+    ".github/workflows/pr-policy.yml",
+    ".github/workflows/detect-changes.yml",
+    "frontend/scripts/check-agent-policy.test.mjs",
+    "frontend/scripts/check-pr-policy.mjs",
+    "frontend/scripts/check-widget-issue.mjs",
+    "frontend/scripts/fetch-linked-issue-bodies.mjs",
+    "frontend/scripts/lib/pr-policy.mjs",
+    "frontend/scripts/lib/widget-issue.mjs",
+    "frontend/scripts/post-pr-playwright-comment.mjs",
+    "frontend/scripts/pr-policy-fixtures/**",
+    "frontend/scripts/widget-issue-fixtures/**"
   ]
 }
