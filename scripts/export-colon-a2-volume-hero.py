@@ -2,8 +2,11 @@
 """Build colon A2 SpatialData (pyxa_scverse_demo parity) and export a volume harness fixture.
 
 Downloads ``Stellaromics/demo/colon/`` files used by ``build_colon_a2.py``, writes
-``landmarks-volume/public/colon_a2.sdata.zarr``, and ``landmarks-volume-fixture.colon.json``
-with static ``volume`` URLs for the Vite harness.
+``frontend/dev/landmarks-volume/public/colon_a2.sdata.zarr``, and
+``frontend/dev/landmarks-volume-fixture.colon.json`` with static ``volume`` URLs
+for the Vite harness (``MILUME_VOLUME_PROFILE=colon npm run dev:landmarks-volume``).
+
+Regenerate hero PNGs with ``node frontend/scripts/capture-issue-114-hero.mjs``.
 """
 
 from __future__ import annotations
@@ -14,13 +17,13 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from milume import LandmarksWidget  # noqa: E402
 from milume.volume_source import image_contrast_limits  # noqa: E402
 
-DEV = Path(__file__).resolve().parent
+DEV = ROOT / "frontend" / "dev"
 PUBLIC = DEV / "landmarks-volume" / "public"
 STORE_NAME = "colon_a2.sdata.zarr"
 OUT = DEV / "landmarks-volume-fixture.colon.json"
@@ -118,7 +121,7 @@ def read_colon_sdata(source: Path):
     from spatialdata_io.experimental import pyxa
 
     store = PUBLIC / STORE_NAME
-    if store.exists():
+    if store.is_dir():
         return sd.read_zarr(store)
 
     sdata = pyxa(source, cell_assigned_gene=False, labels=True)
@@ -153,7 +156,6 @@ def _hero_selection(widget: LandmarksWidget) -> None:
 
 def write_fixture(sdata, *, cells: int | None, hero: bool) -> None:
     import numpy as np
-    import spatialdata as sd
 
     table = sdata.tables["rna"]
     if cells is not None and cells < table.n_obs:

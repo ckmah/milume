@@ -72,7 +72,7 @@ function LandmarksVolumeHarness() {
   if (loadError) return <p className="p-4 text-sm text-destructive">{loadError}</p>;
 
   return (
-    <div className="landmarks-volume-shell dark min-h-screen bg-neutral-950 p-3 text-neutral-100">
+    <div className="dark min-h-screen bg-neutral-950 p-3 text-neutral-100">
       <div ref={setHostEl} className="w-full min-w-0">
         {hostEl && model ? (
           <LandmarksView

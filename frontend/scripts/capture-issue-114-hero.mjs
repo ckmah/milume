@@ -15,15 +15,10 @@ async function applyTheme(page, theme) {
   await page.evaluate((theme) => {
     const root = document.documentElement;
     root.classList.remove("light", "dark", "dark-theme", "light-theme");
-    const shell = document.querySelector(".landmarks-volume-shell");
     if (theme === "dark") {
       root.classList.add("dark", "dark-theme");
-      shell?.classList.add("dark");
-      shell?.classList.remove("light");
     } else {
       root.classList.add("light", "light-theme");
-      shell?.classList.remove("dark");
-      shell?.classList.add("light", "bg-neutral-50", "text-neutral-900");
     }
     window.localStorage.setItem("milume-harness-theme", theme);
   }, theme);
