@@ -148,6 +148,11 @@ code {
   opacity: 0.55;
 }
 
+/* WebGL pixels are already veiled in the hero plane; avoid double-dimming the canvas */
+.milume-hero[data-hero-mode="webgl"] .milume-hero__canvas {
+  opacity: 1;
+}
+
 .milume-hero[data-hero-mode="poster"] .milume-hero__canvas {
   display: none;
 }

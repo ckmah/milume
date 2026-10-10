@@ -1,8 +1,6 @@
 import { LOGICAL_H, LOGICAL_W, LOOP_SEC } from "./constants.ts";
-import { loadField } from "./field.ts";
-import { createGl, drawPoints } from "./gl.ts";
-import { framePoints } from "./simulate.ts";
-import type { CellPoint } from "./types.ts";
+import { loadGpuField } from "./field.ts";
+import { createGl, drawFrame } from "./gl.ts";
 
 export type HeroHandle = {
   pause: () => void;
@@ -26,6 +24,12 @@ function capDpr(): number {
   return Math.min(2, window.devicePixelRatio || 1);
 }
 
+function loopPhase(wallMs: number, start: number, frozenT: number | null): number {
+  if (frozenT !== null) return frozenT;
+  const elapsed = (wallMs - start) / 1000;
+  return elapsed - Math.floor(elapsed / LOOP_SEC) * LOOP_SEC;
+}
+
 export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
   const base = root.getAttribute("data-assets-base") ?? "assets/";
   const poster = root.querySelector<HTMLImageElement>(".milume-hero__poster");
@@ -34,17 +38,17 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
     throw new Error("milume-hero: missing poster or canvas");
   }
 
-  let cells: CellPoint[] | null = null;
+  let field = null;
   let loadError = false;
   try {
-    cells = await loadField(`${base}hero-points.bin`);
+    field = await loadGpuField(`${base}hero-points.bin`);
   } catch {
     loadError = true;
   }
 
   const reduced = prefersReducedMotion();
-  const glBundle = reduced || loadError ? null : createGl(canvas);
-  const live = Boolean(glBundle && cells);
+  const glBundle = !reduced && !loadError && field ? createGl(canvas, field) : null;
+  const live = Boolean(glBundle);
 
   if (live) {
     poster.hidden = true;
@@ -62,16 +66,15 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
   let lastFrameMs = 0;
   let lastSimMs = 0;
   let lastDrawMs = 0;
-  let timeOffset = 0;
+  let frozenT: number | null = null;
   let start = performance.now();
   let width = 0;
   let height = 0;
-  let dpr = 1;
-  let layout = { scale: 1, offX: 0, offY: 0 };
+  let layout = { scale: 1, offX: 0, offY: 0, dpr: 1 };
 
   const resize = () => {
     const rect = root.getBoundingClientRect();
-    dpr = capDpr();
+    const dpr = capDpr();
     width = Math.max(1, Math.round(rect.width * dpr));
     height = Math.max(1, Math.round(rect.height * dpr));
     canvas.width = width;
@@ -85,18 +88,17 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
       scale: cover,
       offX: (lw - LOGICAL_W * cover) / 2,
       offY: (lh - LOGICAL_H * cover) / 2,
+      dpr,
     };
   };
 
   const renderFrame = (wallMs: number) => {
-    if (!glBundle || !cells) return;
+    if (!glBundle) return;
     performance.mark("hero-begin");
-    const t = ((wallMs - start) / 1000 + timeOffset) % LOOP_SEC;
-    const tSim0 = performance.now();
-    const pts = framePoints(cells, t);
-    lastSimMs = performance.now() - tSim0;
+    const t = loopPhase(wallMs, start, frozenT);
+    lastSimMs = 0;
     const tDraw0 = performance.now();
-    drawPoints(glBundle, pts, width, height, dpr, layout);
+    drawFrame(glBundle, t, width, height, layout);
     lastDrawMs = performance.now() - tDraw0;
     performance.mark("hero-end");
     const entries = performance.getEntriesByName("hero-frame");
@@ -111,7 +113,7 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
 
   const tick = () => {
     raf = 0;
-    if (!running || !glBundle || !cells) return;
+    if (!running || !glBundle) return;
     renderFrame(performance.now());
     raf = requestAnimationFrame(tick);
   };
@@ -131,6 +133,8 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
 
   const resume = () => {
     if (!live) return;
+    frozenT = null;
+    start = performance.now();
     running = true;
     schedule();
   };
@@ -178,9 +182,9 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
     getLastSimMs: () => lastSimMs,
     getLastDrawMs: () => lastDrawMs,
     setTime: (t: number) => {
-      timeOffset = t;
-      start = performance.now();
-      if (live) renderFrame(performance.now());
+      frozenT = t;
+      pause();
+      renderFrame(performance.now());
     },
     renderOnce: () => renderFrame(performance.now()),
   };
