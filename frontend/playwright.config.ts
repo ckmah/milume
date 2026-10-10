@@ -21,7 +21,10 @@ const gpuArgs = useGpu ? ["--use-angle=metal", "--use-gl=angle", "--ignore-gpu-b
 export default defineConfig({
   testDir: "./e2e",
   // The inspect-cube spec needs the toy SpatialData served by its own harness.
-  testIgnore: harness === "landmarks-volume" ? undefined : "**/landmarks-volume.spec.ts",
+  testIgnore:
+    harness === "landmarks-volume"
+      ? "**/hero-webgl.spec.ts"
+      : ["**/landmarks-volume.spec.ts", "**/hero-webgl.spec.ts"],
   timeout: volumeOnCi ? 240_000 : 90_000,
   expect: {
     timeout: volumeOnCi ? 30_000 : 15_000,

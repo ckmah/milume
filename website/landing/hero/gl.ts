@@ -97,7 +97,8 @@ void main() {
     pulseS = u_time - 0.6;
     pulseA = ss(0.0, 1.0, pulseS) * (1.0 - ss(6.0, 9.0, pulseS));
     float ds = length(i_pos - SEL);
-    float core = 0.85 * exp(-pow(ds / 3.0, 2.0)) * ss(0.0, 1.0, pulseS);
+    float pulseExposure = 1.1;
+    float core = 0.85 * pulseExposure * exp(-pow(ds / 3.0, 2.0)) * ss(0.0, 1.0, pulseS);
     float ring = exp(-pow((ds - 2.5 - pulseS * 1.4) / 2.0, 2.0)) * ss(0.3, 1.3, pulseS);
     glow = clamp(core + 0.4 * ring, 0.0, 1.0) * pulseA;
     float passed = clamp((2.5 + pulseS * 1.4 - ds) / 2.0, 0.0, 1.0) * pulseA;
@@ -109,10 +110,11 @@ void main() {
   if (pulseA > 0.0) {
     zf = 11.0 + pulseA * ((SEL.z - c.z) - 11.0);
   }
-  float fog = pow(clamp(1.0 - (z - 1.0) / (ZF1 - 1.0), 0.0, 1.0), 1.8);
-  float bright = max(fog * 0.9, glow * min(0.95, fog * 3.0));
   float dz = abs(z - zf);
   bool crispLayer = dz <= 1.0;
+  float fog = pow(clamp(1.0 - (z - 1.0) / (ZF1 - 1.0), 0.0, 1.0), 1.8);
+  float hazeMul = crispLayer ? 1.0 : (pulseA > 0.0 ? 1.1 : 1.0);
+  float bright = max(fog * 0.9 * hazeMul, glow * min(0.95, fog * 3.0));
   if (u_layer > 0.5 && !crispLayer) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     v_pm = vec4(0.0);
