@@ -90,9 +90,33 @@ async function captureSet(tag) {
       const el = page.getByTestId(toggle);
       if ((await el.getAttribute("aria-pressed")) !== "true") await el.click();
     }
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view')
+          ?.getAttribute("data-labels") === "on",
+      null,
+      { timeout: 300_000 },
+    );
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view')
+          ?.getAttribute("data-refining") === "false",
+      null,
+      { timeout: 300_000 },
+    );
     const bar = page.getByTestId("context-inspect-toolbar");
 
     await bar.getByRole("radio", { name: "Top view" }).click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view')
+          ?.getAttribute("data-refining") === "false",
+      null,
+      { timeout: 300_000 },
+    );
     await page.waitForTimeout(800);
     paths.uncutTop = `${outDir}/issue-117-pyxa-${tag}-uncut-top.png`;
     await view.screenshot({ path: paths.uncutTop });
