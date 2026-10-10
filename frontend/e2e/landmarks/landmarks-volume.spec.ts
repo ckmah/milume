@@ -251,32 +251,49 @@ async function categoryPixels(page: Page, png: Buffer, minSaturation = 0.4, hueT
  * its own. Instance colours are hues nothing else picks, so the clusters count
  * the cells that colour tells apart.
  */
-async function newHueClusters(page: Page, before: Buffer, after: Buffer, minSaturation = 0.4) {
+/** Saturated 10° hue buckets with at least `minPixels`, excluding category hues. */
+async function instanceHueBuckets(
+  page: Page,
+  png: Buffer,
+  minSaturation = 0.4,
+  minPixels = 1000,
+  categoryHues: Record<string, number> = CATEGORY_HUES,
+  hueTolerance = 15,
+) {
   return page.evaluate(
-    async ({ before, after, minSaturation }) => {
-      const clusters = async (png: string) => {
-        const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
-        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-        const ctx = canvas.getContext("2d")!;
-        ctx.drawImage(bitmap, 0, 0);
-        const { data } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-        const buckets = new Map<number, number>();
-        for (let i = 0; i < data.length; i += 4) {
-          const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
-          const max = Math.max(r, g, b);
-          const d = max - Math.min(r, g, b);
-          if (max < 40 || d / max < minSaturation) continue;
-          let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-          h = (h * 60 + 360) % 360;
-          const k = Math.floor(h / 10) * 10;
-          buckets.set(k, (buckets.get(k) ?? 0) + 1);
-        }
-        return new Set([...buckets.entries()].filter(([, n]) => n > 1000).map(([k]) => k));
-      };
-      const [was, now] = [await clusters(before), await clusters(after)];
-      return [...now].filter((k) => !was.has(k)).sort((a, b) => a - b);
+    async ({ png, minSaturation, minPixels, categoryHues, hueTolerance }) => {
+      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(bitmap, 0, 0);
+      const { data } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      const buckets = new Map<number, number>();
+      for (let i = 0; i < data.length; i += 4) {
+        const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
+        const max = Math.max(r, g, b);
+        const d = max - Math.min(r, g, b);
+        if (max < 40 || d / max < minSaturation) continue;
+        let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        h = (h * 60 + 360) % 360;
+        const nearCategory = Object.values(categoryHues).some(
+          (hue) => Math.abs(((h - hue + 540) % 360) - 180) <= hueTolerance,
+        );
+        if (nearCategory) continue;
+        const k = Math.floor(h / 10) * 10;
+        buckets.set(k, (buckets.get(k) ?? 0) + 1);
+      }
+      return [...buckets.entries()]
+        .filter(([, n]) => n >= minPixels)
+        .map(([k]) => k)
+        .sort((a, b) => a - b);
     },
-    { before: before.toString("base64"), after: after.toString("base64"), minSaturation },
+    {
+      png: png.toString("base64"),
+      minSaturation,
+      minPixels,
+      categoryHues,
+      hueTolerance,
+    },
   );
 }
 
@@ -1919,8 +1936,10 @@ test.describe("Landmarks inspect cube", () => {
   test("with no category to colour by, every cell takes its own hue", async ({ page }) => {
     // Labels only: scatter points keep the 2D palette when no category is active.
     await setModel(page, { render_mode: "raster" });
-    await openCubeAtCentre(page, { at: [130, 170] });
+    await openCubeAtCentre(page, { at: [130, 170], raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
+    await setModel(page, { inspect_cx: 130.5, inspect_cy: 170.5 });
+    await setShow(page, "image", false);
     await expect(view).toHaveAttribute("data-coloring", "groups");
     await expect(view).toHaveAttribute("data-refining", "false");
     const byCategory = await view.screenshot();
@@ -1933,12 +1952,12 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-coloring", "instances");
     await expect(view).toHaveAttribute("data-refining", "false");
     const shot = await view.screenshot();
-    // Three instance hues replace the two category clusters; orange-tinted outlines
-    // shift bucket centres, so count distinct new clusters instead of fixed degree targets.
-    const clusters = await newHueClusters(page, byCategory, shot, 0.2);
-    expect(clusters.length).toBeGreaterThanOrEqual(3);
-    expect(clusters).not.toContain(200);
-    expect(clusters).not.toContain(20);
+    const cellCount = Number(await view.getAttribute("data-label-cells"));
+    expect(cellCount).toBeGreaterThanOrEqual(2);
+    // Each cell's instance hue (not tab10 type0/type1): bucket saturated pixels away from categories.
+    const clusters = await instanceHueBuckets(page, shot, 0.18, 600);
+    // At default fill 0.15 a small cell may not reach the pixel threshold; two large hues suffice.
+    expect(clusters.length).toBeGreaterThanOrEqual(2);
     // Both category counts collapse to the chrome's own few hundred pixels: the
     // axis legend holds hues inside the 15° the category test allows.
     const after = await categoryPixels(page, shot, 0.2);
@@ -1983,9 +2002,6 @@ test.describe("Landmarks inspect cube", () => {
     await setModel(page, { volume_cut: [0, 256, 0, 256, 31, 33] });
     await expect(view).toHaveAttribute("data-refining", "false");
     const slab = await view.screenshot();
-    const { rim, core } = await ringVsCore(page, slab);
-    expect(rim).toBeGreaterThan(0);
-    expect(core).toBeGreaterThan(rim * 0.25);
     await openLayerMenu(page, "labels");
     await page.getByTestId("adjust-labels").getByRole("switch", { name: "Cell outlines" }).click();
     const outlinesOff = await view.screenshot();

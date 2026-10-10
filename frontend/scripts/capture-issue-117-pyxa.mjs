@@ -33,6 +33,22 @@ try {
     null,
     { timeout: 300_000 },
   );
+  const labels = page.getByTestId("layer-toggle-labels");
+  if ((await labels.getAttribute("aria-pressed")) !== "true") await labels.click();
+  const image = page.getByTestId("layer-toggle-image");
+  if ((await image.getAttribute("aria-pressed")) !== "true") await image.click();
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector(".volume-cube__view");
+      return (
+        el?.getAttribute("data-labels") === "on" &&
+        el?.getAttribute("data-image") === "on" &&
+        el?.getAttribute("data-coloring") === "groups"
+      );
+    },
+    null,
+    { timeout: 120_000 },
+  );
   const bar = page.getByTestId("context-inspect-toolbar");
   for (const [preset, name] of [
     ["top", "Top view"],
