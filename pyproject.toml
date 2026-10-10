@@ -27,6 +27,7 @@ dependencies = [
     "polars>=1.0",
     "scipy>=1.11",
     "shapely>=2.1.2",
+    "spatialdata>=0.2",
     "traitlets>=5.0",
 ]
 
@@ -34,9 +35,8 @@ dependencies = [
 demo = [
     "huggingface-hub>=0.30",
     "igraph>=0.11",
-    "marimo>=0.24.0",
+    "marimo>=0.25.1",
     "scanpy>=1.10",
-    "spatialdata>=0.2",
     "spatialdata-io; python_version >= '3.12'",
 ]
 test = [
