@@ -4,8 +4,9 @@ Playwright drives a **real** `marimo run` kernel (not the Vite harness) so
 `volume_get` binary payloads flow through marimo’s anywidget bridge (`DataView`
 buffers on `msg:custom`).
 
-- **Notebook:** `demos/landmarks.py` (Stellaromics `small/`; prefetch via
-  `scripts/prefetch-marimo-e2e-data.py` in CI).
+- **Notebook:** CI uses `fixtures/toy-landmarks.marimo.py` (fast). Locally you can
+  run `demos/landmarks.py` (Stellaromics `small/`; prefetch via
+  `scripts/prefetch-marimo-e2e-data.py`).
 - **Origin:** non-loopback host from `scripts/marimo-e2e-host.mjs` (molab-style).
 - **CI tier:** `marimo_volume` in `.github/e2e-tiers.json` (volume-cube /
   `volume_comm.py` changes only).
@@ -21,5 +22,7 @@ npm run test:e2e:marimo-volume
 Fast local loop (toy SpatialData, not the Pyxa demo):
 
 ```bash
-E2E_MARIMO_NOTEBOOK=/tmp/remote_landmarks_marimo.py npm run test:e2e:marimo-volume
+E2E_MARIMO_NOTEBOOK=frontend/e2e/marimo/fixtures/toy-landmarks.marimo.py npm run test:e2e:marimo-volume
 ```
+
+Specs: `landmarks-inspect.spec.ts` (volume comm), `landmarks-selection.spec.ts` (lasso + select click).

@@ -311,6 +311,8 @@ jobs:
         run: npm run test:e2e:marimo-volume
         env:
           CI: true
+          # Fast SpatialData toy (selection + volume comm); run demos/landmarks.py locally for HF Pyxa.
+          E2E_MARIMO_NOTEBOOK: frontend/e2e/marimo/fixtures/toy-landmarks.marimo.py
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

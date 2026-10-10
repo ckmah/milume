@@ -80,6 +80,10 @@ const landmarkCount = async (page: Page) =>
 const lastLandmark = async (page: Page) =>
   ((await getModel(page, "landmarks")) as any[]).at(-1);
 
+async function authoringDraft(page: Page) {
+  return page.evaluate(() => (window as any).__landmarksEngine.getAuthoringDraft());
+}
+
 /**
  * Landmarks widget tier — functional coverage + 3 visual anchors:
  * rest chrome, selection+neighborhood, authoring commit.
@@ -137,6 +141,58 @@ test.describe("LandmarksWidget", () => {
     const line = await lastLandmark(page);
     expect(line.type).toBe("line");
     expect(line.vertices?.length).toBe(2);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
+    expect(await authoringDraft(page)).toEqual({
+      vertexCount: 0,
+      lineStrokeActive: false,
+      hasCursor: false,
+    });
+  });
+
+  test("line click-click places one two-vertex landmark with no draft", async ({ page }) => {
+    const before = await landmarkCount(page);
+    await clickLandmarkTool(page, "Line");
+    await expect.poll(() => getModel(page, "mode")).toBe("line");
+
+    const box = await canvasBox(page);
+    const clickAt = async (fx: number, fy: number) => {
+      await page.mouse.click(box.x + box.width * fx, box.y + box.height * fy);
+    };
+    await clickAt(0.35, 0.4);
+    await expect.poll(async () => (await authoringDraft(page)).vertexCount).toBe(1);
+    await clickAt(0.65, 0.55);
+
+    await expect.poll(() => landmarkCount(page)).toBe(before + 1);
+    expect(await landmarkCount(page)).toBe(before + 1);
+    const line = await lastLandmark(page);
+    expect(line.type).toBe("line");
+    expect(line.vertices?.length).toBe(2);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
+    expect(await authoringDraft(page)).toEqual({
+      vertexCount: 0,
+      lineStrokeActive: false,
+      hasCursor: false,
+    });
+  });
+
+  test("select mode map click does not create a cell selection", async ({ page }) => {
+    await page.getByRole("radio", { name: "Select", exact: true }).click();
+    await setModel(page, {
+      selections: [
+        {
+          type: "lasso",
+          vertices: [[0, 0], [100, 0], [50, 100]],
+          point_indices: [0, 1, 2],
+        },
+      ],
+      selected_kind: "selection",
+      selected_index: 0,
+    });
+    const selBefore = ((await getModel(page, "selections")) as unknown[]).length;
+    const box = await canvasBox(page);
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await expect.poll(() => getModel(page, "selected_kind")).toBe("");
+    expect(((await getModel(page, "selections")) as unknown[]).length).toBe(selBefore);
   });
 
   test("spline and shape are click-to-add only (no drag stroke)", async ({
@@ -518,6 +574,34 @@ test.describe("LandmarksWidget", () => {
     const settled = await target();
     await drag();
     expect(await target()).toEqual(settled);
+  });
+
+  test("lasso stroke commits a selection; survives deck picking-canvas mouseleave", async ({
+    page,
+  }) => {
+    const before = ((await getModel(page, "selections")) as unknown[]).length;
+    await page.getByRole("button", { name: /Lasso/i }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("lasso");
+    const box = await canvasBox(page);
+    const cx = box.x + box.width * 0.5;
+    const cy = box.y + box.height * 0.5;
+    const r = Math.min(box.width, box.height) * 0.25;
+    await page.mouse.move(cx + r, cy);
+    await page.mouse.down();
+    await page.evaluate(() => {
+      const canvas = document.querySelector("canvas.landmarks__webgl");
+      canvas?.dispatchEvent(new MouseEvent("mouseleave", { bubbles: true, relatedTarget: null }));
+    });
+    for (let i = 0; i <= 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r, { steps: 2 });
+    }
+    await page.mouse.up();
+    await expect.poll(async () => ((await getModel(page, "selections")) as unknown[]).length).toBeGreaterThan(
+      before,
+    );
+    const sel = ((await getModel(page, "selections")) as { point_indices: number[] }[]).at(-1);
+    expect(sel?.point_indices?.length ?? 0).toBeGreaterThan(0);
   });
 
   test("rulers: labels sit on the data and follow a pan; a grid line at every tick above the map", async ({
