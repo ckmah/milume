@@ -110,7 +110,7 @@ void main() {
     zf = 11.0 + pulseA * ((SEL.z - c.z) - 11.0);
   }
   float fog = pow(clamp(1.0 - (z - 1.0) / (ZF1 - 1.0), 0.0, 1.0), 1.8);
-  float bright = max(fog * 0.86, glow * min(0.9, fog * 2.8));
+  float bright = max(fog * 0.9, glow * min(0.95, fog * 3.0));
   float dz = abs(z - zf);
   bool crispLayer = dz <= 1.0;
   if (u_layer > 0.5 && !crispLayer) {
@@ -127,6 +127,20 @@ void main() {
     v_glow = 0.0;
     return;
   }
+  float alpha = ss(ZN0, ZN1, z) * (1.0 - ss(ZF0, ZF1, z));
+  float cocH = min(40.0, 40.0 * abs(1.0 / z - 1.0 / zf) * zf);
+  float coc = crispLayer ? 0.0 : cocH;
+  float sigma = crispLayer ? 0.0 : blurSigma(coc * 0.5);
+  float rd = max(1.0, ceil(pr * 2.0) * 0.5);
+  float coverage = min(1.0, pow(pr / rd, 2.0));
+  float a = alpha * coverage;
+  bool behindFocus = z > zf;
+  if (!crispLayer) {
+    a *= 1.0 + pulseA * 1.12;
+    if (pulseA > 0.0) {
+      bright = max(bright, glow * 0.75 + fog * 0.12);
+    }
+  }
   vec3 gapCol = BG;
   vec3 bgTeal = mix(BG, vec3(9.0 / 255.0, 24.0 / 255.0, 28.0 / 255.0), 0.14);
   vec3 bgUse = crispLayer ? gapCol : bgTeal;
@@ -137,17 +151,9 @@ void main() {
   }
   rgb = clamp(rgb, 0.0, 1.0);
 
-  float alpha = ss(ZN0, ZN1, z) * (1.0 - ss(ZF0, ZF1, z));
-  float cocH = min(40.0, 40.0 * abs(1.0 / z - 1.0 / zf) * zf);
-  float outside = max(dz - 1.0, 0.0);
-  float coc = crispLayer ? 0.0 : min(40.0, cocH + outside * 5.5);
-  float sigma = crispLayer ? 0.0 : blurSigma(coc * 0.5);
-  float rd = max(1.0, ceil(pr * 2.0) * 0.5);
-  float coverage = min(1.0, pow(pr / rd, 2.0));
-  float a = alpha * coverage;
-
   if (u_glowPass > 0.5) {
-    if (glow < 0.2 || a < 0.004) {
+    float glowCut = mix(0.2, 0.06, pulseA);
+    if (glow < glowCut || a < 0.004) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       v_pm = vec4(0.0);
       v_soft = 0.0;
@@ -155,7 +161,7 @@ void main() {
       return;
     }
     float haloR = pr * 1.65;
-    float haloA = min(0.2, glow * a * min(1.0, fog * 3.0) * 0.17);
+    float haloA = min(0.24, glow * a * min(1.0, fog * 3.0) * (0.2 + pulseA * 0.12));
     v_soft = 0.52;
     v_glow = glow;
     v_pm = vec4(TEAL * haloA, haloA);
@@ -172,7 +178,11 @@ void main() {
     return;
   }
 
-  float rad = crispLayer ? pr : pr + sigma * 2.05;
+  float spread = 0.0;
+  if (!crispLayer) {
+    spread = z < zf ? sigma * 2.28 : min(sigma * 0.58, pr * 0.64);
+  }
+  float rad = crispLayer ? pr : pr + spread;
   if (a < 0.004 || rad < 0.15) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     v_pm = vec4(0.0);
@@ -181,7 +191,13 @@ void main() {
     return;
   }
 
-  v_soft = crispLayer ? 0.0 : clamp(sigma / 11.0, 0.04, 0.58);
+  if (crispLayer) {
+    v_soft = 0.0;
+  } else if (behindFocus) {
+    v_soft = clamp(sigma / max(pr, 2.0) * 0.22, 0.05, 0.3);
+  } else {
+    v_soft = clamp(sigma / 11.0, 0.08, 0.58);
+  }
   v_glow = glow;
   v_pm = vec4(rgb * a, a);
 

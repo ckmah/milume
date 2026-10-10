@@ -1,4 +1,4 @@
-"use strict";(()=>{var T=[-1,0,1,2,3,4];async function D(o){let a=await fetch(o);if(!a.ok)throw new Error(`hero points: ${a.status}`);let e=await a.arrayBuffer(),r=new DataView(e),l=r.getUint32(0,!0),t=T.length,g=l*t,f=new Float32Array(g*3),d=new Uint8Array(g),p=new Float32Array(g),i=0,s=4;for(let n=0;n<l;n++){let c=r.getFloat32(s,!0);s+=4;let u=r.getFloat32(s,!0);s+=4;let m=r.getFloat32(s,!0);s+=4;let _=r.getUint8(s);s+=1;let v=r.getFloat32(s,!0);s+=4;for(let w of T){let b=i*3;f[b]=c,f[b+1]=u,f[b+2]=m+w*10,d[i]=_,p[i]=v,i++}}return{count:g,pos:f,cat:d,rad:p}}var X=`#version 300 es
+"use strict";(()=>{var T=[-1,0,1,2,3,4];async function O(o){let a=await fetch(o);if(!a.ok)throw new Error(`hero points: ${a.status}`);let e=await a.arrayBuffer(),r=new DataView(e),l=r.getUint32(0,!0),t=T.length,A=l*t,f=new Float32Array(A*3),p=new Uint8Array(A),d=new Float32Array(A),i=0,s=4;for(let n=0;n<l;n++){let c=r.getFloat32(s,!0);s+=4;let u=r.getFloat32(s,!0);s+=4;let m=r.getFloat32(s,!0);s+=4;let b=r.getUint8(s);s+=1;let v=r.getFloat32(s,!0);s+=4;for(let w of T){let _=i*3;f[_]=c,f[_+1]=u,f[_+2]=m+w*10,p[i]=b,d[i]=v,i++}}return{count:A,pos:f,cat:p,rad:d}}var X=`#version 300 es
 precision highp float;
 in vec2 a_corner;
 in vec3 i_pos;
@@ -107,7 +107,7 @@ void main() {
     zf = 11.0 + pulseA * ((SEL.z - c.z) - 11.0);
   }
   float fog = pow(clamp(1.0 - (z - 1.0) / (ZF1 - 1.0), 0.0, 1.0), 1.8);
-  float bright = max(fog * 0.86, glow * min(0.9, fog * 2.8));
+  float bright = max(fog * 0.9, glow * min(0.95, fog * 3.0));
   float dz = abs(z - zf);
   bool crispLayer = dz <= 1.0;
   if (u_layer > 0.5 && !crispLayer) {
@@ -124,6 +124,20 @@ void main() {
     v_glow = 0.0;
     return;
   }
+  float alpha = ss(ZN0, ZN1, z) * (1.0 - ss(ZF0, ZF1, z));
+  float cocH = min(40.0, 40.0 * abs(1.0 / z - 1.0 / zf) * zf);
+  float coc = crispLayer ? 0.0 : cocH;
+  float sigma = crispLayer ? 0.0 : blurSigma(coc * 0.5);
+  float rd = max(1.0, ceil(pr * 2.0) * 0.5);
+  float coverage = min(1.0, pow(pr / rd, 2.0));
+  float a = alpha * coverage;
+  bool behindFocus = z > zf;
+  if (!crispLayer) {
+    a *= 1.0 + pulseA * 1.12;
+    if (pulseA > 0.0) {
+      bright = max(bright, glow * 0.75 + fog * 0.12);
+    }
+  }
   vec3 gapCol = BG;
   vec3 bgTeal = mix(BG, vec3(9.0 / 255.0, 24.0 / 255.0, 28.0 / 255.0), 0.14);
   vec3 bgUse = crispLayer ? gapCol : bgTeal;
@@ -134,17 +148,9 @@ void main() {
   }
   rgb = clamp(rgb, 0.0, 1.0);
 
-  float alpha = ss(ZN0, ZN1, z) * (1.0 - ss(ZF0, ZF1, z));
-  float cocH = min(40.0, 40.0 * abs(1.0 / z - 1.0 / zf) * zf);
-  float outside = max(dz - 1.0, 0.0);
-  float coc = crispLayer ? 0.0 : min(40.0, cocH + outside * 5.5);
-  float sigma = crispLayer ? 0.0 : blurSigma(coc * 0.5);
-  float rd = max(1.0, ceil(pr * 2.0) * 0.5);
-  float coverage = min(1.0, pow(pr / rd, 2.0));
-  float a = alpha * coverage;
-
   if (u_glowPass > 0.5) {
-    if (glow < 0.2 || a < 0.004) {
+    float glowCut = mix(0.2, 0.06, pulseA);
+    if (glow < glowCut || a < 0.004) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       v_pm = vec4(0.0);
       v_soft = 0.0;
@@ -152,7 +158,7 @@ void main() {
       return;
     }
     float haloR = pr * 1.65;
-    float haloA = min(0.2, glow * a * min(1.0, fog * 3.0) * 0.17);
+    float haloA = min(0.24, glow * a * min(1.0, fog * 3.0) * (0.2 + pulseA * 0.12));
     v_soft = 0.52;
     v_glow = glow;
     v_pm = vec4(TEAL * haloA, haloA);
@@ -169,7 +175,11 @@ void main() {
     return;
   }
 
-  float rad = crispLayer ? pr : pr + sigma * 2.05;
+  float spread = 0.0;
+  if (!crispLayer) {
+    spread = z < zf ? sigma * 2.28 : min(sigma * 0.58, pr * 0.64);
+  }
+  float rad = crispLayer ? pr : pr + spread;
   if (a < 0.004 || rad < 0.15) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     v_pm = vec4(0.0);
@@ -178,7 +188,13 @@ void main() {
     return;
   }
 
-  v_soft = crispLayer ? 0.0 : clamp(sigma / 11.0, 0.04, 0.58);
+  if (crispLayer) {
+    v_soft = 0.0;
+  } else if (behindFocus) {
+    v_soft = clamp(sigma / max(pr, 2.0) * 0.22, 0.05, 0.3);
+  } else {
+    v_soft = clamp(sigma / 11.0, 0.08, 0.58);
+  }
   v_glow = glow;
   v_pm = vec4(rgb * a, a);
 
@@ -209,4 +225,4 @@ void main() {
   float a = v_pm.a * edge;
   vec3 rgb = v_pm.rgb * edge;
   outColor = vec4(rgb, a);
-}`,$=new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]);function j(o){return o%11/11*10%10}function H(o,a){let e=o.getContext("webgl2",{alpha:!1,antialias:!1,depth:!1,stencil:!1,preserveDrawingBuffer:!0});if(!e)return null;let r=z(e,e.VERTEX_SHADER,X),l=z(e,e.FRAGMENT_SHADER,q);if(!r||!l)return null;let t=K(e,r,l);if(!t)return null;let g=e.createBuffer(),f=e.createBuffer(),d=e.createBuffer(),p=e.createBuffer(),i=e.createVertexArray(),s=new Float32Array(a.count);for(let v=0;v<a.count;v++)s[v]=a.cat[v];e.bindVertexArray(i),e.bindBuffer(e.ARRAY_BUFFER,g),e.bufferData(e.ARRAY_BUFFER,$,e.STATIC_DRAW);let n=e.getAttribLocation(t,"a_corner");e.enableVertexAttribArray(n),e.vertexAttribPointer(n,2,e.FLOAT,!1,0,0),e.vertexAttribDivisor(n,0),e.bindBuffer(e.ARRAY_BUFFER,f),e.bufferData(e.ARRAY_BUFFER,a.pos.byteLength,e.DYNAMIC_DRAW);let c=e.getAttribLocation(t,"i_pos");e.enableVertexAttribArray(c),e.vertexAttribPointer(c,3,e.FLOAT,!1,12,0),e.vertexAttribDivisor(c,1),e.bindBuffer(e.ARRAY_BUFFER,d),e.bufferData(e.ARRAY_BUFFER,s.byteLength,e.DYNAMIC_DRAW);let u=e.getAttribLocation(t,"i_cat");e.enableVertexAttribArray(u),e.vertexAttribPointer(u,1,e.FLOAT,!1,4,0),e.vertexAttribDivisor(u,1),e.bindBuffer(e.ARRAY_BUFFER,p),e.bufferData(e.ARRAY_BUFFER,a.rad.byteLength,e.DYNAMIC_DRAW);let m=e.getAttribLocation(t,"i_rad");e.enableVertexAttribArray(m),e.vertexAttribPointer(m,1,e.FLOAT,!1,4,0),e.vertexAttribDivisor(m,1),e.bindVertexArray(null),e.enable(e.BLEND);let _=new Uint32Array(a.count);for(let v=0;v<a.count;v++)_[v]=v;return{gl:e,program:t,vao:i,posBuf:f,catBuf:d,radBuf:p,count:a.count,srcPos:a.pos,srcCat:s,srcRad:a.rad,order:_,keys:new Float32Array(a.count),sortPos:new Float32Array(a.pos.length),sortCat:new Float32Array(a.count),sortRad:new Float32Array(a.count),uTime:e.getUniformLocation(t,"u_time"),uGlowPass:e.getUniformLocation(t,"u_glowPass"),uLayer:e.getUniformLocation(t,"u_layer"),uScale:e.getUniformLocation(t,"u_scale"),uLayout:e.getUniformLocation(t,"u_layout")}}function z(o,a,e){let r=o.createShader(a);return r?(o.shaderSource(r,e),o.compileShader(r),o.getShaderParameter(r,o.COMPILE_STATUS)?r:(console.error(o.getShaderInfoLog(r)),o.deleteShader(r),null)):null}function K(o,a,e){let r=o.createProgram();return r?(o.attachShader(r,a),o.attachShader(r,e),o.linkProgram(r),o.getProgramParameter(r,o.LINK_STATUS)?r:(console.error(o.getProgramInfoLog(r)),o.deleteProgram(r),null)):null}function J(o,a){let{srcPos:e,order:r,keys:l,count:t}=o,g=j(a);for(let n=0;n<t;n++)l[n]=e[n*3+2]-g;r.sort((n,c)=>l[c]-l[n]);let{sortPos:f,sortCat:d,sortRad:p,srcCat:i,srcRad:s}=o;for(let n=0;n<t;n++){let c=r[n],u=n*3,m=c*3;f[u]=e[m],f[u+1]=e[m+1],f[u+2]=e[m+2],d[n]=i[c],p[n]=s[c]}}function N(o,a,e,r,l){let{gl:t,program:g,vao:f,posBuf:d,catBuf:p,radBuf:i,count:s,uTime:n,uGlowPass:c,uLayer:u,uScale:m,uLayout:_}=o;J(o,a),t.bindBuffer(t.ARRAY_BUFFER,d),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortPos),t.bindBuffer(t.ARRAY_BUFFER,p),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortCat),t.bindBuffer(t.ARRAY_BUFFER,i),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortRad),t.viewport(0,0,e,r),t.clearColor(11/255,11/255,11/255,1),t.clear(t.COLOR_BUFFER_BIT),t.useProgram(g),t.bindVertexArray(f),t.blendFunc(t.ONE,t.ONE_MINUS_SRC_ALPHA),n&&t.uniform1f(n,a),c&&t.uniform1f(c,0),u&&t.uniform1f(u,0),m&&t.uniform2f(m,e,r),_&&t.uniform4f(_,l.scale,l.offX,l.offY,l.dpr),t.drawArraysInstanced(t.TRIANGLES,0,6,s),u&&t.uniform1f(u,1),t.drawArraysInstanced(t.TRIANGLES,0,6,s),t.blendFunc(t.ONE,t.ONE),c&&t.uniform1f(c,1),t.drawArraysInstanced(t.TRIANGLES,0,6,s),t.blendFunc(t.ONE,t.ONE_MINUS_SRC_ALPHA),t.bindVertexArray(null)}function Q(){return window.matchMedia("(prefers-reduced-motion: reduce)").matches}function ee(){return Math.min(2,window.devicePixelRatio||1)}function Y(o,a,e){if(e!==null)return e;let r=(o-a)/1e3;return r-Math.floor(r/11)*11}async function Z(o){let a=o.getAttribute("data-assets-base")??"assets/",e=o.querySelector(".milume-hero__poster"),r=o.querySelector(".milume-hero__canvas");if(!e||!r)throw new Error("milume-hero: missing poster or canvas");let l=null,t=!1;try{l=await D(`${a}hero-points.bin`)}catch{t=!0}let f=!Q()&&!t&&l?H(r,l):null,d=!!f;d?(e.hidden=!0,r.hidden=!1,o.dataset.heroMode="webgl"):(e.hidden=!1,r.hidden=!0,o.dataset.heroMode="poster");let p=d,i=0,s=0,n=0,c=0,u=0,m=null,_=performance.now(),v=0,w=0,b={scale:1,offX:0,offY:0,dpr:1},G=()=>{let A=o.getBoundingClientRect(),L=ee();v=Math.max(1,Math.round(A.width*L)),w=Math.max(1,Math.round(A.height*L)),r.width=v,r.height=w,r.style.width=`${A.width}px`,r.style.height=`${A.height}px`;let y=A.width,R=A.height,h=Math.max(y/1600,R/900);b={scale:h,offX:(y-1600*h)/2,offY:(R-900*h)/2,dpr:L}},S=A=>{if(!f)return;performance.mark("hero-begin");let L=Y(A,_,m);c=0;let y=performance.now();N(f,L,v,w,b),u=performance.now()-y,performance.mark("hero-end");let R=performance.getEntriesByName("hero-frame");for(let k of R)performance.clearMeasures(k.name);performance.measure("hero-frame","hero-begin","hero-end");let h=performance.getEntriesByName("hero-frame").pop();h&&(n=h.duration),performance.clearMarks("hero-begin"),performance.clearMarks("hero-end"),s+=1},M=()=>{i=0,!(!p||!f)&&(S(performance.now()),i=requestAnimationFrame(M))},B=()=>{!p||!d||i||(i=requestAnimationFrame(M))},F=()=>{p=!1,i&&(cancelAnimationFrame(i),i=0)},C=()=>{d&&(m=null,_=performance.now(),p=!0,B())},U=new IntersectionObserver(A=>{A.some(y=>y.isIntersecting)?C():F()},{threshold:.05});U.observe(o);let I=()=>{document.visibilityState==="hidden"?F():o.getBoundingClientRect().bottom>0&&o.getBoundingClientRect().top<window.innerHeight&&C()};document.addEventListener("visibilitychange",I);let O=new ResizeObserver(()=>{G(),B()});return O.observe(o),G(),d&&B(),{pause:F,resume:C,destroy:()=>{F(),U.disconnect(),O.disconnect(),document.removeEventListener("visibilitychange",I)},isLive:()=>d,getFrameId:()=>s,isPaused:()=>!p,getLastFrameMs:()=>n,getLastSimMs:()=>c,getLastDrawMs:()=>u,setTime:A=>{m=A,F(),S(performance.now())},getLoopTime:()=>Y(performance.now(),_,m),renderOnce:()=>S(performance.now())}}async function P(){let o=document.querySelectorAll("[data-milume-hero]"),a=[];for(let e of o)a.push(await Z(e));window.__milumeHeroHandles=a}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{P().catch(()=>{})}):P().catch(()=>{});window.__milumeHeroMount=P;})();
+}`,$=new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]);function j(o){return o%11/11*10%10}function H(o,a){let e=o.getContext("webgl2",{alpha:!1,antialias:!1,depth:!1,stencil:!1,preserveDrawingBuffer:!0});if(!e)return null;let r=D(e,e.VERTEX_SHADER,X),l=D(e,e.FRAGMENT_SHADER,q);if(!r||!l)return null;let t=K(e,r,l);if(!t)return null;let A=e.createBuffer(),f=e.createBuffer(),p=e.createBuffer(),d=e.createBuffer(),i=e.createVertexArray(),s=new Float32Array(a.count);for(let v=0;v<a.count;v++)s[v]=a.cat[v];e.bindVertexArray(i),e.bindBuffer(e.ARRAY_BUFFER,A),e.bufferData(e.ARRAY_BUFFER,$,e.STATIC_DRAW);let n=e.getAttribLocation(t,"a_corner");e.enableVertexAttribArray(n),e.vertexAttribPointer(n,2,e.FLOAT,!1,0,0),e.vertexAttribDivisor(n,0),e.bindBuffer(e.ARRAY_BUFFER,f),e.bufferData(e.ARRAY_BUFFER,a.pos.byteLength,e.DYNAMIC_DRAW);let c=e.getAttribLocation(t,"i_pos");e.enableVertexAttribArray(c),e.vertexAttribPointer(c,3,e.FLOAT,!1,12,0),e.vertexAttribDivisor(c,1),e.bindBuffer(e.ARRAY_BUFFER,p),e.bufferData(e.ARRAY_BUFFER,s.byteLength,e.DYNAMIC_DRAW);let u=e.getAttribLocation(t,"i_cat");e.enableVertexAttribArray(u),e.vertexAttribPointer(u,1,e.FLOAT,!1,4,0),e.vertexAttribDivisor(u,1),e.bindBuffer(e.ARRAY_BUFFER,d),e.bufferData(e.ARRAY_BUFFER,a.rad.byteLength,e.DYNAMIC_DRAW);let m=e.getAttribLocation(t,"i_rad");e.enableVertexAttribArray(m),e.vertexAttribPointer(m,1,e.FLOAT,!1,4,0),e.vertexAttribDivisor(m,1),e.bindVertexArray(null),e.enable(e.BLEND);let b=new Uint32Array(a.count);for(let v=0;v<a.count;v++)b[v]=v;return{gl:e,program:t,vao:i,posBuf:f,catBuf:p,radBuf:d,count:a.count,srcPos:a.pos,srcCat:s,srcRad:a.rad,order:b,keys:new Float32Array(a.count),sortPos:new Float32Array(a.pos.length),sortCat:new Float32Array(a.count),sortRad:new Float32Array(a.count),uTime:e.getUniformLocation(t,"u_time"),uGlowPass:e.getUniformLocation(t,"u_glowPass"),uLayer:e.getUniformLocation(t,"u_layer"),uScale:e.getUniformLocation(t,"u_scale"),uLayout:e.getUniformLocation(t,"u_layout")}}function D(o,a,e){let r=o.createShader(a);return r?(o.shaderSource(r,e),o.compileShader(r),o.getShaderParameter(r,o.COMPILE_STATUS)?r:(console.error(o.getShaderInfoLog(r)),o.deleteShader(r),null)):null}function K(o,a,e){let r=o.createProgram();return r?(o.attachShader(r,a),o.attachShader(r,e),o.linkProgram(r),o.getProgramParameter(r,o.LINK_STATUS)?r:(console.error(o.getProgramInfoLog(r)),o.deleteProgram(r),null)):null}function J(o,a){let{srcPos:e,order:r,keys:l,count:t}=o,A=j(a);for(let n=0;n<t;n++)l[n]=e[n*3+2]-A;r.sort((n,c)=>l[c]-l[n]);let{sortPos:f,sortCat:p,sortRad:d,srcCat:i,srcRad:s}=o;for(let n=0;n<t;n++){let c=r[n],u=n*3,m=c*3;f[u]=e[m],f[u+1]=e[m+1],f[u+2]=e[m+2],p[n]=i[c],d[n]=s[c]}}function N(o,a,e,r,l){let{gl:t,program:A,vao:f,posBuf:p,catBuf:d,radBuf:i,count:s,uTime:n,uGlowPass:c,uLayer:u,uScale:m,uLayout:b}=o;J(o,a),t.bindBuffer(t.ARRAY_BUFFER,p),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortPos),t.bindBuffer(t.ARRAY_BUFFER,d),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortCat),t.bindBuffer(t.ARRAY_BUFFER,i),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortRad),t.viewport(0,0,e,r),t.clearColor(11/255,11/255,11/255,1),t.clear(t.COLOR_BUFFER_BIT),t.useProgram(A),t.bindVertexArray(f),t.blendFunc(t.ONE,t.ONE_MINUS_SRC_ALPHA),n&&t.uniform1f(n,a),c&&t.uniform1f(c,0),u&&t.uniform1f(u,0),m&&t.uniform2f(m,e,r),b&&t.uniform4f(b,l.scale,l.offX,l.offY,l.dpr),t.drawArraysInstanced(t.TRIANGLES,0,6,s),u&&t.uniform1f(u,1),t.drawArraysInstanced(t.TRIANGLES,0,6,s),t.blendFunc(t.ONE,t.ONE),c&&t.uniform1f(c,1),t.drawArraysInstanced(t.TRIANGLES,0,6,s),t.blendFunc(t.ONE,t.ONE_MINUS_SRC_ALPHA),t.bindVertexArray(null)}function Q(){return window.matchMedia("(prefers-reduced-motion: reduce)").matches}function ee(){return Math.min(2,window.devicePixelRatio||1)}function Y(o,a,e){if(e!==null)return e;let r=(o-a)/1e3;return r-Math.floor(r/11)*11}async function Z(o){let a=o.getAttribute("data-assets-base")??"assets/",e=o.querySelector(".milume-hero__poster"),r=o.querySelector(".milume-hero__canvas");if(!e||!r)throw new Error("milume-hero: missing poster or canvas");let l=null,t=!1;try{l=await O(`${a}hero-points.bin`)}catch{t=!0}let f=!Q()&&!t&&l?H(r,l):null,p=!!f;p?(e.hidden=!0,r.hidden=!1,o.dataset.heroMode="webgl"):(e.hidden=!1,r.hidden=!0,o.dataset.heroMode="poster");let d=p,i=0,s=0,n=0,c=0,u=0,m=null,b=performance.now(),v=0,w=0,_={scale:1,offX:0,offY:0,dpr:1},G=()=>{let g=o.getBoundingClientRect(),L=ee();v=Math.max(1,Math.round(g.width*L)),w=Math.max(1,Math.round(g.height*L)),r.width=v,r.height=w,r.style.width=`${g.width}px`,r.style.height=`${g.height}px`;let y=g.width,R=g.height,h=Math.max(y/1600,R/900);_={scale:h,offX:(y-1600*h)/2,offY:(R-900*h)/2,dpr:L}},S=g=>{if(!f)return;performance.mark("hero-begin");let L=Y(g,b,m);c=0;let y=performance.now();N(f,L,v,w,_),u=performance.now()-y,performance.mark("hero-end");let R=performance.getEntriesByName("hero-frame");for(let k of R)performance.clearMeasures(k.name);performance.measure("hero-frame","hero-begin","hero-end");let h=performance.getEntriesByName("hero-frame").pop();h&&(n=h.duration),performance.clearMarks("hero-begin"),performance.clearMarks("hero-end"),s+=1},M=()=>{i=0,!(!d||!f)&&(S(performance.now()),i=requestAnimationFrame(M))},B=()=>{!d||!p||i||(i=requestAnimationFrame(M))},F=()=>{d=!1,i&&(cancelAnimationFrame(i),i=0)},C=()=>{p&&(m=null,b=performance.now(),d=!0,B())},U=new IntersectionObserver(g=>{g.some(y=>y.isIntersecting)?C():F()},{threshold:.05});U.observe(o);let I=()=>{document.visibilityState==="hidden"?F():o.getBoundingClientRect().bottom>0&&o.getBoundingClientRect().top<window.innerHeight&&C()};document.addEventListener("visibilitychange",I);let z=new ResizeObserver(()=>{G(),B()});return z.observe(o),G(),p&&B(),{pause:F,resume:C,destroy:()=>{F(),U.disconnect(),z.disconnect(),document.removeEventListener("visibilitychange",I)},isLive:()=>p,getFrameId:()=>s,isPaused:()=>!d,getLastFrameMs:()=>n,getLastSimMs:()=>c,getLastDrawMs:()=>u,setTime:g=>{m=g,F(),S(performance.now())},getLoopTime:()=>Y(performance.now(),b,m),renderOnce:()=>S(performance.now())}}async function P(){let o=document.querySelectorAll("[data-milume-hero]"),a=[];for(let e of o)a.push(await Z(e));window.__milumeHeroHandles=a}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{P().catch(()=>{})}):P().catch(()=>{});window.__milumeHeroMount=P;})();
