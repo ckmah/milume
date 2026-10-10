@@ -10,6 +10,7 @@ const ART_LIGHT = "/opt/cursor/artifacts/issue-114-hero-light.png";
 const ART_DARK = "/opt/cursor/artifacts/issue-114-hero-dark.png";
 const REPO_LIGHT = "/workspace/assets/landmarks_widget_light.png";
 const REPO_DARK = "/workspace/assets/landmarks_widget_dark.png";
+const VIEWPORT = { width: 1600, height: 900 };
 
 async function applyTheme(page, theme) {
   await page.evaluate((theme) => {
@@ -26,12 +27,14 @@ async function applyTheme(page, theme) {
 }
 
 async function harnessUrl() {
-  for (const port of [5173, 5174, 5175]) {
+  for (const port of [5176, 5173, 5174, 5175]) {
     try {
       const res = await fetch(`http://localhost:${port}/fixture.json`);
       if (!res.ok) continue;
       const j = await res.json();
-      if (j.volume?.image_url?.includes("colon_a2")) return `http://localhost:${port}/`;
+      if (j.volume?.image_url?.includes("colon_a2") && j.map_mosaic_url) {
+        return `http://localhost:${port}/`;
+      }
     } catch {
       /* try next port */
     }
@@ -40,24 +43,34 @@ async function harnessUrl() {
 }
 
 async function captureTheme(browser, theme, outPath, baseUrl) {
-  const page = await browser.newPage({ viewport: { width: 2162, height: 1276 } });
+  const page = await browser.newPage({ viewport: VIEWPORT });
+  const mosaicReady = page.waitForResponse(
+    (res) => res.url().includes("colon-map-mip.png") && res.status() === 200,
+    { timeout: 600_000 },
+  );
   await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 600_000 });
+  await mosaicReady;
   await page.waitForFunction(
     () => window.__landmarksEngine?.getPerfSnapshot?.().spatialIndexBuilt,
     { timeout: 600_000 },
   );
   await applyTheme(page, theme);
+  await page.addStyleTag({
+    content: ".dialkit-root, [class*='dialkit'] { display: none !important; }",
+  });
 
-  await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-  const host = page.locator(".landmarks__plot-host");
-  await host.waitFor({ state: "visible", timeout: 120_000 });
-  const box = await host.boundingBox();
-  if (!box) throw new Error("missing plot host box");
-  const hover = { x: box.x + box.width * 0.52, y: box.y + box.height * 0.48 };
-  await page.mouse.move(hover.x, hover.y, { steps: 10 });
-  const preview = page.getByTestId("inspect-preview");
-  await preview.waitFor({ state: "visible", timeout: 300_000 });
-  await page.waitForTimeout(8000);
+  await page.getByRole("radio", { name: "Select", exact: true }).click();
+  await page.evaluate(() => {
+    window.__landmarksModel?.set?.("mode", "select");
+    window.__landmarksModel?.save_changes?.();
+  });
+  await page.waitForTimeout(400);
+
+  const row = page.getByTestId("selection-row").first();
+  await row.waitFor({ state: "visible", timeout: 120_000 });
+  await row.hover();
+  await page.getByTestId("selection-card").waitFor({ state: "visible", timeout: 60_000 });
+  await page.waitForTimeout(2500);
 
   await page.locator(".landmarks").first().screenshot({ path: outPath });
   console.log("wrote", outPath, theme);

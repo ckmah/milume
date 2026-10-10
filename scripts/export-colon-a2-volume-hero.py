@@ -91,6 +91,7 @@ FIXTURE_KEYS = [
 ]
 
 VOLUME_KEYS = ["volume", "volume_label_ids", "volume_cut", "inspect_size_um"]
+MAP_MOSAIC_PNG = PUBLIC / "colon-map-mip.png"
 
 
 def _static_volume_urls(volume: dict[str, object]) -> dict[str, object]:
@@ -132,26 +133,59 @@ def read_colon_sdata(source: Path):
     return sd.read_zarr(store)
 
 
-def _hero_selection(widget: LandmarksWidget) -> None:
-    xb, yb = widget.x_bounds, widget.y_bounds
-    cx = (xb[0] + xb[1]) / 2
-    cy = (yb[0] + yb[1]) / 2
-    w = (xb[1] - xb[0]) * 0.22
-    h = (yb[1] - yb[0]) * 0.18
+def _hero_selection(widget: LandmarksWidget, sdata) -> None:
+    import numpy as np
+    from matplotlib.path import Path
+
+    from milume.volume_source import _frame
+
+    image_key = next(iter(sdata.images))
+    _scale, origin, shape = _frame(sdata.images[image_key], "global")
+    mx0 = float(origin[2])
+    mx1 = float(origin[2] + shape[2] * _scale[2])
+    my0 = float(origin[1])
+    my1 = float(origin[1] + shape[1] * _scale[1])
+    cx = (mx0 + mx1) / 2
+    cy = (my0 + my1) / 2
+    w = (mx1 - mx0) * 0.28
+    h = (my1 - my0) * 0.24
+    vertices = [
+        [cx - w / 2, cy - h / 2],
+        [cx + w / 2, cy - h / 2],
+        [cx + w / 2, cy + h / 2],
+        [cx - w / 2, cy + h / 2],
+    ]
+    x = np.asarray(widget._data_x, dtype=np.float64)
+    y = np.asarray(widget._data_y, dtype=np.float64)
+    inside = Path(vertices).contains_points(np.column_stack([x, y]))
+    point_indices = np.nonzero(inside)[0].astype(int).tolist()
     widget.selections = [
         {
             "id": "hero-region",
-            "type": "polygon",
-            "vertices": [
-                [cx - w / 2, cy - h / 2],
-                [cx + w / 2, cy - h / 2],
-                [cx + w / 2, cy + h / 2],
-                [cx - w / 2, cy + h / 2],
-            ],
+            "type": "points",
+            "vertices": vertices,
+            "point_indices": point_indices,
         },
     ]
     widget.selected_kind = "selection"
     widget.selected_index = 0
+
+
+def map_mosaic_payload(sdata) -> dict[str, object]:
+    from milume.volume_source import _frame
+
+    if not MAP_MOSAIC_PNG.is_file():
+        raise SystemExit(f"missing {MAP_MOSAIC_PNG}; run scripts/render-colon-map-mip.py first")
+    image_key = next(iter(sdata.images))
+    _scale, origin, shape = _frame(sdata.images[image_key], "global")
+    xmin = float(origin[2])
+    xmax = float(origin[2] + shape[2] * _scale[2])
+    ymin = float(origin[1])
+    ymax = float(origin[1] + shape[1] * _scale[1])
+    return {
+        "map_mosaic_url": f"/{MAP_MOSAIC_PNG.name}",
+        "map_mosaic_bounds": (xmin, ymin, xmax, ymax),
+    }
 
 
 def write_fixture(sdata, *, cells: int | None, hero: bool) -> None:
@@ -170,13 +204,15 @@ def write_fixture(sdata, *, cells: int | None, hero: bool) -> None:
     widget.mode = "select"
     widget.landmarks = []
     if hero:
-        _hero_selection(widget)
+        _hero_selection(widget, sdata)
+        widget.point_size = float(widget.point_size) * 0.72
     else:
         widget.selections = []
         widget.selected_kind = ""
         widget.selected_index = -1
 
     payload = {key: getattr(widget, key) for key in FIXTURE_KEYS + VOLUME_KEYS}
+    payload.update(map_mosaic_payload(sdata))
     payload["volume"] = _static_volume_urls(payload["volume"])
     OUT.write_text(json.dumps(payload, separators=(",", ":")))
     n = sdata.tables["rna"].n_obs

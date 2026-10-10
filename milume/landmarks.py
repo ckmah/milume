@@ -472,6 +472,15 @@ class LandmarksWidget(AnyWidget):
     volume = traitlets.Dict(default_value={}).tag(sync=True)
     volume_label_ids = traitlets.Unicode("").tag(sync=True)  # base64 int32, table order
     volume_cut = traitlets.List(traitlets.Float(), default_value=[]).tag(sync=True)
+    # Optional 2D map backdrop (harness / screenshots); empty URL disables the layer.
+    map_mosaic_url = traitlets.Unicode("").tag(sync=True)
+    map_mosaic_bounds = traitlets.Tuple(
+        traitlets.Float(),
+        traitlets.Float(),
+        traitlets.Float(),
+        traitlets.Float(),
+        default_value=(0.0, 0.0, 0.0, 0.0),
+    ).tag(sync=True)
 
     def __init__(
         self,
