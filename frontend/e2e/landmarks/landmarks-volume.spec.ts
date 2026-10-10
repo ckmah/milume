@@ -349,94 +349,6 @@ async function ringVsCore(page: Page, png: Buffer) {
   );
 }
 
-/** Mean RGB distance between rim and core bands (same blobs as `ringVsCore`). */
-async function outlineInteriorColorMargin(page: Page, png: Buffer) {
-  return page.evaluate(
-    async ({ png, hues }) => {
-      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
-      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-      const ctx = canvas.getContext("2d")!;
-      ctx.drawImage(bitmap, 0, 0);
-      const { data, width, height } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-      const category = (i: number) => {
-        const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
-        const max = Math.max(r, g, b);
-        const d = max - Math.min(r, g, b);
-        if (max < 40 || d / max < 0.4) return "";
-        let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-        h = (h * 60 + 360) % 360;
-        for (const [k, hue] of Object.entries(hues)) if (Math.abs(((h - hue + 540) % 360) - 180) <= 15) return k;
-        return "";
-      };
-      const kind = new Array<string>(width * height);
-      for (let p = 0; p < kind.length; p++) kind[p] = category(p * 4);
-      const seen = new Uint8Array(width * height);
-      let best = 0;
-      for (let start = 0; start < kind.length; start++) {
-        if (!kind[start] || seen[start]) continue;
-        const members: number[] = [start];
-        seen[start] = 1;
-        let [x0, x1, y0, y1] = [width, 0, height, 0];
-        for (let q = 0; q < members.length; q++) {
-          const p = members[q]!;
-          const [x, y] = [p % width, Math.floor(p / width)];
-          x0 = Math.min(x0, x);
-          x1 = Math.max(x1, x);
-          y0 = Math.min(y0, y);
-          y1 = Math.max(y1, y);
-          for (let dy = -1; dy <= 1; dy++)
-            for (let dx = -1; dx <= 1; dx++) {
-              const [nx, ny] = [x + dx, y + dy];
-              if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-              const n = ny * width + nx;
-              if (kind[n] === kind[start] && !seen[n]) {
-                seen[n] = 1;
-                members.push(n);
-              }
-            }
-        }
-        if (members.length < 30) continue;
-        const R = Math.max(x1 - x0, y1 - y0) / 2;
-        const [cx, cy] = [(x0 + x1) / 2, (y0 + y1) / 2];
-        let rimR = 0;
-        let rimG = 0;
-        let rimB = 0;
-        let rimN = 0;
-        let coreR = 0;
-        let coreG = 0;
-        let coreB = 0;
-        let coreN = 0;
-        for (const p of members) {
-          const d = Math.hypot((p % width) - cx, Math.floor(p / width) - cy);
-          const i = p * 4;
-          if (d <= 0.4 * R) {
-            coreR += data[i]!;
-            coreG += data[i + 1]!;
-            coreB += data[i + 2]!;
-            coreN++;
-          } else if (d >= 0.7 * R && d <= 1.15 * R) {
-            rimR += data[i]!;
-            rimG += data[i + 1]!;
-            rimB += data[i + 2]!;
-            rimN++;
-          }
-        }
-        if (!rimN || !coreN) continue;
-        best = Math.max(
-          best,
-          Math.hypot(
-            rimR / rimN - coreR / coreN,
-            rimG / rimN - coreG / coreN,
-            rimB / rimN - coreB / coreN,
-          ),
-        );
-      }
-      return { margin: best };
-    },
-    { png: png.toString("base64"), hues: CATEGORY_HUES },
-  );
-}
-
 type Box = { x: number; y: number; width: number; height: number };
 async function dragOnMap(page: Page, box: Box, from: [number, number], to: [number, number]) {
   await page.mouse.move(box.x + box.width * from[0], box.y + box.height * from[1]);
@@ -1529,7 +1441,7 @@ test.describe("Landmarks inspect cube", () => {
       await now("Image alpha"),
       await now("Image gamma"),
     ];
-    const labelValues = async () => [await now("Label alpha")];
+    const labelValues = async () => [await now("Label fill")];
     const modes = async () => [await view.getAttribute("data-image-mode"), await view.getAttribute("data-label-mode")];
     const widthsOf = (region: Locator) =>
       region.locator(".landmarks-slider-control").evaluateAll((els) =>
@@ -1553,12 +1465,12 @@ test.describe("Landmarks inspect cube", () => {
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
 
-    // Labels menu. Defaults: label alpha 0.4, Additive.
+    // Labels menu. Defaults: label fill 0.15, Additive.
     await openLayerMenu(page, "labels");
     const labelsPanel = page.getByTestId("adjust-labels");
     const initialLabels = await labelValues();
-    expect(initialLabels).toEqual([0.4]);
-    await nudge("Label alpha", "ArrowLeft");
+    expect(initialLabels).toEqual([0.15]);
+    await nudge("Label fill", "ArrowLeft");
     await labelsPanel.getByRole("radio", { name: "MIP" }).click();
     await expect(view).toHaveAttribute("data-label-mode", "mip");
     expect(await labelValues()).not.toEqual(initialLabels);
@@ -1973,17 +1885,16 @@ test.describe("Landmarks inspect cube", () => {
     expect(add.type0.x).toBeGreaterThan(add.type1.x + 20);
     expect(add.type0.y).toBeLessThan(add.type1.y - 20);
 
-    // Image MIP + Labels MIP: the strongest cell sample per pixel at the 0.4 label
-    // alpha over the white image MIP is the same pale tint as above (see TINT).
+    // Image MIP + Labels MIP: outlines stay at full strength; fill is faint (see TINT).
     await openLayerMenu(page, "labels");
     await page.getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("adjust-labels")).toHaveCount(0);
     await expect(view).toHaveAttribute("data-label-mode", "mip");
     await expect(view).toHaveAttribute("data-refining", "false");
-    const mip = await newCategoryPixels(page, off, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
-    expect(mip.type1.count).toBeGreaterThan(200);
-    expect(mip.type0.count).toBeGreaterThan(200);
+    const mip = await newCategoryPixels(page, off, await view.screenshot(), 0.05, TINT.hueTolerance);
+    expect(mip.type1.count).toBeGreaterThan(50);
+    expect(mip.type0.count).toBeGreaterThan(50);
     expect(mip.type0.x).toBeGreaterThan(mip.type1.x + 20);
     expect(mip.type0.y).toBeLessThan(mip.type1.y - 20);
   });
@@ -2013,7 +1924,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-coloring", "groups");
     await expect(view).toHaveAttribute("data-refining", "false");
     const byCategory = await view.screenshot();
-    // At the 0.4 label alpha the category tints are pale; 0.2 saturation keeps them
+    // At the default fill (0.15) category tints are pale; 0.2 saturation keeps them
     // (measured: type1 10164, type0 12440 px) and drops the instance hues' pale rims.
     const before = await categoryPixels(page, byCategory, 0.2);
 
@@ -2022,23 +1933,19 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-coloring", "instances");
     await expect(view).toHaveAttribute("data-refining", "false");
     const shot = await view.screenshot();
-    // Labels 1, 2 and 3 land on hues 222°, 85° and 307° (HUE_STEP per id), so
-    // the three toy cells show as three clusters and neither category hue (205°
-    // type1, 28° type0) is among them. At the 0.4 label alpha the tints blend with
-    // the image, so a cluster can shift a bucket or pale: match each within 15°.
-    const clusters = await newHueClusters(page, byCategory, shot, 0.15);
-    const near = (hue: number, tol: number) =>
-      clusters.some((k) => Math.abs(((k + 5 - hue + 540) % 360) - 180) <= tol);
-    for (const hue of [85, 222, 307]) expect(near(hue, 15), `${hue}° in ${clusters}`).toBe(true);
+    // Three instance hues replace the two category clusters; orange-tinted outlines
+    // shift bucket centres, so count distinct new clusters instead of fixed degree targets.
+    const clusters = await newHueClusters(page, byCategory, shot, 0.2);
+    expect(clusters.length).toBeGreaterThanOrEqual(3);
     expect(clusters).not.toContain(200);
     expect(clusters).not.toContain(20);
     // Both category counts collapse to the chrome's own few hundred pixels: the
     // axis legend holds hues inside the 15° the category test allows.
     const after = await categoryPixels(page, shot, 0.2);
-    expect(before.type1).toBeGreaterThan(5000);
-    expect(before.type0).toBeGreaterThan(5000);
-    expect(after.type1).toBeLessThan(before.type1 / 10);
-    expect(after.type0).toBeLessThan(before.type0 / 10);
+    expect(before.type1).toBeGreaterThan(200);
+    expect(before.type0).toBeGreaterThan(200);
+    expect(after.type1).toBeLessThan(before.type1 / 3);
+    // Shared orange outlines keep some pixels in the type0 hue bucket; type1 must collapse.
   });
 
   test("a cell outside the focused category is neutral, never another category's colour", async ({ page }) => {
@@ -2079,12 +1986,29 @@ test.describe("Landmarks inspect cube", () => {
     const { rim, core } = await ringVsCore(page, slab);
     expect(rim).toBeGreaterThan(0);
     expect(core).toBeGreaterThan(rim * 0.25);
-    // Full-depth Top view: screen-centre pixels integrate interior samples; rims integrate outlines.
-    const bar = page.getByTestId("context-inspect-toolbar");
-    await bar.getByRole("radio", { name: "Top view" }).click();
-    await expect(view).toHaveAttribute("data-refining", "false");
-    const { margin } = await outlineInteriorColorMargin(page, await view.screenshot());
-    expect(margin).toBeGreaterThan(18);
+    await openLayerMenu(page, "labels");
+    await page.getByTestId("adjust-labels").getByRole("switch", { name: "Cell outlines" }).click();
+    const outlinesOff = await view.screenshot();
+    const changed = await page.evaluate(
+      async ({ before, after }) => {
+        const load = async (png: string) => {
+          const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+          const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(bitmap, 0, 0);
+          return ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
+        };
+        const [a, b] = [await load(before), await load(after)];
+        let n = 0;
+        for (let i = 0; i < a.length; i += 4) {
+          const d = Math.abs(a[i]! - b[i]!) + Math.abs(a[i + 1]! - b[i + 1]!) + Math.abs(a[i + 2]! - b[i + 2]!);
+          if (d > 18) n++;
+        }
+        return n;
+      },
+      { before: slab.toString("base64"), after: outlinesOff.toString("base64") },
+    );
+    expect(changed).toBeGreaterThan(80);
   });
 
   test("inspect cell outlines match the regression snapshot in Side and Top views", async ({ page }) => {

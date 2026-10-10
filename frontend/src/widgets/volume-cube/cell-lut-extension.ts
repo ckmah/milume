@@ -176,8 +176,12 @@ vec4 cellColor(ivec3 q) {
   bool hasRgb = dot(own.rgb, vec3(1.0)) > 1.0 / 255.0;
   if (surface) {
     if (cubeRender.cellOutlineOn < 0.5) return vec4(0.0);
-    // Category/instance fill in the lookup; shared orange (texel 0) on the boundary.
-    vec4 c = hasRgb ? vec4(mix(own.rgb, neutral.rgb, 0.72), 1.0) : vec4(neutral.rgb, neutral.a);
+    // Highlighted cells (high fill weight): tint the fill colour toward shared orange.
+    // Dim / unassigned cells keep the shared outline texel so they never read as another category.
+    bool highlighted = own.a > 0.5;
+    vec4 c = highlighted && hasRgb
+      ? vec4(mix(own.rgb, neutral.rgb, 0.72), 1.0)
+      : vec4(neutral.rgb, neutral.a);
     return c;
   }
   if (!hasRgb || own.a <= 0.0) return vec4(0.0);
@@ -567,8 +571,9 @@ export function buildCellLut(coloring: CellColoring, cells: readonly number[]): 
     return { data, width, height };
   }
   const { groups } = coloring;
+  const sharedOutline = groups.length ? hexToLinear(OTHERS.color)! : outline;
   data.set(
-    [...outline, Math.round(255 * (groups.length ? OUTLINE.behindGroups : OUTLINE.alpha))],
+    [...sharedOutline, Math.round(255 * (groups.length ? OUTLINE.behindGroups : OUTLINE.alpha))],
     0,
   );
   const others = hexToLinear(OTHERS.color)!;
