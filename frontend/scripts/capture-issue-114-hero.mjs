@@ -1,6 +1,11 @@
 /**
  * Colon A2 README hero: Clarence-drawn landmarks (hero-colon-landmarks.json).
  * No selection focus, no Inspect preview. Light and dark at deviceScaleFactor 2.
+ *
+ * Harness: MILUME_VOLUME_PROFILE=colon DEV_WIDGET=landmarks-volume on :5176.
+ * After rebasing onto main, restart that dev server and clear
+ * `frontend/node_modules/.vite/landmarks-volume-colon` so Vite reloads
+ * `milume/static/landmarks.js` (buffer tint fix from #143).
  */
 import { copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -80,6 +85,33 @@ function cssColorToHex(css) {
   if (!m) return t;
   const hex = (n) => Number(n).toString(16).padStart(2, "0");
   return `#${hex(m[1])}${hex(m[2])}${hex(m[3])}`;
+}
+
+const MINT_NEIGH_HEX = "#b3f2e8";
+const PINK_STROKE_HEX = "#ff2d95";
+
+function rgbFromHex(hex) {
+  const h = hex.replace("#", "");
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function hueDegrees(r, g, b) {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  if (max === min) return 0;
+  const d = max - min;
+  let h;
+  if (max === rn) h = ((gn - bn) / d + (gn < bn ? 6 : 0)) * 60;
+  else if (max === gn) h = ((bn - rn) / d + 2) * 60;
+  else h = ((rn - gn) / d + 4) * 60;
+  return (h + 360) % 360;
+}
+
+function hueDelta(a, b) {
+  return Math.min(Math.abs(a - b), 360 - Math.abs(a - b));
 }
 
 async function panelSwatchHex(page, label) {
@@ -260,9 +292,37 @@ async function assertHeroFrame(page, theme) {
     throw new Error(`expected landmark 2 pink buffered spline (${theme})`);
   }
 
+  const lm2Index = landmarks.findIndex((lm) => lm.id === "landmark 2");
+  const bufferTint = await page.evaluate((idx) => {
+    const engine = window.__landmarksEngine;
+    return {
+      stroke: engine.landmarkStrokeColor(idx),
+      bufferFill: engine.landmarkBufferFillColor?.(idx) ?? null,
+    };
+  }, lm2Index);
+  if (!bufferTint.bufferFill) {
+    throw new Error(
+      `landmarkBufferFillColor missing for landmark 2 (${theme}); restart colon harness with a fresh Vite cache`,
+    );
+  }
+  const strokeHue = hueDegrees(...rgbFromHex(bufferTint.stroke || PINK_STROKE_HEX));
+  const fillHue = hueDegrees(...rgbFromHex(bufferTint.bufferFill));
+  if (hueDelta(strokeHue, fillHue) > 28) {
+    throw new Error(
+      `landmark 2 buffer fill hue mismatch (${theme}): stroke=${bufferTint.stroke} fill=${bufferTint.bufferFill}`,
+    );
+  }
+  if (bufferTint.bufferFill.toLowerCase() === MINT_NEIGH_HEX) {
+    throw new Error(
+      `landmark 2 buffer still NEIGH mint (${theme}); stale milume/static/landmarks.js in Vite cache`,
+    );
+  }
+
   const plotPath = `/opt/cursor/artifacts/hero-plot-check-${theme}.png`;
   await page.locator(".landmarks__plot-host").screenshot({ path: plotPath });
-  const vivid = countVividPlotPixels(readFileSync(plotPath), theme);
+  const plotPng = readFileSync(plotPath);
+  assertPinkBufferPixelsInPlot(plotPng, theme);
+  const vivid = countVividPlotPixels(plotPng, theme);
   const minVivid = 1200;
   if (vivid < minVivid) {
     throw new Error(
@@ -271,6 +331,43 @@ async function assertHeroFrame(page, theme) {
     );
   }
   console.log("hero frame ok", theme, { vivid, ...frame });
+}
+
+/** Inside landmark 2's buffered spline, pixels must read pink-tinted (not legacy mint NEIGH wash). */
+function assertPinkBufferPixelsInPlot(pngBuffer, theme) {
+  const { width, height, rgba } = decodePngRgba(pngBuffer);
+  const pinkTargetHue = hueDegrees(...rgbFromHex(PINK_STROKE_HEX));
+  const mintHue = hueDegrees(...rgbFromHex(MINT_NEIGH_HEX));
+  let pinkish = 0;
+  let mintish = 0;
+  const step = 3;
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
+      const i = (y * width + x) * 4;
+      const r = rgba[i];
+      const g = rgba[i + 1];
+      const b = rgba[i + 2];
+      const a = rgba[i + 3];
+      if (a < 40) continue;
+      const chroma = Math.max(r, g, b) - Math.min(r, g, b);
+      if (chroma < 22) continue;
+      const h = hueDegrees(r, g, b);
+      if (hueDelta(h, pinkTargetHue) < 32 && r > g + 12) pinkish++;
+      if (hueDelta(h, mintHue) < 22 && g > 200 && b > 200) mintish++;
+    }
+  }
+  const minPink = theme === "dark" ? 400 : 600;
+  if (pinkish < minPink) {
+    throw new Error(
+      `landmark 2 buffer pixels not pink (${theme}): pinkish=${pinkish} (need >= ${minPink}), mintish=${mintish}`,
+    );
+  }
+  if (mintish > Math.max(40, pinkish * 0.08)) {
+    throw new Error(
+      `landmark 2 buffer still mint-tinted (${theme}): mintish=${mintish} pinkish=${pinkish}`,
+    );
+  }
+  console.log("buffer hue ok", theme, { pinkish, mintish });
 }
 
 /** Sample PNG RGB plot crop: count pixels that are neither flat background nor empty. */
