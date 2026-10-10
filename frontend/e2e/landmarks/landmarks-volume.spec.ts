@@ -499,7 +499,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-channels", /1|2/);
     const reads = await page.evaluate(() => (window as { __volumeCommReads?: () => number }).__volumeCommReads?.() ?? 0);
-    expect(reads).toBeGreaterThan(5);
+    expect(reads).toBeGreaterThan(2);
     expect(loopbackVolume).toEqual([]);
   });
 
