@@ -3771,6 +3771,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   let inspectGesture = null;
   /** Aborts the press's window `mousemove` / `mouseup` / `blur` listeners (dragged and released anywhere). */
   let inspectGestureAbort = null;
+  /** Window capture listeners while lasso/box/drag gestures are in flight (deck picking canvas). */
+  let plotGestureAbort = null;
   const inspectListeners = new Set();
 
   function emitInspect(evt) {
@@ -3835,6 +3837,91 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     window.addEventListener("mouseup", handleInspectRelease, opts);
     // A lost release (focus left the page mid-press) ends the press too.
     window.addEventListener("blur", endInspectPress, opts);
+  }
+
+  function pointerStillOnPlot(event) {
+    const into = event?.relatedTarget;
+    return (
+      !into ||
+      (into instanceof Node &&
+        (host.contains(into) ||
+          main.contains(into) ||
+          plotStack.contains(into) ||
+          container.contains(into) ||
+          webglCanvas.contains(into)))
+    );
+  }
+
+  function plotGestureActive() {
+    return (
+      isLassoing ||
+      isBoxing ||
+      isDragging ||
+      lineStrokeActive ||
+      vertexDragIndex >= 0 ||
+      vertexDragLandmarkIndex >= 0
+    );
+  }
+
+  function endPlotGesture() {
+    plotGestureAbort?.abort();
+    plotGestureAbort = null;
+  }
+
+  function maybeEndPlotGesture() {
+    if (!plotGestureActive()) endPlotGesture();
+  }
+
+  /**
+   * Selection drags and lasso/box strokes follow the pointer on `window`
+   * (capture), like Inspect — deck's picking canvas swaps otherwise fire
+   * `mouseleave` on the WebGL canvas and drop the gesture mid-stroke.
+   */
+  function beginPlotGesture() {
+    if (plotGestureAbort) return;
+    plotGestureAbort = new AbortController();
+    const opts = { signal: plotGestureAbort.signal, capture: true };
+    window.addEventListener(
+      "mousemove",
+      (e) => {
+        if (plotGestureActive()) handleMouseMove(e);
+      },
+      opts,
+    );
+    window.addEventListener(
+      "mouseup",
+      (e) => {
+        if (e.button !== 0) return;
+        handleMouseUp(e);
+        maybeEndPlotGesture();
+      },
+      opts,
+    );
+    window.addEventListener(
+      "pointercancel",
+      (e) => {
+        handleMouseUp(e);
+        maybeEndPlotGesture();
+      },
+      opts,
+    );
+    window.addEventListener(
+      "blur",
+      () => {
+        if (isLassoing) {
+          isLassoing = false;
+          lassoPath = [];
+        }
+        if (isBoxing) {
+          isBoxing = false;
+          boxStart = null;
+          boxCurrent = null;
+        }
+        endPlotGesture();
+        setDeckLayers();
+      },
+      opts,
+    );
   }
 
   function handleInspectDrag(event) {
@@ -5146,9 +5233,9 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   }
 
   function startVertexDrag(vertexIndex, landmarkIndex) {
-    // Track vertex drag state
     vertexDragIndex = vertexIndex;
     vertexDragLandmarkIndex = landmarkIndex;
+    beginPlotGesture();
   }
 
   /** Snapshot `landmarks` before a destructive geometry edit, for Mod+Z. */
@@ -5271,6 +5358,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         dragKind = "landmark";
         dragIndex = hit.index;
         webglCanvas.style.cursor = "grabbing";
+        beginPlotGesture();
         return;
       }
       activeVertexIndex = -1;
@@ -5338,20 +5426,22 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     if (currentMode === "lasso") {
       if (hit && hit.kind === "selection" && hit.kind === model.get("selected_kind") && hit.index === model.get("selected_index")) {
         isDragging = true; dragStart = pt; dragKind = hit.kind; dragIndex = hit.index;
+        beginPlotGesture();
         return;
       }
       // Selection mode: no inspect-pin; only activate existing selection regions.
       if (hit?.kind === "selection") { setSelected(hit.kind, hit.index); suppressClick = true; return; }
-      isLassoing = true; lassoPath = [pt]; setDeckLayers(); return;
+      isLassoing = true; lassoPath = [pt]; beginPlotGesture(); setDeckLayers(); return;
     }
 
     if (currentMode === "rectangle" || currentMode === "ellipse") {
       if (hit && hit.kind === "selection" && hit.kind === model.get("selected_kind") && hit.index === model.get("selected_index")) {
         isDragging = true; dragStart = pt; dragKind = hit.kind; dragIndex = hit.index;
+        beginPlotGesture();
         return;
       }
       if (hit?.kind === "selection") { setSelected(hit.kind, hit.index); suppressClick = true; return; }
-      isBoxing = true; boxStart = pt; boxCurrent = pt; setDeckLayers(); return;
+      isBoxing = true; boxStart = pt; boxCurrent = pt; beginPlotGesture(); setDeckLayers(); return;
     }
 
     if (draft.length === 0) {
@@ -5360,6 +5450,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       if (hit && hit.kind === kind && hit.index === selectedIdx) {
         isDragging = true; dragStart = pt; dragKind = hit.kind; dragIndex = hit.index;
         webglCanvas.style.cursor = "grabbing";
+        beginPlotGesture();
         return;
       }
       if (hit) { setSelected(hit.kind, hit.index); suppressClick = true; return; }
@@ -5385,11 +5476,13 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       draft = [pt];
       draftCursor = pt;
       lineStrokeActive = true;
+      beginPlotGesture();
       setDeckLayers();
     }
   }
 
   function handleMouseMove(event) {
+    if (plotGestureAbort && event.currentTarget === webglCanvas) return;
     if (spacePan) return;
     const pt = eventPoint(event);
     if (!pt) return;
@@ -5492,6 +5585,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   }
 
   function handleMouseUp(event) {
+    if (plotGestureAbort && event.currentTarget === webglCanvas) return;
     if (spacePan) return;
     // An Inspect release is handled on `window` (handleInspectRelease).
     const vertexDragActive = vertexDragIndex >= 0 || vertexDragLandmarkIndex >= 0;
@@ -5640,23 +5734,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
 
   function handleMouseLeave(event) {
     // Deck picking-canvas swaps fire mouseleave while the pointer is still
-    // on the plot. Only drop hover when the pointer is actually outside.
-    if (probeModeOn()) {
-      // Synthetic picking-canvas leaves have relatedTarget=null and often
-      // clientX/Y of 0,0 — those must not drop the hover field. Only clear
-      // when the pointer actually entered another widget node.
-      const into = event?.relatedTarget;
-      const stillOnPlot =
-        !into ||
-        (into instanceof Node &&
-          (host.contains(into) ||
-            main.contains(into) ||
-            plotStack.contains(into) ||
-            container.contains(into)));
-      if (!stillOnPlot) clearProbeHover();
-    }
+    // on the plot. Ignore those for in-flight gestures; hover preview still clears.
+    if (probeModeOn() && !pointerStillOnPlot(event)) clearProbeHover();
     if (clearInspectHover()) setDeckLayers();
-    if (isDragging) { isDragging = false; dragStart = null; }
+    if (pointerStillOnPlot(event)) return;
+    if (isDragging) {
+      isDragging = false;
+      dragStart = null;
+    }
     if (vertexDragIndex >= 0 || vertexDragLandmarkIndex >= 0) {
       vertexDragIndex = -1;
       vertexDragLandmarkIndex = -1;
@@ -5672,9 +5757,18 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       hoverInsert = null;
       setDeckLayers();
     }
-    if (isLassoing) { isLassoing = false; lassoPath = []; setDeckLayers(); }
-    if (isBoxing) { isBoxing = false; boxStart = null; boxCurrent = null; setDeckLayers(); }
-    else if (draft.length) setDeckLayers();
+    if (isLassoing) {
+      isLassoing = false;
+      lassoPath = [];
+      setDeckLayers();
+    }
+    if (isBoxing) {
+      isBoxing = false;
+      boxStart = null;
+      boxCurrent = null;
+      setDeckLayers();
+    } else if (draft.length) setDeckLayers();
+    endPlotGesture();
   }
   function handleDblClick(e) {
     e.preventDefault();
@@ -6545,6 +6639,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     plotBootstrapListeners = [];
     abort.abort();
     endInspectGesture();
+    endPlotGesture();
     unsubs.forEach((fn) => fn());
     themeObserver.disconnect();
     resizeObserver?.disconnect();
