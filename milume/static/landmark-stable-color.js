@@ -16,3 +16,10 @@ export function landmarkStableColor(id, fallbackIndex = 0) {
   for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
   return LANDMARK_COLORS[Math.abs(h) % LANDMARK_COLORS.length];
 }
+
+/** Landmark accent: explicit `color` on the model, else stable id hash. */
+export function landmarkColor(lm, fallbackIndex = 0) {
+  if (lm && typeof lm.color === "string" && lm.color) return lm.color;
+  const id = lm?.id ?? "";
+  return landmarkStableColor(id, fallbackIndex);
+}

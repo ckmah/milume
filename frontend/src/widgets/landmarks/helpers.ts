@@ -1,9 +1,10 @@
 import {
   LANDMARK_COLORS,
+  landmarkColor,
   landmarkStableColor,
 } from "../../../../milume/static/landmark-stable-color.js";
 
-export { LANDMARK_COLORS, landmarkStableColor };
+export { LANDMARK_COLORS, landmarkColor, landmarkStableColor };
 
 /** Keyboard shortcuts for the landmarks canvas (see engine handleKeyDown). */
 export const KEYBOARD_SHORTCUTS: { action: string; keys: string }[] = [

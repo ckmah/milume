@@ -688,4 +688,43 @@ test.describe("LandmarksWidget", () => {
     await waitForEngine(page);
     await expectLandmarkColorsAligned(page, ["tumour nest", "vessel"]);
   });
+
+  test("landmark panel swatch matches map stroke (explicit color, reorder)", async ({
+    page,
+  }) => {
+    const [xMin, xMax] = (await getModel(page, "x_bounds")) as [number, number];
+    const [yMin, yMax] = (await getModel(page, "y_bounds")) as [number, number];
+    const cx = (xMin + xMax) / 2;
+    const cy = (yMin + yMax) / 2;
+    const explicit = "#e85d04";
+    const landmarks = [
+      {
+        id: "vessel",
+        type: "line",
+        vertices: [[cx - 100, cy], [cx + 60, cy + 30]],
+      },
+      {
+        id: "custom crypt",
+        type: "point",
+        color: explicit,
+        vertices: [[cx, cy - 40]],
+      },
+    ];
+    await setModel(page, {
+      landmarks,
+      selections: [],
+      selected_kind: "",
+      selected_index: -1,
+    });
+    await waitForEngine(page);
+    await expectLandmarkColorsAligned(page, ["vessel", "custom crypt"]);
+
+    await setModel(page, {
+      landmarks: [landmarks[1]!, landmarks[0]!],
+    });
+    await waitForEngine(page);
+    await expectLandmarkColorsAligned(page, ["custom crypt", "vessel"]);
+    const panelHex = await panelSwatchHex(page, "custom crypt");
+    expect(panelHex).toBe(explicit);
+  });
 });

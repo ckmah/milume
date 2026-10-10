@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   LANDMARK_COLORS,
+  landmarkColor,
   landmarkStableColor,
 } from "../../../../milume/static/landmark-stable-color.js";
 
@@ -21,5 +22,11 @@ describe("landmark-stable-color", () => {
 
   it("differs for different ids", () => {
     assert.notEqual(landmarkStableColor("vessel", 0), landmarkStableColor("tumour nest", 0));
+  });
+
+  it("landmarkColor prefers explicit color else stable hash", () => {
+    assert.equal(landmarkColor({ id: "vessel", color: "#112233" }, 0), "#112233");
+    assert.equal(landmarkColor({ id: "vessel" }, 0), landmarkStableColor("vessel", 0));
+    assert.equal(landmarkColor({ id: "vessel" }, 9), landmarkStableColor("vessel", 9));
   });
 });

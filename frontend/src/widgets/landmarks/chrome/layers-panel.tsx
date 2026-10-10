@@ -5,7 +5,7 @@ import { FieldDescription } from "@/components/ui/field";
 import { ItemGroup } from "@/components/ui/item";
 import { cn } from "@/lib/utils";
 
-import { landmarkStableColor, SELECTION_COLORS } from "../helpers";
+import { landmarkColor, SELECTION_COLORS } from "../helpers";
 import { inspectWindowOf } from "../use-inspect-cube";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { type ChipSnapshot, windowKey } from "./cube-snapshots";
@@ -102,9 +102,7 @@ export function LayersPanel({
               {landmarks.length ? (
                 <ItemGroup className="gap-0.5">
                   {landmarks.map((lmItem, i) => {
-                    const color =
-                      (typeof lmItem.color === "string" && lmItem.color) ||
-                      landmarkStableColor(String(lmItem.id), i);
+                    const color = landmarkColor(lmItem, i);
                     return (
                       <LayerRow
                         key={`${lmItem.id}-${i}`}
