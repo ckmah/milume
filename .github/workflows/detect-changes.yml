@@ -1,0 +1,80 @@
+name: Detect changes
+
+on:
+  workflow_call:
+    inputs:
+      dispatch_tier:
+        description: workflow_dispatch tier (all | core | landmarks)
+        required: false
+        type: string
+        default: ""
+      is_dispatch:
+        description: true when the caller is workflow_dispatch
+        required: false
+        type: boolean
+        default: false
+    outputs:
+      core:
+        value: ${{ jobs.detect.outputs.core }}
+      landmarks:
+        value: ${{ jobs.detect.outputs.landmarks }}
+      ui:
+        value: ${{ jobs.detect.outputs.ui }}
+      policy:
+        value: ${{ jobs.detect.outputs.policy }}
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      core: ${{ steps.select.outputs.core }}
+      landmarks: ${{ steps.select.outputs.landmarks }}
+      ui: ${{ steps.select.outputs.ui }}
+      policy: ${{ steps.select.outputs.policy }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: inputs.is_dispatch != true
+        with:
+          filters: .github/e2e-tiers.json
+
+      - name: Select tiers
+        id: select
+        env:
+          IS_DISPATCH: ${{ inputs.is_dispatch }}
+          TIER: ${{ inputs.dispatch_tier }}
+          CORE: ${{ steps.filter.outputs.core || 'false' }}
+          LANDMARKS: ${{ steps.filter.outputs.landmarks || 'false' }}
+          INFRA: ${{ steps.filter.outputs.infra || 'false' }}
+          POLICY: ${{ steps.filter.outputs.policy || 'false' }}
+        run: |
+          set -euo pipefail
+          core=false
+          landmarks=false
+          policy=false
+          if [[ "${IS_DISPATCH}" == "true" ]]; then
+            case "${TIER}" in
+              all) core=true; landmarks=true ;;
+              core) core=true ;;
+              landmarks) landmarks=true ;;
+            esac
+          else
+            [[ "${POLICY}" == "true" ]] && policy=true
+            if [[ "${INFRA}" == "true" ]]; then
+              core=true; landmarks=true
+            else
+              [[ "${CORE}" == "true" ]] && core=true
+              [[ "${LANDMARKS}" == "true" ]] && landmarks=true
+            fi
+          fi
+          ui=false
+          if [[ "${core}" == "true" || "${landmarks}" == "true" ]]; then
+            ui=true
+          fi
+          echo "core=${core}" >> "$GITHUB_OUTPUT"
+          echo "landmarks=${landmarks}" >> "$GITHUB_OUTPUT"
+          echo "ui=${ui}" >> "$GITHUB_OUTPUT"
+          echo "policy=${policy}" >> "$GITHUB_OUTPUT"
+          echo "Selected: core=${core} landmarks=${landmarks} ui=${ui} policy=${policy}"

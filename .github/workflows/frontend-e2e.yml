@@ -34,49 +34,10 @@ concurrency:
 
 jobs:
   changes:
-    runs-on: ubuntu-latest
-    outputs:
-      core: ${{ steps.select.outputs.core }}
-      landmarks: ${{ steps.select.outputs.landmarks }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: dorny/paths-filter@v3
-        id: filter
-        if: github.event_name != 'workflow_dispatch'
-        with:
-          # Single source of truth, shared with `npm run verify`.
-          filters: .github/e2e-tiers.json
-
-      - name: Select tiers
-        id: select
-        env:
-          EVENT: ${{ github.event_name }}
-          TIER: ${{ inputs.tier || '' }}
-          CORE: ${{ steps.filter.outputs.core || 'false' }}
-          LANDMARKS: ${{ steps.filter.outputs.landmarks || 'false' }}
-          INFRA: ${{ steps.filter.outputs.infra || 'false' }}
-        run: |
-          set -euo pipefail
-          core=false
-          landmarks=false
-          if [[ "${EVENT}" == "workflow_dispatch" ]]; then
-            case "${TIER}" in
-              all) core=true; landmarks=true ;;
-              core) core=true ;;
-              landmarks) landmarks=true ;;
-            esac
-          else
-            if [[ "${INFRA}" == "true" ]]; then
-              core=true; landmarks=true
-            else
-              [[ "${CORE}" == "true" ]] && core=true
-              [[ "${LANDMARKS}" == "true" ]] && landmarks=true
-            fi
-          fi
-          echo "core=${core}" >> "$GITHUB_OUTPUT"
-          echo "landmarks=${landmarks}" >> "$GITHUB_OUTPUT"
-          echo "Selected tiers: core=${core} landmarks=${landmarks}"
+    uses: ./.github/workflows/detect-changes.yml
+    with:
+      is_dispatch: ${{ github.event_name == 'workflow_dispatch' }}
+      dispatch_tier: ${{ inputs.tier || '' }}
 
   e2e-core:
     needs: changes
@@ -94,7 +55,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - run: npx playwright install chromium --with-deps
+      - uses: ./.github/actions/playwright-browser
       - name: Run core e2e
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.update_snapshots != true }}
         run: npm run test:e2e:core
@@ -159,7 +120,7 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      - run: npx playwright install chromium --with-deps
+      - uses: ./.github/actions/playwright-browser
       - name: Landmarks unit tests
         if: matrix.id == 'default'
         run: npm run test:unit

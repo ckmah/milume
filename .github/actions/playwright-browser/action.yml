@@ -1,0 +1,27 @@
+name: Playwright browser
+description: Cache Chromium under ~/.cache/ms-playwright; install browsers on miss, deps every run.
+
+runs:
+  using: composite
+  steps:
+    - id: version
+      shell: bash
+      working-directory: frontend
+      run: |
+        v=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
+        echo "version=${v}" >> "$GITHUB_OUTPUT"
+
+    - uses: actions/cache@v4
+      id: playwright-cache
+      with:
+        path: ~/.cache/ms-playwright
+        key: ms-playwright-${{ runner.os }}-${{ steps.version.outputs.version }}
+
+    - shell: bash
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      working-directory: frontend
+      run: npx playwright install chromium
+
+    - shell: bash
+      working-directory: frontend
+      run: npx playwright install-deps chromium
