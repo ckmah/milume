@@ -2657,6 +2657,25 @@ test.describe("Landmarks inspect cube", () => {
     await expect(page.getByTestId("inspect-status")).toHaveAttribute("data-state", "error");
   });
 
+  test("a volume_get error reply fails fast without waiting on the comm timeout", {
+    tag: "@isolated",
+  }, async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __volumeCommHook?: { fail: boolean } }).__volumeCommHook = { fail: true };
+    });
+    await page.goto("/", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await stabilizeUi(page);
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    const t0 = Date.now();
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    const panel = cubeWindow(page).getByTestId("cube-load-immersive");
+    await expect(panel).toHaveAttribute("data-state", "error", { timeout: 5_000 });
+    expect(Date.now() - t0).toBeLessThan(15_000);
+    await expect(page.getByTestId("inspect-status")).toHaveAttribute("data-state", "error");
+  });
+
   test("the cube panel shows loading until the volume draws, then clears", { tag: "@isolated" }, async ({
     page,
   }) => {

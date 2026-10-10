@@ -34,7 +34,9 @@ export function createMockModel(
       typeof window !== "undefined"
         ? (window as unknown as { __volumeCommHook?: { delayMs?: number; fail?: boolean } }).__volumeCommHook
         : undefined;
-    if (hook?.fail) return [{ ok: false, status: 404 }, []];
+    if (hook?.fail) {
+      return [{ ok: false, status: 500, error: "volume_get failed (injected)" }, []];
+    }
     if (hook?.delayMs && hook.delayMs > 0) {
       await new Promise((resolve) => setTimeout(resolve, hook.delayMs));
     }

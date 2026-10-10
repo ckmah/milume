@@ -19,6 +19,7 @@ frontend/dev/colon-a2-n*-fixture.json
 frontend/dev/landmarks-volume-fixture.colon.json
 frontend/dev/landmarks-volume/public/colon_a2.sdata.zarr/
 .cache/colon-a2-hf/
+frontend/dev/data/
 
 # GitHub Pages assemble output (landing + Zensical)
 /site/

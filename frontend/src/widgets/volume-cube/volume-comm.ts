@@ -12,7 +12,7 @@ export type VolumeCommModel = {
   off?(event: string, callback: (msg: unknown, buffers?: ArrayBuffer[]) => void): void;
 };
 
-type VolumeGetResponse = { ok: boolean; status?: number };
+type VolumeGetResponse = { ok: boolean; status?: number; error?: string };
 
 const COMMAND = "volume_get";
 const DEFAULT_CONCURRENCY = 8;
@@ -127,7 +127,14 @@ export class VolumeCommClient {
     const msg: { path: string; range?: RangeQuery } = { path };
     if (range) msg.range = range;
     const [response, buffers] = await invoke(this.model, COMMAND, msg);
-    if (!response.ok || !buffers[0]) return undefined;
+    if (!response.ok) {
+      const detail =
+        typeof response.error === "string" && response.error.length > 0
+          ? response.error
+          : `volume_get failed (${response.status ?? "error"})`;
+      throw new Error(detail);
+    }
+    if (!buffers[0]) return undefined;
     const bytes = new Uint8Array(buffers[0]);
     if (!range) this.cacheMetadata(path, bytes);
     return bytes;
