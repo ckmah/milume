@@ -32,8 +32,8 @@ async function bench(page) {
       const m = window.__landmarksModel;
       if (!m) return;
       const cut = [...m.get("volume_cut")];
-      const z0 = cut[4]!;
-      const z1 = cut[5]!;
+      const z0 = cut[4];
+      const z1 = cut[5];
       const mid = (z0 + z1) / 2;
       const thick = Math.max(6, (z1 - z0) * 0.04);
       cut[4] = mid - thick / 2;
