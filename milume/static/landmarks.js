@@ -3773,6 +3773,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   let inspectGestureAbort = null;
   /** Window capture listeners while lasso/box/drag gestures are in flight (deck picking canvas). */
   let plotGestureAbort = null;
+  /** Window capture ends the gesture before the canvas `mouseup`; mark handled events. */
+  const plotGestureHandledEvents = new WeakSet();
+  function markPlotGestureHandled(event) {
+    if (event) plotGestureHandledEvents.add(event);
+  }
+  function plotGestureEventHandled(event) {
+    return plotGestureHandledEvents.has(event);
+  }
   const inspectListeners = new Set();
 
   function emitInspect(evt) {
@@ -3893,6 +3901,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       (e) => {
         if (e.button !== 0) return;
         handleMouseUp(e);
+        markPlotGestureHandled(e);
         maybeEndPlotGesture();
       },
       opts,
@@ -3901,6 +3910,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       "pointercancel",
       (e) => {
         handleMouseUp(e);
+        markPlotGestureHandled(e);
         maybeEndPlotGesture();
       },
       opts,
@@ -5585,6 +5595,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   }
 
   function handleMouseUp(event) {
+    if (plotGestureEventHandled(event)) return;
     if (plotGestureAbort && event.currentTarget === webglCanvas) return;
     if (spacePan) return;
     // An Inspect release is handled on `window` (handleInspectRelease).
@@ -6922,6 +6933,13 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       usingBinaryScatterColors: Boolean(pointFillColors),
     }),
     getHover: () => (hoverTarget ? { ...hoverTarget } : null),
+    getAuthoringDraft() {
+      return {
+        vertexCount: draft.length,
+        lineStrokeActive: Boolean(lineStrokeActive),
+        hasCursor: draftCursor != null,
+      };
+    },
     subscribeHover: (fn) => {
       if (typeof fn !== "function") return () => {};
       hoverListeners.push(fn);
