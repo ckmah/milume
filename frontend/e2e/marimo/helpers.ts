@@ -12,6 +12,15 @@ export async function waitForLandmarksWidget(page: Page) {
     const vs = eng?.getViewState?.();
     return Boolean(vs && Number.isFinite(vs.zoom));
   });
+  await page.waitForFunction(
+    () => {
+      const eng = (window as any).__landmarksEngine;
+      const n = eng?.getPoints?.()?.length ?? 0;
+      return n > 20;
+    },
+    undefined,
+    { timeout: onCi() ? 720_000 : 180_000 },
+  );
   await page.waitForTimeout(400);
   return canvas;
 }
@@ -29,19 +38,30 @@ export async function canvasBox(page: Page) {
 
 /** Closed lasso stroke on the map (page.mouse, molab-style). */
 export async function drawLasso(page: Page, box: { x: number; y: number; width: number; height: number }) {
-  const cx = box.x + box.width * 0.5;
-  const cy = box.y + box.height * 0.5;
-  const r = Math.min(box.width, box.height) * 0.42;
-  await page.locator("canvas.landmarks__webgl, canvas").first().click({ position: { x: 8, y: 8 } });
-  await page.getByRole("button", { name: /Lasso/i }).click();
-  await expect.poll(() => getModel(page, "mode")).toBe("lasso");
-  await page.mouse.move(cx + r, cy);
+  const canvas = page.locator("canvas.landmarks__webgl, canvas").first();
+  await canvas.click({ position: { x: Math.round(box.width * 0.5), y: Math.round(box.height * 0.5) } });
+  await page.keyboard.press("l");
+  await expect.poll(() => getModel(page, "mode"), { timeout: onCi() ? 60_000 : 15_000 }).toBe("lasso");
+
+  const inset = 0.12;
+  const left = box.x + box.width * inset;
+  const right = box.x + box.width * (1 - inset);
+  const top = box.y + box.height * inset;
+  const bottom = box.y + box.height * (1 - inset);
+  const cx = (left + right) / 2;
+  const cy = (top + bottom) / 2;
+  const rx = (right - left) / 2;
+  const ry = (bottom - top) / 2;
+
+  await page.mouse.move(cx + rx, cy);
   await page.mouse.down();
-  for (let i = 0; i <= 10; i++) {
-    const a = (i / 10) * Math.PI * 2;
-    await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r, { steps: 2 });
+  const steps = 14;
+  for (let i = 0; i <= steps; i++) {
+    const a = (i / steps) * Math.PI * 2;
+    await page.mouse.move(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, { steps: 3 });
   }
   await page.mouse.up();
+  await expect.poll(() => getModel(page, "mode"), { timeout: 30_000 }).toBe("select");
 }
 
 /** Click-select an existing landmark (deck onClick in Select mode). */
