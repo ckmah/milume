@@ -9,6 +9,7 @@ in float i_cat;
 in float i_rad;
 uniform float u_time;
 uniform float u_glowPass;
+uniform float u_layer;
 uniform vec2 u_scale;
 uniform vec4 u_layout;
 out vec4 v_pm;
@@ -109,23 +110,38 @@ void main() {
     zf = 11.0 + pulseA * ((SEL.z - c.z) - 11.0);
   }
   float fog = pow(clamp(1.0 - (z - 1.0) / (ZF1 - 1.0), 0.0, 1.0), 1.8);
-  float bright = max(fog * 0.74, glow * min(0.82, fog * 2.4));
-  vec3 bgTeal = mix(BG, vec3(9.0 / 255.0, 24.0 / 255.0, 28.0 / 255.0), 0.42);
-  vec3 rgb = col * bright + bgTeal * (1.0 - bright);
+  float bright = max(fog * 0.86, glow * min(0.9, fog * 2.8));
+  float dz = abs(z - zf);
+  bool crispLayer = dz <= 1.0;
+  if (u_layer > 0.5 && !crispLayer) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    v_pm = vec4(0.0);
+    v_soft = 0.0;
+    v_glow = 0.0;
+    return;
+  }
+  if (u_layer < 0.5 && crispLayer) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    v_pm = vec4(0.0);
+    v_soft = 0.0;
+    v_glow = 0.0;
+    return;
+  }
+  vec3 gapCol = BG;
+  vec3 bgTeal = mix(BG, vec3(9.0 / 255.0, 24.0 / 255.0, 28.0 / 255.0), 0.14);
+  vec3 bgUse = crispLayer ? gapCol : bgTeal;
+  vec3 rgb = col * bright + bgUse * (1.0 - bright);
   float peak = max(max(rgb.r, rgb.g), rgb.b);
   if (peak > 0.85 && glow > 0.15) {
     rgb *= 0.85 / peak;
   }
   rgb = clamp(rgb, 0.0, 1.0);
-  rgb *= mix(0.9, 1.0, clamp(bright, 0.0, 1.0));
 
   float alpha = ss(ZN0, ZN1, z) * (1.0 - ss(ZF0, ZF1, z));
-  float dz = abs(z - zf);
-  float inBand = 1.0 - ss(0.88, 1.02, dz);
-  float cocThin = min(40.0, 40.0 * abs(1.0 / z - 1.0 / zf) * zf);
-  float cocWide = min(40.0, cocThin * 3.6 + pow(max(dz - 0.85, 0.0), 1.2) * 18.0);
-  float coc = mix(cocWide, cocThin * 0.05, inBand);
-  float sigma = blurSigma(coc * 0.58) * (1.0 + 0.45 * (1.0 - inBand));
+  float cocH = min(40.0, 40.0 * abs(1.0 / z - 1.0 / zf) * zf);
+  float outside = max(dz - 1.0, 0.0);
+  float coc = crispLayer ? 0.0 : min(40.0, cocH + outside * 5.5);
+  float sigma = crispLayer ? 0.0 : blurSigma(coc * 0.5);
   float rd = max(1.0, ceil(pr * 2.0) * 0.5);
   float coverage = min(1.0, pow(pr / rd, 2.0));
   float a = alpha * coverage;
@@ -156,7 +172,7 @@ void main() {
     return;
   }
 
-  float rad = pr + sigma * 2.05;
+  float rad = crispLayer ? pr : pr + sigma * 2.05;
   if (a < 0.004 || rad < 0.15) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     v_pm = vec4(0.0);
@@ -165,7 +181,7 @@ void main() {
     return;
   }
 
-  v_soft = clamp(sigma / 11.0, 0.04, 0.58);
+  v_soft = crispLayer ? 0.0 : clamp(sigma / 11.0, 0.04, 0.58);
   v_glow = glow;
   v_pm = vec4(rgb * a, a);
 
@@ -202,21 +218,6 @@ void main() {
 
 const CORNERS = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
 
-const HAZE_VS = `#version 300 es
-void main() {
-  vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
-  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
-}`;
-
-const HAZE_FS = `#version 300 es
-precision highp float;
-out vec4 outColor;
-void main() {
-  vec3 haze = vec3(8.0 / 255.0, 22.0 / 255.0, 26.0 / 255.0);
-  float a = 0.11;
-  outColor = vec4(haze * a, a);
-}`;
-
 export type GlBundle = {
   gl: WebGL2RenderingContext;
   program: WebGLProgram;
@@ -235,9 +236,9 @@ export type GlBundle = {
   sortRad: Float32Array;
   uTime: WebGLUniformLocation | null;
   uGlowPass: WebGLUniformLocation | null;
+  uLayer: WebGLUniformLocation | null;
   uScale: WebGLUniformLocation | null;
   uLayout: WebGLUniformLocation | null;
-  hazeProgram: WebGLProgram;
 };
 
 export function camZAt(t: number): number {
@@ -260,12 +261,6 @@ export function createGl(canvas: HTMLCanvasElement, field: GpuField): GlBundle |
   if (!vs || !fs) return null;
   const program = link(gl, vs, fs);
   if (!program) return null;
-
-  const hazeVs = compile(gl, gl.VERTEX_SHADER, HAZE_VS);
-  const hazeFs = compile(gl, gl.FRAGMENT_SHADER, HAZE_FS);
-  if (!hazeVs || !hazeFs) return null;
-  const hazeProgram = link(gl, hazeVs, hazeFs);
-  if (!hazeProgram) return null;
 
   const cornerBuf = gl.createBuffer()!;
   const posBuf = gl.createBuffer()!;
@@ -329,9 +324,9 @@ export function createGl(canvas: HTMLCanvasElement, field: GpuField): GlBundle |
     sortRad: new Float32Array(field.count),
     uTime: gl.getUniformLocation(program, "u_time"),
     uGlowPass: gl.getUniformLocation(program, "u_glowPass"),
+    uLayer: gl.getUniformLocation(program, "u_layer"),
     uScale: gl.getUniformLocation(program, "u_scale"),
     uLayout: gl.getUniformLocation(program, "u_layout"),
-    hazeProgram,
   };
 }
 
@@ -389,7 +384,7 @@ export function drawFrame(
   height: number,
   layout: { scale: number; offX: number; offY: number; dpr: number },
 ): void {
-  const { gl, program, vao, posBuf, catBuf, radBuf, count, uTime, uGlowPass, uScale, uLayout } = bundle;
+  const { gl, program, vao, posBuf, catBuf, radBuf, count, uTime, uGlowPass, uLayer, uScale, uLayout } = bundle;
 
   sortInstances(bundle, t);
 
@@ -401,24 +396,21 @@ export function drawFrame(
   gl.bufferSubData(gl.ARRAY_BUFFER, 0, bundle.sortRad);
 
   gl.viewport(0, 0, width, height);
-  gl.clearColor(10 / 255, 18 / 255, 20 / 255, 1);
+  gl.clearColor(11 / 255, 11 / 255, 11 / 255, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.useProgram(program);
   gl.bindVertexArray(vao);
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   if (uTime) gl.uniform1f(uTime, t);
   if (uGlowPass) gl.uniform1f(uGlowPass, 0);
+  if (uLayer) gl.uniform1f(uLayer, 0);
   if (uScale) gl.uniform2f(uScale, width, height);
   if (uLayout) gl.uniform4f(uLayout, layout.scale, layout.offX, layout.offY, layout.dpr);
   gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
 
-  gl.useProgram(bundle.hazeProgram);
-  gl.bindVertexArray(null);
-  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  if (uLayer) gl.uniform1f(uLayer, 1);
+  gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
 
-  gl.useProgram(program);
-  gl.bindVertexArray(vao);
   gl.blendFunc(gl.ONE, gl.ONE);
   if (uGlowPass) gl.uniform1f(uGlowPass, 1);
   gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);

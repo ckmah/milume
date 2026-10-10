@@ -1,4 +1,4 @@
-"use strict";(()=>{var G=[-1,0,1,2,3,4];async function U(o){let a=await fetch(o);if(!a.ok)throw new Error(`hero points: ${a.status}`);let e=await a.arrayBuffer(),r=new DataView(e),l=r.getUint32(0,!0),t=G.length,v=l*t,i=new Float32Array(v*3),m=new Uint8Array(v),p=new Float32Array(v),c=0,s=4;for(let n=0;n<l;n++){let f=r.getFloat32(s,!0);s+=4;let d=r.getFloat32(s,!0);s+=4;let u=r.getFloat32(s,!0);s+=4;let b=r.getUint8(s);s+=1;let _=r.getFloat32(s,!0);s+=4;for(let h of G){let L=c*3;i[L]=f,i[L+1]=d,i[L+2]=u+h*10,m[c]=b,p[c]=_,c++}}return{count:v,pos:i,cat:m,rad:p}}var q=`#version 300 es
+"use strict";(()=>{var T=[-1,0,1,2,3,4];async function D(o){let a=await fetch(o);if(!a.ok)throw new Error(`hero points: ${a.status}`);let e=await a.arrayBuffer(),r=new DataView(e),l=r.getUint32(0,!0),t=T.length,g=l*t,f=new Float32Array(g*3),d=new Uint8Array(g),p=new Float32Array(g),i=0,s=4;for(let n=0;n<l;n++){let c=r.getFloat32(s,!0);s+=4;let u=r.getFloat32(s,!0);s+=4;let m=r.getFloat32(s,!0);s+=4;let _=r.getUint8(s);s+=1;let v=r.getFloat32(s,!0);s+=4;for(let w of T){let b=i*3;f[b]=c,f[b+1]=u,f[b+2]=m+w*10,d[i]=_,p[i]=v,i++}}return{count:g,pos:f,cat:d,rad:p}}var X=`#version 300 es
 precision highp float;
 in vec2 a_corner;
 in vec3 i_pos;
@@ -6,6 +6,7 @@ in float i_cat;
 in float i_rad;
 uniform float u_time;
 uniform float u_glowPass;
+uniform float u_layer;
 uniform vec2 u_scale;
 uniform vec4 u_layout;
 out vec4 v_pm;
@@ -106,23 +107,38 @@ void main() {
     zf = 11.0 + pulseA * ((SEL.z - c.z) - 11.0);
   }
   float fog = pow(clamp(1.0 - (z - 1.0) / (ZF1 - 1.0), 0.0, 1.0), 1.8);
-  float bright = max(fog * 0.74, glow * min(0.82, fog * 2.4));
-  vec3 bgTeal = mix(BG, vec3(9.0 / 255.0, 24.0 / 255.0, 28.0 / 255.0), 0.42);
-  vec3 rgb = col * bright + bgTeal * (1.0 - bright);
+  float bright = max(fog * 0.86, glow * min(0.9, fog * 2.8));
+  float dz = abs(z - zf);
+  bool crispLayer = dz <= 1.0;
+  if (u_layer > 0.5 && !crispLayer) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    v_pm = vec4(0.0);
+    v_soft = 0.0;
+    v_glow = 0.0;
+    return;
+  }
+  if (u_layer < 0.5 && crispLayer) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    v_pm = vec4(0.0);
+    v_soft = 0.0;
+    v_glow = 0.0;
+    return;
+  }
+  vec3 gapCol = BG;
+  vec3 bgTeal = mix(BG, vec3(9.0 / 255.0, 24.0 / 255.0, 28.0 / 255.0), 0.14);
+  vec3 bgUse = crispLayer ? gapCol : bgTeal;
+  vec3 rgb = col * bright + bgUse * (1.0 - bright);
   float peak = max(max(rgb.r, rgb.g), rgb.b);
   if (peak > 0.85 && glow > 0.15) {
     rgb *= 0.85 / peak;
   }
   rgb = clamp(rgb, 0.0, 1.0);
-  rgb *= mix(0.9, 1.0, clamp(bright, 0.0, 1.0));
 
   float alpha = ss(ZN0, ZN1, z) * (1.0 - ss(ZF0, ZF1, z));
-  float dz = abs(z - zf);
-  float inBand = 1.0 - ss(0.88, 1.02, dz);
-  float cocThin = min(40.0, 40.0 * abs(1.0 / z - 1.0 / zf) * zf);
-  float cocWide = min(40.0, cocThin * 3.6 + pow(max(dz - 0.85, 0.0), 1.2) * 18.0);
-  float coc = mix(cocWide, cocThin * 0.05, inBand);
-  float sigma = blurSigma(coc * 0.58) * (1.0 + 0.45 * (1.0 - inBand));
+  float cocH = min(40.0, 40.0 * abs(1.0 / z - 1.0 / zf) * zf);
+  float outside = max(dz - 1.0, 0.0);
+  float coc = crispLayer ? 0.0 : min(40.0, cocH + outside * 5.5);
+  float sigma = crispLayer ? 0.0 : blurSigma(coc * 0.5);
   float rd = max(1.0, ceil(pr * 2.0) * 0.5);
   float coverage = min(1.0, pow(pr / rd, 2.0));
   float a = alpha * coverage;
@@ -153,7 +169,7 @@ void main() {
     return;
   }
 
-  float rad = pr + sigma * 2.05;
+  float rad = crispLayer ? pr : pr + sigma * 2.05;
   if (a < 0.004 || rad < 0.15) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     v_pm = vec4(0.0);
@@ -162,7 +178,7 @@ void main() {
     return;
   }
 
-  v_soft = clamp(sigma / 11.0, 0.04, 0.58);
+  v_soft = crispLayer ? 0.0 : clamp(sigma / 11.0, 0.04, 0.58);
   v_glow = glow;
   v_pm = vec4(rgb * a, a);
 
@@ -176,7 +192,7 @@ void main() {
   vec2 clip = (pos / u_scale) * 2.0 - 1.0;
   clip.y = -clip.y;
   gl_Position = vec4(clip, 0.0, 1.0);
-}`,$=`#version 300 es
+}`,q=`#version 300 es
 precision highp float;
 in vec4 v_pm;
 in float v_soft;
@@ -193,15 +209,4 @@ void main() {
   float a = v_pm.a * edge;
   vec3 rgb = v_pm.rgb * edge;
   outColor = vec4(rgb, a);
-}`,j=new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),K=`#version 300 es
-void main() {
-  vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
-  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
-}`,J=`#version 300 es
-precision highp float;
-out vec4 outColor;
-void main() {
-  vec3 haze = vec3(8.0 / 255.0, 22.0 / 255.0, 26.0 / 255.0);
-  float a = 0.11;
-  outColor = vec4(haze * a, a);
-}`;function Q(o){return o%11/11*10%10}function N(o,a){let e=o.getContext("webgl2",{alpha:!1,antialias:!1,depth:!1,stencil:!1,preserveDrawingBuffer:!0});if(!e)return null;let r=E(e,e.VERTEX_SHADER,q),l=E(e,e.FRAGMENT_SHADER,$);if(!r||!l)return null;let t=H(e,r,l);if(!t)return null;let v=E(e,e.VERTEX_SHADER,K),i=E(e,e.FRAGMENT_SHADER,J);if(!v||!i)return null;let m=H(e,v,i);if(!m)return null;let p=e.createBuffer(),c=e.createBuffer(),s=e.createBuffer(),n=e.createBuffer(),f=e.createVertexArray(),d=new Float32Array(a.count);for(let A=0;A<a.count;A++)d[A]=a.cat[A];e.bindVertexArray(f),e.bindBuffer(e.ARRAY_BUFFER,p),e.bufferData(e.ARRAY_BUFFER,j,e.STATIC_DRAW);let u=e.getAttribLocation(t,"a_corner");e.enableVertexAttribArray(u),e.vertexAttribPointer(u,2,e.FLOAT,!1,0,0),e.vertexAttribDivisor(u,0),e.bindBuffer(e.ARRAY_BUFFER,c),e.bufferData(e.ARRAY_BUFFER,a.pos.byteLength,e.DYNAMIC_DRAW);let b=e.getAttribLocation(t,"i_pos");e.enableVertexAttribArray(b),e.vertexAttribPointer(b,3,e.FLOAT,!1,12,0),e.vertexAttribDivisor(b,1),e.bindBuffer(e.ARRAY_BUFFER,s),e.bufferData(e.ARRAY_BUFFER,d.byteLength,e.DYNAMIC_DRAW);let _=e.getAttribLocation(t,"i_cat");e.enableVertexAttribArray(_),e.vertexAttribPointer(_,1,e.FLOAT,!1,4,0),e.vertexAttribDivisor(_,1),e.bindBuffer(e.ARRAY_BUFFER,n),e.bufferData(e.ARRAY_BUFFER,a.rad.byteLength,e.DYNAMIC_DRAW);let h=e.getAttribLocation(t,"i_rad");e.enableVertexAttribArray(h),e.vertexAttribPointer(h,1,e.FLOAT,!1,4,0),e.vertexAttribDivisor(h,1),e.bindVertexArray(null),e.enable(e.BLEND);let L=new Uint32Array(a.count);for(let A=0;A<a.count;A++)L[A]=A;return{gl:e,program:t,vao:f,posBuf:c,catBuf:s,radBuf:n,count:a.count,srcPos:a.pos,srcCat:d,srcRad:a.rad,order:L,keys:new Float32Array(a.count),sortPos:new Float32Array(a.pos.length),sortCat:new Float32Array(a.count),sortRad:new Float32Array(a.count),uTime:e.getUniformLocation(t,"u_time"),uGlowPass:e.getUniformLocation(t,"u_glowPass"),uScale:e.getUniformLocation(t,"u_scale"),uLayout:e.getUniformLocation(t,"u_layout"),hazeProgram:m}}function E(o,a,e){let r=o.createShader(a);return r?(o.shaderSource(r,e),o.compileShader(r),o.getShaderParameter(r,o.COMPILE_STATUS)?r:(console.error(o.getShaderInfoLog(r)),o.deleteShader(r),null)):null}function H(o,a,e){let r=o.createProgram();return r?(o.attachShader(r,a),o.attachShader(r,e),o.linkProgram(r),o.getProgramParameter(r,o.LINK_STATUS)?r:(console.error(o.getProgramInfoLog(r)),o.deleteProgram(r),null)):null}function ee(o,a){let{srcPos:e,order:r,keys:l,count:t}=o,v=Q(a);for(let n=0;n<t;n++)l[n]=e[n*3+2]-v;r.sort((n,f)=>l[f]-l[n]);let{sortPos:i,sortCat:m,sortRad:p,srcCat:c,srcRad:s}=o;for(let n=0;n<t;n++){let f=r[n],d=n*3,u=f*3;i[d]=e[u],i[d+1]=e[u+1],i[d+2]=e[u+2],m[n]=c[f],p[n]=s[f]}}function W(o,a,e,r,l){let{gl:t,program:v,vao:i,posBuf:m,catBuf:p,radBuf:c,count:s,uTime:n,uGlowPass:f,uScale:d,uLayout:u}=o;ee(o,a),t.bindBuffer(t.ARRAY_BUFFER,m),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortPos),t.bindBuffer(t.ARRAY_BUFFER,p),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortCat),t.bindBuffer(t.ARRAY_BUFFER,c),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortRad),t.viewport(0,0,e,r),t.clearColor(10/255,18/255,20/255,1),t.clear(t.COLOR_BUFFER_BIT),t.useProgram(v),t.bindVertexArray(i),t.blendFunc(t.ONE,t.ONE_MINUS_SRC_ALPHA),n&&t.uniform1f(n,a),f&&t.uniform1f(f,0),d&&t.uniform2f(d,e,r),u&&t.uniform4f(u,l.scale,l.offX,l.offY,l.dpr),t.drawArraysInstanced(t.TRIANGLES,0,6,s),t.useProgram(o.hazeProgram),t.bindVertexArray(null),t.blendFunc(t.ONE,t.ONE_MINUS_SRC_ALPHA),t.drawArrays(t.TRIANGLES,0,3),t.useProgram(v),t.bindVertexArray(i),t.blendFunc(t.ONE,t.ONE),f&&t.uniform1f(f,1),t.drawArraysInstanced(t.TRIANGLES,0,6,s),t.blendFunc(t.ONE,t.ONE_MINUS_SRC_ALPHA),t.bindVertexArray(null)}function te(){return window.matchMedia("(prefers-reduced-motion: reduce)").matches}function oe(){return Math.min(2,window.devicePixelRatio||1)}function Z(o,a,e){if(e!==null)return e;let r=(o-a)/1e3;return r-Math.floor(r/11)*11}async function V(o){let a=o.getAttribute("data-assets-base")??"assets/",e=o.querySelector(".milume-hero__poster"),r=o.querySelector(".milume-hero__canvas");if(!e||!r)throw new Error("milume-hero: missing poster or canvas");let l=null,t=!1;try{l=await U(`${a}hero-points.bin`)}catch{t=!0}let i=!te()&&!t&&l?N(r,l):null,m=!!i;m?(e.hidden=!0,r.hidden=!1,o.dataset.heroMode="webgl"):(e.hidden=!1,r.hidden=!0,o.dataset.heroMode="poster");let p=m,c=0,s=0,n=0,f=0,d=0,u=null,b=performance.now(),_=0,h=0,L={scale:1,offX:0,offY:0,dpr:1},A=()=>{let g=o.getBoundingClientRect(),y=oe();_=Math.max(1,Math.round(g.width*y)),h=Math.max(1,Math.round(g.height*y)),r.width=_,r.height=h,r.style.width=`${g.width}px`,r.style.height=`${g.height}px`;let F=g.width,x=g.height,R=Math.max(F/1600,x/900);L={scale:R,offX:(F-1600*R)/2,offY:(x-900*R)/2,dpr:y}},C=g=>{if(!i)return;performance.mark("hero-begin");let y=Z(g,b,u);f=0;let F=performance.now();W(i,y,_,h,L),d=performance.now()-F,performance.mark("hero-end");let x=performance.getEntriesByName("hero-frame");for(let k of x)performance.clearMeasures(k.name);performance.measure("hero-frame","hero-begin","hero-end");let R=performance.getEntriesByName("hero-frame").pop();R&&(n=R.duration),performance.clearMarks("hero-begin"),performance.clearMarks("hero-end"),s+=1},z=()=>{c=0,!(!p||!i)&&(C(performance.now()),c=requestAnimationFrame(z))},P=()=>{!p||!m||c||(c=requestAnimationFrame(z))},w=()=>{p=!1,c&&(cancelAnimationFrame(c),c=0)},T=()=>{m&&(u=null,b=performance.now(),p=!0,P())},I=new IntersectionObserver(g=>{g.some(F=>F.isIntersecting)?T():w()},{threshold:.05});I.observe(o);let D=()=>{document.visibilityState==="hidden"?w():o.getBoundingClientRect().bottom>0&&o.getBoundingClientRect().top<window.innerHeight&&T()};document.addEventListener("visibilitychange",D);let O=new ResizeObserver(()=>{A(),P()});return O.observe(o),A(),m&&P(),{pause:w,resume:T,destroy:()=>{w(),I.disconnect(),O.disconnect(),document.removeEventListener("visibilitychange",D)},isLive:()=>m,getFrameId:()=>s,isPaused:()=>!p,getLastFrameMs:()=>n,getLastSimMs:()=>f,getLastDrawMs:()=>d,setTime:g=>{u=g,w(),C(performance.now())},getLoopTime:()=>Z(performance.now(),b,u),renderOnce:()=>C(performance.now())}}async function M(){let o=document.querySelectorAll("[data-milume-hero]"),a=[];for(let e of o)a.push(await V(e));window.__milumeHeroHandles=a}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{M().catch(()=>{})}):M().catch(()=>{});window.__milumeHeroMount=M;})();
+}`,$=new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]);function j(o){return o%11/11*10%10}function H(o,a){let e=o.getContext("webgl2",{alpha:!1,antialias:!1,depth:!1,stencil:!1,preserveDrawingBuffer:!0});if(!e)return null;let r=z(e,e.VERTEX_SHADER,X),l=z(e,e.FRAGMENT_SHADER,q);if(!r||!l)return null;let t=K(e,r,l);if(!t)return null;let g=e.createBuffer(),f=e.createBuffer(),d=e.createBuffer(),p=e.createBuffer(),i=e.createVertexArray(),s=new Float32Array(a.count);for(let v=0;v<a.count;v++)s[v]=a.cat[v];e.bindVertexArray(i),e.bindBuffer(e.ARRAY_BUFFER,g),e.bufferData(e.ARRAY_BUFFER,$,e.STATIC_DRAW);let n=e.getAttribLocation(t,"a_corner");e.enableVertexAttribArray(n),e.vertexAttribPointer(n,2,e.FLOAT,!1,0,0),e.vertexAttribDivisor(n,0),e.bindBuffer(e.ARRAY_BUFFER,f),e.bufferData(e.ARRAY_BUFFER,a.pos.byteLength,e.DYNAMIC_DRAW);let c=e.getAttribLocation(t,"i_pos");e.enableVertexAttribArray(c),e.vertexAttribPointer(c,3,e.FLOAT,!1,12,0),e.vertexAttribDivisor(c,1),e.bindBuffer(e.ARRAY_BUFFER,d),e.bufferData(e.ARRAY_BUFFER,s.byteLength,e.DYNAMIC_DRAW);let u=e.getAttribLocation(t,"i_cat");e.enableVertexAttribArray(u),e.vertexAttribPointer(u,1,e.FLOAT,!1,4,0),e.vertexAttribDivisor(u,1),e.bindBuffer(e.ARRAY_BUFFER,p),e.bufferData(e.ARRAY_BUFFER,a.rad.byteLength,e.DYNAMIC_DRAW);let m=e.getAttribLocation(t,"i_rad");e.enableVertexAttribArray(m),e.vertexAttribPointer(m,1,e.FLOAT,!1,4,0),e.vertexAttribDivisor(m,1),e.bindVertexArray(null),e.enable(e.BLEND);let _=new Uint32Array(a.count);for(let v=0;v<a.count;v++)_[v]=v;return{gl:e,program:t,vao:i,posBuf:f,catBuf:d,radBuf:p,count:a.count,srcPos:a.pos,srcCat:s,srcRad:a.rad,order:_,keys:new Float32Array(a.count),sortPos:new Float32Array(a.pos.length),sortCat:new Float32Array(a.count),sortRad:new Float32Array(a.count),uTime:e.getUniformLocation(t,"u_time"),uGlowPass:e.getUniformLocation(t,"u_glowPass"),uLayer:e.getUniformLocation(t,"u_layer"),uScale:e.getUniformLocation(t,"u_scale"),uLayout:e.getUniformLocation(t,"u_layout")}}function z(o,a,e){let r=o.createShader(a);return r?(o.shaderSource(r,e),o.compileShader(r),o.getShaderParameter(r,o.COMPILE_STATUS)?r:(console.error(o.getShaderInfoLog(r)),o.deleteShader(r),null)):null}function K(o,a,e){let r=o.createProgram();return r?(o.attachShader(r,a),o.attachShader(r,e),o.linkProgram(r),o.getProgramParameter(r,o.LINK_STATUS)?r:(console.error(o.getProgramInfoLog(r)),o.deleteProgram(r),null)):null}function J(o,a){let{srcPos:e,order:r,keys:l,count:t}=o,g=j(a);for(let n=0;n<t;n++)l[n]=e[n*3+2]-g;r.sort((n,c)=>l[c]-l[n]);let{sortPos:f,sortCat:d,sortRad:p,srcCat:i,srcRad:s}=o;for(let n=0;n<t;n++){let c=r[n],u=n*3,m=c*3;f[u]=e[m],f[u+1]=e[m+1],f[u+2]=e[m+2],d[n]=i[c],p[n]=s[c]}}function N(o,a,e,r,l){let{gl:t,program:g,vao:f,posBuf:d,catBuf:p,radBuf:i,count:s,uTime:n,uGlowPass:c,uLayer:u,uScale:m,uLayout:_}=o;J(o,a),t.bindBuffer(t.ARRAY_BUFFER,d),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortPos),t.bindBuffer(t.ARRAY_BUFFER,p),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortCat),t.bindBuffer(t.ARRAY_BUFFER,i),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortRad),t.viewport(0,0,e,r),t.clearColor(11/255,11/255,11/255,1),t.clear(t.COLOR_BUFFER_BIT),t.useProgram(g),t.bindVertexArray(f),t.blendFunc(t.ONE,t.ONE_MINUS_SRC_ALPHA),n&&t.uniform1f(n,a),c&&t.uniform1f(c,0),u&&t.uniform1f(u,0),m&&t.uniform2f(m,e,r),_&&t.uniform4f(_,l.scale,l.offX,l.offY,l.dpr),t.drawArraysInstanced(t.TRIANGLES,0,6,s),u&&t.uniform1f(u,1),t.drawArraysInstanced(t.TRIANGLES,0,6,s),t.blendFunc(t.ONE,t.ONE),c&&t.uniform1f(c,1),t.drawArraysInstanced(t.TRIANGLES,0,6,s),t.blendFunc(t.ONE,t.ONE_MINUS_SRC_ALPHA),t.bindVertexArray(null)}function Q(){return window.matchMedia("(prefers-reduced-motion: reduce)").matches}function ee(){return Math.min(2,window.devicePixelRatio||1)}function Y(o,a,e){if(e!==null)return e;let r=(o-a)/1e3;return r-Math.floor(r/11)*11}async function Z(o){let a=o.getAttribute("data-assets-base")??"assets/",e=o.querySelector(".milume-hero__poster"),r=o.querySelector(".milume-hero__canvas");if(!e||!r)throw new Error("milume-hero: missing poster or canvas");let l=null,t=!1;try{l=await D(`${a}hero-points.bin`)}catch{t=!0}let f=!Q()&&!t&&l?H(r,l):null,d=!!f;d?(e.hidden=!0,r.hidden=!1,o.dataset.heroMode="webgl"):(e.hidden=!1,r.hidden=!0,o.dataset.heroMode="poster");let p=d,i=0,s=0,n=0,c=0,u=0,m=null,_=performance.now(),v=0,w=0,b={scale:1,offX:0,offY:0,dpr:1},G=()=>{let A=o.getBoundingClientRect(),L=ee();v=Math.max(1,Math.round(A.width*L)),w=Math.max(1,Math.round(A.height*L)),r.width=v,r.height=w,r.style.width=`${A.width}px`,r.style.height=`${A.height}px`;let y=A.width,R=A.height,h=Math.max(y/1600,R/900);b={scale:h,offX:(y-1600*h)/2,offY:(R-900*h)/2,dpr:L}},S=A=>{if(!f)return;performance.mark("hero-begin");let L=Y(A,_,m);c=0;let y=performance.now();N(f,L,v,w,b),u=performance.now()-y,performance.mark("hero-end");let R=performance.getEntriesByName("hero-frame");for(let k of R)performance.clearMeasures(k.name);performance.measure("hero-frame","hero-begin","hero-end");let h=performance.getEntriesByName("hero-frame").pop();h&&(n=h.duration),performance.clearMarks("hero-begin"),performance.clearMarks("hero-end"),s+=1},M=()=>{i=0,!(!p||!f)&&(S(performance.now()),i=requestAnimationFrame(M))},B=()=>{!p||!d||i||(i=requestAnimationFrame(M))},F=()=>{p=!1,i&&(cancelAnimationFrame(i),i=0)},C=()=>{d&&(m=null,_=performance.now(),p=!0,B())},U=new IntersectionObserver(A=>{A.some(y=>y.isIntersecting)?C():F()},{threshold:.05});U.observe(o);let I=()=>{document.visibilityState==="hidden"?F():o.getBoundingClientRect().bottom>0&&o.getBoundingClientRect().top<window.innerHeight&&C()};document.addEventListener("visibilitychange",I);let O=new ResizeObserver(()=>{G(),B()});return O.observe(o),G(),d&&B(),{pause:F,resume:C,destroy:()=>{F(),U.disconnect(),O.disconnect(),document.removeEventListener("visibilitychange",I)},isLive:()=>d,getFrameId:()=>s,isPaused:()=>!p,getLastFrameMs:()=>n,getLastSimMs:()=>c,getLastDrawMs:()=>u,setTime:A=>{m=A,F(),S(performance.now())},getLoopTime:()=>Y(performance.now(),_,m),renderOnce:()=>S(performance.now())}}async function P(){let o=document.querySelectorAll("[data-milume-hero]"),a=[];for(let e of o)a.push(await Z(e));window.__milumeHeroHandles=a}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{P().catch(()=>{})}):P().catch(()=>{});window.__milumeHeroMount=P;})();
