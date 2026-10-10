@@ -701,20 +701,25 @@ class LandmarksWidget(AnyWidget):
     @command
     def volume_get(self, msg: object, buffers: list[bytes]) -> tuple[object, list[bytes]]:
         """Read one allowlisted zarr file (optional byte range) for the Inspect cube."""
-        from .volume_comm import parse_volume_get_msg, read_volume_bytes
+        from .volume_comm import VolumeReadError, parse_volume_get_msg, read_volume_bytes
 
         if self._volume_store_root is None:
-            return {"ok": False, "status": 404}, []
-        rel, range_spec = parse_volume_get_msg(msg)
-        status, data = read_volume_bytes(
-            self._volume_store_root,
-            self._volume_allow_prefixes,
-            rel,
-            range_spec,
-        )
-        if status == 404:
-            return {"ok": False, "status": 404}, []
-        return {"ok": True, "status": status}, [data]
+            return {"ok": False, "status": 404, "error": "no volume store"}, []
+        try:
+            rel, range_spec = parse_volume_get_msg(msg)
+            outcome = read_volume_bytes(
+                self._volume_store_root,
+                self._volume_allow_prefixes,
+                rel,
+                range_spec,
+            )
+        except VolumeReadError as exc:
+            return {"ok": False, "status": exc.status, "error": exc.message}, []
+        except Exception as exc:  # noqa: BLE001 — comm must always reply
+            return {"ok": False, "status": 500, "error": str(exc)}, []
+        if not outcome.ok:
+            return {"ok": False, "status": outcome.status, "error": outcome.error or "read failed"}, []
+        return {"ok": True, "status": outcome.status}, [outcome.data]
 
     def set_neighbor_graphs(self, *args: Any, **kwargs: Any) -> None:
         """Removed: neighborhood expand is client-side.

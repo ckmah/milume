@@ -60,7 +60,33 @@ def test_widget_comm_serves_only_the_cube_image_and_labels(sdata):
         "expression/genes/zarr.json",
     ):
         denied, bufs = w.volume_get({"path": path}, [])
-        assert denied == {"ok": False, "status": 404} and not bufs
+        assert denied["ok"] is False and denied["status"] == 404 and not bufs
+
+
+@pytest.mark.parametrize(
+    "range_spec",
+    [
+        {"suffixLength": -1},
+        {"offset": -1, "length": 1},
+        {"offset": 0, "length": 0},
+        {"offset": 10_000, "length": 1},
+    ],
+)
+def test_volume_get_rejects_bad_ranges(sdata, range_spec):
+    w = LandmarksWidget(sdata, color="cell_type")
+    meta, bufs = w.volume_get({"path": "images/mosaic/s0/c/0/0/0/0", "range": range_spec}, [])
+    assert meta["ok"] is False
+    assert meta["status"] in (400, 416)
+    assert meta.get("error")
+    assert not bufs
+
+
+def test_volume_get_returns_structured_error_on_internal_failure(sdata):
+    w = LandmarksWidget(sdata, color="cell_type")
+    with patch("milume.volume_comm.read_volume_bytes", side_effect=RuntimeError("boom")):
+        meta, bufs = w.volume_get({"path": "images/mosaic/zarr.json"}, [])
+    assert meta == {"ok": False, "status": 500, "error": "boom"}
+    assert not bufs
 
 
 def test_adata_widget_has_empty_volume(sdata):
