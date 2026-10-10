@@ -124,6 +124,9 @@ export default defineConfig(({ command }) => {
           ? path.resolve(devDir, "landmarks-volume/public")
           : undefined,
       plugins: [react(), tailwindcss(), serveLandmarksVolumeFixture()],
+      define: {
+        __MILUME_VOLUME_FIXTURE_FILE__: JSON.stringify(volumeFixtureFile),
+      },
       resolve: sharedResolve,
       // Viv harnesses need default dep optimization; landmarks excludes Viv.
       optimizeDeps: usesViv ? undefined : { exclude: ["@hms-dbmi/viv"] },
