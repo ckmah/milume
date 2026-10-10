@@ -23,3 +23,9 @@ export function landmarkColor(lm, fallbackIndex = 0) {
   const id = lm?.id ?? "";
   return landmarkStableColor(id, fallbackIndex);
 }
+
+/** Alpha for translucent landmark buffer fill (same hue as stroke). */
+export const LANDMARK_BUFFER_FILL_ALPHA = 0.3;
+
+/** Alpha for landmark buffer outline. */
+export const LANDMARK_BUFFER_LINE_ALPHA = 0.9;

@@ -44,7 +44,12 @@ import {
   blendGeneSrgb,
   LOW_EXPR_SRGB,
 } from "./gene-expression-blend.js";
-import { LANDMARK_COLORS, landmarkColor } from "./landmark-stable-color.js";
+import {
+  LANDMARK_BUFFER_FILL_ALPHA,
+  LANDMARK_BUFFER_LINE_ALPHA,
+  LANDMARK_COLORS,
+  landmarkColor,
+} from "./landmark-stable-color.js";
 import {
   buildSpatialIndex,
   queryNeighbors,
@@ -2749,29 +2754,70 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     return `#${hex(rgba[0])}${hex(rgba[1])}${hex(rgba[2])}`;
   }
 
-  /** Stroke colour from the last-built deck.gl landmark layers (not model recompute). */
+  function rgbaFromLandmarkDatum(props, d) {
+    if (typeof props.getLineColor === "function") {
+      return props.getLineColor(d);
+    }
+    if (typeof props.getColor === "function") {
+      return props.getColor(d);
+    }
+    if (typeof props.getFillColor === "function") {
+      return props.getFillColor(d);
+    }
+    return null;
+  }
+
+  /** Stroke colour from path/shape stroke layers (skips buffer polygons). */
   function readRenderedLandmarkStrokeHex(index) {
     const layers = deckgl?.props?.layers;
     if (!layers?.length) return null;
+    const tryLayer = (layerId, accept) => {
+      for (const layer of layers) {
+        if (layer?.id !== layerId) continue;
+        const props = layer.props ?? layer;
+        const data = props.data;
+        if (!Array.isArray(data)) continue;
+        for (const d of data) {
+          if (d.index !== index || !accept(d)) continue;
+          const hex = rgbaBytesToHex(rgbaFromLandmarkDatum(props, d));
+          if (hex) return hex;
+        }
+      }
+      return null;
+    };
+    return (
+      tryLayer("landmark-paths", (d) => d.landmarkPart === "stroke") ||
+      tryLayer("landmark-polygons", (d) => d.landmarkPart !== "buffer") ||
+      tryLayer("landmark-markers", () => true)
+    );
+  }
+
+  function readRenderedLandmarkBufferFillHex(index) {
+    const layers = deckgl?.props?.layers;
+    if (!layers?.length) return null;
     for (const layer of layers) {
-      const layerId = layer?.id;
-      if (typeof layerId !== "string" || !layerId.startsWith("landmark-")) continue;
+      if (layer?.id !== "landmark-polygons") continue;
       const props = layer.props ?? layer;
       const data = props.data;
       if (!Array.isArray(data)) continue;
       for (const d of data) {
-        if (d.index !== index) continue;
-        let rgba = null;
-        if (typeof props.getLineColor === "function") {
-          rgba = props.getLineColor(d);
-        } else if (typeof props.getColor === "function") {
-          rgba = props.getColor(d);
-        }
-        const hex = rgbaBytesToHex(rgba);
-        if (hex) return hex;
+        if (d.index !== index || d.landmarkPart !== "buffer") continue;
+        const rgba =
+          typeof props.getFillColor === "function"
+            ? props.getFillColor(d)
+            : rgbaFromLandmarkDatum(props, d);
+        return rgbaBytesToHex(rgba);
       }
     }
     return null;
+  }
+
+  function landmarkBufferFillRgba(hex, alphaScale) {
+    return scaleRgbaAlpha(hexToRgbaBytes(hex, LANDMARK_BUFFER_FILL_ALPHA), alphaScale);
+  }
+
+  function landmarkBufferLineRgba(hex, alphaScale) {
+    return scaleRgbaAlpha(hexToRgbaBytes(hex, LANDMARK_BUFFER_LINE_ALPHA), alphaScale);
   }
 
   /** Readable text on a solid landmark-colored chip (WCAG-ish luminance). */
@@ -3087,8 +3133,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         pushBufferPolys(
           polys,
           buffer,
-          scaleRgbaAlpha(hexToRgbaBytes(NEIGH_COLOR, NEIGH_FILL_ALPHA), alphaScale),
-          scaleRgbaAlpha(hexToRgbaBytes(NEIGH_COLOR, NEIGH_LINE_ALPHA), alphaScale),
+          landmarkBufferFillRgba(hex, alphaScale),
+          landmarkBufferLineRgba(hex, alphaScale),
           1.5,
           pick,
         );
@@ -3119,14 +3165,15 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
           fill,
           line,
           width: lw,
+          landmarkPart: "fill",
           ...pick,
         });
         const shapeBuffer = bufferPolygonData(lm);
         pushBufferPolys(
           polys,
           shapeBuffer,
-          scaleRgbaAlpha(hexToRgbaBytes(NEIGH_COLOR, NEIGH_FILL_ALPHA), alphaScale),
-          scaleRgbaAlpha(hexToRgbaBytes(NEIGH_COLOR, NEIGH_LINE_ALPHA), alphaScale),
+          landmarkBufferFillRgba(hex, alphaScale),
+          landmarkBufferLineRgba(hex, alphaScale),
           1.5,
           pick,
         );
@@ -3183,8 +3230,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       pushBufferPolys(
         polys,
         buffer,
-        scaleRgbaAlpha(hexToRgbaBytes(NEIGH_COLOR, NEIGH_FILL_ALPHA), alphaScale),
-        scaleRgbaAlpha(hexToRgbaBytes(NEIGH_COLOR, NEIGH_LINE_ALPHA), alphaScale),
+        landmarkBufferFillRgba(hex, alphaScale),
+        landmarkBufferLineRgba(hex, alphaScale),
         1.5,
         pick,
       );
@@ -3195,11 +3242,21 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
           color: line,
           width: lw,
           dashed,
+          landmarkPart: "stroke",
           ...pick,
         });
         if (["line", "spline", "gradient"].includes(lm.type)) {
           const head = arrowHeadPolygon(path, arrowWorld);
-          if (head) arrows.push({ polygon: head, fill: line, line, width: 1, ...pick });
+          if (head) {
+            arrows.push({
+              polygon: head,
+              fill: line,
+              line,
+              width: 1,
+              landmarkPart: "stroke",
+              ...pick,
+            });
+          }
         }
         (lm.vertices || []).forEach(([x, y], vidx) => {
           if (currentMode !== "node") return;
@@ -4449,13 +4506,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   /** Push buffer fill(s) into `polys` for PolygonLayer (handles shape holes). */
   function pushBufferPolys(polys, buffer, fill, line, width, pick) {
     if (!buffer) return;
+    const tagged = { ...pick, landmarkPart: "buffer" };
     if (Array.isArray(buffer) && buffer[0] && buffer[0].outer) {
       for (const deckPoly of bufferPolysToDeck(buffer)) {
-        polys.push({ polygon: deckPoly, fill, line, width, ...pick });
+        polys.push({ polygon: deckPoly, fill, line, width, ...tagged });
       }
       return;
     }
-    polys.push({ polygon: asPath(buffer), fill, line, width, ...pick });
+    polys.push({ polygon: asPath(buffer), fill, line, width, ...tagged });
   }
 
   function cellLayerFocus() {
@@ -6759,6 +6817,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       });
     },
     landmarkStrokeColor: (index) => readRenderedLandmarkStrokeHex(index),
+    landmarkBufferFillColor: (index) => readRenderedLandmarkBufferFillHex(index),
     getPerfSnapshot: () => ({
       spatialIndexBuilt: Boolean(spatialIndex),
       spatialIndexReadyMs,
