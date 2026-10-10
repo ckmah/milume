@@ -2199,6 +2199,7 @@ test = [
 [package.dev-dependencies]
 dev = [
     { name = "geopandas" },
+    { name = "huggingface-hub" },
     { name = "mkdocstrings-python" },
     { name = "pytest" },
     { name = "ruff" },
@@ -2240,6 +2241,7 @@ provides-extras = ["demo", "test"]
 [package.metadata.requires-dev]
 dev = [
     { name = "geopandas", specifier = ">=1.1.4" },
+    { name = "huggingface-hub", specifier = ">=0.30" },
     { name = "mkdocstrings-python", specifier = ">=2.0.9" },
     { name = "pytest", specifier = ">=8.3.3" },
     { name = "ruff", specifier = ">=0.16.6" },

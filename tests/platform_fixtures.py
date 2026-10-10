@@ -27,3 +27,25 @@ def read_xenium():
 def read_cosmx():
     sio = pytest.importorskip("spatialdata_io")
     return sio.cosmx(COSMX_DIR, dataset_id=COSMX_DATASET_ID, transcripts=False)
+
+
+def read_pyxa(profile: str):
+    """Stellaromics/demo Pyxa slice (``xsmall`` or ``small``) via Hugging Face."""
+    pytest.importorskip("huggingface_hub")
+    from pathlib import Path
+
+    from huggingface_hub import snapshot_download
+    from spatialdata_io.experimental import pyxa
+
+    data_dir = (
+        Path(
+            snapshot_download(
+                "Stellaromics/demo",
+                repo_type="dataset",
+                allow_patterns=f"{profile}/*",
+                ignore_patterns="*cell_assigned_gene*",
+            )
+        )
+        / profile
+    )
+    return pyxa(data_dir, cell_assigned_gene=False, labels=True)
