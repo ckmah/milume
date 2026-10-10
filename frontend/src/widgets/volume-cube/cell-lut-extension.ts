@@ -189,27 +189,6 @@ vec4 cellRimColor(int lx, int ly, int lutH, bool highlighted) {
   return vec4(c.rgb, c.a);
 }
 
-// Fill and contrasting rim for label MIP (max along the ray, then rim over fill).
-void cellMipLayers(ivec3 q, vec3 p, float xLo, float xHi, float yLo, float yHi, float zLo, float zHi, out vec4 fill, out vec4 rim) {
-  fill = vec4(0.0);
-  rim = vec4(0.0);
-  ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
-  int idx = b.x + 256 * (b.y & 127);
-  if (idx == 0) return;
-  bool surface = b.y >= 128;
-  ivec2 size = textureSize(cellLut, 0).xy;
-  int lutH = size.y / 2;
-  int lx = idx % size.x;
-  int ly = idx / size.x;
-  if (ly >= lutH) return;
-  vec4 own = texelFetch(cellLut, ivec3(lx, ly, 0), 0);
-  bool hasRgb = dot(own.rgb, vec3(1.0)) > 1.0 / 255.0;
-  if (!hasRgb || own.a <= 0.0) return;
-  fill = vec4(own.rgb, own.a * cubeRender.cellAlpha);
-  bool showRim = onCutFace(p, xLo, xHi, yLo, yHi, zLo, zHi) && surface && cubeRender.cellOutlineOn > 0.5;
-  if (showRim) rim = cellRimColor(lx, ly, lutH, own.a > 0.5 && hasRgb);
-}
-
 // Colour (linear RGB) and per-sample alpha of the label voxel at texel q.
 // cellLut is two planes: fill rows 0..H/2-1, precomputed outline rows H/2..H-1.
 vec4 cellColor(ivec3 q, vec3 p, float xLo, float xHi, float yLo, float yHi, float zLo, float zHi) {
@@ -270,10 +249,8 @@ const RENDERING = {
   vec4 acc = vec4(0.0);
   float maxImage = -1.0;
   vec4 cells = vec4(0.0);
-  float cellFillMax = 0.0;
-  vec3 cellFillRgb = vec3(0.0);
-  float cellRimMax = 0.0;
-  vec3 cellRimRgb = vec3(0.0);
+  float cellMax = 0.0;
+  vec3 cellMaxRgb = vec3(0.0);
   bool ghosting = cutActive();
   float stepScale = 1.0;`,
   _RENDER: `
@@ -289,20 +266,12 @@ const RENDERING = {
       }
       if (cellsOn && (cubeRender.cellMip > 0.5 || cells.a < 0.95)) {
         if (cubeRender.cellMip > 0.5) {
-          vec4 cellFill;
-          vec4 cellRim;
-          cellMipLayers(
+          vec4 cellMip = canShow * cellColor(
             clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1),
-            p, xLo, xHi, yLo, yHi, zLo, zHi, cellFill, cellRim);
-          cellFill *= canShow;
-          cellRim *= canShow;
-          if (cellFill.a > cellFillMax) {
-            cellFillMax = cellFill.a;
-            cellFillRgb = cellFill.rgb;
-          }
-          if (cellRim.a > cellRimMax) {
-            cellRimMax = cellRim.a;
-            cellRimRgb = cellRim.rgb;
+            p, xLo, xHi, yLo, yHi, zLo, zHi);
+          if (cellMip.a > cellMax) {
+            cellMax = cellMip.a;
+            cellMaxRgb = cellMip.rgb;
           }
         } else {
         ${CELL_SAMPLE}
@@ -324,13 +293,7 @@ const RENDERING = {
     vec4 im = imageSample(maxImage);
     imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
   }
-  vec4 cellsOut = cells;
-  if (cubeRender.cellMip > 0.5) {
-    vec4 fillPm = vec4(cellFillRgb * cellFillMax, cellFillMax);
-    vec4 rimPm = vec4(cellRimRgb * cellRimMax, cellRimMax);
-    cellsOut.rgb = rimPm.rgb + (1.0 - rimPm.a) * fillPm.rgb;
-    cellsOut.a = rimPm.a + (1.0 - rimPm.a) * fillPm.a;
-  }
+  vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb * cellMax, cellMax) : cells;
   color = vec4(
     cellsOut.rgb + (1.0 - cellsOut.a) * imageOut.rgb,
     cellsOut.a + (1.0 - cellsOut.a) * imageOut.a
