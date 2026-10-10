@@ -138,6 +138,8 @@ const summary = {
 };
 summary.orbitMedianDeltaPct =
   ((summary.pr.orbitMs.median - summary.main.orbitMs.median) / summary.main.orbitMs.median) * 100;
+summary.orbitP95DeltaPct =
+  ((summary.pr.orbitMs.p95 - summary.main.orbitMs.p95) / summary.main.orbitMs.p95) * 100;
 
 writeFileSync(`/opt/cursor/artifacts/bench-alternate-${cutMode}-summary.json`, JSON.stringify(summary, null, 2));
 console.log("\n=== summary ===\n", JSON.stringify(summary, null, 2));
