@@ -4,7 +4,7 @@
  * Writes /opt/cursor/artifacts/bench-alternate-raw.jsonl and prints summary.
  */
 import { spawnSync } from "node:child_process";
-import { appendFileSync, copyFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, existsSync, writeFileSync } from "node:fs";
 
 const runsPerRev = Number(process.argv[2] || 5);
 const root = new URL("../..", import.meta.url).pathname;
@@ -22,25 +22,32 @@ function sh(cmd, opts = {}) {
 
 const profile = process.env.BENCH_VOLUME_PROFILE === "small" ? "small" : "toy";
 const expectedLabelIdsLen = profile === "small" ? 23320 : 16;
-const harnessPaths = [
+const harnessRel = [
   "frontend/vite.config.ts",
   "frontend/dev/mock-model.ts",
   "frontend/dev/export-landmarks-volume-fixture.py",
 ];
+const harnessBackupDir = `/opt/cursor/artifacts/harness-overlay-${sh(`git -C ${root} rev-parse HEAD`)}`;
+for (const rel of harnessRel) {
+  const src = `${root}/${rel}`;
+  if (!existsSync(src)) throw new Error(`missing harness file ${src}`);
+  sh(`mkdir -p ${harnessBackupDir}`);
+  copyFileSync(src, `${harnessBackupDir}/${rel.replaceAll("/", "__")}`);
+}
 const smallFixtureBackup =
-  profile === "small" ? `/opt/cursor/artifacts/.harness-landmarks-volume-fixture.small.json` : null;
+  profile === "small" ? `${harnessBackupDir}/landmarks-volume-fixture.small.json` : null;
 if (profile === "small") {
-  harnessPaths.push("frontend/dev/landmarks-volume-fixture.small.json");
-  sh(`cp ${frontend}/dev/landmarks-volume-fixture.small.json ${smallFixtureBackup}`);
+  const smallSrc = `${frontend}/dev/landmarks-volume-fixture.small.json`;
+  if (!existsSync(smallSrc)) throw new Error(`missing ${smallSrc} (export small fixture first)`);
+  copyFileSync(smallSrc, smallFixtureBackup);
 }
 
-function overlayHarnessFrom(prSha) {
-  for (const rel of harnessPaths) {
-    if (rel.endsWith("landmarks-volume-fixture.small.json")) {
-      if (smallFixtureBackup) sh(`cp ${smallFixtureBackup} ${root}/${rel}`);
-      continue;
-    }
-    sh(`git -C ${root} checkout ${prSha} -- ${rel}`);
+function overlayHarnessFrom() {
+  for (const rel of harnessRel) {
+    sh(`cp ${harnessBackupDir}/${rel.replaceAll("/", "__")} ${root}/${rel}`);
+  }
+  if (smallFixtureBackup) {
+    sh(`cp ${smallFixtureBackup} ${root}/frontend/dev/landmarks-volume-fixture.small.json`);
   }
 }
 
@@ -109,7 +116,7 @@ try {
     for (const rev of ["main", "pr"]) {
       const sha = rev === "main" ? mainRev : prRev;
       sh(`git -C ${root} checkout --quiet ${sha}`);
-      if (rev === "main") overlayHarnessFrom(prRev);
+      if (rev === "main") overlayHarnessFrom();
       restartVite();
       spawnSync("sleep", ["2"]);
       const t0 = Date.now();
