@@ -74,8 +74,15 @@ jobs:
           fetch-depth: 0
       - id: check
         run: |
-          count=$(git log --since='24 hours ago' --oneline | wc -l)
-          if [[ "${count}" -gt 0 ]]; then echo "run=true" >> "$GITHUB_OUTPUT"; else echo "run=false" >> "$GITHUB_OUTPUT"; fi
+          set -euo pipefail
+          count=$(git log --since='24 hours ago' --oneline | wc -l | tr -d ' ')
+          if [[ "${count}" -gt 0 ]]; then
+            echo "nightly-activity: run=true (${count} commit(s) on main in the last 24h)"
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "nightly-activity: run=false (no commits on main in the last 24h)"
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          fi
 
   e2e-core:
     needs: changes
