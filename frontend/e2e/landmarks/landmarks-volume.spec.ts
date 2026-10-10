@@ -1566,9 +1566,11 @@ test.describe("Landmarks inspect cube", () => {
     await setModel(page, { volume_cut: [0, cx0 + size / 2 - trim, 0, 256, 0, 64] });
     expect(await cutOf(page)).toEqual([0, cx0 + size / 2 - trim, 0, 256, 0, 64].map((v) => expect.closeTo(v, 3)));
 
+    const view = cubeWindow(page).locator(".volume-cube__view");
     await moveWindow(page, box, [0.5, 0.5], [0.55, 0.5]);
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(cx0);
     const cx1 = Number(await getModel(page, "inspect_cx"));
+    await expect(view).toHaveAttribute("data-refining", "false");
     await expect.poll(async () => (await cutOf(page))[1]).toBeCloseTo(cx1 + size / 2 - trim, 3);
     expect((await cutOf(page))[0]).toBe(0);
 
@@ -1580,6 +1582,7 @@ test.describe("Landmarks inspect cube", () => {
     await moveWindow(page, box, [0.5, 0.5], [0.5, 0.44]);
     await expect.poll(async () => Number(await getModel(page, "inspect_cy"))).not.toBeCloseTo(cy0, 1);
     const cy1 = Number(await getModel(page, "inspect_cy"));
+    await expect(view).toHaveAttribute("data-refining", "false");
     await expect.poll(async () => (await cutOf(page))[2]).toBeCloseTo(cy1 - size / 2 + yTrim, 3);
     expect((await cutOf(page))[3]).toBe(256);
   });
