@@ -490,11 +490,6 @@ class LandmarksWidget(AnyWidget):
 
         See :func:`milume.peek` and the class docstring for parameters and
         notebook traitlets.
-
-        Examples
-        --------
-        >>> w = LandmarksWidget(adata, color="cell_type")
-        >>> w = LandmarksWidget(sdata)  # table, labels, image, frame inferred
         """
         import numpy as np
 

@@ -10,6 +10,10 @@ from pathlib import Path
 MARKER = ":::"
 _ESCAPED_NEWLINE = re.compile(r"\\n")
 _QUOTED_DOCSTRING_LINE = re.compile(r"""^\s*['"].*\\n""")
+_INTERNAL_DOCS_LINK = re.compile(
+    r"https://github\.com/ckmah/milume/blob/[^)\s]+/docs/",
+    re.IGNORECASE,
+)
 
 
 def paths_to_check(site_root: Path) -> list[Path]:
@@ -29,6 +33,8 @@ def lint_agent_text(text: str) -> list[str]:
         if _QUOTED_DOCSTRING_LINE.match(line):
             issues.append("contains a quote-wrapped line with escaped newlines")
             break
+    if _INTERNAL_DOCS_LINK.search(text):
+        issues.append("links to internal engineering docs/ on GitHub")
     return issues
 
 

@@ -31,3 +31,8 @@ website/dist/
 # Agent scratch (SDD ledgers, reports, screenshots)
 frontend/dev/landmarks-volume/public/colon-map-mip.png
 website/content/assets/hero-*
+
+# Generated during website/scripts/assemble-pages.sh
+website/snippets/api-params.md
+website/content/assets/logo/
+website/landing/assets/logo/

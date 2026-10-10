@@ -89,12 +89,20 @@ code {
 }
 
 .wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
   font-family: var(--display);
   font-weight: 600;
   font-size: 1rem;
   letter-spacing: -0.02em;
   color: var(--paper);
   text-decoration: none;
+}
+
+.wordmark-mark {
+  flex: none;
+  display: block;
 }
 
 .site-nav {
