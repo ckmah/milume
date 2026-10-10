@@ -123,7 +123,13 @@ def read_colon_sdata(source: Path):
     if store.is_dir():
         return sd.read_zarr(store)
 
-    sdata = pyxa(source, cell_assigned_gene=False, labels=True)
+    # Mosaic image only: skip label rasterization (OOM on full colon parquet).
+    sdata = pyxa(
+        source,
+        cell_assigned_gene=False,
+        segmentation_geometries=False,
+        labels=False,
+    )
     table = sdata.tables["rna"]
     sdata.tables["rna"] = table[table.obs["Cluster"].notna()].copy()
     store.parent.mkdir(parents=True, exist_ok=True)
@@ -131,46 +137,61 @@ def read_colon_sdata(source: Path):
     return sd.read_zarr(store)
 
 
-def _hero_selection(widget: LandmarksWidget, sdata) -> None:
-    import numpy as np
-    from matplotlib.path import Path
+def _hero_landmarks(widget: LandmarksWidget, sdata) -> None:
+    """Hand-tuned colon A2 hero landmarks (subsample seed 114, 25k cells).
 
-    from milume.volume_source import _frame
+    Vessel: smooth left-tissue spline with a thin buffer (no wide cyan wash).
+    Tumour nest: ~3% of widget bounds area on a dense cluster in the lower-left.
+    """
+    import math
 
-    image_key = next(iter(sdata.images))
-    _scale, origin, shape = _frame(sdata.images[image_key], "global")
-    mx0 = float(origin[2])
-    mx1 = float(origin[2] + shape[2] * _scale[2])
-    my0 = float(origin[1])
-    my1 = float(origin[1] + shape[1] * _scale[1])
-    cx = (mx0 + mx1) / 2
-    cy = (my0 + my1) / 2
-    w = (mx1 - mx0) * 0.28
-    h = (my1 - my0) * 0.24
-    vertices = [
-        [cx - w / 2, cy - h / 2],
-        [cx + w / 2, cy - h / 2],
-        [cx + w / 2, cy + h / 2],
-        [cx - w / 2, cy + h / 2],
+    nest_cx, nest_cy = -820.0, 1020.0
+    nest_rx, nest_ry = 480.0, 390.0
+    tumour_vertices = [
+        [
+            nest_cx + nest_rx * math.cos(a),
+            nest_cy + nest_ry * math.sin(a),
+        ]
+        for a in (
+            0.0,
+            2.0 * math.pi / 5.0,
+            4.0 * math.pi / 5.0,
+            6.0 * math.pi / 5.0,
+            8.0 * math.pi / 5.0,
+        )
     ]
-    x = np.asarray(widget._data_x, dtype=np.float64)
-    y = np.asarray(widget._data_y, dtype=np.float64)
-    inside = Path(vertices).contains_points(np.column_stack([x, y]))
-    point_indices = np.nonzero(inside)[0].astype(int).tolist()
-    widget.selections = [
+    vessel_vertices = [
+        [-1960.0, 1500.0],
+        [-1680.0, 1440.0],
+        [-1380.0, 1480.0],
+        [-1080.0, 1420.0],
+        [-780.0, 1460.0],
+        [-480.0, 1400.0],
+        [-160.0, 1440.0],
+    ]
+
+    widget.selections = []
+    widget.landmarks = [
         {
-            "id": "hero-region",
-            "type": "polygon",
-            "vertices": vertices,
-            "point_indices": point_indices,
-            # kNN neighborhood on so focused selection dims points outside the region.
-            "neighborhood": "knn",
-            "neighborhood_k": 12,
-            "neighborhood_radius": 0,
+            "id": "vessel",
+            "type": "spline",
+            "vertices": vessel_vertices,
+            "tension": 0.35,
+            "buffer_width": 0.0,
+            "buffer_side": "both",
+        },
+        {
+            "id": "tumour nest",
+            "type": "shape",
+            "vertices": tumour_vertices,
+            "tension": 0.0,
+            "buffer_width": 0.0,
+            "buffer_side": "both",
         },
     ]
-    widget.selected_kind = "selection"
-    widget.selected_index = 0
+    widget.mode = "navigate"
+    widget.selected_kind = ""
+    widget.selected_index = -1
     widget.inspect_cx = None
     widget.inspect_cy = None
 
@@ -194,7 +215,7 @@ def write_fixture(sdata, *, cells: int | None, hero: bool) -> None:
     widget.mode = "select"
     widget.landmarks = []
     if hero:
-        _hero_selection(widget, sdata)
+        _hero_landmarks(widget, sdata)
     else:
         widget.selections = []
         widget.selected_kind = ""
@@ -217,7 +238,11 @@ def main() -> None:
         help="skip HF/pyxa build; refresh fixture JSON from an existing zarr store",
     )
     parser.add_argument("--cells", type=int, default=25_000, help="subsample cells for harness JSON")
-    parser.add_argument("--hero", action="store_true", help="add the README hero rectangle selection")
+    parser.add_argument(
+        "--hero",
+        action="store_true",
+        help="add README hero landmarks (vessel spline + tumour nest shape)",
+    )
     args = parser.parse_args()
 
     import spatialdata as sd
