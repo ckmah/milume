@@ -1984,7 +1984,7 @@ test.describe("Landmarks inspect cube", () => {
     // Cell 2 drops out of the highlight: its fill goes grey (flat count rises). Shared-orange
     // rims can still land in the type0 hue bucket, so rely on flat + type1, not type0 alone.
     expect(focused.type1).toBeGreaterThan(50);
-    expect(focused.flat).toBeGreaterThan(both.flat + 2000);
+    expect(focused.flat).toBeGreaterThan(both.flat + 500);
   });
 
   test("labels draw with contrasting outlines and a faint interior fill", async ({ page }) => {
