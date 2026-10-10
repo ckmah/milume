@@ -1,6 +1,6 @@
 /**
  * Pyxa small before (origin/main worktree) vs after (PR branch) with shared zoom.
- * Usage: node scripts/capture-issue-117-pyxa-paired.mjs
+ * Usage: node scripts/capture-issue-117-pyxa-paired.mjs (see PR #117 Verification)
  * Env: MAIN_CAPTURE_URL (default http://127.0.0.1:5175), AFTER_CAPTURE_URL (5174)
  */
 import { createHash } from "node:crypto";
