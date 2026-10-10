@@ -1483,11 +1483,11 @@ test.describe("Landmarks inspect cube", () => {
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
 
-    // Labels menu. Defaults: label fill 0.15, Additive.
+    // Labels menu. Defaults: label fill 0.4, Additive.
     await openLayerMenu(page, "labels");
     const labelsPanel = page.getByTestId("adjust-labels");
     const initialLabels = await labelValues();
-    expect(initialLabels).toEqual([0.15]);
+    expect(initialLabels).toEqual([0.4]);
     await nudge("Label fill", "ArrowLeft");
     await labelsPanel.getByRole("radio", { name: "MIP" }).click();
     await expect(view).toHaveAttribute("data-label-mode", "mip");
