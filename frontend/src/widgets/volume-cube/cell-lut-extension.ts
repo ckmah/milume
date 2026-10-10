@@ -257,7 +257,8 @@ const RENDERING = {
       }
     }
     bool imageDone = cubeRender.imageMip < 0.5 && acc.a >= 0.95;
-    bool cellsDone = !cellsOn || (cubeRender.cellMip < 0.5 && cells.a >= 0.95);
+    float cellTarget = cubeRender.cellAlpha < 0.25 ? 0.68 : 0.95;
+    bool cellsDone = !cellsOn || (cubeRender.cellMip < 0.5 && cells.a >= cellTarget);
     if (imageDone && cellsDone) {
       break;
     }`,
