@@ -24,8 +24,12 @@ async function openInspectCube(page) {
   await page.getByRole("dialog", { name: "Cube" }).waitFor({ timeout: 120_000 });
 }
 
+function cubeView(page) {
+  return page.getByRole("dialog", { name: "Cube" }).locator(".volume-cube__view");
+}
+
 async function waitCubeSettled(page, timeout = 600_000) {
-  const view = page.locator(".volume-cube__view");
+  const view = cubeView(page);
   await view.waitFor({ timeout });
   await expect(view).toHaveAttribute("data-refining", "false", { timeout });
 }
