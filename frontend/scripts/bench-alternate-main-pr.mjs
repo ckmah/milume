@@ -45,13 +45,14 @@ function overlayHarnessFrom(prSha) {
 }
 
 function restartVite() {
+  sh(`fuser -k ${port}/tcp 2>/dev/null || true`);
   sh(`tmux -f /exec-daemon/tmux.portal.conf kill-session -t ${session} 2>/dev/null || true`);
   sh(`find ${frontend}/node_modules/.vite -maxdepth 1 -name 'landmarks-volume-*' -exec rm -rf {} + 2>/dev/null || true`);
   sh(
     `tmux -f /exec-daemon/tmux.portal.conf new-session -d -s ${session} -c ${frontend} -- bash -lc ` +
-      `"npx cross-env DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=${profile} npx vite --host 127.0.0.1 --port ${port}"`,
+      `"npx cross-env DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=${profile} npx vite --host 127.0.0.1 --port ${port} --strictPort"`,
   );
-  for (let i = 0; i < 45; i++) {
+  for (let i = 0; i < 90; i++) {
     try {
       sh(`curl -sf http://127.0.0.1:${port}/ >/dev/null`);
       const len = JSON.parse(sh(`curl -sf http://127.0.0.1:${port}/fixture.json`)).volume_label_ids.length;
