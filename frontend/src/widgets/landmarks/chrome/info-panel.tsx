@@ -190,6 +190,7 @@ export function InfoPanel({
     gene_columns,
     gene_log1p,
     gene_expression_logged,
+    mode,
   } = lm;
 
   const [hoverTypeIndex, setHoverTypeIndex] = useState<number | null>(null);
@@ -462,7 +463,9 @@ export function InfoPanel({
             <FieldDescription className="m-0 text-center">
               {genes.length
                 ? "No expression in this scope."
-                : "Pick genes in Explore to see densities."}
+                : mode === "inspect"
+                  ? "Pick a gene to color cells"
+                  : "Pick genes in Explore to see densities."}
             </FieldDescription>
           </div>
         )

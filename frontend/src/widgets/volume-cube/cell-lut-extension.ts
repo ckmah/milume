@@ -490,7 +490,8 @@ export type HighlightGroup = { name: string; color: string; labels: number[] };
  */
 export type CellColoring =
   | { kind: "instances" }
-  | { kind: "groups"; groups: readonly HighlightGroup[] };
+  | { kind: "groups"; groups: readonly HighlightGroup[] }
+  | { kind: "expression"; byLabel: ReadonlyMap<number, [number, number, number]> };
 
 /** Per-sample alpha of a cell the lookup colours, before the Labels alpha slider (default, see `DEFAULT_RENDER`). */
 const CELL_ALPHA = 0.9;
@@ -544,6 +545,15 @@ export function buildCellLut(coloring: CellColoring, cells: readonly number[]): 
   if (coloring.kind === "instances") {
     // Texel 0 stays clear: every cell has a colour of its own.
     for (let i = 1; i < cells.length; i++) data.set([...instanceColor(cells[i]!), alpha], i * 4);
+    return { data, width, height };
+  }
+  if (coloring.kind === "expression") {
+    const others = hexToLinear(OTHERS.color)!;
+    data.set([...others, Math.round(255 * OTHERS.behindGroups)], 0);
+    for (let i = 1; i < cells.length; i++) {
+      const rgb = coloring.byLabel.get(cells[i]!);
+      if (rgb) data.set([rgb[0], rgb[1], rgb[2], alpha], i * 4);
+    }
     return { data, width, height };
   }
   const { groups } = coloring;
