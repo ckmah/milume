@@ -31,6 +31,35 @@ async function panelSwatchHex(page: Page, label: string) {
   return cssColorToHex(bg);
 }
 
+function rgbFromHex(hex: string): [number, number, number] {
+  const h = hex.replace("#", "");
+  return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)];
+}
+
+function hueDegrees(r: number, g: number, b: number): number {
+  const rn = r / 255;
+  const gn = g / 255;
+  const bn = b / 255;
+  const max = Math.max(rn, gn, bn);
+  const min = Math.min(rn, gn, bn);
+  if (max === min) return 0;
+  const d = max - min;
+  let h = 0;
+  if (max === rn) h = ((gn - bn) / d) % 6;
+  else if (max === gn) h = (bn - rn) / d + 2;
+  else h = (rn - gn) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+
+function expectBufferHueMatchesStroke(strokeHex: string, bufferFillHex: string) {
+  const [rs, gs, bs] = rgbFromHex(strokeHex);
+  const [rb, gb, bb] = rgbFromHex(bufferFillHex);
+  const strokeHue = hueDegrees(rs, gs, bs);
+  const bufferHue = hueDegrees(rb, gb, bb);
+  const delta = Math.min(Math.abs(strokeHue - bufferHue), 360 - Math.abs(strokeHue - bufferHue));
+  expect(delta).toBeLessThan(28);
+}
+
 async function expectLandmarkColorsAligned(page: Page, ids: string[]) {
   const landmarks = (await getModel(page, "landmarks")) as { id: string }[];
   for (let i = 0; i < ids.length; i++) {
@@ -726,5 +755,63 @@ test.describe("LandmarksWidget", () => {
     await expectLandmarkColorsAligned(page, ["custom crypt", "vessel"]);
     const panelHex = await panelSwatchHex(page, "custom crypt");
     expect(panelHex).toBe(explicit);
+  });
+
+  test("buffered spline: swatch matches stroke; buffer tint matches stroke hue", async ({
+    page,
+  }) => {
+    const [xMin, xMax] = (await getModel(page, "x_bounds")) as [number, number];
+    const [yMin, yMax] = (await getModel(page, "y_bounds")) as [number, number];
+    const cx = (xMin + xMax) / 2;
+    const cy = (yMin + yMax) / 2;
+    const landmarks = [
+      {
+        id: "vessel",
+        type: "line",
+        vertices: [[cx - 140, cy - 20], [cx - 40, cy + 10]],
+        buffer_width: 0,
+      },
+      {
+        id: "tumour nest",
+        type: "point",
+        vertices: [[cx + 80, cy + 70]],
+        buffer_width: 0,
+      },
+      {
+        id: "artery",
+        type: "spline",
+        tension: 0.35,
+        buffer_width: 72,
+        buffer_side: "both",
+        vertices: [
+          [cx - 90, cy - 50],
+          [cx - 20, cy - 30],
+          [cx + 50, cy - 10],
+          [cx + 110, cy + 15],
+        ],
+      },
+    ];
+    await setModel(page, {
+      landmarks,
+      selections: [],
+      selected_kind: "",
+      selected_index: -1,
+    });
+    await waitForEngine(page);
+
+    await expectLandmarkColorsAligned(page, ["artery"]);
+    const strokeHex = await page.evaluate(
+      (idx) => (window as any).__landmarksEngine.landmarkStrokeColor(idx) as string,
+      2,
+    );
+    const bufferFillHex = await page.evaluate(
+      (idx) => (window as any).__landmarksEngine.landmarkBufferFillColor(idx) as string,
+      2,
+    );
+    expect(strokeHex).toBe("#ff2d95");
+    expect(bufferFillHex).toBeTruthy();
+    expectBufferHueMatchesStroke(strokeHex!, bufferFillHex!);
+    const panelHex = await panelSwatchHex(page, "artery");
+    expect(panelHex).toBe(strokeHex);
   });
 });
