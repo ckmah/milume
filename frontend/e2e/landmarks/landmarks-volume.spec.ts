@@ -1556,6 +1556,31 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toBeVisible();
   });
 
+  test("partial cut survives Esc, a map move, and cube reopen", async ({ page }) => {
+    test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
+    await reloadWith(page, "window=100");
+    const box = await openCubeAtCentre(page);
+    const cx0 = Number(await getModel(page, "inspect_cx"));
+    const size = Number(await getModel(page, "inspect_size_um"));
+    const trim = 10;
+    await setModel(page, { volume_cut: [0, cx0 + size / 2 - trim, 0, 256, 0, 64] });
+    expect(await cutOf(page)).toEqual([0, cx0 + size / 2 - trim, 0, 256, 0, 64].map((v) => expect.closeTo(v, 3)));
+
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    // Close immediately after Python sets volume_cut (no wait for refining): Esc does not
+    // go through the engine "close" event, so client cube.cut can stay OPEN until reopen.
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+
+    await dragOnMap(page, box, [0.5, 0.5], [0.55, 0.5]);
+    await expect(cubeWindow(page)).toBeVisible();
+    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(cx0);
+    const cx1 = Number(await getModel(page, "inspect_cx"));
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect.poll(async () => (await cutOf(page))[1]).toBeCloseTo(cx1 + size / 2 - trim, 3);
+    expect((await cutOf(page))[0]).toBe(0);
+  });
+
   test("partial X and Y cuts keep their place in a moved window; open edges stay open", async ({ page }) => {
     test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
     await reloadWith(page, "window=100");

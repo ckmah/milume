@@ -29,7 +29,7 @@
     "check:pr-policy": "node scripts/check-pr-policy.mjs",
     "check:widget-issue": "node scripts/check-widget-issue.mjs",
     "test:agent-policy": "node --test scripts/check-agent-policy.test.mjs",
-    "test:unit": "node --test src/widgets/landmarks/neighbor-golden.test.mjs src/widgets/landmarks/neighborhood-perf.test.mjs src/widgets/landmarks/gene-expression-blend.test.mjs src/widgets/landmarks/landmark-stable-color.test.mjs",
+    "test:unit": "node --test src/widgets/landmarks/neighbor-golden.test.mjs src/widgets/landmarks/neighborhood-perf.test.mjs src/widgets/landmarks/gene-expression-blend.test.mjs src/widgets/landmarks/landmark-stable-color.test.mjs && npx tsx --test src/widgets/volume-cube/comm-buffer.test.mjs",
     "verify": "node scripts/verify.mjs"
   },
   "overrides": {

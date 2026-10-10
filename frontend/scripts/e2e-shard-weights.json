@@ -47,6 +47,7 @@
     "dragging a volume face commits that cut and hides tissue outside the cut": 50,
     "layer menus: Image and Labels each have a Reset; bar toggles stay when Reset runs": 78,
     "Esc closes an open layer menu, not the cube": 13,
+    "partial cut survives Esc, a map move, and cube reopen": 28,
     "partial X and Y cuts keep their place in a moved window; open edges stay open": 35,
     "Python's inspect and volume_cut writes are followed, never written back": 25,
     "a Z-only cut leaves X and Y whole for any window, edge windows too": 49,
