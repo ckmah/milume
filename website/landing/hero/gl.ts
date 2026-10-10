@@ -97,9 +97,9 @@ void main() {
     pulseS = u_time - 0.6;
     pulseA = ss(0.0, 1.0, pulseS) * (1.0 - ss(6.0, 9.0, pulseS));
     float ds = length(i_pos - SEL);
-    float core = 0.72 * exp(-pow(ds / 3.8, 2.0)) * ss(0.0, 1.0, pulseS);
-    float ring = 0.32 * exp(-pow((ds - 2.5 - pulseS * 1.4) / 2.6, 2.0)) * ss(0.3, 1.3, pulseS);
-    glow = clamp(core + ring, 0.0, 0.92) * pulseA;
+    float core = 0.85 * exp(-pow(ds / 3.0, 2.0)) * ss(0.0, 1.0, pulseS);
+    float ring = exp(-pow((ds - 2.5 - pulseS * 1.4) / 2.0, 2.0)) * ss(0.3, 1.3, pulseS);
+    glow = clamp(core + 0.4 * ring, 0.0, 1.0) * pulseA;
     float passed = clamp((2.5 + pulseS * 1.4 - ds) / 2.0, 0.0, 1.0) * pulseA;
     col = mix(col, TEAL, 0.08 * passed);
     col = mix(col, TEAL, glow);
@@ -135,34 +135,30 @@ void main() {
   float coverage = min(1.0, pow(pr / rd, 2.0));
   float a = alpha * coverage;
   bool behindFocus = z > zf;
-  if (!crispLayer) {
-    a *= 1.0 + pulseA * 1.12;
-    if (pulseA > 0.0) {
-      bright = max(bright, glow * 0.75 + fog * 0.12);
-    }
-  }
   vec3 gapCol = BG;
   vec3 bgTeal = mix(BG, vec3(9.0 / 255.0, 24.0 / 255.0, 28.0 / 255.0), 0.14);
   vec3 bgUse = crispLayer ? gapCol : bgTeal;
   vec3 rgb = col * bright + bgUse * (1.0 - bright);
   float peak = max(max(rgb.r, rgb.g), rgb.b);
-  if (peak > 0.85 && glow > 0.15) {
+  if (peak > 0.85 && glow > 0.05) {
     rgb *= 0.85 / peak;
   }
   rgb = clamp(rgb, 0.0, 1.0);
 
   if (u_glowPass > 0.5) {
-    float glowCut = mix(0.2, 0.06, pulseA);
-    if (glow < glowCut || a < 0.004) {
+    if (glow < 0.2 || a < 0.004) {
       gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
       v_pm = vec4(0.0);
       v_soft = 0.0;
       v_glow = 0.0;
       return;
     }
-    float haloR = pr * 1.65;
-    float haloA = min(0.24, glow * a * min(1.0, fog * 3.0) * (0.2 + pulseA * 0.12));
-    v_soft = 0.52;
+    float haloR = pr * 1.8;
+    float haloA = glow * a * min(1.0, fog * 3.0) * 0.25;
+    if (haloA > 0.18) {
+      haloA = 0.18;
+    }
+    v_soft = 0.46;
     v_glow = glow;
     v_pm = vec4(TEAL * haloA, haloA);
     float lay = u_layout.x;
@@ -226,7 +222,12 @@ void main() {
   float d = length(p);
   if (d > 0.5) discard;
   float inner = 0.5 - v_soft;
-  float edge = smoothstep(0.5, max(0.02, inner), d);
+  float edge;
+  if (v_soft > 0.34) {
+    edge = exp(-pow(d / 0.5, 2.0) * (2.0 + v_soft * 2.5));
+  } else {
+    edge = smoothstep(0.5, max(0.02, inner), d);
+  }
   float a = v_pm.a * edge;
   vec3 rgb = v_pm.rgb * edge;
   outColor = vec4(rgb, a);
