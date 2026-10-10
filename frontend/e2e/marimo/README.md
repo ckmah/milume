@@ -21,5 +21,7 @@ npm run test:e2e:marimo-volume
 Fast local loop (toy SpatialData, not the Pyxa demo):
 
 ```bash
-E2E_MARIMO_NOTEBOOK=/tmp/remote_landmarks_marimo.py npm run test:e2e:marimo-volume
+E2E_MARIMO_NOTEBOOK=frontend/e2e/marimo/fixtures/toy-landmarks.marimo.py npm run test:e2e:marimo-volume
 ```
+
+Specs: `landmarks-inspect.spec.ts` (volume comm), `landmarks-selection.spec.ts` (lasso + select click).

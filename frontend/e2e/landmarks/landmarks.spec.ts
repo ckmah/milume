@@ -520,6 +520,34 @@ test.describe("LandmarksWidget", () => {
     expect(await target()).toEqual(settled);
   });
 
+  test("lasso stroke commits a selection; survives deck picking-canvas mouseleave", async ({
+    page,
+  }) => {
+    const before = ((await getModel(page, "selections")) as unknown[]).length;
+    await page.getByRole("button", { name: /Lasso/i }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("lasso");
+    const box = await canvasBox(page);
+    const cx = box.x + box.width * 0.5;
+    const cy = box.y + box.height * 0.5;
+    const r = Math.min(box.width, box.height) * 0.25;
+    await page.mouse.move(cx + r, cy);
+    await page.mouse.down();
+    await page.evaluate(() => {
+      const canvas = document.querySelector("canvas.landmarks__webgl");
+      canvas?.dispatchEvent(new MouseEvent("mouseleave", { bubbles: true, relatedTarget: null }));
+    });
+    for (let i = 0; i <= 8; i++) {
+      const a = (i / 8) * Math.PI * 2;
+      await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r, { steps: 2 });
+    }
+    await page.mouse.up();
+    await expect.poll(async () => ((await getModel(page, "selections")) as unknown[]).length).toBeGreaterThan(
+      before,
+    );
+    const sel = ((await getModel(page, "selections")) as { point_indices: number[] }[]).at(-1);
+    expect(sel?.point_indices?.length ?? 0).toBeGreaterThan(0);
+  });
+
   test("rulers: labels sit on the data and follow a pan; a grid line at every tick above the map", async ({
     page,
   }) => {
