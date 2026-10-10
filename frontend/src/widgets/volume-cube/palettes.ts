@@ -20,7 +20,7 @@ export const DEFAULT_RENDER: RenderSettings = {
   palette: "gray",
   imageAlpha: 1,
   imageGamma: 1,
-  cellAlpha: 0.15,
+  cellAlpha: 0.4,
   cellOutlineOn: 1,
 };
 

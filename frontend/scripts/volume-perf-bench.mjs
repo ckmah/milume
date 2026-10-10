@@ -26,6 +26,27 @@ async function bench(page) {
     null,
     { timeout: 120_000 },
   );
+  const cutMode = process.env.BENCH_CUT_MODE === "zcut" ? "zcut" : "uncut";
+  if (cutMode === "zcut") {
+    await page.evaluate(() => {
+      const m = window.__landmarksModel;
+      if (!m) return;
+      const cut = [...m.get("volume_cut")];
+      const z0 = cut[4]!;
+      const z1 = cut[5]!;
+      const mid = (z0 + z1) / 2;
+      const thick = Math.max(6, (z1 - z0) * 0.04);
+      cut[4] = mid - thick / 2;
+      cut[5] = mid + thick / 2;
+      m.set("volume_cut", cut);
+      m.save_changes();
+    });
+    await page.waitForFunction(
+      () => document.querySelector(".volume-cube__view")?.getAttribute("data-refining") === "false",
+      null,
+      { timeout: 120_000 },
+    );
+  }
   // #83 regression: image under labels + face-hover plates while moving the pointer.
   const labels = page.getByTestId("layer-toggle-labels");
   if (await labels.count()) {

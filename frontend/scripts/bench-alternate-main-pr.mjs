@@ -9,7 +9,8 @@ import { appendFileSync, writeFileSync } from "node:fs";
 const runsPerRev = Number(process.argv[2] || 5);
 const root = new URL("../..", import.meta.url).pathname;
 const frontend = `${root}/frontend`;
-const out = "/opt/cursor/artifacts/bench-alternate-raw.jsonl";
+const cutMode = process.env.BENCH_CUT_MODE === "zcut" ? "zcut" : "uncut";
+const out = `/opt/cursor/artifacts/bench-alternate-${cutMode}-raw.jsonl`;
 const port = 5173;
 const session = "volume-vite-bench-alt";
 
@@ -38,7 +39,7 @@ function restartVite() {
 }
 
 function benchOnce() {
-  const json = sh(`cd ${frontend} && node scripts/volume-perf-bench.mjs`);
+  const json = sh(`cd ${frontend} && BENCH_CUT_MODE=${cutMode} node scripts/volume-perf-bench.mjs`);
   return JSON.parse(json);
 }
 
@@ -79,6 +80,7 @@ sh(`git -C ${root} checkout --quiet ${branch}`);
 
 const byRev = (rev) => records.filter((r) => r.rev === rev);
 const summary = {
+  cutMode,
   runsPerRev,
   main: {
     hoverMs: { median: median(byRev("main").map((r) => r.hoverMs)), ...spread(byRev("main").map((r) => r.hoverMs)) },
@@ -92,5 +94,5 @@ const summary = {
 summary.orbitMedianDeltaPct =
   ((summary.pr.orbitMs.median - summary.main.orbitMs.median) / summary.main.orbitMs.median) * 100;
 
-writeFileSync("/opt/cursor/artifacts/bench-alternate-summary.json", JSON.stringify(summary, null, 2));
+writeFileSync(`/opt/cursor/artifacts/bench-alternate-${cutMode}-summary.json`, JSON.stringify(summary, null, 2));
 console.log("\n=== summary ===\n", JSON.stringify(summary, null, 2));

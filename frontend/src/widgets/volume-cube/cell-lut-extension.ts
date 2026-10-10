@@ -59,9 +59,125 @@ type CubeUniforms = Partial<RenderSettings> & {
   cutZ1?: number;
 };
 
-// The module must not share a sampler's name: luma.gl keys a module's
-// uniforms by module name and would set that sampler's texture unit from them.
-const cubeRenderModule = {
+function cubeRenderUniformBlock(extra = "") {
+  return `\
+uniform cubeRenderUniforms {
+  float imageAlpha;
+  float imageGamma;
+  float cellAlpha;
+  ${extra}float cellsOn;
+  float imageOn;
+  float imageScale;
+  float imageMip;
+  float cellMip;
+  float cutX0;
+  float cutX1;
+  float cutY0;
+  float cutY1;
+  float cutZ0;
+  float cutZ1;
+} cubeRender;`;
+}
+
+const CUBE_RENDER_INJECT = {
+  "fs:DECKGL_PROCESS_INTENSITY":
+    "intensity = apply_contrast_limits(intensity * cubeRender.imageScale, contrastLimits);",
+};
+
+const CUBE_RENDER_SHARED_FS = `\
+${cubeRenderUniformBlock()}
+// All 3D textures, the lookups one texel deep: luma.gl validates the program
+// before it assigns texture units, and a sampler2D beside Viv's sampler3Ds (all
+// on unit 0 then) fails that validation.
+uniform highp sampler3D imagePalette;
+uniform highp sampler3D cellLut;
+// RG8 per voxel: local cell index r + 256 * (g & 127), surface flag g & 128.
+uniform highp sampler3D labelVolume;
+
+vec3 srgbToLinear(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
+
+// Alpha of that many composited samples. A step of 1 leaves a unchanged.
+float cover(float a, float steps) {
+  return 1.0 - pow(clamp(1.0 - a, 0.0, 1.0), steps);
+}
+
+// Image value after contrast -> (linear rgb, per-sample alpha); clear with the image off.
+vec4 imageSample(float v) {
+  float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
+  vec3 c = srgbToLinear(texelFetch(imagePalette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
+  return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
+}
+`;
+
+// Uncut / open window: same shader module as origin/main (single-plane LUT, no rim path).
+const cubeRenderModuleMain = {
+  name: "cubeRender",
+  uniformTypes: {
+    imageAlpha: "f32",
+    imageGamma: "f32",
+    cellAlpha: "f32",
+    cellsOn: "f32",
+    imageOn: "f32",
+    imageScale: "f32",
+    imageMip: "f32",
+    cellMip: "f32",
+    cutX0: "f32",
+    cutX1: "f32",
+    cutY0: "f32",
+    cutY1: "f32",
+    cutZ0: "f32",
+    cutZ1: "f32",
+  },
+  defaultUniforms: {
+    imageAlpha: 1,
+    imageGamma: 1,
+    cellAlpha: DEFAULT_RENDER.cellAlpha,
+    cellsOn: 0,
+    imageOn: 1,
+    imageScale: 1,
+    imageMip: 0,
+    cellMip: 0,
+    cutX0: 0,
+    cutX1: 1,
+    cutY0: 0,
+    cutY1: 1,
+    cutZ0: 0,
+    cutZ1: 1,
+  },
+  getUniforms: (render: CubeUniforms = {}) => ({
+    imageAlpha: render.imageAlpha ?? DEFAULT_RENDER.imageAlpha,
+    imageGamma: render.imageGamma ?? DEFAULT_RENDER.imageGamma,
+    cellAlpha: render.cellAlpha ?? DEFAULT_RENDER.cellAlpha,
+    cellsOn: render.cellsOn ?? 0,
+    imageOn: render.imageOn ?? 1,
+    imageScale: render.imageScale ?? 1,
+    imageMip: render.imageMip ?? 0,
+    cellMip: render.cellMip ?? 0,
+    cutX0: render.cutX0 ?? 0,
+    cutX1: render.cutX1 ?? 1,
+    cutY0: render.cutY0 ?? 0,
+    cutY1: render.cutY1 ?? 1,
+    cutZ0: render.cutZ0 ?? 0,
+    cutZ1: render.cutZ1 ?? 1,
+  }),
+  inject: CUBE_RENDER_INJECT,
+  fs: `${CUBE_RENDER_SHARED_FS}
+// Colour (linear RGB) and per-sample alpha of the label voxel at texel q.
+vec4 cellColor(ivec3 q) {
+  ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
+  int idx = b.x + 256 * (b.y & 127);
+  if (idx == 0) return vec4(0.0);
+  ivec2 size = textureSize(cellLut, 0).xy;
+  vec4 own = vec4(0.0);
+  if (idx < size.x * size.y) own = texelFetch(cellLut, ivec3(idx % size.x, idx / size.x, 0), 0);
+  vec4 c = own.a > 0.0 ? own : texelFetch(cellLut, ivec3(0), 0);
+  return c;
+}
+`,
+};
+
+// Active cut with outlines: dual-plane LUT and rim fetches only on the cut face.
+const cubeRenderModuleCut = {
   name: "cubeRender",
   uniformTypes: {
     imageAlpha: "f32",
@@ -97,7 +213,6 @@ const cubeRenderModule = {
     cutZ0: 0,
     cutZ1: 1,
   },
-  // Only the numbers reach the uniform block; the palette is a texture.
   getUniforms: (render: CubeUniforms = {}) => ({
     imageAlpha: render.imageAlpha ?? DEFAULT_RENDER.imageAlpha,
     imageGamma: render.imageGamma ?? DEFAULT_RENDER.imageGamma,
@@ -115,49 +230,18 @@ const cubeRenderModule = {
     cutZ0: render.cutZ0 ?? 0,
     cutZ1: render.cutZ1 ?? 1,
   }),
-  // Viv's contrast ramp on the raw value: a unorm image texture (r8unorm,
-  // r16unorm) samples as value / max, and imageScale (max; 1 for float)
-  // undoes that first, so contrast limits mean what they did at float32.
-  // Defined here, the hook replaces Viv's default ramp (XR3DLayer.getShaders).
-  inject: {
-    "fs:DECKGL_PROCESS_INTENSITY":
-      "intensity = apply_contrast_limits(intensity * cubeRender.imageScale, contrastLimits);",
-  },
-  fs: `\
-uniform cubeRenderUniforms {
-  float imageAlpha;
-  float imageGamma;
-  float cellAlpha;
-  float cellOutlineOn;
-  float cellsOn;
-  float imageOn;
-  float imageScale;
-  float imageMip;
-  float cellMip;
-  float cutX0;
-  float cutX1;
-  float cutY0;
-  float cutY1;
-  float cutZ0;
-  float cutZ1;
-} cubeRender;
-
-// All 3D textures, the lookups one texel deep: luma.gl validates the program
-// before it assigns texture units, and a sampler2D beside Viv's sampler3Ds (all
-// on unit 0 then) fails that validation.
+  inject: CUBE_RENDER_INJECT,
+  fs: `${cubeRenderUniformBlock("float cellOutlineOn;\n  ")}
 uniform highp sampler3D imagePalette;
 uniform highp sampler3D cellLut;
-// RG8 per voxel: local cell index r + 256 * (g & 127), surface flag g & 128.
 uniform highp sampler3D labelVolume;
 
 vec3 srgbToLinear(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
 
-// Alpha of that many composited samples. A step of 1 leaves a unchanged.
 float cover(float a, float steps) {
   return 1.0 - pow(clamp(1.0 - a, 0.0, 1.0), steps);
 }
 
-// Image value after contrast -> (linear rgb, per-sample alpha); clear with the image off.
 vec4 imageSample(float v) {
   float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
   vec3 c = srgbToLinear(texelFetch(imagePalette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
@@ -218,7 +302,10 @@ const CELL_SETUP = `
   ivec3 cellSize = textureSize(labelVolume, 0);
   bool cellsOn = cubeRender.cellsOn > 0.5;`;
 
-const CELL_SAMPLE = `
+const CELL_SAMPLE_MAIN = `
+    vec4 cell = canShow * cellColor(clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1));`;
+
+const CELL_SAMPLE_CUT = `
     vec4 cell = canShow * cellColor(
       clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1),
       p, xLo, xHi, yLo, yHi, zLo, zHi);`;
@@ -244,7 +331,62 @@ const IN_CUT = `
       && p.y >= yLo - 0.002 && p.y <= yHi + 0.002
       && p.z >= zLo - 0.002 && p.z <= zHi + 0.002;`;
 
-const RENDERING = {
+const RENDERING_MAIN = {
+  _BEFORE_RENDER: `${CELL_SETUP}
+  vec4 acc = vec4(0.0);
+  float maxImage = -1.0;
+  vec4 cells = vec4(0.0);
+  float cellMax = 0.0;
+  vec3 cellMaxRgb = vec3(0.0);
+  bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
+    || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
+    || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
+  float stepScale = 1.0;`,
+  _RENDER: `
+    ${IN_CUT}
+    if (!(ghosting && !inCut)) {
+      if (cubeRender.imageMip > 0.5) {
+        maxImage = max(maxImage, intensityValue0);
+      } else if (acc.a < 0.95) {
+        vec4 im = imageSample(intensityValue0);
+        float a = cover(im.a, stepScale);
+        acc.rgb += (1.0 - acc.a) * a * im.rgb;
+        acc.a += (1.0 - acc.a) * a;
+      }
+      if (cellsOn && (cubeRender.cellMip > 0.5 || cells.a < 0.95)) {
+        ${CELL_SAMPLE_MAIN}
+        if (cubeRender.cellMip > 0.5) {
+          if (cell.a > cellMax) {
+            cellMax = cell.a;
+            cellMaxRgb = cell.rgb;
+          }
+        } else {
+          float a = cover(cell.a, stepScale);
+          cells.rgb += (1.0 - cells.a) * a * cell.rgb;
+          cells.a += (1.0 - cells.a) * a;
+        }
+      }
+    }
+    bool imageDone = cubeRender.imageMip < 0.5 && acc.a >= 0.95;
+    bool cellsDone = !cellsOn || (cubeRender.cellMip < 0.5 && cells.a >= 0.95);
+    if (imageDone && cellsDone) {
+      break;
+    }`,
+  _AFTER_RENDER: `
+  vec4 imageOut = acc;
+  if (cubeRender.imageMip > 0.5) {
+    vec4 im = imageSample(maxImage);
+    imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
+  }
+  vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb * cellMax, cellMax) : cells;
+  cellsOut *= cubeRender.cellAlpha;
+  color = vec4(
+    cellsOut.rgb + (1.0 - cellsOut.a) * imageOut.rgb,
+    cellsOut.a + (1.0 - cellsOut.a) * imageOut.a
+  );`,
+};
+
+const RENDERING_CUT = {
   _BEFORE_RENDER: `${CELL_SETUP}
   vec4 acc = vec4(0.0);
   float maxImage = -1.0;
@@ -274,7 +416,7 @@ const RENDERING = {
             cellMaxRgb = cellMip.rgb;
           }
         } else {
-        ${CELL_SAMPLE}
+        ${CELL_SAMPLE_CUT}
           float a = cover(cell.a, stepScale);
           cells.rgb += (1.0 - cells.a) * a * cell.rgb;
           cells.a += (1.0 - cells.a) * a;
@@ -333,7 +475,7 @@ type LayerLike = {
     } | null;
     cellLutTexture?: Texture | null;
     /** What `cellLutTexture` was built for. */
-    cellLutFor?: { cells: CellVolume | null; coloring: CellColoring | null } | null;
+    cellLutFor?: { cells: CellVolume | null; coloring: CellColoring | null; mode?: string } | null;
     boundCells?: CellVolume | null;
     /** Format of the image texture last drawn. */
     boundImage?: ImageFormat | null;
@@ -396,19 +538,27 @@ function bindCells(layer: LayerLike): CellVolume | null {
   return want;
 }
 
-/** The cube's raycast, with or without labels, each layer in its own projection. */
-class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
-  static componentName = "CubeExtension";
-  static extensionName = "CubeExtension";
-  rendering: typeof RENDERING;
+type RenderingHooks = typeof RENDERING_MAIN;
 
-  constructor(rendering: typeof RENDERING) {
+/** The cube's raycast, with or without labels, each layer in its own projection. */
+class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
+  rendering: RenderingHooks;
+  readonly shaderModule: typeof cubeRenderModuleMain;
+  readonly cutOutlineLut: boolean;
+
+  constructor(
+    rendering: RenderingHooks,
+    shaderModule: typeof cubeRenderModuleMain,
+    cutOutlineLut: boolean,
+  ) {
     super();
     this.rendering = rendering;
+    this.shaderModule = shaderModule;
+    this.cutOutlineLut = cutOutlineLut;
   }
 
   getVivShaderTemplates() {
-    return { modules: [cubeRenderModule] };
+    return { modules: [this.shaderModule] };
   }
 
   // deck.gl calls these with `this` bound to the layer.
@@ -446,12 +596,25 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
     const coloring = layer.props.cellColoring ?? null;
     // The lookup follows the labels actually bound, so a window Viv is still
     // replacing keeps its own colours.
+    const ext = this as CubeExtensionBase;
     const lutFor = layer.state.cellLutFor;
-    if (!layer.state.cellLutTexture || !lutFor || lutFor.cells !== cells || lutFor.coloring !== coloring) {
+    const lutMode = ext.cutOutlineLut ? "cut" : "main";
+    if (
+      !layer.state.cellLutTexture ||
+      !lutFor ||
+      lutFor.cells !== cells ||
+      lutFor.coloring !== coloring ||
+      lutFor.mode !== lutMode
+    ) {
       layer.state.cellLutTexture?.destroy();
-      const lut = cells && coloring ? buildCellLut(coloring, cells.cells) : EMPTY_CELL_LUT;
+      const lut =
+        cells && coloring
+          ? ext.cutOutlineLut
+            ? buildCellLutWithCutOutlines(coloring, cells.cells)
+            : buildCellLut(coloring, cells.cells)
+          : EMPTY_CELL_LUT;
       layer.state.cellLutTexture = lookupTexture(layer, lut);
-      layer.state.cellLutFor = { cells, coloring };
+      layer.state.cellLutFor = { cells, coloring, mode: lutMode };
     }
     const labelVolume = cells?.texture(layer.context.device) ?? null;
     const cellsOn = labelVolume && coloring ? 1 : 0;
@@ -498,7 +661,37 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
   }
 }
 
-export const CUBE_EXTENSIONS: unknown[] = [new CubeExtension(RENDERING)];
+class CubeExtension extends CubeExtensionBase {
+  static componentName = "CubeExtension";
+  static extensionName = "CubeExtension";
+  constructor() {
+    super(RENDERING_MAIN, cubeRenderModuleMain, false);
+  }
+}
+
+class CubeCutOutlineExtension extends CubeExtensionBase {
+  static componentName = "CubeCutOutlineExtension";
+  static extensionName = "CubeCutOutlineExtension";
+  constructor() {
+    super(RENDERING_CUT, cubeRenderModuleCut, true);
+  }
+}
+
+/** True when an inset cut and cut outlines warrant the dual-LUT shader variant. */
+export function cutOutlineShaderActive(
+  cutFrac: number[] | null | undefined,
+  render: RenderSettings | null | undefined,
+): boolean {
+  if (!cutFrac || (render?.cellOutlineOn ?? DEFAULT_RENDER.cellOutlineOn) < 0.5) return false;
+  return (
+    cutFrac[1]! - cutFrac[0]! < 0.999 ||
+    cutFrac[3]! - cutFrac[2]! < 0.999 ||
+    cutFrac[5]! - cutFrac[4]! < 0.999
+  );
+}
+
+export const CUBE_EXTENSIONS: unknown[] = [new CubeExtension()];
+export const CUBE_EXTENSIONS_CUT_OUTLINE: unknown[] = [new CubeCutOutlineExtension()];
 
 function srgbToLinear(c: number): number {
   const s = c / 255;
@@ -610,12 +803,49 @@ export function instanceColor(id: number): [number, number, number] {
   return rgb.map((c) => Math.round(srgbToLinear(Math.round(c * 255)) * 255)) as [number, number, number];
 }
 
+/** Per-texel weight in the LUT; final opacity is weight × `cellAlpha` in the main shader. */
+const CELL_ALPHA = 0.9;
+
 /**
- * Lookup texture for one window's cells (`cells[i]`: the global id of local
- * index i). Texel 0: the colour of cells the lookup gives none; texel i: cell
- * i's own colour, or clear when it has none (a later group wins).
+ * Single-plane lookup (origin/main). Used whenever the cut-outline shader is off.
  */
 export function buildCellLut(coloring: CellColoring, cells: readonly number[]): CellLut {
+  const n = Math.max(1, cells.length);
+  const width = Math.min(CELL_LUT_WIDTH, n);
+  const height = Math.ceil(n / width);
+  const data = new Uint8Array(width * height * 4);
+  const alpha = Math.round(255 * CELL_ALPHA);
+  if (coloring.kind === "instances") {
+    for (let i = 1; i < cells.length; i++) data.set([...instanceColor(cells[i]!), alpha], i * 4);
+    return { data, width, height };
+  }
+  if (coloring.kind === "expression") {
+    const others = hexToLinear(OTHERS.color)!;
+    data.set([...others, Math.round(255 * OTHERS.behindGroups)], 0);
+    for (let i = 1; i < cells.length; i++) {
+      const rgb = coloring.byLabel.get(cells[i]!);
+      if (rgb) data.set([rgb[0], rgb[1], rgb[2], alpha], i * 4);
+    }
+    return { data, width, height };
+  }
+  const { groups } = coloring;
+  const others = hexToLinear(OTHERS.color)!;
+  data.set([...others, Math.round(255 * (groups.length ? OTHERS.behindGroups : OTHERS.alpha))], 0);
+  const colour = new Map<number, [number, number, number]>();
+  for (const g of groups) {
+    const rgb = hexToLinear(g.color);
+    if (!rgb) continue;
+    for (const id of g.labels) if (id > 0) colour.set(id, rgb);
+  }
+  for (let i = 1; i < cells.length; i++) {
+    const rgb = colour.get(cells[i]!);
+    if (rgb) data.set([rgb[0], rgb[1], rgb[2], alpha], i * 4);
+  }
+  return { data, width, height };
+}
+
+/** Dual-plane lookup with precomputed contrasting rims for the cut-face shader. */
+export function buildCellLutWithCutOutlines(coloring: CellColoring, cells: readonly number[]): CellLut {
   const n = Math.max(1, cells.length);
   const width = Math.min(CELL_LUT_WIDTH, n);
   const fillRows = Math.ceil(n / width);

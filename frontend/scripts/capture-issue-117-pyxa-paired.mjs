@@ -4,14 +4,61 @@
  * Env: MAIN_CAPTURE_URL (5175), AFTER_CAPTURE_URL (5174), MILUME_VOLUME_PROFILE=small on both servers.
  */
 import { createHash } from "node:crypto";
-import { readFileSync, mkdirSync } from "node:fs";
+import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { chromium } from "@playwright/test";
 
-const outDir = "/opt/cursor/artifacts";
+const outDir = process.env.CAPTURE_OUT ?? "/opt/cursor/artifacts";
 const mainUrl = process.env.MAIN_CAPTURE_URL ?? "http://127.0.0.1:5175";
 const afterUrl = process.env.AFTER_CAPTURE_URL ?? "http://127.0.0.1:5174";
 
 mkdirSync(outDir, { recursive: true });
+
+async function countDiffPixels(beforePath, afterPath, threshold = 18) {
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  const n = await page.evaluate(
+    async ({ beforeB64, afterB64, threshold }) => {
+      const load = async (b64) => {
+        const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(bitmap, 0, 0);
+        return ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
+      };
+      const [a, b] = [await load(beforeB64), await load(afterB64)];
+      let n = 0;
+      for (let i = 0; i < a.length; i += 4) {
+        const d = Math.abs(a[i]! - b[i]!) + Math.abs(a[i + 1]! - b[i + 1]!) + Math.abs(a[i + 2]! - b[i + 2]!);
+        if (d > threshold) n++;
+      }
+      return n;
+    },
+    {
+      beforeB64: readFileSync(beforePath).toString("base64"),
+      afterB64: readFileSync(afterPath).toString("base64"),
+      threshold,
+    },
+  );
+  await browser.close();
+  return n;
+}
+
+async function applyZCutThroughCells(page) {
+  await page.evaluate(() => {
+    const m = window.__landmarksModel;
+    if (!m) return;
+    const cut = [...(m.get("volume_cut") as number[])];
+    const z0 = cut[4]!;
+    const z1 = cut[5]!;
+    const span = z1 - z0;
+    const mid = (z0 + z1) / 2;
+    const thick = Math.max(6, span * 0.04);
+    cut[4] = mid - thick / 2;
+    cut[5] = mid + thick / 2;
+    m.set("volume_cut", cut);
+    m.save_changes();
+  });
+}
 
 async function captureSet(base, tag) {
   const browser = await chromium.launch();
@@ -45,17 +92,18 @@ async function captureSet(base, tag) {
     await view.screenshot({ path: uncutTop });
     console.log("wrote", uncutTop, "from", base);
 
-    await page.evaluate(() => {
-      const m = window.__landmarksModel;
-      if (m) m.set("volume_cut", [0, 1e9, 0, 1e9, 12, 18]);
-      m?.save_changes?.();
-    });
+    await applyZCutThroughCells(page);
     await page.waitForFunction(
       () => document.querySelector(".volume-cube__view")?.getAttribute("data-refining") === "false",
       null,
       { timeout: 300_000 },
     );
     await bar.getByRole("radio", { name: "Side view" }).click({ timeout: 120_000 });
+    await page.waitForFunction(
+      () => document.querySelector(".volume-cube__view")?.getAttribute("data-pitch") === "0",
+      null,
+      { timeout: 60_000 },
+    );
     await page.waitForTimeout(800);
     const zcutSide = `${outDir}/issue-117-pyxa-${tag}-zcut-side.png`;
     await view.screenshot({ path: zcutSide });
@@ -75,17 +123,24 @@ console.log("=== AFTER (PR branch)", afterUrl);
 await captureSet(afterUrl, "after");
 
 const shots = ["uncut-top", "zcut-side"];
+const report = [];
 console.log("\n=== MD5 ===");
 for (const shot of shots) {
   const before = `${outDir}/issue-117-pyxa-before-${shot}.png`;
   const after = `${outDir}/issue-117-pyxa-after-${shot}.png`;
   const hb = md5(before);
   const ha = md5(after);
-  console.log("before", shot, hb);
-  console.log("after ", shot, ha);
-  if (hb === ha) {
-    console.error(`FAIL: ${shot} before/after identical`);
+  const diffPx = await countDiffPixels(before, after);
+  console.log(shot, "before", hb, "after", ha, "diffPx", diffPx);
+  report.push({ shot, before: hb, after: ha, diffPx });
+  if (shot === "uncut-top" && hb !== ha) {
+    console.error(`FAIL: uncut-top should match main (got different hashes)`);
+    process.exit(1);
+  }
+  if (shot === "zcut-side" && diffPx < 200) {
+    console.error(`FAIL: zcut-side before/after pixel diff too low (${diffPx})`);
     process.exit(1);
   }
 }
-console.log("OK: paired captures differ");
+writeFileSync(`${outDir}/issue-117-pyxa-paired-report.json`, JSON.stringify(report, null, 2));
+console.log("OK: paired captures validated");

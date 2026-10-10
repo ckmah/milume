@@ -1911,8 +1911,8 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-label-mode", "mip");
     await expect(view).toHaveAttribute("data-refining", "false");
     const mip = await newCategoryPixels(page, off, await view.screenshot(), 0.05, TINT.hueTolerance);
-    expect(mip.type1.count).toBeGreaterThan(15);
-    expect(mip.type0.count).toBeGreaterThan(15);
+    expect(mip.type1.count).toBeGreaterThan(50);
+    expect(mip.type0.count).toBeGreaterThan(50);
     expect(mip.type0.x).toBeGreaterThan(mip.type1.x + 20);
     expect(mip.type0.y).toBeLessThan(mip.type1.y - 20);
   });
