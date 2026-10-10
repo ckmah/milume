@@ -6,6 +6,7 @@ import type { CubeCut } from "@/widgets/volume-cube/VolumeCube";
 import {
   type CutWindow,
   OPEN_CUT,
+  type RelativeCut,
   committedCut,
   cutWindow,
   shownCut,
@@ -100,9 +101,40 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   const hasVolume = Boolean(lm.volume?.image_url);
   const defaultContrast = lm.volume?.contrast_limits ?? DEFAULT_CONTRAST;
   const volumeCut = lm.volume_cut?.length === 6 ? (lm.volume_cut as CubeCut) : null;
-  const [cube, patchCube] = useCubeSettings(
+  const preservedRelRef = useRef<RelativeCut | null>(null);
+  const [cube, patchCubeInner] = useCubeSettings(
     defaultContrast,
     volumeCut ? { ...OPEN_CUT, z: [volumeCut[4], volumeCut[5]] } : OPEN_CUT,
+  );
+  const cubeOpenRef = useRef(cube.open);
+  cubeOpenRef.current = cube.open;
+  const patchCube = useCallback(
+    (p: CubeSettingsPatch) => {
+      if (p.open === false && cubeOpenRef.current && lm.inspect_cx != null && lm.inspect_cy != null) {
+        const cut = facade.get("volume_cut");
+        if (Array.isArray(cut) && cut.length === 6) {
+          const origin = lm.volume?.origin_um ?? NO_ORIGIN;
+          const bounds = cube.bounds;
+          const volume = bounds
+            ? { x: bounds.volumeX, y: bounds.volumeY, z: bounds.stackZ }
+            : null;
+          const win = cutWindow(
+            lm.inspect_cx,
+            lm.inspect_cy,
+            lm.inspect_size_um || INSPECT_WINDOW_UM,
+            { x: origin[2], y: origin[1] },
+            volume,
+          );
+          preservedRelRef.current = toRelativeCut(cut as CubeCut, win);
+        }
+      }
+      if (p.open === true && preservedRelRef.current != null && p.cut === undefined) {
+        patchCubeInner({ ...p, cut: preservedRelRef.current });
+        return;
+      }
+      patchCubeInner(p);
+    },
+    [cube.bounds, cube.cut, facade, lm.inspect_cx, lm.inspect_cy, lm.inspect_size_um, lm.volume?.origin_um, patchCubeInner],
   );
 
   // Leaving Inspect goes back to the tool used before it.
@@ -214,19 +246,39 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   // for the volume extent, which decides whether an edge is open.
   const volumeCutKey = volumeCut?.join(",") ?? "";
   const pendingRef = useRef<CubeCut | "open" | null>(volumeCut ?? "open");
+  const adoptPendingRef = useRef(true);
   useEffect(() => {
     if (volumeCutKey === writtenRef.current) writtenRef.current = null;
-    else pendingRef.current = volumeCut ?? "open";
+    else {
+      pendingRef.current = volumeCut ?? "open";
+      adoptPendingRef.current = true;
+      preservedRelRef.current = null;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [volumeCutKey]);
   useEffect(() => {
     const p = pendingRef.current;
     if (p == null) return;
+    const rel = cube.cut;
+    const openXY = rel.x[0] === null && rel.x[1] === null && rel.y[0] === null && rel.y[1] === null;
+    if (!openXY && win && volume && p !== "open" && Array.isArray(p)) {
+      const committed = committedCut(rel, win, volume).join(",");
+      const pending = p.join(",");
+      if (committed === pending) {
+        pendingRef.current = null;
+        adoptPendingRef.current = false;
+        return;
+      }
+      // Stale absolute cut after a map move: keep the relative cut until settle writes.
+      if (!adoptPendingRef.current) return;
+    }
     if (p === "open") {
       pendingRef.current = null;
+      adoptPendingRef.current = false;
       patchCube({ cut: OPEN_CUT });
     } else if (win && volume) {
       pendingRef.current = null;
+      adoptPendingRef.current = false;
       patchCube({ cut: toRelativeCut(p, win) });
     } else if (cube.cut.z[0] !== p[4] || cube.cut.z[1] !== p[5]) {
       patchCube({ cut: { ...cube.cut, z: [p[4], p[5]] } });
@@ -291,7 +343,9 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
       const { rel, win: w, volume: v, cx: x, cy: y } = latest.current;
       if (!w || !v || !atPlacement(placedRef.current, x, y)) return;
       placedRef.current = null;
-      write(committedCut(rel, w, v));
+      const relForCommit = preservedRelRef.current ?? rel;
+      preservedRelRef.current = null;
+      write(committedCut(relForCommit, w, v));
     }, SETTLE_MS);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps

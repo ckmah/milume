@@ -166,6 +166,48 @@ jobs:
 
   # One stable check to require in branch protection: path-gated jobs may be skipped,
   # which a required check cannot tolerate; this job passes unless a tier failed.
+  e2e-marimo-volume:
+    needs: changes
+    if: needs.changes.outputs.marimo_volume == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: astral-sh/setup-uv@v5
+      - name: Install Python deps (demo + editable milume)
+        run: uv sync --extra demo
+        working-directory: .
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - run: npm run build
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: marimo-e2e-hf-${{ runner.os }}-${{ hashFiles('demos/landmarks.py') }}
+          restore-keys: marimo-e2e-hf-${{ runner.os }}-
+      - name: Prefetch Stellaromics/demo small (landmarks.py)
+        run: uv run --extra demo python frontend/scripts/prefetch-marimo-e2e-data.py
+        working-directory: .
+      - name: Run marimo kernel volume e2e
+        run: npm run test:e2e:marimo-volume
+        env:
+          CI: true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-test-results-marimo-volume
+          path: frontend/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
   post-ui-evidence-comment:
     needs: [changes, e2e-landmarks]
     if: github.event_name == 'pull_request' && needs.changes.outputs.landmarks == 'true'
@@ -193,7 +235,7 @@ jobs:
         run: node frontend/scripts/post-pr-playwright-comment.mjs
 
   gate:
-    needs: [changes, e2e-core, e2e-landmarks, post-ui-evidence-comment]
+    needs: [changes, e2e-core, e2e-landmarks, e2e-marimo-volume, post-ui-evidence-comment]
     if: always()
     runs-on: ubuntu-latest
     steps:

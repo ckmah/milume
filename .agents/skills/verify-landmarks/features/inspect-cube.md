@@ -13,7 +13,10 @@ inside the cube. Esc closes the cube and stays in Inspect; a second Esc, or
 **Exit Inspect** on the pill, leaves Inspect for the tool used before.
 
 **Spec:** `frontend/e2e/landmarks/landmarks-volume.spec.ts` — `"Landmarks inspect cube"` describe block
-(`E2E_HARNESS=landmarks-volume`, run via `npm run test:e2e:landmarks`)
+(`E2E_HARNESS=landmarks-volume`, run via `npm run test:e2e:landmarks`).
+
+**Marimo kernel:** `frontend/e2e/marimo/landmarks-inspect.spec.ts` (`npm run test:e2e:marimo-volume`, CI tier
+`marimo_volume`; real `marimo run` on `demos/landmarks.py`, non-localhost origin).
 
 **Design:** [`docs/specs/2026-09-25-landmarks-inspect-cube-design.md`](../../../docs/specs/2026-09-25-landmarks-inspect-cube-design.md) · [`docs/specs/2026-09-26-inspect-preview-dock-design.md`](../../../docs/specs/2026-09-26-inspect-preview-dock-design.md) · [`docs/specs/2026-10-02-inspect-immersive-cube-design.md`](../../../docs/specs/2026-10-02-inspect-immersive-cube-design.md) · [`docs/specs/2026-10-03-inspect-rework-design.md`](../../../docs/specs/2026-10-03-inspect-rework-design.md) · [ADR 0006](../../../docs/adr/0006-landmarks-hosts-volume-cube.md)
 
@@ -238,7 +241,7 @@ Bar and panels:
 - Functional: `"inspect toolbar: presets, MIP, palette, alpha/gamma, committed Z cut"` — Oblique reframes (`data-zoom` changes); Image MIP, viridis, gamma and alpha are uniforms only (`data-channels` stays 1); a Z cut commits `volume_cut[5] = 54`.
 - Functional: `"dragging a volume face commits that cut and leaves the outside faint"` (`?window=100`) — Side view, an open cube still draws plates (`[data-cut-plate]`). A point in `data-cut-near-anchors` sets `data-cut-near` and leaves `data-cut-face` empty (arrow cursor). The `z1` outline sets `data-cut-face` and a resize cursor. A drag from the plate centre (`data-cut-centers`) sets `data-cut-dragging` and the range chip until release; `volume_cut[5]` drops and `data-outside` becomes `ghost`. The outline anchor moves with the inset cut. An open cube is `data-outside="open"`.
 - Functional: `"a palette change before placing reaches the hover preview, then the dock"` — viridis picked in Adjust before placing: the preview and then the cube read `data-palette="viridis"`.
-- Functional: `"partial X and Y cuts keep their place in a moved window; open edges stay open"`, `"Python's inspect and volume_cut writes are followed, never written back"`, `"a Z-only cut leaves X and Y whole for any window, edge windows too"` — the cut's window-relative X/Y, Python writes adopted and not echoed (`volume_cut = []` shows Z as `0–64 µm`, never Infinity).
+- Functional: `"partial cut survives Esc, a map move, and cube reopen"`, `"partial X and Y cuts keep their place in a moved window; open edges stay open"`, `"Python's inspect and volume_cut writes are followed, never written back"`, `"a Z-only cut leaves X and Y whole for any window, edge windows too"` — the cut's window-relative X/Y, Python writes adopted and not echoed (`volume_cut = []` shows Z as `0–64 µm`, never Infinity).
 
 Camera and overlays:
 

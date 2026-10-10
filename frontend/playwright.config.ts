@@ -23,8 +23,8 @@ export default defineConfig({
   // The inspect-cube spec needs the toy SpatialData served by its own harness.
   testIgnore:
     harness === "landmarks-volume"
-      ? "**/hero-webgl.spec.ts"
-      : ["**/landmarks-volume.spec.ts", "**/hero-webgl.spec.ts"],
+      ? ["**/hero-webgl.spec.ts", "**/marimo/**"]
+      : ["**/landmarks-volume.spec.ts", "**/hero-webgl.spec.ts", "**/marimo/**"],
   timeout: volumeOnCi ? 240_000 : 90_000,
   expect: {
     timeout: volumeOnCi ? 30_000 : 15_000,
