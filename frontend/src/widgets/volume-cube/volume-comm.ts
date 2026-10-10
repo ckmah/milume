@@ -1,5 +1,6 @@
 import type { AbsolutePath, AsyncReadable, RangeQuery } from "@zarrita/storage";
 
+import { bytesFromCommBuffer } from "./comm-buffer";
 import { isCommVolumeUrl } from "./volume-url";
 
 export type VolumeCommModel = {
@@ -140,8 +141,8 @@ export class VolumeCommClient {
           : `volume_get failed (${response.status ?? "error"})`;
       throw new Error(detail);
     }
-    if (!buffers[0]) return undefined;
-    const bytes = new Uint8Array(buffers[0]);
+    const bytes = bytesFromCommBuffer(buffers[0] as ArrayBuffer | ArrayBufferView);
+    if (!bytes?.byteLength) return undefined;
     if (!range && this.metadataCacheEnabled()) this.cacheMetadata(path, bytes);
     return bytes;
   }

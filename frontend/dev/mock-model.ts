@@ -3,7 +3,8 @@ import { isCommVolumeUrl } from "@/widgets/volume-cube/volume-url";
 
 type Listener = () => void;
 
-type CustomHandler = (msg: unknown, buffers?: ArrayBuffer[]) => void;
+type CommBuffer = ArrayBuffer | DataView;
+type CustomHandler = (msg: unknown, buffers?: CommBuffer[]) => void;
 
 /** Minimal traitlets model for notebook-free dev and Impeccable live. */
 export function createMockModel(
@@ -30,7 +31,7 @@ export function createMockModel(
     options.volumeStaticRoot ??
     (isCommVolumeUrl(volume?.image_url ?? "") ? staticRootForFixture(options.fixtureUrl ?? "") : "");
 
-  async function serveVolumeGet(msg: unknown): Promise<[object, ArrayBuffer[]]> {
+  async function serveVolumeGet(msg: unknown): Promise<[object, (ArrayBuffer | DataView)[]]> {
     const hook =
       typeof window !== "undefined"
         ? (window as unknown as { __volumeCommHook?: { delayMs?: number; fail?: boolean } }).__volumeCommHook
@@ -61,7 +62,9 @@ export function createMockModel(
     if (res.status === 404) return [{ ok: false, status: 404 }, []];
     if (!res.ok) throw new Error(`volume_get ${url}: ${res.status}`);
     const buf = await res.arrayBuffer();
-    return [{ ok: true, status: res.status }, [buf]];
+    // marimo forwards comm buffers as DataView (see marimo static model send()).
+    const payload = new DataView(buf);
+    return [{ ok: true, status: res.status }, [payload]];
   }
 
   const model = {
