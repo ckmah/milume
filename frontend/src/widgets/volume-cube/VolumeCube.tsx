@@ -1,7 +1,7 @@
 import type React from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Matrix4 } from "@math.gl/core";
-import { VivViewer, loadOmeZarr, loadOmeZarrFromStore } from "@hms-dbmi/viv";
+import { VivViewer, loadOmeZarrFromStore } from "@hms-dbmi/viv";
 
 import { ChromeLoadIndicator } from "@/widgets/landmarks/chrome/load-indicator";
 
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 
 import type { ChunkCache } from "./chunk-cache";
 import type { VolumeCommClient } from "./volume-comm";
+import type { VolumeHttpClient } from "./volume-http";
 import { isCommVolumeUrl } from "./volume-url";
 import { contentZIndexSpan, type ContentZSpan } from "./content-z-span";
 import {
@@ -149,8 +150,10 @@ export type VolumeCubeProps = {
   showPoints?: boolean;
   /** Decoded chunks shared across the widget's cubes. */
   chunkCache?: ChunkCache | null;
-  /** Comm-backed zarr reads when ``imageUrl`` is a store prefix (not HTTP). */
+  /** Comm-backed zarr reads when the browser cannot fetch the store URL. */
   volumeComm?: VolumeCommClient | null;
+  /** Direct HTTP range reads when ``imageUrl`` is a public store URL or same-origin path. */
+  volumeHttp?: VolumeHttpClient | null;
   /** Hold the cache's background prefetch while this cube's target loads. */
   pausesPrefetch?: boolean;
   /** Called after each deck render. */
@@ -226,18 +229,19 @@ const ONE_CHANNEL_VISIBLE = [true];
  */
 const Z_UP = new Matrix4().rotateX(-Math.PI / 2);
 
-function absoluteUrl(url: string): string {
-  if (!url) return url;
-  return new URL(url, window.location.href).href;
-}
-
-async function loadVolumePyramid(url: string, volumeComm: VolumeCommClient | null | undefined) {
+async function loadVolumePyramid(
+  url: string,
+  volumeComm: VolumeCommClient | null | undefined,
+  volumeHttp: VolumeHttpClient | null | undefined,
+) {
   if (isCommVolumeUrl(url)) {
     if (!volumeComm) throw new Error("Volume comm is not available");
     const loaded = await loadOmeZarrFromStore(volumeComm.createStore(url));
     return loaded.data as unknown as ZarrSource[];
   }
-  const loaded = await loadOmeZarr(absoluteUrl(url), { type: "multiscales" });
+  const http = volumeHttp;
+  if (!http) throw new Error("Volume HTTP client is not available");
+  const loaded = await loadOmeZarrFromStore(http.createStore(url));
   return loaded.data as unknown as ZarrSource[];
 }
 
@@ -369,6 +373,7 @@ export function VolumeCube({
   showPoints = false,
   chunkCache = null,
   volumeComm = null,
+  volumeHttp = null,
   pausesPrefetch = false,
   onRendered,
   onLevels,
@@ -442,7 +447,7 @@ export function VolumeCube({
         if (hook?.delayMs && hook.delayMs > 0) {
           await new Promise((resolve) => setTimeout(resolve, hook.delayMs));
         }
-        const pyramid = await loadVolumePyramid(imageUrl, volumeComm);
+        const pyramid = await loadVolumePyramid(imageUrl, volumeComm, volumeHttp);
         pyramid.forEach((level, i) => chunkCache?.attach(level._data, `${imageUrl}#${i}`));
         if (!cancelled) setImage(pyramid);
       } catch (err) {
@@ -477,7 +482,7 @@ export function VolumeCube({
     if (!wantLabels) return;
     (async () => {
       try {
-        const pyramid = await loadVolumePyramid(labelsUrl, volumeComm);
+        const pyramid = await loadVolumePyramid(labelsUrl, volumeComm, volumeHttp);
         pyramid.forEach((level, i) => chunkCache?.attach(level._data, `${labelsUrl}#${i}`));
         if (!cancelled) setLabels(pyramid);
       } catch (err) {

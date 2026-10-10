@@ -18,6 +18,19 @@ def sdata(tmp_path):
     return toy_spatialdata(tmp_path / "toy.zarr")
 
 
+def test_resolve_volume_normalizes_remote_store_root(sdata):
+    import dataclasses
+
+    from milume.volume_source import _normalize_store_url, resolve_volume
+
+    _, src = resolve_volume(sdata)
+    assert src is not None
+    remote = _normalize_store_url("https://huggingface.co/datasets/Stellaromics/demo/resolve/main/colon_a2.zarr")
+    src = dataclasses.replace(src, root=remote)
+    assert str(src.root).endswith("/")
+    assert str(src.root).startswith("https://")
+
+
 def test_widget_from_sdata_exposes_comm_volume_urls(sdata):
     with patch("http.server.ThreadingHTTPServer", side_effect=AssertionError("no HTTP server")):
         w = LandmarksWidget(sdata, color="cell_type")

@@ -88,11 +88,71 @@ const sharedServer = {
   fs: { allow: [repoRoot] },
 };
 
+const rangeRe = /^bytes=(\d*)-(\d*)$/;
+
+function sendZarrRange(filePath: string, rangeHeader: string, res: import("node:http").ServerResponse) {
+  const size = fs.statSync(filePath).size;
+  const match = rangeRe.exec(rangeHeader.trim());
+  if (!match) {
+    res.statusCode = 416;
+    res.end();
+    return;
+  }
+  const [, first, last] = match;
+  let start = 0;
+  let end = size - 1;
+  if (first === "") {
+    start = Math.max(0, size - Number(last));
+  } else {
+    start = Number(first);
+    end = last ? Math.min(Number(last), size - 1) : size - 1;
+  }
+  if (start >= size || end < start) {
+    res.statusCode = 416;
+    res.setHeader("Content-Range", `bytes */${size}`);
+    res.end();
+    return;
+  }
+  const length = end - start + 1;
+  res.statusCode = 206;
+  res.setHeader("Content-Type", "application/octet-stream");
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("Content-Range", `bytes ${start}-${end}/${size}`);
+  res.setHeader("Content-Length", String(length));
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Expose-Headers", "Content-Range, Content-Length, Accept-Ranges");
+  fs.createReadStream(filePath, { start, end }).pipe(res);
+}
+
 function serveLandmarksVolumeFixture() {
+  const publicDir =
+    devWidget === "landmarks-volume" ? path.resolve(devDir, "landmarks-volume/public") : "";
   return {
     name: "serve-landmarks-volume-fixture",
     configureServer(server: { middlewares: { use: Function } }) {
       if (devWidget !== "landmarks-volume") return;
+      server.middlewares.use((req, res, next) => {
+        if (req.method === "OPTIONS") {
+          res.setHeader("Access-Control-Allow-Origin", "*");
+          res.setHeader("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+          res.setHeader("Access-Control-Allow-Headers", "Range");
+          res.statusCode = 204;
+          res.end();
+          return;
+        }
+        const rangeHeader = req.headers.range;
+        if (!rangeHeader || (req.method !== "GET" && req.method !== "HEAD")) {
+          next();
+          return;
+        }
+        const rel = decodeURIComponent((req.url ?? "").split("?")[0] ?? "").replace(/^\//, "");
+        const filePath = path.join(publicDir, rel);
+        if (!filePath.startsWith(publicDir) || !fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
+          next();
+          return;
+        }
+        sendZarrRange(filePath, String(rangeHeader), res);
+      });
       server.middlewares.use("/fixture.json", (_req, res) => {
         res.setHeader("Content-Type", "application/json");
         fs.createReadStream(path.resolve(devDir, volumeFixtureFile)).pipe(res);

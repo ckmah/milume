@@ -524,6 +524,44 @@ test.describe("Landmarks inspect cube", () => {
     expect(loopbackVolume).toEqual([]);
   });
 
+  test("the inspect cube loads sharded zarr via HTTP Range without comm reads", { tag: "@isolated" }, async ({ page }) => {
+    const fixture = encodeURIComponent("/landmarks-volume-fixture.sharded.http.json");
+    await bootLandmarksVolumeHarness(page, `fixture=${fixture}&budgets=2000,20000`);
+    const ranged: string[] = [];
+    page.on("request", (req) => {
+      if (req.headers().range) ranged.push(req.url());
+    });
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const commReads = await page.evaluate(
+      () => (window as { __volumeCommReads?: () => number }).__volumeCommReads?.() ?? 0,
+    );
+    const httpFetches = await page.evaluate(
+      () => (window as { __volumeHttpFetches?: () => number }).__volumeHttpFetches?.() ?? 0,
+    );
+    expect(commReads).toBe(0);
+    expect(httpFetches).toBeGreaterThan(0);
+    expect(ranged.some((url) => url.includes("sharded-toy.sdata.zarr"))).toBe(true);
+  });
+
+  test("the inspect cube falls back to comm when HTTP volume reads fail", { tag: "@isolated" }, async ({ page }) => {
+    const fixture = encodeURIComponent("/landmarks-volume-fixture.sharded.http.json");
+    await page.route("**/sharded-toy.sdata.zarr/**", (route) => route.abort("failed"));
+    await bootLandmarksVolumeHarness(page, `fixture=${fixture}&budgets=2000,20000`);
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const commReads = await page.evaluate(
+      () => (window as { __volumeCommReads?: () => number }).__volumeCommReads?.() ?? 0,
+    );
+    const usedFallback = await page.evaluate(
+      () => (window as { __volumeHttpCommFallback?: () => boolean }).__volumeHttpCommFallback?.() ?? false,
+    );
+    expect(usedFallback).toBe(true);
+    expect(commReads).toBeGreaterThan(5);
+  });
+
   test("a drag moves the window with the cube closed; the cube opens on release", async ({ page }) => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     const box = await canvasBox(page);
