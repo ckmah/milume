@@ -20,7 +20,7 @@ bench_one() {
   tmux -f /exec-daemon/tmux.portal.conf kill-session -t "marimo-bench-$port" 2>/dev/null || true
   tmux -f /exec-daemon/tmux.portal.conf new-session -d -s "marimo-bench-$port" -c "$ROOT" -- \
     env COLON_A2_STORE="$STORE" PYTHONPATH="$milume_dir${PYTHONPATH:+:$PYTHONPATH}" \
-    uv run --extra demo marimo run --headless --no-token --port "$port" frontend/dev/colon_a2_kernel_bench.py
+    uv run --extra demo marimo run --headless --no-token --no-sandbox --port "$port" frontend/dev/colon_a2_kernel_bench.py
   for _ in $(seq 1 60); do
     if curl -sf "http://127.0.0.1:$port/" >/dev/null 2>&1; then break; fi
     sleep 2

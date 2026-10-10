@@ -89,6 +89,8 @@ def test_read_volume_bytes_range_seeks_without_reading_whole_file(tmp_path):
     )
     assert span.ok and span.data == payload[10:14]
     assert track.read_sizes == [4]
+    tail = read_volume_bytes(root, allow, "images/a/shard", {"offset": 90, "length": 20})
+    assert tail.ok and tail.data == payload[90:100]
 
 
 @pytest.mark.parametrize(
@@ -101,7 +103,7 @@ def test_read_volume_bytes_range_seeks_without_reading_whole_file(tmp_path):
         ({"offset": 0, "length": 0}, "length must be positive"),
         ({"offset": 0, "length": -3}, "length must be positive"),
         ({"offset": 100, "length": 1}, "offset beyond"),
-        ({"offset": 90, "length": 20}, "beyond end"),
+        ({"offset": 0, "length": 200}, "length larger than file"),
         ({"suffixLength": 200}, "suffixLength beyond"),
         ({"offset": 0}, "offset and length"),
         ({"length": 4}, "offset and length"),

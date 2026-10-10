@@ -103,11 +103,15 @@ def _read_file_range(f: BinaryIO, size: int, range_spec: RangeSpec) -> bytes:
         raise VolumeReadError(400, "length must be positive")
     if start >= size:
         raise VolumeReadError(416, "offset beyond end of file")
-    if start + length > size:
-        raise VolumeReadError(416, "offset+length beyond end of file")
+    if length > size:
+        raise VolumeReadError(416, "length larger than file")
+    available = size - start
+    to_read = min(length, available)
+    if to_read <= 0:
+        raise VolumeReadError(416, "offset beyond end of file")
     f.seek(start)
-    data = f.read(length)
-    if len(data) != length:
+    data = f.read(to_read)
+    if len(data) != to_read:
         raise VolumeReadError(500, "short read")
     return data
 
