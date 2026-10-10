@@ -17,7 +17,7 @@ mkdirSync(outDir, { recursive: true });
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
 try {
-  await page.goto("http://127.0.0.1:5173/?window=100", { waitUntil: "networkidle", timeout: 300_000 });
+  await page.goto("http://127.0.0.1:5173/?window=100", { waitUntil: "domcontentloaded", timeout: 120_000 });
   await page.waitForFunction(() => Boolean(window.__landmarksEngine?.getViewState?.()), null, {
     timeout: 300_000,
   });
