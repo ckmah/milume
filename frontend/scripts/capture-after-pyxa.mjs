@@ -35,6 +35,7 @@ await view.screenshot({ path: `${outDir}/issue-117-pyxa-${tag}-uncut-top.png` })
 await page.evaluate(() => {
   const m = window.__landmarksModel;
   if (m) m.set("volume_cut", [0, 1e9, 0, 1e9, 12, 18]);
+  m?.save_changes?.();
 });
 await page.waitForFunction(
   () => document.querySelector(".volume-cube__view")?.getAttribute("data-refining") === "false",

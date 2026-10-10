@@ -1903,7 +1903,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(add.type0.x).toBeGreaterThan(add.type1.x + 20);
     expect(add.type0.y).toBeLessThan(add.type1.y - 20);
 
-    // Image MIP + Labels MIP: outlines stay at full strength; fill is faint (see TINT).
+    // Image MIP + Labels MIP: uncut fill is faint (no cut-face rims); category hues still separate.
     await openLayerMenu(page, "labels");
     await page.getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
     await page.keyboard.press("Escape");
@@ -1911,8 +1911,8 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-label-mode", "mip");
     await expect(view).toHaveAttribute("data-refining", "false");
     const mip = await newCategoryPixels(page, off, await view.screenshot(), 0.05, TINT.hueTolerance);
-    expect(mip.type1.count).toBeGreaterThan(50);
-    expect(mip.type0.count).toBeGreaterThan(50);
+    expect(mip.type1.count).toBeGreaterThan(15);
+    expect(mip.type0.count).toBeGreaterThan(15);
     expect(mip.type0.x).toBeGreaterThan(mip.type1.x + 20);
     expect(mip.type0.y).toBeLessThan(mip.type1.y - 20);
   });

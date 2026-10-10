@@ -48,13 +48,14 @@ async function captureSet(base, tag) {
     await page.evaluate(() => {
       const m = window.__landmarksModel;
       if (m) m.set("volume_cut", [0, 1e9, 0, 1e9, 12, 18]);
+      m?.save_changes?.();
     });
     await page.waitForFunction(
       () => document.querySelector(".volume-cube__view")?.getAttribute("data-refining") === "false",
       null,
-      { timeout: 120_000 },
+      { timeout: 300_000 },
     );
-    await bar.getByRole("radio", { name: "Side view" }).click();
+    await bar.getByRole("radio", { name: "Side view" }).click({ timeout: 120_000 });
     await page.waitForTimeout(800);
     const zcutSide = `${outDir}/issue-117-pyxa-${tag}-zcut-side.png`;
     await view.screenshot({ path: zcutSide });
