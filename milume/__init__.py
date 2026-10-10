@@ -41,13 +41,9 @@ LandmarksWidget
 
 Examples
 --------
-Run:
-
-```python
-import milume
-w = milume.peek(adata, color="cell_type")
-w = milume.peek(sdata)  # table, labels, image inferred
-```
+>>> import milume
+>>> w = milume.peek(adata, color="cell_type")
+>>> w = milume.peek(sdata)  # table, labels, image inferred
 """
 )
 
