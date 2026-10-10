@@ -11,6 +11,11 @@ export type HeroHandle = {
   isLive: () => boolean;
   getFrameId: () => number;
   isPaused: () => boolean;
+  getLastFrameMs: () => number;
+  getLastSimMs: () => number;
+  getLastDrawMs: () => number;
+  setTime: (t: number) => void;
+  renderOnce: () => void;
 };
 
 function prefersReducedMotion(): boolean {
@@ -54,6 +59,10 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
   let running = live;
   let raf = 0;
   let frameId = 0;
+  let lastFrameMs = 0;
+  let lastSimMs = 0;
+  let lastDrawMs = 0;
+  let timeOffset = 0;
   let start = performance.now();
   let width = 0;
   let height = 0;
@@ -79,13 +88,31 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
     };
   };
 
+  const renderFrame = (wallMs: number) => {
+    if (!glBundle || !cells) return;
+    performance.mark("hero-begin");
+    const t = ((wallMs - start) / 1000 + timeOffset) % LOOP_SEC;
+    const tSim0 = performance.now();
+    const pts = framePoints(cells, t);
+    lastSimMs = performance.now() - tSim0;
+    const tDraw0 = performance.now();
+    drawPoints(glBundle, pts, width, height, dpr, layout);
+    lastDrawMs = performance.now() - tDraw0;
+    performance.mark("hero-end");
+    const entries = performance.getEntriesByName("hero-frame");
+    for (const e of entries) performance.clearMeasures(e.name);
+    performance.measure("hero-frame", "hero-begin", "hero-end");
+    const m = performance.getEntriesByName("hero-frame").pop();
+    if (m) lastFrameMs = m.duration;
+    performance.clearMarks("hero-begin");
+    performance.clearMarks("hero-end");
+    frameId += 1;
+  };
+
   const tick = () => {
     raf = 0;
     if (!running || !glBundle || !cells) return;
-    const t = ((performance.now() - start) / 1000) % LOOP_SEC;
-    const pts = framePoints(cells, t);
-    drawPoints(glBundle, pts, width, height, dpr, layout);
-    frameId += 1;
+    renderFrame(performance.now());
     raf = requestAnimationFrame(tick);
   };
 
@@ -147,5 +174,14 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
     isLive: () => live,
     getFrameId: () => frameId,
     isPaused: () => !running,
+    getLastFrameMs: () => lastFrameMs,
+    getLastSimMs: () => lastSimMs,
+    getLastDrawMs: () => lastDrawMs,
+    setTime: (t: number) => {
+      timeOffset = t;
+      start = performance.now();
+      if (live) renderFrame(performance.now());
+    },
+    renderOnce: () => renderFrame(performance.now()),
   };
 }

@@ -13,6 +13,21 @@ import {
 import { cam, dist3, focusZ, mixTeal, pulse, smoothstep } from "./math.ts";
 import type { CellPoint, DrawPoint } from "./types.ts";
 
+const SIG = [0, 0.6, 1.3, 2.3, 3.6, 5.2, 7.2, 9.6, 12.5, 16.0];
+
+function blurRadius(coc: number): number {
+  const half = coc * 0.5;
+  let lo = 0;
+  for (let i = 0; i < SIG.length - 1; i++) {
+    if (half <= SIG[i + 1]) {
+      const t = (half - SIG[i]) / (SIG[i + 1] - SIG[i]);
+      return SIG[i] * (1 - t) + SIG[i + 1] * t;
+    }
+    lo = i;
+  }
+  return SIG[SIG.length - 1];
+}
+
 const scratch: DrawPoint[] = [];
 
 export function framePoints(cells: CellPoint[], t: number): DrawPoint[] {
@@ -55,28 +70,35 @@ export function framePoints(cells: CellPoint[], t: number): DrawPoint[] {
     }
 
     const fog = Math.pow(Math.max(0, Math.min(1, 1 - (z - 1) / (Z_FAR1 - 1))), 1.8);
-    const bright = Math.max(fog * 0.9, glow * Math.min(0.95, fog * 3));
-    const r = col[0] * bright + BG[0] * (1 - bright);
-    const g = col[1] * bright + BG[1] * (1 - bright);
-    const b = col[2] * bright + BG[2] * (1 - bright);
+    let bright = Math.max(fog * 0.97, glow * Math.min(0.98, fog * 3.2));
+    if (p) bright = Math.min(1, bright * (1 + 0.14 * p.a));
+    const nearLift = z < 10 ? 1 + (10 - z) * 0.022 : 1;
+    const chroma = 1.1;
+    const r = col[0] * chroma * bright * nearLift + BG[0] * (1 - bright);
+    const g = col[1] * chroma * bright * nearLift + BG[1] * (1 - bright);
+    const b = col[2] * chroma * bright * nearLift + BG[2] * (1 - bright);
 
     const alpha =
       smoothstep(Z_NEAR0, Z_NEAR1, z) * (1 - smoothstep(Z_FAR0, Z_FAR1, z));
     const coc = Math.min(40, 40 * Math.abs(1 / z - 1 / zf) * zf);
+    const blur = blurRadius(coc);
+    const rad = pr + blur * 0.82;
+    const coverage = Math.min(1, (pr / Math.max(1, rad)) ** 2);
 
-    if (pr < 0.35 || alpha < 0.01) continue;
-    if (sx < -pr || sx > LOGICAL_W + pr || sy < -pr || sy > LOGICAL_H + pr) continue;
+    if (rad < 0.12 || alpha < 0.006) continue;
+    if (sx < -rad || sx > LOGICAL_W + rad || sy < -rad || sy > LOGICAL_H + rad) continue;
 
     scratch.push({
       sx,
       sy,
       z,
-      rad: pr * (1 + coc * 0.04),
+      rad,
       rad0: pr,
       cr: r,
       cg: g,
       cb: b,
       alpha,
+      coverage,
       glow,
       coc,
     });

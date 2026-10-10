@@ -18,6 +18,7 @@ export type DrawPoint = {
   cg: number;
   cb: number;
   alpha: number;
+  coverage: number;
   glow: number;
   coc: number;
 };
