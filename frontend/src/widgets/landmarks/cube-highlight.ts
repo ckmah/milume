@@ -1,8 +1,7 @@
 import type { CellColoring, HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
-import { srgbBytesToLinear } from "@/widgets/volume-cube/cell-lut-extension";
 
 import type { GeneColumn, GeneScaleMode } from "./helpers";
-import { blendGeneSrgb, type GeneExpressionPack } from "./gene-expression-colors";
+import { blendGeneSrgb, srgbBytesToLinear, type GeneExpressionPack } from "./gene-expression-colors";
 import { typeFocusIndicesFromState } from "./type-focus";
 
 const MARGIN_UM = 10;

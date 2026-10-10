@@ -158,6 +158,17 @@ function parseHexRgb(hex: string): [number, number, number] {
 
 const LOW_EXPR_SRGB: [number, number, number] = [107, 114, 128];
 
+function srgbToLinearByte(c: number): number {
+  const s = c / 255;
+  const linear = s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  return Math.round(linear * 255);
+}
+
+/** sRGB 0–255 → linear RGB bytes for the cell LUT (matches category palette path). */
+export function srgbBytesToLinear(rgb: [number, number, number]): [number, number, number] {
+  return [srgbToLinearByte(rgb[0]), srgbToLinearByte(rgb[1]), srgbToLinearByte(rgb[2])];
+}
+
 /**
  * sRGB bytes for one point, matching ``blendGeneColors`` in ``landmarks.js``.
  */

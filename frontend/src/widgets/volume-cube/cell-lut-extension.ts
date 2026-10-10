@@ -523,11 +523,6 @@ const HUE_SECTORS: ((lo: number, f: number) => [number, number, number])[] = [
   (lo, f) => [1, lo, 1 - (1 - lo) * f],
 ];
 
-/** sRGB 0–255 → linear RGB bytes for the cell LUT (matches category palette path). */
-export function srgbBytesToLinear(rgb: [number, number, number]): [number, number, number] {
-  return rgb.map((c) => Math.round(srgbToLinear(c) * 255)) as [number, number, number];
-}
-
 /** A label id's own colour, as linear RGB bytes (see `hexToLinear` for why linear). */
 export function instanceColor(id: number): [number, number, number] {
   const sector = ((((id * HUE_STEP) % 1) + 1) % 1) * 6;
