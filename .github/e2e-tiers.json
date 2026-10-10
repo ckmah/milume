@@ -54,6 +54,8 @@
     "frontend/scripts/fetch-linked-issue-bodies.mjs",
     "frontend/scripts/lib/pr-policy.mjs",
     "frontend/scripts/lib/widget-issue.mjs",
-    "frontend/scripts/fixtures/**"
+    "frontend/scripts/post-pr-playwright-comment.mjs",
+    "frontend/scripts/pr-policy-fixtures/**",
+    "frontend/scripts/widget-issue-fixtures/**"
   ]
 }
