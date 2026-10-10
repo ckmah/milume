@@ -5,10 +5,12 @@ Profiles:
 
 - ``toy`` (default): synthetic store for CI and Playwright (deterministic geometry).
 - ``xsmall``: Hugging Face ``Stellaromics/demo`` ``xsmall/`` Pyxa slice (~5 MB mosaic).
+- ``small``: Hugging Face ``Stellaromics/demo`` ``small/`` Pyxa slice (~200 MB mosaic).
 
 Each profile writes ``landmarks-volume/public/<profile>.sdata.zarr`` and a matching
 ``landmarks-volume-fixture[.xsmall].json``. Vite serves zarr from the public dir and
-rewrites ``volume`` URLs to static paths instead of the widget loopback server.
+exports comm-relative ``volume`` URLs (``images/.../``); the harness mock serves
+them via ``volume_get`` over the same-origin zarr tree under ``public/``.
 """
 
 from __future__ import annotations
@@ -18,8 +20,6 @@ import json
 import shutil
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
-
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
@@ -88,17 +88,6 @@ FIXTURE_KEYS = [
 VOLUME_KEYS = ["volume", "volume_label_ids", "volume_cut", "inspect_size_um"]
 
 
-def _static_volume_urls(volume: dict[str, object], store_name: str) -> dict[str, object]:
-    out = dict(volume)
-    for key in ("image_url", "labels_url"):
-        url = str(out.get(key) or "")
-        if not url:
-            continue
-        path = urlparse(url).path
-        out[key] = f"/{store_name}{path}"
-    return out
-
-
 def _write_store_toy(store: Path):
     if store.exists():
         shutil.rmtree(store)
@@ -106,7 +95,7 @@ def _write_store_toy(store: Path):
     return toy_spatialdata(store)
 
 
-def _write_store_xsmall(store: Path):
+def _write_store_pyxa(store: Path, hf_profile: str):
     import spatialdata as sd
     from huggingface_hub import snapshot_download
     from spatialdata_io.experimental import pyxa
@@ -119,11 +108,11 @@ def _write_store_xsmall(store: Path):
             snapshot_download(
                 "Stellaromics/demo",
                 repo_type="dataset",
-                allow_patterns="xsmall/*",
+                allow_patterns=f"{hf_profile}/*",
                 ignore_patterns="*cell_assigned_gene*",
             )
         )
-        / "xsmall"
+        / hf_profile
     )
     pyxa_sdata = pyxa(
         data_dir,
@@ -141,19 +130,19 @@ def export_profile(profile: str) -> None:
         out = DEV / "landmarks-volume-fixture.json"
         sdata = _write_store_toy(PUBLIC / store_name)
         widget = LandmarksWidget(sdata, color="cell_type", contrast_limits=TOY_CONTRAST_LIMITS)
-    elif profile == "xsmall":
-        store_name = "xsmall.sdata.zarr"
-        out = DEV / "landmarks-volume-fixture.xsmall.json"
-        sdata = _write_store_xsmall(PUBLIC / store_name)
+    elif profile in ("xsmall", "small"):
+        store_name = f"{profile}.sdata.zarr"
+        out = DEV / f"landmarks-volume-fixture.{profile}.json"
+        sdata = _write_store_pyxa(PUBLIC / store_name, profile)
         image_key = next(iter(sdata.images))
         contrast = image_contrast_limits(sdata.images[image_key])
         widget = LandmarksWidget(sdata, color="ROI", contrast_limits=contrast)
     else:
-        raise SystemExit(f"unknown profile {profile!r} (expected toy or xsmall)")
+        raise SystemExit(f"unknown profile {profile!r} (expected toy, xsmall, or small)")
 
     widget.set_render_mode("points")
     payload = {key: getattr(widget, key) for key in FIXTURE_KEYS + VOLUME_KEYS}
-    payload["volume"] = _static_volume_urls(payload["volume"], store_name)
+    payload["volume"] = dict(payload["volume"])
     out.write_text(json.dumps(payload, indent=2) + "\n")
     print(f"wrote {PUBLIC / store_name} and {out} ({out.stat().st_size / 1e3:.1f} KB)")
 
@@ -162,9 +151,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--profile",
-        choices=("toy", "xsmall"),
+        choices=("toy", "xsmall", "small"),
         default="toy",
-        help="toy: synthetic CI fixture; xsmall: HF Stellaromics/demo xsmall (requires --extra demo)",
+        help="toy: synthetic CI fixture; xsmall/small: HF Stellaromics/demo (requires --extra demo)",
     )
     args = parser.parse_args()
     export_profile(args.profile)

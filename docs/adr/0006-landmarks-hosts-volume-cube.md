@@ -43,10 +43,10 @@ in its own chrome:
 - `VolumeCube` (`frontend/src/widgets/volume-cube/VolumeCube.tsx`) is the
   rendering component: props and a cell lookup in, no model.
   `landmarks/chrome/cube-immersive.tsx` binds it to the widget state.
-- The browser reads the store through a loopback server
-  (`serve_directory` in `milume/volume_cube.py`) that serves only
-  `images/<image>/` and `labels/<labels>/` of the SpatialData; tables and
-  every other path are 404, and no directory is listed.
+- The browser reads the store through the widget comm (`volume_get` on
+  `LandmarksWidget`, allowlisted paths under `milume/volume_comm.py`); tables
+  and expression are never served. `serve_directory` in `milume/volume_cube.py`
+  remains for unit tests of range reads only.
 - `LandmarksWidget(adata)` (no SpatialData) is unchanged: no cube, no new
   traits populated.
 

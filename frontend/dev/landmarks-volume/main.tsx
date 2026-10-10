@@ -92,6 +92,9 @@ function LandmarksVolumeHarness() {
   );
 }
 
+// Harness matches remote kernels: every metadata fetch is a comm round trip (no client cache).
+(window as unknown as { __volumeCommDisableMetadataCache?: boolean }).__volumeCommDisableMetadataCache = true;
+
 const root = document.getElementById("root");
 if (!root) throw new Error("missing #root");
 createRoot(root).render(<LandmarksVolumeHarness />);

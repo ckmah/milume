@@ -1,6 +1,5 @@
 import base64
-from urllib.error import HTTPError
-from urllib.request import urlopen
+from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -19,42 +18,75 @@ def sdata(tmp_path):
     return toy_spatialdata(tmp_path / "toy.zarr")
 
 
-def test_widget_from_sdata_serves_the_volume(sdata):
-    w = LandmarksWidget(sdata, color="cell_type")
+def test_widget_from_sdata_exposes_comm_volume_urls(sdata):
+    with patch("http.server.ThreadingHTTPServer", side_effect=AssertionError("no HTTP server")):
+        w = LandmarksWidget(sdata, color="cell_type")
     assert set(w.volume) == {"image_url", "labels_url", "voxel_size_um", "origin_um", "contrast_limits"}
     assert w.volume["voxel_size_um"] == [1.0, 1.0, 1.0]
-    assert w.volume["image_url"].endswith("/images/mosaic/")
-    assert w.volume["labels_url"].endswith("/labels/cells/")
-    with urlopen(w.volume["image_url"] + "zarr.json") as r:  # served, NGFF metadata
-        assert r.status == 200
+    assert w.volume["image_url"] == "images/mosaic/"
+    assert w.volume["labels_url"] == "labels/cells/"
+    meta, buffers = w.volume_get({"path": "images/mosaic/zarr.json"}, [])
+    assert meta["ok"] is True and buffers[0]
     ids = np.frombuffer(base64.b64decode(w.volume_label_ids), dtype=np.int32)
     np.testing.assert_array_equal(ids, sdata.tables["table"].obs["cell_id"].to_numpy())
     assert w.volume_cut == [0.0, 256.0, 0.0, 256.0, 0.0, 64.0]
 
 
-def _status(url):
-    try:
-        with urlopen(url) as r:
-            return r.status
-    except HTTPError as err:
-        return err.code
+def test_issue_113_comm_serves_zarr_without_http_or_bind(sdata):
+    """Issue #113: no loopback server; metadata and one chunk over volume_get."""
+    with (
+        patch("socket.socket.bind", side_effect=AssertionError("socket.bind")),
+        patch("http.server.ThreadingHTTPServer", side_effect=AssertionError("ThreadingHTTPServer")),
+    ):
+        w = LandmarksWidget(sdata, color="cell_type")
+    meta, meta_bufs = w.volume_get({"path": "images/mosaic/zarr.json"}, [])
+    assert meta["ok"] is True and meta_bufs[0]
+    chunk, chunk_bufs = w.volume_get({"path": "images/mosaic/s0/c/0/0/0/0"}, [])
+    assert chunk["ok"] is True and chunk_bufs[0]
 
 
-def test_widget_serves_only_the_cube_image_and_labels(sdata):
-    """The loopback server exposes the image and labels, not tables or listings."""
+def test_widget_comm_serves_only_the_cube_image_and_labels(sdata):
     w = LandmarksWidget(sdata, color="cell_type")
-    image_url, labels_url = w.volume["image_url"], w.volume["labels_url"]
-    base = image_url.removesuffix("images/mosaic/")
     assert (sdata.path / "tables" / "table" / "zarr.json").is_file()
-    assert _status(image_url + "zarr.json") == 200
-    assert _status(labels_url + "zarr.json") == 200
-    assert _status(base + "tables/table/zarr.json") == 404
-    assert _status(base + "zarr.json") == 404
-    assert _status(image_url + "../../tables/table/zarr.json") == 404
-    # Directories are never listed, inside the allowlist or not.
-    assert _status(image_url) == 404
-    assert _status(base) == 404
-    assert _status(base + "tables/") == 404
+    ok, _ = w.volume_get({"path": "images/mosaic/zarr.json"}, [])
+    assert ok["ok"] is True
+    ok, _ = w.volume_get({"path": "labels/cells/zarr.json"}, [])
+    assert ok["ok"] is True
+    for path in (
+        "tables/table/zarr.json",
+        "tables/table/X/zarr.json",
+        "zarr.json",
+        "images/mosaic/../../tables/table/zarr.json",
+        "expression/genes/zarr.json",
+    ):
+        denied, bufs = w.volume_get({"path": path}, [])
+        assert denied["ok"] is False and denied["status"] == 404 and not bufs
+
+
+@pytest.mark.parametrize(
+    "range_spec",
+    [
+        {"suffixLength": -1},
+        {"offset": -1, "length": 1},
+        {"offset": 0, "length": 0},
+        {"offset": 10_000, "length": 1},
+    ],
+)
+def test_volume_get_rejects_bad_ranges(sdata, range_spec):
+    w = LandmarksWidget(sdata, color="cell_type")
+    meta, bufs = w.volume_get({"path": "images/mosaic/s0/c/0/0/0/0", "range": range_spec}, [])
+    assert meta["ok"] is False
+    assert meta["status"] in (400, 416)
+    assert meta.get("error")
+    assert not bufs
+
+
+def test_volume_get_returns_structured_error_on_internal_failure(sdata):
+    w = LandmarksWidget(sdata, color="cell_type")
+    with patch("milume.volume_comm.read_volume_bytes", side_effect=RuntimeError("boom")):
+        meta, bufs = w.volume_get({"path": "images/mosaic/zarr.json"}, [])
+    assert meta == {"ok": False, "status": 500, "error": "boom"}
+    assert not bufs
 
 
 def test_adata_widget_has_empty_volume(sdata):

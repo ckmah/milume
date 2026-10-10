@@ -488,6 +488,23 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
   });
 
+  test("the inspect cube loads image zarr via the widget comm", async ({ page }) => {
+    const loopbackVolume: string[] = [];
+    page.on("request", (req) => {
+      const url = req.url();
+      if (/127\.0\.0\.1:\d+\/(images|labels)\//.test(url)) loopbackVolume.push(url);
+    });
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-channels", /1|2/);
+    const reads = await page.evaluate(() => (window as { __volumeCommReads?: () => number }).__volumeCommReads?.() ?? 0);
+    // Harness disables client metadata cache (see landmarks-volume/main.tsx) so each zarr
+    // metadata/key read is one comm round trip, like a remote kernel cold load (~35 for toy).
+    expect(reads).toBeGreaterThan(5);
+    expect(loopbackVolume).toEqual([]);
+  });
+
   test("a drag moves the window with the cube closed; the cube opens on release", async ({ page }) => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     const box = await canvasBox(page);
@@ -2605,6 +2622,60 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.5, { steps: 3 });
     await expect(preview(page)).toBeVisible();
     expect(await view.evaluate((el) => Boolean((el as any).__kept))).toBe(true);
+  });
+
+  test("a slow volume_get shows loading on the cube panel until the comm fetch finishes", {
+    tag: "@isolated",
+  }, async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __volumeCommHook?: { delayMs: number } }).__volumeCommHook = { delayMs: 700 };
+    });
+    await page.goto("/", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await stabilizeUi(page);
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    const panel = cubeWindow(page).getByTestId("cube-load-immersive");
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveAttribute("data-state", "loading");
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false", { timeout: 30_000 });
+    await expect(panel).toHaveCount(0);
+  });
+
+  test("a failed volume_get shows an error in the cube panel", { tag: "@isolated" }, async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __volumeCommHook?: { fail: boolean } }).__volumeCommHook = { fail: true };
+    });
+    await page.goto("/", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await stabilizeUi(page);
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    const panel = cubeWindow(page).getByTestId("cube-load-immersive");
+    await expect(panel).toHaveAttribute("data-state", "error", { timeout: 30_000 });
+    await expect(page.getByTestId("inspect-status")).toHaveAttribute("data-state", "error");
+  });
+
+  test("a volume_get error reply fails fast without waiting on the comm timeout", {
+    tag: "@isolated",
+  }, async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __volumeCommHook?: { fail: boolean } }).__volumeCommHook = { fail: true };
+    });
+    await page.goto("/", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await stabilizeUi(page);
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    const t0 = Date.now();
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    const panel = cubeWindow(page).getByTestId("cube-load-immersive");
+    await expect(panel).toHaveAttribute("data-state", "error", { timeout: 5_000 });
+    expect(Date.now() - t0).toBeLessThan(15_000);
+    await expect(page.getByTestId("inspect-status")).toHaveAttribute("data-state", "error");
   });
 
   test("the cube panel shows loading until the volume draws, then clears", { tag: "@isolated" }, async ({
