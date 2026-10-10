@@ -8,32 +8,31 @@
     "frontend/e2e/core/**"
   ],
   "landmarks": [
-    "frontend/src/widgets/landmarks/**",
-    "frontend/src/widgets/volume-cube/**",
+    "frontend/src/widgets/**",
+    "frontend/src/*.ts",
     "frontend/e2e/landmarks/**",
     "frontend/dev/**",
+    "milume/static/**",
     "milume/volume_cube.py",
-    "milume/landmarks.py"
+    "milume/landmarks.py",
+    "milume/selection.py",
+    "milume/categories.py",
+    "milume/genes.py",
+    "milume/spatialdata_landmarks.py",
+    "milume/volume_source.py",
+    "milume/volume_comm.py"
   ],
-  "infra": [
+  "infra_full": [
     "frontend/e2e/helpers.ts",
     "frontend/e2e/fixtures.ts",
     "frontend/playwright.config.ts",
-    "frontend/scripts/e2e-shard.mjs",
-    "frontend/scripts/e2e-shard-weights.json",
-    "frontend/scripts/build-e2e-shard-weights.mjs",
-    "frontend/scripts/check-pr-policy.mjs",
-    "frontend/scripts/check-widget-issue.mjs",
-    "frontend/scripts/check-agent-policy.test.mjs",
-    "frontend/scripts/lib/e2e-shard-plan.mjs",
-    "frontend/scripts/lib/**",
-    ".github/workflows/pr-policy.yml",
-    ".github/ISSUE_TEMPLATE/**",
-    "frontend/package.json",
     "frontend/package-lock.json",
     "frontend/vite.config.*",
+    ".github/workflows/frontend-e2e.yml"
+  ],
+  "infra_core": [
     "frontend/index.html",
-    ".github/workflows/frontend-e2e.yml",
+    "frontend/package.json",
     ".github/workflows/detect-changes.yml",
     ".github/actions/playwright-browser/**",
     ".github/e2e-tiers.json"
@@ -57,5 +56,18 @@
     "frontend/scripts/post-pr-playwright-comment.mjs",
     "frontend/scripts/pr-policy-fixtures/**",
     "frontend/scripts/widget-issue-fixtures/**"
+  ],
+  "ci_frontend": [
+    "frontend/**",
+    "milume/static/**"
+  ],
+  "ci_python": [
+    "milume/**",
+    "tests/**",
+    "pyproject.toml",
+    "uv.lock"
+  ],
+  "all": [
+    "**"
   ]
 }

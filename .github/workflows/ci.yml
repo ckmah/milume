@@ -4,35 +4,57 @@ on:
   push:
     branches: [main]
   pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "website/**"
+      - "demos/**"
+      - ".github/ISSUE_TEMPLATE/**"
 
 jobs:
+  changes:
+    uses: ./.github/workflows/detect-changes.yml
+
   test:
+    needs: changes
+    if: needs.changes.outputs.ci_frontend == 'true' || needs.changes.outputs.ci_pytest == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: astral-sh/setup-uv@v5
+        if: needs.changes.outputs.ci_pytest == 'true'
         with:
           enable-cache: true
 
       - uses: actions/setup-node@v4
+        if: needs.changes.outputs.ci_frontend == 'true' || needs.changes.outputs.ci_pytest == 'true'
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - run: npm ci
+      - if: needs.changes.outputs.ci_frontend == 'true' || needs.changes.outputs.ci_pytest == 'true'
+        run: npm ci
         working-directory: frontend
 
-      - run: npm run check:chrome
+      - if: needs.changes.outputs.ci_frontend == 'true'
+        run: npm run check:chrome
         working-directory: frontend
 
-      - run: npm run typecheck
+      - if: needs.changes.outputs.ci_frontend == 'true'
+        run: npm run typecheck
         working-directory: frontend
 
-      - run: npm run build
+      - if: needs.changes.outputs.ci_frontend == 'true' || needs.changes.outputs.ci_pytest == 'true'
+        run: npm run build
         working-directory: frontend
 
-      - run: uv sync --group dev
-      - run: uv run pytest
-      - run: uv build
+      - if: needs.changes.outputs.ci_pytest == 'true'
+        run: uv sync --group dev
+
+      - if: needs.changes.outputs.ci_pytest == 'true'
+        run: uv run pytest
+
+      - if: needs.changes.outputs.ci_uv_build == 'true'
+        run: uv build
