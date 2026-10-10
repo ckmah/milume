@@ -136,7 +136,10 @@ def export_profile(profile: str) -> None:
         sdata = _write_store_pyxa(PUBLIC / store_name, profile)
         image_key = next(iter(sdata.images))
         contrast = image_contrast_limits(sdata.images[image_key])
-        widget = LandmarksWidget(sdata, color="ROI", contrast_limits=contrast)
+        adata = sdata.tables[next(iter(sdata.tables.keys()))]
+        obs = adata.obs
+        color_key = next((k for k in ("ROI", "region", "cluster") if k in obs.columns), None)
+        widget = LandmarksWidget(sdata, color=color_key, contrast_limits=contrast)
     else:
         raise SystemExit(f"unknown profile {profile!r} (expected toy, xsmall, or small)")
 

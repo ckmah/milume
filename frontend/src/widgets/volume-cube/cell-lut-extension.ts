@@ -163,6 +163,11 @@ vec4 imageSample(float v) {
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
+vec3 outlineFromFill(vec3 rgb) {
+  float l = dot(rgb, vec3(0.299, 0.587, 0.114));
+  return l > 0.42 ? rgb * 0.28 : mix(rgb, vec3(1.0), 0.65);
+}
+
 // Colour (linear RGB) and per-sample alpha of the label voxel at texel q.
 vec4 cellColor(ivec3 q) {
   ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
@@ -176,11 +181,10 @@ vec4 cellColor(ivec3 q) {
   bool hasRgb = dot(own.rgb, vec3(1.0)) > 1.0 / 255.0;
   if (surface) {
     if (cubeRender.cellOutlineOn < 0.5) return vec4(0.0);
-    // Highlighted cells (high fill weight): tint the fill colour toward shared orange.
-    // Dim / unassigned cells keep the shared outline texel so they never read as another category.
+    // Highlighted cells: a darkened/lightened rim of the fill colour; others use texel 0.
     bool highlighted = own.a > 0.5;
     vec4 c = highlighted && hasRgb
-      ? vec4(mix(own.rgb, neutral.rgb, 0.72), 1.0)
+      ? vec4(outlineFromFill(own.rgb), 1.0)
       : vec4(neutral.rgb, neutral.a);
     return c;
   }

@@ -24,14 +24,23 @@ const entries =
 const singleWidget = Object.keys(entries).length === 1;
 
 const devWidget = process.env.DEV_WIDGET;
-/** landmarks-volume harness data: toy (CI), xsmall (HF Pyxa), or colon A2 (local hero). */
-const volumeProfile = process.env.MILUME_VOLUME_PROFILE ?? "toy";
+/** landmarks-volume harness data: toy (CI), xsmall/small (HF Pyxa), or colon A2 (local hero). */
+const volumeProfile =
+  process.env.MILUME_VOLUME_PROFILE === "small"
+    ? "small"
+    : process.env.MILUME_VOLUME_PROFILE === "xsmall"
+      ? "xsmall"
+      : process.env.MILUME_VOLUME_PROFILE === "colon"
+        ? "colon"
+        : "toy";
 const volumeFixtureFile =
-  volumeProfile === "xsmall"
-    ? "landmarks-volume-fixture.xsmall.json"
-    : volumeProfile === "colon"
-      ? "landmarks-volume-fixture.colon.json"
-      : "landmarks-volume-fixture.json";
+  volumeProfile === "small"
+    ? "landmarks-volume-fixture.small.json"
+    : volumeProfile === "xsmall"
+      ? "landmarks-volume-fixture.xsmall.json"
+      : volumeProfile === "colon"
+        ? "landmarks-volume-fixture.colon.json"
+        : "landmarks-volume-fixture.json";
 const harnessRoots: Record<string, string> = {
   "landmarks-volume": path.resolve(devDir, "landmarks-volume"),
 };
