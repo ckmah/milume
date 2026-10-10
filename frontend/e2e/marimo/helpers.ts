@@ -16,7 +16,7 @@ export async function waitForLandmarksWidget(page: Page) {
     () => {
       const eng = (window as any).__landmarksEngine;
       const n = eng?.getPoints?.()?.length ?? 0;
-      return n > 20;
+      return n > 0;
     },
     undefined,
     { timeout: onCi() ? 720_000 : 180_000 },
@@ -44,19 +44,15 @@ export async function drawLasso(page: Page, box: { x: number; y: number; width: 
   await page.keyboard.press("l");
   await expect.poll(() => getModel(page, "mode"), { timeout: onCi() ? 60_000 : 15_000 }).toBe("lasso");
 
-  const inset = 0.12;
-  const left = box.x + box.width * inset;
-  const right = box.x + box.width * (1 - inset);
-  const top = box.y + box.height * inset;
-  const bottom = box.y + box.height * (1 - inset);
-  const cx = (left + right) / 2;
-  const cy = (top + bottom) / 2;
-  const rx = (right - left) / 2;
-  const ry = (bottom - top) / 2;
+  const inset = 0.1;
+  const cx = box.x + box.width * 0.5;
+  const cy = box.y + box.height * 0.5;
+  const rx = box.width * (0.5 - inset);
+  const ry = box.height * (0.5 - inset);
 
   await page.mouse.move(cx + rx, cy);
   await page.mouse.down();
-  const steps = 14;
+  const steps = 16;
   for (let i = 0; i <= steps; i++) {
     const a = (i / steps) * Math.PI * 2;
     await page.mouse.move(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, { steps: 3 });

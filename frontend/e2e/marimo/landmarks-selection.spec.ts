@@ -13,8 +13,7 @@ test.describe("marimo kernel — canvas selection input", () => {
     await waitForLandmarksWidget(page);
 
     const before = ((await getModel(page, "selections")) as unknown[])?.length ?? 0;
-    const box = await canvasBox(page);
-    await drawLasso(page, box);
+    await drawLasso(page, await canvasBox(page));
 
     await expect
       .poll(async () => ((await getModel(page, "selections")) as unknown[])?.length ?? 0, {
