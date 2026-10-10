@@ -23,7 +23,9 @@ async function layerOn(page, testId) {
 
 async function cubeAttrs(page) {
   return page.evaluate(() => {
-    const el = document.querySelector(".volume-cube__view");
+    const el = document.querySelector(
+      '[role="dialog"][aria-label="Cube"] .volume-cube__view',
+    );
     if (!el) return null;
     return {
       labels: el.getAttribute("data-labels"),

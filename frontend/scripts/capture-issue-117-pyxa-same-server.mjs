@@ -10,6 +10,8 @@ import { chromium } from "@playwright/test";
 
 const outDir = process.env.CAPTURE_OUT ?? "/opt/cursor/artifacts";
 const storeDir = process.env.PR120_STORE ?? "/cursor/stores/self/pr120";
+const captureProfile = process.env.CAPTURE_PROFILE === "toy" ? "toy" : "small";
+const expectedLabelIdsLen = captureProfile === "toy" ? 16 : 23320;
 const port = Number(process.env.CAPTURE_PORT ?? 5173);
 const base = `http://127.0.0.1:${port}`;
 const root = new URL("../..", import.meta.url).pathname;
@@ -32,9 +34,14 @@ function restartVite() {
     `tmux -f /exec-daemon/tmux.portal.conf new-session -d -s ${session} -c ${frontend} -- bash -lc ` +
       `"npx cross-env DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=small npx vite --host 127.0.0.1 --port ${port}"`,
   );
+  const expectedLabelIdsLen = 23320;
   for (let i = 0; i < 90; i++) {
     try {
       sh(`curl -sf ${base}/ >/dev/null`);
+      const len = JSON.parse(sh(`curl -sf ${base}/fixture.json`)).volume_label_ids.length;
+      if (len !== expectedLabelIdsLen) {
+        throw new Error(`fixture volume_label_ids length ${len} (expected ${expectedLabelIdsLen})`);
+      }
       return;
     } catch {
       spawnSync("sleep", ["1"]);
