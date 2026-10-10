@@ -799,9 +799,6 @@ test.describe("LandmarksWidget", () => {
     });
     await waitForEngine(page);
 
-    const widget = page.locator(".landmarks").first();
-    await shot(page, "buffered-spline-color", widget);
-
     await expectLandmarkColorsAligned(page, ["artery"]);
     const strokeHex = await page.evaluate(
       (idx) => (window as any).__landmarksEngine.landmarkStrokeColor(idx) as string,
