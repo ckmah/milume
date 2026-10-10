@@ -46,8 +46,7 @@ async function captureSet(base, tag) {
     console.log("wrote", uncutTop, "from", base);
 
     await page.evaluate(() => {
-      const m = (window as unknown as { __landmarksModel?: { set(k: string, v: unknown): void } })
-        .__landmarksModel;
+      const m = window.__landmarksModel;
       if (m) m.set("volume_cut", [0, 1e9, 0, 1e9, 12, 18]);
     });
     await page.waitForFunction(
