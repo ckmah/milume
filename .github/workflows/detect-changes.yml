@@ -20,6 +20,8 @@ on:
         value: ${{ jobs.detect.outputs.landmarks }}
       volume_cube:
         value: ${{ jobs.detect.outputs.volume_cube }}
+      marimo_volume:
+        value: ${{ jobs.detect.outputs.marimo_volume }}
       ui:
         value: ${{ jobs.detect.outputs.ui }}
       policy:
@@ -38,6 +40,7 @@ jobs:
       core: ${{ steps.select.outputs.core }}
       landmarks: ${{ steps.select.outputs.landmarks }}
       volume_cube: ${{ steps.select.outputs.volume_cube }}
+      marimo_volume: ${{ steps.select.outputs.marimo_volume }}
       ui: ${{ steps.select.outputs.ui }}
       policy: ${{ steps.select.outputs.policy }}
       ci_frontend: ${{ steps.select.outputs.ci_frontend }}
@@ -61,6 +64,7 @@ jobs:
           CORE: ${{ steps.filter.outputs.core || 'false' }}
           LANDMARKS: ${{ steps.filter.outputs.landmarks || 'false' }}
           VOLUME_CUBE: ${{ steps.filter.outputs.volume_cube || 'false' }}
+          MARIMO_VOLUME: ${{ steps.filter.outputs.marimo_volume || 'false' }}
           INFRA_FULL: ${{ steps.filter.outputs.infra_full || 'false' }}
           INFRA_CORE: ${{ steps.filter.outputs.infra_core || 'false' }}
           POLICY: ${{ steps.filter.outputs.policy || 'false' }}
@@ -72,13 +76,14 @@ jobs:
           core=false
           landmarks=false
           volume_cube=false
+          marimo_volume=false
           policy=false
           ci_frontend=false
           ci_pytest=false
           ci_uv_build=false
           if [[ "${IS_DISPATCH}" == "true" ]]; then
             case "${TIER}" in
-              all) core=true; landmarks=true ;;
+              all) core=true; landmarks=true; marimo_volume=true ;;
               core) core=true ;;
               landmarks) landmarks=true ;;
             esac
@@ -89,6 +94,7 @@ jobs:
           else
             [[ "${POLICY}" == "true" ]] && policy=true
             [[ "${VOLUME_CUBE}" == "true" ]] && volume_cube=true
+            [[ "${MARIMO_VOLUME}" == "true" ]] && marimo_volume=true
             if [[ "${INFRA_FULL}" == "true" ]]; then
               core=true
               landmarks=true
@@ -126,9 +132,10 @@ jobs:
           echo "core=${core}" >> "$GITHUB_OUTPUT"
           echo "landmarks=${landmarks}" >> "$GITHUB_OUTPUT"
           echo "volume_cube=${volume_cube}" >> "$GITHUB_OUTPUT"
+          echo "marimo_volume=${marimo_volume}" >> "$GITHUB_OUTPUT"
           echo "ui=${ui}" >> "$GITHUB_OUTPUT"
           echo "policy=${policy}" >> "$GITHUB_OUTPUT"
           echo "ci_frontend=${ci_frontend}" >> "$GITHUB_OUTPUT"
           echo "ci_pytest=${ci_pytest}" >> "$GITHUB_OUTPUT"
           echo "ci_uv_build=${ci_uv_build}" >> "$GITHUB_OUTPUT"
-          echo "Selected: core=${core} landmarks=${landmarks} volume_cube=${volume_cube} ui=${ui} policy=${policy} ci_frontend=${ci_frontend} ci_pytest=${ci_pytest} ci_uv_build=${ci_uv_build}"
+          echo "Selected: core=${core} landmarks=${landmarks} volume_cube=${volume_cube} marimo_volume=${marimo_volume} ui=${ui} policy=${policy} ci_frontend=${ci_frontend} ci_pytest=${ci_pytest} ci_uv_build=${ci_uv_build}"
