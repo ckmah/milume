@@ -125,9 +125,20 @@ vec4 imageSample(float v) {
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
-// Same fill path as main cell-lut-extension; cutRimMask overrides on cut-face surface voxels.
-vec4 cellColor(ivec3 q) {
-  if (cubeRender.cellOutlineOn > 0.5) {
+bool onCutFace(vec3 p, float xLo, float xHi, float yLo, float yHi, float zLo, float zHi) {
+  float e = 0.004;
+  if (cubeRender.cutX0 > 0.001 && abs(p.x - xLo) < e) return true;
+  if (cubeRender.cutX1 < 0.999 && abs(p.x - xHi) < e) return true;
+  if (cubeRender.cutY0 > 0.001 && abs(p.y - yLo) < e) return true;
+  if (cubeRender.cutY1 < 0.999 && abs(p.y - yHi) < e) return true;
+  if (cubeRender.cutZ0 > 0.001 && abs(p.z - zLo) < e) return true;
+  if (cubeRender.cutZ1 < 0.999 && abs(p.z - zHi) < e) return true;
+  return false;
+}
+
+// Same fill path as main cell-lut-extension; cutRimMask overrides on cut-face voxels only.
+vec4 cellColor(ivec3 q, vec3 p, float xLo, float xHi, float yLo, float yHi, float zLo, float zHi) {
+  if (cubeRender.cellOutlineOn > 0.5 && onCutFace(p, xLo, xHi, yLo, yHi, zLo, zHi)) {
     vec4 rim = texelFetch(cutRimMask, q, 0);
     if (rim.a > 1.0 / 255.0) return rim;
   }
@@ -150,7 +161,9 @@ const CELL_SETUP = `
   bool cellsOn = cubeRender.cellsOn > 0.5;`;
 
 const CELL_SAMPLE_CUT = `
-    vec4 cell = canShow * cellColor(clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1));`;
+    vec4 cell = canShow * cellColor(
+      clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1),
+      p, xLo, xHi, yLo, yHi, zLo, zHi);`;
 
 const IN_CUT = `
     vec2 xS = fragmentUniforms3D.xSlice;
