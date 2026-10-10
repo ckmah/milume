@@ -128,6 +128,7 @@ export class VolumeCommClient {
     if (range) msg.range = range;
     const [response, buffers] = await invoke(this.model, COMMAND, msg);
     if (!response.ok) {
+      if (response.status === 404) return undefined;
       const detail =
         typeof response.error === "string" && response.error.length > 0
           ? response.error
