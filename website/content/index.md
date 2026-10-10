@@ -5,9 +5,9 @@
   <img class="milume-hero__poster" src="assets/hero-poster.png" alt="" width="1600" height="900" decoding="async" />
 </div>
 
-[LandmarksWidget](quickstart.md) draws selections and landmarks on tissue
-coordinates in `AnnData` or `SpatialData`. Python owns analysis; the browser
-owns presentation; geometry syncs through traitlets.
+**A thinking surface for spatial omics.**
+
+Layer images, cells, and transcripts in one reactive notebook widget.
 
 ```python
 import milume

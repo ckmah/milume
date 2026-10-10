@@ -4,7 +4,9 @@
 
 # milume
 
-**milume: a thinking surface for spatial omics.**
+**A thinking surface for spatial omics.**
+
+Layer images, cells, and transcripts in one reactive notebook widget.
 
 You have a spatial dataset and a hunch. milume turns a notebook cell into a tactile,
 reactive surface where you can look at your tissue, select what catches your eye, and
