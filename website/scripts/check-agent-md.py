@@ -14,7 +14,8 @@ _INTERNAL_DOCS_LINK = re.compile(
     r"https://github\.com/ckmah/milume/blob/[^)\s]+/docs/",
     re.IGNORECASE,
 )
-_SPHINX_ROLE = re.compile(r":\w+:`")
+# Any Sphinx role (`:func:`, `:class:`, `:meth:`, `:attr:`, …).
+_SPHINX_ROLE = re.compile(r":\w+:")
 _DOCTEST_LINE = re.compile(r"^\s*>>>")
 
 
