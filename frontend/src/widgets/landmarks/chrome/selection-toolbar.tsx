@@ -26,7 +26,7 @@ import {
   TENSION_TYPES,
   formatParam,
   maxBufferWidth,
-  landmarkStableColor,
+  landmarkColor,
   normalizeBufferSide,
 } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
@@ -342,9 +342,7 @@ export function SelectionToolbar({
 
   if (!showLandmarkBar && !showHoodBar) return null;
 
-  const color =
-    (typeof selectedLm?.color === "string" && selectedLm.color) ||
-    landmarkStableColor(selectedLm?.id, index);
+  const color = landmarkColor(selectedLm, index);
   const lineStyle =
     String(selectedLm?.line_style || "solid") === "dashed" ? "dashed" : "solid";
   const side = normalizeBufferSide(

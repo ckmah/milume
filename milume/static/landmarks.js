@@ -44,6 +44,7 @@ import {
   blendGeneSrgb,
   LOW_EXPR_SRGB,
 } from "./gene-expression-blend.js";
+import { LANDMARK_COLORS, landmarkColor } from "./landmark-stable-color.js";
 import {
   buildSpatialIndex,
   queryNeighbors,
@@ -85,8 +86,8 @@ const SELECTION_DOT = [2, 4];
 const HIDDEN_WIDGET_STYLE = { display: "none" };
 const OVERLAY_GL = { depthCompare: "always", depthWriteEnabled: false };
 
-const COLORS = ["#00e5ff", "#ff2d95", "#b8ff00", "#ffb000", "#7c4dff", "#00ffa3"];
-const FALLBACK_POINT = "#00e5ff";
+const COLORS = LANDMARK_COLORS;
+const FALLBACK_POINT = LANDMARK_COLORS[0];
 const SEL_COLORS = ["#a3a3a3", "#8a8a8a", "#737373", "#c4c4c4"];
 const POINT_OPACITY = 0.8;
 const LANDMARK_OPACITY = 0.28;
@@ -2739,6 +2740,40 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     ];
   }
 
+  function rgbaBytesToHex(rgba) {
+    if (!rgba || rgba.length < 3) return null;
+    const hex = (n) =>
+      Math.max(0, Math.min(255, Math.round(n)))
+        .toString(16)
+        .padStart(2, "0");
+    return `#${hex(rgba[0])}${hex(rgba[1])}${hex(rgba[2])}`;
+  }
+
+  /** Stroke colour from the last-built deck.gl landmark layers (not model recompute). */
+  function readRenderedLandmarkStrokeHex(index) {
+    const layers = deckgl?.props?.layers;
+    if (!layers?.length) return null;
+    for (const layer of layers) {
+      const layerId = layer?.id;
+      if (typeof layerId !== "string" || !layerId.startsWith("landmark-")) continue;
+      const props = layer.props ?? layer;
+      const data = props.data;
+      if (!Array.isArray(data)) continue;
+      for (const d of data) {
+        if (d.index !== index) continue;
+        let rgba = null;
+        if (typeof props.getLineColor === "function") {
+          rgba = props.getLineColor(d);
+        } else if (typeof props.getColor === "function") {
+          rgba = props.getColor(d);
+        }
+        const hex = rgbaBytesToHex(rgba);
+        if (hex) return hex;
+      }
+    }
+    return null;
+  }
+
   /** Readable text on a solid landmark-colored chip (WCAG-ish luminance). */
   function contrastOnHex(hex) {
     const [r, g, b] = hexToRgbaBytes(hex, 1);
@@ -3036,8 +3071,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const arrowWorld = pixelsToWorld(14);
     (model.get("landmarks") || []).forEach((lm, i) => {
       if (lm.hidden) return;
-      const rawHex =
-        (typeof lm.color === "string" && lm.color) || COLORS[i % COLORS.length];
+      const rawHex = landmarkColor(lm, i);
       const hex = isRasterMode() ? RASTER_LANDMARK_GRAY : rawHex;
       const dashed = String(lm.line_style || "solid") === "dashed";
       const selected = kind === "landmark" && i === selectedIdx;
@@ -3320,7 +3354,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const out = [];
     (model.get("landmarks") || []).forEach((lm, i) => {
       if (lm.hidden) return;
-      const hex = (typeof lm.color === "string" && lm.color) || COLORS[i % COLORS.length];
+      const hex = landmarkColor(lm, i);
       const color = hexToRgbaBytes(hex, 1);
       if (lm.type === "point") {
         const v = (lm.vertices || [])[0];
@@ -6724,6 +6758,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         return { ...result, measures };
       });
     },
+    landmarkStrokeColor: (index) => readRenderedLandmarkStrokeHex(index),
     getPerfSnapshot: () => ({
       spatialIndexBuilt: Boolean(spatialIndex),
       spatialIndexReadyMs,

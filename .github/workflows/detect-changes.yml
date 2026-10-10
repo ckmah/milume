@@ -87,6 +87,7 @@ jobs:
               landmarks=true
             elif [[ "${INFRA_CORE}" == "true" ]]; then
               core=true
+              [[ "${LANDMARKS}" == "true" ]] && landmarks=true
             else
               [[ "${CORE}" == "true" ]] && core=true
               [[ "${LANDMARKS}" == "true" ]] && landmarks=true
