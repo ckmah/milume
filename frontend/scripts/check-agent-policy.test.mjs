@@ -73,6 +73,18 @@ test("PR #80 with Closes and visuals passes pr-policy", () => {
   assert.deepEqual(errors, []);
 });
 
+test("linked CI tracking issue #128 skips widget-issue template", () => {
+  const errors = validateUiPullRequest({
+    body: "Closes #128\n\n![x](https://example.com/x.png)\n",
+    changedPaths: ["frontend/e2e/landmarks/landmarks-volume.spec.ts"],
+    isDraft: false,
+    issueBodies: {
+      128: "## Outcome\n\nCI work.\n\n## Visual acceptance\n\nN/A\n",
+    },
+  });
+  assert.deepEqual(errors, []);
+});
+
 test("linked thin issue fails when PR closes it", () => {
   const errors = validateUiPullRequest({
     body: "Closes #77\n\n![x](https://example.com/x.png)\n",

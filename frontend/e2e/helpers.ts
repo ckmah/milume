@@ -4,7 +4,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 export function screenshotsEnabled(): boolean {
   if (process.env.E2E_SCREENSHOTS === "0") return false;
   if (process.env.E2E_SCREENSHOTS === "1") return true;
-  if (process.env.CI) return true;
+  if (process.env.CI) return false;
   return process.platform === "linux";
 }
 
