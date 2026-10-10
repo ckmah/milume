@@ -135,7 +135,7 @@ await captureSet(mainUrl, "before");
 console.log("=== AFTER (PR branch)", afterUrl);
 await captureSet(afterUrl, "after");
 
-const files = ["top", "iso"].flatMap((p) => [
+const files = ["top", "iso", "side"].flatMap((p) => [
   `${outDir}/issue-117-pyxa-before-${p}.png`,
   `${outDir}/issue-117-pyxa-after-${p}.png`,
 ]);
@@ -143,7 +143,7 @@ const hashes = Object.fromEntries(files.map((f) => [f, md5(f)]));
 console.log("\n=== MD5 ===");
 for (const [f, h] of Object.entries(hashes)) console.log(h, f);
 
-for (const preset of ["top", "iso"]) {
+for (const preset of ["top", "iso", "side"]) {
   const before = `${outDir}/issue-117-pyxa-before-${preset}.png`;
   const after = `${outDir}/issue-117-pyxa-after-${preset}.png`;
   if (hashes[before] === hashes[after]) {

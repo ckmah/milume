@@ -163,8 +163,33 @@ vec4 imageSample(float v) {
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
+// Fill and contrasting rim for label MIP (max along the ray, then rim over fill).
+void cellMipLayers(ivec3 q, out vec4 fill, out vec4 rim) {
+  fill = vec4(0.0);
+  rim = vec4(0.0);
+  ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
+  int idx = b.x + 256 * (b.y & 127);
+  if (idx == 0) return;
+  bool surface = b.y >= 128;
+  ivec2 size = textureSize(cellLut, 0).xy;
+  int lutH = size.y / 2;
+  int lx = idx % size.x;
+  int ly = idx / size.x;
+  if (ly >= lutH) return;
+  vec4 own = texelFetch(cellLut, ivec3(lx, ly, 0), 0);
+  bool hasRgb = dot(own.rgb, vec3(1.0)) > 1.0 / 255.0;
+  if (hasRgb && own.a > 0.0) fill = vec4(own.rgb, own.a * cubeRender.cellAlpha);
+  if (surface && cubeRender.cellOutlineOn > 0.5) {
+    bool highlighted = own.a > 0.5 && hasRgb;
+    vec4 orim = texelFetch(cellLut, ivec3(lx, ly + lutH, 0), 0);
+    vec4 neutral = texelFetch(cellLut, ivec3(0, lutH, 0), 0);
+    vec4 c = highlighted ? orim : neutral;
+    rim = vec4(c.rgb, c.a);
+  }
+}
+
 // Colour (linear RGB) and per-sample alpha of the label voxel at texel q.
-// cellLut is two planes: fill rows 0..H/2-1, contrasting outline rows H/2..H-1.
+// cellLut is two planes: fill rows 0..H/2-1, precomputed outline rows H/2..H-1.
 vec4 cellColor(ivec3 q) {
   ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
   int idx = b.x + 256 * (b.y & 127);
@@ -178,18 +203,6 @@ vec4 cellColor(ivec3 q) {
   vec4 own = texelFetch(cellLut, ivec3(lx, ly, 0), 0);
   bool hasRgb = dot(own.rgb, vec3(1.0)) > 1.0 / 255.0;
   float fillA = own.a * cubeRender.cellAlpha;
-  // Labels MIP: max along the ray (thin rim at footprint edges, faint fill in the interior).
-  if (cubeRender.cellMip > 0.5) {
-    if (surface && cubeRender.cellOutlineOn > 0.5) {
-      bool highlighted = own.a > 0.5 && hasRgb;
-      vec4 rim = texelFetch(cellLut, ivec3(lx, ly + lutH, 0), 0);
-      vec4 neutral = texelFetch(cellLut, ivec3(0, lutH, 0), 0);
-      vec4 c = highlighted ? rim : neutral;
-      return vec4(c.rgb, c.a);
-    }
-    if (!hasRgb || own.a <= 0.0) return vec4(0.0);
-    return vec4(own.rgb, fillA);
-  }
   if (surface) {
     if (cubeRender.cellOutlineOn < 0.5) return vec4(0.0);
     bool highlighted = own.a > 0.5 && hasRgb;
@@ -239,8 +252,10 @@ const RENDERING = {
   vec4 acc = vec4(0.0);
   float maxImage = -1.0;
   vec4 cells = vec4(0.0);
-  float cellMax = 0.0;
-  vec3 cellMaxRgb = vec3(0.0);
+  float cellFillMax = 0.0;
+  vec3 cellFillRgb = vec3(0.0);
+  float cellRimMax = 0.0;
+  vec3 cellRimRgb = vec3(0.0);
   bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
     || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
     || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
@@ -257,13 +272,22 @@ const RENDERING = {
         acc.a += (1.0 - acc.a) * a;
       }
       if (cellsOn && (cubeRender.cellMip > 0.5 || cells.a < 0.95)) {
-        ${CELL_SAMPLE}
         if (cubeRender.cellMip > 0.5) {
-          if (cell.a > cellMax) {
-            cellMax = cell.a;
-            cellMaxRgb = cell.rgb;
+          vec4 cellFill;
+          vec4 cellRim;
+          cellMipLayers(clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1), cellFill, cellRim);
+          cellFill *= canShow;
+          cellRim *= canShow;
+          if (cellFill.a > cellFillMax) {
+            cellFillMax = cellFill.a;
+            cellFillRgb = cellFill.rgb;
+          }
+          if (cellRim.a > cellRimMax) {
+            cellRimMax = cellRim.a;
+            cellRimRgb = cellRim.rgb;
           }
         } else {
+        ${CELL_SAMPLE}
           float a = cover(cell.a, stepScale);
           cells.rgb += (1.0 - cells.a) * a * cell.rgb;
           cells.a += (1.0 - cells.a) * a;
@@ -281,7 +305,13 @@ const RENDERING = {
     vec4 im = imageSample(maxImage);
     imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
   }
-  vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb * cellMax, cellMax) : cells;
+  vec4 cellsOut = cells;
+  if (cubeRender.cellMip > 0.5) {
+    vec4 fillPm = vec4(cellFillRgb * cellFillMax, cellFillMax);
+    vec4 rimPm = vec4(cellRimRgb * cellRimMax, cellRimMax);
+    cellsOut.rgb = rimPm.rgb + (1.0 - rimPm.a) * fillPm.rgb;
+    cellsOut.a = rimPm.a + (1.0 - rimPm.a) * fillPm.a;
+  }
   color = vec4(
     cellsOut.rgb + (1.0 - cellsOut.a) * imageOut.rgb,
     cellsOut.a + (1.0 - cellsOut.a) * imageOut.a
@@ -496,16 +526,17 @@ function srgbToLinear(c: number): number {
   return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
 }
 
-/** Contrasting rim: shared orange for coloured cells; near-white / near-black from fill luminance. */
+/** Category/group rims: v1.1.0-style shared orange. Instance rims: near-white / near-black from luminance. */
 function contrastingOutlineRgb(
   fillRgb: readonly [number, number, number],
   sharedOrange: readonly [number, number, number],
+  mode: "shared" | "luminance",
 ): [number, number, number] {
+  if (mode === "shared") return sharedOrange as [number, number, number];
   const r = fillRgb[0] / 255;
   const g = fillRgb[1] / 255;
   const b = fillRgb[2] / 255;
   const l = 0.299 * r + 0.587 * g + 0.114 * b;
-  if (l > 0.55 || l < 0.12) return sharedOrange as [number, number, number];
   if (l > 0.42) return [22, 22, 26];
   return [235, 235, 240];
 }
@@ -516,6 +547,7 @@ function mirrorOutlinePlane(
   fillRows: number,
   sharedOrange: readonly [number, number, number],
   outlineAlpha = 255,
+  mode: "shared" | "luminance" = "shared",
 ) {
   const plane = width * fillRows;
   for (let i = 0; i < plane; i++) {
@@ -523,7 +555,7 @@ function mirrorOutlinePlane(
     const rgb: [number, number, number] = [data[off]!, data[off + 1]!, data[off + 2]!];
     const a = data[off + 3]!;
     const hasFill = a > 0 && rgb[0] + rgb[1] + rgb[2] > 1;
-    const outlineRgb = hasFill ? contrastingOutlineRgb(rgb, sharedOrange) : rgb;
+    const outlineRgb = hasFill ? contrastingOutlineRgb(rgb, sharedOrange, mode) : rgb;
     const outlineA = i === 0 ? a : hasFill ? outlineAlpha : a;
     const o = (plane + i) * 4;
     data[o] = outlineRgb[0];
@@ -615,7 +647,7 @@ export function buildCellLut(coloring: CellColoring, cells: readonly number[]): 
   if (coloring.kind === "instances") {
     data.set([...outline, Math.round(255 * OUTLINE.alpha)], 0);
     for (let i = 1; i < cells.length; i++) data.set([...instanceColor(cells[i]!), fill], i * 4);
-    mirrorOutlinePlane(data, width, fillRows, outline, Math.round(255 * OUTLINE.alpha));
+    mirrorOutlinePlane(data, width, fillRows, outline, Math.round(255 * OUTLINE.alpha), "luminance");
     return { data, width, height };
   }
   if (coloring.kind === "expression") {
@@ -624,7 +656,7 @@ export function buildCellLut(coloring: CellColoring, cells: readonly number[]): 
       const rgb = coloring.byLabel.get(cells[i]!);
       if (rgb) data.set([rgb[0], rgb[1], rgb[2], 0], i * 4);
     }
-    mirrorOutlinePlane(data, width, fillRows, outline, Math.round(255 * OUTLINE.alpha));
+    mirrorOutlinePlane(data, width, fillRows, outline, Math.round(255 * OUTLINE.alpha), "shared");
     return { data, width, height };
   }
   const { groups } = coloring;
@@ -652,6 +684,7 @@ export function buildCellLut(coloring: CellColoring, cells: readonly number[]): 
     fillRows,
     outline,
     Math.round(255 * (groups.length ? OUTLINE.behindGroups : OUTLINE.alpha)),
+    "shared",
   );
   return { data, width, height };
 }
