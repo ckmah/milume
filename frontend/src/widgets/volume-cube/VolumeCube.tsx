@@ -14,12 +14,11 @@ import { isCommVolumeUrl } from "./volume-url";
 import { contentZIndexSpan, type ContentZSpan } from "./content-z-span";
 import {
   CUBE_EXTENSIONS,
-  CUBE_EXTENSIONS_CUT_OUTLINE,
-  cutOutlineShaderActive,
   type CellColoring,
   type HighlightGroup,
   type RenderSettings,
 } from "./cell-lut-extension";
+import { CUBE_EXTENSIONS_CUT_OUTLINE, cutOutlineShaderActive } from "./cell-lut-cut-extension";
 import {
   type CutFace,
   cutBoxPre,

@@ -69,7 +69,10 @@ async function assertDrawing(page, view, phase) {
 }
 
 async function bench(page) {
-  await page.goto("http://127.0.0.1:5173/?window=100", { waitUntil: "networkidle" });
+  const rev = process.env.BENCH_REV_TAG ?? "run";
+  await page.goto(`http://127.0.0.1:5173/?window=100&_bench=${rev}-${Date.now()}`, {
+    waitUntil: "networkidle",
+  });
   await page.waitForFunction(() => Boolean(window.__landmarksEngine?.getViewState?.()));
   await page.getByRole("radio", { name: "Inspect", exact: true }).click();
   await page.mouse.click(
