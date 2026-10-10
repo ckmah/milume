@@ -81,8 +81,8 @@
   "inspect_cx": null,
   "inspect_cy": null,
   "volume": {
-    "image_url": "/toy.sdata.zarr/images/mosaic/",
-    "labels_url": "/toy.sdata.zarr/labels/cells/",
+    "image_url": "images/mosaic/",
+    "labels_url": "labels/cells/",
     "voxel_size_um": [
       1.0,
       1.0,

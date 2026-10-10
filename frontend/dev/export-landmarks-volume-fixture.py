@@ -8,7 +8,8 @@ Profiles:
 
 Each profile writes ``landmarks-volume/public/<profile>.sdata.zarr`` and a matching
 ``landmarks-volume-fixture[.xsmall].json``. Vite serves zarr from the public dir and
-rewrites ``volume`` URLs to static paths instead of the widget loopback server.
+exports comm-relative ``volume`` URLs (``images/.../``); the harness mock serves
+them via ``volume_get`` over the same-origin zarr tree under ``public/``.
 """
 
 from __future__ import annotations
@@ -18,8 +19,6 @@ import json
 import shutil
 import sys
 from pathlib import Path
-from urllib.parse import urlparse
-
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
@@ -88,17 +87,6 @@ FIXTURE_KEYS = [
 VOLUME_KEYS = ["volume", "volume_label_ids", "volume_cut", "inspect_size_um"]
 
 
-def _static_volume_urls(volume: dict[str, object], store_name: str) -> dict[str, object]:
-    out = dict(volume)
-    for key in ("image_url", "labels_url"):
-        url = str(out.get(key) or "")
-        if not url:
-            continue
-        path = urlparse(url).path
-        out[key] = f"/{store_name}{path}"
-    return out
-
-
 def _write_store_toy(store: Path):
     if store.exists():
         shutil.rmtree(store)
@@ -153,7 +141,7 @@ def export_profile(profile: str) -> None:
 
     widget.set_render_mode("points")
     payload = {key: getattr(widget, key) for key in FIXTURE_KEYS + VOLUME_KEYS}
-    payload["volume"] = _static_volume_urls(payload["volume"], store_name)
+    payload["volume"] = dict(payload["volume"])
     out.write_text(json.dumps(payload, indent=2) + "\n")
     print(f"wrote {PUBLIC / store_name} and {out} ({out.stat().st_size / 1e3:.1f} KB)")
 

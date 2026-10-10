@@ -488,6 +488,21 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
   });
 
+  test("the inspect cube loads image zarr via the widget comm", async ({ page }) => {
+    const loopbackVolume: string[] = [];
+    page.on("request", (req) => {
+      const url = req.url();
+      if (/127\.0\.0\.1:\d+\/(images|labels)\//.test(url)) loopbackVolume.push(url);
+    });
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-channels", /1|2/);
+    const reads = await page.evaluate(() => (window as { __volumeCommReads?: () => number }).__volumeCommReads?.() ?? 0);
+    expect(reads).toBeGreaterThan(5);
+    expect(loopbackVolume).toEqual([]);
+  });
+
   test("a drag moves the window with the cube closed; the cube opens on release", async ({ page }) => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     const box = await canvasBox(page);
