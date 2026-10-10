@@ -3,6 +3,7 @@ import { Suspense, lazy, useCallback, useEffect, useRef } from "react";
 import type { CellColoring } from "@/widgets/volume-cube/cell-lut-extension";
 import type { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import type { VolumeCommClient } from "@/widgets/volume-cube/volume-comm";
+import type { VolumeHttpClient } from "@/widgets/volume-cube/volume-http";
 import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
 import type { CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
 import { PREVIEW_REGION_SCALE } from "@/widgets/volume-cube/window-source";
@@ -40,6 +41,7 @@ export function CubeImmersive({
   coloring,
   cache,
   volumeComm,
+  volumeHttp,
   budgets,
   snapshots,
   overlays,
@@ -61,6 +63,7 @@ export function CubeImmersive({
   /** The widget's decoded-chunk cache, shared with the preview. */
   cache: ChunkCache;
   volumeComm: VolumeCommClient | null;
+  volumeHttp: VolumeHttpClient | null;
   /** Voxel budgets: `preview` sizes the coarse first step, `dock` the fine level. */
   budgets: { preview: number; dock: number };
   /** Inspect entry thumbnails by selection id; kept across opens, never synced. */
@@ -196,6 +199,7 @@ export function CubeImmersive({
           budget={budgets.dock}
           chunkCache={cache}
           volumeComm={volumeComm}
+          volumeHttp={volumeHttp}
           pausesPrefetch
           onLoadState={onLoadState}
           onRendered={onRendered}

@@ -19,12 +19,20 @@ from typing import Any
 import numpy as np
 
 
+def _is_http_store(path: str) -> bool:
+    return path.startswith(("http://", "https://"))
+
+
+def _normalize_store_url(url: str) -> str:
+    return url if url.endswith("/") else f"{url}/"
+
+
 @dataclass(frozen=True)
 class VolumeSource:
     table_name: str
     image: str | None
     labels: str | None
-    root: Path
+    root: Path | str
     voxel_size_um: tuple[float, float, float]
     origin_um: tuple[float, float, float]
     shape_zyx: tuple[int, int, int]
@@ -189,4 +197,6 @@ def resolve_volume(
                 UserWarning,
                 stacklevel=2,
             )
-    return adata, VolumeSource(table_name, image_name, labels_name, Path(sdata.path), voxel, origin, shape, label_ids)
+    store = str(sdata.path)
+    root: Path | str = _normalize_store_url(store) if _is_http_store(store) else Path(store)
+    return adata, VolumeSource(table_name, image_name, labels_name, root, voxel, origin, shape, label_ids)
