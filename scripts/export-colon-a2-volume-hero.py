@@ -21,7 +21,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from milume import LandmarksWidget  # noqa: E402
-from milume.volume_source import image_contrast_limits  # noqa: E402
 
 DEV = ROOT / "frontend" / "dev"
 PUBLIC = DEV / "landmarks-volume" / "public"
@@ -164,6 +163,10 @@ def _hero_selection(widget: LandmarksWidget, sdata) -> None:
             "type": "polygon",
             "vertices": vertices,
             "point_indices": point_indices,
+            # kNN neighborhood on so focused selection dims points outside the region.
+            "neighborhood": "knn",
+            "neighborhood_k": 12,
+            "neighborhood_radius": 0,
         },
     ]
     widget.selected_kind = "selection"
@@ -181,9 +184,12 @@ def write_fixture(sdata, *, cells: int | None, hero: bool) -> None:
         idx = rng.choice(table.n_obs, size=cells, replace=False)
         sdata.tables["rna"] = table[idx].copy()
 
-    image_key = next(iter(sdata.images))
-    contrast = image_contrast_limits(sdata.images[image_key])
-    widget = LandmarksWidget(sdata, color="Cluster", contrast_limits=contrast, genes=[])
+    widget = LandmarksWidget(
+        sdata,
+        color="Cluster",
+        contrast_limits=(40.0, 255.0),
+        genes=[],
+    )
     widget.set_render_mode("points")
     widget.mode = "select"
     widget.landmarks = []
