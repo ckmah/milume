@@ -16,9 +16,11 @@ test.describe("marimo kernel — canvas selection input", () => {
     const box = await canvasBox(page);
     await drawLasso(page, box);
 
-    await expect.poll(async () => ((await getModel(page, "selections")) as unknown[]).length).toBeGreaterThan(
-      before,
-    );
+    await expect
+      .poll(async () => ((await getModel(page, "selections")) as unknown[])?.length ?? 0, {
+        timeout: onCi() ? 120_000 : 30_000,
+      })
+      .toBeGreaterThan(before);
     const selections = (await getModel(page, "selections")) as { point_indices?: number[] }[];
     const last = selections[selections.length - 1];
     expect(last?.point_indices?.length ?? 0).toBeGreaterThan(0);

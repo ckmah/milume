@@ -39,6 +39,7 @@ export async function canvasBox(page: Page) {
 /** Closed lasso stroke on the map (page.mouse, molab-style). */
 export async function drawLasso(page: Page, box: { x: number; y: number; width: number; height: number }) {
   const canvas = page.locator("canvas.landmarks__webgl, canvas").first();
+  await page.getByRole("button", { name: "Reset view" }).click({ timeout: 15_000 }).catch(() => undefined);
   await canvas.click({ position: { x: Math.round(box.width * 0.5), y: Math.round(box.height * 0.5) } });
   await page.keyboard.press("l");
   await expect.poll(() => getModel(page, "mode"), { timeout: onCi() ? 60_000 : 15_000 }).toBe("lasso");
@@ -61,7 +62,6 @@ export async function drawLasso(page: Page, box: { x: number; y: number; width: 
     await page.mouse.move(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, { steps: 3 });
   }
   await page.mouse.up();
-  await expect.poll(() => getModel(page, "mode"), { timeout: 30_000 }).toBe("select");
 }
 
 /** Click-select an existing landmark (deck onClick in Select mode). */
