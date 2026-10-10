@@ -64,17 +64,22 @@ async function captureSet(tag) {
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   const paths = {};
   try {
-    await page.goto(`${base}/?window=100`, { waitUntil: "domcontentloaded", timeout: 120_000 });
+    await page.goto(`${base}/?window=100`, { waitUntil: "networkidle", timeout: 300_000 });
     await page.waitForFunction(() => Boolean(window.__landmarksEngine?.getViewState?.()), null, {
       timeout: 300_000,
     });
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-    const canvas = page.locator("canvas.landmarks__webgl").first();
-    const box = await canvas.boundingBox();
-    if (!box) throw new Error("no canvas");
-    await page.mouse.click(box.x + box.width * 0.52, box.y + box.height * 0.48);
+    await page.mouse.click(
+      ...(await page.evaluate(() => {
+        const c = document.querySelector("canvas.landmarks__webgl");
+        if (!c) throw new Error("no landmarks canvas");
+        const r = c.getBoundingClientRect();
+        return [r.x + r.width / 2, r.y + r.height / 2];
+      })),
+    );
+    await page.getByRole("dialog", { name: "Cube" }).waitFor({ timeout: 300_000 });
     const view = page.locator('[role="dialog"][aria-label="Cube"] .volume-cube__view');
-    await view.waitFor({ state: "visible", timeout: 120_000 });
+    await view.waitFor({ state: "visible", timeout: 300_000 });
     await page.waitForFunction(
       () => document.querySelector(".volume-cube__view")?.getAttribute("data-refining") === "false",
       null,
@@ -99,10 +104,17 @@ async function captureSet(tag) {
       { timeout: 300_000 },
     );
     await bar.getByRole("radio", { name: "Side view" }).click({ timeout: 120_000 });
+    await page
+      .waitForFunction(
+        () => document.querySelector(".volume-cube__view")?.getAttribute("data-pitch") === "0",
+        null,
+        { timeout: 300_000 },
+      )
+      .catch(() => {});
     await page.waitForFunction(
-      () => document.querySelector(".volume-cube__view")?.getAttribute("data-pitch") === "0",
+      () => document.querySelector(".volume-cube__view")?.getAttribute("data-refining") === "false",
       null,
-      { timeout: 60_000 },
+      { timeout: 300_000 },
     );
     await page.waitForTimeout(800);
     paths.zcutSide = `${outDir}/issue-117-pyxa-${tag}-zcut-side.png`;
@@ -211,13 +223,13 @@ const mainSha = sh(`git -C ${root} rev-parse ${process.env.BENCH_MAIN_REF || "or
 console.log("=== BEFORE (origin/main)", mainSha);
 sh(`git -C ${root} checkout --quiet ${mainSha}`);
 restartVite();
-spawnSync("sleep", ["3"]);
+spawnSync("sleep", ["8"]);
 await captureSet("before");
 
 console.log("=== AFTER (PR HEAD)", prSha);
 sh(`git -C ${root} checkout --quiet ${prSha}`);
 restartVite();
-spawnSync("sleep", ["3"]);
+spawnSync("sleep", ["8"]);
 await captureSet("after");
 
 sh(`git -C ${root} checkout --quiet ${branch}`);
