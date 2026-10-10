@@ -38,8 +38,10 @@ function restartVite() {
   throw new Error("vite did not start");
 }
 
-function benchOnce() {
-  const json = sh(`cd ${frontend} && BENCH_CUT_MODE=${cutMode} node scripts/volume-perf-bench.mjs`);
+function benchOnce(rev) {
+  const json = sh(
+    `cd ${frontend} && BENCH_CUT_MODE=${cutMode} BENCH_REV_TAG=${rev} BENCH_ARTIFACT_DIR=/opt/cursor/artifacts node scripts/volume-perf-bench.mjs`,
+  );
   return JSON.parse(json);
 }
 
@@ -68,7 +70,7 @@ for (let i = 0; i < runsPerRev; i++) {
     restartVite();
     spawnSync("sleep", ["2"]);
     const t0 = Date.now();
-    const result = benchOnce();
+    const result = benchOnce(rev);
     const row = { rev, sha, i, wallMs: Date.now() - t0, ...result };
     records.push(row);
     appendFileSync(out, `${JSON.stringify(row)}\n`);
