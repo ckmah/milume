@@ -33,9 +33,10 @@ python -m http.server 8080 --directory site
 
 Open `http://127.0.0.1:8080/` (landing) and `http://127.0.0.1:8080/docs/` (docs).
 
-Docs-only live reload:
+Docs-only live reload (sync API snippets first):
 
 ```bash
+uv run python website/scripts/sync-api-docs.py
 cd website && uv run zensical serve
 ```
 

@@ -30,8 +30,23 @@ done
 rm -rf "${OUT}"
 mkdir -p "${OUT}"
 
+LOGO_SRC="${ROOT}/assets/logo"
+for dest in "${WEBSITE}/content/assets/logo" "${WEBSITE}/landing/assets/logo"; do
+  mkdir -p "${dest}"
+  cp -a \
+    "${LOGO_SRC}/milume-mark.svg" \
+    "${LOGO_SRC}/favicon.svg" \
+    "${LOGO_SRC}/favicon.ico" \
+    "${LOGO_SRC}/milume-icon-light.svg" \
+    "${LOGO_SRC}/milume-icon-dark.svg" \
+    "${dest}/"
+done
+
 cp -a "${WEBSITE}/landing/." "${OUT}/"
 touch "${OUT}/.nojekyll"
+
+uv run --directory "${ROOT}" python -m pytest "${WEBSITE}/scripts/test_agent_md_format.py" -q
+uv run --directory "${ROOT}" python "${WEBSITE}/scripts/sync-api-docs.py"
 
 rm -rf "${WEBSITE}/dist"
 (

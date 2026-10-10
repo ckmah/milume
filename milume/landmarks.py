@@ -301,8 +301,8 @@ Parameters
 ----------
 data, adata
     AnnData with spatial coordinates, or SpatialData (volume inferred).
-    :func:`milume.peek` names this argument ``data``;
-    :class:`LandmarksWidget` names the same argument ``adata``.
+    `milume.peek` names this argument `data`;
+    `LandmarksWidget` names the same argument `adata`.
 spatial_key
     ``obsm`` key for x/y coordinates (default ``"spatial"``).
 color
@@ -322,13 +322,13 @@ Notebook traitlets
 Synced on every edit (read and write from Python):
 
 ``selections``, ``landmarks``
-    Region dicts. Join to ``adata`` with :meth:`get_obs_names` /
-    :meth:`assign_obs_mask` (``obs_names`` / ``point_indices``, not
+    Region dicts. Join to `adata` with `get_obs_names` /
+    `assign_obs_mask` (`obs_names` / `point_indices`, not
     positional row indices).
 ``selected_kind``, ``selected_index``, ``selected_type_indices``
     Active item (``""`` / ``-1`` when none). Type focus may list several
     ``selected_type_indices`` within the active category set (browser
-    multi-select). From Python, :meth:`select_type` sets a single group.
+    multi-select). From Python, `select_type` sets a single group.
 ``inspect_cx``, ``inspect_cy``, ``inspect_size_um``
     Inspect window centre (µm) and side length (300 µm square). The browser
     writes size at placement; setting centre from Python moves the cube.
@@ -357,7 +357,7 @@ class LandmarksWidget(AnyWidget):
 
     Interactive anywidget for spatial maps. Pass AnnData with
     ``obsm[spatial_key]`` or SpatialData (table and Inspect cube inferred).
-    Notebook entry point: :func:`milume.peek`.
+    Notebook entry point: `milume.peek`.
     """
 
     _esm = widget_esm("landmarks")
@@ -488,7 +488,7 @@ class LandmarksWidget(AnyWidget):
     ) -> None:
         """Build from AnnData or SpatialData.
 
-        See :func:`milume.peek` and the class docstring for parameters and
+        See `milume.peek` and the class docstring for parameters and
         notebook traitlets.
 
         Examples
@@ -1050,18 +1050,21 @@ class LandmarksWidget(AnyWidget):
         raise KeyError(f"{name!r} is not a categorical column of this widget")
 
     def clear_selections(self) -> None:
+        """Remove every selection from the widget."""
         self.selections = []
         if self.selected_kind == "selection":
             self.selected_kind = ""
             self.selected_index = -1
 
     def clear_landmarks(self) -> None:
+        """Remove every landmark from the widget."""
         self.landmarks = []
         if self.selected_kind == "landmark":
             self.selected_kind = ""
             self.selected_index = -1
 
     def clear(self) -> None:
+        """Remove all selections and landmarks."""
         self.clear_selections()
         self.clear_landmarks()
 
@@ -1136,7 +1139,7 @@ class LandmarksWidget(AnyWidget):
     ) -> "np.ndarray":
         """``obs_names`` of cells inside ``selection_id`` (durable join key).
 
-        Uses :func:`selection_mask` (geometry or stored ``point_indices``).
+        Uses `selection_mask` (geometry or stored `point_indices`).
         Neighborhood expand is client-side; promote freezes membership into
         ``point_indices`` before syncing.
 
