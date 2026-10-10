@@ -4,7 +4,7 @@
 #     "huggingface-hub>=0.30",
 #     "igraph>=0.11",
 #     "leidenalg>=0.10",
-#     "marimo>=0.24.0",
+#     "marimo>=0.25.1",
 #     "marimo-lens",
 #     "milume>=1.2.0",
 #     "scanpy>=1.10",

@@ -16,9 +16,13 @@ milume/static/bundled/
 frontend/dev/pyxa-small-fixture.json
 frontend/dev/colon-a2-fixture.json
 frontend/dev/colon-a2-n*-fixture.json
+frontend/dev/landmarks-volume-fixture.colon.json
+frontend/dev/landmarks-volume/public/colon_a2.sdata.zarr/
+.cache/colon-a2-hf/
 
 # GitHub Pages assemble output (landing + Zensical)
 /site/
 website/dist/
 
 # Agent scratch (SDD ledgers, reports, screenshots)
+frontend/dev/landmarks-volume/public/colon-map-mip.png
