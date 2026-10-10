@@ -14,6 +14,7 @@ export type HeroHandle = {
   getLastDrawMs: () => number;
   setTime: (t: number) => void;
   renderOnce: () => void;
+  getLoopTime: () => number;
 };
 
 function prefersReducedMotion(): boolean {
@@ -186,6 +187,7 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
       pause();
       renderFrame(performance.now());
     },
+    getLoopTime: () => loopPhase(performance.now(), start, frozenT),
     renderOnce: () => renderFrame(performance.now()),
   };
 }

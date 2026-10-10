@@ -8,22 +8,23 @@ in vec3 i_pos;
 in float i_cat;
 in float i_rad;
 uniform float u_time;
+uniform float u_glowPass;
 uniform vec2 u_scale;
-uniform vec4 u_layout; // scale, offX, offY, dpr
-uniform vec2 u_zClip; // min, max depth (camera-relative)
+uniform vec4 u_layout;
 out vec4 v_pm;
 out float v_soft;
+out float v_glow;
 out vec2 v_uv;
 
 const float T = 11.0;
 const float L = 10.0;
 const float F = 900.0;
-const vec3 BG = vec3(0.043137, 0.043137, 0.043137);
-const vec3 TEAL = vec3(0.176471, 0.831373, 0.749020);
-const vec3 CAT0 = vec3(0.956863, 0.447059, 0.713725);
-const vec3 CAT1 = vec3(0.376471, 0.647059, 0.980392);
-const vec3 CAT2 = vec3(0.984314, 0.749020, 0.141176);
-const vec3 CAT3 = vec3(0.654902, 0.545098, 0.980392);
+const vec3 BG = vec3(11.0 / 255.0);
+const vec3 TEAL = vec3(45.0 / 255.0, 212.0 / 255.0, 191.0 / 255.0);
+const vec3 CAT0 = vec3(244.0, 114.0, 182.0) / 255.0;
+const vec3 CAT1 = vec3(96.0, 165.0, 250.0) / 255.0;
+const vec3 CAT2 = vec3(251.0, 191.0, 36.0) / 255.0;
+const vec3 CAT3 = vec3(167.0, 139.0, 250.0) / 255.0;
 const vec3 SEL = vec3(0.6, -0.3, 13.0);
 const float ZN0 = 0.5;
 const float ZN1 = 3.0;
@@ -44,10 +45,25 @@ vec3 catCol(float c) {
 }
 
 void cam(float t, out vec3 c, out float roll) {
-  float u = fract(t / T);
+  float u = mod(t, T) / T;
   float z = mod(u * L, L);
   c = vec3(0.45 * sin(6.2831853 * u), 0.25 * sin(12.566371 * u), z);
   roll = 0.0125 * cos(6.2831853 * u);
+}
+
+float blurSigma(float halfCoc) {
+  float fi = clamp(halfCoc, 0.0, 16.0);
+  float s0=0.0,s1=0.6,s2=1.3,s3=2.3,s4=3.6,s5=5.2,s6=7.2,s7=9.6,s8=12.5,s9=16.0;
+  if (fi <= s1) return mix(s0, s1, fi / s1);
+  if (fi <= s2) return mix(s1, s2, (fi - s1) / (s2 - s1));
+  if (fi <= s3) return mix(s2, s3, (fi - s2) / (s3 - s2));
+  if (fi <= s4) return mix(s3, s4, (fi - s3) / (s4 - s3));
+  if (fi <= s5) return mix(s4, s5, (fi - s4) / (s5 - s4));
+  if (fi <= s6) return mix(s5, s6, (fi - s5) / (s6 - s5));
+  if (fi <= s7) return mix(s6, s7, (fi - s6) / (s7 - s6));
+  if (fi <= s8) return mix(s7, s8, (fi - s7) / (s8 - s7));
+  if (fi <= s9) return mix(s8, s9, (fi - s8) / (s9 - s8));
+  return s9;
 }
 
 void main() {
@@ -59,10 +75,11 @@ void main() {
   float sr = sin(roll);
   vec3 d = i_pos - c;
   float z = d.z;
-  if (z < u_zClip.x || z >= u_zClip.y || z <= ZN0 || z >= ZF1) {
+  if (z <= ZN0 || z >= ZF1) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     v_pm = vec4(0.0);
     v_soft = 0.0;
+    v_glow = 0.0;
     return;
   }
   float x = d.x * cr - d.y * sr;
@@ -92,26 +109,54 @@ void main() {
     zf = 11.0 + pulseA * ((SEL.z - c.z) - 11.0);
   }
   float fog = pow(clamp(1.0 - (z - 1.0) / (ZF1 - 1.0), 0.0, 1.0), 1.8);
-  float bright = max(fog * 1.02, glow * min(1.0, fog * 3.4));
-  if (pulseA > 0.0) bright = min(1.0, bright * (1.0 + 0.16 * pulseA));
-  float nearLift = z < 10.0 ? 1.0 + (10.0 - z) * 0.022 : 1.0;
-  vec3 rgb = col * bright * nearLift + BG * (1.0 - bright);
+  float bright = max(fog * 0.9, glow * min(0.95, fog * 3.0));
+  vec3 rgb = col * bright + BG * (1.0 - bright);
   rgb = clamp(rgb, 0.0, 1.0);
 
   float alpha = ss(ZN0, ZN1, z) * (1.0 - ss(ZF0, ZF1, z));
   float coc = min(40.0, 40.0 * abs(1.0 / z - 1.0 / zf) * zf);
-  float blur = coc * 0.41;
-  float rad = pr + blur;
-  float coverage = min(1.0, pow(pr / max(rad, 1.0), 2.0));
-  float a = min(1.0, alpha * (0.35 + 0.65 * coverage));
-  if (a < 0.004 || rad < 0.2) {
-    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-    v_pm = vec4(0.0);
-    v_soft = 0.0;
+  float sigma = blurSigma(coc * 0.5);
+  float rd = max(1.0, ceil(pr * 2.0) * 0.5);
+  float coverage = min(1.0, pow(pr / rd, 2.0));
+  float a = alpha * coverage;
+
+  if (u_glowPass > 0.5) {
+    if (glow < 0.2 || a < 0.004) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      v_pm = vec4(0.0);
+      v_soft = 0.0;
+      v_glow = 0.0;
+      return;
+    }
+    float haloR = pr * 1.8;
+    float haloA = glow * a * min(1.0, fog * 3.0) * 0.25;
+    v_soft = 0.42;
+    v_glow = glow;
+    v_pm = vec4(TEAL * haloA, haloA);
+    float lay = u_layout.x;
+    float offX = u_layout.y;
+    float offY = u_layout.z;
+    float dpr = u_layout.w;
+    vec2 center = vec2((sx * lay + offX) * dpr, (sy * lay + offY) * dpr);
+    float R = haloR * lay * dpr;
+    vec2 pos = center + a_corner * R;
+    vec2 clip = (pos / u_scale) * 2.0 - 1.0;
+    clip.y = -clip.y;
+    gl_Position = vec4(clip, 0.0, 1.0);
     return;
   }
 
-  v_soft = min(0.42, 0.08 + (coc / 40.0) * 0.34);
+  float rad = pr + sigma;
+  if (a < 0.004 || rad < 0.15) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    v_pm = vec4(0.0);
+    v_soft = 0.0;
+    v_glow = 0.0;
+    return;
+  }
+
+  v_soft = clamp(sigma / 14.0, 0.0, 0.5);
+  v_glow = glow;
   v_pm = vec4(rgb * a, a);
 
   float lay = u_layout.x;
@@ -130,6 +175,7 @@ const FS = `#version 300 es
 precision highp float;
 in vec4 v_pm;
 in float v_soft;
+in float v_glow;
 in vec2 v_uv;
 out vec4 outColor;
 void main() {
@@ -138,9 +184,14 @@ void main() {
   float d = length(p);
   if (d > 0.5) discard;
   float inner = 0.5 - v_soft;
-  float edge = smoothstep(0.5, max(0.06, inner), d);
+  float edge = smoothstep(0.5, max(0.02, inner), d);
   float a = v_pm.a * edge;
-  outColor = vec4(v_pm.rgb * edge, a);
+  vec3 rgb = v_pm.rgb * edge;
+  if (v_soft > 0.35) {
+    float halo = exp(-pow(d / 0.48, 2.0) * 2.2);
+    rgb += vec3(45.0 / 255.0, 212.0 / 255.0, 191.0 / 255.0) * v_glow * a * halo * 0.35;
+  }
+  outColor = vec4(rgb, a);
 }`;
 
 const CORNERS = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
@@ -149,29 +200,28 @@ export type GlBundle = {
   gl: WebGL2RenderingContext;
   program: WebGLProgram;
   vao: WebGLVertexArrayObject;
-  cornerBuf: WebGLBuffer;
   posBuf: WebGLBuffer;
   catBuf: WebGLBuffer;
   radBuf: WebGLBuffer;
   count: number;
+  srcPos: Float32Array;
+  srcCat: Float32Array;
+  srcRad: Float32Array;
+  order: Uint32Array;
+  keys: Float32Array;
+  sortPos: Float32Array;
+  sortCat: Float32Array;
+  sortRad: Float32Array;
   uTime: WebGLUniformLocation | null;
+  uGlowPass: WebGLUniformLocation | null;
   uScale: WebGLUniformLocation | null;
   uLayout: WebGLUniformLocation | null;
-  uZClip: WebGLUniformLocation | null;
 };
 
-const Z_BINS: [number, number][] = [
-  [0.5, 3.5],
-  [3.5, 6],
-  [6, 8.5],
-  [8.5, 11],
-  [11, 14],
-  [14, 17],
-  [17, 20.5],
-  [20.5, 24],
-  [24, 27],
-  [27, 30],
-];
+export function camZAt(t: number): number {
+  const u = (t % 11) / 11;
+  return (u * 10) % 10;
+}
 
 export function createGl(canvas: HTMLCanvasElement, field: GpuField): GlBundle | null {
   const gl = canvas.getContext("webgl2", {
@@ -195,6 +245,9 @@ export function createGl(canvas: HTMLCanvasElement, field: GpuField): GlBundle |
   const radBuf = gl.createBuffer()!;
   const vao = gl.createVertexArray()!;
 
+  const srcCat = new Float32Array(field.count);
+  for (let i = 0; i < field.count; i++) srcCat[i] = field.cat[i];
+
   gl.bindVertexArray(vao);
   gl.bindBuffer(gl.ARRAY_BUFFER, cornerBuf);
   gl.bufferData(gl.ARRAY_BUFFER, CORNERS, gl.STATIC_DRAW);
@@ -203,49 +256,53 @@ export function createGl(canvas: HTMLCanvasElement, field: GpuField): GlBundle |
   gl.vertexAttribPointer(cornerLoc, 2, gl.FLOAT, false, 0, 0);
   gl.vertexAttribDivisor(cornerLoc, 0);
 
-  const stride = 3 * 4;
   gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, field.pos, gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, field.pos.byteLength, gl.DYNAMIC_DRAW);
   const posLoc = gl.getAttribLocation(program, "i_pos");
   gl.enableVertexAttribArray(posLoc);
-  gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, stride, 0);
+  gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 12, 0);
   gl.vertexAttribDivisor(posLoc, 1);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, catBuf);
-  const catF = new Float32Array(field.count);
-  for (let i = 0; i < field.count; i++) catF[i] = field.cat[i];
-  gl.bufferData(gl.ARRAY_BUFFER, catF, gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, srcCat.byteLength, gl.DYNAMIC_DRAW);
   const catLoc = gl.getAttribLocation(program, "i_cat");
   gl.enableVertexAttribArray(catLoc);
   gl.vertexAttribPointer(catLoc, 1, gl.FLOAT, false, 4, 0);
   gl.vertexAttribDivisor(catLoc, 1);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, radBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, field.rad, gl.STATIC_DRAW);
+  gl.bufferData(gl.ARRAY_BUFFER, field.rad.byteLength, gl.DYNAMIC_DRAW);
   const radLoc = gl.getAttribLocation(program, "i_rad");
   gl.enableVertexAttribArray(radLoc);
   gl.vertexAttribPointer(radLoc, 1, gl.FLOAT, false, 4, 0);
   gl.vertexAttribDivisor(radLoc, 1);
 
   gl.bindVertexArray(null);
-
-  gl.useProgram(program);
   gl.enable(gl.BLEND);
-  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+  const order = new Uint32Array(field.count);
+  for (let i = 0; i < field.count; i++) order[i] = i;
 
   return {
     gl,
     program,
     vao,
-    cornerBuf,
     posBuf,
     catBuf,
     radBuf,
     count: field.count,
+    srcPos: field.pos,
+    srcCat,
+    srcRad: field.rad,
+    order,
+    keys: new Float32Array(field.count),
+    sortPos: new Float32Array(field.pos.length),
+    sortCat: new Float32Array(field.count),
+    sortRad: new Float32Array(field.count),
     uTime: gl.getUniformLocation(program, "u_time"),
+    uGlowPass: gl.getUniformLocation(program, "u_glowPass"),
     uScale: gl.getUniformLocation(program, "u_scale"),
     uLayout: gl.getUniformLocation(program, "u_layout"),
-    uZClip: gl.getUniformLocation(program, "u_zClip"),
   };
 }
 
@@ -276,6 +333,26 @@ function link(gl: WebGL2RenderingContext, vs: WebGLShader, fs: WebGLShader): Web
   return prog;
 }
 
+function sortInstances(bundle: GlBundle, t: number): void {
+  const { srcPos, order, keys, count } = bundle;
+  const cz = camZAt(t);
+  for (let i = 0; i < count; i++) {
+    keys[i] = srcPos[i * 3 + 2] - cz;
+  }
+  order.sort((a, b) => keys[b]! - keys[a]!);
+  const { sortPos, sortCat, sortRad, srcCat, srcRad } = bundle;
+  for (let k = 0; k < count; k++) {
+    const j = order[k]!;
+    const p = k * 3;
+    const q = j * 3;
+    sortPos[p] = srcPos[q]!;
+    sortPos[p + 1] = srcPos[q + 1]!;
+    sortPos[p + 2] = srcPos[q + 2]!;
+    sortCat[k] = srcCat[j]!;
+    sortRad[k] = srcRad[j]!;
+  }
+}
+
 export function drawFrame(
   bundle: GlBundle,
   t: number,
@@ -283,20 +360,33 @@ export function drawFrame(
   height: number,
   layout: { scale: number; offX: number; offY: number; dpr: number },
 ): void {
-  const { gl, program, vao, count, uTime, uScale, uLayout, uZClip } = bundle;
+  const { gl, program, vao, posBuf, catBuf, radBuf, count, uTime, uGlowPass, uScale, uLayout } = bundle;
+
+  sortInstances(bundle, t);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
+  gl.bufferSubData(gl.ARRAY_BUFFER, 0, bundle.sortPos);
+  gl.bindBuffer(gl.ARRAY_BUFFER, catBuf);
+  gl.bufferSubData(gl.ARRAY_BUFFER, 0, bundle.sortCat);
+  gl.bindBuffer(gl.ARRAY_BUFFER, radBuf);
+  gl.bufferSubData(gl.ARRAY_BUFFER, 0, bundle.sortRad);
 
   gl.viewport(0, 0, width, height);
   gl.clearColor(11 / 255, 11 / 255, 11 / 255, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.useProgram(program);
   gl.bindVertexArray(vao);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   if (uTime) gl.uniform1f(uTime, t);
+  if (uGlowPass) gl.uniform1f(uGlowPass, 0);
   if (uScale) gl.uniform2f(uScale, width, height);
   if (uLayout) gl.uniform4f(uLayout, layout.scale, layout.offX, layout.offY, layout.dpr);
+  gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
 
-  for (const [z0, z1] of Z_BINS) {
-    if (uZClip) gl.uniform2f(uZClip, z0, z1);
-    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
-  }
+  gl.blendFunc(gl.ONE, gl.ONE);
+  if (uGlowPass) gl.uniform1f(uGlowPass, 1);
+  gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
   gl.bindVertexArray(null);
 }

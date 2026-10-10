@@ -1,26 +1,27 @@
-"use strict";(()=>{var T=[-1,0,1,2,3,4];async function H(o){let n=await fetch(o);if(!n.ok)throw new Error(`hero points: ${n.status}`);let e=await n.arrayBuffer(),t=new DataView(e),c=t.getUint32(0,!0),r=T.length,m=c*r,s=new Float32Array(m*3),l=new Uint8Array(m),u=new Float32Array(m),i=0,a=4;for(let d=0;d<c;d++){let p=t.getFloat32(a,!0);a+=4;let b=t.getFloat32(a,!0);a+=4;let A=t.getFloat32(a,!0);a+=4;let _=t.getUint8(a);a+=1;let v=t.getFloat32(a,!0);a+=4;for(let F of T){let g=i*3;s[g]=p,s[g+1]=b,s[g+2]=A+F*10,l[i]=_,u[i]=v,i++}}return{count:m,pos:s,cat:l,rad:u}}var k=`#version 300 es
+"use strict";(()=>{var P=[-1,0,1,2,3,4];async function D(o){let n=await fetch(o);if(!n.ok)throw new Error(`hero points: ${n.status}`);let e=await n.arrayBuffer(),r=new DataView(e),l=r.getUint32(0,!0),t=P.length,_=l*t,f=new Float32Array(_*3),m=new Uint8Array(_),d=new Float32Array(_),i=0,s=4;for(let a=0;a<l;a++){let c=r.getFloat32(s,!0);s+=4;let p=r.getFloat32(s,!0);s+=4;let u=r.getFloat32(s,!0);s+=4;let g=r.getUint8(s);s+=1;let v=r.getFloat32(s,!0);s+=4;for(let F of P){let b=i*3;f[b]=c,f[b+1]=p,f[b+2]=u+F*10,m[i]=g,d[i]=v,i++}}return{count:_,pos:f,cat:m,rad:d}}var X=`#version 300 es
 precision highp float;
 in vec2 a_corner;
 in vec3 i_pos;
 in float i_cat;
 in float i_rad;
 uniform float u_time;
+uniform float u_glowPass;
 uniform vec2 u_scale;
-uniform vec4 u_layout; // scale, offX, offY, dpr
-uniform vec2 u_zClip; // min, max depth (camera-relative)
+uniform vec4 u_layout;
 out vec4 v_pm;
 out float v_soft;
+out float v_glow;
 out vec2 v_uv;
 
 const float T = 11.0;
 const float L = 10.0;
 const float F = 900.0;
-const vec3 BG = vec3(0.043137, 0.043137, 0.043137);
-const vec3 TEAL = vec3(0.176471, 0.831373, 0.749020);
-const vec3 CAT0 = vec3(0.956863, 0.447059, 0.713725);
-const vec3 CAT1 = vec3(0.376471, 0.647059, 0.980392);
-const vec3 CAT2 = vec3(0.984314, 0.749020, 0.141176);
-const vec3 CAT3 = vec3(0.654902, 0.545098, 0.980392);
+const vec3 BG = vec3(11.0 / 255.0);
+const vec3 TEAL = vec3(45.0 / 255.0, 212.0 / 255.0, 191.0 / 255.0);
+const vec3 CAT0 = vec3(244.0, 114.0, 182.0) / 255.0;
+const vec3 CAT1 = vec3(96.0, 165.0, 250.0) / 255.0;
+const vec3 CAT2 = vec3(251.0, 191.0, 36.0) / 255.0;
+const vec3 CAT3 = vec3(167.0, 139.0, 250.0) / 255.0;
 const vec3 SEL = vec3(0.6, -0.3, 13.0);
 const float ZN0 = 0.5;
 const float ZN1 = 3.0;
@@ -41,10 +42,25 @@ vec3 catCol(float c) {
 }
 
 void cam(float t, out vec3 c, out float roll) {
-  float u = fract(t / T);
+  float u = mod(t, T) / T;
   float z = mod(u * L, L);
   c = vec3(0.45 * sin(6.2831853 * u), 0.25 * sin(12.566371 * u), z);
   roll = 0.0125 * cos(6.2831853 * u);
+}
+
+float blurSigma(float halfCoc) {
+  float fi = clamp(halfCoc, 0.0, 16.0);
+  float s0=0.0,s1=0.6,s2=1.3,s3=2.3,s4=3.6,s5=5.2,s6=7.2,s7=9.6,s8=12.5,s9=16.0;
+  if (fi <= s1) return mix(s0, s1, fi / s1);
+  if (fi <= s2) return mix(s1, s2, (fi - s1) / (s2 - s1));
+  if (fi <= s3) return mix(s2, s3, (fi - s2) / (s3 - s2));
+  if (fi <= s4) return mix(s3, s4, (fi - s3) / (s4 - s3));
+  if (fi <= s5) return mix(s4, s5, (fi - s4) / (s5 - s4));
+  if (fi <= s6) return mix(s5, s6, (fi - s5) / (s6 - s5));
+  if (fi <= s7) return mix(s6, s7, (fi - s6) / (s7 - s6));
+  if (fi <= s8) return mix(s7, s8, (fi - s7) / (s8 - s7));
+  if (fi <= s9) return mix(s8, s9, (fi - s8) / (s9 - s8));
+  return s9;
 }
 
 void main() {
@@ -56,10 +72,11 @@ void main() {
   float sr = sin(roll);
   vec3 d = i_pos - c;
   float z = d.z;
-  if (z < u_zClip.x || z >= u_zClip.y || z <= ZN0 || z >= ZF1) {
+  if (z <= ZN0 || z >= ZF1) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     v_pm = vec4(0.0);
     v_soft = 0.0;
+    v_glow = 0.0;
     return;
   }
   float x = d.x * cr - d.y * sr;
@@ -89,26 +106,54 @@ void main() {
     zf = 11.0 + pulseA * ((SEL.z - c.z) - 11.0);
   }
   float fog = pow(clamp(1.0 - (z - 1.0) / (ZF1 - 1.0), 0.0, 1.0), 1.8);
-  float bright = max(fog * 1.02, glow * min(1.0, fog * 3.4));
-  if (pulseA > 0.0) bright = min(1.0, bright * (1.0 + 0.16 * pulseA));
-  float nearLift = z < 10.0 ? 1.0 + (10.0 - z) * 0.022 : 1.0;
-  vec3 rgb = col * bright * nearLift + BG * (1.0 - bright);
+  float bright = max(fog * 0.9, glow * min(0.95, fog * 3.0));
+  vec3 rgb = col * bright + BG * (1.0 - bright);
   rgb = clamp(rgb, 0.0, 1.0);
 
   float alpha = ss(ZN0, ZN1, z) * (1.0 - ss(ZF0, ZF1, z));
   float coc = min(40.0, 40.0 * abs(1.0 / z - 1.0 / zf) * zf);
-  float blur = coc * 0.41;
-  float rad = pr + blur;
-  float coverage = min(1.0, pow(pr / max(rad, 1.0), 2.0));
-  float a = min(1.0, alpha * (0.35 + 0.65 * coverage));
-  if (a < 0.004 || rad < 0.2) {
-    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
-    v_pm = vec4(0.0);
-    v_soft = 0.0;
+  float sigma = blurSigma(coc * 0.5);
+  float rd = max(1.0, ceil(pr * 2.0) * 0.5);
+  float coverage = min(1.0, pow(pr / rd, 2.0));
+  float a = alpha * coverage;
+
+  if (u_glowPass > 0.5) {
+    if (glow < 0.2 || a < 0.004) {
+      gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+      v_pm = vec4(0.0);
+      v_soft = 0.0;
+      v_glow = 0.0;
+      return;
+    }
+    float haloR = pr * 1.8;
+    float haloA = glow * a * min(1.0, fog * 3.0) * 0.25;
+    v_soft = 0.42;
+    v_glow = glow;
+    v_pm = vec4(TEAL * haloA, haloA);
+    float lay = u_layout.x;
+    float offX = u_layout.y;
+    float offY = u_layout.z;
+    float dpr = u_layout.w;
+    vec2 center = vec2((sx * lay + offX) * dpr, (sy * lay + offY) * dpr);
+    float R = haloR * lay * dpr;
+    vec2 pos = center + a_corner * R;
+    vec2 clip = (pos / u_scale) * 2.0 - 1.0;
+    clip.y = -clip.y;
+    gl_Position = vec4(clip, 0.0, 1.0);
     return;
   }
 
-  v_soft = min(0.42, 0.08 + (coc / 40.0) * 0.34);
+  float rad = pr + sigma;
+  if (a < 0.004 || rad < 0.15) {
+    gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+    v_pm = vec4(0.0);
+    v_soft = 0.0;
+    v_glow = 0.0;
+    return;
+  }
+
+  v_soft = clamp(sigma / 14.0, 0.0, 0.5);
+  v_glow = glow;
   v_pm = vec4(rgb * a, a);
 
   float lay = u_layout.x;
@@ -121,10 +166,11 @@ void main() {
   vec2 clip = (pos / u_scale) * 2.0 - 1.0;
   clip.y = -clip.y;
   gl_Position = vec4(clip, 0.0, 1.0);
-}`,X=`#version 300 es
+}`,q=`#version 300 es
 precision highp float;
 in vec4 v_pm;
 in float v_soft;
+in float v_glow;
 in vec2 v_uv;
 out vec4 outColor;
 void main() {
@@ -133,7 +179,12 @@ void main() {
   float d = length(p);
   if (d > 0.5) discard;
   float inner = 0.5 - v_soft;
-  float edge = smoothstep(0.5, max(0.06, inner), d);
+  float edge = smoothstep(0.5, max(0.02, inner), d);
   float a = v_pm.a * edge;
-  outColor = vec4(v_pm.rgb * edge, a);
-}`,$=new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]),q=[[.5,3.5],[3.5,6],[6,8.5],[8.5,11],[11,14],[14,17],[17,20.5],[20.5,24],[24,27],[27,30]];function W(o,n){let e=o.getContext("webgl2",{alpha:!1,antialias:!1,depth:!1,stencil:!1,preserveDrawingBuffer:!0});if(!e)return null;let t=D(e,e.VERTEX_SHADER,k),c=D(e,e.FRAGMENT_SHADER,X);if(!t||!c)return null;let r=j(e,t,c);if(!r)return null;let m=e.createBuffer(),s=e.createBuffer(),l=e.createBuffer(),u=e.createBuffer(),i=e.createVertexArray();e.bindVertexArray(i),e.bindBuffer(e.ARRAY_BUFFER,m),e.bufferData(e.ARRAY_BUFFER,$,e.STATIC_DRAW);let a=e.getAttribLocation(r,"a_corner");e.enableVertexAttribArray(a),e.vertexAttribPointer(a,2,e.FLOAT,!1,0,0),e.vertexAttribDivisor(a,0);let d=12;e.bindBuffer(e.ARRAY_BUFFER,s),e.bufferData(e.ARRAY_BUFFER,n.pos,e.STATIC_DRAW);let p=e.getAttribLocation(r,"i_pos");e.enableVertexAttribArray(p),e.vertexAttribPointer(p,3,e.FLOAT,!1,d,0),e.vertexAttribDivisor(p,1),e.bindBuffer(e.ARRAY_BUFFER,l);let b=new Float32Array(n.count);for(let v=0;v<n.count;v++)b[v]=n.cat[v];e.bufferData(e.ARRAY_BUFFER,b,e.STATIC_DRAW);let A=e.getAttribLocation(r,"i_cat");e.enableVertexAttribArray(A),e.vertexAttribPointer(A,1,e.FLOAT,!1,4,0),e.vertexAttribDivisor(A,1),e.bindBuffer(e.ARRAY_BUFFER,u),e.bufferData(e.ARRAY_BUFFER,n.rad,e.STATIC_DRAW);let _=e.getAttribLocation(r,"i_rad");return e.enableVertexAttribArray(_),e.vertexAttribPointer(_,1,e.FLOAT,!1,4,0),e.vertexAttribDivisor(_,1),e.bindVertexArray(null),e.useProgram(r),e.enable(e.BLEND),e.blendFunc(e.ONE,e.ONE_MINUS_SRC_ALPHA),{gl:e,program:r,vao:i,cornerBuf:m,posBuf:s,catBuf:l,radBuf:u,count:n.count,uTime:e.getUniformLocation(r,"u_time"),uScale:e.getUniformLocation(r,"u_scale"),uLayout:e.getUniformLocation(r,"u_layout"),uZClip:e.getUniformLocation(r,"u_zClip")}}function D(o,n,e){let t=o.createShader(n);return t?(o.shaderSource(t,e),o.compileShader(t),o.getShaderParameter(t,o.COMPILE_STATUS)?t:(console.error(o.getShaderInfoLog(t)),o.deleteShader(t),null)):null}function j(o,n,e){let t=o.createProgram();return t?(o.attachShader(t,n),o.attachShader(t,e),o.linkProgram(t),o.getProgramParameter(t,o.LINK_STATUS)?t:(console.error(o.getProgramInfoLog(t)),o.deleteProgram(t),null)):null}function U(o,n,e,t,c){let{gl:r,program:m,vao:s,count:l,uTime:u,uScale:i,uLayout:a,uZClip:d}=o;r.viewport(0,0,e,t),r.clearColor(11/255,11/255,11/255,1),r.clear(r.COLOR_BUFFER_BIT),r.useProgram(m),r.bindVertexArray(s),u&&r.uniform1f(u,n),i&&r.uniform2f(i,e,t),a&&r.uniform4f(a,c.scale,c.offX,c.offY,c.dpr);for(let[p,b]of q)d&&r.uniform2f(d,p,b),r.drawArraysInstanced(r.TRIANGLES,0,6,l);r.bindVertexArray(null)}function K(){return window.matchMedia("(prefers-reduced-motion: reduce)").matches}function J(){return Math.min(2,window.devicePixelRatio||1)}function Q(o,n,e){if(e!==null)return e;let t=(o-n)/1e3;return t-Math.floor(t/11)*11}async function N(o){let n=o.getAttribute("data-assets-base")??"assets/",e=o.querySelector(".milume-hero__poster"),t=o.querySelector(".milume-hero__canvas");if(!e||!t)throw new Error("milume-hero: missing poster or canvas");let c=null,r=!1;try{c=await H(`${n}hero-points.bin`)}catch{r=!0}let s=!K()&&!r&&c?W(t,c):null,l=!!s;l?(e.hidden=!0,t.hidden=!1,o.dataset.heroMode="webgl"):(e.hidden=!1,t.hidden=!0,o.dataset.heroMode="poster");let u=l,i=0,a=0,d=0,p=0,b=0,A=null,_=performance.now(),v=0,F=0,g={scale:1,offX:0,offY:0,dpr:1},M=()=>{let f=o.getBoundingClientRect(),L=J();v=Math.max(1,Math.round(f.width*L)),F=Math.max(1,Math.round(f.height*L)),t.width=v,t.height=F,t.style.width=`${f.width}px`,t.style.height=`${f.height}px`;let h=f.width,w=f.height,x=Math.max(h/1600,w/900);g={scale:x,offX:(h-1600*x)/2,offY:(w-900*x)/2,dpr:L}},C=f=>{if(!s)return;performance.mark("hero-begin");let L=Q(f,_,A);p=0;let h=performance.now();U(s,L,v,F,g),b=performance.now()-h,performance.mark("hero-end");let w=performance.getEntriesByName("hero-frame");for(let Y of w)performance.clearMeasures(Y.name);performance.measure("hero-frame","hero-begin","hero-end");let x=performance.getEntriesByName("hero-frame").pop();x&&(d=x.duration),performance.clearMarks("hero-begin"),performance.clearMarks("hero-end"),a+=1},z=()=>{i=0,!(!u||!s)&&(C(performance.now()),i=requestAnimationFrame(z))},E=()=>{!u||!l||i||(i=requestAnimationFrame(z))},y=()=>{u=!1,i&&(cancelAnimationFrame(i),i=0)},B=()=>{l&&(A=null,_=performance.now(),u=!0,E())},P=new IntersectionObserver(f=>{f.some(h=>h.isIntersecting)?B():y()},{threshold:.05});P.observe(o);let I=()=>{document.visibilityState==="hidden"?y():o.getBoundingClientRect().bottom>0&&o.getBoundingClientRect().top<window.innerHeight&&B()};document.addEventListener("visibilitychange",I);let O=new ResizeObserver(()=>{M(),E()});return O.observe(o),M(),l&&E(),{pause:y,resume:B,destroy:()=>{y(),P.disconnect(),O.disconnect(),document.removeEventListener("visibilitychange",I)},isLive:()=>l,getFrameId:()=>a,isPaused:()=>!u,getLastFrameMs:()=>d,getLastSimMs:()=>p,getLastDrawMs:()=>b,setTime:f=>{A=f,y(),C(performance.now())},renderOnce:()=>C(performance.now())}}async function G(){let o=document.querySelectorAll("[data-milume-hero]"),n=[];for(let e of o)n.push(await N(e));window.__milumeHeroHandles=n}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{G().catch(()=>{})}):G().catch(()=>{});window.__milumeHeroMount=G;})();
+  vec3 rgb = v_pm.rgb * edge;
+  if (v_soft > 0.35) {
+    float halo = exp(-pow(d / 0.48, 2.0) * 2.2);
+    rgb += vec3(45.0 / 255.0, 212.0 / 255.0, 191.0 / 255.0) * v_glow * a * halo * 0.35;
+  }
+  outColor = vec4(rgb, a);
+}`,$=new Float32Array([-1,-1,1,-1,-1,1,-1,1,1,-1,1,1]);function j(o){return o%11/11*10%10}function N(o,n){let e=o.getContext("webgl2",{alpha:!1,antialias:!1,depth:!1,stencil:!1,preserveDrawingBuffer:!0});if(!e)return null;let r=H(e,e.VERTEX_SHADER,X),l=H(e,e.FRAGMENT_SHADER,q);if(!r||!l)return null;let t=K(e,r,l);if(!t)return null;let _=e.createBuffer(),f=e.createBuffer(),m=e.createBuffer(),d=e.createBuffer(),i=e.createVertexArray(),s=new Float32Array(n.count);for(let v=0;v<n.count;v++)s[v]=n.cat[v];e.bindVertexArray(i),e.bindBuffer(e.ARRAY_BUFFER,_),e.bufferData(e.ARRAY_BUFFER,$,e.STATIC_DRAW);let a=e.getAttribLocation(t,"a_corner");e.enableVertexAttribArray(a),e.vertexAttribPointer(a,2,e.FLOAT,!1,0,0),e.vertexAttribDivisor(a,0),e.bindBuffer(e.ARRAY_BUFFER,f),e.bufferData(e.ARRAY_BUFFER,n.pos.byteLength,e.DYNAMIC_DRAW);let c=e.getAttribLocation(t,"i_pos");e.enableVertexAttribArray(c),e.vertexAttribPointer(c,3,e.FLOAT,!1,12,0),e.vertexAttribDivisor(c,1),e.bindBuffer(e.ARRAY_BUFFER,m),e.bufferData(e.ARRAY_BUFFER,s.byteLength,e.DYNAMIC_DRAW);let p=e.getAttribLocation(t,"i_cat");e.enableVertexAttribArray(p),e.vertexAttribPointer(p,1,e.FLOAT,!1,4,0),e.vertexAttribDivisor(p,1),e.bindBuffer(e.ARRAY_BUFFER,d),e.bufferData(e.ARRAY_BUFFER,n.rad.byteLength,e.DYNAMIC_DRAW);let u=e.getAttribLocation(t,"i_rad");e.enableVertexAttribArray(u),e.vertexAttribPointer(u,1,e.FLOAT,!1,4,0),e.vertexAttribDivisor(u,1),e.bindVertexArray(null),e.enable(e.BLEND);let g=new Uint32Array(n.count);for(let v=0;v<n.count;v++)g[v]=v;return{gl:e,program:t,vao:i,posBuf:f,catBuf:m,radBuf:d,count:n.count,srcPos:n.pos,srcCat:s,srcRad:n.rad,order:g,keys:new Float32Array(n.count),sortPos:new Float32Array(n.pos.length),sortCat:new Float32Array(n.count),sortRad:new Float32Array(n.count),uTime:e.getUniformLocation(t,"u_time"),uGlowPass:e.getUniformLocation(t,"u_glowPass"),uScale:e.getUniformLocation(t,"u_scale"),uLayout:e.getUniformLocation(t,"u_layout")}}function H(o,n,e){let r=o.createShader(n);return r?(o.shaderSource(r,e),o.compileShader(r),o.getShaderParameter(r,o.COMPILE_STATUS)?r:(console.error(o.getShaderInfoLog(r)),o.deleteShader(r),null)):null}function K(o,n,e){let r=o.createProgram();return r?(o.attachShader(r,n),o.attachShader(r,e),o.linkProgram(r),o.getProgramParameter(r,o.LINK_STATUS)?r:(console.error(o.getProgramInfoLog(r)),o.deleteProgram(r),null)):null}function J(o,n){let{srcPos:e,order:r,keys:l,count:t}=o,_=j(n);for(let a=0;a<t;a++)l[a]=e[a*3+2]-_;r.sort((a,c)=>l[c]-l[a]);let{sortPos:f,sortCat:m,sortRad:d,srcCat:i,srcRad:s}=o;for(let a=0;a<t;a++){let c=r[a],p=a*3,u=c*3;f[p]=e[u],f[p+1]=e[u+1],f[p+2]=e[u+2],m[a]=i[c],d[a]=s[c]}}function z(o,n,e,r,l){let{gl:t,program:_,vao:f,posBuf:m,catBuf:d,radBuf:i,count:s,uTime:a,uGlowPass:c,uScale:p,uLayout:u}=o;J(o,n),t.bindBuffer(t.ARRAY_BUFFER,m),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortPos),t.bindBuffer(t.ARRAY_BUFFER,d),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortCat),t.bindBuffer(t.ARRAY_BUFFER,i),t.bufferSubData(t.ARRAY_BUFFER,0,o.sortRad),t.viewport(0,0,e,r),t.clearColor(11/255,11/255,11/255,1),t.clear(t.COLOR_BUFFER_BIT),t.useProgram(_),t.bindVertexArray(f),t.blendFunc(t.ONE,t.ONE_MINUS_SRC_ALPHA),a&&t.uniform1f(a,n),c&&t.uniform1f(c,0),p&&t.uniform2f(p,e,r),u&&t.uniform4f(u,l.scale,l.offX,l.offY,l.dpr),t.drawArraysInstanced(t.TRIANGLES,0,6,s),t.blendFunc(t.ONE,t.ONE),c&&t.uniform1f(c,1),t.drawArraysInstanced(t.TRIANGLES,0,6,s),t.blendFunc(t.ONE,t.ONE_MINUS_SRC_ALPHA),t.bindVertexArray(null)}function Q(){return window.matchMedia("(prefers-reduced-motion: reduce)").matches}function ee(){return Math.min(2,window.devicePixelRatio||1)}function W(o,n,e){if(e!==null)return e;let r=(o-n)/1e3;return r-Math.floor(r/11)*11}async function Z(o){let n=o.getAttribute("data-assets-base")??"assets/",e=o.querySelector(".milume-hero__poster"),r=o.querySelector(".milume-hero__canvas");if(!e||!r)throw new Error("milume-hero: missing poster or canvas");let l=null,t=!1;try{l=await D(`${n}hero-points.bin`)}catch{t=!0}let f=!Q()&&!t&&l?N(r,l):null,m=!!f;m?(e.hidden=!0,r.hidden=!1,o.dataset.heroMode="webgl"):(e.hidden=!1,r.hidden=!0,o.dataset.heroMode="poster");let d=m,i=0,s=0,a=0,c=0,p=0,u=null,g=performance.now(),v=0,F=0,b={scale:1,offX:0,offY:0,dpr:1},G=()=>{let A=o.getBoundingClientRect(),h=ee();v=Math.max(1,Math.round(A.width*h)),F=Math.max(1,Math.round(A.height*h)),r.width=v,r.height=F,r.style.width=`${A.width}px`,r.style.height=`${A.height}px`;let L=A.width,R=A.height,y=Math.max(L/1600,R/900);b={scale:y,offX:(L-1600*y)/2,offY:(R-900*y)/2,dpr:h}},S=A=>{if(!f)return;performance.mark("hero-begin");let h=W(A,g,u);c=0;let L=performance.now();z(f,h,v,F,b),p=performance.now()-L,performance.mark("hero-end");let R=performance.getEntriesByName("hero-frame");for(let V of R)performance.clearMeasures(V.name);performance.measure("hero-frame","hero-begin","hero-end");let y=performance.getEntriesByName("hero-frame").pop();y&&(a=y.duration),performance.clearMarks("hero-begin"),performance.clearMarks("hero-end"),s+=1},M=()=>{i=0,!(!d||!f)&&(S(performance.now()),i=requestAnimationFrame(M))},B=()=>{!d||!m||i||(i=requestAnimationFrame(M))},w=()=>{d=!1,i&&(cancelAnimationFrame(i),i=0)},C=()=>{m&&(u=null,g=performance.now(),d=!0,B())},I=new IntersectionObserver(A=>{A.some(L=>L.isIntersecting)?C():w()},{threshold:.05});I.observe(o);let O=()=>{document.visibilityState==="hidden"?w():o.getBoundingClientRect().bottom>0&&o.getBoundingClientRect().top<window.innerHeight&&C()};document.addEventListener("visibilitychange",O);let U=new ResizeObserver(()=>{G(),B()});return U.observe(o),G(),m&&B(),{pause:w,resume:C,destroy:()=>{w(),I.disconnect(),U.disconnect(),document.removeEventListener("visibilitychange",O)},isLive:()=>m,getFrameId:()=>s,isPaused:()=>!d,getLastFrameMs:()=>a,getLastSimMs:()=>c,getLastDrawMs:()=>p,setTime:A=>{u=A,w(),S(performance.now())},getLoopTime:()=>W(performance.now(),g,u),renderOnce:()=>S(performance.now())}}async function T(){let o=document.querySelectorAll("[data-milume-hero]"),n=[];for(let e of o)n.push(await Z(e));window.__milumeHeroHandles=n}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",()=>{T().catch(()=>{})}):T().catch(()=>{});window.__milumeHeroMount=T;})();
