@@ -1759,10 +1759,21 @@ test.describe("Landmarks inspect cube", () => {
     await expect(right).toHaveAttribute("data-collapsed", "false");
     await right.getByRole("tab", { name: "genes" }).click();
     await expect(view).toHaveAttribute("data-coloring", "groups");
+    await expect(right.getByTestId("info-chart-well")).toContainText("Pick a gene to color cells");
 
-    await setModel(page, { active_genes: ["0"], color_by: "continuous" });
-    await expect(view).toHaveAttribute("data-coloring", "expression");
-    await expect(right.getByTestId("genes-channel-legend")).toBeVisible();
+    const genePicker = page.getByTestId("explore-color-controls").getByPlaceholder("Select genes");
+    await genePicker.click();
+    await page.keyboard.type("0");
+    await page.getByRole("option", { name: "0", exact: true }).click();
+    await expect.poll(() => getModel(page, "active_genes")).toEqual(["0"]);
+    await expect(cubeWindow(page)).toBeVisible();
+    await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute(
+      "data-coloring",
+      "expression",
+    );
+    const legend = right.getByTestId("genes-channel-legend");
+    await expect(legend).toBeVisible();
+    await expect(legend.getByRole("img", { name: "Expression scale" })).toBeVisible();
 
     const parity = await page.evaluate(() => {
       const engine = (window as any).__landmarksEngine;
@@ -1778,15 +1789,15 @@ test.describe("Landmarks inspect cube", () => {
       const hi = pts.reduce((best, p) => (p.color[0] > (best?.color[0] ?? -1) ? p : best), pts[0]);
       const lo = pts.reduce((best, p) => (p.color[0] < (best?.color[0] ?? 999) ? p : best), pts[0]);
       return {
-        hiR: hi?.color[0] ?? 0,
-        loR: lo?.color[0] ?? 0,
         spread: (hi?.color[0] ?? 0) - (lo?.color[0] ?? 0),
+        coloring: document.querySelector(".volume-cube__view")?.getAttribute("data-coloring"),
       };
     });
+    expect(parity.coloring).toBe("expression");
     expect(parity.spread).toBeGreaterThan(40);
 
     await right.getByRole("tab", { name: "category" }).click();
-    await expect(view).toHaveAttribute("data-coloring", "groups");
+    await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-coloring", "groups");
     await expect(right.getByTestId("genes-channel-legend")).toHaveCount(0);
   });
 

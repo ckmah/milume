@@ -41,6 +41,10 @@ import {
   distPointToSeg,
 } from "./landmarks_geometry.js";
 import {
+  blendGeneSrgb,
+  LOW_EXPR_SRGB,
+} from "./gene-expression-blend.js";
+import {
   buildSpatialIndex,
   queryNeighbors,
   warmNeighborQueryScratch,
@@ -2466,92 +2470,29 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     return !!model.get("gene_log1p") && !model.get("gene_expression_logged");
   }
 
-  /** Reconstruct data-space value from packed [0, 1], then optional log1p. */
-  function geneIntensity(t01, vmin, vmax) {
-    const lo = Number.isFinite(vmin) ? vmin : 0;
-    const hi = Number.isFinite(vmax) && vmax > lo ? vmax : lo + 1;
-    const t = Math.max(0, Math.min(1, t01 == null ? 0 : t01));
-    const raw = Math.max(0, lo + t * (hi - lo));
-    return geneUsesLog1p() ? Math.log1p(raw) : raw;
-  }
-
-  function geneCeiling(vmin, vmax) {
-    const lo = Number.isFinite(vmin) ? vmin : 0;
-    const hi = Number.isFinite(vmax) && vmax > lo ? vmax : lo + 1;
-    const top = Math.max(0, hi);
-    const bot = Math.max(0, lo);
-    if (geneUsesLog1p()) {
-      const a = Math.log1p(bot);
-      const b = Math.log1p(top);
-      return b > a ? b : b + 1e-6;
-    }
-    return top > bot ? top : top + 1e-6;
-  }
-
-  function geneFloor(vmin, vmax) {
-    const lo = Number.isFinite(vmin) ? vmin : 0;
-    const bot = Math.max(0, lo);
-    return geneUsesLog1p() ? Math.log1p(bot) : bot;
-  }
-
-  /** Scaled channel weight in [0, 1] for one gene at point i. */
-  function scaledGeneT(i, geneName, sharedCeiling) {
-    const meta = geneMeta(geneName);
-    if (!meta) return 0;
-    const t01 = geneValueAt(i, geneName);
-    if (t01 == null) return 0;
-    const vmin = meta.vmin ?? 0;
-    const vmax = meta.vmax ?? 1;
-    const intensity = geneIntensity(t01, vmin, vmax);
-    const mode = model.get("gene_scale_mode") || "independent";
-    if (mode === "shared") {
-      const ceil = sharedCeiling > 0 ? sharedCeiling : geneCeiling(vmin, vmax);
-      return Math.max(0, Math.min(1, intensity / ceil));
-    }
-    const floor = geneFloor(vmin, vmax);
-    const ceil = geneCeiling(vmin, vmax);
-    if (ceil <= floor) return 0;
-    return Math.max(0, Math.min(1, (intensity - floor) / (ceil - floor)));
-  }
-
-  function sharedGeneCeiling(active) {
-    let max = 0;
-    for (const name of active) {
-      const meta = geneMeta(name);
-      if (!meta) continue;
-      max = Math.max(max, geneCeiling(meta.vmin ?? 0, meta.vmax ?? 1));
-    }
-    return max;
-  }
-
   function blendGeneColors(i, opacity) {
     const active = model.get("active_genes") || [];
     const pts = getPointsData();
     if (!active.length || !pts.length) return null;
-    const shared =
-      (model.get("gene_scale_mode") || "independent") === "shared"
-        ? sharedGeneCeiling(active)
-        : 0;
-    let r = 0;
-    let g = 0;
-    let b = 0;
-    let w = 0;
-    for (let ai = 0; ai < active.length; ai++) {
-      const t = scaledGeneT(i, active[ai], shared);
-      if (!(t > 0)) continue;
-      const rgb = hexToRgbaBytes(GENE_COLORS[ai % GENE_COLORS.length], 1);
-      r += rgb[0] * t;
-      g += rgb[1] * t;
-      b += rgb[2] * t;
-      w += t;
-    }
-    if (w < 1e-6) {
+    const rgb = blendGeneSrgb({
+      activeGenes: active,
+      pointIndex: i,
+      scaleMode: model.get("gene_scale_mode") || "independent",
+      log1p: geneUsesLog1p(),
+      valueAt: (pi, name) => geneValueAt(pi, name),
+      metaAt: (name) => geneMeta(name),
+    });
+    if (
+      rgb[0] === LOW_EXPR_SRGB[0] &&
+      rgb[1] === LOW_EXPR_SRGB[1] &&
+      rgb[2] === LOW_EXPR_SRGB[2]
+    ) {
       return hexToRgbaBytes("#6b7280", opacity * 0.35);
     }
     return [
-      Math.min(255, Math.round(r)),
-      Math.min(255, Math.round(g)),
-      Math.min(255, Math.round(b)),
+      rgb[0],
+      rgb[1],
+      rgb[2],
       Math.round(Math.max(0, Math.min(1, opacity)) * 255),
     ];
   }

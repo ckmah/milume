@@ -1,5 +1,7 @@
+import { blendGeneSrgb as blendGeneSrgbCore } from "../../../../milume/static/gene-expression-blend.js";
+
 import { decodeF32Base64, decodeI32Base64 } from "./binary";
-import { GENE_COLORS, type GeneColumn, type GeneScaleMode } from "./helpers";
+import type { GeneColumn, GeneScaleMode } from "./helpers";
 
 export type GeneExpressionPack = {
   n: number;
@@ -87,77 +89,6 @@ function genePackedAt(pack: GeneExpressionPack, dense: GeneDense, i: number, gi:
   return values[gi * n + i];
 }
 
-function geneIntensity(t01: number, vmin: number, vmax: number, log1p: boolean) {
-  const lo = Number.isFinite(vmin) ? vmin : 0;
-  const hi = Number.isFinite(vmax) && vmax > lo ? vmax : lo + 1;
-  const t = Math.max(0, Math.min(1, t01));
-  const raw = Math.max(0, lo + t * (hi - lo));
-  return log1p ? Math.log1p(raw) : raw;
-}
-
-function geneCeiling(vmin: number, vmax: number, log1p: boolean) {
-  const lo = Number.isFinite(vmin) ? vmin : 0;
-  const hi = Number.isFinite(vmax) && vmax > lo ? vmax : lo + 1;
-  const top = Math.max(0, hi);
-  const bot = Math.max(0, lo);
-  if (log1p) {
-    const a = Math.log1p(bot);
-    const b = Math.log1p(top);
-    return b > a ? b : b + 1e-6;
-  }
-  return top > bot ? top : top + 1e-6;
-}
-
-function geneFloor(vmin: number, _vmax: number, log1p: boolean) {
-  const lo = Number.isFinite(vmin) ? vmin : 0;
-  const bot = Math.max(0, lo);
-  return log1p ? Math.log1p(bot) : bot;
-}
-
-function scaledGeneT(
-  pack: GeneExpressionPack,
-  dense: GeneDense,
-  i: number,
-  geneName: string,
-  sharedCeiling: number,
-) {
-  const meta = geneMeta(pack, geneName);
-  if (!meta) return 0;
-  const gi = geneColumnIndex(pack, geneName);
-  const t01 = genePackedAt(pack, dense, i, gi);
-  if (t01 == null) return 0;
-  const log1p = geneUsesLog1p(pack);
-  const vmin = meta.vmin ?? 0;
-  const vmax = meta.vmax ?? 1;
-  const intensity = geneIntensity(t01, vmin, vmax, log1p);
-  if (pack.geneScaleMode === "shared") {
-    const ceil = sharedCeiling > 0 ? sharedCeiling : geneCeiling(vmin, vmax, log1p);
-    return Math.max(0, Math.min(1, intensity / ceil));
-  }
-  const floor = geneFloor(vmin, vmax, log1p);
-  const ceil = geneCeiling(vmin, vmax, log1p);
-  if (ceil <= floor) return 0;
-  return Math.max(0, Math.min(1, (intensity - floor) / (ceil - floor)));
-}
-
-function sharedGeneCeiling(pack: GeneExpressionPack) {
-  let max = 0;
-  const log1p = geneUsesLog1p(pack);
-  for (const name of pack.activeGenes) {
-    const meta = geneMeta(pack, name);
-    if (!meta) continue;
-    max = Math.max(max, geneCeiling(meta.vmin ?? 0, meta.vmax ?? 1, log1p));
-  }
-  return max;
-}
-
-function parseHexRgb(hex: string): [number, number, number] {
-  const n = Number.parseInt(hex.replace("#", ""), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
-
-const LOW_EXPR_SRGB: [number, number, number] = [107, 114, 128];
-
 function srgbToLinearByte(c: number): number {
   const s = c / 255;
   const linear = s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
@@ -169,40 +100,29 @@ export function srgbBytesToLinear(rgb: [number, number, number]): [number, numbe
   return [srgbToLinearByte(rgb[0]), srgbToLinearByte(rgb[1]), srgbToLinearByte(rgb[2])];
 }
 
-/**
- * sRGB bytes for one point, matching ``blendGeneColors`` in ``landmarks.js``.
- */
+/** sRGB bytes for one point (shared scaling with `blendGeneColors` in landmarks.js). */
 export function blendGeneSrgb(
   pack: GeneExpressionPack,
   pointIndex: number,
 ): [number, number, number] {
-  const active = pack.activeGenes;
-  if (!active.length || pointIndex < 0 || pointIndex >= pack.n) {
-    return LOW_EXPR_SRGB;
+  if (!pack.activeGenes.length || pointIndex < 0 || pointIndex >= pack.n) {
+    return [107, 114, 128];
   }
   const dense: GeneDense = {
     dense: null,
     nGenes: pack.geneColumns.length,
   };
-  const shared =
-    pack.geneScaleMode === "shared" ? sharedGeneCeiling(pack) : 0;
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  let w = 0;
-  for (let ai = 0; ai < active.length; ai++) {
-    const t = scaledGeneT(pack, dense, pointIndex, active[ai]!, shared);
-    if (!(t > 0)) continue;
-    const rgb = parseHexRgb(GENE_COLORS[ai % GENE_COLORS.length]);
-    r += rgb[0] * t;
-    g += rgb[1] * t;
-    b += rgb[2] * t;
-    w += t;
-  }
-  if (w < 1e-6) return LOW_EXPR_SRGB;
-  return [
-    Math.min(255, Math.round(r)),
-    Math.min(255, Math.round(g)),
-    Math.min(255, Math.round(b)),
-  ];
+  const log1p = geneUsesLog1p(pack);
+  return blendGeneSrgbCore({
+    activeGenes: pack.activeGenes,
+    pointIndex,
+    scaleMode: pack.geneScaleMode,
+    log1p,
+    valueAt: (i, geneName) => {
+      const gi = geneColumnIndex(pack, geneName);
+      if (gi < 0) return null;
+      return genePackedAt(pack, dense, i, gi);
+    },
+    metaAt: (geneName) => geneMeta(pack, geneName),
+  }) as [number, number, number];
 }
