@@ -8,7 +8,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const CLOSE_RE = /\b(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#\d+\b/i;
 
 /** Meta/CI tracking issues (not landmarks-ui); skip widget-issue template on linked bodies. */
-const WIDGET_ISSUE_TEMPLATE_EXEMPT = new Set([128]);
+/** Pre–landmarks-ui-template issues (see #146 acceptance criteria in body). */
+const WIDGET_ISSUE_TEMPLATE_EXEMPT = new Set([128, 146]);
 
 /** Markdown / HTML / common agent artifact patterns for embedded UI evidence. */
 const VISUAL_EVIDENCE_RE =
