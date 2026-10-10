@@ -4,7 +4,9 @@ The table's ``spatialdata_attrs`` name the labels element it annotates and the
 ``obs`` column holding each cell's label id. The image is the 3D image in the
 same coordinate system on the labels' grid (else the only 3D image there). The
 frame comes from the element's transform to that coordinate system, so window
-coordinates and ``obsm["spatial"]`` share units (µm for Pyxa / Meteor).
+coordinates and ``obsm["spatial"]`` share units (µm for Pyxa / Meteor). Landmarks
+raster defaults read the same coordinate-unit metadata (reader attrs, CosMx
+``global``/``fov`` systems, NGFF axis units when present).
 """
 
 from __future__ import annotations

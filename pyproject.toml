@@ -55,6 +55,7 @@ Issues = "https://github.com/ckmah/milume/issues"
 [dependency-groups]
 dev = [
     "geopandas>=1.1.4",
+    "huggingface-hub>=0.30",
     "mkdocstrings-python>=2.0.9",
     "pytest>=8.3.3",
     "ruff>=0.16.6",
