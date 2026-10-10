@@ -50,12 +50,34 @@ try {
     { timeout: 120_000 },
   );
   const bar = page.getByTestId("context-inspect-toolbar");
-  for (const [preset, name] of [
-    ["top", "Top view"],
-    ["iso", "Oblique view"],
-  ]) {
+  const frameCube = async (preset) => {
+    const name =
+      preset === "top" ? "Top view" : preset === "iso" ? "Oblique view" : "Side view";
     await bar.getByRole("radio", { name }).click();
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(800);
+    if (preset === "iso") {
+      const box = await view.boundingBox();
+      if (!box) throw new Error("no cube view box");
+      const cx = box.x + box.width * 0.5;
+      const cy = box.y + box.height * 0.55;
+      await page.mouse.move(cx, cy);
+      for (let w = 0; w < 5; w++) {
+        await page.mouse.wheel(0, 140);
+        await page.waitForTimeout(80);
+      }
+      await page.waitForFunction(
+        () => {
+          const z = Number(document.querySelector(".volume-cube__view")?.getAttribute("data-zoom"));
+          return Number.isFinite(z) && z > 0;
+        },
+        null,
+        { timeout: 30_000 },
+      );
+      await page.waitForTimeout(600);
+    }
+  };
+  for (const preset of ["top", "iso"]) {
+    await frameCube(preset);
     const path = `${outDir}/issue-117-pyxa-${tag}-${preset}.png`;
     await view.screenshot({ path });
     console.log("wrote", path);
