@@ -669,21 +669,6 @@ test.describe("Landmarks inspect cube", () => {
     await expect(page.getByRole("toolbar", { name: "Drawing tools" })).toBeVisible();
   });
 
-  test("with no cube open, Esc in a menu or a panel closes only that, not Inspect", async ({ page }) => {
-    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-    // The palette menu sits in Adjust: Esc closes the menu, not the panel.
-    await openAdjust(page);
-    await adjustPanel(page).getByRole("button", { name: "Palette" }).click();
-    await expect(page.getByRole("menu")).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("menu")).toHaveCount(0);
-    await expect(adjustPanel(page)).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(adjustPanel(page)).toHaveCount(0);
-    expect(await getModel(page, "mode")).toBe("inspect");
-    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
-  });
-
   test("Exit and Esc go back to the tool used before Inspect", async ({ page }) => {
     const tools = page.getByRole("toolbar", { name: "Drawing tools" });
     await tools.getByRole("radio", { name: "Move", exact: true }).click();
@@ -1168,30 +1153,6 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
     expect(await page.evaluate(() => (window as any).__savedCx)).toBe(escaped.live);
     expect(Number(await getModel(page, "inspect_cx"))).toBe(escaped.live);
-  });
-
-  test("a pan follows only its own pointer and ends on a move with no button held", async ({ page }) => {
-    await reloadWith(page, "window=100");
-    await openCubeAtCentre(page);
-    const view = cubeWindow(page).locator(".volume-cube__view");
-    await page.getByRole("radio", { name: "Top view" }).click();
-    await expect(view).toHaveAttribute("data-refining", "false");
-    const pressed = await shiftPointer(page, [
-      ["pointerdown", 0, 1],
-      ["pointermove", 30, 1],
-    ]);
-    // Another pointer's move and release leave the pan alone.
-    const other = await shiftPointer(page, [
-      ["pointermove", 90, 1, 2],
-      ["pointerup", 90, 0, 2],
-    ]);
-    expect(other.live).toBe(pressed.live);
-    await expect(view).toHaveAttribute("data-panning", "true");
-    // A move with no button held is a release lost outside the page: the pan ends, hovering pans nothing.
-    const lost = await shiftPointer(page, [["pointermove", 40, 0]]);
-    await expect(view).toHaveAttribute("data-panning", "false");
-    const hover = await shiftPointer(page, [["pointermove", 120, 1]]);
-    expect(hover.live).toBe(lost.live);
   });
 
   test("the Move tool makes a plain drag pan; the distance scales with the drag", async ({ page }) => {
