@@ -128,6 +128,40 @@ code {
   z-index: 0;
 }
 
+.milume-hero {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0b0b0b;
+}
+
+.milume-hero__canvas,
+.milume-hero__poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.milume-hero__canvas {
+  opacity: 0.55;
+}
+
+/* WebGL pixels are already veiled in the hero plane; avoid double-dimming the canvas */
+.milume-hero[data-hero-mode="webgl"] .milume-hero__canvas {
+  opacity: 1;
+}
+
+.milume-hero[data-hero-mode="poster"] .milume-hero__canvas {
+  display: none;
+}
+
+.milume-hero__poster.hero-media {
+  object-fit: cover;
+  object-position: center center;
+}
+
 .hero-media {
   width: 100%;
   height: 100%;
@@ -137,6 +171,20 @@ code {
   filter: saturate(0.9) contrast(1.05);
   transform: scale(1.02);
   animation: media-settle 1.4s var(--ease-out) both;
+}
+
+.promo-montage {
+  padding: 0 clamp(1.25rem, 4vw, 2.5rem) 2.5rem;
+  background: linear-gradient(180deg, transparent 0%, rgba(7, 10, 14, 0.85) 12%);
+}
+
+.promo-montage__video {
+  display: block;
+  width: min(100%, 72rem);
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #0b0b0b;
 }
 
 .hero-veil {
@@ -400,7 +448,8 @@ code {
     align-items: end;
   }
 
-  .hero-media {
+  .hero-media,
+  .milume-hero__poster.hero-media {
     object-position: 70% center;
   }
 
@@ -430,6 +479,7 @@ code {
 
   .hero-copy,
   .hero-media,
+  .milume-hero__canvas,
   .copy-btn,
   .btn {
     animation: none !important;
