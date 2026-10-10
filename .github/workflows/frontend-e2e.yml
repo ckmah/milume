@@ -5,8 +5,11 @@ name: Frontend e2e
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
   push:
     branches: [main]
+  schedule:
+    - cron: "0 7 * * *"
   workflow_dispatch:
     inputs:
       update_snapshots:
@@ -36,6 +39,39 @@ jobs:
     with:
       is_dispatch: ${{ github.event_name == 'workflow_dispatch' }}
       dispatch_tier: ${{ inputs.tier || '' }}
+
+  volume-mode:
+    runs-on: ubuntu-latest
+    outputs:
+      full: ${{ steps.mode.outputs.full }}
+    steps:
+      - id: mode
+        run: |
+          set -euo pipefail
+          full=false
+          case "${{ github.event_name }}" in
+            push|schedule|workflow_dispatch) full=true ;;
+            pull_request)
+              labels='${{ toJSON(github.event.pull_request.labels.*.name) }}'
+              if echo "${labels}" | grep -q 'run-volume-full'; then full=true; fi
+              ;;
+          esac
+          echo "full=${full}" >> "$GITHUB_OUTPUT"
+
+  nightly-activity:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - id: check
+        run: |
+          count=$(git log --since='24 hours ago' --oneline | wc -l)
+          if [[ "${count}" -gt 0 ]]; then echo "run=true" >> "$GITHUB_OUTPUT"; else echo "run=false" >> "$GITHUB_OUTPUT"; fi
 
   e2e-core:
     needs: changes
@@ -91,23 +127,12 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  # The volume spec is ~70 tests of software-GL cube rendering: split it across runners,
-  # duration-weighted LPT sharding (scripts/e2e-shard.mjs + e2e-shard-weights.json).
-  # Only the default-harness leg owns snapshots, so it alone runs for update_snapshots.
-  e2e-landmarks:
+  e2e-landmarks-default:
     needs: changes
     if: needs.changes.outputs.landmarks == 'true'
-    name: e2e-landmarks (${{ matrix.id }})
+    name: e2e-landmarks (default)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { id: volume-1, harness: landmarks-volume, cmd: "node scripts/e2e-shard.mjs 1/3 e2e/landmarks/landmarks-volume.spec.ts" }
-          - { id: volume-2, harness: landmarks-volume, cmd: "node scripts/e2e-shard.mjs 2/3 e2e/landmarks/landmarks-volume.spec.ts" }
-          - { id: volume-3, harness: landmarks-volume, cmd: "node scripts/e2e-shard.mjs 3/3 e2e/landmarks/landmarks-volume.spec.ts" }
-          - { id: default, harness: landmarks, cmd: "npx playwright test e2e/landmarks" }
+    timeout-minutes: 25
     env:
       UPDATE: ${{ github.event_name == 'workflow_dispatch' && inputs.update_snapshots == true }}
     defaults:
@@ -122,27 +147,110 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - uses: ./.github/actions/playwright-browser
-      - name: Landmarks unit tests
-        if: matrix.id == 'default'
-        run: npm run test:unit
-      - name: Run landmarks e2e
-        if: >-
-          ${{ env.UPDATE != 'true' && (
-            matrix.id == 'default' ||
-            github.event_name != 'pull_request' ||
-            github.event.pull_request.draft == false
-          ) }}
-        run: ${{ matrix.cmd }}
+      - run: npm run test:unit
+      - name: Run landmarks e2e (default harness)
+        if: ${{ env.UPDATE != 'true' }}
+        run: npx playwright test e2e/landmarks
         env:
           CI: true
-          E2E_HARNESS: ${{ matrix.harness }}
+          E2E_HARNESS: landmarks
       - name: Update landmarks snapshots
-        if: ${{ env.UPDATE == 'true' && matrix.id == 'default' }}
-        run: ${{ matrix.cmd }} --update-snapshots=all
+        if: ${{ env.UPDATE == 'true' }}
+        run: npx playwright test e2e/landmarks --update-snapshots=all
         env:
           CI: true
           E2E_SCREENSHOTS: "1"
-          E2E_HARNESS: ${{ matrix.harness }}
+          E2E_HARNESS: landmarks
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-landmarks-default
+          path: frontend/playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-test-results-landmarks-default
+          path: frontend/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+      - uses: actions/upload-artifact@v4
+        if: ${{ env.UPDATE == 'true' }}
+        with:
+          name: playwright-snapshots-landmarks
+          path: frontend/e2e/landmarks/**/*-snapshots/
+          retention-days: 14
+          if-no-files-found: ignore
+
+  e2e-landmarks-volume-smoke:
+    needs: [changes, volume-mode]
+    if: >-
+      needs.changes.outputs.landmarks == 'true' &&
+      needs.changes.outputs.volume_cube == 'true' &&
+      needs.volume-mode.outputs.full != 'true' &&
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false
+    name: e2e-landmarks (volume-smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - uses: ./.github/actions/playwright-browser
+      - name: Run volume smoke e2e
+        run: npx playwright test e2e/landmarks/landmarks-volume-smoke.spec.ts
+        env:
+          CI: true
+          E2E_HARNESS: landmarks-volume
+          E2E_SMOKE: "1"
+          E2E_RETRIES: "0"
+
+  # Full volume spec: software-GL cube rendering, LPT-sharded on main, nightly, or `run-volume-full`.
+  e2e-landmarks-volume:
+    needs: [changes, volume-mode, nightly-activity]
+    if: >-
+      always() &&
+      (needs.changes.outputs.landmarks == 'true' || github.event_name == 'schedule') &&
+      needs.volume-mode.outputs.full == 'true' &&
+      (github.event_name != 'schedule' || needs.nightly-activity.outputs.run == 'true') &&
+      (github.event_name != 'pull_request' || github.event.pull_request.draft == false)
+    name: e2e-landmarks (${{ matrix.id }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { id: volume-1, cmd: "node scripts/e2e-shard.mjs 1/3 e2e/landmarks/landmarks-volume.spec.ts" }
+          - { id: volume-2, cmd: "node scripts/e2e-shard.mjs 2/3 e2e/landmarks/landmarks-volume.spec.ts" }
+          - { id: volume-3, cmd: "node scripts/e2e-shard.mjs 3/3 e2e/landmarks/landmarks-volume.spec.ts" }
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - uses: ./.github/actions/playwright-browser
+      - name: Run volume e2e shard
+        run: ${{ matrix.cmd }}
+        env:
+          CI: true
+          E2E_HARNESS: landmarks-volume
+          E2E_RETRIES: ${{ github.event_name == 'pull_request' && '0' || '1' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -157,16 +265,7 @@ jobs:
           path: frontend/test-results/
           retention-days: 14
           if-no-files-found: ignore
-      - uses: actions/upload-artifact@v4
-        if: ${{ env.UPDATE == 'true' && matrix.id == 'default' }}
-        with:
-          name: playwright-snapshots-landmarks
-          path: frontend/e2e/landmarks/**/*-snapshots/
-          retention-days: 14
-          if-no-files-found: ignore
 
-  # One stable check to require in branch protection: path-gated jobs may be skipped,
-  # which a required check cannot tolerate; this job passes unless a tier failed.
   e2e-marimo-volume:
     needs: changes
     if: needs.changes.outputs.marimo_volume == 'true'
@@ -209,8 +308,10 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+  # One stable check to require in branch protection: path-gated jobs may be skipped,
+  # which a required check cannot tolerate; this job passes unless a tier failed.
   post-ui-evidence-comment:
-    needs: [changes, e2e-landmarks]
+    needs: [changes, e2e-landmarks-default, e2e-landmarks-volume-smoke, e2e-landmarks-volume]
     if: github.event_name == 'pull_request' && needs.changes.outputs.landmarks == 'true'
     runs-on: ubuntu-latest
     permissions:
@@ -236,7 +337,7 @@ jobs:
         run: node frontend/scripts/post-pr-playwright-comment.mjs
 
   gate:
-    needs: [changes, e2e-core, e2e-landmarks, e2e-marimo-volume, post-ui-evidence-comment]
+    needs: [changes, e2e-core, e2e-landmarks-default, e2e-landmarks-volume-smoke, e2e-landmarks-volume, e2e-marimo-volume, post-ui-evidence-comment]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -246,3 +347,18 @@ jobs:
         run: |
           echo "tier results: ${RESULTS}"
           [[ "${RESULTS}" != *failure* && "${RESULTS}" != *cancelled* ]]
+
+  nightly-issue:
+    needs: gate
+    if: failure() && github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open issue for nightly e2e failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create \
+            --title "Nightly landmarks e2e failed ($(date -u +%Y-%m-%d))" \
+            --body "Scheduled frontend-e2e run failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

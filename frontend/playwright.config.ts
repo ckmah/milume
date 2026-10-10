@@ -10,6 +10,8 @@ const webServerCommands: Record<string, string> = {
 // The inspect cube redraws a ray-marched volume (image and labels) per frame; on the
 // CI SwiftShader runner one frame of an orbit or cut drag can take over a second.
 const volumeOnCi = harness === "landmarks-volume" && Boolean(process.env.CI);
+const volumeSmoke = volumeOnCi && process.env.E2E_SMOKE === "1";
+const smokeSpec = "**/landmarks-volume-smoke.spec.ts";
 const webServerCommand =
   webServerCommands[harness] ?? webServerCommands.landmarks;
 
@@ -24,9 +26,11 @@ export default defineConfig({
   // The inspect-cube spec needs the toy SpatialData served by its own harness.
   testIgnore:
     harness === "landmarks-volume"
-      ? ["**/hero-webgl.spec.ts", "**/marimo/**"]
-      : ["**/landmarks-volume.spec.ts", "**/hero-webgl.spec.ts", "**/marimo/**"],
-  timeout: volumeOnCi ? 240_000 : 90_000,
+      ? process.env.E2E_SMOKE === "1"
+        ? ["**/hero-webgl.spec.ts", "**/landmarks-volume.spec.ts", "**/marimo/**"]
+        : ["**/hero-webgl.spec.ts", smokeSpec, "**/marimo/**"]
+      : ["**/landmarks-volume.spec.ts", smokeSpec, "**/hero-webgl.spec.ts", "**/marimo/**"],
+  timeout: volumeSmoke ? 90_000 : volumeOnCi ? 240_000 : 90_000,
   expect: {
     timeout: volumeOnCi ? 30_000 : 15_000,
     toHaveScreenshot: {
@@ -36,7 +40,7 @@ export default defineConfig({
   },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
+  retries: Number(process.env.E2E_RETRIES ?? (process.env.CI ? 1 : 0)),
   workers: Number(process.env.E2E_WORKERS ?? (process.env.CI ? 2 : 4)),
   reporter: process.env.CI
     ? [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]]

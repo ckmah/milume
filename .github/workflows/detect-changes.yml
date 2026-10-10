@@ -18,8 +18,8 @@ on:
         value: ${{ jobs.detect.outputs.core }}
       landmarks:
         value: ${{ jobs.detect.outputs.landmarks }}
-      marimo_volume:
-        value: ${{ jobs.detect.outputs.marimo_volume }}
+      volume_cube:
+        value: ${{ jobs.detect.outputs.volume_cube }}
       ui:
         value: ${{ jobs.detect.outputs.ui }}
       policy:
@@ -37,7 +37,7 @@ jobs:
     outputs:
       core: ${{ steps.select.outputs.core }}
       landmarks: ${{ steps.select.outputs.landmarks }}
-      marimo_volume: ${{ steps.select.outputs.marimo_volume }}
+      volume_cube: ${{ steps.select.outputs.volume_cube }}
       ui: ${{ steps.select.outputs.ui }}
       policy: ${{ steps.select.outputs.policy }}
       ci_frontend: ${{ steps.select.outputs.ci_frontend }}
@@ -60,7 +60,7 @@ jobs:
           TIER: ${{ inputs.dispatch_tier }}
           CORE: ${{ steps.filter.outputs.core || 'false' }}
           LANDMARKS: ${{ steps.filter.outputs.landmarks || 'false' }}
-          MARIMO_VOLUME: ${{ steps.filter.outputs.marimo_volume || 'false' }}
+          VOLUME_CUBE: ${{ steps.filter.outputs.volume_cube || 'false' }}
           INFRA_FULL: ${{ steps.filter.outputs.infra_full || 'false' }}
           INFRA_CORE: ${{ steps.filter.outputs.infra_core || 'false' }}
           POLICY: ${{ steps.filter.outputs.policy || 'false' }}
@@ -71,22 +71,24 @@ jobs:
           set -euo pipefail
           core=false
           landmarks=false
-          marimo_volume=false
+          volume_cube=false
           policy=false
           ci_frontend=false
           ci_pytest=false
           ci_uv_build=false
           if [[ "${IS_DISPATCH}" == "true" ]]; then
             case "${TIER}" in
-              all) core=true; landmarks=true; marimo_volume=true ;;
+              all) core=true; landmarks=true ;;
               core) core=true ;;
               landmarks) landmarks=true ;;
             esac
+            volume_cube=true
             ci_frontend=true
             ci_pytest=true
             ci_uv_build=true
           else
             [[ "${POLICY}" == "true" ]] && policy=true
+            [[ "${VOLUME_CUBE}" == "true" ]] && volume_cube=true
             if [[ "${INFRA_FULL}" == "true" ]]; then
               core=true
               landmarks=true
@@ -97,7 +99,6 @@ jobs:
               [[ "${CORE}" == "true" ]] && core=true
               [[ "${LANDMARKS}" == "true" ]] && landmarks=true
             fi
-            [[ "${MARIMO_VOLUME}" == "true" ]] && marimo_volume=true
             [[ "${CI_FRONTEND}" == "true" ]] && ci_frontend=true
             if [[ "${CI_PYTHON}" == "true" ]]; then
               ci_pytest=true
@@ -124,10 +125,10 @@ jobs:
           fi
           echo "core=${core}" >> "$GITHUB_OUTPUT"
           echo "landmarks=${landmarks}" >> "$GITHUB_OUTPUT"
-          echo "marimo_volume=${marimo_volume}" >> "$GITHUB_OUTPUT"
+          echo "volume_cube=${volume_cube}" >> "$GITHUB_OUTPUT"
           echo "ui=${ui}" >> "$GITHUB_OUTPUT"
           echo "policy=${policy}" >> "$GITHUB_OUTPUT"
           echo "ci_frontend=${ci_frontend}" >> "$GITHUB_OUTPUT"
           echo "ci_pytest=${ci_pytest}" >> "$GITHUB_OUTPUT"
           echo "ci_uv_build=${ci_uv_build}" >> "$GITHUB_OUTPUT"
-          echo "Selected: core=${core} landmarks=${landmarks} marimo_volume=${marimo_volume} ui=${ui} policy=${policy} ci_frontend=${ci_frontend} ci_pytest=${ci_pytest} ci_uv_build=${ci_uv_build}"
+          echo "Selected: core=${core} landmarks=${landmarks} volume_cube=${volume_cube} ui=${ui} policy=${policy} ci_frontend=${ci_frontend} ci_pytest=${ci_pytest} ci_uv_build=${ci_uv_build}"

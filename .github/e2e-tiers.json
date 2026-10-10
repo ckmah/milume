@@ -1,4 +1,12 @@
 {
+  "volume_cube": [
+    "frontend/src/widgets/volume-cube/**",
+    "frontend/src/widgets/landmarks/use-inspect-cube.ts",
+    "frontend/src/widgets/landmarks/chrome/inspect-toolbar.tsx",
+    "frontend/src/widgets/landmarks/chrome/cube-immersive.tsx",
+    "frontend/e2e/landmarks/landmarks-volume-smoke.spec.ts",
+    "milume/volume_cube.py"
+  ],
   "core": [
     "website/landing/hero/**",
     "website/landing/assets/hero-renderer.js",
@@ -25,21 +33,6 @@
     "milume/spatialdata_landmarks.py",
     "milume/volume_source.py",
     "milume/volume_comm.py"
-  ],
-  "marimo_volume": [
-    "frontend/src/widgets/volume-cube/**",
-    "milume/volume_comm.py",
-    "milume/landmarks.py",
-    "milume/volume_cube.py",
-    "pyproject.toml",
-    "uv.lock",
-    "frontend/e2e/marimo/**",
-    "frontend/playwright.marimo.config.ts",
-    "frontend/scripts/marimo-e2e-serve.mjs",
-    "frontend/scripts/marimo-e2e-host.mjs",
-    "frontend/scripts/prefetch-marimo-e2e-data.py",
-    "demos/landmarks.py",
-    "frontend/e2e/marimo/fixtures/**"
   ],
   "infra_full": [
     "frontend/e2e/helpers.ts",
