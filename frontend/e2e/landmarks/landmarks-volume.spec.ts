@@ -2001,7 +2001,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-refining", "false");
     const slab = await view.screenshot();
     await openLayerMenu(page, "labels");
-    await page.getByTestId("adjust-labels").getByRole("switch", { name: "Cell outlines" }).click();
+    await page.getByTestId("adjust-labels").getByRole("switch", { name: "Cut outlines" }).click();
     const outlinesOff = await view.screenshot();
     const changed = await page.evaluate(
       async ({ before, after }) => {
@@ -2025,17 +2025,24 @@ test.describe("Landmarks inspect cube", () => {
     expect(changed).toBeGreaterThan(80);
   });
 
-  test("inspect cell outlines match the regression snapshot in Side and Top views", async ({ page }) => {
+  test("inspect labels with no cut show uniform fill and no contrasting rims", async ({ page }) => {
+    await openCubeAtCentre(page, { raster: true });
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-coloring", "groups");
+    await shot(page, "volume-inspect-labels-uncut-top", view);
+  });
+
+  test("inspect Z-cut shows contrasting rims on the cut face", async ({ page }) => {
     await openCubeAtCentre(page, { raster: true });
     const bar = page.getByTestId("context-inspect-toolbar");
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
-    await expect(view).toHaveAttribute("data-coloring", "groups");
+    await setModel(page, { volume_cut: [0, 256, 0, 256, 31, 33] });
+    await expect(view).toHaveAttribute("data-refining", "false");
     await bar.getByRole("radio", { name: "Side view" }).click();
     await expect(view).toHaveAttribute("data-pitch", "0");
-    await shot(page, "volume-inspect-outlines-side", view);
-    await bar.getByRole("radio", { name: "Top view" }).click();
-    await shot(page, "volume-inspect-outlines-top", view);
+    await shot(page, "volume-inspect-outlines-zcut-side", view);
   });
 
   test("the dock shows the coarse level first, then refines", { tag: "@isolated" }, async ({ page }) => {

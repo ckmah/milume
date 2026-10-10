@@ -10,9 +10,9 @@ export type RenderSettings = {
   imageAlpha: number;
   /** Exponent on the contrast-limited image value. */
   imageGamma: number;
-  /** Interior fill opacity along the ray (boundary voxels use `cellOutlineOn` instead). */
+  /** Interior fill opacity along the ray (cut-face rims use `cellOutlineOn` instead). */
   cellAlpha: number;
-  /** 1 draws contrasting outlines on boundary voxels; 0 hides them. */
+  /** 1 draws contrasting outlines on cut-plane cell boundaries; 0 hides them. */
   cellOutlineOn: number;
 };
 

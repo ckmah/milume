@@ -13,8 +13,9 @@ import { DEFAULT_RENDER, type RenderSettings, paletteLut } from "./palettes";
  * from the `render` prop; with `showImage` false the image adds nothing (a
  * uniform, no refetch). Once labels load, `labelVolume` (an RG8 3D texture on
  * the same grid, see `cell-volume.ts`) holds each voxel's local cell index and
- * a surface flag. Boundary voxels draw a contrasting outline at full strength;
- * interiors use the lookup fill weight times `cellAlpha`. A small
+ * a surface flag. With an active cross-section cut, boundary voxels on the cut
+ * plane draw a contrasting outline; interiors use fill weight times `cellAlpha`.
+ * With no cut, cells render uniformly with no rim. A small
  * RGBA lookup texture (`cellLut`) maps local index -> colour and alpha per cell;
  * texel 0 is the colour and alpha of the cells the lookup gives none.
  *
@@ -163,8 +164,33 @@ vec4 imageSample(float v) {
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
+bool cutActive() {
+  return cubeRender.cutX1 - cubeRender.cutX0 < 0.999
+    || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
+    || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
+}
+
+bool onCutFace(vec3 p, float xLo, float xHi, float yLo, float yHi, float zLo, float zHi) {
+  if (!cutActive()) return false;
+  float e = 0.004;
+  if (cubeRender.cutX0 > 0.001 && abs(p.x - xLo) < e) return true;
+  if (cubeRender.cutX1 < 0.999 && abs(p.x - xHi) < e) return true;
+  if (cubeRender.cutY0 > 0.001 && abs(p.y - yLo) < e) return true;
+  if (cubeRender.cutY1 < 0.999 && abs(p.y - yHi) < e) return true;
+  if (cubeRender.cutZ0 > 0.001 && abs(p.z - zLo) < e) return true;
+  if (cubeRender.cutZ1 < 0.999 && abs(p.z - zHi) < e) return true;
+  return false;
+}
+
+vec4 cellRimColor(int lx, int ly, int lutH, bool highlighted) {
+  vec4 rim = texelFetch(cellLut, ivec3(lx, ly + lutH, 0), 0);
+  vec4 neutral = texelFetch(cellLut, ivec3(0, lutH, 0), 0);
+  vec4 c = highlighted ? rim : neutral;
+  return vec4(c.rgb, c.a);
+}
+
 // Fill and contrasting rim for label MIP (max along the ray, then rim over fill).
-void cellMipLayers(ivec3 q, out vec4 fill, out vec4 rim) {
+void cellMipLayers(ivec3 q, vec3 p, float xLo, float xHi, float yLo, float yHi, float zLo, float zHi, out vec4 fill, out vec4 rim) {
   fill = vec4(0.0);
   rim = vec4(0.0);
   ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
@@ -178,19 +204,15 @@ void cellMipLayers(ivec3 q, out vec4 fill, out vec4 rim) {
   if (ly >= lutH) return;
   vec4 own = texelFetch(cellLut, ivec3(lx, ly, 0), 0);
   bool hasRgb = dot(own.rgb, vec3(1.0)) > 1.0 / 255.0;
-  if (hasRgb && own.a > 0.0) fill = vec4(own.rgb, own.a * cubeRender.cellAlpha);
-  if (surface && cubeRender.cellOutlineOn > 0.5) {
-    bool highlighted = own.a > 0.5 && hasRgb;
-    vec4 orim = texelFetch(cellLut, ivec3(lx, ly + lutH, 0), 0);
-    vec4 neutral = texelFetch(cellLut, ivec3(0, lutH, 0), 0);
-    vec4 c = highlighted ? orim : neutral;
-    rim = vec4(c.rgb, c.a);
-  }
+  if (!hasRgb || own.a <= 0.0) return;
+  fill = vec4(own.rgb, own.a * cubeRender.cellAlpha);
+  bool showRim = onCutFace(p, xLo, xHi, yLo, yHi, zLo, zHi) && surface && cubeRender.cellOutlineOn > 0.5;
+  if (showRim) rim = cellRimColor(lx, ly, lutH, own.a > 0.5 && hasRgb);
 }
 
 // Colour (linear RGB) and per-sample alpha of the label voxel at texel q.
 // cellLut is two planes: fill rows 0..H/2-1, precomputed outline rows H/2..H-1.
-vec4 cellColor(ivec3 q) {
+vec4 cellColor(ivec3 q, vec3 p, float xLo, float xHi, float yLo, float yHi, float zLo, float zHi) {
   ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
   int idx = b.x + 256 * (b.y & 127);
   if (idx == 0) return vec4(0.0);
@@ -202,16 +224,10 @@ vec4 cellColor(ivec3 q) {
   if (ly >= lutH) return vec4(0.0);
   vec4 own = texelFetch(cellLut, ivec3(lx, ly, 0), 0);
   bool hasRgb = dot(own.rgb, vec3(1.0)) > 1.0 / 255.0;
-  float fillA = own.a * cubeRender.cellAlpha;
-  if (surface) {
-    if (cubeRender.cellOutlineOn < 0.5) return vec4(0.0);
-    bool highlighted = own.a > 0.5 && hasRgb;
-    vec4 rim = texelFetch(cellLut, ivec3(lx, ly + lutH, 0), 0);
-    vec4 neutral = texelFetch(cellLut, ivec3(0, lutH, 0), 0);
-    vec4 c = highlighted ? rim : neutral;
-    return vec4(c.rgb, c.a);
-  }
   if (!hasRgb || own.a <= 0.0) return vec4(0.0);
+  float fillA = own.a * cubeRender.cellAlpha;
+  bool showRim = onCutFace(p, xLo, xHi, yLo, yHi, zLo, zHi) && surface && cubeRender.cellOutlineOn > 0.5;
+  if (showRim) return cellRimColor(lx, ly, lutH, own.a > 0.5 && hasRgb);
   return vec4(own.rgb, fillA);
 }
 `,
@@ -224,7 +240,9 @@ const CELL_SETUP = `
   bool cellsOn = cubeRender.cellsOn > 0.5;`;
 
 const CELL_SAMPLE = `
-    vec4 cell = canShow * cellColor(clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1));`;
+    vec4 cell = canShow * cellColor(
+      clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1),
+      p, xLo, xHi, yLo, yHi, zLo, zHi);`;
 
 // One loop for every combination of the two projections (uniforms, so a
 // toggle needs no recompile). The image accumulates samples (Additive) or keeps
@@ -256,9 +274,7 @@ const RENDERING = {
   vec3 cellFillRgb = vec3(0.0);
   float cellRimMax = 0.0;
   vec3 cellRimRgb = vec3(0.0);
-  bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
-    || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
-    || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
+  bool ghosting = cutActive();
   float stepScale = 1.0;`,
   _RENDER: `
     ${IN_CUT}
@@ -275,7 +291,9 @@ const RENDERING = {
         if (cubeRender.cellMip > 0.5) {
           vec4 cellFill;
           vec4 cellRim;
-          cellMipLayers(clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1), cellFill, cellRim);
+          cellMipLayers(
+            clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1),
+            p, xLo, xHi, yLo, yHi, zLo, zHi, cellFill, cellRim);
           cellFill *= canShow;
           cellRim *= canShow;
           if (cellFill.a > cellFillMax) {
@@ -334,8 +352,6 @@ type LayerLike = {
     imageMode?: "additive" | "mip";
     /** Default "additive": accumulate the cell samples front to back; "mip": the strongest one along the ray. */
     labelMode?: "additive" | "mip";
-    /** Top-down camera: label rays use MIP even when `labelMode` is additive. */
-    labelProjectMip?: boolean;
     /** Called when the labels this layer draws change (null: none). */
     onCellsBound?: (cells: CellVolume | null) => void;
     /** Called when the format of the image texture this layer draws changes (null: none yet). */
@@ -497,8 +513,7 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       imageOn,
       imageScale: image?.scale ?? 1,
       imageMip: layer.props.imageMode === "mip" ? 1 : 0,
-      cellMip:
-        layer.props.labelMode === "mip" || layer.props.labelProjectMip ? 1 : 0,
+      cellMip: layer.props.labelMode === "mip" ? 1 : 0,
       cutX0: frac?.[0] ?? 0,
       cutX1: frac?.[1] ?? 1,
       cutY0: frac?.[2] ?? 0,
