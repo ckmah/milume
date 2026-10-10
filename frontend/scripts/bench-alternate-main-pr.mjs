@@ -4,7 +4,7 @@
  * Writes /opt/cursor/artifacts/bench-alternate-raw.jsonl and prints summary.
  */
 import { spawnSync } from "node:child_process";
-import { appendFileSync, writeFileSync } from "node:fs";
+import { appendFileSync, copyFileSync, writeFileSync } from "node:fs";
 
 const runsPerRev = Number(process.argv[2] || 5);
 const root = new URL("../..", import.meta.url).pathname;
@@ -40,7 +40,7 @@ function restartVite() {
 
 function benchOnce(rev) {
   const json = sh(
-    `cd ${frontend} && BENCH_CUT_MODE=${cutMode} BENCH_REV_TAG=${rev} BENCH_ARTIFACT_DIR=/opt/cursor/artifacts node scripts/volume-perf-bench.mjs`,
+    `cd ${frontend} && BENCH_CUT_MODE=${cutMode} BENCH_REV_TAG=${rev} BENCH_ARTIFACT_DIR=/opt/cursor/artifacts node scripts/.volume-perf-bench.validated.mjs`,
   );
   return JSON.parse(json);
 }
@@ -60,25 +60,31 @@ const branch = sh(`git -C ${root} rev-parse --abbrev-ref HEAD`);
 const prRev = sh(`git -C ${root} rev-parse HEAD`);
 const mainRev = sh(`git -C ${root} rev-parse ${process.env.BENCH_MAIN_REF || "origin/main"}`);
 
+/** Untracked copy survives `git checkout` between main and PR revisions. */
+const validatedBench = `${frontend}/scripts/.volume-perf-bench.validated.mjs`;
+copyFileSync(`${frontend}/scripts/volume-perf-bench.mjs`, validatedBench);
+
 writeFileSync(out, "");
 const records = [];
 
-for (let i = 0; i < runsPerRev; i++) {
-  for (const rev of ["main", "pr"]) {
-    const sha = rev === "main" ? mainRev : prRev;
-    sh(`git -C ${root} checkout --quiet ${sha}`);
-    restartVite();
-    spawnSync("sleep", ["2"]);
-    const t0 = Date.now();
-    const result = benchOnce(rev);
-    const row = { rev, sha, i, wallMs: Date.now() - t0, ...result };
-    records.push(row);
-    appendFileSync(out, `${JSON.stringify(row)}\n`);
-    console.log(JSON.stringify(row));
+try {
+  for (let i = 0; i < runsPerRev; i++) {
+    for (const rev of ["main", "pr"]) {
+      const sha = rev === "main" ? mainRev : prRev;
+      sh(`git -C ${root} checkout --quiet ${sha}`);
+      restartVite();
+      spawnSync("sleep", ["2"]);
+      const t0 = Date.now();
+      const result = benchOnce(rev);
+      const row = { rev, sha, i, wallMs: Date.now() - t0, ...result };
+      records.push(row);
+      appendFileSync(out, `${JSON.stringify(row)}\n`);
+      console.log(JSON.stringify(row));
+    }
   }
+} finally {
+  sh(`git -C ${root} checkout --quiet ${branch}`);
 }
-
-sh(`git -C ${root} checkout --quiet ${branch}`);
 
 const byRev = (rev) => records.filter((r) => r.rev === rev);
 const summary = {
