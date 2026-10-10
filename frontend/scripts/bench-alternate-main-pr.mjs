@@ -27,12 +27,19 @@ const harnessPaths = [
   "frontend/dev/mock-model.ts",
   "frontend/dev/export-landmarks-volume-fixture.py",
 ];
+const smallFixtureBackup =
+  profile === "small" ? `/opt/cursor/artifacts/.harness-landmarks-volume-fixture.small.json` : null;
 if (profile === "small") {
   harnessPaths.push("frontend/dev/landmarks-volume-fixture.small.json");
+  sh(`cp ${frontend}/dev/landmarks-volume-fixture.small.json ${smallFixtureBackup}`);
 }
 
 function overlayHarnessFrom(prSha) {
   for (const rel of harnessPaths) {
+    if (rel.endsWith("landmarks-volume-fixture.small.json")) {
+      if (smallFixtureBackup) sh(`cp ${smallFixtureBackup} ${root}/${rel}`);
+      continue;
+    }
     sh(`git -C ${root} checkout ${prSha} -- ${rel}`);
   }
 }
