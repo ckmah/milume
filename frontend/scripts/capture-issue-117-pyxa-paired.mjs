@@ -53,8 +53,9 @@ async function captureSet(base, tag) {
       { timeout: 120_000 },
     );
     const bar = page.getByTestId("context-inspect-toolbar");
-    for (const preset of ["top", "iso"]) {
-      const name = preset === "top" ? "Top view" : "Oblique view";
+    for (const preset of ["top", "iso", "side"]) {
+      const name =
+        preset === "top" ? "Top view" : preset === "iso" ? "Oblique view" : "Side view";
       await bar.getByRole("radio", { name }).click();
       await page.waitForTimeout(800);
       if (preset === "iso") {

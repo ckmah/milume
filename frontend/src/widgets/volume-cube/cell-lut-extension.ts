@@ -164,7 +164,7 @@ vec4 imageSample(float v) {
 }
 
 // Colour (linear RGB) and per-sample alpha of the label voxel at texel q.
-// cellLut is two planes: fill rows 0..H/2-1, precomputed outline rows H/2..H-1.
+// cellLut is two planes: fill rows 0..H/2-1, contrasting outline rows H/2..H-1.
 vec4 cellColor(ivec3 q) {
   ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
   int idx = b.x + 256 * (b.y & 127);
@@ -177,15 +177,29 @@ vec4 cellColor(ivec3 q) {
   if (ly >= lutH) return vec4(0.0);
   vec4 own = texelFetch(cellLut, ivec3(lx, ly, 0), 0);
   bool hasRgb = dot(own.rgb, vec3(1.0)) > 1.0 / 255.0;
+  float fillA = own.a * cubeRender.cellAlpha;
+  // Labels MIP: max along the ray (thin rim at footprint edges, faint fill in the interior).
+  if (cubeRender.cellMip > 0.5) {
+    if (surface && cubeRender.cellOutlineOn > 0.5) {
+      bool highlighted = own.a > 0.5 && hasRgb;
+      vec4 rim = texelFetch(cellLut, ivec3(lx, ly + lutH, 0), 0);
+      vec4 neutral = texelFetch(cellLut, ivec3(0, lutH, 0), 0);
+      vec4 c = highlighted ? rim : neutral;
+      return vec4(c.rgb, c.a);
+    }
+    if (!hasRgb || own.a <= 0.0) return vec4(0.0);
+    return vec4(own.rgb, fillA);
+  }
   if (surface) {
     if (cubeRender.cellOutlineOn < 0.5) return vec4(0.0);
     bool highlighted = own.a > 0.5 && hasRgb;
     vec4 rim = texelFetch(cellLut, ivec3(lx, ly + lutH, 0), 0);
     vec4 neutral = texelFetch(cellLut, ivec3(0, lutH, 0), 0);
-    return highlighted ? vec4(rim.rgb, 1.0) : neutral;
+    vec4 c = highlighted ? rim : neutral;
+    return vec4(c.rgb, c.a);
   }
   if (!hasRgb || own.a <= 0.0) return vec4(0.0);
-  return vec4(own.rgb, own.a * cubeRender.cellAlpha);
+  return vec4(own.rgb, fillA);
 }
 `,
 };
@@ -257,8 +271,7 @@ const RENDERING = {
       }
     }
     bool imageDone = cubeRender.imageMip < 0.5 && acc.a >= 0.95;
-    float cellTarget = cubeRender.cellAlpha < 0.25 ? 0.68 : 0.95;
-    bool cellsDone = !cellsOn || (cubeRender.cellMip < 0.5 && cells.a >= cellTarget);
+    bool cellsDone = !cellsOn || (cubeRender.cellMip < 0.5 && cells.a >= 0.95);
     if (imageDone && cellsDone) {
       break;
     }`,
@@ -290,6 +303,8 @@ type LayerLike = {
     imageMode?: "additive" | "mip";
     /** Default "additive": accumulate the cell samples front to back; "mip": the strongest one along the ray. */
     labelMode?: "additive" | "mip";
+    /** Top-down camera: label rays use MIP even when `labelMode` is additive. */
+    labelProjectMip?: boolean;
     /** Called when the labels this layer draws change (null: none). */
     onCellsBound?: (cells: CellVolume | null) => void;
     /** Called when the format of the image texture this layer draws changes (null: none yet). */
@@ -451,7 +466,8 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       imageOn,
       imageScale: image?.scale ?? 1,
       imageMip: layer.props.imageMode === "mip" ? 1 : 0,
-      cellMip: layer.props.labelMode === "mip" ? 1 : 0,
+      cellMip:
+        layer.props.labelMode === "mip" || layer.props.labelProjectMip ? 1 : 0,
       cutX0: frac?.[0] ?? 0,
       cutX1: frac?.[1] ?? 1,
       cutY0: frac?.[2] ?? 0,
@@ -480,28 +496,35 @@ function srgbToLinear(c: number): number {
   return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
 }
 
-/** Matches the former GLSL `outlineFromFill` (linear RGB bytes in/out). */
-function outlineFromFillLinear(rgb: readonly [number, number, number]): [number, number, number] {
-  const r = rgb[0] / 255;
-  const g = rgb[1] / 255;
-  const b = rgb[2] / 255;
+/** Contrasting rim: shared orange for coloured cells; near-white / near-black from fill luminance. */
+function contrastingOutlineRgb(
+  fillRgb: readonly [number, number, number],
+  sharedOrange: readonly [number, number, number],
+): [number, number, number] {
+  const r = fillRgb[0] / 255;
+  const g = fillRgb[1] / 255;
+  const b = fillRgb[2] / 255;
   const l = 0.299 * r + 0.587 * g + 0.114 * b;
-  if (l > 0.42) {
-    return [Math.round(r * 0.28 * 255), Math.round(g * 0.28 * 255), Math.round(b * 0.28 * 255)];
-  }
-  const mix = (c: number) => Math.round((c + (1 - c) * 0.65) * 255);
-  return [mix(r), mix(g), mix(b)];
+  if (l > 0.55 || l < 0.12) return sharedOrange as [number, number, number];
+  if (l > 0.42) return [22, 22, 26];
+  return [235, 235, 240];
 }
 
-function mirrorOutlinePlane(data: Uint8Array, width: number, fillRows: number) {
+function mirrorOutlinePlane(
+  data: Uint8Array,
+  width: number,
+  fillRows: number,
+  sharedOrange: readonly [number, number, number],
+  outlineAlpha = 255,
+) {
   const plane = width * fillRows;
   for (let i = 0; i < plane; i++) {
     const off = i * 4;
     const rgb: [number, number, number] = [data[off]!, data[off + 1]!, data[off + 2]!];
     const a = data[off + 3]!;
     const hasFill = a > 0 && rgb[0] + rgb[1] + rgb[2] > 1;
-    const outlineRgb = hasFill ? outlineFromFillLinear(rgb) : rgb;
-    const outlineA = i === 0 ? a : hasFill ? 255 : a;
+    const outlineRgb = hasFill ? contrastingOutlineRgb(rgb, sharedOrange) : rgb;
+    const outlineA = i === 0 ? a : hasFill ? outlineAlpha : a;
     const o = (plane + i) * 4;
     data[o] = outlineRgb[0];
     data[o + 1] = outlineRgb[1];
@@ -592,7 +615,7 @@ export function buildCellLut(coloring: CellColoring, cells: readonly number[]): 
   if (coloring.kind === "instances") {
     data.set([...outline, Math.round(255 * OUTLINE.alpha)], 0);
     for (let i = 1; i < cells.length; i++) data.set([...instanceColor(cells[i]!), fill], i * 4);
-    mirrorOutlinePlane(data, width, fillRows);
+    mirrorOutlinePlane(data, width, fillRows, outline, Math.round(255 * OUTLINE.alpha));
     return { data, width, height };
   }
   if (coloring.kind === "expression") {
@@ -601,7 +624,7 @@ export function buildCellLut(coloring: CellColoring, cells: readonly number[]): 
       const rgb = coloring.byLabel.get(cells[i]!);
       if (rgb) data.set([rgb[0], rgb[1], rgb[2], 0], i * 4);
     }
-    mirrorOutlinePlane(data, width, fillRows);
+    mirrorOutlinePlane(data, width, fillRows, outline, Math.round(255 * OUTLINE.alpha));
     return { data, width, height };
   }
   const { groups } = coloring;
@@ -623,6 +646,12 @@ export function buildCellLut(coloring: CellColoring, cells: readonly number[]): 
     if (rgb) data.set([rgb[0], rgb[1], rgb[2], fill], i * 4);
     else data.set([...others, othersFill], i * 4);
   }
-  mirrorOutlinePlane(data, width, fillRows);
+  mirrorOutlinePlane(
+    data,
+    width,
+    fillRows,
+    outline,
+    Math.round(255 * (groups.length ? OUTLINE.behindGroups : OUTLINE.alpha)),
+  );
   return { data, width, height };
 }
