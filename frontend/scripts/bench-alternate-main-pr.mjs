@@ -55,7 +55,7 @@ function spread(nums) {
 
 const branch = sh(`git -C ${root} rev-parse --abbrev-ref HEAD`);
 const prRev = sh(`git -C ${root} rev-parse HEAD`);
-const mainRev = sh(`git -C ${root} rev-parse main`);
+const mainRev = sh(`git -C ${root} rev-parse ${process.env.BENCH_MAIN_REF || "origin/main"}`);
 
 writeFileSync(out, "");
 const records = [];
