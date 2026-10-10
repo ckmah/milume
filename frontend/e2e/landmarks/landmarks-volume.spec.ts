@@ -2622,6 +2622,41 @@ test.describe("Landmarks inspect cube", () => {
     expect(await view.evaluate((el) => Boolean((el as any).__kept))).toBe(true);
   });
 
+  test("a slow volume_get shows loading on the cube panel until the comm fetch finishes", {
+    tag: "@isolated",
+  }, async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __volumeCommHook?: { delayMs: number } }).__volumeCommHook = { delayMs: 700 };
+    });
+    await page.goto("/", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await stabilizeUi(page);
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    const panel = cubeWindow(page).getByTestId("cube-load-immersive");
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveAttribute("data-state", "loading");
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false", { timeout: 30_000 });
+    await expect(panel).toHaveCount(0);
+  });
+
+  test("a failed volume_get shows an error in the cube panel", { tag: "@isolated" }, async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __volumeCommHook?: { fail: boolean } }).__volumeCommHook = { fail: true };
+    });
+    await page.goto("/", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await stabilizeUi(page);
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    const panel = cubeWindow(page).getByTestId("cube-load-immersive");
+    await expect(panel).toHaveAttribute("data-state", "error", { timeout: 30_000 });
+    await expect(page.getByTestId("inspect-status")).toHaveAttribute("data-state", "error");
+  });
+
   test("the cube panel shows loading until the volume draws, then clears", { tag: "@isolated" }, async ({
     page,
   }) => {

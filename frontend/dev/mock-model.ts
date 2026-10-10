@@ -8,7 +8,7 @@ type CustomHandler = (msg: unknown, buffers?: ArrayBuffer[]) => void;
 /** Minimal traitlets model for notebook-free dev and Impeccable live. */
 export function createMockModel(
   initial: Record<string, unknown>,
-  options: { volumeStaticRoot?: string } = {},
+  options: { volumeStaticRoot?: string; fixtureUrl?: string } = {},
 ): AnyModel {
   const state: Record<string, unknown> = { ...initial };
   const listeners = new Map<string, Set<Listener>>();
@@ -17,11 +17,27 @@ export function createMockModel(
   let commReads = 0;
 
   const volume = initial.volume as { image_url?: string } | undefined;
+
+  function staticRootForFixture(fixtureUrl: string): string {
+    const name = fixtureUrl.split("/").pop() ?? "";
+    if (name.includes("xsmall")) return "/xsmall.sdata.zarr/";
+    if (name.includes("small")) return "/small.sdata.zarr/";
+    return "/toy.sdata.zarr/";
+  }
+
   const volumeStaticRoot =
     options.volumeStaticRoot ??
-    (isCommVolumeUrl(volume?.image_url ?? "") ? "/toy.sdata.zarr/" : "");
+    (isCommVolumeUrl(volume?.image_url ?? "") ? staticRootForFixture(options.fixtureUrl ?? "") : "");
 
   async function serveVolumeGet(msg: unknown): Promise<[object, ArrayBuffer[]]> {
+    const hook =
+      typeof window !== "undefined"
+        ? (window as unknown as { __volumeCommHook?: { delayMs?: number; fail?: boolean } }).__volumeCommHook
+        : undefined;
+    if (hook?.fail) return [{ ok: false, status: 404 }, []];
+    if (hook?.delayMs && hook.delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, hook.delayMs));
+    }
     const body = msg as { path?: string; range?: { offset?: number; length?: number; suffixLength?: number } };
     const rel = String(body.path ?? "");
     if (!volumeStaticRoot || !rel) return [{ ok: false, status: 404 }, []];
@@ -106,5 +122,6 @@ export async function loadFixtureModel(url?: string): Promise<AnyModel> {
     throw new Error(`Failed to load harness fixture ${url}: ${res.status}`);
   }
   const initial = (await res.json()) as Record<string, unknown>;
-  return createMockModel(initial);
+  const fixtureUrl = url ?? harnessFixtureUrl();
+  return createMockModel(initial, { fixtureUrl });
 }

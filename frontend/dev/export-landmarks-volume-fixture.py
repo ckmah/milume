@@ -5,6 +5,7 @@ Profiles:
 
 - ``toy`` (default): synthetic store for CI and Playwright (deterministic geometry).
 - ``xsmall``: Hugging Face ``Stellaromics/demo`` ``xsmall/`` Pyxa slice (~5 MB mosaic).
+- ``small``: Hugging Face ``Stellaromics/demo`` ``small/`` Pyxa slice (~200 MB mosaic).
 
 Each profile writes ``landmarks-volume/public/<profile>.sdata.zarr`` and a matching
 ``landmarks-volume-fixture[.xsmall].json``. Vite serves zarr from the public dir and
@@ -94,7 +95,7 @@ def _write_store_toy(store: Path):
     return toy_spatialdata(store)
 
 
-def _write_store_xsmall(store: Path):
+def _write_store_pyxa(store: Path, hf_profile: str):
     import spatialdata as sd
     from huggingface_hub import snapshot_download
     from spatialdata_io.experimental import pyxa
@@ -107,11 +108,11 @@ def _write_store_xsmall(store: Path):
             snapshot_download(
                 "Stellaromics/demo",
                 repo_type="dataset",
-                allow_patterns="xsmall/*",
+                allow_patterns=f"{hf_profile}/*",
                 ignore_patterns="*cell_assigned_gene*",
             )
         )
-        / "xsmall"
+        / hf_profile
     )
     pyxa_sdata = pyxa(
         data_dir,
@@ -129,15 +130,15 @@ def export_profile(profile: str) -> None:
         out = DEV / "landmarks-volume-fixture.json"
         sdata = _write_store_toy(PUBLIC / store_name)
         widget = LandmarksWidget(sdata, color="cell_type", contrast_limits=TOY_CONTRAST_LIMITS)
-    elif profile == "xsmall":
-        store_name = "xsmall.sdata.zarr"
-        out = DEV / "landmarks-volume-fixture.xsmall.json"
-        sdata = _write_store_xsmall(PUBLIC / store_name)
+    elif profile in ("xsmall", "small"):
+        store_name = f"{profile}.sdata.zarr"
+        out = DEV / f"landmarks-volume-fixture.{profile}.json"
+        sdata = _write_store_pyxa(PUBLIC / store_name, profile)
         image_key = next(iter(sdata.images))
         contrast = image_contrast_limits(sdata.images[image_key])
         widget = LandmarksWidget(sdata, color="ROI", contrast_limits=contrast)
     else:
-        raise SystemExit(f"unknown profile {profile!r} (expected toy or xsmall)")
+        raise SystemExit(f"unknown profile {profile!r} (expected toy, xsmall, or small)")
 
     widget.set_render_mode("points")
     payload = {key: getattr(widget, key) for key in FIXTURE_KEYS + VOLUME_KEYS}
@@ -150,9 +151,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--profile",
-        choices=("toy", "xsmall"),
+        choices=("toy", "xsmall", "small"),
         default="toy",
-        help="toy: synthetic CI fixture; xsmall: HF Stellaromics/demo xsmall (requires --extra demo)",
+        help="toy: synthetic CI fixture; xsmall/small: HF Stellaromics/demo (requires --extra demo)",
     )
     args = parser.parse_args()
     export_profile(args.profile)

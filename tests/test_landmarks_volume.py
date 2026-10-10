@@ -32,6 +32,19 @@ def test_widget_from_sdata_exposes_comm_volume_urls(sdata):
     assert w.volume_cut == [0.0, 256.0, 0.0, 256.0, 0.0, 64.0]
 
 
+def test_issue_113_comm_serves_zarr_without_http_or_bind(sdata):
+    """Issue #113: no loopback server; metadata and one chunk over volume_get."""
+    with (
+        patch("socket.socket.bind", side_effect=AssertionError("socket.bind")),
+        patch("http.server.ThreadingHTTPServer", side_effect=AssertionError("ThreadingHTTPServer")),
+    ):
+        w = LandmarksWidget(sdata, color="cell_type")
+    meta, meta_bufs = w.volume_get({"path": "images/mosaic/zarr.json"}, [])
+    assert meta["ok"] is True and meta_bufs[0]
+    chunk, chunk_bufs = w.volume_get({"path": "images/mosaic/s0/c/0/0/0/0"}, [])
+    assert chunk["ok"] is True and chunk_bufs[0]
+
+
 def test_widget_comm_serves_only_the_cube_image_and_labels(sdata):
     w = LandmarksWidget(sdata, color="cell_type")
     assert (sdata.path / "tables" / "table" / "zarr.json").is_file()
@@ -41,8 +54,10 @@ def test_widget_comm_serves_only_the_cube_image_and_labels(sdata):
     assert ok["ok"] is True
     for path in (
         "tables/table/zarr.json",
+        "tables/table/X/zarr.json",
         "zarr.json",
         "images/mosaic/../../tables/table/zarr.json",
+        "expression/genes/zarr.json",
     ):
         denied, bufs = w.volume_get({"path": path}, [])
         assert denied == {"ok": False, "status": 404} and not bufs
