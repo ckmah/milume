@@ -118,8 +118,13 @@ export class VolumeCommClient {
     }
   }
 
+  private metadataCacheEnabled(): boolean {
+    if (typeof window === "undefined") return true;
+    return !(window as unknown as { __volumeCommDisableMetadataCache?: boolean }).__volumeCommDisableMetadataCache;
+  }
+
   private async fetch(path: string, range?: RangeQuery): Promise<Uint8Array | undefined> {
-    if (!range) {
+    if (!range && this.metadataCacheEnabled()) {
       const hit = this.metadata.get(path);
       if (hit) return hit.bytes;
     }
@@ -137,7 +142,7 @@ export class VolumeCommClient {
     }
     if (!buffers[0]) return undefined;
     const bytes = new Uint8Array(buffers[0]);
-    if (!range) this.cacheMetadata(path, bytes);
+    if (!range && this.metadataCacheEnabled()) this.cacheMetadata(path, bytes);
     return bytes;
   }
 

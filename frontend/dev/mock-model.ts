@@ -15,6 +15,7 @@ export function createMockModel(
   const customHandlers = new Set<CustomHandler>();
   const dirty = new Set<string>();
   let commReads = 0;
+  const commPaths: string[] = [];
 
   const volume = initial.volume as { image_url?: string } | undefined;
 
@@ -55,6 +56,7 @@ export function createMockModel(
       }
     }
     commReads++;
+    commPaths.push(rel);
     const res = await fetch(url, { headers });
     if (res.status === 404) return [{ ok: false, status: 404 }, []];
     if (!res.ok) throw new Error(`volume_get ${url}: ${res.status}`);
@@ -103,6 +105,7 @@ export function createMockModel(
 
   if (typeof window !== "undefined" && volumeStaticRoot) {
     (window as unknown as { __volumeCommReads?: () => number }).__volumeCommReads = () => commReads;
+    (window as unknown as { __volumeCommPaths?: () => string[] }).__volumeCommPaths = () => [...commPaths];
   }
 
   return model;

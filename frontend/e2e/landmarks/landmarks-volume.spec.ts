@@ -499,7 +499,9 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-channels", /1|2/);
     const reads = await page.evaluate(() => (window as { __volumeCommReads?: () => number }).__volumeCommReads?.() ?? 0);
-    expect(reads).toBeGreaterThan(2);
+    // Harness disables client metadata cache (see landmarks-volume/main.tsx) so each zarr
+    // metadata/key read is one comm round trip, like a remote kernel cold load (~35 for toy).
+    expect(reads).toBeGreaterThan(5);
     expect(loopbackVolume).toEqual([]);
   });
 
