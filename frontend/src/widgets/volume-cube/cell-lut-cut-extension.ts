@@ -136,15 +136,15 @@ bool onCutFace(vec3 p, float xLo, float xHi, float yLo, float yHi, float zLo, fl
   return false;
 }
 
-// Same fill path as main cell-lut-extension; cutRimMask overrides on cut-face voxels only.
+// Same fill path as main cell-lut-extension; cutRimMask overrides surface voxels on cut faces.
 vec4 cellColor(ivec3 q, vec3 p, float xLo, float xHi, float yLo, float yHi, float zLo, float zHi) {
-  if (cubeRender.cellOutlineOn > 0.5 && onCutFace(p, xLo, xHi, yLo, yHi, zLo, zHi)) {
-    vec4 rim = texelFetch(cutRimMask, q, 0);
-    if (rim.a > 1.0 / 255.0) return rim;
-  }
   ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
   int idx = b.x + 256 * (b.y & 127);
   if (idx == 0) return vec4(0.0);
+  if (cubeRender.cellOutlineOn > 0.5 && (b.y & 128) != 0 && onCutFace(p, xLo, xHi, yLo, yHi, zLo, zHi)) {
+    vec4 rim = texelFetch(cutRimMask, q, 0);
+    if (rim.a > 1.0 / 255.0) return rim;
+  }
   ivec2 size = textureSize(cellLut, 0).xy;
   vec4 own = vec4(0.0);
   if (idx < size.x * size.y) own = texelFetch(cellLut, ivec3(idx % size.x, idx / size.x, 0), 0);

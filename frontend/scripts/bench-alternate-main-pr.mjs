@@ -82,7 +82,14 @@ function median(nums) {
 
 function spread(nums) {
   const a = [...nums].sort((x, y) => x - y);
-  return { min: a[0], max: a[a.length - 1], p25: a[Math.floor(a.length * 0.25)], p75: a[Math.floor(a.length * 0.75)] };
+  const p95 = a[Math.min(a.length - 1, Math.floor(a.length * 0.95))];
+  return {
+    min: a[0],
+    max: a[a.length - 1],
+    p25: a[Math.floor(a.length * 0.25)],
+    p75: a[Math.floor(a.length * 0.75)],
+    p95,
+  };
 }
 
 const branch = sh(`git -C ${root} rev-parse --abbrev-ref HEAD`);
