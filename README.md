@@ -44,7 +44,7 @@ With [uv](https://docs.astral.sh/uv/):
 uv add milume
 ```
 
-Contributors: see [AGENTS.md](AGENTS.md) for the dev setup (`uv sync --extra demo --group dev`).
+Contributors: see [AGENTS.md](AGENTS.md) for dev setup.
 
 ### Migrate from spatial-rx
 
@@ -72,7 +72,7 @@ the same regions to any viewer.
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/landmarks_widget_dark.png" />
   <source media="(prefers-color-scheme: light)" srcset="assets/landmarks_widget_light.png" />
-  <img alt="milume surface on Stellaromics colon A2" src="assets/landmarks_widget_light.png" />
+  <img alt="Milume on Stellaromics colon A2 with mosaic tissue, cells, and a selection" src="assets/landmarks_widget_light.png" />
 </picture>
 
 `milume.peek(data, **kwargs)` opens the surface on your data and returns a widget `w`
