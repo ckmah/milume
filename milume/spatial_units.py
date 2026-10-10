@@ -16,8 +16,6 @@ _MICROMETER_UNIT_TOKENS = frozenset(
     {
         "micrometer",
         "micrometre",
-        "millimeter",
-        "millimetre",
         "µm",
         "um",
     }
@@ -66,21 +64,24 @@ def _units_from_ngff_axes(axes: Any) -> SpatialUnits | None:
 
 
 def _output_units_from_transformation(transformation: Any) -> SpatialUnits | None:
-    from spatialdata.transformations.transformations import Sequence
+    try:
+        from spatialdata.transformations.transformations import Sequence
 
-    if isinstance(transformation, Sequence):
-        for step in reversed(transformation.transformations):
-            found = _output_units_from_transformation(step)
-            if found is not None:
-                return found
+        if isinstance(transformation, Sequence):
+            for step in reversed(transformation.transformations):
+                found = _output_units_from_transformation(step)
+                if found is not None:
+                    return found
+            return None
+        output_cs = getattr(transformation, "output_coordinate_system", None)
+        if output_cs is None:
+            return None
+        axes = getattr(output_cs, "_axes", None)
+        if axes is None and hasattr(output_cs, "axes"):
+            axes = output_cs.axes
+        return _units_from_ngff_axes(axes)
+    except Exception:
         return None
-    output_cs = getattr(transformation, "output_coordinate_system", None)
-    if output_cs is None:
-        return None
-    axes = getattr(output_cs, "_axes", None)
-    if axes is None and hasattr(output_cs, "axes"):
-        axes = output_cs.axes
-    return _units_from_ngff_axes(axes)
 
 
 def _units_from_element_to_cs(element: Any, coordinate_system: str) -> SpatialUnits | None:
@@ -88,7 +89,7 @@ def _units_from_element_to_cs(element: Any, coordinate_system: str) -> SpatialUn
 
     try:
         transformation = get_transformation(element, to_coordinate_system=coordinate_system)
-    except (KeyError, TypeError, ValueError):
+    except Exception:
         return None
     return _output_units_from_transformation(transformation)
 
@@ -128,14 +129,18 @@ def _looks_like_pyxa_sdata(sdata: Any) -> bool:
 
 def _reader_from_sources(sdata: Any | None, adata: AnnData) -> str | None:
     if sdata is not None:
-        reader = getattr(sdata, "attrs", {}).get("spatialdata_io_reader")
-        if reader:
-            return str(reader)
+        sdata_attrs = getattr(sdata, "attrs", None)
+        if isinstance(sdata_attrs, dict):
+            reader = sdata_attrs.get("spatialdata_io_reader")
+            if reader:
+                return str(reader)
         if _looks_like_pyxa_sdata(sdata):
             return "pyxa"
-    reader = adata.uns.get("spatialdata_io_reader")
-    if reader:
-        return str(reader)
+    uns = getattr(adata, "uns", None)
+    if isinstance(uns, dict):
+        reader = uns.get("spatialdata_io_reader")
+        if reader:
+            return str(reader)
     return None
 
 
@@ -148,7 +153,12 @@ def _cosmx_obsm_units(spatial_key: str, sdata: Any | None) -> SpatialUnits | Non
 
 
 def _linked_spatial_element(sdata: Any, adata: AnnData) -> tuple[str, str, Any] | None:
-    attrs = adata.uns.get("spatialdata_attrs", {})
+    raw_attrs = getattr(adata, "uns", None)
+    if not isinstance(raw_attrs, dict):
+        return None
+    attrs = raw_attrs.get("spatialdata_attrs", {})
+    if not isinstance(attrs, dict):
+        return None
     region = attrs.get("region")
     if isinstance(region, str):
         regions = [region]
@@ -178,7 +188,12 @@ def _coordinate_system_for_obsm(
         return spatial_key
     if spatial_key in adata.obsm and spatial_key != "spatial":
         return spatial_key
-    attrs = adata.uns.get("spatialdata_attrs", {})
+    raw_attrs = getattr(adata, "uns", None)
+    if not isinstance(raw_attrs, dict):
+        return None
+    attrs = raw_attrs.get("spatialdata_attrs", {})
+    if not isinstance(attrs, dict):
+        return None
     region = attrs.get("region")
     if isinstance(region, str):
         return "global"
