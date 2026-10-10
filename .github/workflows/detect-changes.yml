@@ -22,6 +22,12 @@ on:
         value: ${{ jobs.detect.outputs.ui }}
       policy:
         value: ${{ jobs.detect.outputs.policy }}
+      ci_frontend:
+        value: ${{ jobs.detect.outputs.ci_frontend }}
+      ci_pytest:
+        value: ${{ jobs.detect.outputs.ci_pytest }}
+      ci_uv_build:
+        value: ${{ jobs.detect.outputs.ci_uv_build }}
 
 jobs:
   detect:
@@ -31,6 +37,9 @@ jobs:
       landmarks: ${{ steps.select.outputs.landmarks }}
       ui: ${{ steps.select.outputs.ui }}
       policy: ${{ steps.select.outputs.policy }}
+      ci_frontend: ${{ steps.select.outputs.ci_frontend }}
+      ci_pytest: ${{ steps.select.outputs.ci_pytest }}
+      ci_uv_build: ${{ steps.select.outputs.ci_uv_build }}
     steps:
       - uses: actions/checkout@v4
 
@@ -39,6 +48,7 @@ jobs:
         if: inputs.is_dispatch != true
         with:
           filters: .github/e2e-tiers.json
+          list-files: csv
 
       - name: Select tiers
         id: select
@@ -47,26 +57,58 @@ jobs:
           TIER: ${{ inputs.dispatch_tier }}
           CORE: ${{ steps.filter.outputs.core || 'false' }}
           LANDMARKS: ${{ steps.filter.outputs.landmarks || 'false' }}
-          INFRA: ${{ steps.filter.outputs.infra || 'false' }}
+          INFRA_FULL: ${{ steps.filter.outputs.infra_full || 'false' }}
+          INFRA_CORE: ${{ steps.filter.outputs.infra_core || 'false' }}
           POLICY: ${{ steps.filter.outputs.policy || 'false' }}
+          CI_FRONTEND: ${{ steps.filter.outputs.ci_frontend || 'false' }}
+          CI_PYTHON: ${{ steps.filter.outputs.ci_python || 'false' }}
+          ALL_FILES: ${{ steps.filter.outputs.all_files || '' }}
         run: |
           set -euo pipefail
           core=false
           landmarks=false
           policy=false
+          ci_frontend=false
+          ci_pytest=false
+          ci_uv_build=false
           if [[ "${IS_DISPATCH}" == "true" ]]; then
             case "${TIER}" in
               all) core=true; landmarks=true ;;
               core) core=true ;;
               landmarks) landmarks=true ;;
             esac
+            ci_frontend=true
+            ci_pytest=true
+            ci_uv_build=true
           else
             [[ "${POLICY}" == "true" ]] && policy=true
-            if [[ "${INFRA}" == "true" ]]; then
-              core=true; landmarks=true
+            if [[ "${INFRA_FULL}" == "true" ]]; then
+              core=true
+              landmarks=true
+            elif [[ "${INFRA_CORE}" == "true" ]]; then
+              core=true
             else
               [[ "${CORE}" == "true" ]] && core=true
               [[ "${LANDMARKS}" == "true" ]] && landmarks=true
+            fi
+            [[ "${CI_FRONTEND}" == "true" ]] && ci_frontend=true
+            if [[ "${CI_PYTHON}" == "true" ]]; then
+              ci_pytest=true
+              milume_py_only=true
+              if [[ -n "${ALL_FILES}" ]]; then
+                IFS=',' read -ra files <<< "${ALL_FILES}"
+                for f in "${files[@]}"; do
+                  [[ "$f" =~ ^milume/.+\.py$ ]] || milume_py_only=false
+                done
+              else
+                milume_py_only=false
+              fi
+              if [[ "${milume_py_only}" == "true" ]]; then
+                ci_frontend=false
+                ci_uv_build=false
+              else
+                ci_uv_build=true
+              fi
             fi
           fi
           ui=false
@@ -77,4 +119,7 @@ jobs:
           echo "landmarks=${landmarks}" >> "$GITHUB_OUTPUT"
           echo "ui=${ui}" >> "$GITHUB_OUTPUT"
           echo "policy=${policy}" >> "$GITHUB_OUTPUT"
-          echo "Selected: core=${core} landmarks=${landmarks} ui=${ui} policy=${policy}"
+          echo "ci_frontend=${ci_frontend}" >> "$GITHUB_OUTPUT"
+          echo "ci_pytest=${ci_pytest}" >> "$GITHUB_OUTPUT"
+          echo "ci_uv_build=${ci_uv_build}" >> "$GITHUB_OUTPUT"
+          echo "Selected: core=${core} landmarks=${landmarks} ui=${ui} policy=${policy} ci_frontend=${ci_frontend} ci_pytest=${ci_pytest} ci_uv_build=${ci_uv_build}"

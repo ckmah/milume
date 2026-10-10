@@ -36,8 +36,8 @@ if (frontendChanged) {
   plan.push(["frontend", "npm run check:chrome"], ["frontend", "npm run typecheck"]);
 }
 if (hit.python) plan.push([".", "uv run pytest"]);
-if (hit.core || hit.infra) plan.push(["frontend", "npm run test:e2e:core"]);
-if (hit.landmarks || hit.infra) {
+if (hit.core || hit.infra_full || hit.infra_core) plan.push(["frontend", "npm run test:e2e:core"]);
+if (hit.landmarks || hit.infra_full) {
   plan.push(["frontend", "npm run test:unit"]);
   plan.push(["frontend", "npm run test:e2e:landmarks"]);
 }
@@ -45,7 +45,7 @@ if (hit.landmarks || hit.infra) {
 console.log(`base ${base.slice(0, 8)}, ${changed.size} changed file(s)`);
 if (!plan.length) console.log("docs / non-runtime only: nothing to run beyond CI.");
 for (const [cwd, cmd] of plan) console.log(`  ${cwd}: ${cmd}`);
-if (hit.landmarks || hit.infra) {
+if (hit.landmarks || hit.infra_full) {
   console.log(
     "landmarks surface touched: also match .agents/skills/verify-landmarks/features/ proof criteria\n" +
       "and update the map when adding coverage.",

@@ -5,7 +5,7 @@ name: Frontend e2e
 #   landmarks   — LandmarksWidget
 
 on:
-  # No `paths:` here: the `changes` job filters, so `gate` always reports.
+  # The `changes` job path-filters tiers; `gate` always runs (even when tiers skip).
   pull_request:
   push:
     branches: [main]
