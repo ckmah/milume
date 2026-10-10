@@ -8,7 +8,8 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const SITE = process.env.E2E_SITE_URL ?? "http://127.0.0.1:8765";
-const OUT = process.env.HERO_RECORD_OUT ?? "/opt/cursor/artifacts/hero-designer-review.webm";
+const OUT =
+  process.env.HERO_RECORD_OUT ?? "/cursor/stores/self/pr139/hero-recording.mp4";
 const TIMES = [0, 0.6, 1.5, 3, 4.5, 6, 7.5, 9, 10.5];
 const HOLD_FRAMES = 4;
 
@@ -75,7 +76,22 @@ async function main() {
 
   const ff = spawnSync(
     "ffmpeg",
-    ["-y", "-framerate", "8", "-i", join(dir, "f%04d.png"), "-c:v", "libvpx-vp9", "-b:v", "900k", "-pix_fmt", "yuv420p", OUT],
+    [
+      "-y",
+      "-framerate",
+      "8",
+      "-i",
+      join(dir, "f%04d.png"),
+      "-c:v",
+      "libx264",
+      "-pix_fmt",
+      "yuv420p",
+      "-crf",
+      "28",
+      "-movflags",
+      "+faststart",
+      OUT,
+    ],
     { stdio: "inherit" },
   );
   rmSync(dir, { recursive: true, force: true });

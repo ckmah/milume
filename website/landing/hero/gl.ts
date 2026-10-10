@@ -96,9 +96,9 @@ void main() {
     pulseS = u_time - 0.6;
     pulseA = ss(0.0, 1.0, pulseS) * (1.0 - ss(6.0, 9.0, pulseS));
     float ds = length(i_pos - SEL);
-    float core = 0.85 * exp(-pow(ds / 3.0, 2.0)) * ss(0.0, 1.0, pulseS);
-    float ring = exp(-pow((ds - 2.5 - pulseS * 1.4) / 2.0, 2.0)) * ss(0.3, 1.3, pulseS);
-    glow = clamp(core + 0.4 * ring, 0.0, 1.0) * pulseA;
+    float core = 0.72 * exp(-pow(ds / 3.8, 2.0)) * ss(0.0, 1.0, pulseS);
+    float ring = 0.32 * exp(-pow((ds - 2.5 - pulseS * 1.4) / 2.6, 2.0)) * ss(0.3, 1.3, pulseS);
+    glow = clamp(core + ring, 0.0, 0.92) * pulseA;
     float passed = clamp((2.5 + pulseS * 1.4 - ds) / 2.0, 0.0, 1.0) * pulseA;
     col = mix(col, TEAL, 0.08 * passed);
     col = mix(col, TEAL, glow);
@@ -109,13 +109,23 @@ void main() {
     zf = 11.0 + pulseA * ((SEL.z - c.z) - 11.0);
   }
   float fog = pow(clamp(1.0 - (z - 1.0) / (ZF1 - 1.0), 0.0, 1.0), 1.8);
-  float bright = max(fog * 0.9, glow * min(0.95, fog * 3.0));
-  vec3 rgb = col * bright + BG * (1.0 - bright);
+  float bright = max(fog * 0.74, glow * min(0.82, fog * 2.4));
+  vec3 bgTeal = mix(BG, vec3(9.0 / 255.0, 24.0 / 255.0, 28.0 / 255.0), 0.42);
+  vec3 rgb = col * bright + bgTeal * (1.0 - bright);
+  float peak = max(max(rgb.r, rgb.g), rgb.b);
+  if (peak > 0.85 && glow > 0.15) {
+    rgb *= 0.85 / peak;
+  }
   rgb = clamp(rgb, 0.0, 1.0);
+  rgb *= mix(0.9, 1.0, clamp(bright, 0.0, 1.0));
 
   float alpha = ss(ZN0, ZN1, z) * (1.0 - ss(ZF0, ZF1, z));
-  float coc = min(40.0, 40.0 * abs(1.0 / z - 1.0 / zf) * zf);
-  float sigma = blurSigma(coc * 0.5);
+  float dz = abs(z - zf);
+  float inBand = 1.0 - ss(0.88, 1.02, dz);
+  float cocThin = min(40.0, 40.0 * abs(1.0 / z - 1.0 / zf) * zf);
+  float cocWide = min(40.0, cocThin * 3.6 + pow(max(dz - 0.85, 0.0), 1.2) * 18.0);
+  float coc = mix(cocWide, cocThin * 0.05, inBand);
+  float sigma = blurSigma(coc * 0.58) * (1.0 + 0.45 * (1.0 - inBand));
   float rd = max(1.0, ceil(pr * 2.0) * 0.5);
   float coverage = min(1.0, pow(pr / rd, 2.0));
   float a = alpha * coverage;
@@ -128,9 +138,9 @@ void main() {
       v_glow = 0.0;
       return;
     }
-    float haloR = pr * 1.8;
-    float haloA = glow * a * min(1.0, fog * 3.0) * 0.25;
-    v_soft = 0.42;
+    float haloR = pr * 1.65;
+    float haloA = min(0.2, glow * a * min(1.0, fog * 3.0) * 0.17);
+    v_soft = 0.52;
     v_glow = glow;
     v_pm = vec4(TEAL * haloA, haloA);
     float lay = u_layout.x;
@@ -146,7 +156,7 @@ void main() {
     return;
   }
 
-  float rad = pr + sigma;
+  float rad = pr + sigma * 2.05;
   if (a < 0.004 || rad < 0.15) {
     gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
     v_pm = vec4(0.0);
@@ -155,7 +165,7 @@ void main() {
     return;
   }
 
-  v_soft = clamp(sigma / 14.0, 0.0, 0.5);
+  v_soft = clamp(sigma / 11.0, 0.04, 0.58);
   v_glow = glow;
   v_pm = vec4(rgb * a, a);
 
@@ -187,14 +197,25 @@ void main() {
   float edge = smoothstep(0.5, max(0.02, inner), d);
   float a = v_pm.a * edge;
   vec3 rgb = v_pm.rgb * edge;
-  if (v_soft > 0.35) {
-    float halo = exp(-pow(d / 0.48, 2.0) * 2.2);
-    rgb += vec3(45.0 / 255.0, 212.0 / 255.0, 191.0 / 255.0) * v_glow * a * halo * 0.35;
-  }
   outColor = vec4(rgb, a);
 }`;
 
 const CORNERS = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
+
+const HAZE_VS = `#version 300 es
+void main() {
+  vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2);
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}`;
+
+const HAZE_FS = `#version 300 es
+precision highp float;
+out vec4 outColor;
+void main() {
+  vec3 haze = vec3(8.0 / 255.0, 22.0 / 255.0, 26.0 / 255.0);
+  float a = 0.11;
+  outColor = vec4(haze * a, a);
+}`;
 
 export type GlBundle = {
   gl: WebGL2RenderingContext;
@@ -216,6 +237,7 @@ export type GlBundle = {
   uGlowPass: WebGLUniformLocation | null;
   uScale: WebGLUniformLocation | null;
   uLayout: WebGLUniformLocation | null;
+  hazeProgram: WebGLProgram;
 };
 
 export function camZAt(t: number): number {
@@ -238,6 +260,12 @@ export function createGl(canvas: HTMLCanvasElement, field: GpuField): GlBundle |
   if (!vs || !fs) return null;
   const program = link(gl, vs, fs);
   if (!program) return null;
+
+  const hazeVs = compile(gl, gl.VERTEX_SHADER, HAZE_VS);
+  const hazeFs = compile(gl, gl.FRAGMENT_SHADER, HAZE_FS);
+  if (!hazeVs || !hazeFs) return null;
+  const hazeProgram = link(gl, hazeVs, hazeFs);
+  if (!hazeProgram) return null;
 
   const cornerBuf = gl.createBuffer()!;
   const posBuf = gl.createBuffer()!;
@@ -303,6 +331,7 @@ export function createGl(canvas: HTMLCanvasElement, field: GpuField): GlBundle |
     uGlowPass: gl.getUniformLocation(program, "u_glowPass"),
     uScale: gl.getUniformLocation(program, "u_scale"),
     uLayout: gl.getUniformLocation(program, "u_layout"),
+    hazeProgram,
   };
 }
 
@@ -372,7 +401,7 @@ export function drawFrame(
   gl.bufferSubData(gl.ARRAY_BUFFER, 0, bundle.sortRad);
 
   gl.viewport(0, 0, width, height);
-  gl.clearColor(11 / 255, 11 / 255, 11 / 255, 1);
+  gl.clearColor(10 / 255, 18 / 255, 20 / 255, 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.useProgram(program);
   gl.bindVertexArray(vao);
@@ -383,6 +412,13 @@ export function drawFrame(
   if (uLayout) gl.uniform4f(uLayout, layout.scale, layout.offX, layout.offY, layout.dpr);
   gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
 
+  gl.useProgram(bundle.hazeProgram);
+  gl.bindVertexArray(null);
+  gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  gl.useProgram(program);
+  gl.bindVertexArray(vao);
   gl.blendFunc(gl.ONE, gl.ONE);
   if (uGlowPass) gl.uniform1f(uGlowPass, 1);
   gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
