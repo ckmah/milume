@@ -44,6 +44,7 @@ import {
   blendGeneSrgb,
   LOW_EXPR_SRGB,
 } from "./gene-expression-blend.js";
+import { LANDMARK_COLORS, landmarkStableColor } from "./landmark-stable-color.js";
 import {
   buildSpatialIndex,
   queryNeighbors,
@@ -85,8 +86,8 @@ const SELECTION_DOT = [2, 4];
 const HIDDEN_WIDGET_STYLE = { display: "none" };
 const OVERLAY_GL = { depthCompare: "always", depthWriteEnabled: false };
 
-const COLORS = ["#00e5ff", "#ff2d95", "#b8ff00", "#ffb000", "#7c4dff", "#00ffa3"];
-const FALLBACK_POINT = "#00e5ff";
+const COLORS = LANDMARK_COLORS;
+const FALLBACK_POINT = LANDMARK_COLORS[0];
 const SEL_COLORS = ["#a3a3a3", "#8a8a8a", "#737373", "#c4c4c4"];
 const POINT_OPACITY = 0.8;
 const LANDMARK_OPACITY = 0.28;
@@ -3037,7 +3038,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     (model.get("landmarks") || []).forEach((lm, i) => {
       if (lm.hidden) return;
       const rawHex =
-        (typeof lm.color === "string" && lm.color) || COLORS[i % COLORS.length];
+        (typeof lm.color === "string" && lm.color) || landmarkStableColor(lm.id, i);
       const hex = isRasterMode() ? RASTER_LANDMARK_GRAY : rawHex;
       const dashed = String(lm.line_style || "solid") === "dashed";
       const selected = kind === "landmark" && i === selectedIdx;
@@ -3320,7 +3321,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const out = [];
     (model.get("landmarks") || []).forEach((lm, i) => {
       if (lm.hidden) return;
-      const hex = (typeof lm.color === "string" && lm.color) || COLORS[i % COLORS.length];
+      const hex =
+        (typeof lm.color === "string" && lm.color) || landmarkStableColor(lm.id, i);
       const color = hexToRgbaBytes(hex, 1);
       if (lm.type === "point") {
         const v = (lm.vertices || [])[0];
@@ -6723,6 +6725,11 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         }
         return { ...result, measures };
       });
+    },
+    landmarkStrokeColor: (index) => {
+      const lm = (model.get("landmarks") || [])[index];
+      if (!lm) return null;
+      return (typeof lm.color === "string" && lm.color) || landmarkStableColor(lm.id, index);
     },
     getPerfSnapshot: () => ({
       spatialIndexBuilt: Boolean(spatialIndex),

@@ -10,7 +10,41 @@ import {
   getZoom,
   setModel,
   shot,
+  waitForEngine,
 } from "../helpers";
+
+function cssColorToHex(css: string): string {
+  const t = css.trim().toLowerCase();
+  if (t.startsWith("#")) return t;
+  const m = t.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+  if (!m) return t;
+  const hex = (n: string) => Number(n).toString(16).padStart(2, "0");
+  return `#${hex(m[1]!)}${hex(m[2]!)}${hex(m[3]!)}`;
+}
+
+async function panelSwatchHex(page: Page, label: string) {
+  const row = page.locator(".landmarks-layer-row").filter({
+    has: page.getByText(label, { exact: true }),
+  });
+  const swatch = row.locator(".landmarks-layer-swatch").first();
+  const bg = await swatch.evaluate((el) => getComputedStyle(el).backgroundColor);
+  return cssColorToHex(bg);
+}
+
+async function expectLandmarkColorsAligned(page: Page, ids: string[]) {
+  const landmarks = (await getModel(page, "landmarks")) as { id: string }[];
+  for (let i = 0; i < ids.length; i++) {
+    const id = ids[i]!;
+    const index = landmarks.findIndex((lm) => lm.id === id);
+    expect(index).toBeGreaterThanOrEqual(0);
+    const mapHex = await page.evaluate(
+      (idx) => (window as any).__landmarksEngine.landmarkStrokeColor(idx) as string,
+      index,
+    );
+    const panelHex = await panelSwatchHex(page, id);
+    expect(panelHex).toBe(mapHex);
+  }
+}
 
 const landmarkCount = async (page: Page) =>
   ((await getModel(page, "landmarks")) as unknown[]).length;
@@ -593,5 +627,65 @@ test.describe("LandmarksWidget", () => {
     await page.keyboard.type(" c");
     expect(await textarea.evaluate((el) => (el as HTMLTextAreaElement).value)).toBe("a b c");
     expect(await target()).toEqual(t2);
+  });
+
+  test("landmark panel swatch matches map stroke (id hash, delete, reorder)", async ({
+    page,
+  }) => {
+    const [xMin, xMax] = (await getModel(page, "x_bounds")) as [number, number];
+    const [yMin, yMax] = (await getModel(page, "y_bounds")) as [number, number];
+    const cx = (xMin + xMax) / 2;
+    const cy = (yMin + yMax) / 2;
+    const landmarks = [
+      {
+        id: "vessel",
+        type: "line",
+        vertices: [[cx - 120, cy - 40], [cx + 80, cy + 20]],
+      },
+      {
+        id: "tumour nest",
+        type: "shape",
+        vertices: [
+          [cx - 60, cy + 60],
+          [cx + 40, cy + 50],
+          [cx + 30, cy + 120],
+          [cx - 50, cy + 110],
+        ],
+        tension: 0,
+      },
+    ];
+    await setModel(page, {
+      landmarks,
+      selections: [],
+      selected_kind: "",
+      selected_index: -1,
+    });
+    await waitForEngine(page);
+    await expectLandmarkColorsAligned(page, ["vessel", "tumour nest"]);
+
+    await setModel(page, {
+      landmarks: [landmarks[0]],
+    });
+    await waitForEngine(page);
+    await expectLandmarkColorsAligned(page, ["vessel"]);
+
+    await setModel(page, {
+      landmarks: [
+        landmarks[1],
+        {
+          id: "crypt",
+          type: "point",
+          vertices: [[cx, cy]],
+        },
+      ],
+    });
+    await waitForEngine(page);
+    await expectLandmarkColorsAligned(page, ["tumour nest", "crypt"]);
+
+    await setModel(page, {
+      landmarks: [landmarks[1]!, landmarks[0]!],
+    });
+    await waitForEngine(page);
+    await expectLandmarkColorsAligned(page, ["tumour nest", "vessel"]);
   });
 });

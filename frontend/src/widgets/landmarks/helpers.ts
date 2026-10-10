@@ -1,3 +1,10 @@
+import {
+  LANDMARK_COLORS,
+  landmarkStableColor,
+} from "../../../../milume/static/landmark-stable-color.js";
+
+export { LANDMARK_COLORS, landmarkStableColor };
+
 /** Keyboard shortcuts for the landmarks canvas (see engine handleKeyDown). */
 export const KEYBOARD_SHORTCUTS: { action: string; keys: string }[] = [
   { action: "Select", keys: "V" },
@@ -49,15 +56,6 @@ export const MODE_SHORTCUTS: Record<string, string> = {
   shape: "4",
 };
 
-/** Landmark stroke accents (dedicated; not the categorical point palette). */
-export const LANDMARK_COLORS = [
-  "#00e5ff",
-  "#ff2d95",
-  "#b8ff00",
-  "#ffb000",
-  "#7c4dff",
-  "#00ffa3",
-];
 /** Quiet Framer-neutral selection strokes (active selection uses stronger chrome). */
 export const SELECTION_COLORS = ["#a3a3a3", "#8a8a8a", "#737373", "#c4c4c4"];
 /** Additive channels for multi-gene / embed blend (selection order): magenta / lime / azure. */
@@ -74,15 +72,6 @@ export const TENSION_TYPES = ["spline", "shape"];
 export const NODE_EDITABLE = ["line", "spline", "shape"];
 /** Unified buffer sides: shape left=in, right=out (Shapely dilation on right). */
 export const BUFFER_SIDES = ["left", "both", "right"] as const;
-
-/** Stable fallback color from landmark id (not list index). */
-export function landmarkStableColor(id: string | undefined, fallbackIndex = 0) {
-  const s = String(id || "");
-  if (!s) return LANDMARK_COLORS[fallbackIndex % LANDMARK_COLORS.length];
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
-  return LANDMARK_COLORS[Math.abs(h) % LANDMARK_COLORS.length];
-}
 
 /** Normalize legacy in/out → left/right. */
 export function normalizeBufferSide(
