@@ -7,6 +7,7 @@ import {
   canvasBox,
   getModel,
   setModel,
+  shot,
   stabilizeUi,
   waitForEngine,
 } from "../helpers";
@@ -201,7 +202,7 @@ async function newCategoryPixels(page: Page, before: Buffer, after: Buffer, minS
 }
 
 /**
- * Labels draw at 0.4 alpha (the default), so over a bright image a cell is a pale tint of its
+ * Labels draw with a faint fill (default 0.15) and a full-strength outline, so over a bright image a cell is a pale tint of its
  * category colour: measured (Linux SwiftShader) over the toy image's white MIP, type0's orange
  * lands at hue 13° and saturation 0.21, type1's blue at 215° and 0.13. These cutoffs keep the
  * grey image (saturation about 0.02) out and both tints in.
@@ -343,6 +344,94 @@ async function ringVsCore(page: Page, png: Buffer) {
         }
       }
       return { rim, core };
+    },
+    { png: png.toString("base64"), hues: CATEGORY_HUES },
+  );
+}
+
+/** Mean RGB distance between rim and core bands (same blobs as `ringVsCore`). */
+async function outlineInteriorColorMargin(page: Page, png: Buffer) {
+  return page.evaluate(
+    async ({ png, hues }) => {
+      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(bitmap, 0, 0);
+      const { data, width, height } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      const category = (i: number) => {
+        const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
+        const max = Math.max(r, g, b);
+        const d = max - Math.min(r, g, b);
+        if (max < 40 || d / max < 0.4) return "";
+        let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        h = (h * 60 + 360) % 360;
+        for (const [k, hue] of Object.entries(hues)) if (Math.abs(((h - hue + 540) % 360) - 180) <= 15) return k;
+        return "";
+      };
+      const kind = new Array<string>(width * height);
+      for (let p = 0; p < kind.length; p++) kind[p] = category(p * 4);
+      const seen = new Uint8Array(width * height);
+      let best = 0;
+      for (let start = 0; start < kind.length; start++) {
+        if (!kind[start] || seen[start]) continue;
+        const members: number[] = [start];
+        seen[start] = 1;
+        let [x0, x1, y0, y1] = [width, 0, height, 0];
+        for (let q = 0; q < members.length; q++) {
+          const p = members[q]!;
+          const [x, y] = [p % width, Math.floor(p / width)];
+          x0 = Math.min(x0, x);
+          x1 = Math.max(x1, x);
+          y0 = Math.min(y0, y);
+          y1 = Math.max(y1, y);
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const [nx, ny] = [x + dx, y + dy];
+              if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+              const n = ny * width + nx;
+              if (kind[n] === kind[start] && !seen[n]) {
+                seen[n] = 1;
+                members.push(n);
+              }
+            }
+        }
+        if (members.length < 30) continue;
+        const R = Math.max(x1 - x0, y1 - y0) / 2;
+        const [cx, cy] = [(x0 + x1) / 2, (y0 + y1) / 2];
+        let rimR = 0;
+        let rimG = 0;
+        let rimB = 0;
+        let rimN = 0;
+        let coreR = 0;
+        let coreG = 0;
+        let coreB = 0;
+        let coreN = 0;
+        for (const p of members) {
+          const d = Math.hypot((p % width) - cx, Math.floor(p / width) - cy);
+          const i = p * 4;
+          if (d <= 0.4 * R) {
+            coreR += data[i]!;
+            coreG += data[i + 1]!;
+            coreB += data[i + 2]!;
+            coreN++;
+          } else if (d >= 0.7 * R && d <= 1.15 * R) {
+            rimR += data[i]!;
+            rimG += data[i + 1]!;
+            rimB += data[i + 2]!;
+            rimN++;
+          }
+        }
+        if (!rimN || !coreN) continue;
+        best = Math.max(
+          best,
+          Math.hypot(
+            rimR / rimN - coreR / coreN,
+            rimG / rimN - coreG / coreN,
+            rimB / rimN - coreB / coreN,
+          ),
+        );
+      }
+      return { margin: best };
     },
     { png: png.toString("base64"), hues: CATEGORY_HUES },
   );
@@ -1974,7 +2063,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(focused.flat).toBeGreaterThan(both.flat + 2000);
   });
 
-  test("labels draw as filled bodies: a cell's core is coloured, its rim brighter", async ({ page }) => {
+  test("labels draw with contrasting outlines and a faint interior fill", async ({ page }) => {
     await openCubeAtCentre(page, { raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
@@ -1986,9 +2075,29 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-refining", "false");
     await setModel(page, { volume_cut: [0, 256, 0, 256, 31, 33] });
     await expect(view).toHaveAttribute("data-refining", "false");
-    const { rim, core } = await ringVsCore(page, await view.screenshot());
+    const slab = await view.screenshot();
+    const { rim, core } = await ringVsCore(page, slab);
     expect(rim).toBeGreaterThan(0);
     expect(core).toBeGreaterThan(rim * 0.25);
+    // Full-depth Top view: screen-centre pixels integrate interior samples; rims integrate outlines.
+    const bar = page.getByTestId("context-inspect-toolbar");
+    await bar.getByRole("radio", { name: "Top view" }).click();
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const { margin } = await outlineInteriorColorMargin(page, await view.screenshot());
+    expect(margin).toBeGreaterThan(18);
+  });
+
+  test("inspect cell outlines match the regression snapshot in Side and Top views", async ({ page }) => {
+    await openCubeAtCentre(page, { raster: true });
+    const bar = page.getByTestId("context-inspect-toolbar");
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-coloring", "groups");
+    await bar.getByRole("radio", { name: "Side view" }).click();
+    await expect(view).toHaveAttribute("data-pitch", "0");
+    await shot(page, "volume-inspect-outlines-side", view);
+    await bar.getByRole("radio", { name: "Top view" }).click();
+    await shot(page, "volume-inspect-outlines-top", view);
   });
 
   test("the dock shows the coarse level first, then refines", { tag: "@isolated" }, async ({ page }) => {

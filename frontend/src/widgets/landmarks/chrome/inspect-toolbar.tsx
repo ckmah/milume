@@ -544,9 +544,18 @@ export function InspectToolbar({
         value={settings.labelMode}
         onChange={(labelMode) => patch({ labelMode })}
       />
+      <div className="landmarks-slider-row landmarks-adjust__control">
+        <Label className="landmarks-slider-caption">Outline</Label>
+        <Switch
+          size="sm"
+          aria-label="Cell outlines"
+          checked={render.cellOutlineOn > 0.5}
+          onCheckedChange={(on) => patch({ render: { cellOutlineOn: on ? 1 : 0 } })}
+        />
+      </div>
       <SoftFloatCapsuleSlider
-        aria-label="Label alpha"
-        caption="Alpha"
+        aria-label="Label fill"
+        caption="Fill"
         min={0}
         max={1}
         step={0.05}

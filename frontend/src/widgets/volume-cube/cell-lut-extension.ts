@@ -13,9 +13,8 @@ import { DEFAULT_RENDER, type RenderSettings, paletteLut } from "./palettes";
  * from the `render` prop; with `showImage` false the image adds nothing (a
  * uniform, no refetch). Once labels load, `labelVolume` (an RG8 3D texture on
  * the same grid, see `cell-volume.ts`) holds each voxel's local cell index and
- * a surface flag. Neighbouring cells separate by colour. `cellAlpha` scales the
- * finished label layer, so a low alpha stays see-through instead of stacking
- * to opaque along the ray. A small
+ * a surface flag. Boundary voxels draw a contrasting outline at full strength;
+ * interiors use the lookup fill weight times `cellAlpha`. A small
  * RGBA lookup texture (`cellLut`) maps local index -> colour and alpha per cell;
  * texel 0 is the colour and alpha of the cells the lookup gives none.
  *
@@ -67,6 +66,7 @@ const cubeRenderModule = {
     imageAlpha: "f32",
     imageGamma: "f32",
     cellAlpha: "f32",
+    cellOutlineOn: "f32",
     cellsOn: "f32",
     imageOn: "f32",
     imageScale: "f32",
@@ -83,6 +83,7 @@ const cubeRenderModule = {
     imageAlpha: 1,
     imageGamma: 1,
     cellAlpha: DEFAULT_RENDER.cellAlpha,
+    cellOutlineOn: DEFAULT_RENDER.cellOutlineOn,
     cellsOn: 0,
     imageOn: 1,
     imageScale: 1,
@@ -100,6 +101,7 @@ const cubeRenderModule = {
     imageAlpha: render.imageAlpha ?? DEFAULT_RENDER.imageAlpha,
     imageGamma: render.imageGamma ?? DEFAULT_RENDER.imageGamma,
     cellAlpha: render.cellAlpha ?? DEFAULT_RENDER.cellAlpha,
+    cellOutlineOn: render.cellOutlineOn ?? DEFAULT_RENDER.cellOutlineOn,
     cellsOn: render.cellsOn ?? 0,
     imageOn: render.imageOn ?? 1,
     imageScale: render.imageScale ?? 1,
@@ -125,6 +127,7 @@ uniform cubeRenderUniforms {
   float imageAlpha;
   float imageGamma;
   float cellAlpha;
+  float cellOutlineOn;
   float cellsOn;
   float imageOn;
   float imageScale;
@@ -165,12 +168,20 @@ vec4 cellColor(ivec3 q) {
   ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
   int idx = b.x + 256 * (b.y & 127);
   if (idx == 0) return vec4(0.0);
+  bool surface = b.y >= 128;
   ivec2 size = textureSize(cellLut, 0).xy;
   vec4 own = vec4(0.0);
   if (idx < size.x * size.y) own = texelFetch(cellLut, ivec3(idx % size.x, idx / size.x, 0), 0);
-  // A cell the lookup colours in its own colour, otherwise the shared neutral.
-  vec4 c = own.a > 0.0 ? own : texelFetch(cellLut, ivec3(0), 0);
-  return c;
+  vec4 neutral = texelFetch(cellLut, ivec3(0), 0);
+  bool hasRgb = dot(own.rgb, vec3(1.0)) > 1.0 / 255.0;
+  if (surface) {
+    if (cubeRender.cellOutlineOn < 0.5) return vec4(0.0);
+    // Category/instance fill in the lookup; shared orange (texel 0) on the boundary.
+    vec4 c = hasRgb ? vec4(mix(own.rgb, neutral.rgb, 0.72), 1.0) : vec4(neutral.rgb, neutral.a);
+    return c;
+  }
+  if (!hasRgb || own.a <= 0.0) return vec4(0.0);
+  return vec4(own.rgb, own.a * cubeRender.cellAlpha);
 }
 `,
 };
@@ -253,7 +264,6 @@ const RENDERING = {
     imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
   }
   vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb * cellMax, cellMax) : cells;
-  cellsOut *= cubeRender.cellAlpha;
   color = vec4(
     cellsOut.rgb + (1.0 - cellsOut.a) * imageOut.rgb,
     cellsOut.a + (1.0 - cellsOut.a) * imageOut.a
@@ -493,13 +503,13 @@ export type CellColoring =
   | { kind: "groups"; groups: readonly HighlightGroup[] }
   | { kind: "expression"; byLabel: ReadonlyMap<number, [number, number, number]> };
 
-/** Per-sample alpha of a cell the lookup colours, before the Labels alpha slider (default, see `DEFAULT_RENDER`). */
-const CELL_ALPHA = 0.9;
+/** Fill weight in the lookup (actual opacity is weight times the Labels fill slider). */
+const FILL_WEIGHT = 1;
+/** Shared outline for cells the lookup does not colour, and its dimming when focused. */
+const OUTLINE = { color: "#f97316", alpha: 1, behindGroups: 0.35 };
 /**
- * The cells a group does not cover: achromatic on purpose. The orange this
- * used (#f97316) sits 3.6° from tab10's #ff7f0e, which `default_categorical_palette`
- * hands out second, so two categories were enough for "no category" to read as
- * one. Grey cannot collide with a hue.
+ * The cells a group does not cover: achromatic on purpose. The orange outline
+ * sits 3.6° from tab10's #ff7f0e; grey fill cannot collide with a hue.
  */
 const OTHERS = { color: "#d4d4d4", alpha: 0.4, behindGroups: 0.12 };
 
@@ -541,24 +551,28 @@ export function buildCellLut(coloring: CellColoring, cells: readonly number[]): 
   const width = Math.min(CELL_LUT_WIDTH, n);
   const height = Math.ceil(n / width);
   const data = new Uint8Array(width * height * 4);
-  const alpha = Math.round(255 * CELL_ALPHA);
+  const fill = Math.round(255 * FILL_WEIGHT);
+  const outline = hexToLinear(OUTLINE.color)!;
   if (coloring.kind === "instances") {
-    // Texel 0 stays clear: every cell has a colour of its own.
-    for (let i = 1; i < cells.length; i++) data.set([...instanceColor(cells[i]!), alpha], i * 4);
+    data.set([...outline, Math.round(255 * OUTLINE.alpha)], 0);
+    for (let i = 1; i < cells.length; i++) data.set([...instanceColor(cells[i]!), fill], i * 4);
     return { data, width, height };
   }
   if (coloring.kind === "expression") {
-    const others = hexToLinear(OTHERS.color)!;
-    data.set([...others, Math.round(255 * OTHERS.behindGroups)], 0);
+    data.set([...outline, Math.round(255 * OUTLINE.alpha)], 0);
     for (let i = 1; i < cells.length; i++) {
       const rgb = coloring.byLabel.get(cells[i]!);
-      if (rgb) data.set([rgb[0], rgb[1], rgb[2], alpha], i * 4);
+      if (rgb) data.set([rgb[0], rgb[1], rgb[2], 0], i * 4);
     }
     return { data, width, height };
   }
   const { groups } = coloring;
+  data.set(
+    [...outline, Math.round(255 * (groups.length ? OUTLINE.behindGroups : OUTLINE.alpha))],
+    0,
+  );
   const others = hexToLinear(OTHERS.color)!;
-  data.set([...others, Math.round(255 * (groups.length ? OTHERS.behindGroups : OTHERS.alpha))], 0);
+  const othersFill = Math.round(255 * (groups.length ? OTHERS.behindGroups : OTHERS.alpha));
   const colour = new Map<number, [number, number, number]>();
   for (const g of groups) {
     const rgb = hexToLinear(g.color);
@@ -567,7 +581,8 @@ export function buildCellLut(coloring: CellColoring, cells: readonly number[]): 
   }
   for (let i = 1; i < cells.length; i++) {
     const rgb = colour.get(cells[i]!);
-    if (rgb) data.set([rgb[0], rgb[1], rgb[2], alpha], i * 4);
+    if (rgb) data.set([rgb[0], rgb[1], rgb[2], fill], i * 4);
+    else data.set([...others, othersFill], i * 4);
   }
   return { data, width, height };
 }

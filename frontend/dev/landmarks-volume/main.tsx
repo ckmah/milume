@@ -31,7 +31,7 @@ function optionsFrom(search: string) {
  */
 function LandmarksVolumeHarness() {
   const labels = useDialKit("Labels", {
-    cellAlpha: [0.4, 0, 1, 0.05],
+    cellAlpha: [0.15, 0, 1, 0.05],
   });
   const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
   const [model, setModel] = useState<AnyModel | null>(null);
