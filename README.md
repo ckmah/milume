@@ -26,11 +26,25 @@ mille-feuille, layers) + *lume* (light).
 
 [![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/landmarks.py)
 
+## Contents
+
+- [Install](#install)
+- [Alongside other viewers](#alongside-other-viewers)
+- [API](#api)
+
 ## Install
 
 ```bash
 pip install milume
 ```
+
+With [uv](https://docs.astral.sh/uv/):
+
+```bash
+uv add milume
+```
+
+Contributors: see [AGENTS.md](AGENTS.md) for the dev setup (`uv sync --extra demo --group dev`).
 
 ### Migrate from spatial-rx
 
@@ -53,22 +67,17 @@ into your analysis code. Use heavier viewers when you need to inspect in depth.
 Landmarks and selections round-trip as plain geometry and `obs_names`, so you can hand
 the same regions to any viewer.
 
-From source:
-
-```bash
-uv sync --extra demo --group dev
-```
-
-## milume.peek
+## API
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/landmarks_widget_dark.png" />
   <source media="(prefers-color-scheme: light)" srcset="assets/landmarks_widget_light.png" />
-  <img alt="milume surface" src="assets/landmarks_widget_light.png" />
+  <img alt="milume surface on Stellaromics colon A2" src="assets/landmarks_widget_light.png" />
 </picture>
 
 `milume.peek(data, **kwargs)` opens the surface on your data and returns a widget `w`
-you read results from.
+you read results from. Full widget guide and generated API reference:
+[docs site](https://ckmah.github.io/milume/docs/).
 
 ```python
 import milume
@@ -85,6 +94,11 @@ w = milume.peek(sdata, color="cell_type")   # SpatialData on disk: adds the 3D c
 | `spatial_key` | `obsm` key holding coordinates (default `"spatial"`) |
 | `table`, `image`, `labels` | override what is inferred from a `SpatialData` |
 | `contrast_limits` | display range for the 3D image (default: its 1st to 99.5th percentile, from the coarsest pyramid level) |
+
+`milume.peek` works on `AnnData` and on-disk `SpatialData` (including Pyxa-backed
+mosaics). For **Xenium**, **Atera**, **CosMx**, and other readers, see
+[Other platforms](#other-platforms) below and the
+[LandmarksWidget guide](https://ckmah.github.io/milume/docs/landmarks/) on the docs site.
 
 ### Other platforms
 
