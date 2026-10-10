@@ -10,7 +10,8 @@ repo_name = "ckmah/milume"
 docs_dir = "content"
 site_dir = "dist"
 
-extra_css = ["stylesheets/bridge.css"]
+extra_css = ["stylesheets/bridge.css", "stylesheets/hero.css"]
+extra_javascript = ["assets/hero-renderer.js"]
 
 nav = [
   { Home = "index.md" },

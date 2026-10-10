@@ -32,24 +32,18 @@
     <main id="main">
       <section class="hero" aria-label="Introduction">
         <div class="hero-plane" aria-hidden="true">
-          <picture>
-            <source
-              media="(prefers-color-scheme: dark)"
-              srcset="assets/landmarks_widget_dark.png"
-            />
-            <source
-              media="(prefers-color-scheme: light)"
-              srcset="assets/landmarks_widget_light.png"
-            />
+          <div class="milume-hero" data-milume-hero data-assets-base="assets/">
+            <canvas class="milume-hero__canvas" width="1600" height="900"></canvas>
             <img
-              class="hero-media"
-              src="assets/landmarks_widget_light.png"
-              alt="Milume LandmarksWidget on Stellaromics colon A2 with mosaic and a selection"
+              class="milume-hero__poster hero-media"
+              src="assets/hero-poster.png"
+              alt=""
               width="1600"
-              height="1000"
+              height="900"
               fetchpriority="high"
+              decoding="async"
             />
-          </picture>
+          </div>
           <div class="hero-veil"></div>
         </div>
 
@@ -76,6 +70,22 @@
             >
           </div>
         </div>
+      </section>
+
+      <section class="promo-montage" aria-label="Product montage">
+        <video
+          class="promo-montage__video"
+          src="assets/milume-montage-web.mp4"
+          poster="assets/montage-poster.png"
+          preload="metadata"
+          muted
+          playsinline
+          controls
+          width="1280"
+          height="720"
+        >
+          <track kind="captions" />
+        </video>
       </section>
 
       <section class="demos" aria-labelledby="demos-heading">
@@ -165,6 +175,7 @@
       </p>
     </footer>
 
+    <script src="assets/hero-renderer.js" defer></script>
     <script src="main.js" defer></script>
   </body>
 </html>

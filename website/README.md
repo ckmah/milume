@@ -12,6 +12,17 @@ Public GitHub Pages sources for **milume** (landing + Zensical docs).
 
 Engineering notes stay in the repo’s top-level `docs/` and are **not** the Zensical tree.
 
+## Hero WebGL loop
+
+The landing hero and docs home mount `landing/assets/hero-renderer.js` (built from
+`landing/hero/`). Point data lives in `landing/assets/hero-points.bin`. Posters:
+`hero-poster.png` (fallback / reduced motion) and `hero-poster-800.png` for README
+embeds.
+
+```bash
+cd website && npm ci && npm run build:hero
+```
+
 ## Local preview
 
 ```bash

@@ -1,5 +1,9 @@
 {
   "core": [
+    "website/landing/hero/**",
+    "website/landing/assets/hero-renderer.js",
+    "frontend/e2e/core/hero-webgl.spec.ts",
+    "frontend/playwright.website.config.ts",
     "frontend/src/components/**",
     "frontend/src/styles/**",
     "frontend/src/lib/**",

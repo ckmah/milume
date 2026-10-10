@@ -11,6 +11,9 @@ build/
 demos/__marimo__/
 demos/*.lock
 frontend/node_modules/
+website/node_modules/
+website/dist/
+website/.cache/
 milume/static/bundled/
 .playwright-mcp/
 frontend/dev/pyxa-small-fixture.json

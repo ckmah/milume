@@ -1,0 +1,13 @@
+{
+  "name": "milume-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:hero": "node scripts/build-hero.mjs",
+    "build": "npm run build:hero"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "typescript": "^5.9.2"
+  }
+}

@@ -35,8 +35,21 @@ jobs:
       - name: Install Python deps
         run: uv sync --group dev
 
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - name: Assemble landing + docs
         run: uv run bash website/scripts/assemble-pages.sh
+
+      - name: Install frontend deps
+        if: github.event_name == 'pull_request'
+        run: cd frontend && npm ci
+
+      - name: Hero WebGL Playwright
+        if: github.event_name == 'pull_request'
+        run: cd frontend && npx playwright install chromium && npx playwright test --config=playwright.website.config.ts
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
