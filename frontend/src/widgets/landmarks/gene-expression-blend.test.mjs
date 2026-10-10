@@ -14,8 +14,6 @@ describe("gene-expression-blend", () => {
       valueAt: () => 1,
       metaAt: () => meta,
     });
-    assert.equal(rgb[0], 255);
-    assert.ok(rgb[1] < 40);
-    assert.ok(rgb[2] > 180);
+    assert.deepEqual(rgb, [255, 0, 153]);
   });
 });
