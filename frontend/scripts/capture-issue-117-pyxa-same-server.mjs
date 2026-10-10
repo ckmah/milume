@@ -27,6 +27,7 @@ function sh(cmd, opts = {}) {
 
 function restartVite() {
   sh(`tmux -f /exec-daemon/tmux.portal.conf kill-session -t ${session} 2>/dev/null || true`);
+  sh(`rm -rf ${frontend}/node_modules/.vite/landmarks-volume-small`);
   sh(
     `tmux -f /exec-daemon/tmux.portal.conf new-session -d -s ${session} -c ${frontend} -- bash -lc ` +
       `"npx cross-env DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=small npx vite --host 127.0.0.1 --port ${port}"`,
