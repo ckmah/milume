@@ -115,7 +115,7 @@ try {
   for (let i = 0; i < runsPerRev; i++) {
     for (const rev of ["main", "pr"]) {
       const sha = rev === "main" ? mainRev : prRev;
-      sh(`git -C ${root} checkout --quiet ${sha}`);
+      sh(`git -C ${root} checkout -f --quiet ${sha}`);
       if (rev === "main") overlayHarnessFrom();
       restartVite();
       spawnSync("sleep", ["2"]);
@@ -128,7 +128,7 @@ try {
     }
   }
 } finally {
-  sh(`git -C ${root} checkout --quiet ${branch}`);
+  sh(`git -C ${root} checkout -f --quiet ${branch}`);
 }
 
 const byRev = (rev) => records.filter((r) => r.rev === rev);
