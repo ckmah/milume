@@ -89,8 +89,6 @@ const COLORS = ["#00e5ff", "#ff2d95", "#b8ff00", "#ffb000", "#7c4dff", "#00ffa3"
 const FALLBACK_POINT = "#00e5ff";
 const SEL_COLORS = ["#a3a3a3", "#8a8a8a", "#737373", "#c4c4c4"];
 const POINT_OPACITY = 0.8;
-/** When a map mosaic backdrop is configured, scatter alpha is scaled so tissue reads through. */
-const MAP_MOSAIC_POINT_ALPHA_SCALE = 0.52;
 const LANDMARK_OPACITY = 0.28;
 const STROKE_WIDTH = 2;
 const DEFAULT_TENSION = 0;
@@ -311,7 +309,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   // React owns theme class apply (dark / landmarks--dark / landmarks--light).
   // Re-clear the deck when those classes change on the container.
   let rasterImageCache = { key: "", image: null, bounds: null };
-  let mapMosaicCache = { url: "", image: null, bounds: null, loading: false };
   let applyPlotBackground = () => { };
   /** Cached CSS bg + deck clearColor — invalidated on theme class changes. */
   let cachedPlotBackground = null;
@@ -655,12 +652,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     }
     if (!pointRoleMode || !pointRoles) {
       scatterDisplayColors.set(base);
-      if (mapMosaicUrl()) {
-        for (let i = 0; i < n; i++) {
-          const o = i * 4 + 3;
-          scatterDisplayColors[o] = scaleAlphaForMapMosaic(scatterDisplayColors[o] || 255);
-        }
-      }
       scatterDisplayRadii.fill(size);
       scatterRoleRevision++;
       return;
@@ -2364,79 +2355,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     };
   }
 
-  function mapMosaicUrl() {
-    return String(model.get("map_mosaic_url") || "").trim();
-  }
-
-  function mapMosaicBounds() {
-    const b = model.get("map_mosaic_bounds");
-    if (!Array.isArray(b) || b.length < 4) return null;
-    const left = Number(b[0]);
-    const bottom = Number(b[1]);
-    const right = Number(b[2]);
-    const top = Number(b[3]);
-    if (![left, bottom, right, top].every((v) => Number.isFinite(v))) return null;
-    if (right <= left || top <= bottom) return null;
-    return [left, bottom, right, top];
-  }
-
-  function scaleAlphaForMapMosaic(alpha) {
-    if (!mapMosaicUrl()) return alpha;
-    return Math.round(alpha * MAP_MOSAIC_POINT_ALPHA_SCALE);
-  }
-
-  function ensureMapMosaicImage() {
-    const url = mapMosaicUrl();
-    if (!url) {
-      mapMosaicCache = { url: "", image: null, bounds: null, loading: false };
-      return null;
-    }
-    const bounds = mapMosaicBounds();
-    if (!bounds) return null;
-    if (mapMosaicCache.url === url && mapMosaicCache.image) {
-      return { image: mapMosaicCache.image, bounds: mapMosaicCache.bounds || bounds };
-    }
-    if (mapMosaicCache.url === url && mapMosaicCache.loading) return null;
-    mapMosaicCache = { url, image: null, bounds, loading: true };
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      mapMosaicCache = { url, image: img, bounds, loading: false };
-      invalidatePointColorBuffers();
-      schedulePointFillColorsBuild();
-      setDeckLayers();
-    };
-    img.onerror = () => {
-      mapMosaicCache = { url: "", image: null, bounds: null, loading: false };
-    };
-    img.src = url;
-    return null;
-  }
-
-  function buildMapMosaicLayer() {
-    if (!deckModules || isRasterMode()) return [];
-    const baked = ensureMapMosaicImage();
-    if (!baked?.image || !baked.bounds) return [];
-    const { BitmapLayer } = deckModules;
-    return [
-      new BitmapLayer({
-        id: "map-mosaic",
-        image: baked.image,
-        bounds: baked.bounds,
-        pickable: false,
-        textureParameters: {
-          minFilter: "linear",
-          magFilter: "linear",
-        },
-        parameters: OVERLAY_GL,
-        updateTriggers: {
-          image: mapMosaicCache.url,
-          bounds: baked.bounds.join(","),
-        },
-      }),
-    ];
-  }
-
   function buildRasterLayers() {
     if (!deckModules || !isRasterMode()) return [];
     if ((model.get("raster_status") || "") === "computing") return [];
@@ -3741,7 +3659,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     lastDeckBuildProfile.prepareFocusGeomMs = performance.now() - tPrep;
     const tLay = performance.now();
     const layers = [
-      ...buildMapMosaicLayer(),
       ...buildRasterLayers(),
       ...buildProbeOutlineLayers(),
       ...buildNeighborhoodLayers(),
@@ -6379,14 +6296,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       setDeckLayers();
     }
     updatePointLegend();
-  });
-  ["map_mosaic_url", "map_mosaic_bounds"].forEach((k) => {
-    onChange(k, () => {
-      mapMosaicCache = { url: "", image: null, bounds: null, loading: false };
-      invalidatePointColorBuffers();
-      schedulePointFillColorsBuild();
-      setDeckLayers();
-    });
   });
   ["point_palette", "point_size", "color_by", "legend_labels", "legend_title", "color_vmin", "color_vmax"].forEach((k) => {
     onChange(k, () => {

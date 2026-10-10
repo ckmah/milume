@@ -91,7 +91,6 @@ FIXTURE_KEYS = [
 ]
 
 VOLUME_KEYS = ["volume", "volume_label_ids", "volume_cut", "inspect_size_um"]
-MAP_MOSAIC_PNG = PUBLIC / "colon-map-mip.png"
 
 
 def _static_volume_urls(volume: dict[str, object]) -> dict[str, object]:
@@ -162,30 +161,15 @@ def _hero_selection(widget: LandmarksWidget, sdata) -> None:
     widget.selections = [
         {
             "id": "hero-region",
-            "type": "points",
+            "type": "polygon",
             "vertices": vertices,
             "point_indices": point_indices,
         },
     ]
     widget.selected_kind = "selection"
     widget.selected_index = 0
-
-
-def map_mosaic_payload(sdata) -> dict[str, object]:
-    from milume.volume_source import _frame
-
-    if not MAP_MOSAIC_PNG.is_file():
-        raise SystemExit(f"missing {MAP_MOSAIC_PNG}; run scripts/render-colon-map-mip.py first")
-    image_key = next(iter(sdata.images))
-    _scale, origin, shape = _frame(sdata.images[image_key], "global")
-    xmin = float(origin[2])
-    xmax = float(origin[2] + shape[2] * _scale[2])
-    ymin = float(origin[1])
-    ymax = float(origin[1] + shape[1] * _scale[1])
-    return {
-        "map_mosaic_url": f"/{MAP_MOSAIC_PNG.name}",
-        "map_mosaic_bounds": (xmin, ymin, xmax, ymax),
-    }
+    widget.inspect_cx = None
+    widget.inspect_cy = None
 
 
 def write_fixture(sdata, *, cells: int | None, hero: bool) -> None:
@@ -205,14 +189,12 @@ def write_fixture(sdata, *, cells: int | None, hero: bool) -> None:
     widget.landmarks = []
     if hero:
         _hero_selection(widget, sdata)
-        widget.point_size = float(widget.point_size) * 0.72
     else:
         widget.selections = []
         widget.selected_kind = ""
         widget.selected_index = -1
 
     payload = {key: getattr(widget, key) for key in FIXTURE_KEYS + VOLUME_KEYS}
-    payload.update(map_mosaic_payload(sdata))
     payload["volume"] = _static_volume_urls(payload["volume"])
     OUT.write_text(json.dumps(payload, separators=(",", ":")))
     n = sdata.tables["rna"].n_obs
