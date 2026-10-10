@@ -726,9 +726,10 @@ export function VolumeCube({
     [ozUm, levelVoxel?.[0], windowZSlice[0], windowZSlice[1]],
   );
   const cutZFrac: [number, number] = [cutFrac[4]!, cutFrac[5]!];
+  const cutFracKey = cutFrac.join(",");
   const cubeExtensions = useMemo(
     () => (cutOutlineShaderActive(cutFrac, render) ? CUBE_EXTENSIONS_CUT_OUTLINE : CUBE_EXTENSIONS),
-    [cutFrac, render.cellOutlineOn],
+    [cutFracKey, render.cellOutlineOn],
   );
 
   // Centre of the whole window box in world units (physical scale, then Z_UP).
