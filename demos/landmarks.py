@@ -30,16 +30,13 @@ def _():
     from huggingface_hub import snapshot_download
     from spatialdata_io.experimental import pyxa
 
-    from milume import (
-        LandmarksWidget,
-        landmarks_to_geodataframe,
-    )
+    from milume import landmarks_to_geodataframe, peek
 
     return (
-        LandmarksWidget,
         Path,
         landmarks_to_geodataframe,
         mo,
+        peek,
         pyxa,
         sc,
         sd,
@@ -111,8 +108,8 @@ def _(Path, pyxa_sdata, sd, tempfile):
 
 
 @app.cell
-def _(LandmarksWidget, mo, sdata):
-    widget = mo.ui.anywidget(LandmarksWidget(sdata, color="cluster"))
+def _(mo, peek, sdata):
+    widget = mo.ui.anywidget(peek(sdata, color="cluster"))
     return (widget,)
 
 
