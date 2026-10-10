@@ -1,7 +1,7 @@
-"""Loopback OME-Zarr server and toy volume fixture for the Landmarks inspect cube.
+"""Toy volume fixture and optional loopback OME-Zarr server (tests only).
 
-``LandmarksWidget(sdata)`` serves the image and labels of a SpatialData store to
-the browser over loopback HTTP (with range requests) so Viv can ``fetch`` them.
+``LandmarksWidget(sdata)`` serves image and label zarr keys over the widget comm
+(``volume_get``). ``serve_directory`` remains for unit tests of range reads.
 The toy fixture is a small OME-Zarr (1 µm/voxel) used by tests.
 """
 

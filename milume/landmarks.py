@@ -11,6 +11,7 @@ import numpy as np
 import traitlets
 from anndata import AnnData
 from anywidget import AnyWidget
+from anywidget.experimental import command
 
 from milume._assets import widget_css, widget_esm
 from .categories import (
@@ -670,22 +671,22 @@ class LandmarksWidget(AnyWidget):
         self._pack_embedding_values()
         self._pack_embedding_matrix()
 
-        self._volume_server = None
+        self._volume_store_root = None
+        self._volume_allow_prefixes: tuple[str, ...] = ()
         if volume_source is not None:
             self._attach_volume(volume_source, contrast_limits)
 
     def _attach_volume(self, src: Any, contrast_limits: tuple[float, float]) -> None:
-        from .volume_cube import serve_directory
+        from .volume_comm import normalize_allow_prefixes
 
-        # Only the cube's image and labels: the rest of the store (tables,
-        # expression) stays off the loopback server.
+        # Only the cube's image and labels: tables and expression are never served.
         allow = (f"images/{src.image}/",) + ((f"labels/{src.labels}/",) if src.labels else ())
-        server, base = serve_directory(src.root, allow_prefixes=allow)
-        self._volume_server = server
+        self._volume_store_root = src.root
+        self._volume_allow_prefixes = normalize_allow_prefixes(allow)
         (sz, sy, sx), (oz, oy, ox), (d, h, w) = src.voxel_size_um, src.origin_um, src.shape_zyx
         self.volume = {
-            "image_url": f"{base}/images/{src.image}/",
-            "labels_url": f"{base}/labels/{src.labels}/" if src.labels else "",
+            "image_url": f"images/{src.image}/",
+            "labels_url": f"labels/{src.labels}/" if src.labels else "",
             "voxel_size_um": [sz, sy, sx],
             "origin_um": [oz, oy, ox],
             "contrast_limits": [float(v) for v in contrast_limits],
@@ -696,6 +697,24 @@ class LandmarksWidget(AnyWidget):
                 warnings.warn("label ids above 4,194,303 are not coloured in the cube", UserWarning, stacklevel=3)
             self.volume_label_ids = base64.b64encode(ids.tobytes()).decode("ascii")
         self.volume_cut = [ox, ox + w * sx, oy, oy + h * sy, oz, oz + d * sz]
+
+    @command
+    def volume_get(self, msg: object, buffers: list[bytes]) -> tuple[object, list[bytes]]:
+        """Read one allowlisted zarr file (optional byte range) for the Inspect cube."""
+        from .volume_comm import parse_volume_get_msg, read_volume_bytes
+
+        if self._volume_store_root is None:
+            return {"ok": False, "status": 404}, []
+        rel, range_spec = parse_volume_get_msg(msg)
+        status, data = read_volume_bytes(
+            self._volume_store_root,
+            self._volume_allow_prefixes,
+            rel,
+            range_spec,
+        )
+        if status == 404:
+            return {"ok": False, "status": 404}, []
+        return {"ok": True, "status": status}, [data]
 
     def set_neighbor_graphs(self, *args: Any, **kwargs: Any) -> None:
         """Removed: neighborhood expand is client-side.
