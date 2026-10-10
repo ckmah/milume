@@ -10,11 +10,19 @@ export type RenderSettings = {
   imageAlpha: number;
   /** Exponent on the contrast-limited image value. */
   imageGamma: number;
-  /** Scales the finished label layer. Per-sample alpha would stack to opaque along the ray. */
+  /** Interior fill opacity along the ray (cut-face rims use `cellOutlineOn` instead). */
   cellAlpha: number;
+  /** 1 draws contrasting outlines on cut-plane cell boundaries; 0 hides them. */
+  cellOutlineOn: number;
 };
 
-export const DEFAULT_RENDER: RenderSettings = { palette: "gray", imageAlpha: 1, imageGamma: 1, cellAlpha: 0.4 };
+export const DEFAULT_RENDER: RenderSettings = {
+  palette: "gray",
+  imageAlpha: 1,
+  imageGamma: 1,
+  cellAlpha: 0.4,
+  cellOutlineOn: 1,
+};
 
 // sRGB stops, evenly spaced. Gray is generated instead (see `grayRamp`).
 const STOPS: Record<Exclude<PaletteName, "gray">, string[]> = {

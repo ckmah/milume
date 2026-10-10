@@ -18,6 +18,7 @@ import {
   type HighlightGroup,
   type RenderSettings,
 } from "./cell-lut-extension";
+import { CUBE_EXTENSIONS_CUT_OUTLINE, cutOutlineShaderActive } from "./cell-lut-cut-extension";
 import {
   type CutFace,
   cutBoxPre,
@@ -725,6 +726,11 @@ export function VolumeCube({
     [ozUm, levelVoxel?.[0], windowZSlice[0], windowZSlice[1]],
   );
   const cutZFrac: [number, number] = [cutFrac[4]!, cutFrac[5]!];
+  const cutFracKey = cutFrac.join(",");
+  const cubeExtensions = useMemo(
+    () => (cutOutlineShaderActive(cutFrac, render) ? CUBE_EXTENSIONS_CUT_OUTLINE : CUBE_EXTENSIONS),
+    [cutFracKey, render.cellOutlineOn],
+  );
 
   // Centre of the whole window box in world units (physical scale, then Z_UP).
   // Deliberately not the cut region's centre: cross-sections must not move the cube.
@@ -960,7 +966,7 @@ export function VolumeCube({
                   ? cutBoxPre(shownCut, winX, winY, stackZ, cubeFrame.size, cutZMap, cutZFrac)
                   : null,
               resolution: 0,
-              extensions: CUBE_EXTENSIONS,
+              extensions: cubeExtensions,
               imageMode,
               labelMode,
               cellVolume: cells,
@@ -988,6 +994,7 @@ export function VolumeCube({
       windowYSlice,
       windowZSlice,
       cutFrac,
+      cubeExtensions,
       outsideCut,
       shownCut[0],
       shownCut[1],

@@ -1,6 +1,8 @@
 import type { AnyModel } from "@/widgets/landmarks/helpers";
 import { isCommVolumeUrl } from "@/widgets/volume-cube/volume-url";
 
+declare const __MILUME_VOLUME_FIXTURE_FILE__: string | undefined;
+
 type Listener = () => void;
 
 type CommBuffer = ArrayBuffer | DataView;
@@ -21,9 +23,12 @@ export function createMockModel(
   const volume = initial.volume as { image_url?: string } | undefined;
 
   function staticRootForFixture(fixtureUrl: string): string {
-    const name = fixtureUrl.split("/").pop() ?? "";
+    const viteFixture =
+      typeof __MILUME_VOLUME_FIXTURE_FILE__ !== "undefined" ? __MILUME_VOLUME_FIXTURE_FILE__ : "";
+    const name = viteFixture || fixtureUrl.split("/").pop() || "";
     if (name.includes("xsmall")) return "/xsmall.sdata.zarr/";
     if (name.includes("small")) return "/small.sdata.zarr/";
+    if (name.includes("colon")) return "/colon.sdata.zarr/";
     return "/toy.sdata.zarr/";
   }
 

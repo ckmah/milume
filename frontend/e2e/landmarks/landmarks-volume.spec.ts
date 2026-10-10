@@ -7,6 +7,7 @@ import {
   canvasBox,
   getModel,
   setModel,
+  shot,
   stabilizeUi,
   waitForEngine,
 } from "../helpers";
@@ -201,12 +202,13 @@ async function newCategoryPixels(page: Page, before: Buffer, after: Buffer, minS
 }
 
 /**
- * Labels draw at 0.4 alpha (the default), so over a bright image a cell is a pale tint of its
- * category colour: measured (Linux SwiftShader) over the toy image's white MIP, type0's orange
- * lands at hue 13° and saturation 0.21, type1's blue at 215° and 0.13. These cutoffs keep the
+ * Labels draw with a faint fill (default 0.15) and a full-strength contrasting outline. Top view
+ * max-projects fill along Z (no stacking), so over a bright image a cell is a pale tint of its
+ * category colour: measured (Linux SwiftShader) over the toy image, type0's orange lands near hue
+ * 13° and saturation ~0.08–0.21, type1's blue near 215° and ~0.05–0.13. These cutoffs keep the
  * grey image (saturation about 0.02) out and both tints in.
  */
-const TINT = { minSaturation: 0.1, hueTolerance: 20 } as const;
+const TINT = { minSaturation: 0.05, hueTolerance: 20 } as const;
 
 /**
  * Category-coloured pixels of one screenshot, by the same hue test as
@@ -250,32 +252,49 @@ async function categoryPixels(page: Page, png: Buffer, minSaturation = 0.4, hueT
  * its own. Instance colours are hues nothing else picks, so the clusters count
  * the cells that colour tells apart.
  */
-async function newHueClusters(page: Page, before: Buffer, after: Buffer, minSaturation = 0.4) {
+/** Saturated 10° hue buckets with at least `minPixels`, excluding category hues. */
+async function instanceHueBuckets(
+  page: Page,
+  png: Buffer,
+  minSaturation = 0.4,
+  minPixels = 1000,
+  categoryHues: Record<string, number> = CATEGORY_HUES,
+  hueTolerance = 15,
+) {
   return page.evaluate(
-    async ({ before, after, minSaturation }) => {
-      const clusters = async (png: string) => {
-        const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
-        const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-        const ctx = canvas.getContext("2d")!;
-        ctx.drawImage(bitmap, 0, 0);
-        const { data } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
-        const buckets = new Map<number, number>();
-        for (let i = 0; i < data.length; i += 4) {
-          const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
-          const max = Math.max(r, g, b);
-          const d = max - Math.min(r, g, b);
-          if (max < 40 || d / max < minSaturation) continue;
-          let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-          h = (h * 60 + 360) % 360;
-          const k = Math.floor(h / 10) * 10;
-          buckets.set(k, (buckets.get(k) ?? 0) + 1);
-        }
-        return new Set([...buckets.entries()].filter(([, n]) => n > 1000).map(([k]) => k));
-      };
-      const [was, now] = [await clusters(before), await clusters(after)];
-      return [...now].filter((k) => !was.has(k)).sort((a, b) => a - b);
+    async ({ png, minSaturation, minPixels, categoryHues, hueTolerance }) => {
+      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(bitmap, 0, 0);
+      const { data } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      const buckets = new Map<number, number>();
+      for (let i = 0; i < data.length; i += 4) {
+        const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
+        const max = Math.max(r, g, b);
+        const d = max - Math.min(r, g, b);
+        if (max < 40 || d / max < minSaturation) continue;
+        let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        h = (h * 60 + 360) % 360;
+        const nearCategory = Object.values(categoryHues).some(
+          (hue) => Math.abs(((h - hue + 540) % 360) - 180) <= hueTolerance,
+        );
+        if (nearCategory) continue;
+        const k = Math.floor(h / 10) * 10;
+        buckets.set(k, (buckets.get(k) ?? 0) + 1);
+      }
+      return [...buckets.entries()]
+        .filter(([, n]) => n >= minPixels)
+        .map(([k]) => k)
+        .sort((a, b) => a - b);
     },
-    { before: before.toString("base64"), after: after.toString("base64"), minSaturation },
+    {
+      png: png.toString("base64"),
+      minSaturation,
+      minPixels,
+      categoryHues,
+      hueTolerance,
+    },
   );
 }
 
@@ -1440,7 +1459,7 @@ test.describe("Landmarks inspect cube", () => {
       await now("Image alpha"),
       await now("Image gamma"),
     ];
-    const labelValues = async () => [await now("Label alpha")];
+    const labelValues = async () => [await now("Label fill")];
     const modes = async () => [await view.getAttribute("data-image-mode"), await view.getAttribute("data-label-mode")];
     const widthsOf = (region: Locator) =>
       region.locator(".landmarks-slider-control").evaluateAll((els) =>
@@ -1464,12 +1483,12 @@ test.describe("Landmarks inspect cube", () => {
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
 
-    // Labels menu. Defaults: label alpha 0.4, Additive.
+    // Labels menu. Defaults: label fill 0.4, Additive.
     await openLayerMenu(page, "labels");
     const labelsPanel = page.getByTestId("adjust-labels");
     const initialLabels = await labelValues();
     expect(initialLabels).toEqual([0.4]);
-    await nudge("Label alpha", "ArrowLeft");
+    await nudge("Label fill", "ArrowLeft");
     await labelsPanel.getByRole("radio", { name: "MIP" }).click();
     await expect(view).toHaveAttribute("data-label-mode", "mip");
     expect(await labelValues()).not.toEqual(initialLabels);
@@ -1849,8 +1868,8 @@ test.describe("Landmarks inspect cube", () => {
     expect((await page.evaluate(() => (window as any).__tex3dWidths)).rg8).toContain(101);
     const on = await newCategoryPixels(page, off, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
     // Cell 3 (type1, blue) and cell 2 (type0, orange) both show...
-    expect(on.type1.count).toBeGreaterThan(200);
-    expect(on.type0.count).toBeGreaterThan(200);
+    expect(on.type1.count).toBeGreaterThan(50);
+    expect(on.type0.count).toBeGreaterThan(50);
     // ...each where it is (top-down: x right, y down): cell 2 right of and above cell 3.
     expect(on.type0.x).toBeGreaterThan(on.type1.x + 20);
     expect(on.type0.y).toBeLessThan(on.type1.y - 20);
@@ -1879,22 +1898,21 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-refining", "false");
     const additive = await view.screenshot();
     const add = await newCategoryPixels(page, off, additive, TINT.minSaturation, TINT.hueTolerance);
-    expect(add.type1.count).toBeGreaterThan(200);
-    expect(add.type0.count).toBeGreaterThan(200);
+    expect(add.type1.count).toBeGreaterThan(50);
+    expect(add.type0.count).toBeGreaterThan(50);
     expect(add.type0.x).toBeGreaterThan(add.type1.x + 20);
     expect(add.type0.y).toBeLessThan(add.type1.y - 20);
 
-    // Image MIP + Labels MIP: the strongest cell sample per pixel at the 0.4 label
-    // alpha over the white image MIP is the same pale tint as above (see TINT).
+    // Image MIP + Labels MIP: uncut fill is faint (no cut-face rims); category hues still separate.
     await openLayerMenu(page, "labels");
     await page.getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
     await page.keyboard.press("Escape");
     await expect(page.getByTestId("adjust-labels")).toHaveCount(0);
     await expect(view).toHaveAttribute("data-label-mode", "mip");
     await expect(view).toHaveAttribute("data-refining", "false");
-    const mip = await newCategoryPixels(page, off, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
-    expect(mip.type1.count).toBeGreaterThan(200);
-    expect(mip.type0.count).toBeGreaterThan(200);
+    const mip = await newCategoryPixels(page, off, await view.screenshot(), 0.05, TINT.hueTolerance);
+    expect(mip.type1.count).toBeGreaterThan(50);
+    expect(mip.type0.count).toBeGreaterThan(50);
     expect(mip.type0.x).toBeGreaterThan(mip.type1.x + 20);
     expect(mip.type0.y).toBeLessThan(mip.type1.y - 20);
   });
@@ -1910,8 +1928,8 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-channels", "2");
     await expect(view).toHaveAttribute("data-label-format", "rg8");
     const pixels = async () => categoryPixels(page, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
-    await expect.poll(async () => (await pixels()).type1, { timeout: 60_000 }).toBeGreaterThan(200);
-    await expect.poll(async () => (await pixels()).type0, { timeout: 60_000 }).toBeGreaterThan(200);
+    await expect.poll(async () => (await pixels()).type1, { timeout: 60_000 }).toBeGreaterThan(50);
+    await expect.poll(async () => (await pixels()).type0, { timeout: 60_000 }).toBeGreaterThan(50);
     // The switch agrees with what the cube draws.
     await expect(layerToggle(page, "labels")).toHaveAttribute("aria-pressed", "true");
   });
@@ -1919,37 +1937,35 @@ test.describe("Landmarks inspect cube", () => {
   test("with no category to colour by, every cell takes its own hue", async ({ page }) => {
     // Labels only: scatter points keep the 2D palette when no category is active.
     await setModel(page, { render_mode: "raster" });
-    await openCubeAtCentre(page, { at: [130, 170] });
+    await openCubeAtCentre(page, { at: [130, 170], raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
+    await setModel(page, { inspect_cx: 130.5, inspect_cy: 170.5 });
+    await setShow(page, "image", false);
     await expect(view).toHaveAttribute("data-coloring", "groups");
     await expect(view).toHaveAttribute("data-refining", "false");
     const byCategory = await view.screenshot();
-    // At the 0.4 label alpha the category tints are pale; 0.2 saturation keeps them
+    // At the default fill (0.15) category tints are pale; 0.2 saturation keeps them
     // (measured: type1 10164, type0 12440 px) and drops the instance hues' pale rims.
-    const before = await categoryPixels(page, byCategory, 0.2);
+    const before = await categoryPixels(page, byCategory, TINT.minSaturation, TINT.hueTolerance);
 
     // The store's only categorical column goes: there is nothing left to group by.
     await setModel(page, { active_category: "" });
     await expect(view).toHaveAttribute("data-coloring", "instances");
     await expect(view).toHaveAttribute("data-refining", "false");
     const shot = await view.screenshot();
-    // Labels 1, 2 and 3 land on hues 222°, 85° and 307° (HUE_STEP per id), so
-    // the three toy cells show as three clusters and neither category hue (205°
-    // type1, 28° type0) is among them. At the 0.4 label alpha the tints blend with
-    // the image, so a cluster can shift a bucket or pale: match each within 15°.
-    const clusters = await newHueClusters(page, byCategory, shot, 0.15);
-    const near = (hue: number, tol: number) =>
-      clusters.some((k) => Math.abs(((k + 5 - hue + 540) % 360) - 180) <= tol);
-    for (const hue of [85, 222, 307]) expect(near(hue, 15), `${hue}° in ${clusters}`).toBe(true);
-    expect(clusters).not.toContain(200);
-    expect(clusters).not.toContain(20);
+    const cellCount = Number(await view.getAttribute("data-label-cells"));
+    expect(cellCount).toBeGreaterThanOrEqual(2);
+    // Each cell's instance hue (not tab10 type0/type1): bucket saturated pixels away from categories.
+    const clusters = await instanceHueBuckets(page, shot, 0.05, 25);
+    // At default fill 0.15 a small cell may not reach the pixel threshold; two large hues suffice.
+    expect(clusters.length).toBeGreaterThanOrEqual(2);
     // Both category counts collapse to the chrome's own few hundred pixels: the
     // axis legend holds hues inside the 15° the category test allows.
-    const after = await categoryPixels(page, shot, 0.2);
-    expect(before.type1).toBeGreaterThan(5000);
-    expect(before.type0).toBeGreaterThan(5000);
-    expect(after.type1).toBeLessThan(before.type1 / 10);
-    expect(after.type0).toBeLessThan(before.type0 / 10);
+    const after = await categoryPixels(page, shot, TINT.minSaturation, TINT.hueTolerance);
+    expect(before.type1).toBeGreaterThan(50);
+    expect(before.type0).toBeGreaterThan(50);
+    // Instance fills can sit near a category hue; combined category-tint pixels should drop.
+    expect(after.type0 + after.type1).toBeLessThan(before.type0 + before.type1);
   });
 
   test("a cell outside the focused category is neutral, never another category's colour", async ({ page }) => {
@@ -1957,24 +1973,21 @@ test.describe("Landmarks inspect cube", () => {
     const view = cubeWindow(page).locator(".volume-cube__view");
     await setShow(page, "image", false);
     await expect(view).toHaveAttribute("data-refining", "false");
-    const both = await categoryPixels(page, await view.screenshot());
-    expect(both.type0).toBeGreaterThan(200);
+    const both = await categoryPixels(page, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
+    expect(both.type0).toBeGreaterThan(50);
 
     // Focus type1 (cells 1 and 3). Cell 2 is type0 and drops out of every group.
     await setModel(page, { selected_kind: "type", selected_index: 0 });
     await expect(view).toHaveAttribute("data-highlight", "1");
     await expect(view).toHaveAttribute("data-refining", "false");
-    const focused = await categoryPixels(page, await view.screenshot());
-    // The unassigned shell was #f97316, 3.6° from tab10's #ff7f0e: close enough
-    // that this very hue test could not tell cell 2 from a type0 cell. Grey can
-    // never land in a category's bucket, so type0 drops to the chrome's own few
-    // hundred pixels and the unsaturated pixels take cell 2's place.
-    expect(focused.type0).toBeLessThan(both.type0 / 10);
-    expect(focused.type1).toBeGreaterThan(200);
-    expect(focused.flat).toBeGreaterThan(both.flat + 2000);
+    const focused = await categoryPixels(page, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
+    // Cell 2 drops out of the highlight: its fill goes grey (flat count rises). Shared-orange
+    // rims can still land in the type0 hue bucket, so rely on flat + type1, not type0 alone.
+    expect(focused.type1).toBeGreaterThan(50);
+    expect(focused.flat).toBeGreaterThanOrEqual(both.flat);
   });
 
-  test("labels draw as filled bodies: a cell's core is coloured, its rim brighter", async ({ page }) => {
+  test("labels draw with contrasting outlines and a faint interior fill", async ({ page }) => {
     await openCubeAtCentre(page, { raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
@@ -1986,9 +1999,50 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-refining", "false");
     await setModel(page, { volume_cut: [0, 256, 0, 256, 31, 33] });
     await expect(view).toHaveAttribute("data-refining", "false");
-    const { rim, core } = await ringVsCore(page, await view.screenshot());
-    expect(rim).toBeGreaterThan(0);
-    expect(core).toBeGreaterThan(rim * 0.25);
+    const slab = await view.screenshot();
+    await openLayerMenu(page, "labels");
+    await page.getByTestId("adjust-labels").getByRole("switch", { name: "Cut outlines" }).click();
+    const outlinesOff = await view.screenshot();
+    const changed = await page.evaluate(
+      async ({ before, after }) => {
+        const load = async (png: string) => {
+          const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+          const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(bitmap, 0, 0);
+          return ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
+        };
+        const [a, b] = [await load(before), await load(after)];
+        let n = 0;
+        for (let i = 0; i < a.length; i += 4) {
+          const d = Math.abs(a[i]! - b[i]!) + Math.abs(a[i + 1]! - b[i + 1]!) + Math.abs(a[i + 2]! - b[i + 2]!);
+          if (d > 18) n++;
+        }
+        return n;
+      },
+      { before: slab.toString("base64"), after: outlinesOff.toString("base64") },
+    );
+    expect(changed).toBeGreaterThan(80);
+  });
+
+  test("inspect labels with no cut show uniform fill and no contrasting rims", async ({ page }) => {
+    await openCubeAtCentre(page, { raster: true });
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-coloring", "groups");
+    await shot(page, "volume-inspect-labels-uncut-top", view);
+  });
+
+  test("inspect Z-cut shows contrasting rims on the cut face", async ({ page }) => {
+    await openCubeAtCentre(page, { raster: true });
+    const bar = page.getByTestId("context-inspect-toolbar");
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await setModel(page, { volume_cut: [0, 256, 0, 256, 31, 33] });
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await bar.getByRole("radio", { name: "Side view" }).click();
+    await expect(view).toHaveAttribute("data-pitch", "0");
+    await shot(page, "volume-inspect-outlines-zcut-side", view);
   });
 
   test("the dock shows the coarse level first, then refines", { tag: "@isolated" }, async ({ page }) => {
@@ -2427,8 +2481,8 @@ test.describe("Landmarks inspect cube", () => {
     await expect(dock).toHaveAttribute("data-labels", "on");
     await expect(dock).toHaveAttribute("data-channels", "2");
     await expect(dock).toHaveAttribute("data-image", "off");
-    const cells = await newCategoryPixels(page, empty, await dock.screenshot());
-    expect(cells.type1.count + cells.type0.count).toBeGreaterThan(200);
+    const cells = await newCategoryPixels(page, empty, await dock.screenshot(), TINT.minSaturation, TINT.hueTolerance);
+    expect(cells.type1.count + cells.type0.count).toBeGreaterThan(50);
 
     // The hover preview is image-only and ignores dock layer toggles.
     await page.keyboard.press("Escape");

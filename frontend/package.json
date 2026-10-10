@@ -14,6 +14,8 @@
     "dev:landmarks-volume-xsmall": "cross-env DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=xsmall vite",
     "dev:fixture:volume": "uv run --directory .. python frontend/dev/export-landmarks-volume-fixture.py",
     "dev:fixture:volume-xsmall": "uv run --extra demo --directory .. python frontend/dev/export-landmarks-volume-fixture.py --profile xsmall",
+    "dev:fixture:volume-small": "uv run --extra demo --directory .. python frontend/dev/export-landmarks-volume-fixture.py --profile small",
+    "dev:landmarks-volume-small": "cross-env DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=small vite",
     "typecheck": "tsc --noEmit",
     "test:e2e": "npm run test:e2e:core && npm run test:e2e:landmarks",
     "test:e2e:core": "playwright test e2e/core && npm run test:e2e:core:hero",

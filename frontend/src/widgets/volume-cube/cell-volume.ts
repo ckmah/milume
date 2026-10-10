@@ -107,6 +107,11 @@ const GL_UNPACK_ALIGNMENT = 3317;
 export class CellVolume {
   /** Local index -> global label id; `cells[0]` is background. */
   readonly cells: readonly number[];
+  /** CPU RG8 layout (kept for cut-rim precompute after GPU upload). */
+  readonly labelRg8: Uint8Array;
+  readonly labelWidth: number;
+  readonly labelHeight: number;
+  readonly labelDepth: number;
   private texels: Uint8Array | null;
   private tex: Texture | null = null;
   private users = 0;
@@ -121,6 +126,10 @@ export class CellVolume {
     encoded: { data: Uint8Array; cells: number[] },
   ) {
     this.cells = encoded.cells;
+    this.labelRg8 = encoded.data;
+    this.labelWidth = image.width;
+    this.labelHeight = image.height;
+    this.labelDepth = encoded.data.length / 2 / (image.width * image.height);
     this.texels = encoded.data;
   }
 

@@ -39,3 +39,4 @@ src/plugins/impeccable-live.client.ts
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+frontend/dev/landmarks-volume-fixture.small.json
