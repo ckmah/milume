@@ -24,6 +24,10 @@ on:
           - core
           - landmarks
         default: all
+      simulate_nightly:
+        description: "Exercise the nightly activity gate (workflow_dispatch only)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -59,7 +63,7 @@ jobs:
           echo "full=${full}" >> "$GITHUB_OUTPUT"
 
   nightly-activity:
-    if: github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.simulate_nightly == true)
     runs-on: ubuntu-latest
     outputs:
       run: ${{ steps.check.outputs.run }}
