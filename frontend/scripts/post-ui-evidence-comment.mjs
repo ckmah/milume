@@ -1,4 +1,4 @@
-// Captures UI evidence PNGs from test-results, publishes a draft release asset bundle,
+// Captures UI evidence PNGs from test-results, publishes a prerelease asset bundle,
 // and posts (or updates) a sticky PR comment with embeddable markdown images.
 import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -45,39 +45,29 @@ const api = (...args) =>
   execFileSync("gh", ["api", ...args], { encoding: "utf8", env: { ...process.env, GH_TOKEN: token } });
 
 const tag = `ui-evidence-pr-${pr}-run-${runId}`;
-const createdJson = execFileSync(
-  "gh",
-  [
-    "release",
-    "create",
-    tag,
-    "--draft",
-    "--title",
-    `UI evidence PR #${pr}`,
-    "--notes",
-    "Auto-generated Playwright captures for PR review.",
-    ...shots,
-    "--json",
-    "id,html_url,tag_name",
-  ],
-  { encoding: "utf8", env: { ...process.env, GH_TOKEN: token } },
+// Prerelease (not draft): draft asset URLs don't render for other viewers.
+const created = JSON.parse(
+  api(
+    "-X",
+    "POST",
+    `repos/${repo}/releases`,
+    "-f",
+    `tag_name=${tag}`,
+    "-f",
+    `name=UI evidence PR #${pr}`,
+    "-f",
+    "body=Auto-generated Playwright captures for PR review.",
+    "-F",
+    "prerelease=true",
+    "-f",
+    "make_latest=false",
+  ),
 );
-const created = JSON.parse(createdJson.trim());
-let release;
-for (let attempt = 0; attempt < 5; attempt++) {
-  try {
-    release = JSON.parse(api(`repos/${repo}/releases/${created.id}`));
-    break;
-  } catch {
-    const listed = JSON.parse(
-      api(`repos/${repo}/releases`, "-f", `per_page=30`),
-    );
-    release = listed.find((r) => r.tag_name === tag || r.id === created.id);
-    if (release) break;
-    execFileSync("sleep", ["2"]);
-  }
-}
-if (!release) throw new Error(`release not found for tag ${tag} (id ${created.id})`);
+execFileSync("gh", ["release", "upload", tag, ...shots, "--repo", repo, "--clobber"], {
+  encoding: "utf8",
+  env: { ...process.env, GH_TOKEN: token },
+});
+const release = JSON.parse(api(`repos/${repo}/releases/${created.id}`));
 const assets = release.assets ?? [];
 const lines = [
   marker,
@@ -92,7 +82,7 @@ for (const shot of shots) {
   const url = asset?.browser_download_url;
   if (url) lines.push(`### ${base}`, "", `![${base}](${url})`, "");
 }
-lines.push(`Draft release: ${release.html_url}`);
+lines.push(`Release: ${release.html_url}`);
 
 const body = lines.join("\n");
 const comments = JSON.parse(api(`repos/${repo}/issues/${pr}/comments`));
