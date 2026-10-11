@@ -15,40 +15,8 @@ import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote, unquote
 
 import numpy as np
-
-
-def _is_http_store(path: str) -> bool:
-    return path.startswith(("http://", "https://"))
-
-
-def _normalize_store_url(url: str) -> str:
-    return url if url.endswith("/") else f"{url}/"
-
-
-_HF_KINDS = {"datasets": "datasets/", "spaces": "spaces/", "models": ""}
-
-
-def _hf_to_https(path: str) -> str:
-    """Map ``hf://{datasets|spaces|models}/<org>/<repo>[@rev]/<sub>`` to its Hub resolve URL.
-
-    Lets a store opened through ``huggingface_hub.HfFileSystem`` use the browser
-    fetch path. Anything else (including model paths without a kind) is returned as-is.
-    """
-    if not path.startswith("hf://"):
-        return path
-    parts = path[len("hf://") :].split("/", 3)
-    if len(parts) < 3 or parts[0] not in _HF_KINDS:
-        return path
-    kind, org, repo = parts[:3]
-    sub = parts[3] if len(parts) == 4 else ""
-    repo, _, rev_raw = repo.partition("@")
-    rev = unquote(rev_raw) if rev_raw else "main"
-    rev_segment = quote(rev, safe="") if rev != "main" else "main"
-    base = f"https://huggingface.co/{_HF_KINDS[kind]}{org}/{repo}/resolve/{rev_segment}"
-    return f"{base}/{sub}" if sub else base
 
 
 @dataclass(frozen=True)
@@ -56,7 +24,7 @@ class VolumeSource:
     table_name: str
     image: str | None
     labels: str | None
-    root: Path | str
+    root: Path
     voxel_size_um: tuple[float, float, float]
     origin_um: tuple[float, float, float]
     shape_zyx: tuple[int, int, int]
@@ -73,11 +41,7 @@ def _level0(element: Any):
 def image_contrast_limits(element: Any) -> tuple[float, float]:
     from .volume_cube import DEFAULT_CONTRAST_LIMITS
 
-    levels = (
-        [next(iter(element[k].values())) for k in element.children]
-        if hasattr(element, "children")
-        else []
-    )
+    levels = [next(iter(element[k].values())) for k in element.children] if hasattr(element, "children") else []
     arr = min(levels, key=lambda a: a.size) if levels else element
     if "c" in arr.dims:
         arr = arr.isel(c=0)
@@ -91,9 +55,7 @@ def image_contrast_limits(element: Any) -> tuple[float, float]:
     return lo, hi
 
 
-def _frame(
-    element: Any, cs: str
-) -> tuple[tuple[float, ...], tuple[float, ...], tuple[int, ...]]:
+def _frame(element: Any, cs: str) -> tuple[tuple[float, ...], tuple[float, ...], tuple[int, ...]]:
     from spatialdata.transformations import get_transformation
 
     arr = _level0(element)
@@ -185,8 +147,7 @@ def resolve_volume(
                 aligned = [
                     n
                     for n in images3d
-                    if target is not None
-                    and _frame_or_none(sdata.images[n], cs) == target
+                    if target is not None and _frame_or_none(sdata.images[n], cs) == target
                 ]
                 image_name = (aligned or images3d or [None])[0]
             elif len(images3d) == 1:
@@ -194,31 +155,15 @@ def resolve_volume(
     if image_name is None:
         return adata, None
     if getattr(sdata, "path", None) is None:
-        warnings.warn(
-            "SpatialData is not backed by a Zarr store on disk: no cube",
-            UserWarning,
-            stacklevel=2,
-        )
+        warnings.warn("SpatialData is not backed by a Zarr store on disk: no cube", UserWarning, stacklevel=2)
         return adata, None
-
-    # URL mode keys off ``str(sdata.path)`` when it is http(s). spatialdata 0.8 cannot
-    # ``read_zarr`` an http(s) store, so a normal open leaves a local path. Without a new
-    # public API, callers can still enable URL mode by assigning the canonical store URL
-    # after open, e.g. ``sdata.path = "https://…/dataset.zarr/"`` following a local or
-    # fsspec-backed read of the same store.
 
     try:
         voxel, origin, shape = _frame(sdata.images[image_name], cs)
     except ValueError as err:
-        warnings.warn(
-            f"image {image_name!r} in {cs!r}: {err}: no cube", UserWarning, stacklevel=2
-        )
+        warnings.warn(f"image {image_name!r} in {cs!r}: {err}: no cube", UserWarning, stacklevel=2)
         return adata, None
-    if labels_name is not None and _frame_or_none(sdata.labels[labels_name], cs) != (
-        voxel,
-        origin,
-        shape,
-    ):
+    if labels_name is not None and _frame_or_none(sdata.labels[labels_name], cs) != (voxel, origin, shape):
         warnings.warn(
             f"labels {labels_name!r} are on another grid than {image_name!r}: cube shows the image only",
             UserWarning,
@@ -232,8 +177,7 @@ def resolve_volume(
 
         col = adata.obs[instance_key]
         if pd.api.types.is_integer_dtype(col) or (
-            col.dtype == object
-            and all(isinstance(v, (int, np.integer)) for v in col.dropna().head(8))
+            col.dtype == object and all(isinstance(v, (int, np.integer)) for v in col.dropna().head(8))
         ):
             label_ids = col.to_numpy().astype(np.int32)
         elif col.dtype.kind in "iu":
@@ -245,10 +189,4 @@ def resolve_volume(
                 UserWarning,
                 stacklevel=2,
             )
-    store = _hf_to_https(str(sdata.path))
-    root: Path | str = (
-        _normalize_store_url(store) if _is_http_store(store) else Path(store)
-    )
-    return adata, VolumeSource(
-        table_name, image_name, labels_name, root, voxel, origin, shape, label_ids
-    )
+    return adata, VolumeSource(table_name, image_name, labels_name, Path(sdata.path), voxel, origin, shape, label_ids)

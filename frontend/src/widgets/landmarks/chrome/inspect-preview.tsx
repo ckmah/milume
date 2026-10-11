@@ -3,7 +3,6 @@ import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } fro
 import type { CellColoring } from "@/widgets/volume-cube/cell-lut-extension";
 import { CHUNK_CACHE_BYTES, type ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import type { VolumeCommClient } from "@/widgets/volume-cube/volume-comm";
-import type { VolumeHttpClient } from "@/widgets/volume-cube/volume-http";
 import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
 import type { CubeBounds, CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
 import {
@@ -162,7 +161,6 @@ export function InspectPreview({
   dark,
   cache,
   volumeComm,
-  volumeHttp,
   budgets,
 }: {
   /** In Inspect: outside it the float stays hidden and queues no prefetch. */
@@ -176,7 +174,6 @@ export function InspectPreview({
   dark: boolean;
   cache: ChunkCache;
   volumeComm: VolumeCommClient | null;
-  volumeHttp: VolumeHttpClient | null;
   budgets: { preview: number; dock: number };
   /** The user's landmarks (µm). The hover preview does not draw them. */
   overlays?: CubeOverlay[] | null;
@@ -442,7 +439,6 @@ export function InspectPreview({
           showPoints={false}
           chunkCache={cache}
           volumeComm={volumeComm}
-          volumeHttp={volumeHttp}
           onLevels={onLevels}
           onShown={onShown}
           onBounds={onBounds}
