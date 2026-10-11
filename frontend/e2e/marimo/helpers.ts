@@ -163,17 +163,14 @@ export async function gotoMolabIframeShell(page: Page, baseURL: string) {
 }
 
 export async function marimoEmbedFrame(page: Page, marimoOrigin: string): Promise<Frame> {
-  const el = page.locator(MARIMO_IFRAME_SELECTOR);
-  await el.waitFor({ state: "attached", timeout: 120_000 });
+  await page.locator(MARIMO_IFRAME_SELECTOR).waitFor({ state: "attached", timeout: 120_000 });
   const origin = marimoOrigin.replace(/\/$/, "");
-  let frame: Frame | null = null;
+  const urlPattern = new RegExp(origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   await expect
-    .poll(async () => {
-      frame = await el.contentFrame();
-      const url = frame?.url() ?? "";
-      return url.startsWith(origin) && !url.startsWith("about:");
-    }, { timeout: onCi() ? 720_000 : 420_000 })
+    .poll(() => page.frame({ url: urlPattern }) !== null, { timeout: onCi() ? 720_000 : 420_000 })
     .toBe(true);
+  const frame = page.frame({ url: urlPattern });
+  expect(frame).toBeTruthy();
   return frame!;
 }
 
