@@ -1,9 +1,10 @@
 import type { AbsolutePath, AsyncReadable, RangeQuery } from "@zarrita/storage";
 
 import type { VolumeCommClient } from "./volume-comm";
+import { VolumeHttpFetcher } from "./volume-http-fetch";
 import { commRelativeVolumeBase, isCommVolumeUrl } from "./volume-url";
 
-const DEFAULT_CONCURRENCY = 8;
+const DEFAULT_CONCURRENCY = 12;
 const METADATA_CACHE_BYTES = 4 * 1024 * 1024;
 const SHARD_INDEX_CACHE_BYTES = 32 * 1024 * 1024;
 const COALESCE_GAP_BYTES = 256 * 1024;
@@ -47,25 +48,6 @@ function sliceForInterval(bytes: Uint8Array, merged: RangeInterval, part: RangeI
   return bytes.subarray(offset, offset + (part.end - part.start));
 }
 
-async function readHttp(
-  href: string,
-  range?: RangeQuery,
-  init: RequestInit = {},
-): Promise<Uint8Array | undefined> {
-  const headers = new Headers(init.headers);
-  if (range) {
-    if ("suffixLength" in range) headers.set("Range", `bytes=-${range.suffixLength}`);
-    else headers.set("Range", `bytes=${range.offset}-${range.offset + range.length - 1}`);
-  }
-  const response = await fetch(href, { ...init, headers });
-  if (response.status === 404) return undefined;
-  if (response.status !== 200 && response.status !== 206) {
-    throw new Error(`volume HTTP read failed (${response.status})`);
-  }
-  const buf = await response.arrayBuffer();
-  return buf.byteLength ? new Uint8Array(buf) : undefined;
-}
-
 type BatchJob = {
   elementBase: string;
   intervals: RangeInterval[];
@@ -85,7 +67,7 @@ export class VolumeHttpClient {
   private metadataBytes = 0;
   private readonly shardIndex = new Map<string, { bytes: Uint8Array; size: number }>();
   private shardIndexBytes = 0;
-  private _httpFetches = 0;
+  private readonly fetcher = new VolumeHttpFetcher();
   private _coalescedFetches = 0;
   private useCommFallback = false;
 
@@ -95,7 +77,7 @@ export class VolumeHttpClient {
   ) {}
 
   get httpFetches(): number {
-    return this._httpFetches;
+    return this.fetcher.stats.fetches;
   }
 
   get coalescedFetches(): number {
@@ -253,6 +235,9 @@ export class VolumeHttpClient {
     if (this.useCommFallback && this.comm) {
       return this.comm.get(commRel, range);
     }
+    if (this.fetcher.isAbsent(href)) {
+      return Promise.resolve(undefined);
+    }
     if (!range) {
       const hit = this.metadata.get(href);
       if (hit) return Promise.resolve(hit.bytes);
@@ -276,8 +261,7 @@ export class VolumeHttpClient {
 
   private async read(href: string, commRel: string, range?: RangeQuery): Promise<Uint8Array | undefined> {
     try {
-      this._httpFetches++;
-      const bytes = await readHttp(href, range);
+      const bytes = await this.fetcher.fetch(href, range);
       if (range && "suffixLength" in range && bytes) this.cacheShardIndex(href, bytes);
       return bytes;
     } catch (err) {

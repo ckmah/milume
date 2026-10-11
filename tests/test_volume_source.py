@@ -12,6 +12,13 @@ def sdata(tmp_path):
     return toy_spatialdata(tmp_path / "toy.zarr")
 
 
+def test_http_store_root_from_sdata_path_url(sdata):
+    sdata.path = "https://example.com/demo.zarr/"
+    _, src = resolve_volume(sdata)
+    assert src is not None
+    assert src.root == "https://example.com/demo.zarr/"
+
+
 def test_infers_table_labels_image_and_frame(sdata):
     adata, src = resolve_volume(sdata)
     assert adata is sdata.tables["table"]

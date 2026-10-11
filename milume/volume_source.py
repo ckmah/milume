@@ -166,6 +166,12 @@ def resolve_volume(
         warnings.warn("SpatialData is not backed by a Zarr store on disk: no cube", UserWarning, stacklevel=2)
         return adata, None
 
+    # URL mode keys off ``str(sdata.path)`` when it is http(s). spatialdata 0.8 cannot
+    # ``read_zarr`` an http(s) store, so a normal open leaves a local path. Without a new
+    # public API, callers can still enable URL mode by assigning the canonical store URL
+    # after open, e.g. ``sdata.path = "https://…/dataset.zarr/"`` following a local or
+    # fsspec-backed read of the same store.
+
     try:
         voxel, origin, shape = _frame(sdata.images[image_name], cs)
     except ValueError as err:

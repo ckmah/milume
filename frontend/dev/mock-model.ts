@@ -9,11 +9,15 @@ type CommBuffer = ArrayBuffer | DataView;
 type CustomHandler = (msg: unknown, buffers?: CommBuffer[]) => void;
 
 /** Minimal traitlets model for notebook-free dev and Impeccable live. */
+type HarnessMeta = { volume_static_root?: string };
+
 export function createMockModel(
   initial: Record<string, unknown>,
   options: { volumeStaticRoot?: string; fixtureUrl?: string } = {},
 ): AnyModel {
-  const state: Record<string, unknown> = { ...initial };
+  const harness = (initial._harness ?? {}) as HarnessMeta;
+  const { _harness: _drop, ...rest } = initial;
+  const state: Record<string, unknown> = { ...rest };
   const listeners = new Map<string, Set<Listener>>();
   const customHandlers = new Set<CustomHandler>();
   const dirty = new Set<string>();
@@ -37,6 +41,7 @@ export function createMockModel(
   const commStaticRoot = staticRootForFixture(fixtureUrl);
   const volumeStaticRoot =
     options.volumeStaticRoot ??
+    harness.volume_static_root ??
     (isCommVolumeUrl(volume?.image_url ?? "") ? commStaticRoot : "");
 
   async function serveVolumeGet(msg: unknown): Promise<[object, (ArrayBuffer | DataView)[]]> {
