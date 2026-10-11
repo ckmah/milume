@@ -331,6 +331,10 @@ jobs:
         run: npx playwright test -c playwright.marimo.config.ts e2e/marimo/landmarks-inspect.spec.ts -g "non-localhost"
         env:
           CI: true
+      - name: Run marimo molab Pyxa selection e2e
+        run: npx playwright test -c playwright.marimo-pyxa.config.ts e2e/marimo/landmarks-selection-molab.spec.ts e2e/marimo/landmarks-molab-pyxa-shell.spec.ts
+        env:
+          CI: true
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

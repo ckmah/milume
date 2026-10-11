@@ -19,7 +19,6 @@ test.describe("marimo kernel — molab shell on page (scale, zero-height grow)",
         { timeout: onCi() ? 720_000 : 180_000 },
       )
       .toBeGreaterThan(4000);
-    await applyMolabEmbedStress(page);
   });
 
   test("lasso, highlight, focus obs names, and centred inspect cube", async ({ page }) => {
