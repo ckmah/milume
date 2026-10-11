@@ -36,6 +36,31 @@ export async function canvasBox(page: Page) {
   return box!;
 }
 
+/** Molab-like embed: scaled widget + picking-canvas leave stub mid-stroke. */
+export async function applyMolabEmbedStress(page: Page) {
+  await page.evaluate(() => {
+    const root = document.querySelector(".landmarks") as HTMLElement | null;
+    if (root) {
+      root.style.transform = "scale(0.88)";
+      root.style.transformOrigin = "center center";
+    }
+  });
+  await page.evaluate(() => {
+    (window as any).__molabPickingLeaveHook = () => {
+      const canvas = document.querySelector("canvas.landmarks__webgl");
+      let foreign = document.getElementById("deck-picking-swap-stub");
+      if (!foreign) {
+        foreign = document.createElement("canvas");
+        foreign.id = "deck-picking-swap-stub";
+        document.body.appendChild(foreign);
+      }
+      canvas?.dispatchEvent(
+        new MouseEvent("mouseleave", { bubbles: true, relatedTarget: foreign }),
+      );
+    };
+  });
+}
+
 /** Closed lasso stroke on the map (page.mouse, molab-style). */
 export async function drawLasso(page: Page, box: { x: number; y: number; width: number; height: number }) {
   const canvas = page.locator("canvas.landmarks__webgl, canvas").first();
@@ -54,9 +79,31 @@ export async function drawLasso(page: Page, box: { x: number; y: number; width: 
   await page.mouse.down();
   const steps = 16;
   for (let i = 0; i <= steps; i++) {
+    if (i === 4) {
+      await page.evaluate(() => (window as any).__molabPickingLeaveHook?.());
+    }
     const a = (i / steps) * Math.PI * 2;
     await page.mouse.move(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, { steps: 3 });
   }
+  await page.mouse.up();
+}
+
+/** Axis-aligned rectangle drag (Square tool). */
+export async function drawRectangle(
+  page: Page,
+  box: { x: number; y: number; width: number; height: number },
+) {
+  await page.getByRole("button", { name: /Lasso\. Right-click for shape menu/ }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: /^Square\b/ }).click();
+  await expect.poll(() => getModel(page, "mode"), { timeout: onCi() ? 60_000 : 15_000 }).toBe("rectangle");
+
+  const x0 = box.x + box.width * 0.28;
+  const y0 = box.y + box.height * 0.28;
+  const x1 = box.x + box.width * 0.72;
+  const y1 = box.y + box.height * 0.72;
+  await page.mouse.move(x0, y0);
+  await page.mouse.down();
+  await page.mouse.move(x1, y1, { steps: 8 });
   await page.mouse.up();
 }
 

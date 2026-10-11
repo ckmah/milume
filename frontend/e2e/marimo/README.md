@@ -25,4 +25,6 @@ Fast local loop (toy SpatialData, not the Pyxa demo):
 E2E_MARIMO_NOTEBOOK=frontend/e2e/marimo/fixtures/toy-landmarks.marimo.py npm run test:e2e:marimo-volume
 ```
 
-Specs: `landmarks-inspect.spec.ts` (volume comm), `landmarks-selection.spec.ts` (lasso + select click).
+Specs: `landmarks-inspect.spec.ts` (volume comm), `landmarks-selection.spec.ts` (lasso + select click),
+`landmarks-selection-molab.spec.ts` (Pyxa `small/` ~4.3k cells, CSS scale, DPR 2, picking `mouseleave` stub;
+`playwright.marimo-pyxa.config.ts`).
