@@ -28,6 +28,8 @@ for dest in "${WEBSITE}/content/assets/logo" "${WEBSITE}/landing/assets/logo"; d
     "${LOGO_SRC}/favicon.ico" \
     "${LOGO_SRC}/milume-icon-light.svg" \
     "${LOGO_SRC}/milume-icon-dark.svg" \
+    "${LOGO_SRC}/wordmark-light.svg" \
+    "${LOGO_SRC}/wordmark-dark.svg" \
     "${dest}/"
 done
 

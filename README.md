@@ -1,8 +1,10 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/ckmah/milume/main/assets/logo/milume-mark.svg" width="128" alt="Milume logo" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/wordmark-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="assets/logo/wordmark-light.svg" />
+    <img src="assets/logo/wordmark-light.svg" width="280" alt="milume" />
+  </picture>
 </p>
-
-# milume
 
 **A thinking surface for spatial omics.**
 

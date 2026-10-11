@@ -2,6 +2,7 @@
 :root {
   --srx-phosphor: #5ec4a8;
   --srx-phosphor-ink: #06241c;
+  --milume-display: "Cabin Sketch", "Segoe UI", sans-serif;
 }
 
 [data-md-color-scheme="default"] {
@@ -16,6 +17,19 @@
 
 .md-header__topic .md-ellipsis,
 .md-nav__title .md-ellipsis {
+  font-family: var(--milume-display);
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+/* Docs home: product name + tagline (body headings stay IBM Plex Sans). */
+.md-typeset > h1:first-child {
+  font-family: var(--milume-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.md-typeset > h1:first-child + p > strong:only-child {
+  font-family: var(--milume-display);
+  font-weight: 700;
 }

@@ -12,7 +12,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600&family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&family=Unbounded:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Cabin+Sketch:wght@700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap"
       rel="stylesheet"
     />
     <link rel="stylesheet" href="styles.css" />
@@ -24,14 +24,23 @@
 
     <header class="site-header">
       <a class="wordmark" href="./">
-        <img
-          class="wordmark-mark"
-          src="assets/logo/milume-mark.svg"
-          alt=""
-          width="28"
-          height="28"
-        />
-        milume
+        <picture>
+          <source
+            media="(prefers-color-scheme: dark)"
+            srcset="assets/logo/wordmark-dark.svg"
+          />
+          <source
+            media="(prefers-color-scheme: light)"
+            srcset="assets/logo/wordmark-light.svg"
+          />
+          <img
+            class="wordmark-img"
+            src="assets/logo/wordmark-dark.svg"
+            alt="milume"
+            width="112"
+            height="28"
+          />
+        </picture>
       </a>
       <nav class="site-nav" aria-label="Primary">
         <a href="docs/">Docs</a>
@@ -59,7 +68,25 @@
         </div>
 
         <div class="hero-copy">
-          <p class="brand">milume</p>
+          <p class="brand">
+            <picture>
+              <source
+                media="(prefers-color-scheme: dark)"
+                srcset="assets/logo/wordmark-dark.svg"
+              />
+              <source
+                media="(prefers-color-scheme: light)"
+                srcset="assets/logo/wordmark-light.svg"
+              />
+              <img
+                class="brand-wordmark"
+                src="assets/logo/wordmark-dark.svg"
+                alt="milume"
+                width="280"
+                height="69"
+              />
+            </picture>
+          </p>
           <h1>A thinking surface for spatial omics.</h1>
           <p class="lede">
             Layer images, cells, and transcripts in one reactive notebook widget.
@@ -100,7 +127,15 @@
 
     <footer class="site-footer">
       <p>
-        <a class="wordmark" href="./">milume</a>
+        <a class="wordmark" href="./">
+          <img
+            class="wordmark-img wordmark-img--footer"
+            src="assets/logo/wordmark-dark.svg"
+            alt="milume"
+            width="84"
+            height="21"
+          />
+        </a>
         · MIT ·
         <a href="docs/">Documentation</a>
         ·
