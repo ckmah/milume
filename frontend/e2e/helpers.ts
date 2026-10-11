@@ -110,6 +110,41 @@ export async function canvasBox(page: Page) {
   return box!;
 }
 
+/** molab-style CSS scale on the landmarks root (layout size unchanged). */
+export async function applyMolabViewportStress(page: Page) {
+  await page.evaluate(() => {
+    const root = document.querySelector(".landmarks") as HTMLElement | null;
+    if (!root) return;
+    root.style.transform = "scale(0.88)";
+    root.style.transformOrigin = "center center";
+  });
+  await page.evaluate(() => (window as any).__landmarksEngine?.resize?.());
+}
+
+/** Cell output that mounts at zero height then expands (marimo / iframe layout). */
+export async function growLandmarksFromZeroHeight(page: Page, openHeightPx = 560) {
+  await page.evaluate(() => {
+    const widget = document.querySelector(".landmarks") as HTMLElement | null;
+    if (!widget?.parentElement) return;
+    let shell = document.getElementById("molab-deferred-shell");
+    if (!shell) {
+      shell = document.createElement("div");
+      shell.id = "molab-deferred-shell";
+      widget.parentElement.insertBefore(shell, widget);
+      shell.appendChild(widget);
+    }
+    shell.style.height = "0";
+    shell.style.overflow = "hidden";
+  });
+  await page.waitForTimeout(100);
+  await page.evaluate((h) => {
+    const shell = document.getElementById("molab-deferred-shell");
+    if (shell) shell.style.height = `${h}px`;
+  }, openHeightPx);
+  await page.waitForTimeout(250);
+  await page.evaluate(() => (window as any).__landmarksEngine?.resize?.());
+}
+
 export async function bootLandmarksHarness(page: Page) {
   const isWarm = await page
     .evaluate(() => typeof (window as any).__harnessReset === "function")

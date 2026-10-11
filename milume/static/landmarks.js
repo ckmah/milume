@@ -2689,9 +2689,20 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     if (deckgl) deckgl.setProps({ controller: controllerProps() });
   }
 
+  function plotLayoutPixels() {
+    const rect = main.getBoundingClientRect();
+    const layoutW = main.clientWidth || rect.width || 0;
+    const layoutH = main.clientHeight || rect.height || 0;
+    if (!(layoutW > 0 && layoutH > 0)) return null;
+    const w = Math.max(1, Math.round(layoutW));
+    const h = Math.max(1, Math.round(layoutH));
+    return { w, h };
+  }
+
   function syncCanvasBuffer() {
-    const w = Math.max(1, Math.round(main.clientWidth || 1));
-    const h = Math.max(1, Math.round(main.clientHeight || 1));
+    const layout = plotLayoutPixels();
+    const w = layout?.w ?? Math.max(1, Math.round(main.clientWidth || 1));
+    const h = layout?.h ?? Math.max(1, Math.round(main.clientHeight || 1));
     plotW = w;
     plotH = h;
     if (deckgl) deckgl.setProps({ width: w, height: h, useDevicePixels: true });
@@ -4948,14 +4959,36 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     }
     const hood = neighborhoodFor(focus);
     if (!hood || hood.neighborhood === "off") {
-      // Hide neighborhood chrome but keep focusGeomCache so hood off→on with the same
-      // seeds reuses neighbor indices / edge geometry instead of rebuilding PathLayer data.
-      pointRoles = null;
-      pointRoleMode = false;
+      const pointsKey = pointsCache.key || `${pts.length}`;
+      const typeIx = focus.kind === "type" ? typeFocusIndices(model) : [];
+      const focusIndexKey =
+        focus.kind === "type"
+          ? hashSeedIndices(typeIx.length ? typeIx : [focus.index])
+          : focus.index;
+      const cacheKey = `seeds-only:${pointsKey}:${focus.kind}:${focusIndexKey}:${hashSeedIndices(seeds)}`;
+      if (focusGeomCache.key === cacheKey && focusGeomCache.pointRoles) {
+        pointRoles = focusGeomCache.pointRoles;
+        pointRoleMode = true;
+        hoodEdges = [];
+        hoodKnnEdgeLinesDrawn = false;
+        hoodRadiusBake = null;
+        hoodRadiusGradient = null;
+        syncScatterRoleAttributes();
+        return;
+      }
+      pointRoles = new Uint8Array(pts.length);
+      pointRoleMode = true;
+      for (const i of seeds) pointRoles[i] = SEED_ROLE;
       hoodEdges = [];
       hoodKnnEdgeLinesDrawn = false;
       hoodRadiusBake = null;
       hoodRadiusGradient = null;
+      focusGeomCache = {
+        key: cacheKey,
+        pointRoles,
+        hoodEdges: [],
+        knnEdgeLinesDrawn: false,
+      };
       syncScatterRoleAttributes();
       return;
     }
@@ -6656,6 +6689,12 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       schedulePointFillColorsBuild();
       resizeObserver = new ResizeObserver(() => resizeDeck());
       resizeObserver.observe(main);
+      if (host !== main) resizeObserver.observe(host);
+      const visibilityObserver = new IntersectionObserver((entries) => {
+        if (entries.some((e) => e.isIntersecting)) resizeDeck();
+      });
+      visibilityObserver.observe(main);
+      abort.signal.addEventListener("abort", () => visibilityObserver.disconnect());
     });
   };
   startRaf = requestAnimationFrame(start);
@@ -6955,6 +6994,24 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         vertexCount: draft.length,
         lineStrokeActive: Boolean(lineStrokeActive),
         hasCursor: draftCursor != null,
+      };
+    },
+    getSelectionGesture() {
+      return {
+        isLassoing,
+        lassoPathLength: lassoPath.length,
+        isBoxing,
+      };
+    },
+    getPlotSurfaceSize() {
+      const rect = webglCanvas?.getBoundingClientRect();
+      return {
+        plotW,
+        plotH,
+        canvasClientW: webglCanvas?.clientWidth ?? 0,
+        canvasClientH: webglCanvas?.clientHeight ?? 0,
+        rectW: rect?.width ?? 0,
+        rectH: rect?.height ?? 0,
       };
     },
     subscribeHover: (fn) => {

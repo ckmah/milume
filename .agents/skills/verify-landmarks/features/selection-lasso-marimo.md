@@ -8,3 +8,5 @@
 ## Regression
 
 Deck picking-buffer swaps can fire `mouseleave` on the WebGL canvas with a `relatedTarget` outside the widget while the pointer is still on the plot. Long lasso drags must not clear `isLassoing` until window-capture `mouseup`; CSS-scaled hosts must map pointer coords through `clientWidth` / `getBoundingClientRect().width` before `viewport.unproject`.
+
+Focused selections with `neighborhood: "off"` still get seed point-role emphasis (`prepareFocusGeom` seeds-only path). Deferred zero-height mounts must resize the plot (`IntersectionObserver` + host `ResizeObserver`) so draft overlays and scatter highlights render. Volume cube framing must use the host's real `getBoundingClientRect` size (not inflated preview floors) and re-home zoom when the viewport grows (`landmarks-volume.spec.ts` centre signal test).

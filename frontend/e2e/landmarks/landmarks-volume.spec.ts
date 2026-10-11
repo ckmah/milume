@@ -779,6 +779,52 @@ test.describe("Landmarks inspect cube", () => {
     await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "true");
   });
 
+  test("inspect cube reframes after the view grows from zero height (top view signal at centre)", async ({
+    page,
+  }) => {
+    await openCubeAtCentre(page);
+    await page.evaluate(() => {
+      const view = document.querySelector(
+        '[role="dialog"][aria-label="Cube"] .volume-cube__view',
+      ) as HTMLElement | null;
+      const host = view?.parentElement;
+      if (!host) return;
+      host.style.height = "0";
+      host.style.overflow = "hidden";
+    });
+    await page.waitForTimeout(120);
+    await page.evaluate(() => {
+      const view = document.querySelector(
+        '[role="dialog"][aria-label="Cube"] .volume-cube__view',
+      ) as HTMLElement | null;
+      const host = view?.parentElement;
+      if (!host) return;
+      host.style.height = "480px";
+      host.style.overflow = "visible";
+    });
+    await page.waitForTimeout(400);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await page.getByTestId("context-inspect-toolbar").getByRole("radio", { name: "Top view" }).click();
+    await expect.poll(async () => Number(await view.getAttribute("data-viewport-w"))).toBeGreaterThan(120);
+    const signal = await page.evaluate(() => {
+      const root = document.querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view');
+      const canvas = root?.querySelector("canvas") as HTMLCanvasElement | null;
+      const gl = canvas?.getContext("webgl2") ?? canvas?.getContext("webgl");
+      if (!gl || !canvas) return { ok: false as const, centerLum: 0, edgeLum: 0 };
+      const w = canvas.width;
+      const h = canvas.height;
+      const center = new Uint8Array(4);
+      gl.readPixels(Math.floor(w / 2), Math.floor(h / 2), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, center);
+      const edge = new Uint8Array(4);
+      gl.readPixels(4, 4, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, edge);
+      const lum = (px: Uint8Array) => 0.299 * px[0]! + 0.587 * px[1]! + 0.114 * px[2]!;
+      return { ok: true as const, centerLum: lum(center), edgeLum: lum(edge) };
+    });
+    expect(signal.ok).toBe(true);
+    expect(signal.centerLum).toBeGreaterThan(12);
+    expect(signal.centerLum).toBeGreaterThan(signal.edgeLum * 0.35);
+  });
+
   test("a palette change before placing reaches the hover preview, then the dock", async ({ page }) => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     // The palette lives in Adjust, which opens before any window is placed.
