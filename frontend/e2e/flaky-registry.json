@@ -1,0 +1,11 @@
+{
+  "tests": [
+    {
+      "file": "e2e/landmarks/landmarks-volume.spec.ts",
+      "title": "partial X and Y cuts keep their place in a moved window; open edges stay open",
+      "owner": "@ckmah",
+      "mitigation": "moveWindow waits for data-refining=false after reopen; run via Playwright webServer only",
+      "incident": "bc-fb7104a0 (#121): 33 local reruns, 16 timeouts, 15 ERR_CONNECTION_REFUSED"
+    }
+  ]
+}

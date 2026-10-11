@@ -70,7 +70,12 @@ export default defineConfig({
   }],
   webServer: {
     command: webServerCommand,
-    url: "http://127.0.0.1:5173",
+    // Volume harness serves fixture.json only when Vite is fully up; avoids ERR_CONNECTION_REFUSED
+    // from agents running `npx playwright` while dev:landmarks-volume is still booting.
+    url:
+      harness === "landmarks-volume"
+        ? "http://127.0.0.1:5173/fixture.json"
+        : "http://127.0.0.1:5173",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

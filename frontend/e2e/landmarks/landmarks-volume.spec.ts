@@ -391,6 +391,7 @@ async function moveWindow(page: Page, box: Box, from: [number, number], to: [num
   }
   await dragOnMap(page, box, from, to);
   await expect(cubeWindow(page)).toBeVisible();
+  await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-refining", "false");
 }
 
 /** The canvas point over a map point (µm), from the engine's orthographic view state. */
