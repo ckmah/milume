@@ -36,6 +36,31 @@ test.describe("milume hero WebGL", () => {
     await expect(root.locator("canvas.milume-hero__canvas")).toHaveAttribute("hidden", "");
   });
 
+  test("visible point count is stable across one camera loop", async ({ page }) => {
+    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.setTime);
+    const loopSec = 11;
+    const samples = 24;
+    const counts = await page.evaluate(
+      ({ loopSec, samples }) => {
+        const h = window.__milumeHeroHandles?.[0];
+        if (!h?.setTime || !h.getVisiblePointCount) return [];
+        const out: number[] = [];
+        for (let i = 0; i < samples; i++) {
+          const t = (i / samples) * loopSec;
+          h.setTime(t);
+          out.push(h.getVisiblePointCount());
+        }
+        return out;
+      },
+      { loopSec, samples },
+    );
+    expect(counts.length).toBe(samples);
+    expect(counts.every((n) => n > 0)).toBe(true);
+    const unique = new Set(counts);
+    expect(unique.size).toBe(1);
+  });
+
   test("pauses when off screen", async ({ page }) => {
     await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
     const root = page.locator("[data-milume-hero]").first();
@@ -52,6 +77,11 @@ test.describe("milume hero WebGL", () => {
 
 declare global {
   interface Window {
-    __milumeHeroHandles?: Array<{ getFrameId?: () => number; isPaused?: () => boolean }>;
+    __milumeHeroHandles?: Array<{
+      getFrameId?: () => number;
+      isPaused?: () => boolean;
+      setTime?: (t: number) => void;
+      getVisiblePointCount?: () => number;
+    }>;
   }
 }
