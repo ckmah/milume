@@ -1,5 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
+import { drawLassoStroke, type LassoStrokeOptions } from "../helpers";
+
 export function onCi(): boolean {
   return Boolean(process.env.CI);
 }
@@ -61,31 +63,18 @@ export async function applyMolabEmbedStress(page: Page) {
   });
 }
 
-/** Closed lasso stroke on the map (page.mouse, molab-style). */
-export async function drawLasso(page: Page, box: { x: number; y: number; width: number; height: number }) {
+/** Closed lasso stroke on the map (page.mouse, molab-style ~3 s circle). */
+export async function drawLasso(
+  page: Page,
+  box: { x: number; y: number; width: number; height: number },
+  strokeOpts: LassoStrokeOptions = {},
+) {
   const canvas = page.locator("canvas.landmarks__webgl, canvas").first();
   await page.getByRole("button", { name: "Reset view" }).click({ timeout: 15_000 }).catch(() => undefined);
   await canvas.click({ position: { x: Math.round(box.width * 0.5), y: Math.round(box.height * 0.5) } });
   await page.keyboard.press("l");
   await expect.poll(() => getModel(page, "mode"), { timeout: onCi() ? 60_000 : 15_000 }).toBe("lasso");
-
-  const inset = 0.1;
-  const cx = box.x + box.width * 0.5;
-  const cy = box.y + box.height * 0.5;
-  const rx = box.width * (0.5 - inset);
-  const ry = box.height * (0.5 - inset);
-
-  await page.mouse.move(cx + rx, cy);
-  await page.mouse.down();
-  const steps = 16;
-  for (let i = 0; i <= steps; i++) {
-    if (i === 4) {
-      await page.evaluate(() => (window as any).__molabPickingLeaveHook?.());
-    }
-    const a = (i / steps) * Math.PI * 2;
-    await page.mouse.move(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, { steps: 3 });
-  }
-  await page.mouse.up();
+  await drawLassoStroke(page, box, { pickingLeaveAtStep: Math.floor((strokeOpts.steps ?? 96) * 0.04), ...strokeOpts });
 }
 
 /** Axis-aligned rectangle drag (Square tool). */
@@ -242,4 +231,3 @@ export async function evalInIframe<T>(page: Page, fn: string): Promise<T> {
     { sel: MARIMO_IFRAME_SELECTOR, body: fn },
   );
 }
-

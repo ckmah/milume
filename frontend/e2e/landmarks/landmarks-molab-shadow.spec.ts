@@ -3,6 +3,7 @@ import { expect, test } from "../fixtures";
 import {
   applyMolabShadowEmbed,
   bootLandmarksHarness,
+  drawLassoStroke,
   getModel,
   molabPickingCanvasBox,
   setModel,
@@ -30,29 +31,25 @@ test.describe("molab anywidget stress (scrolled page, shadow-host leave, CSS sca
     await expect.poll(() => getModel(page, "mode")).toBe("lasso");
     await page.locator("canvas#deck-picking-stub").first().scrollIntoViewIfNeeded();
     const box = await molabPickingCanvasBox(page);
-    const cx = box.x + box.width * 0.5;
-    const cy = box.y + box.height * 0.5;
-    const r = Math.min(box.width, box.height) * 0.24;
-
-    await page.mouse.move(cx + r, cy);
-    await page.mouse.down();
-    await page.evaluate(() => (window as any).__molabPickingLeaveHook?.());
-    await expect
-      .poll(async () => {
-        const g = await page.evaluate(() =>
-          (window as any).__landmarksEngine.getSelectionGesture(),
-        );
-        return g.isLassoing as boolean;
-      })
-      .toBe(true);
-    for (let i = 0; i <= 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r, { steps: 2 });
-    }
-    const mid = await page.evaluate(() => (window as any).__landmarksEngine.getSelectionGesture());
-    expect(mid.isLassoing).toBe(true);
-    expect(mid.lassoPathLength).toBeGreaterThan(2);
-    await page.mouse.up();
+    await drawLassoStroke(page, box, {
+      inset: 0.14,
+      afterPress: async () => {
+        await page.evaluate(() => (window as any).__molabPickingLeaveHook?.());
+        await expect
+          .poll(async () => {
+            const g = await page.evaluate(() =>
+              (window as any).__landmarksEngine.getSelectionGesture(),
+            );
+            return g.isLassoing as boolean;
+          })
+          .toBe(true);
+      },
+      beforeRelease: async () => {
+        const mid = await page.evaluate(() => (window as any).__landmarksEngine.getSelectionGesture());
+        expect(mid.isLassoing).toBe(true);
+        expect(mid.lassoPathLength).toBeGreaterThan(2);
+      },
+    });
     await expect
       .poll(async () => ((await getModel(page, "selections")) as unknown[])?.length ?? 0)
       .toBeGreaterThan(before);
