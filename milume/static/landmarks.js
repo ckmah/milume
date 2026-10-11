@@ -455,6 +455,13 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   let hoodEdges = [];
   let hoodKnnEdgeLinesDrawn = false;
   let focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
+  /** Full neighborhood bake kept when toggling hood off so on→off→on with same seeds can reuse. */
+  let focusGeomCacheHoodStash = {
+    key: "",
+    pointRoles: null,
+    hoodEdges: [],
+    knnEdgeLinesDrawn: false,
+  };
   let hoodRadiusBake = null; // { key, dist, w, h, bounds, seedCount, textureSize, rMax }
   let hoodRadiusGradient = null; // remapped view { key, image, bounds, seedCount, textureSize, radius, bakeRMax }
   let zoomBy = () => { };
@@ -4936,6 +4943,12 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const focus = cellLayerFocus();
     if (!focus) {
       focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
+      focusGeomCacheHoodStash = {
+        key: "",
+        pointRoles: null,
+        hoodEdges: [],
+        knnEdgeLinesDrawn: false,
+      };
       pointRoles = null;
       pointRoleMode = false;
       hoodEdges = [];
@@ -4965,6 +4978,13 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         focus.kind === "type"
           ? hashSeedIndices(typeIx.length ? typeIx : [focus.index])
           : focus.index;
+      if (
+        focusGeomCache.key &&
+        !focusGeomCache.key.startsWith("seeds-only:") &&
+        focusGeomCache.pointRoles
+      ) {
+        focusGeomCacheHoodStash = focusGeomCache;
+      }
       const cacheKey = `seeds-only:${pointsKey}:${focus.kind}:${focusIndexKey}:${hashSeedIndices(seeds)}`;
       if (focusGeomCache.key === cacheKey && focusGeomCache.pointRoles) {
         pointRoles = focusGeomCache.pointRoles;
@@ -5013,6 +5033,20 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       seedHash: hashSeedIndices(seeds),
     });
     if (focusGeomCache.key === cacheKey && focusGeomCache.pointRoles) {
+      pointRoles = focusGeomCache.pointRoles;
+      pointRoleMode = true;
+      hoodEdges = focusGeomCache.hoodEdges;
+      hoodKnnEdgeLinesDrawn = focusGeomCache.knnEdgeLinesDrawn;
+      if (hood.neighborhood === "radius" && r > 0 && rMax > 0) {
+        ensureRadiusGradient(pts, seeds, r, rMax);
+      }
+      const tSync = performance.now();
+      syncScatterRoleAttributes();
+      lastDeckBuildProfile.roleScatterSyncMs = performance.now() - tSync;
+      return;
+    }
+    if (focusGeomCacheHoodStash.key === cacheKey && focusGeomCacheHoodStash.pointRoles) {
+      focusGeomCache = focusGeomCacheHoodStash;
       pointRoles = focusGeomCache.pointRoles;
       pointRoleMode = true;
       hoodEdges = focusGeomCache.hoodEdges;
@@ -5074,6 +5108,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       hoodEdges,
       knnEdgeLinesDrawn: hoodKnnEdgeLinesDrawn,
     };
+    focusGeomCacheHoodStash = focusGeomCache;
     const tSync = performance.now();
     syncScatterRoleAttributes();
     lastDeckBuildProfile.roleScatterSyncMs = performance.now() - tSync;
