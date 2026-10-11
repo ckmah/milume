@@ -18,6 +18,11 @@ test.describe("marimo kernel — molab iframe shell (scale, zero-height grow)", 
 
     await gotoMolabIframeShell(page, baseURL!);
     const frame = await marimoEmbedFrame(page);
+    await expect
+      .poll(async () => await frame.locator('[data-testid="marimo-focus-count"]').count(), {
+        timeout: onCi() ? 720_000 : 420_000,
+      })
+      .toBeGreaterThan(0);
     await waitForLandmarksWidgetFrame(frame);
 
     await expect

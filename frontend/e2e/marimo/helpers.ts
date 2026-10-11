@@ -133,11 +133,7 @@ export const MARIMO_IFRAME_SELECTOR = 'iframe[data-testid="molab-marimo-frame"]'
 /** Molab-like outer shell: CSS scale on the iframe holder and zero-height grow-in. */
 export async function gotoMolabIframeShell(page: Page, baseURL: string) {
   const marimoUrl = baseURL.endsWith("/") ? baseURL : `${baseURL}/`;
-  const shellPath = "molab-iframe-shell.html";
-  await page.route(`**/${shellPath}`, (route) => {
-    route.fulfill({
-      contentType: "text/html; charset=utf-8",
-      body: `<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><title>molab iframe shell</title>
 <style>
@@ -156,10 +152,10 @@ export async function gotoMolabIframeShell(page: Page, baseURL: string) {
   <script>
     requestAnimationFrame(() => setTimeout(() => document.getElementById("holder").classList.add("ready"), 100));
   </script>
-</body></html>`,
-    });
-  });
-  await page.goto(`${marimoUrl}${shellPath}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
+</body></html>`;
+  await page.goto("about:blank");
+  await page.setContent(html, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => document.getElementById("holder")?.classList.contains("ready"));
 }
 
 export async function marimoEmbedFrame(page: Page): Promise<Frame> {
