@@ -163,12 +163,7 @@ export async function gotoMolabIframeShell(page: Page, baseURL: string) {
   const origin = baseURL.replace(/\/$/, "");
   const shellUrl = `${origin}${molabShellPath}`;
   await page.route(`**${molabShellPath}**`, async (route) => {
-    const req = route.request();
-    if (req.isNavigationRequest() && req.url().includes(molabShellPath)) {
-      await route.fulfill({ contentType: "text/html; charset=utf-8", body: molabIframeShellHtml() });
-      return;
-    }
-    await route.continue();
+    await route.fulfill({ contentType: "text/html; charset=utf-8", body: molabIframeShellHtml() });
   });
   await page.goto(shellUrl, { waitUntil: "domcontentloaded", timeout: 120_000 });
   await page.waitForFunction(() => document.getElementById("holder")?.classList.contains("ready"));
@@ -177,19 +172,15 @@ export async function gotoMolabIframeShell(page: Page, baseURL: string) {
 export async function marimoEmbedFrame(page: Page): Promise<Frame> {
   const el = page.locator(MARIMO_IFRAME_SELECTOR);
   await el.waitFor({ state: "attached", timeout: 120_000 });
-  const frame = await el.contentFrame();
-  expect(frame).toBeTruthy();
-  await frame!.waitForURL(
-    (url) => {
-      try {
-        const path = new URL(url).pathname;
-        return path === "/" || path === "";
-      } catch {
-        return false;
-      }
-    },
-    { timeout: onCi() ? 720_000 : 420_000 },
-  );
+  let frame: Frame | null = null;
+  await expect
+    .poll(async () => {
+      frame = await el.contentFrame();
+      if (!frame) return false;
+      const path = await frame.evaluate(() => window.location.pathname);
+      return path === "/" || path === "";
+    }, { timeout: onCi() ? 720_000 : 420_000 })
+    .toBe(true);
   return frame!;
 }
 
