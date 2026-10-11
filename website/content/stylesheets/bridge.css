@@ -22,14 +22,14 @@
   letter-spacing: -0.02em;
 }
 
-/* Docs home: product name + tagline (body headings stay IBM Plex Sans). */
-.md-typeset > h1:first-child {
+/* Docs home: product name + tagline (skip link is first child of .md-typeset). */
+.md-content__inner.md-typeset > h1#milume {
   font-family: var(--milume-display);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.md-typeset > h1:first-child + p > strong:only-child {
+.md-content__inner.md-typeset > h1#milume + p > strong {
   font-family: var(--milume-display);
   font-weight: 700;
 }
