@@ -59,11 +59,10 @@ function LandmarksVolumeHarness() {
       resetModeDropdownMemory();
       setModel(null);
       setOptions(optionsFrom(query));
-      const fixture = new URLSearchParams(query).get("fixture");
       await new Promise<void>((resolve) =>
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       );
-      setModel(await loadFixtureModel(fixture ?? undefined));
+      setModel(await loadFixtureModel());
     };
     return () => {
       delete (window as unknown as { __harnessReset?: unknown }).__harnessReset;
