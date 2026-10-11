@@ -985,6 +985,10 @@ export function VolumeCube({
     }
     return [orbitViewRef.current];
   }, [interactive]);
+  // useFixedAxis orbits `view.target` and discards viewState.target. The cut
+  // plates project aimTarget on their own, so the view has to carry the same
+  // point or the volume stays on the origin while the plates sit on the box.
+  if (orbitViewRef.current) orbitViewRef.current.target = aimTarget;
   const onRenderedRef = useLatest(onRendered);
   const deckProps = useMemo(
     () => ({

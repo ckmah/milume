@@ -20,6 +20,7 @@ export class ChunkCache {
   private readonly entries = new Map<string, { chunk: Promise<Chunk>; bytes: number }>();
   private readonly queue: { arr: AnyArray; coords: number[] }[] = [];
   private running = 0;
+  private pauseDepth = 0;
   private paused = false;
   bytes = 0;
   hits = 0;
@@ -81,12 +82,22 @@ export class ChunkCache {
   }
 
   pause(): void {
+    this.pauseDepth++;
     this.paused = true;
+    // Drop queued prefetch. In-flight reads still finish, but a window change
+    // must not wait behind the rest of a level on a high-latency comm.
+    this.clearQueue();
   }
 
   resume(): void {
-    this.paused = false;
-    this.pump();
+    this.pauseDepth = Math.max(0, this.pauseDepth - 1);
+    this.paused = this.pauseDepth > 0;
+    if (this.paused) return;
+    // A replacement load pauses again in the same turn. Pumping now would
+    // start a prefetch chunk ahead of that load.
+    queueMicrotask(() => {
+      if (!this.paused) this.pump();
+    });
   }
 
   clearQueue(): void {
