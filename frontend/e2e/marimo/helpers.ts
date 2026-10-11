@@ -1,4 +1,4 @@
-import { expect, type Frame, type Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 export function onCi(): boolean {
   return Boolean(process.env.CI);
@@ -161,8 +161,40 @@ export async function gotoMolabIframeShell(page: Page, baseURL: string) {
   await page.goto(shellUrl, { waitUntil: "domcontentloaded", timeout: 120_000 });
 }
 
+export function marimoIframeWidget(page: Page) {
+  return page.frameLocator(MARIMO_IFRAME_SELECTOR);
+}
+
+/** Wait until the Pyxa landmarks widget is live inside the marimo iframe. */
+export async function waitForLandmarksWidgetInIframe(page: Page) {
+  await page.locator(MARIMO_IFRAME_SELECTOR).waitFor({ state: "attached", timeout: 120_000 });
+  const widget = marimoIframeWidget(page);
+  await widget.locator("canvas.landmarks__webgl, canvas").first().waitFor({
+    state: "visible",
+    timeout: onCi() ? 720_000 : 420_000,
+  });
+  await page.waitForFunction(
+    (sel) => {
+      const win = (document.querySelector(sel) as HTMLIFrameElement | null)?.contentWindow as any;
+      const vs = win?.__landmarksEngine?.getViewState?.();
+      return Boolean(vs && Number.isFinite(vs.zoom));
+    },
+    MARIMO_IFRAME_SELECTOR,
+    { timeout: onCi() ? 720_000 : 420_000 },
+  );
+  await page.waitForFunction(
+    (sel) => {
+      const win = (document.querySelector(sel) as HTMLIFrameElement | null)?.contentWindow as any;
+      return (win?.__landmarksEngine?.getPoints?.()?.length ?? 0) > 4000;
+    },
+    MARIMO_IFRAME_SELECTOR,
+    { timeout: onCi() ? 720_000 : 180_000 },
+  );
+  await page.waitForTimeout(400);
+}
+
 /** Collapse and re-expand the iframe holder (molab cell zero-height reflow). */
-export async function pulseMolabIframeReflow(page: Page, frame: Frame) {
+export async function pulseMolabIframeReflow(page: Page) {
   await page.evaluate(() => {
     const holder = document.getElementById("holder");
     if (!holder) return;
@@ -176,94 +208,38 @@ export async function pulseMolabIframeReflow(page: Page, frame: Frame) {
     holder.style.height = "760px";
     holder.style.overflow = "visible";
   });
-  await frame.evaluate(() => window.dispatchEvent(new Event("resize")));
+  await page.evaluate((sel) => {
+    const win = (document.querySelector(sel) as HTMLIFrameElement | null)?.contentWindow;
+    win?.dispatchEvent(new Event("resize"));
+  }, MARIMO_IFRAME_SELECTOR);
   await page.waitForTimeout(400);
 }
 
-function marimoChildFrame(page: Page): Frame | undefined {
-  return page.frames().find((f) => {
-    if (f.parentFrame() !== page.mainFrame()) return false;
-    try {
-      const path = new URL(f.url()).pathname;
-      return path === "/" || path === "";
-    } catch {
-      return false;
-    }
-  });
-}
-
-export async function marimoEmbedFrame(page: Page): Promise<Frame> {
-  await page.locator(MARIMO_IFRAME_SELECTOR).waitFor({ state: "attached", timeout: 120_000 });
-  let frame: Frame | undefined;
-  await expect
-    .poll(() => {
-      frame = marimoChildFrame(page);
-      return frame !== undefined;
-    }, { timeout: onCi() ? 720_000 : 420_000 })
-    .toBe(true);
-  return frame!;
-}
-
-export async function waitForLandmarksWidgetFrame(frame: Frame) {
-  const canvas = frame.locator("canvas.landmarks__webgl, canvas").first();
-  await canvas.waitFor({ state: "visible", timeout: onCi() ? 720_000 : 420_000 });
-  await frame.waitForFunction(() => {
-    const eng = (window as any).__landmarksEngine;
-    const vs = eng?.getViewState?.();
-    return Boolean(vs && Number.isFinite(vs.zoom));
-  });
-  await frame.waitForFunction(
-    () => {
-      const eng = (window as any).__landmarksEngine;
-      return (eng?.getPoints?.()?.length ?? 0) > 0;
+export async function getModelInIframe(page: Page, key: string) {
+  return page.evaluate(
+    ({ sel, k }) => {
+      const win = (document.querySelector(sel) as HTMLIFrameElement | null)?.contentWindow as any;
+      return win?.__landmarksModel?.get(k);
     },
-    undefined,
-    { timeout: onCi() ? 720_000 : 180_000 },
+    { sel: MARIMO_IFRAME_SELECTOR, k: key },
   );
-  await frame.waitForTimeout(400);
-  return canvas;
 }
 
-export async function getModelFrame(frame: Frame, key: string) {
-  return frame.evaluate((k) => (window as any).__landmarksModel?.get(k), key);
-}
-
-export async function canvasBoxFrame(frame: Frame) {
-  const canvas = frame.locator("canvas.landmarks__webgl, canvas").first();
+export async function canvasBoxInIframe(page: Page) {
+  const canvas = marimoIframeWidget(page).locator("canvas.landmarks__webgl, canvas").first();
   const box = await canvas.boundingBox();
   expect(box).toBeTruthy();
   return box!;
 }
 
-export async function drawLassoFrame(page: Page, frame: Frame, box: { x: number; y: number; width: number; height: number }) {
-  const canvas = frame.locator("canvas.landmarks__webgl, canvas").first();
-  await frame.getByRole("button", { name: "Reset view" }).click({ timeout: 15_000 }).catch(() => undefined);
-  await canvas.click({ position: { x: Math.round(box.width * 0.5), y: Math.round(box.height * 0.5) } });
-  await page.keyboard.press("l");
-  await expect.poll(() => getModelFrame(frame, "mode"), { timeout: onCi() ? 60_000 : 15_000 }).toBe("lasso");
-
-  const inset = 0.1;
-  const cx = box.x + box.width * 0.5;
-  const cy = box.y + box.height * 0.5;
-  const rx = box.width * (0.5 - inset);
-  const ry = box.height * (0.5 - inset);
-
-  await page.mouse.move(cx + rx, cy);
-  await page.mouse.down();
-  const steps = 16;
-  for (let i = 0; i <= steps; i++) {
-    if (i === 4) {
-      await frame.evaluate(() => {
-        const canvas = document.querySelector("canvas.landmarks__webgl");
-        const foreign = document.createElement("canvas");
-        document.body.appendChild(foreign);
-        canvas?.dispatchEvent(
-          new MouseEvent("mouseleave", { bubbles: true, relatedTarget: foreign }),
-        );
-      });
-    }
-    const a = (i / steps) * Math.PI * 2;
-    await page.mouse.move(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, { steps: 3 });
-  }
-  await page.mouse.up();
+export async function evalInIframe<T>(page: Page, fn: string): Promise<T> {
+  return page.evaluate(
+    ({ sel, body }) => {
+      const win = (document.querySelector(sel) as HTMLIFrameElement | null)?.contentWindow as any;
+      if (!win) return null;
+      return new Function("win", `return (${body})(win)`)(win) as T;
+    },
+    { sel: MARIMO_IFRAME_SELECTOR, body: fn },
+  );
 }
+
