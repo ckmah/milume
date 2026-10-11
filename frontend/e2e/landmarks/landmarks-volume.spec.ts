@@ -825,6 +825,37 @@ test.describe("Landmarks inspect cube", () => {
     expect(signal.centerLum).toBeGreaterThan(signal.edgeLum * 0.35);
   });
 
+  test("inspect cube preserves user wheel zoom across viewport resize (no re-home)", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-zoom", /\d/);
+    const zoomHome = Number(await view.getAttribute("data-zoom"));
+    const hostBox = await view.boundingBox();
+    expect(hostBox).toBeTruthy();
+    await page.mouse.move(hostBox!.x + hostBox!.width / 2, hostBox!.y + hostBox!.height / 2);
+    for (let i = 0; i < 8; i++) await page.mouse.wheel(0, -100);
+    await expect
+      .poll(async () => Number(await view.getAttribute("data-zoom")))
+      .toBeGreaterThan(zoomHome + 0.12);
+    const zoomUser = Number(await view.getAttribute("data-zoom"));
+    const scale = 0.72;
+    await page.evaluate((scale) => {
+      const viewEl = document.querySelector(
+        '[role="dialog"][aria-label="Cube"] .volume-cube__view',
+      ) as HTMLElement | null;
+      const host = viewEl?.parentElement;
+      if (!host) return;
+      const rect = host.getBoundingClientRect();
+      host.style.width = `${Math.max(140, rect.width * scale)}px`;
+      host.style.height = `${Math.max(140, rect.height * scale)}px`;
+    }, scale);
+    await page.waitForTimeout(450);
+    const zoomAfter = Number(await view.getAttribute("data-zoom"));
+    const expected = zoomUser + Math.log2(scale);
+    expect(zoomAfter).toBeCloseTo(expected, 1);
+    expect(zoomAfter).toBeGreaterThan(zoomHome + 0.08);
+  });
+
   test("a palette change before placing reaches the hover preview, then the dock", async ({ page }) => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     // The palette lives in Adjust, which opens before any window is placed.

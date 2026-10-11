@@ -789,12 +789,15 @@ export function VolumeCube({
   }, [interactive, fits, box, viewPixelSize, home]);
 
   const framedViewportRef = useRef({ width: 0, height: 0 });
+  /** After the user orbits or wheel-zooms, preserve zoom across viewport resizes. */
+  const userCameraAdjustedRef = useRef(false);
   useLayoutEffect(() => {
     if (!fits || viewPixelSize.width < 8 || viewPixelSize.height < 8) return;
     const prev = framedViewportRef.current;
     const dw = Math.abs(prev.width - viewPixelSize.width);
     const dh = Math.abs(prev.height - viewPixelSize.height);
     if (prev.width > 0 && dw < 2 && dh < 2) return;
+    const prevSize = { width: prev.width, height: prev.height };
     framedViewportRef.current = {
       width: viewPixelSize.width,
       height: viewPixelSize.height,
@@ -802,12 +805,30 @@ export function VolumeCube({
     const base = homeView(home, fits, viewPixelSize);
     setViewState((prevState) => {
       if (!prevState) return base;
-      return {
-        ...prevState,
-        zoom: base.zoom,
-        minZoom: base.minZoom,
-        maxZoom: base.maxZoom,
-      };
+      if (!userCameraAdjustedRef.current) {
+        return {
+          ...prevState,
+          zoom: base.zoom,
+          minZoom: base.minZoom,
+          maxZoom: base.maxZoom,
+        };
+      }
+      if (prevSize.width > 0 && prevSize.height > 0) {
+        const ratio = Math.min(
+          viewPixelSize.width / prevSize.width,
+          viewPixelSize.height / prevSize.height,
+        );
+        if (Math.abs(ratio - 1) > 0.002) {
+          const dz = Math.log2(ratio);
+          return {
+            ...prevState,
+            zoom: prevState.zoom + dz,
+            minZoom: prevState.minZoom + dz,
+            maxZoom: prevState.maxZoom + dz,
+          };
+        }
+      }
+      return prevState;
     });
   }, [fits, viewPixelSize.width, viewPixelSize.height, home]);
 
@@ -837,6 +858,7 @@ export function VolumeCube({
   useEffect(() => {
     if (resetTickRef.current === resetTick) return;
     resetTickRef.current = resetTick;
+    userCameraAdjustedRef.current = false;
     const { fits: f, box: b } = framing.current;
     if (f) setViewState(homeView(home, f, b));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -876,7 +898,10 @@ export function VolumeCube({
         minRotationX: MIN_PITCH,
         maxRotationX: MAX_PITCH,
       };
-      setViewState((prev) => (prev && viewStatesEqual(prev, clamped) ? prev : clamped));
+      setViewState((prev) => {
+        if (prev && !viewStatesEqual(prev, clamped)) userCameraAdjustedRef.current = true;
+        return prev && viewStatesEqual(prev, clamped) ? prev : clamped;
+      });
       return clamped;
     },
     [],
@@ -1248,6 +1273,7 @@ export function VolumeCube({
           setViewState((prev) => {
             if (!prev) return prev;
             if (prev.rotationX === rotationX && prev.rotationOrbit === rotationOrbit) return prev;
+            userCameraAdjustedRef.current = true;
             return { ...prev, rotationX, rotationOrbit };
           });
         },
