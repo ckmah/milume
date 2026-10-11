@@ -5,6 +5,7 @@ Used internally for default raster bin/window sizing. Not part of the public API
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
@@ -84,20 +85,30 @@ def _output_units_from_transformation(transformation: Any) -> SpatialUnits | Non
         return None
 
 
-def _units_from_element_to_cs(element: Any, coordinate_system: str) -> SpatialUnits | None:
+def _units_from_element_to_cs(
+    element: Any, coordinate_system: str
+) -> SpatialUnits | None:
     from spatialdata.transformations import get_transformation
 
     try:
-        transformation = get_transformation(element, to_coordinate_system=coordinate_system)
+        transformation = get_transformation(
+            element, to_coordinate_system=coordinate_system
+        )
     except Exception:
         return None
     return _output_units_from_transformation(transformation)
 
 
-def _units_from_zarr_ome(sdata: Any, *, kind: str, element_name: str) -> SpatialUnits | None:
+def _units_from_zarr_ome(
+    sdata: Any, *, kind: str, element_name: str
+) -> SpatialUnits | None:
     path = getattr(sdata, "path", None)
     if path is None:
         return None
+    if isinstance(path, str):
+        if "://" in path:  # remote store (https / hf://): units come from the transform
+            return None
+        path = Path(path)
     try:
         import zarr
     except ImportError:
@@ -216,7 +227,9 @@ def infer_obsm_spatial_units(
                 return cosmx_units
         return units
 
-    coordinate_system = _coordinate_system_for_obsm(sdata, spatial_key=spatial_key, adata=adata)
+    coordinate_system = _coordinate_system_for_obsm(
+        sdata, spatial_key=spatial_key, adata=adata
+    )
     if sdata is not None and coordinate_system is not None:
         linked = _linked_spatial_element(sdata, adata)
         if linked is not None:
@@ -256,12 +269,7 @@ def default_raster_scales(
         return bin_size, 3.0 * bin_size
 
     nn = median_nn if median_nn is not None else _median_nn_distance(x_arr, y_arr)
-    if (
-        nn is None
-        or not np.isfinite(nn)
-        or nn <= 0
-        or nn <= _PIXEL_NN_HEURISTIC_FLOOR
-    ):
+    if nn is None or not np.isfinite(nn) or nn <= 0 or nn <= _PIXEL_NN_HEURISTIC_FLOOR:
         return DEFAULT_BIN_SIZE, DEFAULT_WINDOW_RADIUS
     bin_size = max(2.0 * nn, 1e-9)
     return bin_size, 3.0 * bin_size

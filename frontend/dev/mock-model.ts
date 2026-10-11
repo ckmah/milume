@@ -9,11 +9,15 @@ type CommBuffer = ArrayBuffer | DataView;
 type CustomHandler = (msg: unknown, buffers?: CommBuffer[]) => void;
 
 /** Minimal traitlets model for notebook-free dev and Impeccable live. */
+type HarnessMeta = { volume_static_root?: string };
+
 export function createMockModel(
   initial: Record<string, unknown>,
   options: { volumeStaticRoot?: string; fixtureUrl?: string } = {},
 ): AnyModel {
-  const state: Record<string, unknown> = { ...initial };
+  const harness = (initial._harness ?? {}) as HarnessMeta;
+  const { _harness: _drop, ...rest } = initial;
+  const state: Record<string, unknown> = { ...rest };
   const listeners = new Map<string, Set<Listener>>();
   const customHandlers = new Set<CustomHandler>();
   const dirty = new Set<string>();
@@ -26,15 +30,19 @@ export function createMockModel(
     const viteFixture =
       typeof __MILUME_VOLUME_FIXTURE_FILE__ !== "undefined" ? __MILUME_VOLUME_FIXTURE_FILE__ : "";
     const name = viteFixture || fixtureUrl.split("/").pop() || "";
+    if (name.includes("sharded")) return "/sharded-toy.sdata.zarr/";
     if (name.includes("xsmall")) return "/xsmall.sdata.zarr/";
     if (name.includes("small")) return "/small.sdata.zarr/";
     if (name.includes("colon")) return "/colon.sdata.zarr/";
     return "/toy.sdata.zarr/";
   }
 
+  const fixtureUrl = options.fixtureUrl ?? "";
+  const commStaticRoot = staticRootForFixture(fixtureUrl);
   const volumeStaticRoot =
     options.volumeStaticRoot ??
-    (isCommVolumeUrl(volume?.image_url ?? "") ? staticRootForFixture(options.fixtureUrl ?? "") : "");
+    harness.volume_static_root ??
+    (isCommVolumeUrl(volume?.image_url ?? "") ? commStaticRoot : "");
 
   async function serveVolumeGet(msg: unknown): Promise<[object, (ArrayBuffer | DataView)[]]> {
     const hook =
@@ -49,8 +57,9 @@ export function createMockModel(
     }
     const body = msg as { path?: string; range?: { offset?: number; length?: number; suffixLength?: number } };
     const rel = String(body.path ?? "");
-    if (!volumeStaticRoot || !rel) return [{ ok: false, status: 404 }, []];
-    const url = `${volumeStaticRoot}${rel}`.replace(/([^:]\/)\/+/g, "$1");
+    const staticRoot = volumeStaticRoot || commStaticRoot;
+    if (!staticRoot || !rel) return [{ ok: false, status: 404 }, []];
+    const url = `${staticRoot}${rel}`.replace(/([^:]\/)\/+/g, "$1");
     const headers: Record<string, string> = {};
     const range = body.range;
     if (range) {
@@ -111,7 +120,7 @@ export function createMockModel(
     },
   };
 
-  if (typeof window !== "undefined" && volumeStaticRoot) {
+  if (typeof window !== "undefined" && (volumeStaticRoot || commStaticRoot)) {
     (window as unknown as { __volumeCommReads?: () => number }).__volumeCommReads = () => commReads;
     (window as unknown as { __volumeCommPaths?: () => string[] }).__volumeCommPaths = () => [...commPaths];
   }

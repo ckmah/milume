@@ -6,6 +6,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, BinaryIO, Callable, Literal
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 RangeSpec = dict[str, int]
 
@@ -116,8 +118,38 @@ def _read_file_range(f: BinaryIO, size: int, range_spec: RangeSpec) -> bytes:
     return data
 
 
+def _http_object_url(root: str, rel: str) -> str:
+    base = root if root.endswith("/") else f"{root}/"
+    return f"{base}{rel.lstrip('/')}"
+
+
+def _read_http_range(url: str, range_spec: RangeSpec | None) -> VolumeReadOutcome:
+    headers: dict[str, str] = {}
+    if range_spec is not None:
+        if "suffixLength" in range_spec:
+            headers["Range"] = f"bytes=-{range_spec['suffixLength']}"
+        else:
+            start = range_spec["offset"]
+            end = start + range_spec["length"] - 1
+            headers["Range"] = f"bytes={start}-{end}"
+    request = Request(url, headers=headers)
+    try:
+        with urlopen(request) as resp:
+            data = resp.read()
+            status = 206 if range_spec is not None else 200
+            return VolumeReadOutcome(ok=True, status=status, data=data)
+    except HTTPError as exc:
+        if exc.code == 404:
+            return VolumeReadOutcome(ok=False, status=404, error="not found")
+        if exc.code == 416:
+            return VolumeReadOutcome(ok=False, status=416, error="range not satisfiable")
+        return VolumeReadOutcome(ok=False, status=exc.code, error=str(exc.reason))
+    except OSError as exc:
+        return VolumeReadOutcome(ok=False, status=500, error=str(exc))
+
+
 def read_volume_bytes(
-    root: Path,
+    root: Path | str,
     allow_prefixes: tuple[str, ...],
     rel: str,
     range_spec: RangeSpec | None = None,
@@ -125,6 +157,31 @@ def read_volume_bytes(
     _open: Callable[..., BinaryIO] | None = None,
 ) -> VolumeReadOutcome:
     """Read one file under ``root``; optional byte range for zarr shards."""
+    if isinstance(root, str) and root.startswith(("http://", "https://")):
+        rel_norm = rel.lstrip("/").replace("/", os.sep)
+        if not rel_norm or ".." in rel_norm.split(os.sep):
+            return VolumeReadOutcome(ok=False, status=404, error="not found")
+        if not _allowed(rel_norm.replace(os.sep, "/"), allow_prefixes):
+            return VolumeReadOutcome(ok=False, status=404, error="not found")
+        if range_spec is not None:
+            try:
+                if "suffixLength" in range_spec:
+                    n = _coerce_range_int("suffixLength", range_spec["suffixLength"])
+                    if n <= 0:
+                        raise VolumeReadError(400, "suffixLength must be positive")
+                elif "offset" in range_spec and "length" in range_spec:
+                    start = _coerce_range_int("offset", range_spec["offset"])
+                    length = _coerce_range_int("length", range_spec["length"])
+                    if start < 0:
+                        raise VolumeReadError(400, "offset must be non-negative")
+                    if length <= 0:
+                        raise VolumeReadError(400, "length must be positive")
+                else:
+                    raise VolumeReadError(400, "range requires suffixLength or offset and length")
+            except VolumeReadError as exc:
+                return VolumeReadOutcome(ok=False, status=exc.status, error=exc.message)
+        return _read_http_range(_http_object_url(root, rel_norm.replace(os.sep, "/")), range_spec)
+
     opener = _open or Path.open
     path = resolve_volume_path(root, rel, allow_prefixes)
     if path is None:

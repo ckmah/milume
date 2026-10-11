@@ -141,6 +141,20 @@ def test_resolve_volume_path_rejects_symlink_escape(tmp_path):
     assert not read_volume_bytes(root, allow, "images/a/escape").ok
 
 
+def test_read_volume_bytes_over_http(tmp_path):
+    from milume.volume_cube import serve_directory
+
+    root, allow = _tree(tmp_path)
+    payload = bytes(range(200))
+    (root / "images/a/shard").write_bytes(payload)
+    server, base = serve_directory(tmp_path, allow_prefixes=allow)
+    try:
+        outcome = read_volume_bytes(f"{base}/", allow, "images/a/shard", {"offset": 10, "length": 5})
+        assert outcome.ok and outcome.data == payload[10:15]
+    finally:
+        server.shutdown()
+
+
 def test_parse_volume_get_msg_errors():
     with pytest.raises(VolumeReadError):
         parse_volume_get_msg([])

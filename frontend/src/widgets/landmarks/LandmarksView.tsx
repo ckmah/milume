@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { CellColoring } from "@/widgets/volume-cube/cell-lut-extension";
 import { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import { volumeCommClientFor } from "@/widgets/volume-cube/volume-comm";
+import { volumeHttpClientFor } from "@/widgets/volume-cube/volume-http";
 import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
 import { PREVIEW_REGION_BUDGET } from "@/widgets/volume-cube/window-source";
 
@@ -102,6 +103,19 @@ export function LandmarksView({
   // One decoded-chunk cache per widget, kept across cube opens.
   const chunkCache = useMemo(() => new ChunkCache(), []);
   const volumeComm = useMemo(() => volumeCommClientFor(model), [model]);
+  const volumeHttp = useMemo(
+    () => volumeHttpClientFor(lm.volume?.image_url ?? "", volumeComm),
+    [lm.volume?.image_url, volumeComm],
+  );
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const win = window as unknown as {
+      __volumeHttpFetches?: () => number;
+      __volumeHttpCommFallback?: () => boolean;
+    };
+    win.__volumeHttpFetches = () => volumeHttp?.httpFetches ?? 0;
+    win.__volumeHttpCommFallback = () => volumeHttp?.commFallback ?? false;
+  }, [volumeHttp]);
   // Inspect entry thumbnails by selection id, kept across cube opens (never
   // synced). The cube adds them; the Selections panel shows them. The Map is
   // mutable, so the cube bumps `snapshotVersion` when it adds one.
@@ -485,6 +499,7 @@ export function LandmarksView({
             coloring={coloring}
             cache={chunkCache}
             volumeComm={volumeComm}
+            volumeHttp={volumeHttp}
             budgets={budgets}
             snapshots={snapshots}
             overlays={landmarkGeometry}
@@ -509,6 +524,7 @@ export function LandmarksView({
             dark={dark}
             cache={chunkCache}
             volumeComm={volumeComm}
+            volumeHttp={volumeHttp}
             budgets={budgets}
             overlays={landmarkGeometry}
           />

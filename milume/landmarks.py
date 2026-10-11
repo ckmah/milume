@@ -665,15 +665,24 @@ class LandmarksWidget(AnyWidget):
 
     def _attach_volume(self, src: Any, contrast_limits: tuple[float, float]) -> None:
         from .volume_comm import normalize_allow_prefixes
+        from .volume_source import _is_http_store
 
         # Only the cube's image and labels: tables and expression are never served.
         allow = (f"images/{src.image}/",) + ((f"labels/{src.labels}/",) if src.labels else ())
         self._volume_store_root = src.root
         self._volume_allow_prefixes = normalize_allow_prefixes(allow)
         (sz, sy, sx), (oz, oy, ox), (d, h, w) = src.voxel_size_um, src.origin_um, src.shape_zyx
+        store = str(src.root)
+        if _is_http_store(store):
+            base = store if store.endswith("/") else f"{store}/"
+            image_url = f"{base}images/{src.image}/"
+            labels_url = f"{base}labels/{src.labels}/" if src.labels else ""
+        else:
+            image_url = f"images/{src.image}/"
+            labels_url = f"labels/{src.labels}/" if src.labels else ""
         self.volume = {
-            "image_url": f"images/{src.image}/",
-            "labels_url": f"labels/{src.labels}/" if src.labels else "",
+            "image_url": image_url,
+            "labels_url": labels_url,
             "voxel_size_um": [sz, sy, sx],
             "origin_um": [oz, oy, ox],
             "contrast_limits": [float(v) for v in contrast_limits],
