@@ -169,16 +169,25 @@ export async function gotoMolabIframeShell(page: Page, baseURL: string) {
   await page.waitForFunction(() => document.getElementById("holder")?.classList.contains("ready"));
 }
 
-export async function marimoEmbedFrame(page: Page): Promise<Frame> {
-  const el = page.locator(MARIMO_IFRAME_SELECTOR);
-  await el.waitFor({ state: "attached", timeout: 120_000 });
-  let frame: Frame | null = null;
-  await expect
-    .poll(async () => {
-      frame = await el.contentFrame();
-      if (!frame) return false;
-      const path = await frame.evaluate(() => window.location.pathname);
+function marimoChildFrame(page: Page): Frame | undefined {
+  return page.frames().find((f) => {
+    if (f.parentFrame() !== page.mainFrame()) return false;
+    try {
+      const path = new URL(f.url()).pathname;
       return path === "/" || path === "";
+    } catch {
+      return false;
+    }
+  });
+}
+
+export async function marimoEmbedFrame(page: Page): Promise<Frame> {
+  await page.locator(MARIMO_IFRAME_SELECTOR).waitFor({ state: "attached", timeout: 120_000 });
+  let frame: Frame | undefined;
+  await expect
+    .poll(() => {
+      frame = marimoChildFrame(page);
+      return frame !== undefined;
     }, { timeout: onCi() ? 720_000 : 420_000 })
     .toBe(true);
   return frame!;
