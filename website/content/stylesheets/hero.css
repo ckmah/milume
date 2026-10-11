@@ -16,10 +16,15 @@
   inset: 0;
   width: 100%;
   height: 100%;
+  display: none;
+}
+
+.milume-docs-hero[data-hero-mode="webgl"] .milume-hero__canvas {
   display: block;
 }
 
-.milume-docs-hero .milume-hero__poster {
+.milume-docs-hero[data-hero-mode="poster"] .milume-hero__poster {
+  display: block;
   object-fit: cover;
 }
 

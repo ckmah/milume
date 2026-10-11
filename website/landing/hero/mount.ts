@@ -39,6 +39,9 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
     throw new Error("milume-hero: missing poster or canvas");
   }
 
+  poster.hidden = true;
+  canvas.hidden = true;
+
   let field = null;
   let loadError = false;
   try {
