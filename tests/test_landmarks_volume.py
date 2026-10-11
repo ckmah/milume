@@ -25,16 +25,26 @@ def test_resolve_volume_normalizes_remote_store_root(sdata):
 
     _, src = resolve_volume(sdata)
     assert src is not None
-    remote = _normalize_store_url("https://huggingface.co/datasets/Stellaromics/demo/resolve/main/colon_a2.zarr")
+    remote = _normalize_store_url(
+        "https://huggingface.co/datasets/Stellaromics/demo/resolve/main/colon_a2.zarr"
+    )
     src = dataclasses.replace(src, root=remote)
     assert str(src.root).endswith("/")
     assert str(src.root).startswith("https://")
 
 
 def test_widget_from_sdata_exposes_comm_volume_urls(sdata):
-    with patch("http.server.ThreadingHTTPServer", side_effect=AssertionError("no HTTP server")):
+    with patch(
+        "http.server.ThreadingHTTPServer", side_effect=AssertionError("no HTTP server")
+    ):
         w = LandmarksWidget(sdata, color="cell_type")
-    assert set(w.volume) == {"image_url", "labels_url", "voxel_size_um", "origin_um", "contrast_limits"}
+    assert set(w.volume) == {
+        "image_url",
+        "labels_url",
+        "voxel_size_um",
+        "origin_um",
+        "contrast_limits",
+    }
     assert w.volume["voxel_size_um"] == [1.0, 1.0, 1.0]
     assert w.volume["image_url"] == "images/mosaic/"
     assert w.volume["labels_url"] == "labels/cells/"
@@ -49,7 +59,10 @@ def test_issue_113_comm_serves_zarr_without_http_or_bind(sdata):
     """Issue #113: no loopback server; metadata and one chunk over volume_get."""
     with (
         patch("socket.socket.bind", side_effect=AssertionError("socket.bind")),
-        patch("http.server.ThreadingHTTPServer", side_effect=AssertionError("ThreadingHTTPServer")),
+        patch(
+            "http.server.ThreadingHTTPServer",
+            side_effect=AssertionError("ThreadingHTTPServer"),
+        ),
     ):
         w = LandmarksWidget(sdata, color="cell_type")
     meta, meta_bufs = w.volume_get({"path": "images/mosaic/zarr.json"}, [])
@@ -87,7 +100,9 @@ def test_widget_comm_serves_only_the_cube_image_and_labels(sdata):
 )
 def test_volume_get_rejects_bad_ranges(sdata, range_spec):
     w = LandmarksWidget(sdata, color="cell_type")
-    meta, bufs = w.volume_get({"path": "images/mosaic/s0/c/0/0/0/0", "range": range_spec}, [])
+    meta, bufs = w.volume_get(
+        {"path": "images/mosaic/s0/c/0/0/0/0", "range": range_spec}, []
+    )
     assert meta["ok"] is False
     assert meta["status"] in (400, 416)
     assert meta.get("error")
@@ -96,7 +111,9 @@ def test_volume_get_rejects_bad_ranges(sdata, range_spec):
 
 def test_volume_get_returns_structured_error_on_internal_failure(sdata):
     w = LandmarksWidget(sdata, color="cell_type")
-    with patch("milume.volume_comm.read_volume_bytes", side_effect=RuntimeError("boom")):
+    with patch(
+        "milume.volume_comm.read_volume_bytes", side_effect=RuntimeError("boom")
+    ):
         meta, bufs = w.volume_get({"path": "images/mosaic/zarr.json"}, [])
     assert meta == {"ok": False, "status": 500, "error": "boom"}
     assert not bufs
@@ -108,7 +125,9 @@ def test_adata_widget_has_empty_volume(sdata):
 
 
 def test_volume_contract_is_three_synced_traits():
-    synced = {n for n, t in LandmarksWidget.class_traits().items() if t.metadata.get("sync")}
+    synced = {
+        n for n, t in LandmarksWidget.class_traits().items() if t.metadata.get("sync")
+    }
     assert NEW_TRAITS <= synced
     assert not {n for n in synced if n.startswith(("volume", "cube_"))} - NEW_TRAITS
 
@@ -116,8 +135,12 @@ def test_volume_contract_is_three_synced_traits():
 def test_inspect_selection_round_trips_through_get_obs_names(sdata):
     w = LandmarksWidget(sdata, color="cell_type")
     w.selections = [
-        {"id": "inspect-1", "type": "inspect", "point_indices": [0, 2],
-         "window": {"cx": 100.0, "cy": 120.0, "size_um": 80.0, "cut": []}},
+        {
+            "id": "inspect-1",
+            "type": "inspect",
+            "point_indices": [0, 2],
+            "window": {"cx": 100.0, "cy": 120.0, "size_um": 80.0, "cut": []},
+        },
     ]
     names = list(w.get_obs_names(w._adata, "inspect-1"))
     assert names == [str(w._obs_names[0]), str(w._obs_names[2])]
@@ -133,3 +156,42 @@ def test_contrast_limits_come_from_the_image(sdata):
 def test_explicit_contrast_limits_win(sdata):
     w = LandmarksWidget(sdata, color="cell_type", contrast_limits=(5, 900))
     assert w.volume["contrast_limits"] == [5.0, 900.0]
+
+
+@pytest.mark.parametrize(
+    ("hf", "https"),
+    [
+        (
+            "hf://datasets/Stellaromics/demo/test/134/small.sdata.zarr",
+            "https://huggingface.co/datasets/Stellaromics/demo/resolve/main/test/134/small.sdata.zarr",
+        ),
+        (
+            "hf://datasets/Stellaromics/demo@refs%2Fpr%2F3/x.zarr",
+            "https://huggingface.co/datasets/Stellaromics/demo/resolve/refs%2Fpr%2F3/x.zarr",
+        ),
+        (
+            "hf://spaces/o/r/a.zarr",
+            "https://huggingface.co/spaces/o/r/resolve/main/a.zarr",
+        ),
+        ("/data/x.zarr", "/data/x.zarr"),
+        ("hf://o/r/a.zarr", "hf://o/r/a.zarr"),
+    ],
+)
+def test_hf_fsspec_path_maps_to_resolve_url(hf, https):
+    from milume.volume_source import _hf_to_https
+
+    assert _hf_to_https(hf) == https
+
+
+def test_widget_hf_store_path_uses_browser_fetch(sdata):
+    sdata.path = "hf://datasets/Stellaromics/demo/test/134/small.sdata.zarr"
+    w = LandmarksWidget(sdata, color="cell_type")
+    base = "https://huggingface.co/datasets/Stellaromics/demo/resolve/main/test/134/small.sdata.zarr/"
+    assert w.volume["image_url"] == f"{base}images/mosaic/"
+    assert w.volume["labels_url"] == f"{base}labels/cells/"
+
+
+def test_widget_https_store_path_constructs(sdata):
+    sdata.path = "https://example.com/demo.zarr/"
+    w = LandmarksWidget(sdata, color="cell_type")
+    assert w.volume["image_url"].startswith("https://example.com/demo.zarr/images/")
