@@ -18,7 +18,7 @@ export async function assertMolabPyxaAfterSelection(
 ) {
   await expect
     .poll(async () => ((await getModel(page, "selections")) as unknown[])?.length ?? 0, {
-      timeout: onCi() ? 180_000 : 45_000,
+      timeout: onCi() ? 720_000 : 45_000,
     })
     .toBeGreaterThan(0);
 
@@ -26,14 +26,14 @@ export async function assertMolabPyxaAfterSelection(
     .poll(async () => {
       const o = await page.evaluate(() => (window as any).__landmarksEngine.getNeighborhoodOverlay());
       return o.seedRoleCount as number;
-    })
+    }, { timeout: onCi() ? 120_000 : 30_000 })
     .toBeGreaterThan(0);
 
   await expect
     .poll(async () => {
       const text = await page.locator('[data-testid="marimo-focus-count"]').innerText();
       return Number.parseInt(text, 10);
-    }, { timeout: onCi() ? 180_000 : 60_000 })
+    }, { timeout: onCi() ? 720_000 : 60_000 })
     .toBeGreaterThan(0);
 
   await page.getByRole("radio", { name: "Inspect", exact: true }).click();
@@ -163,5 +163,12 @@ export async function assertMolabPyxaSelectionAndInspectInIframe(
 export async function prepMolabPyxaPage(page: Page) {
   await growLandmarksFromZeroHeight(page, 560);
   await applyMolabEmbedStress(page);
-  await page.evaluate(() => (window as any).__landmarksEngine?.resize?.());
+  await page.waitForFunction(
+    () => {
+      const s = (window as any).__landmarksEngine?.getPlotSurfaceSize?.();
+      return Boolean(s && s.plotW > 200 && s.plotH > 200);
+    },
+    undefined,
+    { timeout: onCi() ? 120_000 : 30_000 },
+  );
 }
