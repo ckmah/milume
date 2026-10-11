@@ -130,10 +130,10 @@ export async function clickSelectLandmark(page: Page, box: { x: number; y: numbe
 
 export const MARIMO_IFRAME_SELECTOR = 'iframe[data-testid="molab-marimo-frame"]';
 
-/** Molab-like outer shell: CSS scale on the iframe holder and zero-height grow-in. */
-export async function gotoMolabIframeShell(page: Page, baseURL: string) {
-  const marimoUrl = baseURL.endsWith("/") ? baseURL : `${baseURL}/`;
-  const html = `<!DOCTYPE html>
+const molabShellPath = "/molab-iframe-shell";
+
+function molabIframeShellHtml(): string {
+  return `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><title>molab iframe shell</title>
 <style>
@@ -150,27 +150,46 @@ export async function gotoMolabIframeShell(page: Page, baseURL: string) {
     </div>
   </div>
   <script>
-    const marimoUrl = ${JSON.stringify(marimoUrl)};
     requestAnimationFrame(() => setTimeout(() => {
       document.getElementById("holder").classList.add("ready");
-      document.querySelector("iframe").src = marimoUrl;
+      document.querySelector("iframe").src = "/";
     }, 100));
   </script>
 </body></html>`;
-  await page.goto("about:blank");
-  await page.setContent(html, { waitUntil: "domcontentloaded" });
+}
+
+/** Molab-like outer shell on the marimo origin: CSS scale + zero-height grow-in, iframe loads `/`. */
+export async function gotoMolabIframeShell(page: Page, baseURL: string) {
+  const origin = baseURL.replace(/\/$/, "");
+  const shellUrl = `${origin}${molabShellPath}`;
+  await page.route(`**${molabShellPath}**`, async (route) => {
+    const req = route.request();
+    if (req.isNavigationRequest() && req.url().includes(molabShellPath)) {
+      await route.fulfill({ contentType: "text/html; charset=utf-8", body: molabIframeShellHtml() });
+      return;
+    }
+    await route.continue();
+  });
+  await page.goto(shellUrl, { waitUntil: "domcontentloaded", timeout: 120_000 });
   await page.waitForFunction(() => document.getElementById("holder")?.classList.contains("ready"));
 }
 
-export async function marimoEmbedFrame(page: Page, marimoOrigin: string): Promise<Frame> {
-  await page.locator(MARIMO_IFRAME_SELECTOR).waitFor({ state: "attached", timeout: 120_000 });
-  const origin = marimoOrigin.replace(/\/$/, "");
-  const urlPattern = new RegExp(origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-  await expect
-    .poll(() => page.frame({ url: urlPattern }) !== null, { timeout: onCi() ? 720_000 : 420_000 })
-    .toBe(true);
-  const frame = page.frame({ url: urlPattern });
+export async function marimoEmbedFrame(page: Page): Promise<Frame> {
+  const el = page.locator(MARIMO_IFRAME_SELECTOR);
+  await el.waitFor({ state: "attached", timeout: 120_000 });
+  const frame = await el.contentFrame();
   expect(frame).toBeTruthy();
+  await frame!.waitForURL(
+    (url) => {
+      try {
+        const path = new URL(url).pathname;
+        return path === "/" || path === "";
+      } catch {
+        return false;
+      }
+    },
+    { timeout: onCi() ? 720_000 : 420_000 },
+  );
   return frame!;
 }
 

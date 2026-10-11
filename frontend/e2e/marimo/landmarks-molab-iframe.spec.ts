@@ -17,7 +17,7 @@ test.describe("marimo kernel — molab iframe shell (scale, zero-height grow)", 
     expect(baseURL).not.toMatch(/localhost|127\.0\.0\.1/);
 
     await gotoMolabIframeShell(page, baseURL!);
-    const frame = await marimoEmbedFrame(page, baseURL!);
+    const frame = await marimoEmbedFrame(page);
     await waitForLandmarksWidgetFrame(frame);
 
     await expect
