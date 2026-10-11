@@ -2626,12 +2626,17 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
 
   /** Map a mouse/pointer event to deck viewport pixels (handles CSS scale on ancestors). */
   function canvasPointerPixels(event) {
-    const rect = webglCanvas.getBoundingClientRect();
+    const target =
+      event.target instanceof HTMLCanvasElement &&
+      (plotStack.contains(event.target) || host.contains(event.target))
+        ? event.target
+        : webglCanvas;
+    const rect = target.getBoundingClientRect();
     if (!rect.width || !rect.height) return null;
     const cssX = event.clientX - rect.left;
     const cssY = event.clientY - rect.top;
-    const w = webglCanvas.clientWidth || rect.width;
-    const h = webglCanvas.clientHeight || rect.height;
+    const w = target.clientWidth || rect.width;
+    const h = target.clientHeight || rect.height;
     return {
       px: cssX * (w / rect.width),
       py: cssY * (h / rect.height),
@@ -3878,17 +3883,48 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     window.addEventListener("blur", endInspectPress, opts);
   }
 
+  function widgetShadowHost() {
+    const root = container.getRootNode();
+    return root instanceof ShadowRoot ? root.host : null;
+  }
+
+  /** Whether `node` is inside this widget, including shadow-host retargeting on document listeners. */
+  function nodeInWidgetTree(node) {
+    if (!node || !(node instanceof Node)) return false;
+    if (
+      container.contains(node) ||
+      host.contains(node) ||
+      main.contains(node) ||
+      plotStack.contains(node) ||
+      webglCanvas.contains(node)
+    ) {
+      return true;
+    }
+    const shadowHost = widgetShadowHost();
+    return Boolean(shadowHost && node === shadowHost);
+  }
+
   function pointerStillOnPlot(event) {
+    const path =
+      typeof event?.composedPath === "function" ? event.composedPath() : null;
+    if (path?.length) {
+      for (let i = 0; i < path.length; i++) {
+        const node = path[i];
+        if (
+          node === webglCanvas ||
+          node === plotStack ||
+          node === host ||
+          node === main ||
+          node === container
+        ) {
+          return true;
+        }
+        if (nodeInWidgetTree(node)) return true;
+      }
+    }
     const into = event?.relatedTarget;
-    return (
-      !into ||
-      (into instanceof Node &&
-        (host.contains(into) ||
-          main.contains(into) ||
-          plotStack.contains(into) ||
-          container.contains(into) ||
-          webglCanvas.contains(into)))
-    );
+    if (!into) return true;
+    return nodeInWidgetTree(into);
   }
 
   function plotGestureActive() {
@@ -3920,23 +3956,33 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     if (plotGestureAbort) return;
     plotGestureAbort = new AbortController();
     const opts = { signal: plotGestureAbort.signal, capture: true };
+    const trackMove = (e) => {
+      if (plotGestureActive()) handleMouseMove(e);
+    };
+    window.addEventListener("mousemove", trackMove, opts);
+    window.addEventListener("pointermove", trackMove, opts);
     window.addEventListener(
-      "mousemove",
+      "mousedown",
       (e) => {
-        if (plotGestureActive()) handleMouseMove(e);
+        if (!plotGestureActive() || e.button !== 0) return;
+        if (eventInWidget(e)) e.preventDefault();
       },
       opts,
     );
     window.addEventListener(
-      "mouseup",
+      "selectstart",
       (e) => {
-        if (e.button !== 0) return;
-        handleMouseUp(e);
-        markPlotGestureHandled(e);
-        maybeEndPlotGesture();
+        if (plotGestureActive() && eventInWidget(e)) e.preventDefault();
       },
       opts,
     );
+    const endStroke = (e) => {
+      if (e.button !== 0) return;
+      handleMouseUp(e);
+      markPlotGestureHandled(e);
+      maybeEndPlotGesture();
+    };
+    window.addEventListener("mouseup", endStroke, opts);
     window.addEventListener(
       "pointercancel",
       (e) => {
@@ -5905,12 +5951,20 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       typeof event.composedPath === "function" ? event.composedPath() : null;
     if (path && path.length) {
       for (let i = 0; i < path.length; i++) {
-        if (path[i] === container || path[i] === webglCanvas) return true;
+        if (nodeInWidgetTree(path[i])) return true;
       }
       return false;
     }
-    const t = event.target;
-    return t instanceof Node && (container.contains(t) || webglCanvas.contains(t));
+    return nodeInWidgetTree(event.target);
+  }
+
+  function selectionStrokeMode() {
+    return (
+      currentMode === "lasso" ||
+      currentMode === "rectangle" ||
+      currentMode === "ellipse" ||
+      currentMode === "polygon"
+    );
   }
 
   function cloneJson(value) {
@@ -6439,7 +6493,18 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     }
   }
 
+  function onPlotMouseDown(event) {
+    if (event.target === webglCanvas) return;
+    if (
+      event.target instanceof HTMLCanvasElement &&
+      (plotStack.contains(event.target) || host.contains(event.target))
+    ) {
+      handleMouseDown(event);
+    }
+  }
+
   webglCanvas.addEventListener("mousedown", handleMouseDown, { signal });
+  plotStack.addEventListener("mousedown", onPlotMouseDown, { signal, capture: true });
   webglCanvas.addEventListener("mousemove", handleMouseMove, { signal });
   webglCanvas.addEventListener("mouseup", handleMouseUp, { signal });
   webglCanvas.addEventListener("mouseleave", handleMouseLeave, { signal });
@@ -6509,6 +6574,29 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     { capture: true, signal },
   );
   window.addEventListener("blur", () => setSpacePan(false), { signal });
+  window.addEventListener(
+    "selectstart",
+    (e) => {
+      if (selectionStrokeMode() && eventInWidget(e)) e.preventDefault();
+    },
+    { capture: true, signal },
+  );
+  window.addEventListener(
+    "mousedown",
+    (e) => {
+      if (e.button !== 0 || !selectionStrokeMode()) return;
+      const path =
+        typeof e.composedPath === "function" ? e.composedPath() : [e.target];
+      const onPlot = path.some(
+        (node) =>
+          node === webglCanvas ||
+          (node instanceof HTMLCanvasElement &&
+            (host.contains(node) || plotStack.contains(node))),
+      );
+      if (onPlot && eventInWidget(e)) e.preventDefault();
+    },
+    { capture: true, signal },
+  );
   document.addEventListener("contextmenu", handleContextMenu, {
     capture: true,
     signal,

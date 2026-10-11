@@ -3,7 +3,12 @@
  * sync to the kernel. Raster bin features are built in the browser.
  */
 
-/** Bidirectional notebook contract — every interaction save. */
+/**
+ * Bidirectional notebook contract — every interaction save.
+ * The embedding key and its RGB dims are here because the kernel packs the
+ * active `obsm` into `embedding_values`. A local-only write changes the menu
+ * and leaves the points on the previous embedding.
+ */
 export const NOTEBOOK_KEYS = new Set([
   "landmarks",
   "selections",
@@ -11,6 +16,8 @@ export const NOTEBOOK_KEYS = new Set([
   "selected_index",
   "inspect_cx",
   "inspect_cy",
+  "raster_embedding_key",
+  "raster_embedding_dims",
 ]);
 
 const DEFAULTS = {
@@ -51,7 +58,7 @@ export function wrapLandmarksModel(raw) {
 
   const wrapped = {
     get(key) {
-      if (hasOwn(local, key)) return local[key];
+      if (!NOTEBOOK_KEYS.has(key) && hasOwn(local, key)) return local[key];
       const v = raw.get(key);
       if (v !== undefined && v !== null) return v;
       if (hasOwn(DEFAULTS, key)) return DEFAULTS[key];
@@ -60,6 +67,9 @@ export function wrapLandmarksModel(raw) {
 
     set(key, value) {
       if (NOTEBOOK_KEYS.has(key)) {
+        // Drop a stale local copy so the packed embedding Python sends back is
+        // what the menu and the points both read.
+        if (hasOwn(local, key)) delete local[key];
         raw.set(key, value);
         return;
       }

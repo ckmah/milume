@@ -187,6 +187,9 @@ export function setRasterEmbeddingKey(model, key) {
   model.set("active_genes", []);
   model.set("color_by", "embedding");
   model.set("raster_basis", "embedding");
+  // The kernel repacks embedding_values from this key. Without a flush the
+  // menu changes and the points keep the previous embedding's colors.
+  model.save_changes();
 }
 
 /** Empty array = all embedding dims. */
@@ -203,6 +206,7 @@ export function setRasterEmbeddingDims(model, dims) {
     }
   }
   model.set("raster_embedding_dims", ordered);
+  model.save_changes();
 }
 
 export function setRasterThreshold(model, value) {

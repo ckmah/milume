@@ -9,7 +9,7 @@ import { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import { volumeCommClientFor } from "@/widgets/volume-cube/volume-comm";
 import { volumeHttpClientFor } from "@/widgets/volume-cube/volume-http";
 import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
-import { PREVIEW_REGION_BUDGET } from "@/widgets/volume-cube/window-source";
+import { PREVIEW_REGION_BUDGET, WINDOW_VOXEL_BUDGET } from "@/widgets/volume-cube/window-source";
 
 import { decodeF32Base64, decodeI32Base64 } from "./binary";
 import {
@@ -126,11 +126,17 @@ export function LandmarksView({
     const ids = new Set(lm.selections.map((s) => String(s.id)));
     for (const id of snapshots.keys()) if (!ids.has(id)) snapshots.delete(id);
   }, [lm.selections, snapshots]);
-  // The dock always loads level 0 for its window (only the 3D texture axis
-  // limit can make it coarser); the preview's budget sizes its first step.
+  // HTTP volumes load the finest level the texture axis allows. Over the widget
+  // comm (molab), that level is whole multi-megabyte chunks per round trip, so
+  // the dock stays inside the same voxel budget as a local cube. The preview
+  // budget sizes the coarse first step either way.
   const budgets = useMemo(
-    () => cubeBudgets ?? { preview: PREVIEW_REGION_BUDGET, dock: Number.POSITIVE_INFINITY },
-    [cubeBudgets],
+    () =>
+      cubeBudgets ?? {
+        preview: PREVIEW_REGION_BUDGET,
+        dock: volumeComm ? WINDOW_VOXEL_BUDGET : Number.POSITIVE_INFINITY,
+      },
+    [cubeBudgets, volumeComm],
   );
   const { hasVolume, cube, patchCube } = inspectCube;
 

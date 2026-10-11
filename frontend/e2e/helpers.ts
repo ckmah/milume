@@ -110,6 +110,102 @@ export async function canvasBox(page: Page) {
   return box!;
 }
 
+/** Find the plot canvas through open shadow roots (anywidget / molab). */
+export async function queryLandmarksCanvas(page: Page) {
+  return page.evaluate(() => {
+    const visit = (root: Document | ShadowRoot): HTMLCanvasElement | null => {
+      const hit = root.querySelector("canvas.landmarks__webgl");
+      if (hit) return hit as HTMLCanvasElement;
+      for (const el of root.querySelectorAll("*")) {
+        if (el instanceof HTMLElement && el.shadowRoot) {
+          const nested = visit(el.shadowRoot);
+          if (nested) return nested;
+        }
+      }
+      return null;
+    };
+    return visit(document);
+  });
+}
+
+/**
+ * Molab-like embed stress: tall scrolled page, CSS scale, picking-canvas leave with a
+ * shadow-host `relatedTarget` (anywidget retargeting), without reparenting the widget
+ * (reparenting collapses layout before the engine can resize).
+ */
+export async function applyMolabShadowEmbed(page: Page, opts: { scale?: boolean } = {}) {
+  const useScale = opts.scale !== false;
+  await page.evaluate(() => {
+    let outer = document.getElementById("molab-shadow-outer");
+    if (!outer) {
+      outer = document.createElement("div");
+      outer.id = "molab-shadow-outer";
+      outer.style.minHeight = "180vh";
+      outer.style.paddingTop = "40vh";
+      outer.style.paddingBottom = "40vh";
+      document.body.prepend(outer);
+    }
+    let host = document.getElementById("molab-anywidget-host");
+    if (!host) {
+      host = document.createElement("div");
+      host.id = "molab-anywidget-host";
+      host.className = "milume-widget-host";
+      outer.appendChild(host);
+    }
+    const widget = document.querySelector(".harness-cell-output") as HTMLElement | null;
+    widget?.scrollIntoView({ block: "center", inline: "nearest" });
+    window.scrollTo(0, Math.max(0, (host as HTMLElement).offsetTop - 48));
+  });
+  await page.waitForTimeout(150);
+
+  if (useScale) await applyMolabViewportStress(page);
+
+  await page.evaluate(() => {
+    const visit = (root: Document | ShadowRoot): HTMLCanvasElement | null => {
+      const hit = root.querySelector("canvas.landmarks__webgl");
+      if (hit) return hit as HTMLCanvasElement;
+      for (const el of root.querySelectorAll("*")) {
+        if (el instanceof HTMLElement && el.shadowRoot) {
+          const nested = visit(el.shadowRoot);
+          if (nested) return nested;
+        }
+      }
+      return null;
+    };
+    const webgl = visit(document);
+    const plot = webgl?.parentElement as HTMLElement | null;
+    if (plot && webgl && !plot.querySelector("#deck-picking-stub")) {
+      plot.style.position = "relative";
+      const pick = document.createElement("canvas");
+      pick.id = "deck-picking-stub";
+      pick.setAttribute("data-engine", "deck-picking");
+      pick.style.cssText =
+        "position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:auto";
+      pick.width = webgl.width || webgl.clientWidth;
+      pick.height = webgl.height || webgl.clientHeight;
+      plot.appendChild(pick);
+    }
+    (window as any).__molabPickingLeaveHook = () => {
+      const canvas = visit(document);
+      const host = document.getElementById("molab-anywidget-host");
+      canvas?.dispatchEvent(
+        new MouseEvent("mouseleave", {
+          bubbles: true,
+          relatedTarget: host,
+        }),
+      );
+    };
+  });
+  await page.evaluate(() => (window as any).__landmarksEngine?.resize?.());
+}
+
+/** Deck.gl picking layer (molab) stacked above the WebGL map in shadow harness tests. */
+export async function molabPickingCanvasBox(page: Page) {
+  const box = await page.locator("canvas#deck-picking-stub").first().boundingBox();
+  expect(box).toBeTruthy();
+  return box!;
+}
+
 /** molab-style CSS scale on the landmarks root (layout size unchanged). */
 export async function applyMolabViewportStress(page: Page) {
   await page.evaluate(() => {
