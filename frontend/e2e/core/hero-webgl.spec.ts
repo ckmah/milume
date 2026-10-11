@@ -61,6 +61,23 @@ test.describe("milume hero WebGL", () => {
     expect(unique.size).toBe(1);
   });
 
+  test("projected point radius stays below viewport cap across the loop", async ({ page }) => {
+    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.setTime);
+    const result = await page.evaluate(() => {
+      const h = window.__milumeHeroHandles?.[0];
+      if (!h?.getMaxProjectedRadiusAcrossLoop || !h.getMaxAllowedProjectedRadius) {
+        return { max: 0, cap: 0 };
+      }
+      return {
+        max: h.getMaxProjectedRadiusAcrossLoop(),
+        cap: h.getMaxAllowedProjectedRadius(),
+      };
+    });
+    expect(result.cap).toBeGreaterThan(0);
+    expect(result.max).toBeLessThanOrEqual(result.cap * 1.001);
+  });
+
   test("pauses when off screen", async ({ page }) => {
     await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
     const root = page.locator("[data-milume-hero]").first();
@@ -82,6 +99,8 @@ declare global {
       isPaused?: () => boolean;
       setTime?: (t: number) => void;
       getVisiblePointCount?: () => number;
+      getMaxProjectedRadiusAcrossLoop?: () => number;
+      getMaxAllowedProjectedRadius?: () => number;
     }>;
   }
 }

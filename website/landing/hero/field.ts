@@ -18,11 +18,10 @@ export async function loadGpuField(assetUrl: string): Promise<GpuField> {
   const n = view.getUint32(0, true);
   const tileCount = Z_TILES.length;
   const count = n * tileCount;
-  const pos = new Float32Array(count * 3);
-  const cat = new Uint8Array(count);
-  const rad = new Float32Array(count);
+  const basePos = new Float32Array(n * 3);
+  const baseCat = new Uint8Array(n);
+  const baseRad = new Float32Array(n);
 
-  let dst = 0;
   let o = 4;
   for (let i = 0; i < n; i++) {
     const x = view.getFloat32(o, true);
@@ -35,11 +34,31 @@ export async function loadGpuField(assetUrl: string): Promise<GpuField> {
     o += 1;
     const r = view.getFloat32(o, true);
     o += 4;
+    const p = i * 3;
+    basePos[p] = x;
+    basePos[p + 1] = y;
+    basePos[p + 2] = z;
+    baseCat[i] = c;
+    baseRad[i] = r;
+  }
+
+  const pos = new Float32Array(count * 3);
+  const cat = new Uint8Array(count);
+  const rad = new Float32Array(count);
+
+  let dst = 0;
+  for (let i = 0; i < n; i++) {
+    const p = i * 3;
+    const x = basePos[p]!;
+    const y = basePos[p + 1]!;
+    const z = basePos[p + 2]!;
+    const c = baseCat[i]!;
+    const r = baseRad[i]!;
     for (const k of Z_TILES) {
-      const p = dst * 3;
-      pos[p] = x;
-      pos[p + 1] = y;
-      pos[p + 2] = z + k * PERIOD_Z;
+      const d = dst * 3;
+      pos[d] = x;
+      pos[d + 1] = y;
+      pos[d + 2] = z + k * PERIOD_Z;
       cat[dst] = c;
       rad[dst] = r;
       dst++;

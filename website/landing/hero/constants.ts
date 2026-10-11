@@ -19,4 +19,5 @@ export const Z_NEAR1 = 3;
 export const Z_FAR0 = 22;
 export const Z_FAR1 = 30;
 
-export const Z_TILES = [-1, 0, 1, 2, 3, 4] as const;
+/** Skip k<=0 so tiled world z stays ahead of the camera path (z in [0, PERIOD_Z)). */
+export const Z_TILES = [1, 2, 3, 4, 5] as const;

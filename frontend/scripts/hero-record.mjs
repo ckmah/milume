@@ -1,5 +1,5 @@
 /**
- * Short hero loop clip via readPixels frames + ffmpeg (for PR evidence).
+ * Full hero loop clip (11s @ 8fps) via canvas screenshots + ffmpeg.
  */
 import { chromium } from "@playwright/test";
 import { mkdirSync, rmSync } from "node:fs";
@@ -10,8 +10,9 @@ import { spawnSync } from "node:child_process";
 const SITE = process.env.E2E_SITE_URL ?? "http://127.0.0.1:8765";
 const OUT =
   process.env.HERO_RECORD_OUT ?? "/cursor/stores/self/pr139/hero-recording.mp4";
-const TIMES = [0, 0.6, 1.5, 3, 4.5, 6, 7.5, 9, 10.5];
-const HOLD_FRAMES = 4;
+const LOOP_SEC = 11;
+const FPS = 8;
+const FRAME_COUNT = LOOP_SEC * FPS;
 
 async function main() {
   const dir = join(tmpdir(), `hero-rec-${Date.now()}`);
@@ -27,50 +28,16 @@ async function main() {
     content: `.hero-veil,.hero-copy,.site-header,.promo-montage{display:none!important}`,
   });
   await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.setTime);
+  const canvas = page.locator(".milume-hero__canvas");
 
-  let frameIdx = 0;
-  for (const t of TIMES) {
+  for (let i = 0; i < FRAME_COUNT; i++) {
+    const t = (i / (FRAME_COUNT - 1)) * LOOP_SEC;
     await page.evaluate((time) => {
       const h = window.__milumeHeroHandles?.[0];
       h?.setTime(time);
       h?.renderOnce();
     }, t);
-    const { w, h, px } = await page.evaluate(() => {
-      const c = document.querySelector(".milume-hero__canvas");
-      const gl = c.getContext("webgl2");
-      const width = c.width;
-      const height = c.height;
-      const buf = new Uint8Array(width * height * 4);
-      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, buf);
-      return { w: width, h: height, px: Array.from(buf) };
-    });
-    const rgb = Buffer.alloc(w * h * 3);
-    for (let y = 0; y < h; y++) {
-      const srcRow = (h - 1 - y) * w * 4;
-      for (let x = 0; x < w; x++) {
-        const si = srcRow + x * 4;
-        const di = (y * w + x) * 3;
-        rgb[di] = px[si];
-        rgb[di + 1] = px[si + 1];
-        rgb[di + 2] = px[si + 2];
-      }
-    }
-    for (let r = 0; r < HOLD_FRAMES; r++) {
-      const frame = join(dir, `f${String(frameIdx).padStart(4, "0")}.png`);
-      const py = spawnSync(
-        "python3",
-        [
-          "-c",
-          "import sys; from PIL import Image; w,h=int(sys.argv[1]),int(sys.argv[2]); out=sys.argv[3]; raw=sys.stdin.buffer.read(); Image.frombytes('RGB',(w,h),raw).save(out)",
-          String(w),
-          String(h),
-          frame,
-        ],
-        { input: rgb },
-      );
-      if (py.status !== 0) throw new Error(py.stderr?.toString() || "frame encode failed");
-      frameIdx++;
-    }
+    await canvas.screenshot({ path: join(dir, `f${String(i).padStart(4, "0")}.png`) });
   }
   await browser.close();
 
@@ -79,7 +46,7 @@ async function main() {
     [
       "-y",
       "-framerate",
-      "8",
+      String(FPS),
       "-i",
       join(dir, "f%04d.png"),
       "-c:v",
@@ -87,7 +54,7 @@ async function main() {
       "-pix_fmt",
       "yuv420p",
       "-crf",
-      "28",
+      "26",
       "-movflags",
       "+faststart",
       OUT,

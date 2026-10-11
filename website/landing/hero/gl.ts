@@ -1,6 +1,7 @@
 import type { GpuField } from "./field.ts";
 import { LOGICAL_H, LOGICAL_W } from "./constants.ts";
 import { cam } from "./math.ts";
+import { maxProjectionStatsForField, maxProjectedLogicalRadius } from "./projection.ts";
 
 const VS = `#version 300 es
 precision highp float;
@@ -46,7 +47,7 @@ void main() {
   float cr = cos(roll);
   float sr = sin(roll);
   vec3 d = i_pos - c;
-  float z = max(d.z, 0.02);
+  float z = d.z;
   float x = d.x * cr - d.y * sr;
   float y = d.x * sr + d.y * cr;
   float sx = float(${LOGICAL_W}) * 0.5 + F * x / z;
@@ -120,6 +121,15 @@ export function camZAt(t: number): number {
 /** Instances drawn each frame (static field; camera-only motion). */
 export function visiblePointCount(bundle: GlBundle): number {
   return bundle.count;
+}
+
+export function maxProjectedRadiusAcrossLoop(bundle: GlBundle): number {
+  const { maxPr } = maxProjectionStatsForField(bundle.srcPos, bundle.srcRad, bundle.count);
+  return maxPr;
+}
+
+export function maxAllowedProjectedRadius(): number {
+  return maxProjectedLogicalRadius();
 }
 
 export function createGl(canvas: HTMLCanvasElement, field: GpuField): GlBundle | null {
