@@ -3983,7 +3983,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       maybeEndPlotGesture();
     };
     window.addEventListener("mouseup", endStroke, opts);
-    window.addEventListener("pointerup", endStroke, opts);
     window.addEventListener(
       "pointercancel",
       (e) => {
