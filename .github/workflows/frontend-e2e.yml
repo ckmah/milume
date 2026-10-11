@@ -38,6 +38,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pr-mergeable:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Fail loudly when the PR has merge conflicts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node frontend/scripts/check-pr-mergeable.mjs
+
   changes:
     uses: ./.github/workflows/detect-changes.yml
     with:
@@ -350,7 +365,7 @@ jobs:
         run: node frontend/scripts/post-pr-playwright-comment.mjs
 
   gate:
-    needs: [changes, e2e-core, e2e-landmarks-default, e2e-landmarks-volume-smoke, e2e-landmarks-volume, e2e-marimo-volume, post-ui-evidence-comment]
+    needs: [pr-mergeable, changes, e2e-core, e2e-landmarks-default, e2e-landmarks-volume-smoke, e2e-landmarks-volume, e2e-marimo-volume, post-ui-evidence-comment]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -359,6 +374,10 @@ jobs:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
           echo "tier results: ${RESULTS}"
+          if [[ "${{ needs.pr-mergeable.result }}" == "failure" ]]; then
+            echo "gate: pr-mergeable failed — resolve conflicts before expecting green CI"
+            exit 1
+          fi
           [[ "${RESULTS}" != *failure* && "${RESULTS}" != *cancelled* ]]
 
   nightly-issue:

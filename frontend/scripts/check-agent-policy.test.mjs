@@ -5,14 +5,38 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { assignShards } from "./lib/e2e-shard-plan.mjs";
+import { mergeabilityError } from "./lib/pr-mergeable.mjs";
 import { validateUiPullRequest } from "./lib/pr-policy.mjs";
 import { validateWidgetIssueBody } from "./lib/widget-issue.mjs";
 
 const scripts = dirname(fileURLToPath(import.meta.url));
+const repoRoot = join(scripts, "..", "..");
 
 function run(script, args) {
   return spawnSync("node", [join(scripts, script), ...args], { encoding: "utf8" });
 }
+
+test("mergeabilityError flags conflicting PRs like #121 and #132", () => {
+  const msg = mergeabilityError({ mergeable: false, mergeableState: "dirty" });
+  assert.match(msg, /conflict/i);
+  assert.match(msg, /skip/i);
+  assert.equal(mergeabilityError({ mergeable: true, mergeableState: "clean" }), null);
+});
+
+test("AGENTS.md documents babysit stop rule and HF fixture policy", () => {
+  const agents = readFileSync(join(repoRoot, "AGENTS.md"), "utf8");
+  assert.match(agents, /gh-ci-watch/);
+  assert.match(agents, /check:pr-mergeable/);
+  assert.match(agents, /colon_a2/);
+  assert.match(agents, /volume-xsmall-if-missing/);
+});
+
+test("verify-landmarks skill documents marimo smoke and volume webServer", () => {
+  const skill = readFileSync(join(repoRoot, ".agents/skills/verify-landmarks/SKILL.md"), "utf8");
+  assert.match(skill, /gh-ci-watch/);
+  assert.match(skill, /test:e2e:marimo-volume/);
+  assert.match(skill, /ERR_CONNECTION_REFUSED/);
+});
 
 test("thin issue #79 empty fails widget-issue check", () => {
   const r = run("check-widget-issue.mjs", ["--fixture", "issue-79-empty"]);
