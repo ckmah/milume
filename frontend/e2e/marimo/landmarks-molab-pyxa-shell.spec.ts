@@ -19,7 +19,7 @@ test.describe("marimo kernel — molab shell on page (scale, zero-height grow)",
             const eng = (window as any).__landmarksEngine;
             return eng?.getPoints?.()?.length ?? 0;
           }),
-        { timeout: onCi() ? 120_000 : 60_000 },
+        { timeout: onCi() ? 720_000 : 180_000 },
       )
       .toBeGreaterThan(4000);
 

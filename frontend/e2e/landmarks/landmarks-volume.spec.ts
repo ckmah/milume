@@ -1025,6 +1025,7 @@ test.describe("Landmarks inspect cube", () => {
     // model, which is what the dock (and Save) must go by.
     const nextCx = cx0 + 20;
     await setModel(page, { inspect_cx: nextCx });
+    await expect.poll(async () => page.evaluate(() => (window as any).__landmarksModel?.get("inspect_cx"))).toBe(nextCx);
     await expect(saveButton(page)).toBeEnabled();
     const index = await save(page);
     const sel = (await selectionsOf(page))[index];
@@ -1264,8 +1265,9 @@ test.describe("Landmarks inspect cube", () => {
     const cx0 = Number(await getModel(page, "inspect_cx"));
     const cy0 = Number(await getModel(page, "inspect_cy"));
     // One-step drags: enough for pan hit-testing; avoids four software-GL frames per pan on CI.
-    const panDrag = { steps: 1 };
-    await dragCube(page, view, 40, 0, panDrag);
+    const panDrag = { steps: Boolean(process.env.CI) ? 3 : 1 };
+    await dragCube(page, view, 48, 0, panDrag);
+    await expect(view).toHaveAttribute("data-pan", "0,0");
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(cx0);
     const d1 = cx0 - Number(await getModel(page, "inspect_cx"));
     await dragCube(page, view, 80, 0, panDrag);
