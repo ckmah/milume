@@ -16,6 +16,20 @@ the checks for your diff from [`.github/e2e-tiers.json`](.github/e2e-tiers.json)
 
 - **Draft UI PRs:** keep PRs in draft while iterating. Draft runs the fast tier (`test`, `e2e-core`, landmarks default harness) without volume shards. Mark **ready for review** (or add the `ui-evidence` label / run the **UI evidence** workflow) to capture screenshots for the PR body before merge.
 
+## Agent run budgets
+
+Wall-clock on cloud agents is often idle time waiting for the next follow-up, not tool work. When you have pushed and CI is running:
+
+- Do **not** use open-ended `sleep` + `gh pr checks` loops. Use `node frontend/scripts/gh-ci-watch.mjs --pr N --repo ckmah/milume` (default cap: 12 rounds × 90 s, 20 min total) or Cursor `subscribe_github_ci`, then **hand off** with the last check snapshot.
+- After the babysit budget, stop polling and report: commit SHA, conflict status (`npm run check:pr-mergeable`), and which tier failed. Do not sleep overnight for green CI.
+- Before the first push on a UI change, run `cd frontend && npm run verify` locally (typically 7–12 min for landmarks). Use CI for integration gaps, not as a retry loop for the same failing spec (cap local reruns of one grep to **3** attempts, then fix root cause).
+- Pin scope up front: read the linked issue **Outcome / Acceptance** and any PM comment before coding. Confirm dataset identity (colon vs Pyxa `small`/`xsmall` are mouse brain — never join colon IDs onto them; see issue #97). For molab / volume-comm paths, passing the Vite harness is necessary but not sufficient: run `npm run test:e2e:marimo-volume` or the `landmarks-inspect` real-kernel spec before claiming the molab path is fixed.
+
+## Demo data (agents)
+
+- **Do not** build full `colon_a2.sdata.zarr` on cloud VMs (~30 GB RAM; OOM in multiple runs). Use `npm run dev:fixture:colon` subsamples, or HF `Stellaromics/demo` `xsmall` / `small` via `npm run dev:fixture:volume-xsmall-if-missing` / `volume-small-if-missing` (download + export only when missing).
+- Never poll for an hour on local export logs; prefetch once, then `--if-present` export.
+
 - Domain language: [`CONTEXT.md`](CONTEXT.md). Architecture decisions: [`docs/adr/`](docs/adr/). Roadmap: [`ROADMAP.md`](ROADMAP.md).
 - Product and design authority: [`frontend/PRODUCT.md`](frontend/PRODUCT.md), [`frontend/DESIGN.md`](frontend/DESIGN.md).
 - Widget UI dev loop and gotchas: [`docs/widget-ui-dev.md`](docs/widget-ui-dev.md). Packaging: [`docs/widget-packaging.md`](docs/widget-packaging.md). E2E tiers: [`frontend/e2e/README.md`](frontend/e2e/README.md).
