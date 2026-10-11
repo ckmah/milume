@@ -666,6 +666,11 @@ test.describe("LandmarksWidget", () => {
     );
     const sel = ((await getModel(page, "selections")) as { point_indices: number[] }[]).at(-1);
     expect(sel?.point_indices?.length ?? 0).toBeGreaterThan(0);
+    if (process.env.E2E_PR_EVIDENCE === "1") {
+      await page.locator(".landmarks").first().screenshot({
+        path: "/opt/cursor/artifacts/fast-lasso-after.png",
+      });
+    }
   });
 
   test("lasso stroke commits under CSS scale on the widget host", async ({ page }) => {
