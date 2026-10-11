@@ -31,7 +31,7 @@
 
 ## Typography
 
-- Wordmark: outlined SVG (`assets/logo/wordmark-*.svg`); tagline h1 Cabin Sketch 700
+- Wordmark: outlined `wordmark-dark.svg` on the always-dark landing (ignore OS theme); tagline h1 Cabin Sketch 700
 - Body: IBM Plex Sans, ~1.125rem / 1.55
 - Code: JetBrains Mono for install command
 

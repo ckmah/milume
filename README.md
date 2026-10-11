@@ -1,8 +1,8 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo/wordmark-dark.svg" />
-    <source media="(prefers-color-scheme: light)" srcset="assets/logo/wordmark-light.svg" />
-    <img src="assets/logo/wordmark-light.svg" width="280" alt="milume" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/ckmah/milume/main/assets/logo/wordmark-dark.svg" />
+    <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/ckmah/milume/main/assets/logo/wordmark-light.svg" />
+    <img src="https://raw.githubusercontent.com/ckmah/milume/main/assets/logo/wordmark-light.svg" width="280" alt="milume" />
   </picture>
 </p>
 
