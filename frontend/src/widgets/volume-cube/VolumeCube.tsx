@@ -871,13 +871,12 @@ export function VolumeCube({
   useEffect(() => {
     if (!preset) return;
     const { fits: f, box: b } = framing.current;
-    const view = viewPixelSize.width > 1 ? viewPixelSize : b;
     setViewState((prev) => {
       if (!prev || presetOf(prev) === preset) return prev;
-      return reframeOnPreset && f ? homeView(preset, f, view) : { ...prev, ...PRESETS[preset] };
+      return reframeOnPreset && f ? homeView(preset, f, b) : { ...prev, ...PRESETS[preset] };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [preset, viewPixelSize.width, viewPixelSize.height]);
+  }, [preset]);
 
   // Reported once there is a camera: a null before the first view would
   // overwrite a preset the caller asked for meanwhile.
