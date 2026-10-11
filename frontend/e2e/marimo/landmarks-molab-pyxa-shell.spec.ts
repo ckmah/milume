@@ -29,6 +29,6 @@ test.describe("marimo kernel — molab shell on page (scale, zero-height grow)",
     const box = await canvasBox(page);
     await page.getByRole("button", { name: /Lasso/i }).click();
     await drawLasso(page, box);
-    await assertMolabPyxaAfterSelection(page);
+    await assertMolabPyxaAfterSelection(page, box);
   });
 });

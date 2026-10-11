@@ -12,7 +12,10 @@ import {
   onCi,
 } from "./helpers";
 
-export async function assertMolabPyxaAfterSelection(page: Page) {
+export async function assertMolabPyxaAfterSelection(
+  page: Page,
+  box: { width: number; height: number },
+) {
   await expect
     .poll(async () => ((await getModel(page, "selections")) as unknown[])?.length ?? 0, {
       timeout: onCi() ? 180_000 : 45_000,
@@ -77,7 +80,7 @@ export async function assertMolabPyxaSelectionAndInspect(page: Page, box: { x: n
   const mid = await page.evaluate(() => (window as any).__landmarksEngine.getSelectionGesture());
   expect(mid.lassoPathLength).toBeGreaterThan(2);
   await page.mouse.up();
-  await assertMolabPyxaAfterSelection(page);
+  await assertMolabPyxaAfterSelection(page, box);
 }
 
 export async function assertMolabPyxaSelectionAndInspectInIframe(

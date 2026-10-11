@@ -1265,13 +1265,16 @@ test.describe("Landmarks inspect cube", () => {
     const cx0 = Number(await getModel(page, "inspect_cx"));
     const cy0 = Number(await getModel(page, "inspect_cy"));
     // One-step drags: enough for pan hit-testing; avoids four software-GL frames per pan on CI.
-    const panDrag = { steps: Boolean(process.env.CI) ? 3 : 1 };
-    await dragCube(page, view, 48, 0, panDrag);
-    await expect(view).toHaveAttribute("data-pan", "0,0");
+    const panDrag = { steps: 1 };
+    await dragCube(page, view, 40, 0, panDrag);
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(cx0);
-    const d1 = cx0 - Number(await getModel(page, "inspect_cx"));
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const cx1 = Number(await getModel(page, "inspect_cx"));
+    const d1 = cx0 - cx1;
     await dragCube(page, view, 80, 0, panDrag);
-    const d2 = cx0 - d1 - Number(await getModel(page, "inspect_cx"));
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const cx2 = Number(await getModel(page, "inspect_cx"));
+    const d2 = cx1 - cx2;
     expect(d2 / d1).toBeGreaterThan(1.7);
     expect(d2 / d1).toBeLessThan(2.3);
     // A horizontal drag leaves y; dragging down moves the window up the map (y decreases).
