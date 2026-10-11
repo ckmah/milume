@@ -2617,11 +2617,24 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     boxCurrent = null;
   }
 
-  function eventPoint(event) {
+  /** Map a mouse/pointer event to deck viewport pixels (handles CSS scale on ancestors). */
+  function canvasPointerPixels(event) {
     const rect = webglCanvas.getBoundingClientRect();
     if (!rect.width || !rect.height) return null;
-    const px = event.clientX - rect.left;
-    const py = event.clientY - rect.top;
+    const cssX = event.clientX - rect.left;
+    const cssY = event.clientY - rect.top;
+    const w = webglCanvas.clientWidth || rect.width;
+    const h = webglCanvas.clientHeight || rect.height;
+    return {
+      px: cssX * (w / rect.width),
+      py: cssY * (h / rect.height),
+    };
+  }
+
+  function eventPoint(event) {
+    const ptr = canvasPointerPixels(event);
+    if (!ptr) return null;
+    const { px, py } = ptr;
     const viewport = deckgl?.isInitialized ? deckgl.getViewports()[0] : null;
     if (!viewport) return null;
     const [x, y] = viewport.unproject([px, py]);
@@ -5748,6 +5761,10 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     // on the plot. Ignore those for in-flight gestures; hover preview still clears.
     if (probeModeOn() && !pointerStillOnPlot(event)) clearProbeHover();
     if (clearInspectHover()) setDeckLayers();
+    // Lasso strokes need many move events; picking-buffer swaps can fire leave
+    // with a relatedTarget outside the widget while window capture still owns
+    // the gesture (box drags often finish before the first swap).
+    if (plotGestureActive()) return;
     if (pointerStillOnPlot(event)) return;
     if (isDragging) {
       isDragging = false;
@@ -6225,9 +6242,9 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       e.stopImmediatePropagation();
       if (zoom === z0) return;
       // Keep the world point under the cursor fixed.
-      const rect = webglCanvas.getBoundingClientRect();
+      const ptr = canvasPointerPixels(e);
       const vp = deckgl.getViewports()?.[0];
-      const world = vp?.unproject([e.clientX - rect.left, e.clientY - rect.top]);
+      const world = ptr && vp?.unproject([ptr.px, ptr.py]);
       const next = { zoom: Array.isArray(zRaw) ? [zoom, zoom] : zoom };
       if (world) {
         const t = currentViewState.target || [0, 0, 0];
