@@ -604,6 +604,65 @@ test.describe("LandmarksWidget", () => {
     expect(sel?.point_indices?.length ?? 0).toBeGreaterThan(0);
   });
 
+  test("lasso stroke survives picking-canvas mouseleave with foreign relatedTarget", async ({
+    page,
+  }) => {
+    const before = ((await getModel(page, "selections")) as unknown[]).length;
+    await page.getByRole("button", { name: /Lasso/i }).click();
+    const box = await canvasBox(page);
+    const cx = box.x + box.width * 0.5;
+    const cy = box.y + box.height * 0.5;
+    const r = Math.min(box.width, box.height) * 0.28;
+    await page.mouse.move(cx + r, cy);
+    await page.mouse.down();
+    await page.evaluate(() => {
+      const canvas = document.querySelector("canvas.landmarks__webgl");
+      const foreign = document.createElement("canvas");
+      foreign.id = "deck-picking-swap-stub";
+      document.body.appendChild(foreign);
+      canvas?.dispatchEvent(
+        new MouseEvent("mouseleave", { bubbles: true, relatedTarget: foreign }),
+      );
+    });
+    for (let i = 0; i <= 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r, { steps: 2 });
+    }
+    await page.mouse.up();
+    await expect.poll(async () => ((await getModel(page, "selections")) as unknown[]).length).toBeGreaterThan(
+      before,
+    );
+    const sel = ((await getModel(page, "selections")) as { point_indices: number[] }[]).at(-1);
+    expect(sel?.point_indices?.length ?? 0).toBeGreaterThan(0);
+  });
+
+  test("lasso stroke commits under CSS scale on the widget host", async ({ page }) => {
+    await page.evaluate(() => {
+      const root = document.querySelector(".landmarks") as HTMLElement | null;
+      if (!root) return;
+      root.style.transform = "scale(0.82)";
+      root.style.transformOrigin = "top left";
+    });
+    const before = ((await getModel(page, "selections")) as unknown[]).length;
+    await page.getByRole("button", { name: /Lasso/i }).click();
+    const box = await canvasBox(page);
+    const cx = box.x + box.width * 0.5;
+    const cy = box.y + box.height * 0.5;
+    const r = Math.min(box.width, box.height) * 0.22;
+    await page.mouse.move(cx + r, cy);
+    await page.mouse.down();
+    for (let i = 0; i <= 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r, { steps: 2 });
+    }
+    await page.mouse.up();
+    await expect.poll(async () => ((await getModel(page, "selections")) as unknown[]).length).toBeGreaterThan(
+      before,
+    );
+    const sel = ((await getModel(page, "selections")) as { point_indices: number[] }[]).at(-1);
+    expect(sel?.point_indices?.length ?? 0).toBeGreaterThan(0);
+  });
+
   test("rulers: labels sit on the data and follow a pan; a grid line at every tick above the map", async ({
     page,
   }) => {

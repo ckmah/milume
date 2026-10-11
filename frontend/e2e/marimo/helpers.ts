@@ -36,6 +36,31 @@ export async function canvasBox(page: Page) {
   return box!;
 }
 
+/** Molab-like embed: scaled widget + picking-canvas leave stub mid-stroke. */
+export async function applyMolabEmbedStress(page: Page) {
+  await page.evaluate(() => {
+    const root = document.querySelector(".landmarks") as HTMLElement | null;
+    if (root) {
+      root.style.transform = "scale(0.88)";
+      root.style.transformOrigin = "center center";
+    }
+  });
+  await page.evaluate(() => {
+    (window as any).__molabPickingLeaveHook = () => {
+      const canvas = document.querySelector("canvas.landmarks__webgl");
+      let foreign = document.getElementById("deck-picking-swap-stub");
+      if (!foreign) {
+        foreign = document.createElement("canvas");
+        foreign.id = "deck-picking-swap-stub";
+        document.body.appendChild(foreign);
+      }
+      canvas?.dispatchEvent(
+        new MouseEvent("mouseleave", { bubbles: true, relatedTarget: foreign }),
+      );
+    };
+  });
+}
+
 /** Closed lasso stroke on the map (page.mouse, molab-style). */
 export async function drawLasso(page: Page, box: { x: number; y: number; width: number; height: number }) {
   const canvas = page.locator("canvas.landmarks__webgl, canvas").first();
@@ -54,9 +79,31 @@ export async function drawLasso(page: Page, box: { x: number; y: number; width: 
   await page.mouse.down();
   const steps = 16;
   for (let i = 0; i <= steps; i++) {
+    if (i === 4) {
+      await page.evaluate(() => (window as any).__molabPickingLeaveHook?.());
+    }
     const a = (i / steps) * Math.PI * 2;
     await page.mouse.move(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry, { steps: 3 });
   }
+  await page.mouse.up();
+}
+
+/** Axis-aligned rectangle drag (Square tool). */
+export async function drawRectangle(
+  page: Page,
+  box: { x: number; y: number; width: number; height: number },
+) {
+  await page.getByRole("button", { name: /Lasso\. Right-click for shape menu/ }).click({ button: "right" });
+  await page.getByRole("menuitem", { name: /^Square\b/ }).click();
+  await expect.poll(() => getModel(page, "mode"), { timeout: onCi() ? 60_000 : 15_000 }).toBe("rectangle");
+
+  const x0 = box.x + box.width * 0.28;
+  const y0 = box.y + box.height * 0.28;
+  const x1 = box.x + box.width * 0.72;
+  const y1 = box.y + box.height * 0.72;
+  await page.mouse.move(x0, y0);
+  await page.mouse.down();
+  await page.mouse.move(x1, y1, { steps: 8 });
   await page.mouse.up();
 }
 
@@ -80,3 +127,119 @@ export async function clickSelectLandmark(page: Page, box: { x: number; y: numbe
     return kind === "landmark" && Number(index) >= 0;
   }).toBe(true);
 }
+
+export const MARIMO_IFRAME_SELECTOR = 'iframe[data-testid="molab-marimo-frame"]';
+
+const molabShellPath = "/molab-iframe-shell";
+
+function molabIframeShellHtml(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>molab iframe shell</title>
+<style>
+  body { margin: 0; background: #1a1a1a; display: flex; justify-content: center; padding: 12px; }
+  #shell { transform: scale(0.88); transform-origin: center center; width: min(1320px, 96vw); }
+  #holder { height: 760px; overflow: visible; width: 100%; }
+  iframe { border: 0; width: 100%; height: 760px; display: block; }
+</style></head>
+<body>
+  <div id="shell">
+    <div id="holder">
+      <iframe data-testid="molab-marimo-frame" src="/"></iframe>
+    </div>
+  </div>
+</body></html>`;
+}
+
+/** Molab-like outer shell on the marimo origin: CSS scale + zero-height grow-in, iframe loads `/`. */
+export async function gotoMolabIframeShell(page: Page, baseURL: string) {
+  const origin = baseURL.replace(/\/$/, "");
+  const shellUrl = `${origin}${molabShellPath}`;
+  await page.route(`**${molabShellPath}**`, async (route) => {
+    await route.fulfill({ contentType: "text/html; charset=utf-8", body: molabIframeShellHtml() });
+  });
+  await page.goto(shellUrl, { waitUntil: "domcontentloaded", timeout: 120_000 });
+}
+
+export function marimoIframeWidget(page: Page) {
+  return page.frameLocator(MARIMO_IFRAME_SELECTOR);
+}
+
+/** Wait until the Pyxa landmarks widget is live inside the marimo iframe. */
+export async function waitForLandmarksWidgetInIframe(page: Page) {
+  await page.locator(MARIMO_IFRAME_SELECTOR).waitFor({ state: "attached", timeout: 120_000 });
+  const widget = marimoIframeWidget(page);
+  await widget.locator("canvas.landmarks__webgl, canvas").first().waitFor({
+    state: "visible",
+    timeout: onCi() ? 720_000 : 420_000,
+  });
+  await page.waitForFunction(
+    (sel) => {
+      const win = (document.querySelector(sel) as HTMLIFrameElement | null)?.contentWindow as any;
+      const vs = win?.__landmarksEngine?.getViewState?.();
+      return Boolean(vs && Number.isFinite(vs.zoom));
+    },
+    MARIMO_IFRAME_SELECTOR,
+    { timeout: onCi() ? 720_000 : 420_000 },
+  );
+  await page.waitForFunction(
+    (sel) => {
+      const win = (document.querySelector(sel) as HTMLIFrameElement | null)?.contentWindow as any;
+      return (win?.__landmarksEngine?.getPoints?.()?.length ?? 0) > 4000;
+    },
+    MARIMO_IFRAME_SELECTOR,
+    { timeout: onCi() ? 720_000 : 180_000 },
+  );
+  await page.waitForTimeout(400);
+}
+
+/** Collapse and re-expand the iframe holder (molab cell zero-height reflow). */
+export async function pulseMolabIframeReflow(page: Page) {
+  await page.evaluate(() => {
+    const holder = document.getElementById("holder");
+    if (!holder) return;
+    holder.style.height = "0";
+    holder.style.overflow = "hidden";
+  });
+  await page.waitForTimeout(120);
+  await page.evaluate(() => {
+    const holder = document.getElementById("holder");
+    if (!holder) return;
+    holder.style.height = "760px";
+    holder.style.overflow = "visible";
+  });
+  await page.evaluate((sel) => {
+    const win = (document.querySelector(sel) as HTMLIFrameElement | null)?.contentWindow;
+    win?.dispatchEvent(new Event("resize"));
+  }, MARIMO_IFRAME_SELECTOR);
+  await page.waitForTimeout(400);
+}
+
+export async function getModelInIframe(page: Page, key: string) {
+  return page.evaluate(
+    ({ sel, k }) => {
+      const win = (document.querySelector(sel) as HTMLIFrameElement | null)?.contentWindow as any;
+      return win?.__landmarksModel?.get(k);
+    },
+    { sel: MARIMO_IFRAME_SELECTOR, k: key },
+  );
+}
+
+export async function canvasBoxInIframe(page: Page) {
+  const canvas = marimoIframeWidget(page).locator("canvas.landmarks__webgl, canvas").first();
+  const box = await canvas.boundingBox();
+  expect(box).toBeTruthy();
+  return box!;
+}
+
+export async function evalInIframe<T>(page: Page, fn: string): Promise<T> {
+  return page.evaluate(
+    ({ sel, body }) => {
+      const win = (document.querySelector(sel) as HTMLIFrameElement | null)?.contentWindow as any;
+      if (!win) return null;
+      return new Function("win", `return (${body})(win)`)(win) as T;
+    },
+    { sel: MARIMO_IFRAME_SELECTOR, body: fn },
+  );
+}
+

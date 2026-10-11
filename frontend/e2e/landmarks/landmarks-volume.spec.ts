@@ -779,6 +779,83 @@ test.describe("Landmarks inspect cube", () => {
     await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "true");
   });
 
+  test("inspect cube reframes after the view grows from zero height (top view signal at centre)", async ({
+    page,
+  }) => {
+    await openCubeAtCentre(page);
+    await page.evaluate(() => {
+      const view = document.querySelector(
+        '[role="dialog"][aria-label="Cube"] .volume-cube__view',
+      ) as HTMLElement | null;
+      const host = view?.parentElement;
+      if (!host) return;
+      host.style.height = "0";
+      host.style.overflow = "hidden";
+    });
+    await page.waitForTimeout(120);
+    await page.evaluate(() => {
+      const view = document.querySelector(
+        '[role="dialog"][aria-label="Cube"] .volume-cube__view',
+      ) as HTMLElement | null;
+      const host = view?.parentElement;
+      if (!host) return;
+      host.style.height = "480px";
+      host.style.overflow = "visible";
+    });
+    await page.waitForTimeout(400);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await page.getByTestId("context-inspect-toolbar").getByRole("radio", { name: "Top view" }).click();
+    await expect.poll(async () => Number(await view.getAttribute("data-viewport-w"))).toBeGreaterThan(120);
+    const signal = await page.evaluate(() => {
+      const root = document.querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view');
+      const canvas = root?.querySelector("canvas") as HTMLCanvasElement | null;
+      const gl = canvas?.getContext("webgl2") ?? canvas?.getContext("webgl");
+      if (!gl || !canvas) return { ok: false as const, centerLum: 0, edgeLum: 0 };
+      const w = canvas.width;
+      const h = canvas.height;
+      const center = new Uint8Array(4);
+      gl.readPixels(Math.floor(w / 2), Math.floor(h / 2), 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, center);
+      const edge = new Uint8Array(4);
+      gl.readPixels(4, 4, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, edge);
+      const lum = (px: Uint8Array) => 0.299 * px[0]! + 0.587 * px[1]! + 0.114 * px[2]!;
+      return { ok: true as const, centerLum: lum(center), edgeLum: lum(edge) };
+    });
+    expect(signal.ok).toBe(true);
+    expect(signal.centerLum).toBeGreaterThan(12);
+    expect(signal.centerLum).toBeGreaterThan(signal.edgeLum * 0.35);
+  });
+
+  test("inspect cube preserves user wheel zoom across viewport resize (no re-home)", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-zoom", /\d/);
+    const zoomHome = Number(await view.getAttribute("data-zoom"));
+    const hostBox = await view.boundingBox();
+    expect(hostBox).toBeTruthy();
+    await page.mouse.move(hostBox!.x + hostBox!.width / 2, hostBox!.y + hostBox!.height / 2);
+    for (let i = 0; i < 8; i++) await page.mouse.wheel(0, -100);
+    await expect
+      .poll(async () => Number(await view.getAttribute("data-zoom")))
+      .toBeGreaterThan(zoomHome + 0.12);
+    const zoomUser = Number(await view.getAttribute("data-zoom"));
+    const scale = 0.72;
+    await page.evaluate((scale) => {
+      const viewEl = document.querySelector(
+        '[role="dialog"][aria-label="Cube"] .volume-cube__view',
+      ) as HTMLElement | null;
+      const host = viewEl?.parentElement;
+      if (!host) return;
+      const rect = host.getBoundingClientRect();
+      host.style.width = `${Math.max(140, rect.width * scale)}px`;
+      host.style.height = `${Math.max(140, rect.height * scale)}px`;
+    }, scale);
+    await page.waitForTimeout(450);
+    const zoomAfter = Number(await view.getAttribute("data-zoom"));
+    const expected = zoomUser + Math.log2(scale);
+    expect(zoomAfter).toBeCloseTo(expected, 1);
+    expect(zoomAfter).toBeGreaterThan(zoomHome + 0.08);
+  });
+
   test("a palette change before placing reaches the hover preview, then the dock", async ({ page }) => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     // The palette lives in Adjust, which opens before any window is placed.
@@ -948,6 +1025,7 @@ test.describe("Landmarks inspect cube", () => {
     // model, which is what the dock (and Save) must go by.
     const nextCx = cx0 + 20;
     await setModel(page, { inspect_cx: nextCx });
+    await expect.poll(async () => page.evaluate(() => (window as any).__landmarksModel?.get("inspect_cx"))).toBe(nextCx);
     await expect(saveButton(page)).toBeEnabled();
     const index = await save(page);
     const sel = (await selectionsOf(page))[index];
@@ -1190,9 +1268,13 @@ test.describe("Landmarks inspect cube", () => {
     const panDrag = { steps: 1 };
     await dragCube(page, view, 40, 0, panDrag);
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(cx0);
-    const d1 = cx0 - Number(await getModel(page, "inspect_cx"));
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const cx1 = Number(await getModel(page, "inspect_cx"));
+    const d1 = cx0 - cx1;
     await dragCube(page, view, 80, 0, panDrag);
-    const d2 = cx0 - d1 - Number(await getModel(page, "inspect_cx"));
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const cx2 = Number(await getModel(page, "inspect_cx"));
+    const d2 = cx1 - cx2;
     expect(d2 / d1).toBeGreaterThan(1.7);
     expect(d2 / d1).toBeLessThan(2.3);
     // A horizontal drag leaves y; dragging down moves the window up the map (y decreases).
@@ -2161,14 +2243,15 @@ test.describe("Landmarks inspect cube", () => {
     // category, two different windows would not share an id).
     await setModel(page, { active_category: "" });
     const box = await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-pan", "0,0");
+    await page.waitForTimeout(1200); // past SNAPSHOT_SETTLE_MS
     expect(await save(page)).toBe(0);
     expect((await selectionsOf(page))[0].id).toBe("inspect 1");
-    // The row's thumbnail (rows stay in the DOM while Inspect collapses the dock).
-    const thumb = selectionRow(page, 0).getByTestId("selection-thumb");
-    const src = () => thumb.getAttribute("src");
-    await expect(thumb).toHaveCount(1);
-    await page.waitForTimeout(1200); // past the snapshot's settle replacement (SNAPSHOT_SETTLE_MS)
-    const before = await src();
+    await page.waitForTimeout(1200);
+    const before = await selectionRow(page, 0).getByTestId("selection-thumb").getAttribute("src");
+    expect(before).toBeTruthy();
     const id = (await selectionsOf(page))[0].id;
 
     // Delete it, then save a new entry elsewhere under the same (reused) id.
@@ -2176,10 +2259,15 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
     await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.3);
     await expect(cubeWindow(page)).toBeVisible();
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-pan", "0,0");
+    await page.waitForTimeout(1200);
     expect(await save(page)).toBe(0);
     expect((await selectionsOf(page))[0].id).toBe(id);
-    await expect(thumb).toHaveCount(1);
-    await expect.poll(src).not.toBe(before);
+    await openSelectionsDock(page);
+    const thumb = selectionRow(page, 0).getByTestId("selection-thumb");
+    await expect(thumb).toBeVisible();
+    await expect.poll(async () => await thumb.getAttribute("src")).not.toBe(before);
   });
 
   test("hover shows a live coarse preview that slides without refetching", async ({ page }) => {
