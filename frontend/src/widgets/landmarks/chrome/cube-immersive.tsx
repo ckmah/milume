@@ -98,11 +98,21 @@ export function CubeImmersive({
   // entry saved from it can then show its thumbnail the moment Save adds it,
   // though deck draws no new frame then (the canvas can only be read while
   // rendering). A focused entry at its own window also gets one, under its id.
-  // After an entry's first snapshot, settled renders replace it for
-  // SNAPSHOT_SETTLE_MS.
+  // After an entry's first snapshot, settled renders replace the stored image
+  // for SNAPSHOT_SETTLE_MS. React hears about that twice (the first frame, and
+  // once when the window closes). Notifying on every frame setStates from
+  // deck's onAfterRender; the cube's layer props are new each render, so Viv
+  // redraws inside the same commit and React unmounts the widget at max depth.
   const live = useRef<ChipSnapshot | null>(null);
   const latest = useRef({ focused, cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um });
   latest.current = { focused, cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um };
+  const settleTimer = useRef<number | null>(null);
+  useEffect(
+    () => () => {
+      if (settleTimer.current != null) window.clearTimeout(settleTimer.current);
+    },
+    [],
+  );
   const onRendered = useCallback(
     (canvas: HTMLCanvasElement) => {
       const s = loadRef.current;
@@ -120,12 +130,29 @@ export function CubeImmersive({
         takeEntry = !entryCur || now - entryCur.at <= SNAPSHOT_SETTLE_MS;
       }
       if (!takeLive && !takeEntry) return;
-      const url = snapshotOf(canvas);
+      let url: string | null;
+      try {
+        url = snapshotOf(canvas);
+      } catch {
+        return;
+      }
       if (!url) return;
       if (takeLive) live.current = { key: liveKey, url, at: liveCur?.at ?? now };
       if (takeEntry && f) {
+        const first = !entryCur;
         snapshots.set(f.id, { key: windowKey(f.win), url, at: entryCur?.at ?? now });
+        if (!first) return;
         onSnapshot();
+        if (settleTimer.current != null) window.clearTimeout(settleTimer.current);
+        settleTimer.current = window.setTimeout(() => {
+          settleTimer.current = null;
+          const cur = latest.current.focused;
+          if (cur) {
+            const prev = snapshots.get(cur.id);
+            if (prev) snapshots.set(cur.id, { ...prev, at: performance.now() - SNAPSHOT_SETTLE_MS - 1 });
+          }
+          onSnapshot();
+        }, SNAPSHOT_SETTLE_MS);
       }
     },
     [snapshots, onSnapshot],

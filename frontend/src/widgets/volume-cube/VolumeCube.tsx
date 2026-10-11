@@ -247,6 +247,18 @@ export function clampRange(lo: number, hi: number, min: number, max: number): [n
   return [a, Math.max(a, Math.min(max, Math.max(lo, hi)))];
 }
 
+/**
+ * Slice ends in the units Viv's scale matrix uses.
+ *
+ * Viv turns a voxel index into a 0–1 ray coordinate by dividing by
+ * `shape * (voxel / smallestVoxel)`. Passing raw indices leaves a taller axis
+ * short of the wireframe (Pyxa Z is 0.5 µm against 0.46 µm XY, about 9%).
+ */
+export function vivAxisSlice(slice: readonly [number, number], voxel: number, minVoxel: number): [number, number] {
+  const scale = minVoxel > 0 ? voxel / minVoxel : 1;
+  return [slice[0] * scale, slice[1] * scale];
+}
+
 function viewStatesEqual(a: ViewState, b: ViewState): boolean {
   return (
     a.zoom === b.zoom &&
@@ -1002,6 +1014,14 @@ export function VolumeCube({
     }),
     [onRenderedRef],
   );
+  // Raw slices stay in voxel indices for the cut plates. Viv needs them scaled.
+  const voxelX = levelVoxel?.[2] ?? 1;
+  const voxelY = levelVoxel?.[1] ?? 1;
+  const voxelZ = levelVoxel?.[0] ?? 1;
+  const voxelMin = Math.min(voxelX, voxelY, voxelZ);
+  const vivXSlice = useMemo(() => vivAxisSlice(windowXSlice, voxelX, voxelMin), [windowXSlice, voxelX, voxelMin]);
+  const vivYSlice = useMemo(() => vivAxisSlice(windowYSlice, voxelY, voxelMin), [windowYSlice, voxelY, voxelMin]);
+  const vivZSlice = useMemo(() => vivAxisSlice(windowZSlice, voxelZ, voxelMin), [windowZSlice, voxelZ, voxelMin]);
   const layerProps = useMemo(
     () =>
       loader
@@ -1013,9 +1033,9 @@ export function VolumeCube({
               colors: IMAGE_COLORS,
               channelsVisible: ONE_CHANNEL_VISIBLE,
               selections: ONE_CHANNEL,
-              xSlice: windowXSlice,
-              ySlice: windowYSlice,
-              zSlice: windowZSlice,
+              xSlice: vivXSlice,
+              ySlice: vivYSlice,
+              zSlice: vivZSlice,
               cutFrac,
               cubeCutBox:
                 outsideCut && cubeFrame
@@ -1046,9 +1066,9 @@ export function VolumeCube({
       loader,
       onViewportLoad,
       contrastLimits,
-      windowXSlice,
-      windowYSlice,
-      windowZSlice,
+      vivXSlice,
+      vivYSlice,
+      vivZSlice,
       cutFrac,
       cubeExtensions,
       outsideCut,
