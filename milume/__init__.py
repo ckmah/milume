@@ -14,7 +14,7 @@ from .spatialdata_landmarks import (
     landmarks_to_geodataframe,
 )
 
-__version__ = "1.3.4.dev1"
+__version__ = "1.3.3"
 
 
 def peek(data, **kwargs) -> LandmarksWidget:
