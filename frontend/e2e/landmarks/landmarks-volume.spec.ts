@@ -2238,14 +2238,15 @@ test.describe("Landmarks inspect cube", () => {
     // category, two different windows would not share an id).
     await setModel(page, { active_category: "" });
     const box = await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-pan", "0,0");
+    await page.waitForTimeout(1200); // past SNAPSHOT_SETTLE_MS
     expect(await save(page)).toBe(0);
     expect((await selectionsOf(page))[0].id).toBe("inspect 1");
-    // The row's thumbnail (rows stay in the DOM while Inspect collapses the dock).
-    const thumb = selectionRow(page, 0).getByTestId("selection-thumb");
-    const src = () => thumb.getAttribute("src");
-    await expect(thumb).toHaveCount(1);
-    await page.waitForTimeout(1200); // past the snapshot's settle replacement (SNAPSHOT_SETTLE_MS)
-    const before = await src();
+    await page.waitForTimeout(1200);
+    const before = await selectionRow(page, 0).getByTestId("selection-thumb").getAttribute("src");
+    expect(before).toBeTruthy();
     const id = (await selectionsOf(page))[0].id;
 
     // Delete it, then save a new entry elsewhere under the same (reused) id.
@@ -2253,10 +2254,15 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
     await page.mouse.click(box.x + box.width * 0.3, box.y + box.height * 0.3);
     await expect(cubeWindow(page)).toBeVisible();
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-pan", "0,0");
+    await page.waitForTimeout(1200);
     expect(await save(page)).toBe(0);
     expect((await selectionsOf(page))[0].id).toBe(id);
-    await expect(thumb).toHaveCount(1);
-    await expect.poll(src).not.toBe(before);
+    await openSelectionsDock(page);
+    const thumb = selectionRow(page, 0).getByTestId("selection-thumb");
+    await expect(thumb).toBeVisible();
+    await expect.poll(async () => await thumb.getAttribute("src")).not.toBe(before);
   });
 
   test("hover shows a live coarse preview that slides without refetching", async ({ page }) => {

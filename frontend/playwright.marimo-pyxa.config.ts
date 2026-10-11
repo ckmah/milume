@@ -8,7 +8,7 @@ const baseURL = `http://${marimoE2eHost()}:${port}`;
 
 export default defineConfig({
   testDir: "./e2e/marimo",
-  testMatch: "landmarks-selection-molab.spec.ts",
+  testMatch: ["landmarks-selection-molab.spec.ts", "landmarks-molab-pyxa-shell.spec.ts"],
   testIgnore: "**/landmarks-molab-iframe.spec.ts",
   timeout: onCi ? 900_000 : 600_000,
   expect: { timeout: onCi ? 120_000 : 60_000 },

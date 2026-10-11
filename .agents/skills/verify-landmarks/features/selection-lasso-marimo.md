@@ -4,7 +4,8 @@
 
 - Harness: `landmarks.spec.ts` — `"lasso stroke survives picking-canvas mouseleave with foreign relatedTarget"`, `"lasso stroke commits under CSS scale on the widget host"`.
 - Marimo kernel: `landmarks-selection-molab.spec.ts` on Pyxa `small/` (~4.3k cells) with CSS scale, DPR 2, and a synthetic picking-canvas `mouseleave` mid-stroke (`playwright.marimo-pyxa.config.ts`).
-- Marimo molab shell: `landmarks-molab-iframe.spec.ts` — widget inside an outer iframe with CSS scale and zero-height grow-in; lasso path, seed highlight, `get_focus_obs_names` via `data-testid="marimo-focus-count"`, centred inspect cube (`playwright.marimo-pyxa-iframe.config.ts`, video on in CI).
+- Marimo molab shell (CI): `landmarks-molab-pyxa-shell.spec.ts` — zero-height grow + CSS scale on the marimo page; lasso, seed highlight, `get_focus_obs_names`, centred inspect cube (`playwright.marimo-pyxa.config.ts`).
+- Marimo molab iframe (local): `landmarks-molab-iframe.spec.ts` — same assertions inside an outer iframe (`playwright.marimo-pyxa-iframe.config.ts`, skipped on CI).
 
 ## Regression
 
