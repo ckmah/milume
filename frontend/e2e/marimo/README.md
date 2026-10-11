@@ -13,6 +13,8 @@ buffers on `msg:custom`).
 
 Molab layout stress on the **Vite harness** (scale, zero-height grow) lives in
 `e2e/landmarks/landmarks-molab-viewport.spec.ts` and runs in the landmarks e2e tier.
+Shadow-host `mouseleave` + scrolled-page stress is in `landmarks-molab-shadow.spec.ts`
+(same tier).
 
 ## CI (`e2e-marimo-volume`)
 
