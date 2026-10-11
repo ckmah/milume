@@ -6,6 +6,7 @@ import {
   gotoMolabIframeShell,
   marimoEmbedFrame,
   onCi,
+  pulseMolabIframeReflow,
   waitForLandmarksWidgetFrame,
 } from "./helpers";
 
@@ -18,6 +19,8 @@ test.describe("marimo kernel — molab iframe shell (scale, zero-height grow)", 
 
     await gotoMolabIframeShell(page, baseURL!);
     const frame = await marimoEmbedFrame(page);
+    await waitForLandmarksWidgetFrame(frame);
+    await pulseMolabIframeReflow(page, frame);
     await waitForLandmarksWidgetFrame(frame);
 
     await expect

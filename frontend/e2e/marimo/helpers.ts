@@ -139,22 +139,15 @@ function molabIframeShellHtml(): string {
 <style>
   body { margin: 0; background: #1a1a1a; display: flex; justify-content: center; padding: 12px; }
   #shell { transform: scale(0.88); transform-origin: center center; width: min(1320px, 96vw); }
-  #holder { height: 0; overflow: hidden; width: 100%; }
-  #holder.ready { height: 760px; overflow: visible; }
+  #holder { height: 760px; overflow: visible; width: 100%; }
   iframe { border: 0; width: 100%; height: 760px; display: block; }
 </style></head>
 <body>
   <div id="shell">
     <div id="holder">
-      <iframe data-testid="molab-marimo-frame"></iframe>
+      <iframe data-testid="molab-marimo-frame" src="/"></iframe>
     </div>
   </div>
-  <script>
-    requestAnimationFrame(() => setTimeout(() => {
-      document.getElementById("holder").classList.add("ready");
-      document.querySelector("iframe").src = "/";
-    }, 100));
-  </script>
 </body></html>`;
 }
 
@@ -166,7 +159,25 @@ export async function gotoMolabIframeShell(page: Page, baseURL: string) {
     await route.fulfill({ contentType: "text/html; charset=utf-8", body: molabIframeShellHtml() });
   });
   await page.goto(shellUrl, { waitUntil: "domcontentloaded", timeout: 120_000 });
-  await page.waitForFunction(() => document.getElementById("holder")?.classList.contains("ready"));
+}
+
+/** Collapse and re-expand the iframe holder (molab cell zero-height reflow). */
+export async function pulseMolabIframeReflow(page: Page, frame: Frame) {
+  await page.evaluate(() => {
+    const holder = document.getElementById("holder");
+    if (!holder) return;
+    holder.style.height = "0";
+    holder.style.overflow = "hidden";
+  });
+  await page.waitForTimeout(120);
+  await page.evaluate(() => {
+    const holder = document.getElementById("holder");
+    if (!holder) return;
+    holder.style.height = "760px";
+    holder.style.overflow = "visible";
+  });
+  await frame.evaluate(() => window.dispatchEvent(new Event("resize")));
+  await page.waitForTimeout(400);
 }
 
 function marimoChildFrame(page: Page): Frame | undefined {
