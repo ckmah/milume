@@ -4,7 +4,7 @@
 
 - Harness: `landmarks.spec.ts` — `"lasso stroke survives picking-canvas mouseleave with foreign relatedTarget"`, `"lasso stroke survives mouseleave when relatedTarget is the anywidget shadow host"`, `"lasso stroke commits under CSS scale on the widget host"`.
 - Harness molab viewport (CI landmarks): `landmarks-molab-viewport.spec.ts` — CSS scale, zero-height grow, lasso path + highlight on the Vite harness.
-- Harness molab shadow stress (CI landmarks): `landmarks-molab-shadow.spec.ts` — scrolled page, CSS scale, picking `mouseleave` with shadow-host `relatedTarget`, lasso path + commit + highlight.
+- Harness molab shadow stress (CI landmarks): `landmarks-molab-shadow.spec.ts` — scrolled page, CSS scale, deck picking canvas above WebGL, `mouseleave` with shadow-host `relatedTarget`, lasso path + commit + highlight. Regression proof vs tag `v1.3.3`: `node frontend/scripts/prove-molab-shadow-harness.mjs`.
 - Marimo kernel (local): `landmarks-selection-molab.spec.ts` on Pyxa `small/` with CSS scale, DPR 2, picking `mouseleave` stub (`playwright.marimo-pyxa.config.ts`).
 - Marimo molab shell (local): `landmarks-molab-pyxa-shell.spec.ts` — zero-height grow + CSS scale on the marimo page; lasso, highlight, `get_focus_obs_names`, centred inspect cube.
 - Marimo molab iframe (local): `landmarks-molab-iframe.spec.ts` — same assertions inside an outer iframe (`playwright.marimo-pyxa-iframe.config.ts`).

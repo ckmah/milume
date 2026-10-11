@@ -172,6 +172,19 @@ export async function applyMolabShadowEmbed(page: Page, opts: { scale?: boolean 
       }
       return null;
     };
+    const webgl = visit(document);
+    const plot = webgl?.parentElement as HTMLElement | null;
+    if (plot && webgl && !plot.querySelector("#deck-picking-stub")) {
+      plot.style.position = "relative";
+      const pick = document.createElement("canvas");
+      pick.id = "deck-picking-stub";
+      pick.setAttribute("data-engine", "deck-picking");
+      pick.style.cssText =
+        "position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:auto";
+      pick.width = webgl.width || webgl.clientWidth;
+      pick.height = webgl.height || webgl.clientHeight;
+      plot.appendChild(pick);
+    }
     (window as any).__molabPickingLeaveHook = () => {
       const canvas = visit(document);
       const host = document.getElementById("molab-anywidget-host");
@@ -184,6 +197,13 @@ export async function applyMolabShadowEmbed(page: Page, opts: { scale?: boolean 
     };
   });
   await page.evaluate(() => (window as any).__landmarksEngine?.resize?.());
+}
+
+/** Deck.gl picking layer (molab) stacked above the WebGL map in shadow harness tests. */
+export async function molabPickingCanvasBox(page: Page) {
+  const box = await page.locator("canvas#deck-picking-stub").first().boundingBox();
+  expect(box).toBeTruthy();
+  return box!;
 }
 
 /** molab-style CSS scale on the landmarks root (layout size unchanged). */
