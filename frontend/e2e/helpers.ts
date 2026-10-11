@@ -110,6 +110,63 @@ export async function canvasBox(page: Page) {
   return box!;
 }
 
+export type LassoStrokeOptions = {
+  /** Wall-clock duration of the closed circle (default ~3 s, Clarence / molab). */
+  durationMs?: number;
+  /** Angular samples around the circle (default 96). */
+  steps?: number;
+  /** Inset from the canvas edge as a fraction of half-width/height (default 0.1). */
+  inset?: number;
+  /** Step index at which to call `window.__molabPickingLeaveHook` (molab stress). */
+  pickingLeaveAtStep?: number;
+  /** Runs right after `mousedown`, before tracing (synthetic `mouseleave`, etc.). */
+  afterPress?: () => Promise<void>;
+  /** Runs after the circle trace, before `mouseup` (mid-stroke probes). */
+  beforeRelease?: () => Promise<void>;
+};
+
+/**
+ * Human-like lasso: press, trace a smooth closed circle in many small moves, release.
+ * Caller must already be in lasso mode and use page coordinates (`canvasBox` / picking box).
+ */
+export async function drawLassoStroke(
+  page: Page,
+  box: { x: number; y: number; width: number; height: number },
+  opts: LassoStrokeOptions = {},
+) {
+  const durationMs = opts.durationMs ?? 3000;
+  const steps = opts.steps ?? 96;
+  const inset = opts.inset ?? 0.1;
+  const cx = box.x + box.width * 0.5;
+  const cy = box.y + box.height * 0.5;
+  const rx = box.width * (0.5 - inset);
+  const ry = box.height * (0.5 - inset);
+  const delayMs = Math.max(1, Math.floor(durationMs / steps));
+
+  await page.mouse.move(cx + rx, cy);
+  await page.mouse.down();
+  if (opts.afterPress) await opts.afterPress();
+  for (let i = 0; i <= steps; i++) {
+    if (opts.pickingLeaveAtStep === i) {
+      await page.evaluate(() => (window as any).__molabPickingLeaveHook?.());
+    }
+    const a = (i / steps) * Math.PI * 2;
+    await page.mouse.move(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry);
+    if (i < steps) await page.waitForTimeout(delayMs);
+  }
+  if (opts.beforeRelease) await opts.beforeRelease();
+  await page.mouse.up();
+}
+
+/** Short quick lasso (~300 ms, ~10 moves) for click-vs-drag threshold tests. */
+export async function drawLassoStrokeFast(
+  page: Page,
+  box: { x: number; y: number; width: number; height: number },
+  opts: Omit<LassoStrokeOptions, "durationMs" | "steps"> = {},
+) {
+  await drawLassoStroke(page, box, { ...opts, durationMs: 300, steps: 10 });
+}
+
 /** Find the plot canvas through open shadow roots (anywidget / molab). */
 export async function queryLandmarksCanvas(page: Page) {
   return page.evaluate(() => {

@@ -6,6 +6,8 @@ import {
   bootLandmarksHarness,
   canvasBox,
   clickLandmarkTool,
+  drawLassoStroke,
+  drawLassoStrokeFast,
   getModel,
   getZoom,
   setModel,
@@ -583,20 +585,14 @@ test.describe("LandmarksWidget", () => {
     await page.getByRole("button", { name: /Lasso/i }).click();
     await expect.poll(() => getModel(page, "mode")).toBe("lasso");
     const box = await canvasBox(page);
-    const cx = box.x + box.width * 0.5;
-    const cy = box.y + box.height * 0.5;
-    const r = Math.min(box.width, box.height) * 0.25;
-    await page.mouse.move(cx + r, cy);
-    await page.mouse.down();
-    await page.evaluate(() => {
-      const canvas = document.querySelector("canvas.landmarks__webgl");
-      canvas?.dispatchEvent(new MouseEvent("mouseleave", { bubbles: true, relatedTarget: null }));
+    await drawLassoStroke(page, box, {
+      afterPress: async () => {
+        await page.evaluate(() => {
+          const canvas = document.querySelector("canvas.landmarks__webgl");
+          canvas?.dispatchEvent(new MouseEvent("mouseleave", { bubbles: true, relatedTarget: null }));
+        });
+      },
     });
-    for (let i = 0; i <= 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r, { steps: 2 });
-    }
-    await page.mouse.up();
     await expect.poll(async () => ((await getModel(page, "selections")) as unknown[]).length).toBeGreaterThan(
       before,
     );
@@ -610,25 +606,20 @@ test.describe("LandmarksWidget", () => {
     const before = ((await getModel(page, "selections")) as unknown[]).length;
     await page.getByRole("button", { name: /Lasso/i }).click();
     const box = await canvasBox(page);
-    const cx = box.x + box.width * 0.5;
-    const cy = box.y + box.height * 0.5;
-    const r = Math.min(box.width, box.height) * 0.28;
-    await page.mouse.move(cx + r, cy);
-    await page.mouse.down();
-    await page.evaluate(() => {
-      const canvas = document.querySelector("canvas.landmarks__webgl");
-      const foreign = document.createElement("canvas");
-      foreign.id = "deck-picking-swap-stub";
-      document.body.appendChild(foreign);
-      canvas?.dispatchEvent(
-        new MouseEvent("mouseleave", { bubbles: true, relatedTarget: foreign }),
-      );
+    await drawLassoStroke(page, box, {
+      inset: 0.12,
+      afterPress: async () => {
+        await page.evaluate(() => {
+          const canvas = document.querySelector("canvas.landmarks__webgl");
+          const foreign = document.createElement("canvas");
+          foreign.id = "deck-picking-swap-stub";
+          document.body.appendChild(foreign);
+          canvas?.dispatchEvent(
+            new MouseEvent("mouseleave", { bubbles: true, relatedTarget: foreign }),
+          );
+        });
+      },
     });
-    for (let i = 0; i <= 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r, { steps: 2 });
-    }
-    await page.mouse.up();
     await expect.poll(async () => ((await getModel(page, "selections")) as unknown[]).length).toBeGreaterThan(
       before,
     );
@@ -642,31 +633,44 @@ test.describe("LandmarksWidget", () => {
     const before = ((await getModel(page, "selections")) as unknown[]).length;
     await page.getByRole("button", { name: /Lasso/i }).click();
     const box = await canvasBox(page);
-    const cx = box.x + box.width * 0.5;
-    const cy = box.y + box.height * 0.5;
-    const r = Math.min(box.width, box.height) * 0.28;
-    await page.mouse.move(cx + r, cy);
-    await page.mouse.down();
-    await page.evaluate(() => {
-      const canvas = document.querySelector("canvas.landmarks__webgl");
-      let host = document.getElementById("molab-anywidget-host");
-      if (!host) {
-        host = document.createElement("div");
-        host.id = "molab-anywidget-host";
-        document.body.appendChild(host);
-      }
-      canvas?.dispatchEvent(
-        new MouseEvent("mouseleave", { bubbles: true, relatedTarget: host }),
-      );
+    await drawLassoStroke(page, box, {
+      inset: 0.12,
+      afterPress: async () => {
+        await page.evaluate(() => {
+          const canvas = document.querySelector("canvas.landmarks__webgl");
+          let host = document.getElementById("molab-anywidget-host");
+          if (!host) {
+            host = document.createElement("div");
+            host.id = "molab-anywidget-host";
+            document.body.appendChild(host);
+          }
+          canvas?.dispatchEvent(
+            new MouseEvent("mouseleave", { bubbles: true, relatedTarget: host }),
+          );
+        });
+      },
     });
-    for (let i = 0; i <= 12; i++) {
-      const a = (i / 12) * Math.PI * 2;
-      await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r, { steps: 2 });
-    }
-    await page.mouse.up();
     await expect.poll(async () => ((await getModel(page, "selections")) as unknown[]).length).toBeGreaterThan(
       before,
     );
+  });
+
+  test("fast lasso drag commits a selection (not treated as a click)", async ({ page }) => {
+    const before = ((await getModel(page, "selections")) as unknown[]).length;
+    await page.getByRole("button", { name: /Lasso/i }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("lasso");
+    const box = await canvasBox(page);
+    await drawLassoStrokeFast(page, box);
+    await expect.poll(async () => ((await getModel(page, "selections")) as unknown[]).length).toBeGreaterThan(
+      before,
+    );
+    const sel = ((await getModel(page, "selections")) as { point_indices: number[] }[]).at(-1);
+    expect(sel?.point_indices?.length ?? 0).toBeGreaterThan(0);
+    if (process.env.E2E_PR_EVIDENCE === "1") {
+      await page.locator(".landmarks").first().screenshot({
+        path: "/opt/cursor/artifacts/fast-lasso-after.png",
+      });
+    }
   });
 
   test("lasso stroke commits under CSS scale on the widget host", async ({ page }) => {
@@ -679,16 +683,7 @@ test.describe("LandmarksWidget", () => {
     const before = ((await getModel(page, "selections")) as unknown[]).length;
     await page.getByRole("button", { name: /Lasso/i }).click();
     const box = await canvasBox(page);
-    const cx = box.x + box.width * 0.5;
-    const cy = box.y + box.height * 0.5;
-    const r = Math.min(box.width, box.height) * 0.22;
-    await page.mouse.move(cx + r, cy);
-    await page.mouse.down();
-    for (let i = 0; i <= 10; i++) {
-      const a = (i / 10) * Math.PI * 2;
-      await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r, { steps: 2 });
-    }
-    await page.mouse.up();
+    await drawLassoStroke(page, box, { inset: 0.18 });
     await expect.poll(async () => ((await getModel(page, "selections")) as unknown[]).length).toBeGreaterThan(
       before,
     );

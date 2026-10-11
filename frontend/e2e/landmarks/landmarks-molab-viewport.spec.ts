@@ -4,6 +4,7 @@ import {
   applyMolabViewportStress,
   bootLandmarksHarness,
   canvasBox,
+  drawLassoStroke,
   getModel,
   growLandmarksFromZeroHeight,
   setModel,
@@ -49,26 +50,23 @@ test.describe("molab viewport stress (deferred layout, CSS scale)", () => {
 
     await page.getByRole("button", { name: /Lasso/i }).click();
     const box = await canvasBox(page);
-    const cx = box.x + box.width * 0.5;
-    const cy = box.y + box.height * 0.5;
-    const r = Math.min(box.width, box.height) * 0.24;
-    await page.mouse.move(cx + r, cy);
-    await page.mouse.down();
-    await page.evaluate(() => {
-      const canvas = document.querySelector("canvas.landmarks__webgl");
-      const foreign = document.createElement("canvas");
-      document.body.appendChild(foreign);
-      canvas?.dispatchEvent(
-        new MouseEvent("mouseleave", { bubbles: true, relatedTarget: foreign }),
-      );
+    await drawLassoStroke(page, box, {
+      inset: 0.14,
+      afterPress: async () => {
+        await page.evaluate(() => {
+          const canvas = document.querySelector("canvas.landmarks__webgl");
+          const foreign = document.createElement("canvas");
+          document.body.appendChild(foreign);
+          canvas?.dispatchEvent(
+            new MouseEvent("mouseleave", { bubbles: true, relatedTarget: foreign }),
+          );
+        });
+      },
+      beforeRelease: async () => {
+        const mid = await page.evaluate(() => (window as any).__landmarksEngine.getSelectionGesture());
+        expect(mid.lassoPathLength).toBeGreaterThan(2);
+      },
     });
-    for (let i = 0; i <= 10; i++) {
-      const a = (i / 10) * Math.PI * 2;
-      await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r, { steps: 2 });
-    }
-    const mid = await page.evaluate(() => (window as any).__landmarksEngine.getSelectionGesture());
-    expect(mid.lassoPathLength).toBeGreaterThan(2);
-    await page.mouse.up();
     await expect
       .poll(async () => ((await getModel(page, "selections")) as unknown[])?.length ?? 0)
       .toBeGreaterThan(0);

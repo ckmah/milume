@@ -1,6 +1,6 @@
 import { expect, type Page } from "@playwright/test";
 
-import { growLandmarksFromZeroHeight } from "../helpers";
+import { drawLassoStroke, growLandmarksFromZeroHeight } from "../helpers";
 
 import {
   applyMolabEmbedStress,
@@ -68,18 +68,13 @@ export async function assertMolabPyxaAfterSelection(
 
 /** Lasso stroke (path length) then post-selection assertions on the top-level marimo page. */
 export async function assertMolabPyxaSelectionAndInspect(page: Page, box: { x: number; y: number; width: number; height: number }) {
-  const cx = box.x + box.width * 0.5;
-  const cy = box.y + box.height * 0.5;
-  const r = Math.min(box.width, box.height) * 0.22;
-  await page.mouse.move(cx + r, cy);
-  await page.mouse.down();
-  for (let i = 0; i <= 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r, { steps: 2 });
-  }
-  const mid = await page.evaluate(() => (window as any).__landmarksEngine.getSelectionGesture());
-  expect(mid.lassoPathLength).toBeGreaterThan(2);
-  await page.mouse.up();
+  await drawLassoStroke(page, box, {
+    inset: 0.18,
+    beforeRelease: async () => {
+      const mid = await page.evaluate(() => (window as any).__landmarksEngine.getSelectionGesture());
+      expect(mid.lassoPathLength).toBeGreaterThan(2);
+    },
+  });
   await assertMolabPyxaAfterSelection(page, box);
 }
 
@@ -87,22 +82,16 @@ export async function assertMolabPyxaSelectionAndInspectInIframe(
   page: Page,
   box: { x: number; y: number; width: number; height: number },
 ) {
-  const widget = marimoIframeWidget(page);
-  const cx = box.x + box.width * 0.5;
-  const cy = box.y + box.height * 0.5;
-  const r = Math.min(box.width, box.height) * 0.22;
-  await page.mouse.move(cx + r, cy);
-  await page.mouse.down();
-  for (let i = 0; i <= 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r, { steps: 2 });
-  }
-  const mid = await evalInIframe<{ lassoPathLength: number }>(
-    page,
-    `(win) => win.__landmarksEngine.getSelectionGesture()`,
-  );
-  expect(mid.lassoPathLength).toBeGreaterThan(2);
-  await page.mouse.up();
+  await drawLassoStroke(page, box, {
+    inset: 0.18,
+    beforeRelease: async () => {
+      const mid = await evalInIframe<{ lassoPathLength: number }>(
+        page,
+        `(win) => win.__landmarksEngine.getSelectionGesture()`,
+      );
+      expect(mid.lassoPathLength).toBeGreaterThan(2);
+    },
+  });
 
   await expect
     .poll(async () => ((await getModelInIframe(page, "selections")) as unknown[])?.length ?? 0, {
