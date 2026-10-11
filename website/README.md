@@ -14,7 +14,7 @@ Engineering notes stay in the repo’s top-level `docs/` and are **not** the Zen
 
 ## Hero WebGL loop
 
-The landing hero and docs home mount `landing/assets/hero-renderer.js` (built from
+The landing hero mounts `landing/assets/hero-renderer.js` (built from
 `landing/hero/`). Point data lives in `landing/assets/hero-points.bin`. Posters:
 `hero-poster.png` (fallback / reduced motion) and `hero-poster-800.png` for README
 embeds.

@@ -16,17 +16,6 @@ OUT="${ROOT}/site"
   npm run build:hero
 )
 
-HERO_ASSETS=(
-  hero-renderer.js
-  hero-points.bin
-  hero-poster.png
-  hero-poster-800.png
-)
-mkdir -p "${WEBSITE}/content/assets"
-for f in "${HERO_ASSETS[@]}"; do
-  cp -f "${WEBSITE}/landing/assets/${f}" "${WEBSITE}/content/assets/${f}"
-done
-
 rm -rf "${OUT}"
 mkdir -p "${OUT}"
 
