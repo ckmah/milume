@@ -2555,6 +2555,28 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   let lineStrokeActive = false;
   /** Pixel-distance² below this on mouseup → click, not drag (line authoring). */
   const LINE_CLICK_PX2 = 25;
+  /** Lasso: movement beyond this (px²) commits even with few move events (fast drags). */
+  const LASSO_CLICK_PX2 = LINE_CLICK_PX2;
+
+  function lassoMovedBeyondClick(path) {
+    if (!path || path.length < 2) return false;
+    const a = path[0];
+    let max2 = 0;
+    for (let i = 1; i < path.length; i++) {
+      const p = path[i];
+      const dx = p.px - a.px;
+      const dy = p.py - a.py;
+      const d2 = dx * dx + dy * dy;
+      if (d2 > max2) max2 = d2;
+    }
+    return max2 > LASSO_CLICK_PX2;
+  }
+
+  function shouldCommitLasso(path) {
+    if (!path || path.length < 2) return false;
+    if (path.length >= 3) return true;
+    return lassoMovedBeyondClick(path);
+  }
   let vertexDragIndex = -1;
   let vertexDragLandmarkIndex = -1;
   /** Vertex index selected within the focused landmark (node mode); -1 = none. */
@@ -5744,7 +5766,11 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     }
     if (isLassoing) {
       isLassoing = false;
-      if (lassoPath.length >= 3) {
+      if (pt) {
+        const last = lassoPath[lassoPath.length - 1];
+        if (!last || last.px !== pt.px || last.py !== pt.py) lassoPath.push(pt);
+      }
+      if (shouldCommitLasso(lassoPath)) {
         commitPointSelection({
           type: "lasso",
           vertices: lassoPath.map((p) => [p.x, p.y]),
