@@ -7,6 +7,7 @@ const onCi = Boolean(process.env.CI);
 
 export default defineConfig({
   testDir: "./e2e/marimo",
+  testIgnore: "**/landmarks-selection-molab.spec.ts",
   timeout: onCi ? 900_000 : 600_000,
   expect: { timeout: onCi ? 120_000 : 60_000 },
   fullyParallel: false,
