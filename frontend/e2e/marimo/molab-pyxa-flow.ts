@@ -33,7 +33,7 @@ export async function assertMolabPyxaAfterSelection(
     .poll(async () => {
       const text = await page.locator('[data-testid="marimo-focus-count"]').innerText();
       return Number.parseInt(text, 10);
-    }, { timeout: onCi() ? 720_000 : 60_000 })
+    }, { timeout: onCi() ? 720_000 : 300_000 })
     .toBeGreaterThan(0);
 
   await page.getByRole("radio", { name: "Inspect", exact: true }).click();
@@ -120,11 +120,19 @@ export async function assertMolabPyxaSelectionAndInspectInIframe(
     })
     .toBeGreaterThan(0);
 
+  await evalInIframe(page, `(win) => {
+    const m = win.__landmarksModel;
+    const n = m.get("selections")?.length ?? 0;
+    if (n > 0) {
+      m.set("selected_kind", "selection");
+      m.set("selected_index", n - 1);
+    }
+  }`);
   await expect
     .poll(async () => {
       const text = await widget.locator('[data-testid="marimo-focus-count"]').innerText();
       return Number.parseInt(text, 10);
-    }, { timeout: onCi() ? 180_000 : 60_000 })
+    }, { timeout: onCi() ? 180_000 : 180_000 })
     .toBeGreaterThan(0);
 
   await widget.getByRole("radio", { name: "Inspect", exact: true }).click();

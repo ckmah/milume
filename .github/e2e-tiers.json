@@ -18,7 +18,6 @@
     "frontend/e2e/marimo/**",
     "frontend/playwright.marimo.config.ts",
     "frontend/playwright.marimo-pyxa.config.ts",
-    "frontend/playwright.marimo-pyxa-iframe.config.ts",
     "frontend/scripts/marimo-e2e-serve.mjs",
     "frontend/scripts/marimo-e2e-host.mjs",
     "frontend/scripts/prefetch-marimo-e2e-data.py",
