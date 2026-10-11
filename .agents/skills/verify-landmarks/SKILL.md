@@ -50,6 +50,31 @@ npx playwright test e2e/landmarks/landmarks-tools.spec.ts -g "node mode"
 
 CI path: `frontend/e2e/landmarks/` (see [`frontend/e2e/README.md`](../../frontend/e2e/README.md)).
 
+Volume / Inspect cube specs **must** go through Playwright `webServer` (`E2E_HARNESS=landmarks-volume`). Do not run bare `npx playwright test …landmarks-volume…` while Vite is down — that produced ERR_CONNECTION_REFUSED loops in agent bc-fb7104a0 (#121). Prefer:
+
+```bash
+cd frontend
+cross-env E2E_HARNESS=landmarks-volume npx playwright test e2e/landmarks/landmarks-volume.spec.ts -g "your test"
+```
+
+Molab / kernel comm regressions: after harness proof, run real marimo smoke:
+
+```bash
+cd frontend && npm run build && npm run test:e2e:marimo-volume
+```
+
+CI runs toy marimo selection tests plus `landmarks-inspect.spec.ts` on `demos/landmarks.py` (non-localhost origin). Harness-only green is not enough for volume-comm bugs.
+
+## CI babysit stop rule
+
+After push, use bounded polling only:
+
+```bash
+node frontend/scripts/gh-ci-watch.mjs --pr <N> --repo ckmah/milume --check gate
+```
+
+Exit **2** means budget exhausted — post status and hand off; do not chain 15–30 minute sleeps. If `npm run check:pr-mergeable` fails, rebase before watching CI (conflicted PRs skip checks; see bc-fb7104a0 #121, #132).
+
 ## Doctor check (harness readiness)
 
 Run this before driving features manually or when e2e fails mysteriously:

@@ -124,16 +124,24 @@ def _write_store_pyxa(store: Path, hf_profile: str):
     return sd.read_zarr(store)
 
 
-def export_profile(profile: str) -> None:
+def export_profile(profile: str, *, if_present: bool = False) -> None:
     if profile == "toy":
         store_name = "toy.sdata.zarr"
         out = DEV / "landmarks-volume-fixture.json"
-        sdata = _write_store_toy(PUBLIC / store_name)
+        store = PUBLIC / store_name
+        if if_present and (store / "zarr.json").is_file() and out.is_file():
+            print(f"skip {profile}: {store} and {out} already present")
+            return
+        sdata = _write_store_toy(store)
         widget = LandmarksWidget(sdata, color="cell_type", contrast_limits=TOY_CONTRAST_LIMITS)
     elif profile in ("xsmall", "small"):
         store_name = f"{profile}.sdata.zarr"
         out = DEV / f"landmarks-volume-fixture.{profile}.json"
-        sdata = _write_store_pyxa(PUBLIC / store_name, profile)
+        store = PUBLIC / store_name
+        if if_present and (store / "zarr.json").is_file() and out.is_file():
+            print(f"skip {profile}: {store} and {out} already present")
+            return
+        sdata = _write_store_pyxa(store, profile)
         image_key = next(iter(sdata.images))
         contrast = image_contrast_limits(sdata.images[image_key])
         adata = sdata.tables[next(iter(sdata.tables.keys()))]
@@ -158,8 +166,13 @@ def main() -> None:
         default="toy",
         help="toy: synthetic CI fixture; xsmall/small: HF Stellaromics/demo (requires --extra demo)",
     )
+    parser.add_argument(
+        "--if-present",
+        action="store_true",
+        help="skip pyxa export when zarr + fixture JSON already exist (after prefetch)",
+    )
     args = parser.parse_args()
-    export_profile(args.profile)
+    export_profile(args.profile, if_present=args.if_present)
 
 
 if __name__ == "__main__":

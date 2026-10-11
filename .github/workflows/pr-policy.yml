@@ -10,6 +10,21 @@ permissions:
   issues: read
 
 jobs:
+  pr-mergeable:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Fail loudly when the PR has merge conflicts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: node frontend/scripts/check-pr-mergeable.mjs
+
   changes:
     uses: ./.github/workflows/detect-changes.yml
 

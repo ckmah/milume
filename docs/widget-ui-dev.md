@@ -61,7 +61,9 @@ CI runs the same build; consumers never need Node.
 | Refresh mock state | `npm run dev:fixture` |
 | Live variant mode | dev server + `live.mjs` + `live-poll.mjs` |
 | Real data / traitlets | `watch:landmarks` + marimo demo |
-| Inspect cube, real xsmall | `dev:fixture:volume-xsmall` then `dev:landmarks-volume-xsmall` |
+| Inspect cube, real xsmall | `dev:fixture:volume-xsmall-if-missing` then `dev:landmarks-volume-xsmall` |
+| Inspect cube, Pyxa small | `dev:fixture:volume-small-if-missing` then `dev:landmarks-volume-small` |
+| Warm HF demo trees only | `cd frontend && npm run dev:prefetch:hf-demo` |
 | Typecheck | `npm run typecheck` |
 | Publish bundles | `npm run build` |
 
