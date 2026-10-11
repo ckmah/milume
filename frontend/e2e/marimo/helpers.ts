@@ -146,11 +146,15 @@ export async function gotoMolabIframeShell(page: Page, baseURL: string) {
 <body>
   <div id="shell">
     <div id="holder">
-      <iframe data-testid="molab-marimo-frame" src="${marimoUrl}"></iframe>
+      <iframe data-testid="molab-marimo-frame"></iframe>
     </div>
   </div>
   <script>
-    requestAnimationFrame(() => setTimeout(() => document.getElementById("holder").classList.add("ready"), 100));
+    const marimoUrl = ${JSON.stringify(marimoUrl)};
+    requestAnimationFrame(() => setTimeout(() => {
+      document.getElementById("holder").classList.add("ready");
+      document.querySelector("iframe").src = marimoUrl;
+    }, 100));
   </script>
 </body></html>`;
   await page.goto("about:blank");
@@ -158,13 +162,19 @@ export async function gotoMolabIframeShell(page: Page, baseURL: string) {
   await page.waitForFunction(() => document.getElementById("holder")?.classList.contains("ready"));
 }
 
-export async function marimoEmbedFrame(page: Page): Promise<Frame> {
+export async function marimoEmbedFrame(page: Page, marimoOrigin: string): Promise<Frame> {
   const el = page.locator(MARIMO_IFRAME_SELECTOR);
   await el.waitFor({ state: "attached", timeout: 120_000 });
+  const origin = marimoOrigin.replace(/\/$/, "");
+  let frame: Frame | null = null;
   await expect
-    .poll(async () => (await el.contentFrame()) !== null, { timeout: onCi() ? 120_000 : 60_000 })
+    .poll(async () => {
+      frame = await el.contentFrame();
+      const url = frame?.url() ?? "";
+      return url.startsWith(origin) && !url.startsWith("about:");
+    }, { timeout: onCi() ? 720_000 : 420_000 })
     .toBe(true);
-  return (await el.contentFrame())!;
+  return frame!;
 }
 
 export async function waitForLandmarksWidgetFrame(frame: Frame) {
