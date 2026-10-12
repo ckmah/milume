@@ -6,7 +6,7 @@
 
 **THESIS:** The first viewport is a dim fluorescence console: the LandmarksWidget tissue scatter *is* the light. Refuse SaaS metric heroes, cream editorial templates, and purple neon tool marketing.
 
-**OWN-WORLD:** Deep instrument graphite field (`#0a0e12` → `#121820`), soft phosphor mint accent (`#5ec4a8`), warm tungsten secondary for quiet UI chrome (`#c4a574`). Display face **Unbounded**; body **Source Sans 3**; code **Source Code Pro**. No cards in the hero; no floating badges on media.
+**OWN-WORLD:** Deep instrument graphite field (`#0a0e12` → `#121820`), soft phosphor mint accent (`#5ec4a8`), warm tungsten secondary for quiet UI chrome (`#c4a574`). Wordmark and tagline **Cabin Sketch**; body **IBM Plex Sans**; code **JetBrains Mono**. No cards in the hero; no floating badges on media.
 
 **STORY:** Visitor understands milume is notebook widgets synced to Python analysis, believes the screenshot is real product chrome, and acts via Install / Docs / Demo.
 
@@ -31,9 +31,9 @@
 
 ## Typography
 
-- Display: Unbounded 600–700, clamp ~2.75–4.5rem, tracking ≥ -0.03em
-- Body: Source Sans 3, ~1.125rem / 1.55
-- Code: Source Code Pro for install command
+- Wordmark: outlined `wordmark-dark.svg` on the always-dark landing (ignore OS theme); tagline h1 Cabin Sketch 700
+- Body: IBM Plex Sans, ~1.125rem / 1.55
+- Code: JetBrains Mono for install command
 
 ## Motion
 

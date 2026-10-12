@@ -31,8 +31,13 @@ handlers = { python = { paths = [".."], options = { docstring_style = "numpy", d
 
 [project.theme]
 language = "en"
+custom_dir = "overrides"
 logo = "assets/logo/milume-mark.svg"
 favicon = "assets/logo/favicon.ico"
+
+[project.theme.font]
+text = "IBM Plex Sans"
+code = "JetBrains Mono"
 features = [
   "content.code.copy",
   "content.tabs.link",

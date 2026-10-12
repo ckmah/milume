@@ -1,0 +1,24 @@
+{#-
+  Font loading: display=swap and Cabin Sketch for brand chrome (see bridge.css).
+-#}
+{% extends "base.html" %}
+{% block fonts %}
+  {% if config.theme.font != false %}
+    {% set text = config.theme.font.text | d("IBM Plex Sans", true) %}
+    {% set code = config.theme.font.code | d("JetBrains Mono", true) %}
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Cabin+Sketch:wght@700&amp;family={{
+        text | replace(' ', '+') + ':ital,wght@0,400;0,500;0,600;0,700;1,400&amp;family=' +
+        code | replace(' ', '+') + ':ital,wght@0,400;0,500;0,700;1,400&amp;display=swap'
+      }}"
+    >
+    <style>:root{
+      --md-text-font:"{{ text }}",system-ui,-apple-system,"Segoe UI",sans-serif;
+      --md-code-font:"{{ code }}",ui-monospace,"Cascadia Code",monospace;
+      --milume-display:"Cabin Sketch","Segoe UI",sans-serif;
+    }</style>
+  {% endif %}
+{% endblock %}
