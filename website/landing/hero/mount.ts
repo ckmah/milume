@@ -1,6 +1,12 @@
 import { LOGICAL_H, LOGICAL_W, LOOP_SEC } from "./constants.ts";
 import { loadGpuField } from "./field.ts";
-import { createGl, drawFrame } from "./gl.ts";
+import {
+  createGl,
+  drawFrame,
+  maxAllowedProjectedRadius,
+  maxProjectedRadiusAcrossLoop,
+  visiblePointCount,
+} from "./gl.ts";
 
 export type HeroHandle = {
   pause: () => void;
@@ -15,6 +21,9 @@ export type HeroHandle = {
   setTime: (t: number) => void;
   renderOnce: () => void;
   getLoopTime: () => number;
+  getVisiblePointCount: () => number;
+  getMaxProjectedRadiusAcrossLoop: () => number;
+  getMaxAllowedProjectedRadius: () => number;
 };
 
 function prefersReducedMotion(): boolean {
@@ -192,5 +201,9 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
     },
     getLoopTime: () => loopPhase(performance.now(), start, frozenT),
     renderOnce: () => renderFrame(performance.now()),
+    getVisiblePointCount: () => (glBundle ? visiblePointCount(glBundle) : 0),
+    getMaxProjectedRadiusAcrossLoop: () =>
+      glBundle ? maxProjectedRadiusAcrossLoop(glBundle) : 0,
+    getMaxAllowedProjectedRadius: () => maxAllowedProjectedRadius(),
   };
 }

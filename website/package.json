@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:hero": "node scripts/build-hero.mjs",
+    "build:hero": "node scripts/build-hero.mjs && npx --yes tsx scripts/bake-hero-points.ts",
     "build": "npm run build:hero"
   },
   "devDependencies": {
