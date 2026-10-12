@@ -4,7 +4,7 @@ export type GpuField = {
   count: number;
   /** xyz per instance (tiled world positions) */
   pos: Float32Array;
-  /** category 0..3 per instance */
+  /** baked palette slot 0..4 per instance (see `palette.ts`) */
   cat: Uint8Array;
   /** base radius per instance */
   rad: Float32Array;

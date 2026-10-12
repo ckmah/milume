@@ -1,7 +1,12 @@
 import type { GpuField } from "./field.ts";
 import { LOGICAL_H, LOGICAL_W } from "./constants.ts";
 import { cam } from "./math.ts";
+import { glVec3, heroPaletteForGl, HERO_PALETTE } from "./palette.ts";
 import { maxProjectionStatsForField, maxProjectedLogicalRadius } from "./projection.ts";
+
+const PAL = heroPaletteForGl(HERO_PALETTE);
+const BG_GLSL = glVec3(PAL.background);
+const SLOT_GLSL = PAL.slots.map((c, i) => `const vec3 SLOT${i} = ${glVec3(c)};`).join("\n");
 
 const VS = `#version 300 es
 precision highp float;
@@ -16,18 +21,16 @@ out vec4 v_pm;
 out vec2 v_uv;
 
 const float F = 900.0;
-const vec3 BG = vec3(11.0 / 255.0);
-const vec3 CAT0 = vec3(244.0, 114.0, 182.0) / 255.0;
-const vec3 CAT1 = vec3(96.0, 165.0, 250.0) / 255.0;
-const vec3 CAT2 = vec3(251.0, 191.0, 36.0) / 255.0;
-const vec3 CAT3 = vec3(167.0, 139.0, 250.0) / 255.0;
+const vec3 BG = ${BG_GLSL};
+${SLOT_GLSL}
 
-vec3 catCol(float c) {
+vec3 pointCol(float c) {
   int i = int(c + 0.5);
-  if (i == 0) return CAT0;
-  if (i == 1) return CAT1;
-  if (i == 2) return CAT2;
-  return CAT3;
+  if (i == 0) return SLOT0;
+  if (i == 1) return SLOT1;
+  if (i == 2) return SLOT2;
+  if (i == 3) return SLOT3;
+  return SLOT4;
 }
 
 void cam(float t, out vec3 c, out float roll) {
@@ -55,12 +58,8 @@ void main() {
   float pr = F * i_rad / z;
   float rad = max(pr, 0.35);
 
-  vec3 col = catCol(i_cat);
-  float bright = 0.88;
-  vec3 rgb = col * bright + BG * (1.0 - bright);
-  rgb = clamp(rgb, 0.0, 1.0);
+  vec3 rgb = clamp(pointCol(i_cat), 0.0, 1.0);
   float a = 1.0;
-
   v_pm = vec4(rgb * a, a);
 
   float lay = u_layout.x;
@@ -111,6 +110,7 @@ export type GlBundle = {
   uTime: WebGLUniformLocation | null;
   uScale: WebGLUniformLocation | null;
   uLayout: WebGLUniformLocation | null;
+  clearRgb: [number, number, number];
 };
 
 export function camZAt(t: number): number {
@@ -211,6 +211,7 @@ export function createGl(canvas: HTMLCanvasElement, field: GpuField): GlBundle |
     uTime: gl.getUniformLocation(program, "u_time"),
     uScale: gl.getUniformLocation(program, "u_scale"),
     uLayout: gl.getUniformLocation(program, "u_layout"),
+    clearRgb: PAL.background,
   };
 }
 
@@ -269,7 +270,8 @@ export function drawFrame(
   height: number,
   layout: { scale: number; offX: number; offY: number; dpr: number },
 ): void {
-  const { gl, program, vao, posBuf, catBuf, radBuf, count, uTime, uScale, uLayout } = bundle;
+  const { gl, program, vao, posBuf, catBuf, radBuf, count, uTime, uScale, uLayout, clearRgb } =
+    bundle;
 
   sortInstances(bundle, t);
 
@@ -281,7 +283,7 @@ export function drawFrame(
   gl.bufferSubData(gl.ARRAY_BUFFER, 0, bundle.sortRad);
 
   gl.viewport(0, 0, width, height);
-  gl.clearColor(11 / 255, 11 / 255, 11 / 255, 1);
+  gl.clearColor(clearRgb[0], clearRgb[1], clearRgb[2], 1);
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.useProgram(program);
   gl.bindVertexArray(vao);

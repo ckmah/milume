@@ -11,6 +11,7 @@ import {
   maxProjectedLogicalRadius,
   maxProjectionStatsForField,
 } from "../landing/hero/projection.ts";
+import { assignBakedPointPalette } from "../landing/hero/palette.ts";
 import { relocateBasePointsClearOfCameraPath } from "../landing/hero/tube-clearance.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -100,9 +101,10 @@ function writeBaseField(path: string, field: BaseField): void {
 const buf = readFileSync(binPath);
 let field = readBaseField(buf);
 field = subsampleBaseField(field);
-const { n, basePos, baseRad } = field;
+const { n, basePos, baseRad, baseCat } = field;
 
 relocateBasePointsClearOfCameraPath(basePos, baseRad, n);
+assignBakedPointPalette(baseCat, n);
 
 const tileCount = Z_TILES.length;
 const count = n * tileCount;
