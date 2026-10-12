@@ -1,6 +1,3 @@
-/** Fraction of base points that use the orange accent (design-tunable). */
-export const HERO_ACCENT_FRACTION = 0.05;
-
 export type HeroPalette = {
   id: "dark" | "light";
   backgroundHex: string;
@@ -8,20 +5,33 @@ export type HeroPalette = {
   accentHex: string;
   /** Chroma scale applied to ramp and accent RGB (0–1). */
   saturation: number;
+  /** When true, hero uses standard src-alpha blending (light); dark uses the same path today. */
+  normalAlphaBlend: boolean;
 };
 
-/** Active hero palette; add `HERO_PALETTE_LIGHT` when design ships it. */
 export const HERO_PALETTE_DARK: HeroPalette = {
   id: "dark",
   backgroundHex: "#05100f",
   tealRampHex: ["#0f766e", "#14b8a6", "#5eead4", "#a5f3fc"],
   accentHex: "#f59e0b",
   saturation: 0.85,
+  normalAlphaBlend: false,
 };
 
+/** Reserved for a future landing light theme (not wired while wordmark/copy stay on-dark). */
+export const HERO_PALETTE_LIGHT: HeroPalette = {
+  id: "light",
+  backgroundHex: "#f7faf9",
+  tealRampHex: ["#115e59", "#0f766e", "#0d9488", "#14b8a6"],
+  accentHex: "#d97706",
+  saturation: 1.0,
+  normalAlphaBlend: true,
+};
+
+/** Landing hero uses dark only until header/copy/wordmark support light surfaces. */
 export const HERO_PALETTE: HeroPalette = HERO_PALETTE_DARK;
 
-/** `i_cat` 0..3 teal ramp, 4 accent. */
+/** Five baked slots: teal ramp 0–3, orange 4. */
 export const HERO_PALETTE_SLOT_COUNT = 5;
 export const HERO_ACCENT_SLOT = 4;
 
@@ -35,16 +45,9 @@ function hashU32(n: number): number {
   return h >>> 0;
 }
 
-function unitFloat(seed: number): number {
-  return hashU32(seed) / 4294967296;
-}
-
-/** Deterministic palette slot for a baked base point index. */
+/** Uniform pick among five palette slots (~20% orange). */
 export function heroPointPaletteSlot(baseIndex: number): number {
-  if (unitFloat(baseIndex * 3 + 1) < HERO_ACCENT_FRACTION) {
-    return HERO_ACCENT_SLOT;
-  }
-  return hashU32(baseIndex * 5 + 7) % 4;
+  return hashU32(baseIndex * 11 + 3) % HERO_PALETTE_SLOT_COUNT;
 }
 
 export function assignBakedPointPalette(baseCat: Uint8Array, count: number): void {
