@@ -1,14 +1,7 @@
-import { LOGICAL_H, LOGICAL_W, LOOP_SEC } from "./constants.ts";
-import { assertUniqueNormalizedXy } from "./field-xy.ts";
-import { loadGpuField } from "./field.ts";
-import {
-  createGl,
-  drawFrame,
-  maxAllowedProjectedRadius,
-  maxProjectedRadiusAcrossLoop,
-  visiblePointCount,
-} from "./gl.ts";
-import { visibleDiscStatsAcrossLoop, type VisibleDiscLoopStats } from "./visible-discs.ts";
+import { fieldHasNaN } from "./camera.ts";
+import { HERO_POINT_COUNT, LOGICAL_H, LOGICAL_W, LOOP_SEC, REDUCED_MOTION_TIME } from "./constants.ts";
+import { createHeroField } from "./field.ts";
+import { createGl, drawFrame, lastDrawInstanceCount, visiblePointCount } from "./gl.ts";
 
 export type HeroHandle = {
   pause: () => void;
@@ -24,10 +17,9 @@ export type HeroHandle = {
   renderOnce: () => void;
   getLoopTime: () => number;
   getVisiblePointCount: () => number;
-  getMaxProjectedRadiusAcrossLoop: () => number;
-  getMaxAllowedProjectedRadius: () => number;
-  getVisibleDiscStatsAcrossLoop: () => VisibleDiscLoopStats | null;
-  hasUniqueNormalizedXy: () => boolean;
+  getBasePointCount: () => number;
+  getLastInstanceCount: () => number;
+  fieldHasNaN: () => boolean;
 };
 
 function prefersReducedMotion(): boolean {
@@ -44,8 +36,7 @@ function loopPhase(wallMs: number, start: number, frozenT: number | null): numbe
   return elapsed - Math.floor(elapsed / LOOP_SEC) * LOOP_SEC;
 }
 
-export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
-  const base = root.getAttribute("data-assets-base") ?? "assets/";
+export function mountHero(root: HTMLElement): HeroHandle {
   const poster = root.querySelector<HTMLImageElement>(".milume-hero__poster");
   const canvas = root.querySelector<HTMLCanvasElement>(".milume-hero__canvas");
   if (!poster || !canvas) {
@@ -55,16 +46,9 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
   poster.hidden = true;
   canvas.hidden = true;
 
-  let field = null;
-  let loadError = false;
-  try {
-    field = await loadGpuField(`${base}hero-points.bin`);
-  } catch {
-    loadError = true;
-  }
-
+  const field = createHeroField();
   const reduced = prefersReducedMotion();
-  const glBundle = !reduced && !loadError && field ? createGl(canvas, field) : null;
+  const glBundle = createGl(canvas, field.points);
   const live = Boolean(glBundle);
 
   if (live) {
@@ -77,13 +61,13 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
     root.dataset.heroMode = "poster";
   }
 
-  let running = live;
+  let running = live && !reduced;
   let raf = 0;
   let frameId = 0;
   let lastFrameMs = 0;
   let lastSimMs = 0;
   let lastDrawMs = 0;
-  let frozenT: number | null = null;
+  let frozenT: number | null = reduced ? REDUCED_MOTION_TIME : null;
   let start = performance.now();
   let width = 0;
   let height = 0;
@@ -113,10 +97,12 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
     if (!glBundle) return;
     performance.mark("hero-begin");
     const t = loopPhase(wallMs, start, frozenT);
+    const tSim0 = performance.now();
     lastSimMs = 0;
     const tDraw0 = performance.now();
     drawFrame(glBundle, t, width, height, layout);
     lastDrawMs = performance.now() - tDraw0;
+    lastSimMs = performance.now() - tSim0 - lastDrawMs;
     performance.mark("hero-end");
     const entries = performance.getEntriesByName("hero-frame");
     for (const e of entries) performance.clearMeasures(e.name);
@@ -149,7 +135,7 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
   };
 
   const resume = () => {
-    if (!live) return;
+    if (!live || reduced) return;
     frozenT = null;
     start = performance.now();
     running = true;
@@ -168,7 +154,10 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
 
   const onVis = () => {
     if (document.visibilityState === "hidden") pause();
-    else if (root.getBoundingClientRect().bottom > 0 && root.getBoundingClientRect().top < window.innerHeight) {
+    else if (
+      root.getBoundingClientRect().bottom > 0 &&
+      root.getBoundingClientRect().top < window.innerHeight
+    ) {
       resume();
     }
   };
@@ -176,12 +165,16 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
 
   const ro = new ResizeObserver(() => {
     resize();
+    if (live) renderFrame(performance.now());
     schedule();
   });
   ro.observe(root);
   resize();
 
-  if (live) schedule();
+  if (live) {
+    renderFrame(performance.now());
+    schedule();
+  }
 
   return {
     pause,
@@ -206,21 +199,8 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
     getLoopTime: () => loopPhase(performance.now(), start, frozenT),
     renderOnce: () => renderFrame(performance.now()),
     getVisiblePointCount: () => (glBundle ? visiblePointCount(glBundle) : 0),
-    getMaxProjectedRadiusAcrossLoop: () =>
-      glBundle ? maxProjectedRadiusAcrossLoop(glBundle) : 0,
-    getMaxAllowedProjectedRadius: () => maxAllowedProjectedRadius(),
-    getVisibleDiscStatsAcrossLoop: () =>
-      glBundle
-        ? visibleDiscStatsAcrossLoop(glBundle.srcPos, glBundle.srcRad, glBundle.count, 24)
-        : null,
-    hasUniqueNormalizedXy: () => {
-      if (!glBundle) return false;
-      try {
-        assertUniqueNormalizedXy(glBundle.srcPos, glBundle.count);
-        return true;
-      } catch {
-        return false;
-      }
-    },
+    getBasePointCount: () => HERO_POINT_COUNT,
+    getLastInstanceCount: () => (glBundle ? lastDrawInstanceCount(glBundle) : 0),
+    fieldHasNaN: () => fieldHasNaN(field.points),
   };
 }

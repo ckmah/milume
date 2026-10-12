@@ -31,31 +31,6 @@ export const HERO_PALETTE_LIGHT: HeroPalette = {
 /** Landing hero uses dark only until header/copy/wordmark support light surfaces. */
 export const HERO_PALETTE: HeroPalette = HERO_PALETTE_DARK;
 
-/** Five baked slots: teal ramp 0–3, orange 4. */
-export const HERO_PALETTE_SLOT_COUNT = 5;
-export const HERO_ACCENT_SLOT = 4;
-
-const COLOR_PICK_SEED = 0x1620f59e;
-
-function hashU32(n: number): number {
-  let h = (n + 1) ^ COLOR_PICK_SEED;
-  h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
-  h = Math.imul(h ^ (h >>> 15), 0x846ca68b);
-  h ^= h >>> 16;
-  return h >>> 0;
-}
-
-/** Uniform pick among five palette slots (~20% orange). */
-export function heroPointPaletteSlot(baseIndex: number): number {
-  return hashU32(baseIndex * 11 + 3) % HERO_PALETTE_SLOT_COUNT;
-}
-
-export function assignBakedPointPalette(baseCat: Uint8Array, count: number): void {
-  for (let i = 0; i < count; i++) {
-    baseCat[i] = heroPointPaletteSlot(i);
-  }
-}
-
 function hexToRgb01(hex: string): [number, number, number] {
   const n = Number.parseInt(hex.slice(1), 16);
   return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
@@ -89,4 +64,19 @@ export function heroPaletteForGl(palette: HeroPalette = HERO_PALETTE): HeroPalet
 
 export function glVec3([r, g, b]: [number, number, number]): string {
   return `vec3(${r.toFixed(6)}, ${g.toFixed(6)}, ${b.toFixed(6)})`;
+}
+
+export function paletteSlotRgb(
+  palette: HeroPalette,
+): [number, number, number][] {
+  const sat = palette.saturation;
+  const hexes = [...palette.tealRampHex, palette.accentHex];
+  return hexes.map((hex) => applySaturation(hexToRgb01(hex), sat));
+}
+
+export function paletteRgbForPoints(palette: HeroPalette = HERO_PALETTE): {
+  palette: HeroPalette;
+  rgb: [number, number, number][];
+} {
+  return { palette, rgb: paletteSlotRgb(palette) };
 }

@@ -1,9 +1,13 @@
 import { expect, test } from "@playwright/test";
+import {
+  canvasBrightPixelCount,
+  HERO_MIN_BRIGHT_PIXELS,
+} from "../helpers/hero-canvas-bright.ts";
 
 const SITE = process.env.E2E_SITE_URL ?? "http://127.0.0.1:8765";
-
-/** `HERO_BAKED_BASE_COUNT` unique world instances (see `website/landing/hero/subsample.ts`). */
-const HERO_INSTANCE_COUNT = 425;
+const REF_PATH = "/hero/reference/index.html";
+const HERO_BASE_POINTS = 650;
+const LOOP_SEC = 10;
 
 test.describe("milume hero WebGL", () => {
   test("canvas renders a non-blank frame on the landing page", async ({ page }) => {
@@ -30,77 +34,86 @@ test.describe("milume hero WebGL", () => {
     expect(blank).toBe(false);
   });
 
-  test("prefers-reduced-motion shows poster fallback", async ({ page }) => {
+  test("prefers-reduced-motion keeps a static webgl frame", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto(`${SITE}/`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
     const root = page.locator("[data-milume-hero]").first();
-    await expect(root).toHaveAttribute("data-hero-mode", "poster");
-    await expect(root.locator("img.milume-hero__poster")).toBeVisible();
-    await expect(root.locator("canvas.milume-hero__canvas")).toHaveAttribute("hidden", "");
+    await expect(root).toHaveAttribute("data-hero-mode", "webgl");
+    await expect(root.locator("canvas.milume-hero__canvas")).toBeVisible();
+    await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.isPaused?.() === true);
+    const before = await page.evaluate(() => window.__milumeHeroHandles?.[0]?.getFrameId?.() ?? 0);
+    await page.waitForTimeout(900);
+    const after = await page.evaluate(() => window.__milumeHeroHandles?.[0]?.getFrameId?.() ?? 0);
+    expect(after).toBe(before);
+    const loopT = await page.evaluate(() => window.__milumeHeroHandles?.[0]?.getLoopTime?.() ?? -1);
+    expect(loopT).toBeCloseTo(1.5, 5);
   });
 
-  test("visible point count is stable across one camera loop", async ({ page }) => {
+  test("seeded base point count is constant", async ({ page }) => {
+    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.getBasePointCount);
+    const n = await page.evaluate(() => window.__milumeHeroHandles?.[0]?.getBasePointCount?.() ?? 0);
+    expect(n).toBe(HERO_BASE_POINTS);
+  });
+
+  test("field has no NaN", async ({ page }) => {
+    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.fieldHasNaN);
+    const bad = await page.evaluate(() => window.__milumeHeroHandles?.[0]?.fieldHasNaN?.());
+    expect(bad).toBe(false);
+  });
+
+  test("visible instance count is deterministic at fixed times", async ({ page }) => {
     await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
     await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.setTime);
-    const loopSec = 11;
-    const samples = 24;
-    const counts = await page.evaluate(
-      ({ loopSec, samples }) => {
+    const times = [0, 1.5, 9.7];
+    const run = () =>
+      page.evaluate((sampleTimes) => {
         const h = window.__milumeHeroHandles?.[0];
-        if (!h?.setTime || !h.getVisiblePointCount) return [];
-        const out: number[] = [];
-        for (let i = 0; i < samples; i++) {
-          const t = (i / samples) * loopSec;
+        if (!h?.setTime || !h.getLastInstanceCount) return [];
+        return sampleTimes.map((t) => {
           h.setTime(t);
-          out.push(h.getVisiblePointCount());
-        }
-        return out;
-      },
-      { loopSec, samples },
-    );
-    expect(counts.length).toBe(samples);
-    expect(counts.every((n) => n === HERO_INSTANCE_COUNT)).toBe(true);
-    const unique = new Set(counts);
-    expect(unique.size).toBe(1);
-    expect(counts[0]).toBe(HERO_INSTANCE_COUNT);
+          return h.getLastInstanceCount();
+        });
+      }, times);
+    const a = await run();
+    const b = await run();
+    expect(a).toEqual(b);
+    expect(a.every((n) => n > 0)).toBe(true);
   });
 
-  test("no two instances share the same normalized field xy", async ({ page }) => {
-    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
-    await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.hasUniqueNormalizedXy);
-    const ok = await page.evaluate(() => window.__milumeHeroHandles?.[0]?.hasUniqueNormalizedXy?.());
-    expect(ok).toBe(true);
-  });
-
-  test("visible disc count per frame matches designer density band", async ({ page }) => {
-    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
-    await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.getVisibleDiscStatsAcrossLoop);
-    const stats = await page.evaluate(() => {
-      const h = window.__milumeHeroHandles?.[0];
-      return h?.getVisibleDiscStatsAcrossLoop?.() ?? null;
+  test("designer reference page renders non-blank at t=1.5", async ({ page }) => {
+    await page.goto(`${SITE}${REF_PATH}`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => window.__heroRefReady === true);
+    await page.evaluate(async () => {
+      window.__heroRefDraw(1.5);
+      await window.__heroRefWaitFrame();
     });
-    expect(stats).not.toBeNull();
-    expect(stats!.mean).toBeGreaterThanOrEqual(300);
-    expect(stats!.mean).toBeLessThanOrEqual(400);
-    expect(stats!.min).toBeGreaterThanOrEqual(280);
-    expect(stats!.max).toBeLessThanOrEqual(425);
+    await page.waitForFunction(() => (window.__heroRefLastN ?? 0) > 0);
+    const bright = await canvasBrightPixelCount(page, "#c");
+    expect(bright).toBeGreaterThan(HERO_MIN_BRIGHT_PIXELS);
   });
 
-  test("projected point radius stays below viewport cap across the loop", async ({ page }) => {
+  test("designer reference and live hero are both non-blank at t=1.5", async ({ page }) => {
+    await page.goto(`${SITE}${REF_PATH}`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => window.__heroRefReady === true);
+    await page.evaluate(async () => {
+      window.__heroRefDraw(1.5);
+      await window.__heroRefWaitFrame();
+    });
+    const refBright = await canvasBrightPixelCount(page, "#c");
+    expect(refBright).toBeGreaterThan(HERO_MIN_BRIGHT_PIXELS);
+
     await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
     await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.setTime);
-    const result = await page.evaluate(() => {
+    await page.evaluate(async () => {
       const h = window.__milumeHeroHandles?.[0];
-      if (!h?.getMaxProjectedRadiusAcrossLoop || !h.getMaxAllowedProjectedRadius) {
-        return { max: 0, cap: 0 };
-      }
-      return {
-        max: h.getMaxProjectedRadiusAcrossLoop(),
-        cap: h.getMaxAllowedProjectedRadius(),
-      };
+      h?.setTime(1.5);
+      h?.renderOnce();
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     });
-    expect(result.cap).toBeGreaterThan(0);
-    expect(result.max).toBeLessThanOrEqual(result.cap * 1.001);
+    const liveBright = await canvasBrightPixelCount(page, ".milume-hero__canvas");
+    expect(liveBright).toBeGreaterThan(HERO_MIN_BRIGHT_PIXELS);
   });
 
   test("pauses when off screen", async ({ page }) => {
@@ -119,19 +132,20 @@ test.describe("milume hero WebGL", () => {
 
 declare global {
   interface Window {
+    __heroRefReady?: boolean;
+    __heroRefDraw?: (t: number) => void;
+    __heroRefWaitFrame?: () => Promise<void>;
+    __heroRefLastN?: number;
     __milumeHeroHandles?: Array<{
       getFrameId?: () => number;
       isPaused?: () => boolean;
       setTime?: (t: number) => void;
-      getVisiblePointCount?: () => number;
-      getMaxProjectedRadiusAcrossLoop?: () => number;
-      getMaxAllowedProjectedRadius?: () => number;
-      getVisibleDiscStatsAcrossLoop?: () => {
-        min: number;
-        max: number;
-        mean: number;
-      } | null;
-      hasUniqueNormalizedXy?: () => boolean;
+      renderOnce?: () => void;
+      resume?: () => void;
+      getLoopTime?: () => number;
+      getBasePointCount?: () => number;
+      getLastInstanceCount?: () => number;
+      fieldHasNaN?: () => boolean;
     }>;
   }
 }

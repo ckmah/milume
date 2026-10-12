@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Hero designer reference</title>
+    <script src="palette.js"></script>
+  </head>
+  <body style="margin: 0; background: #000">
+    <canvas id="c" width="1600" height="900"></canvas>
+    <script>
+      const W = 1600,
+        H = 900,
+        LOOP = 10;
+      const SPEED = 0.45;
+      const P = SPEED * LOOP;
+      const N = 650,
+        FOCUS = 3.6,
+        FOV = 1.1;
+      const { bg, hex: HEX, s } = window.HERO_PALETTE;
+
+      function mulberry32(a) {
+        return function () {
+          a |= 0;
+          a = (a + 0x6d2b79f5) | 0;
+          let t = Math.imul(a ^ (a >>> 15), 1 | a);
+          t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+          return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+      const rnd = mulberry32(20261010);
+      const PAL = HEX.map((h) => {
+        const r = parseInt(h.slice(1, 3), 16) / 255,
+          g = parseInt(h.slice(3, 5), 16) / 255,
+          b = parseInt(h.slice(5, 7), 16) / 255;
+        const l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        return [l + (r - l) * s, l + (g - l) * s, l + (b - l) * s];
+      });
+      const pts = [];
+      for (let i = 0; i < N; i++) {
+        pts.push({
+          x: (rnd() * 2 - 1) * 5.2,
+          y: (rnd() * 2 - 1) * 3.0,
+          z: rnd() * P,
+          c: PAL[Math.floor(rnd() * PAL.length)],
+          s: 0.6 + rnd() * 0.8,
+        });
+      }
+
+      const canvas = document.getElementById("c");
+      const gl = canvas.getContext("webgl", {
+        premultipliedAlpha: true,
+        antialias: true,
+        alpha: false,
+        preserveDrawingBuffer: true,
+      });
+      if (!gl) {
+        window.__heroRefError = "webgl unavailable";
+        throw new Error(window.__heroRefError);
+      }
+      const ext = gl.getExtension("ANGLE_instanced_arrays");
+      if (!ext) {
+        window.__heroRefError = "ANGLE_instanced_arrays unavailable";
+        throw new Error(window.__heroRefError);
+      }
+
+      function compileShader(type, src) {
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, src);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+          throw new Error(gl.getShaderInfoLog(sh) || "shader compile failed");
+        }
+        return sh;
+      }
+
+      const vs = `attribute vec2 q;attribute vec3 ic;attribute vec4 ip;
+uniform vec2 res;varying vec2 uv;varying vec3 col;varying float a;varying float soft;
+void main(){uv=q;col=ic;a=ip.w;float r=ip.z+1.0;soft=clamp(1.0/r+ (ip.z>3.0?0.55:0.0),0.0,1.0);
+vec2 p=ip.xy+q*r;gl_Position=vec4(p/res*2.0-1.0,0.0,1.0);gl_Position.y*=-1.0;}`;
+      const fs = `precision mediump float;varying vec2 uv;varying vec3 col;varying float a;varying float soft;
+void main(){float d=length(uv);float e=smoothstep(1.0,1.0-max(soft,0.08),d);
+float m=e*a;gl_FragColor=vec4(col*m,m);}`;
+
+      const prog = gl.createProgram();
+      gl.attachShader(prog, compileShader(gl.VERTEX_SHADER, vs));
+      gl.attachShader(prog, compileShader(gl.FRAGMENT_SHADER, fs));
+      gl.linkProgram(prog);
+      if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+        throw new Error(gl.getProgramInfoLog(prog) || "program link failed");
+      }
+      gl.useProgram(prog);
+
+      const qLoc = gl.getAttribLocation(prog, "q");
+      const icLoc = gl.getAttribLocation(prog, "ic");
+      const ipLoc = gl.getAttribLocation(prog, "ip");
+      const resLoc = gl.getUniformLocation(prog, "res");
+      const qbuf = gl.createBuffer();
+      const ibuf = gl.createBuffer();
+      const instStride = 28;
+
+      function bindAttribs() {
+        gl.bindBuffer(gl.ARRAY_BUFFER, qbuf);
+        gl.bufferData(
+          gl.ARRAY_BUFFER,
+          new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+          gl.STATIC_DRAW,
+        );
+        gl.enableVertexAttribArray(qLoc);
+        gl.vertexAttribPointer(qLoc, 2, gl.FLOAT, false, 0, 0);
+        ext.vertexAttribDivisorANGLE(qLoc, 0);
+
+        gl.bindBuffer(gl.ARRAY_BUFFER, ibuf);
+        gl.enableVertexAttribArray(icLoc);
+        gl.vertexAttribPointer(icLoc, 3, gl.FLOAT, false, instStride, 0);
+        ext.vertexAttribDivisorANGLE(icLoc, 1);
+        gl.enableVertexAttribArray(ipLoc);
+        gl.vertexAttribPointer(ipLoc, 4, gl.FLOAT, false, instStride, 12);
+        ext.vertexAttribDivisorANGLE(ipLoc, 1);
+      }
+      bindAttribs();
+
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+
+      const F = H / 2 / Math.tan(FOV / 2);
+      const TILT_Y = (40 * Math.PI) / 180,
+        TILT_X = (8 * Math.PI) / 180;
+      const NX = -Math.sin(TILT_Y),
+        NY = Math.sin(TILT_X),
+        NZ = Math.cos(TILT_Y);
+      const NL = Math.hypot(NX, NY, NZ);
+      const BAND = 0.7,
+        BLUR = 55;
+      const sm = (a, b, x) => {
+        x = Math.min(1, Math.max(0, (x - a) / (b - a)));
+        return x * x * (3 - 2 * x);
+      };
+      const buf = [];
+      const inst = new Float32Array(N * 3 * 7);
+      const bgRgb = [
+        parseInt(bg.slice(1, 3), 16) / 255,
+        parseInt(bg.slice(3, 5), 16) / 255,
+        parseInt(bg.slice(5, 7), 16) / 255,
+      ];
+
+      window.__heroRefLastN = 0;
+      window.__heroRefDraw = function draw(t) {
+        const w = (2 * Math.PI * t) / LOOP;
+        const cz = SPEED * t,
+          cx = 0.175 * Math.sin(w),
+          cy = 0.09 * Math.sin(2 * w);
+        const roll = 0.0125 * Math.sin(w + 0.6),
+          yaw = 0.015 * Math.cos(w);
+        const cr = Math.cos(roll),
+          sr = Math.sin(roll),
+          cyw = Math.cos(yaw),
+          syw = Math.sin(yaw);
+        buf.length = 0;
+        for (const p of pts) {
+          let rz = ((p.z - cz) % P + P) % P;
+          for (let k = 0; k < 3; k++) {
+            const d0 = rz + k * P;
+            if (d0 < 0.15 || d0 > 12) continue;
+            let x = p.x - cx,
+              y = p.y - cy,
+              z = d0;
+            const x2 = x * cyw - z * syw;
+            z = x * syw + z * cyw;
+            x = x2;
+            const x3 = x * cr - y * sr,
+              y3 = x * sr + y * cr;
+            if (z < 0.15) continue;
+            const sx = W / 2 + (x3 * F) / z,
+              sy = H / 2 + (y3 * F) / z;
+            const core = Math.max(0.9, (0.03 * F * p.s) / z);
+            const dpl = (NX * x3 + NY * y3 + NZ * (z - FOCUS)) / NL;
+            const ex = Math.max(0, Math.abs(dpl) - BAND);
+            const coc = (BLUR * ex * ex / (0.9 + ex) * p.s) / Math.sqrt(Math.max(z, 0.6) / FOCUS);
+            const r = Math.sqrt(core * core + coc * coc);
+            if (sx < -r - 2 || sx > W + r + 2 || sy < -r - 2 || sy > H + r + 2) continue;
+            let a = Math.min(1, (core * core + 0.6) / (r * r + 0.6)) * 0.95;
+            a *= sm(0.5, 1.8, z) * (1 - sm(7, 11.5, z));
+            a *= 0.6 + 0.4 * (1 - sm(FOCUS, 11, z));
+            if (a < 0.002) continue;
+            buf.push([z, sx, sy, r, a, p.c]);
+          }
+        }
+        buf.sort((A, B) => B[0] - A[0]);
+        const n = buf.length;
+        for (let i = 0; i < n; i++) {
+          const row = buf[i];
+          const o = i * 7;
+          inst[o] = row[5][0];
+          inst[o + 1] = row[5][1];
+          inst[o + 2] = row[5][2];
+          inst[o + 3] = row[1];
+          inst[o + 4] = row[2];
+          inst[o + 5] = row[3];
+          inst[o + 6] = row[4];
+        }
+        gl.viewport(0, 0, W, H);
+        gl.clearColor(bgRgb[0], bgRgb[1], bgRgb[2], 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.uniform2f(resLoc, W, H);
+        gl.bindBuffer(gl.ARRAY_BUFFER, ibuf);
+        gl.bufferData(gl.ARRAY_BUFFER, inst.subarray(0, n * 7), gl.DYNAMIC_DRAW);
+        bindAttribs();
+        ext.drawArraysInstancedANGLE(gl.TRIANGLE_STRIP, 0, 4, n);
+        window.__heroRefLastN = n;
+      };
+
+      window.__heroRefWaitFrame = () =>
+        new Promise((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(resolve));
+        });
+
+      window.__heroRefCanvasBrightCount = (minSum = 40) => {
+        const buf = new Uint8Array(W * H * 4);
+        gl.readPixels(0, 0, W, H, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+        let bright = 0;
+        for (let i = 0; i < buf.length; i += 4) {
+          if (buf[i] + buf[i + 1] + buf[i + 2] > minSum) bright++;
+        }
+        return bright;
+      };
+
+      window.__heroRefReady = false;
+      window.__heroRefDraw(1.5);
+      window.__heroRefWaitFrame().then(() => {
+        window.__heroRefReady = true;
+      });
+    </script>
+  </body>
+</html>
