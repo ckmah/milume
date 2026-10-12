@@ -21,16 +21,15 @@ app = marimo.App(width="medium")
 
 @app.cell(hide_code=True)
 def _():
-    import importlib.util
-    import pathlib
+    import os
+    import sys
 
     import marimo as mo
 
-    _header = pathlib.Path(__file__).resolve().parent / "molab_header.py"
-    _spec = importlib.util.spec_from_file_location("molab_header", _header)
-    _mod = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(_mod)
-    _mod.molab_run_on_server_tip(mo)
+    sys.path.insert(0, os.path.dirname(__file__))
+    from molab_header import molab_run_on_server_tip
+
+    molab_run_on_server_tip(mo)
     return (mo,)
 
 
