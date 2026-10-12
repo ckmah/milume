@@ -2,6 +2,9 @@ import { expect, test } from "@playwright/test";
 
 const SITE = process.env.E2E_SITE_URL ?? "http://127.0.0.1:8765";
 
+/** `HERO_BAKED_BASE_COUNT` × z tiles (see `website/landing/hero/subsample.ts`). */
+const HERO_INSTANCE_COUNT = 1350 * 5;
+
 test.describe("milume hero WebGL", () => {
   test("canvas renders a non-blank frame on the landing page", async ({ page }) => {
     await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
@@ -56,9 +59,10 @@ test.describe("milume hero WebGL", () => {
       { loopSec, samples },
     );
     expect(counts.length).toBe(samples);
-    expect(counts.every((n) => n > 0)).toBe(true);
+    expect(counts.every((n) => n === HERO_INSTANCE_COUNT)).toBe(true);
     const unique = new Set(counts);
     expect(unique.size).toBe(1);
+    expect(counts[0]).toBe(HERO_INSTANCE_COUNT);
   });
 
   test("projected point radius stays below viewport cap across the loop", async ({ page }) => {
