@@ -3,16 +3,14 @@
  */
 import { chromium } from "@playwright/test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const SITE = process.env.E2E_SITE_URL ?? "http://127.0.0.1:8765";
-const REF_URL =
-  process.env.HERO_REF_URL ??
-  `file://${join(dirname(fileURLToPath(import.meta.url)), "../../website/landing/hero/reference/index.html")}`;
+const REF_URL = process.env.HERO_REF_URL ?? `${SITE}/hero/reference/index.html`;
 const OUT = process.env.HERO_AB_OUT ?? "/opt/cursor/artifacts/hero-designer-ab";
 const TIMES = [1.5, 9.7];
+const MIN_BRIGHT = 50;
 
 function rgbaToPngBuffer(w, h, px) {
   const rgb = Buffer.alloc(w * h * 3);
@@ -42,7 +40,7 @@ function rgbaToPngBuffer(w, h, px) {
 }
 
 async function readWebglCanvas(page, selector) {
-  const { w, h, px } = await page.evaluate((sel) => {
+  const stats = await page.evaluate((sel) => {
     const c = document.querySelector(sel);
     const gl = c?.getContext("webgl2") ?? c?.getContext("webgl");
     if (!c || !gl) throw new Error(`no canvas ${sel}`);
@@ -50,9 +48,16 @@ async function readWebglCanvas(page, selector) {
     const height = c.height;
     const buf = new Uint8Array(width * height * 4);
     gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, buf);
-    return { w: width, h: height, px: Array.from(buf) };
+    let bright = 0;
+    for (let i = 0; i < buf.length; i += 4) {
+      if (buf[i] + buf[i + 1] + buf[i + 2] > 40) bright++;
+    }
+    return { w: width, h: height, px: Array.from(buf), bright };
   }, selector);
-  return rgbaToPngBuffer(w, h, px);
+  if (stats.bright < MIN_BRIGHT) {
+    throw new Error(`canvas ${selector} looks blank (bright=${stats.bright})`);
+  }
+  return { png: rgbaToPngBuffer(stats.w, stats.h, stats.px), bright: stats.bright };
 }
 
 function stitchSideBySide(leftPng, rightPng, outPath) {
@@ -97,6 +102,36 @@ print(json.dumps({'meanAbsDiff': float(np.mean(np.abs(A-B)))}))`,
   return JSON.parse(py.stdout.toString());
 }
 
+function assertAbHalvesNonBlank(comboPath, minBright = MIN_BRIGHT) {
+  const py = spawnSync(
+    "python3",
+    [
+      "-c",
+      `from PIL import Image
+import numpy as np, json, sys
+path,min_b=sys.argv[1],int(sys.argv[2])
+im=np.asarray(Image.open(path).convert('RGB'))
+W,H=im.shape[1],im.shape[0]
+half=W//2
+def bright_count(slice_):
+  s=slice_[:,:,0].astype(np.int32)+slice_[:,:,1].astype(np.int32)+slice_[:,:,2].astype(np.int32)
+  return int(np.sum(s>40))
+L=bright_count(im[:,:half,:])
+R=bright_count(im[:,half:,:])
+out={'leftBright':L,'rightBright':R}
+if L<min_b or R<min_b:
+  raise SystemExit(json.dumps({'error':'blank ab half','data':out}))
+print(json.dumps(out))`,
+      comboPath,
+      String(minBright),
+    ],
+  );
+  if (py.status !== 0) {
+    throw new Error(py.stderr?.toString() || py.stdout?.toString() || "ab half check failed");
+  }
+  return JSON.parse(py.stdout.toString());
+}
+
 async function captureLive(page, t) {
   await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
   await page.setViewportSize({ width: 1600, height: 900 });
@@ -104,20 +139,27 @@ async function captureLive(page, t) {
     content: `.hero-veil,.hero-copy,.site-header,.promo-montage{display:none!important}`,
   });
   await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.setTime);
-  await page.evaluate((time) => {
+  await page.evaluate(async (time) => {
     const h = window.__milumeHeroHandles?.[0];
     h?.setTime(time);
     h?.renderOnce();
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
   }, t);
-  await page.waitForTimeout(80);
   return readWebglCanvas(page, ".milume-hero__canvas");
 }
 
 async function captureRef(page, t) {
-  await page.goto(REF_URL, { waitUntil: "load" });
-  await page.waitForFunction(() => window.__heroRefDraw);
-  await page.evaluate((time) => window.__heroRefDraw(time), t);
-  await page.waitForTimeout(80);
+  await page.goto(REF_URL, { waitUntil: "networkidle" });
+  await page.waitForFunction(() => window.__heroRefReady === true);
+  await page.evaluate(async (time) => {
+    window.__heroRefDraw(time);
+    await window.__heroRefWaitFrame();
+  }, t);
+  await page.waitForFunction(() => (window.__heroRefLastN ?? 0) > 0);
+  const bright = await page.evaluate(() => window.__heroRefCanvasBrightCount?.() ?? 0);
+  if (bright < MIN_BRIGHT) {
+    throw new Error(`reference canvas blank after draw (bright=${bright})`);
+  }
   return readWebglCanvas(page, "#c");
 }
 
@@ -157,11 +199,22 @@ async function main() {
     const refPng = join(OUT, `ref-t${t}.png`);
     const livePng = join(OUT, `live-t${t}.png`);
     const comboPng = join(OUT, `ab-t${t}.png`);
-    writeFileSync(refPng, await captureRef(refPage, t));
-    writeFileSync(livePng, await captureLive(livePage, t));
+    const ref = await captureRef(refPage, t);
+    const live = await captureLive(livePage, t);
+    writeFileSync(refPng, ref.png);
+    writeFileSync(livePng, live.png);
     stitchSideBySide(refPng, livePng, comboPng);
+    const halves = assertAbHalvesNonBlank(comboPng);
     const diff = meanAbsDiff(refPng, livePng);
-    report.times[t] = { refPng, livePng, comboPng, ...diff };
+    report.times[t] = {
+      refPng,
+      livePng,
+      comboPng,
+      refBright: ref.bright,
+      liveBright: live.bright,
+      abHalves: halves,
+      ...diff,
+    };
     report.meanAbsDiff[t] = diff.meanAbsDiff;
     await refPage.close();
     await livePage.close();

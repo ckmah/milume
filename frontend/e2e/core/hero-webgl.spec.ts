@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
+import {
+  canvasBrightPixelCount,
+  HERO_MIN_BRIGHT_PIXELS,
+} from "../helpers/hero-canvas-bright.ts";
 
 const SITE = process.env.E2E_SITE_URL ?? "http://127.0.0.1:8765";
+const REF_PATH = "/hero/reference/index.html";
 const HERO_BASE_POINTS = 650;
 const LOOP_SEC = 10;
 
@@ -77,6 +82,40 @@ test.describe("milume hero WebGL", () => {
     expect(a.every((n) => n > 0)).toBe(true);
   });
 
+  test("designer reference page renders non-blank at t=1.5", async ({ page }) => {
+    await page.goto(`${SITE}${REF_PATH}`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => window.__heroRefReady === true);
+    await page.evaluate(async () => {
+      window.__heroRefDraw(1.5);
+      await window.__heroRefWaitFrame();
+    });
+    await page.waitForFunction(() => (window.__heroRefLastN ?? 0) > 0);
+    const bright = await canvasBrightPixelCount(page, "#c");
+    expect(bright).toBeGreaterThan(HERO_MIN_BRIGHT_PIXELS);
+  });
+
+  test("designer reference and live hero are both non-blank at t=1.5", async ({ page }) => {
+    await page.goto(`${SITE}${REF_PATH}`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => window.__heroRefReady === true);
+    await page.evaluate(async () => {
+      window.__heroRefDraw(1.5);
+      await window.__heroRefWaitFrame();
+    });
+    const refBright = await canvasBrightPixelCount(page, "#c");
+    expect(refBright).toBeGreaterThan(HERO_MIN_BRIGHT_PIXELS);
+
+    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.setTime);
+    await page.evaluate(async () => {
+      const h = window.__milumeHeroHandles?.[0];
+      h?.setTime(1.5);
+      h?.renderOnce();
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    });
+    const liveBright = await canvasBrightPixelCount(page, ".milume-hero__canvas");
+    expect(liveBright).toBeGreaterThan(HERO_MIN_BRIGHT_PIXELS);
+  });
+
   test("pauses when off screen", async ({ page }) => {
     await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
     const root = page.locator("[data-milume-hero]").first();
@@ -93,6 +132,10 @@ test.describe("milume hero WebGL", () => {
 
 declare global {
   interface Window {
+    __heroRefReady?: boolean;
+    __heroRefDraw?: (t: number) => void;
+    __heroRefWaitFrame?: () => Promise<void>;
+    __heroRefLastN?: number;
     __milumeHeroHandles?: Array<{
       getFrameId?: () => number;
       isPaused?: () => boolean;
