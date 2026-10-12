@@ -26,11 +26,11 @@ def _():
 
     import marimo as mo
 
-    _header_path = pathlib.Path(__file__).resolve().parent / "molab_header.py"
-    _spec = importlib.util.spec_from_file_location("molab_header", _header_path)
-    _molab_header = importlib.util.module_from_spec(_spec)
-    _spec.loader.exec_module(_molab_header)
-    _molab_header.molab_run_on_server_callout(mo)
+    _header = pathlib.Path(__file__).resolve().parent / "molab_header.py"
+    _spec = importlib.util.spec_from_file_location("molab_header", _header)
+    _mod = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_mod)
+    _mod.molab_run_on_server_tip(mo)
     return (mo,)
 
 

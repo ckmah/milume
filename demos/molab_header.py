@@ -7,10 +7,6 @@ MOLAB_RUN_ON_SERVER_BODY = (
 )
 
 
-def molab_run_on_server_callout(mo):
-    """First-cell callout shown on every molab demo notebook."""
-    return mo.callout(
-        mo.md(MOLAB_RUN_ON_SERVER_BODY),
-        kind="info",
-        title="molab",
-    )
+def molab_run_on_server_tip(mo):
+    """First-cell tip shown on every molab demo notebook."""
+    return mo.md(f"> **molab:** {MOLAB_RUN_ON_SERVER_BODY}")
