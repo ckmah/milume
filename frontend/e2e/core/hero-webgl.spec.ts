@@ -2,6 +2,9 @@ import { expect, test } from "@playwright/test";
 
 const SITE = process.env.E2E_SITE_URL ?? "http://127.0.0.1:8765";
 
+/** `HERO_BAKED_BASE_COUNT` unique world instances (see `website/landing/hero/subsample.ts`). */
+const HERO_INSTANCE_COUNT = 425;
+
 test.describe("milume hero WebGL", () => {
   test("canvas renders a non-blank frame on the landing page", async ({ page }) => {
     await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
@@ -56,9 +59,31 @@ test.describe("milume hero WebGL", () => {
       { loopSec, samples },
     );
     expect(counts.length).toBe(samples);
-    expect(counts.every((n) => n > 0)).toBe(true);
+    expect(counts.every((n) => n === HERO_INSTANCE_COUNT)).toBe(true);
     const unique = new Set(counts);
     expect(unique.size).toBe(1);
+    expect(counts[0]).toBe(HERO_INSTANCE_COUNT);
+  });
+
+  test("no two instances share the same normalized field xy", async ({ page }) => {
+    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.hasUniqueNormalizedXy);
+    const ok = await page.evaluate(() => window.__milumeHeroHandles?.[0]?.hasUniqueNormalizedXy?.());
+    expect(ok).toBe(true);
+  });
+
+  test("visible disc count per frame matches designer density band", async ({ page }) => {
+    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.getVisibleDiscStatsAcrossLoop);
+    const stats = await page.evaluate(() => {
+      const h = window.__milumeHeroHandles?.[0];
+      return h?.getVisibleDiscStatsAcrossLoop?.() ?? null;
+    });
+    expect(stats).not.toBeNull();
+    expect(stats!.mean).toBeGreaterThanOrEqual(300);
+    expect(stats!.mean).toBeLessThanOrEqual(400);
+    expect(stats!.min).toBeGreaterThanOrEqual(280);
+    expect(stats!.max).toBeLessThanOrEqual(425);
   });
 
   test("projected point radius stays below viewport cap across the loop", async ({ page }) => {
@@ -101,6 +126,12 @@ declare global {
       getVisiblePointCount?: () => number;
       getMaxProjectedRadiusAcrossLoop?: () => number;
       getMaxAllowedProjectedRadius?: () => number;
+      getVisibleDiscStatsAcrossLoop?: () => {
+        min: number;
+        max: number;
+        mean: number;
+      } | null;
+      hasUniqueNormalizedXy?: () => boolean;
     }>;
   }
 }

@@ -1,4 +1,4 @@
-import { FOCAL, LOOP_SEC, PERIOD_Z, Z_TILES } from "./constants.ts";
+import { FOCAL, LOOP_SEC } from "./constants.ts";
 import { cam } from "./math.ts";
 import {
   type InstanceProjectionStats,
@@ -17,28 +17,7 @@ function loopTimes(): number[] {
   return Array.from({ length: LOOP_SAMPLES }, (_, i) => (i / LOOP_SAMPLES) * LOOP_SEC);
 }
 
-function wrapBaseZ(z: number): number {
-  return ((z % PERIOD_Z) + PERIOD_Z) % PERIOD_Z;
-}
-
-function projectionStatsForBase(
-  x: number,
-  y: number,
-  z: number,
-  worldRad: number,
-): InstanceProjectionStats {
-  let maxPr = 0;
-  let minDepth = Number.POSITIVE_INFINITY;
-  for (const k of Z_TILES) {
-    const stats = projectionStatsForInstance(x, y, z + k * PERIOD_Z, worldRad, LOOP_SAMPLES);
-    maxPr = Math.max(maxPr, stats.maxPr);
-    minDepth = Math.min(minDepth, stats.minDepth);
-  }
-  return { maxPr, minDepth };
-}
-
 type WorstCase = {
-  k: number;
   t: number;
   depth: number;
   pr: number;
@@ -51,52 +30,45 @@ type WorstCase = {
 };
 
 function findWorstCase(
-  x: number,
-  y: number,
-  z: number,
+  wx: number,
+  wy: number,
+  wz: number,
   worldRad: number,
   times: number[],
 ): WorstCase | null {
   let worst: WorstCase | null = null;
   let score = -1;
   const cap = maxProjectedLogicalRadius();
-  for (const k of Z_TILES) {
-    const wz = z + k * PERIOD_Z;
-    for (const t of times) {
-      const { c } = cam(t);
-      const depth = wz - c[2];
-      const pr = depth > 0 ? projectedLogicalRadius(worldRad, depth) : Number.POSITIVE_INFINITY;
-      const depthPenalty = depth < MIN_DEPTH ? MIN_DEPTH - depth + 2 : 0;
-      const prPenalty = pr > cap ? (pr - cap) / cap : 0;
-      const tubeDist = Math.hypot(x - c[0], y - c[1], wz - c[2]);
-      const tubePenalty = tubeDist < TUBE_RADIUS ? (TUBE_RADIUS - tubeDist) * 2 : 0;
-      const s = depthPenalty * 10 + prPenalty * 5 + tubePenalty;
-      if (s > score) {
-        score = s;
-        worst = {
-          k,
-          t,
-          depth,
-          pr,
-          wx: x,
-          wy: y,
-          wz,
-          cx: c[0],
-          cy: c[1],
-          cz: c[2],
-        };
-      }
+  for (const t of times) {
+    const { c } = cam(t);
+    const depth = wz - c[2];
+    const pr = depth > 0 ? projectedLogicalRadius(worldRad, depth) : Number.POSITIVE_INFINITY;
+    const depthPenalty = depth < MIN_DEPTH ? MIN_DEPTH - depth + 2 : 0;
+    const prPenalty = pr > cap ? (pr - cap) / cap : 0;
+    const tubeDist = Math.hypot(wx - c[0], wy - c[1], wz - c[2]);
+    const tubePenalty = tubeDist < TUBE_RADIUS ? (TUBE_RADIUS - tubeDist) * 2 : 0;
+    const s = depthPenalty * 10 + prPenalty * 5 + tubePenalty;
+    if (s > score) {
+      score = s;
+      worst = {
+        t,
+        depth,
+        pr,
+        wx,
+        wy,
+        wz,
+        cx: c[0],
+        cy: c[1],
+        cz: c[2],
+      };
     }
   }
   return score > 0.01 ? worst : null;
 }
 
-/**
- * Push each base field point (before z tiling) out of the camera path tube so
- * every tiled copy stays clear across the full loop.
- */
-export function relocateBasePointsClearOfCameraPath(
-  basePos: Float32Array,
+/** Push each world-space instance out of the camera path tube across the full loop. */
+export function relocateWorldPointsClearOfCameraPath(
+  pos: Float32Array,
   rad: Float32Array,
   count: number,
 ): void {
@@ -107,11 +79,11 @@ export function relocateBasePointsClearOfCameraPath(
     let moved = false;
     for (let i = 0; i < count; i++) {
       const ix = i * 3;
-      let px = basePos[ix]!;
-      let py = basePos[ix + 1]!;
-      let pz = basePos[ix + 2]!;
+      let px = pos[ix]!;
+      let py = pos[ix + 1]!;
+      let pz = pos[ix + 2]!;
       const r = rad[i]!;
-      const stats = projectionStatsForBase(px, py, pz, r);
+      const stats = projectionStatsForInstance(px, py, pz, r, LOOP_SAMPLES);
       if (stats.minDepth >= MIN_DEPTH && stats.maxPr <= cap) continue;
 
       const worst = findWorstCase(px, py, pz, r, times);
@@ -151,13 +123,22 @@ export function relocateBasePointsClearOfCameraPath(
 
       px = wx;
       py = wy;
-      pz = wrapBaseZ(wz - worst.k * PERIOD_Z);
+      pz = wz;
 
-      basePos[ix] = px;
-      basePos[ix + 1] = py;
-      basePos[ix + 2] = pz;
+      pos[ix] = px;
+      pos[ix + 1] = py;
+      pos[ix + 2] = pz;
       moved = true;
     }
     if (!moved) break;
   }
+}
+
+/** @deprecated Use {@link relocateWorldPointsClearOfCameraPath}. */
+export function relocateBasePointsClearOfCameraPath(
+  basePos: Float32Array,
+  rad: Float32Array,
+  count: number,
+): void {
+  relocateWorldPointsClearOfCameraPath(basePos, rad, count);
 }

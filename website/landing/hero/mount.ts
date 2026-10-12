@@ -1,4 +1,5 @@
 import { LOGICAL_H, LOGICAL_W, LOOP_SEC } from "./constants.ts";
+import { assertUniqueNormalizedXy } from "./field-xy.ts";
 import { loadGpuField } from "./field.ts";
 import {
   createGl,
@@ -7,6 +8,7 @@ import {
   maxProjectedRadiusAcrossLoop,
   visiblePointCount,
 } from "./gl.ts";
+import { visibleDiscStatsAcrossLoop, type VisibleDiscLoopStats } from "./visible-discs.ts";
 
 export type HeroHandle = {
   pause: () => void;
@@ -24,6 +26,8 @@ export type HeroHandle = {
   getVisiblePointCount: () => number;
   getMaxProjectedRadiusAcrossLoop: () => number;
   getMaxAllowedProjectedRadius: () => number;
+  getVisibleDiscStatsAcrossLoop: () => VisibleDiscLoopStats | null;
+  hasUniqueNormalizedXy: () => boolean;
 };
 
 function prefersReducedMotion(): boolean {
@@ -205,5 +209,18 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
     getMaxProjectedRadiusAcrossLoop: () =>
       glBundle ? maxProjectedRadiusAcrossLoop(glBundle) : 0,
     getMaxAllowedProjectedRadius: () => maxAllowedProjectedRadius(),
+    getVisibleDiscStatsAcrossLoop: () =>
+      glBundle
+        ? visibleDiscStatsAcrossLoop(glBundle.srcPos, glBundle.srcRad, glBundle.count, 24)
+        : null,
+    hasUniqueNormalizedXy: () => {
+      if (!glBundle) return false;
+      try {
+        assertUniqueNormalizedXy(glBundle.srcPos, glBundle.count);
+        return true;
+      } catch {
+        return false;
+      }
+    },
   };
 }
