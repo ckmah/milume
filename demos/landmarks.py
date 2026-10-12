@@ -21,15 +21,13 @@ app = marimo.App(width="medium")
 
 @app.cell(hide_code=True)
 def _():
-    import os
-    import sys
-
     import marimo as mo
 
-    sys.path.insert(0, os.path.dirname(__file__))
-    from molab_header import molab_run_on_server_tip
-
-    molab_run_on_server_tip(mo)
+    mo.md(
+        r"""
+        > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook.
+        """
+    )
     return (mo,)
 
 
