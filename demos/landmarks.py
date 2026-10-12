@@ -23,11 +23,9 @@ app = marimo.App(width="medium")
 def _():
     import marimo as mo
 
-    mo.md(
-        r"""
-        > **molab:** Switch from **Preview** to **Server** (*Run on server*). The widget needs a live kernel to download data and render; Preview alone will not run this notebook.
-        """
-    )
+    from molab_header import molab_run_on_server_callout
+
+    molab_run_on_server_callout(mo)
     return (mo,)
 
 
