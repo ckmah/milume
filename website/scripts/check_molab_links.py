@@ -3,13 +3,15 @@
 
 from __future__ import annotations
 
-import importlib.util
 import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-DEMOS = ROOT / "demos"
+
+MOLAB_LANDMARKS_DEMO_URL = (
+    "https://molab.marimo.io/github/ckmah/milume/blob/main/demos/landmarks.py"
+)
 
 _MOLAB_URL = re.compile(r"https://molab\.marimo\.io/[^\s\"')>\]]+")
 _SHA_BLOB = re.compile(r"/blob/[0-9a-f]{40}/", re.IGNORECASE)
@@ -20,15 +22,6 @@ SOURCE_PATHS = [
     ROOT / "website" / "landing" / "index.html",
     ROOT / "website" / "content" / "install.md",
 ]
-
-
-def _load_canonical_url() -> str:
-    path = DEMOS / "molab_header.py"
-    spec = importlib.util.spec_from_file_location("molab_header", path)
-    mod = importlib.util.module_from_spec(spec)
-    assert spec.loader is not None
-    spec.loader.exec_module(mod)
-    return mod.MOLAB_LANDMARKS_DEMO_URL
 
 
 def paths_to_check(extra_roots: list[Path]) -> list[Path]:
@@ -58,7 +51,7 @@ def lint_molab_urls(text: str, canonical: str) -> list[str]:
 
 def main() -> int:
     extra = [Path(p).resolve() for p in sys.argv[1:]]
-    canonical = _load_canonical_url()
+    canonical = MOLAB_LANDMARKS_DEMO_URL
     offenders: list[str] = []
     for path in paths_to_check(extra):
         for issue in lint_molab_urls(path.read_text(encoding="utf-8"), canonical):
