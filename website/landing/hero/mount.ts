@@ -7,6 +7,7 @@ import {
   maxProjectedRadiusAcrossLoop,
   visiblePointCount,
 } from "./gl.ts";
+import { visibleDiscStatsAcrossLoop, type VisibleDiscLoopStats } from "./visible-discs.ts";
 
 export type HeroHandle = {
   pause: () => void;
@@ -24,6 +25,7 @@ export type HeroHandle = {
   getVisiblePointCount: () => number;
   getMaxProjectedRadiusAcrossLoop: () => number;
   getMaxAllowedProjectedRadius: () => number;
+  getVisibleDiscStatsAcrossLoop: () => VisibleDiscLoopStats | null;
 };
 
 function prefersReducedMotion(): boolean {
@@ -205,5 +207,9 @@ export async function mountHero(root: HTMLElement): Promise<HeroHandle> {
     getMaxProjectedRadiusAcrossLoop: () =>
       glBundle ? maxProjectedRadiusAcrossLoop(glBundle) : 0,
     getMaxAllowedProjectedRadius: () => maxAllowedProjectedRadius(),
+    getVisibleDiscStatsAcrossLoop: () =>
+      glBundle
+        ? visibleDiscStatsAcrossLoop(glBundle.srcPos, glBundle.srcRad, glBundle.count, 24)
+        : null,
   };
 }

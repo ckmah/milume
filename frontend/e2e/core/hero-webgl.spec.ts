@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const SITE = process.env.E2E_SITE_URL ?? "http://127.0.0.1:8765";
 
 /** `HERO_BAKED_BASE_COUNT` × z tiles (see `website/landing/hero/subsample.ts`). */
-const HERO_INSTANCE_COUNT = 1350 * 5;
+const HERO_INSTANCE_COUNT = 85 * 5;
 
 test.describe("milume hero WebGL", () => {
   test("canvas renders a non-blank frame on the landing page", async ({ page }) => {
@@ -65,6 +65,20 @@ test.describe("milume hero WebGL", () => {
     expect(counts[0]).toBe(HERO_INSTANCE_COUNT);
   });
 
+  test("visible disc count per frame matches designer density band", async ({ page }) => {
+    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.getVisibleDiscStatsAcrossLoop);
+    const stats = await page.evaluate(() => {
+      const h = window.__milumeHeroHandles?.[0];
+      return h?.getVisibleDiscStatsAcrossLoop?.() ?? null;
+    });
+    expect(stats).not.toBeNull();
+    expect(stats!.mean).toBeGreaterThanOrEqual(300);
+    expect(stats!.mean).toBeLessThanOrEqual(400);
+    expect(stats!.min).toBeGreaterThanOrEqual(280);
+    expect(stats!.max).toBeLessThanOrEqual(425);
+  });
+
   test("projected point radius stays below viewport cap across the loop", async ({ page }) => {
     await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
     await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.setTime);
@@ -105,6 +119,11 @@ declare global {
       getVisiblePointCount?: () => number;
       getMaxProjectedRadiusAcrossLoop?: () => number;
       getMaxAllowedProjectedRadius?: () => number;
+      getVisibleDiscStatsAcrossLoop?: () => {
+        min: number;
+        max: number;
+        mean: number;
+      } | null;
     }>;
   }
 }
