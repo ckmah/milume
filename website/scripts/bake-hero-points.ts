@@ -1,18 +1,21 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PERIOD_Z, Z_TILES } from "../landing/hero/constants.ts";
+import { assertUniqueNormalizedXy, jitterDuplicateNormalizedXy } from "../landing/hero/field-xy.ts";
+import { spreadWorldDepths } from "../landing/hero/spread-depth.ts";
+import { assignBakedPointPalette } from "../landing/hero/palette.ts";
+import {
+  maxProjectedLogicalRadius,
+  maxProjectionStatsForField,
+} from "../landing/hero/projection.ts";
 import {
   HERO_BAKED_BASE_COUNT,
   HERO_EXPORT_BASE_COUNT,
   heroSubsampleIndices,
 } from "../landing/hero/subsample.ts";
-import {
-  maxProjectedLogicalRadius,
-  maxProjectionStatsForField,
-} from "../landing/hero/projection.ts";
-import { assignBakedPointPalette } from "../landing/hero/palette.ts";
-import { relocateBasePointsClearOfCameraPath } from "../landing/hero/tube-clearance.ts";
+import { relocateWorldPointsClearOfCameraPath } from "../landing/hero/tube-clearance.ts";
+import { visibleDiscStatsAcrossLoop } from "../landing/hero/visible-discs.ts";
+import { LOGICAL_H, LOGICAL_W } from "../landing/hero/constants.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const binPath = join(root, "landing/assets/hero-points.bin");
@@ -103,31 +106,14 @@ let field = readBaseField(buf);
 field = subsampleBaseField(field);
 const { n, basePos, baseRad, baseCat } = field;
 
-relocateBasePointsClearOfCameraPath(basePos, baseRad, n);
+spreadWorldDepths(basePos, n);
+jitterDuplicateNormalizedXy(basePos, n);
+relocateWorldPointsClearOfCameraPath(basePos, baseRad, n);
+jitterDuplicateNormalizedXy(basePos, n);
 assignBakedPointPalette(baseCat, n);
+assertUniqueNormalizedXy(basePos, n);
 
-const tileCount = Z_TILES.length;
-const count = n * tileCount;
-const pos = new Float32Array(count * 3);
-const rad = new Float32Array(count);
-let dst = 0;
-for (let i = 0; i < n; i++) {
-  const p = i * 3;
-  const x = basePos[p]!;
-  const y = basePos[p + 1]!;
-  const z = basePos[p + 2]!;
-  const r = baseRad[i]!;
-  for (const k of Z_TILES) {
-    const d = dst * 3;
-    pos[d] = x;
-    pos[d + 1] = y;
-    pos[d + 2] = z + k * PERIOD_Z;
-    rad[dst] = r;
-    dst++;
-  }
-}
-
-const stats = maxProjectionStatsForField(pos, rad, count);
+const stats = maxProjectionStatsForField(basePos, baseRad, n);
 const cap = maxProjectedLogicalRadius();
 if (stats.minDepth <= 0 || stats.maxPr > cap * 1.001) {
   throw new Error(
@@ -135,7 +121,12 @@ if (stats.minDepth <= 0 || stats.maxPr > cap * 1.001) {
   );
 }
 
+const visible = visibleDiscStatsAcrossLoop(basePos, baseRad, n, 32, {
+  logicalW: LOGICAL_W,
+  logicalH: LOGICAL_H,
+});
+
 writeBaseField(binPath, field);
 console.log(
-  `baked ${binPath} (base=${n} instances=${count} maxPr=${stats.maxPr.toFixed(2)} cap=${cap.toFixed(2)})`,
+  `baked ${binPath} (instances=${n} maxPr=${stats.maxPr.toFixed(2)} visibleMean=${visible.mean.toFixed(1)} min=${visible.min} max=${visible.max})`,
 );

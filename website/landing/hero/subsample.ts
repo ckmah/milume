@@ -2,10 +2,10 @@
 export const HERO_EXPORT_BASE_COUNT = 2700;
 
 /**
- * Base points after bake subsample. Tuned for ~300–400 visible discs per frame on the
- * live hero (1600×900 logical), matching Designer stills at 1024×576 — not 50% of #164.
+ * Unique world-space instances in `hero-points.bin` (no z-tile repetition).
+ * Tuned for ~300–400 visible discs per frame on the live 1600×900 hero.
  */
-export const HERO_BAKED_BASE_COUNT = 85;
+export const HERO_BAKED_BASE_COUNT = 425;
 
 const SUBSAMPLE_SEED = 0xa5a51620;
 
@@ -34,5 +34,5 @@ export function heroSubsampleIndices(
 }
 
 export function heroBakedInstanceCount(): number {
-  return HERO_BAKED_BASE_COUNT * 5;
+  return HERO_BAKED_BASE_COUNT;
 }

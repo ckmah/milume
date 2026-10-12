@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 
 const SITE = process.env.E2E_SITE_URL ?? "http://127.0.0.1:8765";
 
-/** `HERO_BAKED_BASE_COUNT` × z tiles (see `website/landing/hero/subsample.ts`). */
-const HERO_INSTANCE_COUNT = 85 * 5;
+/** `HERO_BAKED_BASE_COUNT` unique world instances (see `website/landing/hero/subsample.ts`). */
+const HERO_INSTANCE_COUNT = 425;
 
 test.describe("milume hero WebGL", () => {
   test("canvas renders a non-blank frame on the landing page", async ({ page }) => {
@@ -65,6 +65,13 @@ test.describe("milume hero WebGL", () => {
     expect(counts[0]).toBe(HERO_INSTANCE_COUNT);
   });
 
+  test("no two instances share the same normalized field xy", async ({ page }) => {
+    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.hasUniqueNormalizedXy);
+    const ok = await page.evaluate(() => window.__milumeHeroHandles?.[0]?.hasUniqueNormalizedXy?.());
+    expect(ok).toBe(true);
+  });
+
   test("visible disc count per frame matches designer density band", async ({ page }) => {
     await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
     await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.getVisibleDiscStatsAcrossLoop);
@@ -124,6 +131,7 @@ declare global {
         max: number;
         mean: number;
       } | null;
+      hasUniqueNormalizedXy?: () => boolean;
     }>;
   }
 }
