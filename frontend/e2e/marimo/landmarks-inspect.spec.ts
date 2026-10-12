@@ -47,10 +47,15 @@ test.describe("marimo kernel — landmarks Inspect volume comm", () => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     const box = await canvas.boundingBox();
     expect(box).toBeTruthy();
-    await page.mouse.click(box!.x + box.width * 0.55, box!.y + box.height * 0.55);
+    await canvas.click({
+      position: {
+        x: Math.round(box!.width * 0.55),
+        y: Math.round(box!.height * 0.55),
+      },
+    });
 
     const cube = page.getByRole("dialog", { name: "Cube" });
-    await expect(cube).toBeVisible({ timeout: 120_000 });
+    await expect(cube).toBeVisible({ timeout: onCi() ? 180_000 : 120_000 });
     const view = cube.locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
     await expect(view).toHaveAttribute("data-channels", /1|2/);
