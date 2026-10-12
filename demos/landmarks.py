@@ -20,22 +20,19 @@ app = marimo.App(width="medium")
 
 
 @app.cell(hide_code=True)
-def _():
-    import marimo as mo
-
-    mo.md(
-        r"""
-        > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook.
-        """
-    )
-    return (mo,)
+def _(mo):
+    mo.md(r"""
+    > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook.
+    """)
+    return
 
 
 @app.cell
-def _(mo):
+def _():
     import tempfile
     from pathlib import Path
 
+    import marimo as mo
     import scanpy as sc
     import spatialdata as sd
     from huggingface_hub import snapshot_download
