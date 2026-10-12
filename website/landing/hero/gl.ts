@@ -1,72 +1,39 @@
-import type { GpuField } from "./field.ts";
+import type { HeroPoint } from "./camera.ts";
+import {
+  buildInstances,
+  createInstanceScratch,
+  type InstanceScratch,
+} from "./camera.ts";
 import { LOGICAL_H, LOGICAL_W } from "./constants.ts";
-import { cam } from "./math.ts";
 import { glVec3, heroPaletteForGl, HERO_PALETTE } from "./palette.ts";
-import { maxProjectionStatsForField, maxProjectedLogicalRadius } from "./projection.ts";
 
 const PAL = heroPaletteForGl(HERO_PALETTE);
 const BG_GLSL = glVec3(PAL.background);
-const SLOT_GLSL = PAL.slots.map((c, i) => `const vec3 SLOT${i} = ${glVec3(c)};`).join("\n");
 
 const VS = `#version 300 es
 precision highp float;
 in vec2 a_corner;
-in vec3 i_pos;
-in float i_cat;
-in float i_rad;
-uniform float u_time;
+in vec3 i_color;
+in vec4 i_params;
 uniform vec2 u_scale;
 uniform vec4 u_layout;
-out vec4 v_pm;
 out vec2 v_uv;
-
-const float F = 900.0;
-const vec3 BG = ${BG_GLSL};
-${SLOT_GLSL}
-
-vec3 pointCol(float c) {
-  int i = int(c + 0.5);
-  if (i == 0) return SLOT0;
-  if (i == 1) return SLOT1;
-  if (i == 2) return SLOT2;
-  if (i == 3) return SLOT3;
-  return SLOT4;
-}
-
-void cam(float t, out vec3 c, out float roll) {
-  const float T = 11.0;
-  const float L = 10.0;
-  float u = mod(t, T) / T;
-  float z = mod(u * L, L);
-  c = vec3(0.45 * sin(6.2831853 * u), 0.25 * sin(12.566371 * u), z);
-  roll = 0.0125 * cos(6.2831853 * u);
-}
+out vec3 v_col;
+out float v_a;
+out float v_soft;
 
 void main() {
-  v_uv = a_corner * 0.5 + 0.5;
-  vec3 c;
-  float roll;
-  cam(u_time, c, roll);
-  float cr = cos(roll);
-  float sr = sin(roll);
-  vec3 d = i_pos - c;
-  float z = d.z;
-  float x = d.x * cr - d.y * sr;
-  float y = d.x * sr + d.y * cr;
-  float sx = float(${LOGICAL_W}) * 0.5 + F * x / z;
-  float sy = float(${LOGICAL_H}) * 0.5 + F * y / z;
-  float pr = F * i_rad / z;
-  float rad = max(pr, 0.35);
-
-  vec3 rgb = clamp(pointCol(i_cat), 0.0, 1.0);
-  float a = 1.0;
-  v_pm = vec4(rgb * a, a);
+  v_uv = a_corner;
+  v_col = i_color;
+  v_a = i_params.w;
+  float rad = i_params.z + 1.0;
+  v_soft = clamp(1.0 / rad + (i_params.z > 3.0 ? 0.55 : 0.0), 0.0, 1.0);
 
   float lay = u_layout.x;
   float offX = u_layout.y;
   float offY = u_layout.z;
   float dpr = u_layout.w;
-  vec2 center = vec2((sx * lay + offX) * dpr, (sy * lay + offY) * dpr);
+  vec2 center = vec2((i_params.x * lay + offX) * dpr, (i_params.y * lay + offY) * dpr);
   float R = rad * lay * dpr;
   vec2 pos = center + a_corner * R;
   vec2 clip = (pos / u_scale) * 2.0 - 1.0;
@@ -76,69 +43,50 @@ void main() {
 
 const FS = `#version 300 es
 precision highp float;
-in vec4 v_pm;
 in vec2 v_uv;
+in vec3 v_col;
+in float v_a;
+in float v_soft;
 out vec4 outColor;
 void main() {
-  vec2 p = v_uv - 0.5;
-  float d = length(p);
-  if (d > 0.5) discard;
-  float edge = smoothstep(0.5, 0.08, d);
-  float a = v_pm.a * edge;
-  vec3 rgb = v_pm.rgb * edge;
-  outColor = vec4(rgb, a);
+  float d = length(v_uv);
+  float edge = smoothstep(1.0, 1.0 - max(v_soft, 0.08), d);
+  float m = edge * v_a;
+  outColor = vec4(v_col * m, m);
 }`;
 
-const CORNERS = new Float32Array([-1, -1, 1, -1, -1, 1, -1, 1, 1, -1, 1, 1]);
+const CORNERS = new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]);
 
 export type GlBundle = {
   gl: WebGL2RenderingContext;
   program: WebGLProgram;
   vao: WebGLVertexArrayObject;
-  posBuf: WebGLBuffer;
-  catBuf: WebGLBuffer;
-  radBuf: WebGLBuffer;
-  count: number;
-  srcPos: Float32Array;
-  srcCat: Float32Array;
-  srcRad: Float32Array;
-  order: Uint32Array;
-  keys: Float32Array;
-  sortPos: Float32Array;
-  sortCat: Float32Array;
-  sortRad: Float32Array;
-  uTime: WebGLUniformLocation | null;
+  cornerBuf: WebGLBuffer;
+  instanceBuf: WebGLBuffer;
+  points: HeroPoint[];
+  scratch: InstanceScratch;
   uScale: WebGLUniformLocation | null;
   uLayout: WebGLUniformLocation | null;
   clearRgb: [number, number, number];
+  lastInstanceCount: number;
 };
 
-export function camZAt(t: number): number {
-  const u = (t % 11) / 11;
-  return (u * 10) % 10;
-}
-
-/** Instances drawn each frame (static field; camera-only motion). */
 export function visiblePointCount(bundle: GlBundle): number {
-  return bundle.count;
+  return bundle.points.length;
 }
 
-export function maxProjectedRadiusAcrossLoop(bundle: GlBundle): number {
-  const { maxPr } = maxProjectionStatsForField(bundle.srcPos, bundle.srcRad, bundle.count);
-  return maxPr;
+export function lastDrawInstanceCount(bundle: GlBundle): number {
+  return bundle.lastInstanceCount;
 }
 
-export function maxAllowedProjectedRadius(): number {
-  return maxProjectedLogicalRadius();
-}
-
-export function createGl(canvas: HTMLCanvasElement, field: GpuField): GlBundle | null {
+export function createGl(canvas: HTMLCanvasElement, points: HeroPoint[]): GlBundle | null {
   const gl = canvas.getContext("webgl2", {
     alpha: false,
-    antialias: false,
+    antialias: true,
     depth: false,
     stencil: false,
     preserveDrawingBuffer: true,
+    premultipliedAlpha: true,
   });
   if (!gl) return null;
 
@@ -149,13 +97,9 @@ export function createGl(canvas: HTMLCanvasElement, field: GpuField): GlBundle |
   if (!program) return null;
 
   const cornerBuf = gl.createBuffer()!;
-  const posBuf = gl.createBuffer()!;
-  const catBuf = gl.createBuffer()!;
-  const radBuf = gl.createBuffer()!;
+  const instanceBuf = gl.createBuffer()!;
   const vao = gl.createVertexArray()!;
-
-  const srcCat = new Float32Array(field.count);
-  for (let i = 0; i < field.count; i++) srcCat[i] = field.cat[i];
+  const stride = 7 * 4;
 
   gl.bindVertexArray(vao);
   gl.bindBuffer(gl.ARRAY_BUFFER, cornerBuf);
@@ -165,53 +109,34 @@ export function createGl(canvas: HTMLCanvasElement, field: GpuField): GlBundle |
   gl.vertexAttribPointer(cornerLoc, 2, gl.FLOAT, false, 0, 0);
   gl.vertexAttribDivisor(cornerLoc, 0);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, field.pos.byteLength, gl.DYNAMIC_DRAW);
-  const posLoc = gl.getAttribLocation(program, "i_pos");
-  gl.enableVertexAttribArray(posLoc);
-  gl.vertexAttribPointer(posLoc, 3, gl.FLOAT, false, 12, 0);
-  gl.vertexAttribDivisor(posLoc, 1);
+  gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, 4, gl.DYNAMIC_DRAW);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, catBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, srcCat.byteLength, gl.DYNAMIC_DRAW);
-  const catLoc = gl.getAttribLocation(program, "i_cat");
-  gl.enableVertexAttribArray(catLoc);
-  gl.vertexAttribPointer(catLoc, 1, gl.FLOAT, false, 4, 0);
-  gl.vertexAttribDivisor(catLoc, 1);
+  const colorLoc = gl.getAttribLocation(program, "i_color");
+  gl.enableVertexAttribArray(colorLoc);
+  gl.vertexAttribPointer(colorLoc, 3, gl.FLOAT, false, stride, 0);
+  gl.vertexAttribDivisor(colorLoc, 1);
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, radBuf);
-  gl.bufferData(gl.ARRAY_BUFFER, field.rad.byteLength, gl.DYNAMIC_DRAW);
-  const radLoc = gl.getAttribLocation(program, "i_rad");
-  gl.enableVertexAttribArray(radLoc);
-  gl.vertexAttribPointer(radLoc, 1, gl.FLOAT, false, 4, 0);
-  gl.vertexAttribDivisor(radLoc, 1);
+  const paramsLoc = gl.getAttribLocation(program, "i_params");
+  gl.enableVertexAttribArray(paramsLoc);
+  gl.vertexAttribPointer(paramsLoc, 4, gl.FLOAT, false, stride, 12);
+  gl.vertexAttribDivisor(paramsLoc, 1);
 
   gl.bindVertexArray(null);
   gl.enable(gl.BLEND);
-
-  const order = new Uint32Array(field.count);
-  for (let i = 0; i < field.count; i++) order[i] = i;
 
   return {
     gl,
     program,
     vao,
-    posBuf,
-    catBuf,
-    radBuf,
-    count: field.count,
-    srcPos: field.pos,
-    srcCat,
-    srcRad: field.rad,
-    order,
-    keys: new Float32Array(field.count),
-    sortPos: new Float32Array(field.pos.length),
-    sortCat: new Float32Array(field.count),
-    sortRad: new Float32Array(field.count),
-    uTime: gl.getUniformLocation(program, "u_time"),
+    cornerBuf,
+    instanceBuf,
+    points,
+    scratch: createInstanceScratch(),
     uScale: gl.getUniformLocation(program, "u_scale"),
     uLayout: gl.getUniformLocation(program, "u_layout"),
     clearRgb: PAL.background,
+    lastInstanceCount: 0,
   };
 }
 
@@ -242,27 +167,6 @@ function link(gl: WebGL2RenderingContext, vs: WebGLShader, fs: WebGLShader): Web
   return prog;
 }
 
-function sortInstances(bundle: GlBundle, t: number): void {
-  const { srcPos, order, keys, count } = bundle;
-  const { c } = cam(t);
-  const cz = c[2];
-  for (let i = 0; i < count; i++) {
-    keys[i] = srcPos[i * 3 + 2]! - cz;
-  }
-  order.sort((a, b) => keys[b]! - keys[a]!);
-  const { sortPos, sortCat, sortRad, srcCat, srcRad } = bundle;
-  for (let k = 0; k < count; k++) {
-    const j = order[k]!;
-    const p = k * 3;
-    const q = j * 3;
-    sortPos[p] = srcPos[q]!;
-    sortPos[p + 1] = srcPos[q + 1]!;
-    sortPos[p + 2] = srcPos[q + 2]!;
-    sortCat[k] = srcCat[j]!;
-    sortRad[k] = srcRad[j]!;
-  }
-}
-
 export function drawFrame(
   bundle: GlBundle,
   t: number,
@@ -270,17 +174,17 @@ export function drawFrame(
   height: number,
   layout: { scale: number; offX: number; offY: number; dpr: number },
 ): void {
-  const { gl, program, vao, posBuf, catBuf, radBuf, count, uTime, uScale, uLayout, clearRgb } =
-    bundle;
+  const { gl, program, vao, instanceBuf, points, scratch, uScale, uLayout, clearRgb } = bundle;
 
-  sortInstances(bundle, t);
+  const count = buildInstances(points, t, scratch);
+  bundle.lastInstanceCount = count;
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
-  gl.bufferSubData(gl.ARRAY_BUFFER, 0, bundle.sortPos);
-  gl.bindBuffer(gl.ARRAY_BUFFER, catBuf);
-  gl.bufferSubData(gl.ARRAY_BUFFER, 0, bundle.sortCat);
-  gl.bindBuffer(gl.ARRAY_BUFFER, radBuf);
-  gl.bufferSubData(gl.ARRAY_BUFFER, 0, bundle.sortRad);
+  gl.bindBuffer(gl.ARRAY_BUFFER, instanceBuf);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    scratch.packed.subarray(0, count * 7),
+    gl.DYNAMIC_DRAW,
+  );
 
   gl.viewport(0, 0, width, height);
   gl.clearColor(clearRgb[0], clearRgb[1], clearRgb[2], 1);
@@ -288,9 +192,8 @@ export function drawFrame(
   gl.useProgram(program);
   gl.bindVertexArray(vao);
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-  if (uTime) gl.uniform1f(uTime, t);
   if (uScale) gl.uniform2f(uScale, width, height);
   if (uLayout) gl.uniform4f(uLayout, layout.scale, layout.offX, layout.offY, layout.dpr);
-  gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
+  gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, count);
   gl.bindVertexArray(null);
 }

@@ -15,9 +15,10 @@ Engineering notes stay in the repo’s top-level `docs/` and are **not** the Zen
 ## Hero WebGL loop
 
 The landing hero mounts `landing/assets/hero-renderer.js` (built from
-`landing/hero/`). Point data lives in `landing/assets/hero-points.bin`. Posters:
-`hero-poster.png` (fallback / reduced motion) and `hero-poster-800.png` for README
-embeds.
+`landing/hero/`). Points are generated at runtime from the designer seed
+(`mulberry32(20261010)`, 650 cells). Posters: `hero-poster.png` (WebGL failure
+fallback) and `hero-poster-800.png` for README embeds. Designer reference HTML:
+`landing/hero/reference/`.
 
 ```bash
 cd website && npm ci && npm run build:hero
