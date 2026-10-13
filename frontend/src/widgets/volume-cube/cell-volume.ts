@@ -5,8 +5,9 @@ import type { WindowPixelSource, ZarrSource } from "./window-source";
  *
  * Global label ids are mapped to local indices 1..N per window (0 is
  * background) and stored as two bytes per voxel, RG8: `idx = r + 256 * (g & 127)`,
- * with `g & 128` set on a surface voxel (one with a differently labelled
- * 6-neighbour, another cell or background). The cube shader decodes that and
+ * with `g & 128` set on an outline voxel when its (x,y) column lies on the
+ * 2D footprint boundary of that label (union over z), not on per-z terraces.
+ * The cube shader decodes that and
  * colours each cell from a per-window lookup (`buildCellLut`) keyed by the
  * local index, so the image goes to Viv alone at its own dtype.
  */
@@ -38,20 +39,42 @@ function vivRow(t: number, x: number, height: number): number {
  * `cells[i]` is the global id of local index i (`cells[0]` is 0). Throws
  * `TOO_MANY_CELLS` past `MAX_WINDOW_CELLS`.
  */
+/** Footprint boundary columns for one local cell index (1..N). */
+function footprintOutlineColumns(voxIdx: Uint16Array, idx: number, width: number, height: number, plane: number): Uint8Array {
+  const foot = new Uint8Array(plane);
+  for (let s = 0; s < voxIdx.length; s++) {
+    if (voxIdx[s] === idx) foot[s % plane] = 1;
+  }
+  const edge = new Uint8Array(plane);
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const col = y * width + x;
+      if (!foot[col]) continue;
+      if (
+        (x > 0 && !foot[col - 1]) ||
+        (x < width - 1 && !foot[col + 1]) ||
+        (y > 0 && !foot[col - width]) ||
+        (y < height - 1 && !foot[col + width])
+      ) {
+        edge[col] = 1;
+      }
+    }
+  }
+  return edge;
+}
+
 export function encodeLabels(ids: Ids, width: number, height: number): { data: Uint8Array; cells: number[] } {
   const src = ids as ArrayLike<number>;
   const plane = width * height;
   const depth = Math.floor(src.length / plane);
-  const data = new Uint8Array(plane * depth * 2);
+  const voxIdx = new Uint16Array(plane * depth);
   const local = new Map<number, number>();
   const cells = [0];
-  // Neighbouring voxels mostly share a cell: skip the map for a repeated id.
   let lastId = 0;
   let lastIdx = 0;
   for (let z = 0; z < depth; z++) {
     const base = z * plane;
     for (let t = 0; t < height; t++) {
-      const out = 2 * (base + t * width);
       const first = vivRow(t, 0, height);
       const rest = vivRow(t, 1, height);
       for (let x = 0; x < width; x++) {
@@ -71,13 +94,28 @@ export function encodeLabels(ids: Ids, width: number, height: number): { data: U
           lastId = id;
           lastIdx = idx;
         }
-        const surface =
-          (x > 0 && src[s - 1] !== id) ||
-          (x < width - 1 && src[s + 1] !== id) ||
-          (y > 0 && src[s - width] !== id) ||
-          (y < height - 1 && src[s + width] !== id) ||
-          (z > 0 && src[s - plane] !== id) ||
-          (z < depth - 1 && src[s + plane] !== id);
+        voxIdx[s] = idx;
+      }
+    }
+  }
+  const outlineByIdx: Uint8Array[] = [];
+  for (let idx = 1; idx < cells.length; idx++) {
+    outlineByIdx[idx] = footprintOutlineColumns(voxIdx, idx, width, height, plane);
+  }
+  const data = new Uint8Array(plane * depth * 2);
+  for (let z = 0; z < depth; z++) {
+    const base = z * plane;
+    for (let t = 0; t < height; t++) {
+      const out = 2 * (base + t * width);
+      const first = vivRow(t, 0, height);
+      const rest = vivRow(t, 1, height);
+      for (let x = 0; x < width; x++) {
+        const y = x === 0 ? first : rest;
+        const s = base + y * width + x;
+        const idx = voxIdx[s];
+        if (!idx) continue;
+        const col = y * width + x;
+        const surface = outlineByIdx[idx]![col] !== 0;
         data[out + 2 * x] = idx & 255;
         data[out + 2 * x + 1] = (idx >> 8) | (surface ? 128 : 0);
       }
@@ -107,7 +145,7 @@ const GL_UNPACK_ALIGNMENT = 3317;
 export class CellVolume {
   /** Local index -> global label id; `cells[0]` is background. */
   readonly cells: readonly number[];
-  /** CPU RG8 layout (kept for cut-rim precompute after GPU upload). */
+  /** CPU RG8 layout (same bytes as the GPU label volume). */
   readonly labelRg8: Uint8Array;
   readonly labelWidth: number;
   readonly labelHeight: number;

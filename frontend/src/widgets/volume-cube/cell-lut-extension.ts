@@ -1,5 +1,6 @@
 import { ColorPalette3DExtensions } from "@hms-dbmi/viv";
 
+import { buildCellOutlineLut } from "./cut-rim-mask";
 import { type CellVolume, type Device, vivVolumeImage } from "./cell-volume";
 import { type ImageFormat, imageTextureInfo } from "./image-volume";
 import { DEFAULT_RENDER, type RenderSettings, paletteLut } from "./palettes";
@@ -57,6 +58,7 @@ type CubeUniforms = Partial<RenderSettings> & {
   cutY1?: number;
   cutZ0?: number;
   cutZ1?: number;
+  cellOutlineStrength?: number;
 };
 
 // The module must not share a sampler's name: luma.gl keys a module's
@@ -78,6 +80,7 @@ const cubeRenderModule = {
     cutY1: "f32",
     cutZ0: "f32",
     cutZ1: "f32",
+    cellOutlineStrength: "f32",
   },
   defaultUniforms: {
     imageAlpha: 1,
@@ -94,6 +97,7 @@ const cubeRenderModule = {
     cutY1: 1,
     cutZ0: 0,
     cutZ1: 1,
+    cellOutlineStrength: 2.5,
   },
   // Only the numbers reach the uniform block; the palette is a texture.
   getUniforms: (render: CubeUniforms = {}) => ({
@@ -111,6 +115,7 @@ const cubeRenderModule = {
     cutY1: render.cutY1 ?? 1,
     cutZ0: render.cutZ0 ?? 0,
     cutZ1: render.cutZ1 ?? 1,
+    cellOutlineStrength: render.cellOutlineStrength ?? 2.5,
   }),
   // Viv's contrast ramp on the raw value: a unorm image texture (r8unorm,
   // r16unorm) samples as value / max, and imageScale (max; 1 for float)
@@ -136,6 +141,7 @@ uniform cubeRenderUniforms {
   float cutY1;
   float cutZ0;
   float cutZ1;
+  float cellOutlineStrength;
 } cubeRender;
 
 // All 3D textures, the lookups one texel deep: luma.gl validates the program
@@ -143,6 +149,7 @@ uniform cubeRenderUniforms {
 // on unit 0 then) fails that validation.
 uniform highp sampler3D imagePalette;
 uniform highp sampler3D cellLut;
+uniform highp sampler3D cellOutlineLut;
 // RG8 per voxel: local cell index r + 256 * (g & 127), surface flag g & 128.
 uniform highp sampler3D labelVolume;
 
@@ -160,17 +167,34 @@ vec4 imageSample(float v) {
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
-// Colour (linear RGB) and per-sample alpha of the label voxel at texel q.
-vec4 cellColor(ivec3 q) {
+int cellIndexAt(ivec3 q) {
+  ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
+  return b.x + 256 * (b.y & 127);
+}
+
+bool cellIsFootprintOutlineAt(ivec3 q) {
   ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
   int idx = b.x + 256 * (b.y & 127);
+  if (idx == 0) return false;
+  return (b.y & 128) != 0;
+}
+
+// Per-voxel colour: footprint shell at high alpha, interior fill lower (shell may stack opaque).
+vec4 cellColor(ivec3 q) {
+  int idx = cellIndexAt(q);
   if (idx == 0) return vec4(0.0);
   ivec2 size = textureSize(cellLut, 0).xy;
-  vec4 own = vec4(0.0);
-  if (idx < size.x * size.y) own = texelFetch(cellLut, ivec3(idx % size.x, idx / size.x, 0), 0);
-  // A cell the lookup colours in its own colour, otherwise the shared neutral.
+  if (idx >= size.x * size.y) return vec4(0.0);
+  ivec3 lutCoord = ivec3(idx % size.x, idx / size.x, 0);
+  float fillA = cubeRender.cellAlpha * 0.75;
+  float outlineA = min(cubeRender.cellAlpha * cubeRender.cellOutlineStrength, 1.0);
+  if (cellIsFootprintOutlineAt(q)) {
+    vec4 rim = texelFetch(cellOutlineLut, lutCoord, 0);
+    if (rim.a > 1.0 / 255.0) return vec4(rim.rgb, outlineA);
+  }
+  vec4 own = texelFetch(cellLut, lutCoord, 0);
   vec4 c = own.a > 0.0 ? own : texelFetch(cellLut, ivec3(0), 0);
-  return c;
+  return vec4(c.rgb, fillA);
 }
 `,
 };
@@ -181,14 +205,10 @@ const CELL_SETUP = `
   ivec3 cellSize = textureSize(labelVolume, 0);
   bool cellsOn = cubeRender.cellsOn > 0.5;`;
 
-const CELL_SAMPLE = `
-    vec4 cell = canShow * cellColor(clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1));`;
-
 // One loop for every combination of the two projections (uniforms, so a
 // toggle needs no recompile). The image accumulates samples (Additive) or keeps
-// the maximum (MIP); the labels accumulate cell samples front to back
-// (Additive) or keep the strongest one (MIP). Labels composite over the image
-// either way.
+// the maximum (MIP). Labels accumulate per voxel (shell outline alpha stacks to
+// opaque; fill stays softer). Labels composite over the image either way.
 // Viv steps p after _RENDER, so _RENDER may break but must not continue.
 // Either layer stops sampling once it is saturated (as the per-mode templates did).
 const IN_CUT = `
@@ -228,14 +248,16 @@ const RENDERING = {
         acc.a += (1.0 - acc.a) * a;
       }
       if (cellsOn && (cubeRender.cellMip > 0.5 || cells.a < 0.95)) {
-        ${CELL_SAMPLE}
+        ivec3 cq = clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1);
+        vec4 cell = canShow * cellColor(cq);
         if (cubeRender.cellMip > 0.5) {
           if (cell.a > cellMax) {
             cellMax = cell.a;
             cellMaxRgb = cell.rgb;
           }
-        } else {
-          float a = cover(cell.a, stepScale);
+        } else if (cell.a > 0.0) {
+          float fillCap = cubeRender.cellAlpha * 0.55;
+          float a = cell.a > fillCap ? cover(cell.a, stepScale) : cell.a;
           cells.rgb += (1.0 - cells.a) * a * cell.rgb;
           cells.a += (1.0 - cells.a) * a;
         }
@@ -253,7 +275,6 @@ const RENDERING = {
     imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
   }
   vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb * cellMax, cellMax) : cells;
-  cellsOut *= cubeRender.cellAlpha;
   color = vec4(
     cellsOut.rgb + (1.0 - cellsOut.a) * imageOut.rgb,
     cellsOut.a + (1.0 - cellsOut.a) * imageOut.a
@@ -300,6 +321,9 @@ type LayerLike = {
     /** Set by Viv's XR3DLayer: `volume0` is the image texture it draws. */
     textures?: { volume0?: unknown } | null;
     noCellsTexture?: Texture | null;
+    emptyOutlineTexture?: Texture | null;
+    cellOutlineLutTexture?: Texture | null;
+    cellOutlineLutFor?: { cells: CellVolume | null; coloring: CellColoring | null } | null;
     paletteTexture?: Texture | null;
   };
   context: { device: Device };
@@ -395,13 +419,26 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       });
       layer.setState({ noCellsTexture: noCells });
     }
+    if (!layer.state.emptyOutlineTexture) {
+      const emptyOutline = layer.context.device.createTexture({
+        dimension: "3d",
+        width: 1,
+        height: 1,
+        depth: 1,
+        format: "rgba8unorm",
+        data: new Uint8Array(4),
+        mipmaps: false,
+        sampler: NEAREST,
+      });
+      layer.setState({ emptyOutlineTexture: emptyOutline });
+    }
   }
 
   draw() {
     const layer = this as unknown as LayerLike;
     if (!isRaycaster(layer)) return;
-    const { model, paletteTexture, noCellsTexture } = layer.state;
-    if (!model || !paletteTexture || !noCellsTexture) return;
+    const { model, paletteTexture, noCellsTexture, emptyOutlineTexture } = layer.state;
+    if (!model || !paletteTexture || !noCellsTexture || !emptyOutlineTexture) return;
     const cells = bindCells(layer);
     const coloring = layer.props.cellColoring ?? null;
     // The lookup follows the labels actually bound, so a window Viv is still
@@ -412,12 +449,26 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       const lut = cells && coloring ? buildCellLut(coloring, cells.cells) : EMPTY_CELL_LUT;
       layer.state.cellLutTexture = lookupTexture(layer, lut);
       layer.state.cellLutFor = { cells, coloring };
+      layer.state.cellOutlineLutFor = null;
+      layer.state.cellOutlineLutTexture?.destroy();
+      layer.state.cellOutlineLutTexture = null;
+    }
+    const outlineFor = layer.state.cellOutlineLutFor;
+    if (
+      cells &&
+      coloring &&
+      (!outlineFor || outlineFor.cells !== cells || outlineFor.coloring !== coloring)
+    ) {
+      layer.state.cellOutlineLutTexture?.destroy();
+      layer.state.cellOutlineLutTexture = lookupTexture(layer, buildCellOutlineLut(coloring, cells.cells));
+      layer.state.cellOutlineLutFor = { cells, coloring };
     }
     const labelVolume = cells?.texture(layer.context.device) ?? null;
     const cellsOn = labelVolume && coloring ? 1 : 0;
     model.setBindings({
       labelVolume: labelVolume ?? noCellsTexture,
       cellLut: layer.state.cellLutTexture,
+      cellOutlineLut: layer.state.cellOutlineLutTexture ?? emptyOutlineTexture,
       imagePalette: paletteTexture,
     });
     const imageOn = layer.props.showImage === false ? 0 : 1;
@@ -453,7 +504,9 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
     layer.state.boundCells?.unuse();
     layer.state.boundCells = null;
     layer.state.cellLutTexture?.destroy();
+    layer.state.cellOutlineLutTexture?.destroy();
     layer.state.noCellsTexture?.destroy();
+    layer.state.emptyOutlineTexture?.destroy();
     layer.state.paletteTexture?.destroy();
   }
 }
@@ -493,8 +546,8 @@ export type CellColoring =
   | { kind: "groups"; groups: readonly HighlightGroup[] }
   | { kind: "expression"; byLabel: ReadonlyMap<number, [number, number, number]> };
 
-/** Per-sample alpha of a cell the lookup colours, before the Labels alpha slider (default, see `DEFAULT_RENDER`). */
-const CELL_ALPHA = 0.9;
+/** Interior fill weight in the LUT (outline texels use full weight; shader scales fill vs outline alpha). */
+const CELL_FILL_LUT_ALPHA = 0.22;
 /**
  * The cells a group does not cover: achromatic on purpose. The orange this
  * used (#f97316) sits 3.6° from tab10's #ff7f0e, which `default_categorical_palette`
@@ -541,7 +594,7 @@ export function buildCellLut(coloring: CellColoring, cells: readonly number[]): 
   const width = Math.min(CELL_LUT_WIDTH, n);
   const height = Math.ceil(n / width);
   const data = new Uint8Array(width * height * 4);
-  const alpha = Math.round(255 * CELL_ALPHA);
+  const alpha = Math.round(255 * CELL_FILL_LUT_ALPHA);
   if (coloring.kind === "instances") {
     // Texel 0 stays clear: every cell has a colour of its own.
     for (let i = 1; i < cells.length; i++) data.set([...instanceColor(cells[i]!), alpha], i * 4);
