@@ -2107,11 +2107,12 @@ test.describe("Landmarks inspect cube", () => {
     const bar = page.getByTestId("context-inspect-toolbar");
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
+    await setShow(page, "image", false);
     await setModel(page, { volume_cut: [0, 256, 0, 256, 31, 33] });
     await expect(view).toHaveAttribute("data-refining", "false");
-    await bar.getByRole("radio", { name: "Side view" }).click();
-    await expect(view).toHaveAttribute("data-pitch", "0");
-    await shot(page, "volume-inspect-outlines-zcut-side", view);
+    await bar.getByRole("radio", { name: "Oblique view" }).click();
+    await expect(view).toHaveAttribute("data-pitch", "35", { timeout: 15_000 });
+    await shot(page, "volume-inspect-outlines-zcut-iso", view);
   });
 
   test("the dock shows the coarse level first, then refines", { tag: "@isolated" }, async ({ page }) => {

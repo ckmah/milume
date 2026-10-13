@@ -79,6 +79,7 @@ const cubeRenderModule = {
     cutY1: "f32",
     cutZ0: "f32",
     cutZ1: "f32",
+    cellOutlineStrength: "f32",
   },
   defaultUniforms: {
     imageAlpha: 1,
@@ -95,6 +96,7 @@ const cubeRenderModule = {
     cutY1: 1,
     cutZ0: 0,
     cutZ1: 1,
+    cellOutlineStrength: 2.5,
   },
   // Only the numbers reach the uniform block; the palette is a texture.
   getUniforms: (render: CubeUniforms = {}) => ({
@@ -112,6 +114,7 @@ const cubeRenderModule = {
     cutY1: render.cutY1 ?? 1,
     cutZ0: render.cutZ0 ?? 0,
     cutZ1: render.cutZ1 ?? 1,
+    cellOutlineStrength: render.cellOutlineStrength ?? 2.5,
   }),
   // Viv's contrast ramp on the raw value: a unorm image texture (r8unorm,
   // r16unorm) samples as value / max, and imageScale (max; 1 for float)
@@ -137,6 +140,7 @@ uniform cubeRenderUniforms {
   float cutY1;
   float cutZ0;
   float cutZ1;
+  float cellOutlineStrength;
 } cubeRender;
 
 // All 3D textures, the lookups one texel deep: luma.gl validates the program
@@ -168,15 +172,17 @@ vec4 cellColor(ivec3 q) {
   int idx = b.x + 256 * (b.y & 127);
   if (idx == 0) return vec4(0.0);
   ivec2 size = textureSize(cellLut, 0).xy;
+  float fillA = cubeRender.cellAlpha;
+  float outlineA = min(cubeRender.cellAlpha * cubeRender.cellOutlineStrength, 1.0);
   if ((b.y & 128) != 0 && idx < size.x * size.y) {
     vec4 rim = texelFetch(cellOutlineLut, ivec3(idx % size.x, idx / size.x, 0), 0);
-    if (rim.a > 1.0 / 255.0) return rim;
+    if (rim.a > 1.0 / 255.0) return vec4(rim.rgb, rim.a * outlineA);
   }
   vec4 own = vec4(0.0);
   if (idx < size.x * size.y) own = texelFetch(cellLut, ivec3(idx % size.x, idx / size.x, 0), 0);
   // A cell the lookup colours in its own colour, otherwise the shared neutral.
   vec4 c = own.a > 0.0 ? own : texelFetch(cellLut, ivec3(0), 0);
-  return c;
+  return vec4(c.rgb, c.a * fillA);
 }
 `,
 };
@@ -259,7 +265,6 @@ const RENDERING = {
     imageOut = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
   }
   vec4 cellsOut = cubeRender.cellMip > 0.5 ? vec4(cellMaxRgb * cellMax, cellMax) : cells;
-  cellsOut *= cubeRender.cellAlpha;
   color = vec4(
     cellsOut.rgb + (1.0 - cellsOut.a) * imageOut.rgb,
     cellsOut.a + (1.0 - cellsOut.a) * imageOut.a
@@ -531,8 +536,8 @@ export type CellColoring =
   | { kind: "groups"; groups: readonly HighlightGroup[] }
   | { kind: "expression"; byLabel: ReadonlyMap<number, [number, number, number]> };
 
-/** Per-sample alpha of a cell the lookup colours, before the Labels alpha slider (default, see `DEFAULT_RENDER`). */
-const CELL_ALPHA = 0.9;
+/** Interior fill weight in the LUT (outline texels use full weight; shader scales fill vs outline alpha). */
+const CELL_FILL_LUT_ALPHA = 0.38;
 /**
  * The cells a group does not cover: achromatic on purpose. The orange this
  * used (#f97316) sits 3.6° from tab10's #ff7f0e, which `default_categorical_palette`
@@ -579,7 +584,7 @@ export function buildCellLut(coloring: CellColoring, cells: readonly number[]): 
   const width = Math.min(CELL_LUT_WIDTH, n);
   const height = Math.ceil(n / width);
   const data = new Uint8Array(width * height * 4);
-  const alpha = Math.round(255 * CELL_ALPHA);
+  const alpha = Math.round(255 * CELL_FILL_LUT_ALPHA);
   if (coloring.kind === "instances") {
     // Texel 0 stays clear: every cell has a colour of its own.
     for (let i = 1; i < cells.length; i++) data.set([...instanceColor(cells[i]!), alpha], i * 4);

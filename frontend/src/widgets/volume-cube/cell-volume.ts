@@ -83,7 +83,55 @@ export function encodeLabels(ids: Ids, width: number, height: number): { data: U
       }
     }
   }
+  dilateLabelSurfaces(data, width, height, depth, 1);
   return { data, cells };
+}
+
+/** Widen the surface flag by `passes` voxels so outlines read at inspect zoom (2D top and 3D). */
+function dilateLabelSurfaces(data: Uint8Array, width: number, height: number, depth: number, passes: number) {
+  const plane = width * height;
+  const n = plane * depth;
+  const surface = new Uint8Array(n);
+  for (let z = 0; z < depth; z++) {
+    for (let t = 0; t < height; t++) {
+      const row = z * plane + t * width;
+      for (let x = 0; x < width; x++) {
+        const g = data[2 * (row + x) + 1]!;
+        if ((g & 128) !== 0) surface[row + x] = 1;
+      }
+    }
+  }
+  for (let pass = 0; pass < passes; pass++) {
+    const next = new Uint8Array(surface);
+    for (let z = 0; z < depth; z++) {
+      for (let t = 0; t < height; t++) {
+        for (let x = 0; x < width; x++) {
+          const p = z * plane + t * width + x;
+          if (!surface[p]) continue;
+          for (let dz = -1; dz <= 1; dz++) {
+            for (let dy = -1; dy <= 1; dy++) {
+              for (let dx = -1; dx <= 1; dx++) {
+                if (dx === 0 && dy === 0 && dz === 0) continue;
+                const nx = x + dx;
+                const ny = t + dy;
+                const nz = z + dz;
+                if (nx < 0 || ny < 0 || nz < 0 || nx >= width || ny >= height || nz >= depth) continue;
+                const q = nz * plane + ny * width + nx;
+                const g = data[2 * q + 1]!;
+                if ((g & 127) === 0 && (data[2 * q]! & 255) === 0) continue;
+                next[q] = 1;
+              }
+            }
+          }
+        }
+      }
+    }
+    surface.set(next);
+  }
+  for (let p = 0; p < n; p++) {
+    if (!surface[p]) continue;
+    data[2 * p + 1] = (data[2 * p + 1]! | 128) & 255;
+  }
 }
 
 export type Texture = { destroy(): void; copyImageData(options: { data: ArrayBufferView }): void };
