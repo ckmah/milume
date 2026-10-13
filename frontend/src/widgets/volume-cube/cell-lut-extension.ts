@@ -248,7 +248,8 @@ const RENDERING = {
             cellMaxRgb = cell.rgb;
           }
         } else {
-          float a = cover(cell.a, stepScale);
+          float fillMax = cubeRender.cellAlpha * 0.5;
+          float a = cell.a > fillMax ? cover(cell.a, stepScale) : cell.a;
           cells.rgb += (1.0 - cells.a) * a * cell.rgb;
           cells.a += (1.0 - cells.a) * a;
         }
@@ -538,7 +539,7 @@ export type CellColoring =
   | { kind: "expression"; byLabel: ReadonlyMap<number, [number, number, number]> };
 
 /** Interior fill weight in the LUT (outline texels use full weight; shader scales fill vs outline alpha). */
-const CELL_FILL_LUT_ALPHA = 0.38;
+const CELL_FILL_LUT_ALPHA = 0.22;
 /**
  * The cells a group does not cover: achromatic on purpose. The orange this
  * used (#f97316) sits 3.6° from tab10's #ff7f0e, which `default_categorical_palette`

@@ -61,10 +61,16 @@ async function openCube(page, theme) {
   );
   for (const toggle of ["layer-toggle-labels", "layer-toggle-image"]) {
     const el = page.getByTestId(toggle);
-    if (toggle.endsWith("image") && (await el.getAttribute("aria-pressed")) === "true") await el.click();
     if (toggle.endsWith("labels") && (await el.getAttribute("aria-pressed")) !== "true") await el.click();
   }
   return { view, bar: page.getByTestId("context-inspect-toolbar") };
+}
+
+async function ensureImage(page, on) {
+  const el = page.getByTestId("layer-toggle-image");
+  const pressed = (await el.getAttribute("aria-pressed")) === "true";
+  if (on !== pressed) await el.click();
+  await page.waitForTimeout(200);
 }
 
 async function capture(theme, tag) {
@@ -72,11 +78,18 @@ async function capture(theme, tag) {
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   try {
     const { view, bar } = await openCube(page, theme);
+    await ensureImage(page, false);
     await bar.getByRole("radio", { name: "Top view" }).click();
     await page.waitForTimeout(600);
     const top = join(OUT, `issue-172-after-2d-top-${theme}-${tag}.png`);
     await view.screenshot({ path: top });
     console.log("wrote", top);
+
+    await ensureImage(page, true);
+    await page.waitForTimeout(600);
+    const topImage = join(OUT, `issue-172-after-2d-top-image-on-${theme}-${tag}.png`);
+    await view.screenshot({ path: topImage });
+    console.log("wrote", topImage);
 
     await bar.getByRole("radio", { name: "Oblique view" }).click();
     await page.waitForFunction(

@@ -5,8 +5,8 @@ import type { WindowPixelSource, ZarrSource } from "./window-source";
  *
  * Global label ids are mapped to local indices 1..N per window (0 is
  * background) and stored as two bytes per voxel, RG8: `idx = r + 256 * (g & 127)`,
- * with `g & 128` set on a surface voxel (one with a differently labelled
- * 6-neighbour, another cell or background). The cube shader decodes that and
+ * with `g & 128` set on an outline voxel (a differently labelled in-plane
+ * x/y neighbour, ignoring ±z). The cube shader decodes that and
  * colours each cell from a per-window lookup (`buildCellLut`) keyed by the
  * local index, so the image goes to Viv alone at its own dtype.
  */
@@ -75,9 +75,7 @@ export function encodeLabels(ids: Ids, width: number, height: number): { data: U
           (x > 0 && src[s - 1] !== id) ||
           (x < width - 1 && src[s + 1] !== id) ||
           (y > 0 && src[s - width] !== id) ||
-          (y < height - 1 && src[s + width] !== id) ||
-          (z > 0 && src[s - plane] !== id) ||
-          (z < depth - 1 && src[s + plane] !== id);
+          (y < height - 1 && src[s + width] !== id);
         data[out + 2 * x] = idx & 255;
         data[out + 2 * x + 1] = (idx >> 8) | (surface ? 128 : 0);
       }
