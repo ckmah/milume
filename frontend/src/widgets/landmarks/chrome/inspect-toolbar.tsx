@@ -544,15 +544,6 @@ export function InspectToolbar({
         value={settings.labelMode}
         onChange={(labelMode) => patch({ labelMode })}
       />
-      <div className="landmarks-slider-row landmarks-adjust__control">
-        <Label className="landmarks-slider-caption">Cut outline</Label>
-        <Switch
-          size="sm"
-          aria-label="Cut outlines"
-          checked={render.cellOutlineOn > 0.5}
-          onCheckedChange={(on) => patch({ render: { cellOutlineOn: on ? 1 : 0 } })}
-        />
-      </div>
       <SoftFloatCapsuleSlider
         aria-label="Label fill"
         caption="Fill"

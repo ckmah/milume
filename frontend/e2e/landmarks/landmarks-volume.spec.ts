@@ -1986,7 +1986,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(add.type0.x).toBeGreaterThan(add.type1.x + 20);
     expect(add.type0.y).toBeLessThan(add.type1.y - 20);
 
-    // Image MIP + Labels MIP: uncut fill is faint (no cut-face rims); category hues still separate.
+    // Image MIP + Labels MIP: uncut interiors stay faint while rims stay stronger; category hues still separate.
     await openLayerMenu(page, "labels");
     await page.getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
     await page.keyboard.press("Escape");
@@ -2074,46 +2074,32 @@ test.describe("Landmarks inspect cube", () => {
     await openCubeAtCentre(page, { raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
-    // The image off, so only the cells draw; a 2 µm slab through the cells' middle
-    // (viewed from the top) shows each cell's cross-section: its rim, and its
-    // interior when it is filled.
     await setShow(page, "image", false);
     await expect(view).toHaveAttribute("data-labels", "on");
     await expect(view).toHaveAttribute("data-refining", "false");
-    await setModel(page, { volume_cut: [0, 256, 0, 256, 31, 33] });
-    await expect(view).toHaveAttribute("data-refining", "false");
-    const slab = await view.screenshot();
-    await openLayerMenu(page, "labels");
-    await page.getByTestId("adjust-labels").getByRole("switch", { name: "Cut outlines" }).click();
-    const outlinesOff = await view.screenshot();
-    const changed = await page.evaluate(
-      async ({ before, after }) => {
-        const load = async (png: string) => {
-          const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
-          const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-          const ctx = canvas.getContext("2d")!;
-          ctx.drawImage(bitmap, 0, 0);
-          return ctx.getImageData(0, 0, bitmap.width, bitmap.height).data;
-        };
-        const [a, b] = [await load(before), await load(after)];
-        let n = 0;
-        for (let i = 0; i < a.length; i += 4) {
-          const d = Math.abs(a[i]! - b[i]!) + Math.abs(a[i + 1]! - b[i + 1]!) + Math.abs(a[i + 2]! - b[i + 2]!);
-          if (d > 18) n++;
-        }
-        return n;
-      },
-      { before: slab.toString("base64"), after: outlinesOff.toString("base64") },
-    );
-    expect(changed).toBeGreaterThan(80);
+    const { rim, core } = await ringVsCore(page, await view.screenshot());
+    expect(rim).toBeGreaterThan(80);
+    expect(core).toBeGreaterThan(30);
+    expect(core / rim).toBeLessThan(0.38);
   });
 
-  test("inspect labels with no cut show uniform fill and no contrasting rims", async ({ page }) => {
+  test("inspect labels with no cut still show outline rims over interior fill", async ({ page }) => {
     await openCubeAtCentre(page, { raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-coloring", "groups");
+    await setShow(page, "image", false);
+    const { rim, core } = await ringVsCore(page, await view.screenshot());
+    expect(rim).toBeGreaterThan(50);
+    expect(core).toBeGreaterThan(20);
+    expect(core / rim).toBeLessThan(0.38);
     await shot(page, "volume-inspect-labels-uncut-top", view);
+  });
+
+  test("labels adjust panel has no cut outline switch", async ({ page }) => {
+    await openCubeAtCentre(page, { raster: true });
+    await openLayerMenu(page, "labels");
+    await expect(page.getByTestId("adjust-labels").getByRole("switch", { name: "Cut outlines" })).toHaveCount(0);
   });
 
   test("inspect Z-cut shows contrasting rims on the cut face", async ({ page }) => {

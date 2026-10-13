@@ -1,4 +1,4 @@
-import type { CellColoring } from "./cell-lut-extension";
+import type { CellColoring, CellLut } from "./cell-lut-extension";
 import { CELL_LUT_WIDTH, instanceColor } from "./cell-lut-extension";
 
 const OTHERS = { color: "#d4d4d4", alpha: 0.4, behindGroups: 0.12 };
@@ -34,8 +34,8 @@ function contrastingOutlineRgb(
   return [235, 235, 240];
 }
 
-/** Per local cell index: linear RGBA rim bytes (index 0 = neutral / unused). */
-export function buildCellOutlineLut(coloring: CellColoring, cells: readonly number[]): Uint8Array {
+/** Per local cell index: linear RGBA outline bytes (index 0 = neutral / unused). */
+export function buildCellOutlineLut(coloring: CellColoring, cells: readonly number[]): CellLut {
   const n = Math.max(1, cells.length);
   const width = Math.min(CELL_LUT_WIDTH, n);
   const height = Math.ceil(n / width);
@@ -57,7 +57,7 @@ export function buildCellOutlineLut(coloring: CellColoring, cells: readonly numb
       const rim = hasFill ? contrastingOutlineRgb(rgb, outline, "luminance") : rgb;
       out.set([...rim, i === 0 ? fill[off + 3]! : hasFill ? outlineA : fill[off + 3]!], off);
     }
-    return out;
+    return { data: out, width, height };
   }
 
   if (coloring.kind === "expression") {
@@ -73,7 +73,7 @@ export function buildCellOutlineLut(coloring: CellColoring, cells: readonly numb
       const rim = hasFill ? contrastingOutlineRgb(rgb, outline, "shared") : rgb;
       out.set([...rim, i === 0 ? 0 : hasFill ? outlineA : 0], off);
     }
-    return out;
+    return { data: out, width, height };
   }
 
   const { groups } = coloring;
@@ -99,69 +99,5 @@ export function buildCellOutlineLut(coloring: CellColoring, cells: readonly numb
     const rim = hasFill ? contrastingOutlineRgb(rgb, sharedOutline, "shared") : rgb;
     out.set([...rim, i === 0 ? fill[off + 3]! : hasFill ? rimA : fill[off + 3]!], off);
   }
-  return out;
-}
-
-function onCutFace(
-  px: number,
-  py: number,
-  pz: number,
-  cut: readonly number[],
-): boolean {
-  const active =
-    cut[1]! - cut[0]! < 0.999 || cut[3]! - cut[2]! < 0.999 || cut[5]! - cut[4]! < 0.999;
-  if (!active) return false;
-  const e = 0.004;
-  if (cut[0]! > 0.001 && Math.abs(px - cut[0]!) < e) return true;
-  if (cut[1]! < 0.999 && Math.abs(px - cut[1]!) < e) return true;
-  if (cut[2]! > 0.001 && Math.abs(py - cut[2]!) < e) return true;
-  if (cut[3]! < 0.999 && Math.abs(py - cut[3]!) < e) return true;
-  if (cut[4]! > 0.001 && Math.abs(pz - cut[4]!) < e) return true;
-  if (cut[5]! < 0.999 && Math.abs(pz - cut[5]!) < e) return true;
-  return false;
-}
-
-export type CutRimMask = { data: Uint8Array; width: number; height: number; depth: number };
-
-/** RGBA8 rim colours on cut faces only; linear RGB in .rgb, alpha in .a (0–255). */
-export function buildCutRimMask(
-  rg8: Uint8Array,
-  width: number,
-  height: number,
-  depth: number,
-  cutFrac: readonly number[],
-  outlineLut: Uint8Array,
-  lutWidth: number,
-): CutRimMask {
-  const plane = width * height;
-  const data = new Uint8Array(plane * depth * 4);
-  for (let z = 0; z < depth; z++) {
-    const pz = (z + 0.5) / depth;
-    for (let t = 0; t < height; t++) {
-      const py = (t + 0.5) / height;
-      for (let x = 0; x < width; x++) {
-        const px = (x + 0.5) / width;
-        if (!onCutFace(px, py, pz, cutFrac)) continue;
-        const texel = z * plane + t * width + x;
-        const g = rg8[texel * 2 + 1]!;
-        if ((g & 128) === 0) continue;
-        const idx = rg8[texel * 2]! + 256 * (g & 127);
-        if (idx === 0) continue;
-        const lx = idx % lutWidth;
-        const ly = Math.floor(idx / lutWidth);
-        const o = (ly * lutWidth + lx) * 4;
-        const out = texel * 4;
-        data[out] = outlineLut[o]!;
-        data[out + 1] = outlineLut[o + 1]!;
-        data[out + 2] = outlineLut[o + 2]!;
-        data[out + 3] = outlineLut[o + 3]!;
-      }
-    }
-  }
-  return { data, width, height, depth };
-}
-
-export function cutRimCacheKey(cutFrac: readonly number[] | null | undefined, cellsLen: number): string {
-  if (!cutFrac) return `none:${cellsLen}`;
-  return `${cutFrac.map((v) => v.toFixed(5)).join(",")}:${cellsLen}`;
+  return { data: out, width, height };
 }

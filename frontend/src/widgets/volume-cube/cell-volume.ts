@@ -107,7 +107,7 @@ const GL_UNPACK_ALIGNMENT = 3317;
 export class CellVolume {
   /** Local index -> global label id; `cells[0]` is background. */
   readonly cells: readonly number[];
-  /** CPU RG8 layout (kept for cut-rim precompute after GPU upload). */
+  /** CPU RG8 layout (same bytes as the GPU label volume). */
   readonly labelRg8: Uint8Array;
   readonly labelWidth: number;
   readonly labelHeight: number;

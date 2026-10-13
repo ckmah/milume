@@ -1,5 +1,6 @@
 import { ColorPalette3DExtensions } from "@hms-dbmi/viv";
 
+import { buildCellOutlineLut } from "./cut-rim-mask";
 import { type CellVolume, type Device, vivVolumeImage } from "./cell-volume";
 import { type ImageFormat, imageTextureInfo } from "./image-volume";
 import { DEFAULT_RENDER, type RenderSettings, paletteLut } from "./palettes";
@@ -143,6 +144,7 @@ uniform cubeRenderUniforms {
 // on unit 0 then) fails that validation.
 uniform highp sampler3D imagePalette;
 uniform highp sampler3D cellLut;
+uniform highp sampler3D cellOutlineLut;
 // RG8 per voxel: local cell index r + 256 * (g & 127), surface flag g & 128.
 uniform highp sampler3D labelVolume;
 
@@ -166,6 +168,10 @@ vec4 cellColor(ivec3 q) {
   int idx = b.x + 256 * (b.y & 127);
   if (idx == 0) return vec4(0.0);
   ivec2 size = textureSize(cellLut, 0).xy;
+  if ((b.y & 128) != 0 && idx < size.x * size.y) {
+    vec4 rim = texelFetch(cellOutlineLut, ivec3(idx % size.x, idx / size.x, 0), 0);
+    if (rim.a > 1.0 / 255.0) return rim;
+  }
   vec4 own = vec4(0.0);
   if (idx < size.x * size.y) own = texelFetch(cellLut, ivec3(idx % size.x, idx / size.x, 0), 0);
   // A cell the lookup colours in its own colour, otherwise the shared neutral.
@@ -300,6 +306,9 @@ type LayerLike = {
     /** Set by Viv's XR3DLayer: `volume0` is the image texture it draws. */
     textures?: { volume0?: unknown } | null;
     noCellsTexture?: Texture | null;
+    emptyOutlineTexture?: Texture | null;
+    cellOutlineLutTexture?: Texture | null;
+    cellOutlineLutFor?: { cells: CellVolume | null; coloring: CellColoring | null } | null;
     paletteTexture?: Texture | null;
   };
   context: { device: Device };
@@ -395,13 +404,26 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       });
       layer.setState({ noCellsTexture: noCells });
     }
+    if (!layer.state.emptyOutlineTexture) {
+      const emptyOutline = layer.context.device.createTexture({
+        dimension: "3d",
+        width: 1,
+        height: 1,
+        depth: 1,
+        format: "rgba8unorm",
+        data: new Uint8Array(4),
+        mipmaps: false,
+        sampler: NEAREST,
+      });
+      layer.setState({ emptyOutlineTexture: emptyOutline });
+    }
   }
 
   draw() {
     const layer = this as unknown as LayerLike;
     if (!isRaycaster(layer)) return;
-    const { model, paletteTexture, noCellsTexture } = layer.state;
-    if (!model || !paletteTexture || !noCellsTexture) return;
+    const { model, paletteTexture, noCellsTexture, emptyOutlineTexture } = layer.state;
+    if (!model || !paletteTexture || !noCellsTexture || !emptyOutlineTexture) return;
     const cells = bindCells(layer);
     const coloring = layer.props.cellColoring ?? null;
     // The lookup follows the labels actually bound, so a window Viv is still
@@ -412,12 +434,26 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       const lut = cells && coloring ? buildCellLut(coloring, cells.cells) : EMPTY_CELL_LUT;
       layer.state.cellLutTexture = lookupTexture(layer, lut);
       layer.state.cellLutFor = { cells, coloring };
+      layer.state.cellOutlineLutFor = null;
+      layer.state.cellOutlineLutTexture?.destroy();
+      layer.state.cellOutlineLutTexture = null;
+    }
+    const outlineFor = layer.state.cellOutlineLutFor;
+    if (
+      cells &&
+      coloring &&
+      (!outlineFor || outlineFor.cells !== cells || outlineFor.coloring !== coloring)
+    ) {
+      layer.state.cellOutlineLutTexture?.destroy();
+      layer.state.cellOutlineLutTexture = lookupTexture(layer, buildCellOutlineLut(coloring, cells.cells));
+      layer.state.cellOutlineLutFor = { cells, coloring };
     }
     const labelVolume = cells?.texture(layer.context.device) ?? null;
     const cellsOn = labelVolume && coloring ? 1 : 0;
     model.setBindings({
       labelVolume: labelVolume ?? noCellsTexture,
       cellLut: layer.state.cellLutTexture,
+      cellOutlineLut: layer.state.cellOutlineLutTexture ?? emptyOutlineTexture,
       imagePalette: paletteTexture,
     });
     const imageOn = layer.props.showImage === false ? 0 : 1;
@@ -453,7 +489,9 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
     layer.state.boundCells?.unuse();
     layer.state.boundCells = null;
     layer.state.cellLutTexture?.destroy();
+    layer.state.cellOutlineLutTexture?.destroy();
     layer.state.noCellsTexture?.destroy();
+    layer.state.emptyOutlineTexture?.destroy();
     layer.state.paletteTexture?.destroy();
   }
 }

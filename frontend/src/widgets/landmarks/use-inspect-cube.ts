@@ -472,7 +472,7 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
       if (all || section === "labels") {
         patchCube({
           labelMode: "additive",
-          render: { cellAlpha: DEFAULT_RENDER.cellAlpha, cellOutlineOn: DEFAULT_RENDER.cellOutlineOn },
+          render: { cellAlpha: DEFAULT_RENDER.cellAlpha },
         });
       }
       if (all || section === "points") {

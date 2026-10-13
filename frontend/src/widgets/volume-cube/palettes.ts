@@ -10,10 +10,8 @@ export type RenderSettings = {
   imageAlpha: number;
   /** Exponent on the contrast-limited image value. */
   imageGamma: number;
-  /** Interior fill opacity along the ray (cut-face rims use `cellOutlineOn` instead). */
+  /** Scales label fill and outline opacity along the ray (outline texels stay stronger than fill). */
   cellAlpha: number;
-  /** 1 draws contrasting outlines on cut-plane cell boundaries; 0 hides them. */
-  cellOutlineOn: number;
 };
 
 export const DEFAULT_RENDER: RenderSettings = {
@@ -21,7 +19,6 @@ export const DEFAULT_RENDER: RenderSettings = {
   imageAlpha: 1,
   imageGamma: 1,
   cellAlpha: 0.4,
-  cellOutlineOn: 1,
 };
 
 // sRGB stops, evenly spaced. Gray is generated instead (see `grayRamp`).
