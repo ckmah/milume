@@ -172,23 +172,23 @@ int cellIndexAt(ivec3 q) {
   return b.x + 256 * (b.y & 127);
 }
 
-bool cellIsLateralOutlineAt(ivec3 q) {
+bool cellIsFootprintOutlineAt(ivec3 q) {
   ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
   int idx = b.x + 256 * (b.y & 127);
   if (idx == 0) return false;
   return (b.y & 128) != 0;
 }
 
-// One thickness-independent layer per cell along the ray (entry voxel only).
-vec4 cellEntryLayer(ivec3 q) {
+// Per-voxel colour: footprint shell at high alpha, interior fill lower (shell may stack opaque).
+vec4 cellColor(ivec3 q) {
   int idx = cellIndexAt(q);
   if (idx == 0) return vec4(0.0);
   ivec2 size = textureSize(cellLut, 0).xy;
   if (idx >= size.x * size.y) return vec4(0.0);
   ivec3 lutCoord = ivec3(idx % size.x, idx / size.x, 0);
   float fillA = cubeRender.cellAlpha * 0.75;
-  float outlineA = min(cubeRender.cellAlpha * cubeRender.cellOutlineStrength, 0.9);
-  if (cellIsLateralOutlineAt(q)) {
+  float outlineA = min(cubeRender.cellAlpha * cubeRender.cellOutlineStrength, 1.0);
+  if (cellIsFootprintOutlineAt(q)) {
     vec4 rim = texelFetch(cellOutlineLut, lutCoord, 0);
     if (rim.a > 1.0 / 255.0) return vec4(rim.rgb, outlineA);
   }
@@ -207,9 +207,8 @@ const CELL_SETUP = `
 
 // One loop for every combination of the two projections (uniforms, so a
 // toggle needs no recompile). The image accumulates samples (Additive) or keeps
-// the maximum (MIP). Labels composite once per cell id along the ray (entry
-// voxel: lateral outline or fill), then skip until the id changes. Labels
-// composite over the image either way.
+// the maximum (MIP). Labels accumulate per voxel (shell outline alpha stacks to
+// opaque; fill stays softer). Labels composite over the image either way.
 // Viv steps p after _RENDER, so _RENDER may break but must not continue.
 // Either layer stops sampling once it is saturated (as the per-mode templates did).
 const IN_CUT = `
@@ -233,7 +232,6 @@ const RENDERING = {
   vec4 cells = vec4(0.0);
   float cellMax = 0.0;
   vec3 cellMaxRgb = vec3(0.0);
-  int prevCellIdx = 0;
   bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
     || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
     || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
@@ -251,22 +249,17 @@ const RENDERING = {
       }
       if (cellsOn && (cubeRender.cellMip > 0.5 || cells.a < 0.95)) {
         ivec3 cq = clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1);
-        int cellIdx = cellIndexAt(cq);
-        if (cellIdx == 0) {
-          prevCellIdx = 0;
-        } else if (cellIdx != prevCellIdx) {
-          prevCellIdx = cellIdx;
-          vec4 cell = canShow * cellEntryLayer(cq);
-          if (cubeRender.cellMip > 0.5) {
-            if (cell.a > cellMax) {
-              cellMax = cell.a;
-              cellMaxRgb = cell.rgb;
-            }
-          } else if (cell.a > 0.0) {
-            float a = cell.a;
-            cells.rgb += (1.0 - cells.a) * a * cell.rgb;
-            cells.a += (1.0 - cells.a) * a;
+        vec4 cell = canShow * cellColor(cq);
+        if (cubeRender.cellMip > 0.5) {
+          if (cell.a > cellMax) {
+            cellMax = cell.a;
+            cellMaxRgb = cell.rgb;
           }
+        } else if (cell.a > 0.0) {
+          float fillCap = cubeRender.cellAlpha * 0.55;
+          float a = cell.a > fillCap ? cover(cell.a, stepScale) : cell.a;
+          cells.rgb += (1.0 - cells.a) * a * cell.rgb;
+          cells.a += (1.0 - cells.a) * a;
         }
       }
     }

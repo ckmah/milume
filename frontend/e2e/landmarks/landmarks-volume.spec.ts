@@ -368,10 +368,10 @@ async function ringVsCore(page: Page, png: Buffer) {
 }
 
 /**
- * Largest category-tinted blob on a screenshot: RGB at the bbox centre (fill) and at
- * the farthest pixel from that centre (rim).
+ * Largest category-tinted blob: RGB at the centre, at 25/50/75% of the max radius,
+ * and on the outer rim band (pixels within ~2 px of the farthest extent).
  */
-async function cellCenterEdgeRgb(page: Page, png: Buffer) {
+async function cellRadialFillRgb(page: Page, png: Buffer) {
   return page.evaluate(
     async ({ png, hues, minSaturation, hueTolerance }) => {
       const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
@@ -425,16 +425,48 @@ async function cellCenterEdgeRgb(page: Page, png: Buffer) {
       if (!best) return null;
       const read = (p: number) => [data[p * 4]!, data[p * 4 + 1]!, data[p * 4 + 2]!] as [number, number, number];
       const centerP = Math.round(best.cy) * width + Math.round(best.cx);
-      let edgeP = best.members[0]!;
-      let edgeD = 0;
+      let maxD = 0;
       for (const p of best.members) {
         const d = Math.hypot((p % width) - best.cx, Math.floor(p / width) - best.cy);
-        if (d > edgeD) {
-          edgeD = d;
-          edgeP = p;
-        }
+        if (d > maxD) maxD = d;
       }
-      return { category: best.cat, center: read(centerP), edge: read(edgeP) };
+      const pickNear = (frac: number) => {
+        const target = frac * maxD;
+        let bestP = centerP;
+        let bestErr = Infinity;
+        for (const p of best.members) {
+          const d = Math.hypot((p % width) - best.cx, Math.floor(p / width) - best.cy);
+          const err = Math.abs(d - target);
+          if (err < bestErr) {
+            bestErr = err;
+            bestP = p;
+          }
+        }
+        return read(bestP);
+      };
+      const rimPixels: number[] = [];
+      for (const p of best.members) {
+        const d = Math.hypot((p % width) - best.cx, Math.floor(p / width) - best.cy);
+        if (d >= maxD - 2.5) rimPixels.push(p);
+      }
+      let rimSum = [0, 0, 0];
+      for (const p of rimPixels) {
+        const c = read(p);
+        rimSum[0] += c[0];
+        rimSum[1] += c[1];
+        rimSum[2] += c[2];
+      }
+      const n = rimPixels.length || 1;
+      const rim = [rimSum[0] / n, rimSum[1] / n, rimSum[2] / n] as [number, number, number];
+      return {
+        category: best.cat,
+        center: read(centerP),
+        r25: pickNear(0.25),
+        r50: pickNear(0.5),
+        r75: pickNear(0.75),
+        rim,
+        maxRadiusPx: maxD,
+      };
     },
     {
       png: png.toString("base64"),
@@ -2161,7 +2193,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(core / rim).toBeLessThan(0.38);
   });
 
-  test("top view with image on keeps translucent fill and stronger rims", async ({ page }) => {
+  test("top view with image on shows softer fill and stronger footprint rims", async ({ page }) => {
     await openCubeAtCentre(page, { raster: true });
     const bar = page.getByTestId("context-inspect-toolbar");
     const view = cubeWindow(page).locator(".volume-cube__view");
@@ -2170,9 +2202,9 @@ test.describe("Landmarks inspect cube", () => {
     await setShow(page, "image", true);
     await setShow(page, "labels", true);
     await expect(view).toHaveAttribute("data-refining", "false");
-    const sample = await cellCenterEdgeRgb(page, await view.screenshot());
+    const sample = await cellRadialFillRgb(page, await view.screenshot());
     expect(sample).not.toBeNull();
-    const { center, edge, category } = sample!;
+    const { center, r25, r50, r75, rim, category } = sample!;
     const sat = ([r, g, b]: [number, number, number]) => {
       const max = Math.max(r, g, b);
       const d = max - Math.min(r, g, b);
@@ -2180,12 +2212,28 @@ test.describe("Landmarks inspect cube", () => {
     };
     const rgbDist = (a: [number, number, number], b: [number, number, number]) =>
       Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
-    test.info().attach("cell-center-edge-rgb", {
-      body: JSON.stringify({ category, center, edge, centerSat: sat(center), edgeSat: sat(edge) }, null, 2),
+    const inner = [r25, r50, r75];
+    test.info().attach("cell-radial-rgb", {
+      body: JSON.stringify(
+        {
+          category,
+          center,
+          r25,
+          r50,
+          r75,
+          rim,
+          sat: { center: sat(center), r25: sat(r25), r50: sat(r50), r75: sat(r75), rim: sat(rim) },
+        },
+        null,
+        2,
+      ),
       contentType: "application/json",
     });
-    expect(sat(edge)).toBeGreaterThan(sat(center) + 0.02);
-    expect(rgbDist(center, edge)).toBeGreaterThan(5);
+    for (const p of inner) {
+      expect(sat(p)).toBeLessThan(sat(rim) - 0.015);
+    }
+    expect(sat(rim)).toBeGreaterThan(sat(r50) + 0.02);
+    expect(rgbDist(r50, rim)).toBeGreaterThan(5);
   });
 
   test("inspect labels with no cut still show outline rims over interior fill", async ({ page }) => {
