@@ -167,23 +167,34 @@ vec4 imageSample(float v) {
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
-// Colour (linear RGB) and per-sample alpha of the label voxel at texel q.
-vec4 cellColor(ivec3 q) {
+int cellIndexAt(ivec3 q) {
+  ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
+  return b.x + 256 * (b.y & 127);
+}
+
+bool cellIsLateralOutlineAt(ivec3 q) {
   ivec2 b = ivec2(texelFetch(labelVolume, q, 0).rg * 255.0 + 0.5);
   int idx = b.x + 256 * (b.y & 127);
+  if (idx == 0) return false;
+  return (b.y & 128) != 0;
+}
+
+// One thickness-independent layer per cell along the ray (entry voxel only).
+vec4 cellEntryLayer(ivec3 q) {
+  int idx = cellIndexAt(q);
   if (idx == 0) return vec4(0.0);
   ivec2 size = textureSize(cellLut, 0).xy;
-  float fillA = cubeRender.cellAlpha;
-  float outlineA = min(cubeRender.cellAlpha * cubeRender.cellOutlineStrength, 1.0);
-  if ((b.y & 128) != 0 && idx < size.x * size.y) {
-    vec4 rim = texelFetch(cellOutlineLut, ivec3(idx % size.x, idx / size.x, 0), 0);
-    if (rim.a > 1.0 / 255.0) return vec4(rim.rgb, rim.a * outlineA);
+  if (idx >= size.x * size.y) return vec4(0.0);
+  ivec3 lutCoord = ivec3(idx % size.x, idx / size.x, 0);
+  float fillA = cubeRender.cellAlpha * 0.75;
+  float outlineA = min(cubeRender.cellAlpha * cubeRender.cellOutlineStrength, 0.9);
+  if (cellIsLateralOutlineAt(q)) {
+    vec4 rim = texelFetch(cellOutlineLut, lutCoord, 0);
+    if (rim.a > 1.0 / 255.0) return vec4(rim.rgb, outlineA);
   }
-  vec4 own = vec4(0.0);
-  if (idx < size.x * size.y) own = texelFetch(cellLut, ivec3(idx % size.x, idx / size.x, 0), 0);
-  // A cell the lookup colours in its own colour, otherwise the shared neutral.
+  vec4 own = texelFetch(cellLut, lutCoord, 0);
   vec4 c = own.a > 0.0 ? own : texelFetch(cellLut, ivec3(0), 0);
-  return vec4(c.rgb, c.a * fillA);
+  return vec4(c.rgb, fillA);
 }
 `,
 };
@@ -194,14 +205,11 @@ const CELL_SETUP = `
   ivec3 cellSize = textureSize(labelVolume, 0);
   bool cellsOn = cubeRender.cellsOn > 0.5;`;
 
-const CELL_SAMPLE = `
-    vec4 cell = canShow * cellColor(clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1));`;
-
 // One loop for every combination of the two projections (uniforms, so a
 // toggle needs no recompile). The image accumulates samples (Additive) or keeps
-// the maximum (MIP); the labels accumulate cell samples front to back
-// (Additive) or keep the strongest one (MIP). Labels composite over the image
-// either way.
+// the maximum (MIP). Labels composite once per cell id along the ray (entry
+// voxel: lateral outline or fill), then skip until the id changes. Labels
+// composite over the image either way.
 // Viv steps p after _RENDER, so _RENDER may break but must not continue.
 // Either layer stops sampling once it is saturated (as the per-mode templates did).
 const IN_CUT = `
@@ -225,6 +233,7 @@ const RENDERING = {
   vec4 cells = vec4(0.0);
   float cellMax = 0.0;
   vec3 cellMaxRgb = vec3(0.0);
+  int prevCellIdx = 0;
   bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
     || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
     || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
@@ -241,17 +250,23 @@ const RENDERING = {
         acc.a += (1.0 - acc.a) * a;
       }
       if (cellsOn && (cubeRender.cellMip > 0.5 || cells.a < 0.95)) {
-        ${CELL_SAMPLE}
-        if (cubeRender.cellMip > 0.5) {
-          if (cell.a > cellMax) {
-            cellMax = cell.a;
-            cellMaxRgb = cell.rgb;
+        ivec3 cq = clamp(ivec3(p * vec3(cellSize)), ivec3(0), cellSize - 1);
+        int cellIdx = cellIndexAt(cq);
+        if (cellIdx == 0) {
+          prevCellIdx = 0;
+        } else if (cellIdx != prevCellIdx) {
+          prevCellIdx = cellIdx;
+          vec4 cell = canShow * cellEntryLayer(cq);
+          if (cubeRender.cellMip > 0.5) {
+            if (cell.a > cellMax) {
+              cellMax = cell.a;
+              cellMaxRgb = cell.rgb;
+            }
+          } else if (cell.a > 0.0) {
+            float a = cell.a;
+            cells.rgb += (1.0 - cells.a) * a * cell.rgb;
+            cells.a += (1.0 - cells.a) * a;
           }
-        } else {
-          float fillMax = cubeRender.cellAlpha * 0.5;
-          float a = cell.a > fillMax ? cover(cell.a, stepScale) : cell.a;
-          cells.rgb += (1.0 - cells.a) * a * cell.rgb;
-          cells.a += (1.0 - cells.a) * a;
         }
       }
     }

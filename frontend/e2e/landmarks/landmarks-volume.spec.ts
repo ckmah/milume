@@ -367,6 +367,84 @@ async function ringVsCore(page: Page, png: Buffer) {
   );
 }
 
+/**
+ * Largest category-tinted blob on a screenshot: RGB at the bbox centre (fill) and at
+ * the farthest pixel from that centre (rim).
+ */
+async function cellCenterEdgeRgb(page: Page, png: Buffer) {
+  return page.evaluate(
+    async ({ png, hues, minSaturation, hueTolerance }) => {
+      const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${png}`)).blob());
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      const ctx = canvas.getContext("2d")!;
+      ctx.drawImage(bitmap, 0, 0);
+      const { data, width, height } = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
+      const category = (i: number) => {
+        const [r, g, b] = [data[i]!, data[i + 1]!, data[i + 2]!];
+        const max = Math.max(r, g, b);
+        const d = max - Math.min(r, g, b);
+        if (max < 40 || d / max < minSaturation) return "";
+        let h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+        h = (h * 60 + 360) % 360;
+        for (const [k, hue] of Object.entries(hues))
+          if (Math.abs(((h - hue + 540) % 360) - 180) <= hueTolerance) return k;
+        return "";
+      };
+      const kind = new Array<string>(width * height);
+      for (let p = 0; p < kind.length; p++) kind[p] = category(p * 4);
+      let best: { cat: string; members: number[]; cx: number; cy: number } | null = null;
+      const seen = new Uint8Array(width * height);
+      for (let start = 0; start < kind.length; start++) {
+        if (!kind[start] || seen[start]) continue;
+        const members: number[] = [start];
+        seen[start] = 1;
+        let [x0, x1, y0, y1] = [width, 0, height, 0];
+        for (let q = 0; q < members.length; q++) {
+          const p = members[q]!;
+          const [x, y] = [p % width, Math.floor(p / width)];
+          x0 = Math.min(x0, x);
+          x1 = Math.max(x1, x);
+          y0 = Math.min(y0, y);
+          y1 = Math.max(y1, y);
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              const [nx, ny] = [x + dx, y + dy];
+              if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+              const n = ny * width + nx;
+              if (kind[n] === kind[start] && !seen[n]) {
+                seen[n] = 1;
+                members.push(n);
+              }
+            }
+        }
+        if (members.length < 40) continue;
+        if (!best || members.length > best.members.length) {
+          best = { cat: kind[start]!, members, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+        }
+      }
+      if (!best) return null;
+      const read = (p: number) => [data[p * 4]!, data[p * 4 + 1]!, data[p * 4 + 2]!] as [number, number, number];
+      const centerP = Math.round(best.cy) * width + Math.round(best.cx);
+      let edgeP = best.members[0]!;
+      let edgeD = 0;
+      for (const p of best.members) {
+        const d = Math.hypot((p % width) - best.cx, Math.floor(p / width) - best.cy);
+        if (d > edgeD) {
+          edgeD = d;
+          edgeP = p;
+        }
+      }
+      return { category: best.cat, center: read(centerP), edge: read(edgeP) };
+    },
+    {
+      png: png.toString("base64"),
+      hues: CATEGORY_HUES,
+      minSaturation: TINT.minSaturation,
+      hueTolerance: TINT.hueTolerance,
+    },
+  );
+}
+
 type Box = { x: number; y: number; width: number; height: number };
 async function dragOnMap(page: Page, box: Box, from: [number, number], to: [number, number]) {
   await page.mouse.move(box.x + box.width * from[0], box.y + box.height * from[1]);
@@ -2081,6 +2159,33 @@ test.describe("Landmarks inspect cube", () => {
     expect(rim).toBeGreaterThan(80);
     expect(core).toBeGreaterThan(30);
     expect(core / rim).toBeLessThan(0.38);
+  });
+
+  test("top view with image on keeps translucent fill and stronger rims", async ({ page }) => {
+    await openCubeAtCentre(page, { raster: true });
+    const bar = page.getByTestId("context-inspect-toolbar");
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await bar.getByRole("radio", { name: "Top view" }).click();
+    await expect(view).toHaveAttribute("data-refining", "false");
+    await setShow(page, "image", true);
+    await setShow(page, "labels", true);
+    await expect(view).toHaveAttribute("data-refining", "false");
+    const sample = await cellCenterEdgeRgb(page, await view.screenshot());
+    expect(sample).not.toBeNull();
+    const { center, edge, category } = sample!;
+    const sat = ([r, g, b]: [number, number, number]) => {
+      const max = Math.max(r, g, b);
+      const d = max - Math.min(r, g, b);
+      return max < 1 ? 0 : d / max;
+    };
+    const rgbDist = (a: [number, number, number], b: [number, number, number]) =>
+      Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+    test.info().attach("cell-center-edge-rgb", {
+      body: JSON.stringify({ category, center, edge, centerSat: sat(center), edgeSat: sat(edge) }, null, 2),
+      contentType: "application/json",
+    });
+    expect(sat(edge)).toBeGreaterThan(sat(center) + 0.02);
+    expect(rgbDist(center, edge)).toBeGreaterThan(5);
   });
 
   test("inspect labels with no cut still show outline rims over interior fill", async ({ page }) => {
