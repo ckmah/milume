@@ -58,6 +58,7 @@ type CubeUniforms = Partial<RenderSettings> & {
   cutY1?: number;
   cutZ0?: number;
   cutZ1?: number;
+  cellOutlineStrength?: number;
 };
 
 // The module must not share a sampler's name: luma.gl keys a module's
