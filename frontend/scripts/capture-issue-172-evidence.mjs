@@ -1,8 +1,12 @@
 /**
  * Issue #172 PR evidence: 2D (top) and 3D (iso) inspect labels, light + dark.
  * Usage: PORT=5173 OUT=/opt/cursor/artifacts node scripts/capture-issue-172-evidence.mjs
+ *
+ * landmarks-volume harness is always mounted under a `.dark` shell; theme is applied
+ * the same way as HarnessShell (documentElement + shell + widget classes).
  */
-import { mkdirSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "@playwright/test";
 
@@ -10,9 +14,39 @@ const PORT = Number(process.env.PORT || 5173);
 const OUT = process.env.OUT || "/opt/cursor/artifacts";
 mkdirSync(OUT, { recursive: true });
 
-async function openCube(page) {
+function md5(path) {
+  return createHash("md5").update(readFileSync(path)).digest("hex");
+}
+
+async function applyHarnessTheme(page, theme) {
+  const dark = theme === "dark";
+  await page.evaluate((isDark) => {
+    const root = document.documentElement;
+    root.classList.remove("light", "dark", "dark-theme", "light-theme");
+    if (isDark) root.classList.add("dark", "dark-theme");
+    else root.classList.add("light", "light-theme");
+    window.localStorage.setItem("milume-harness-theme", isDark ? "dark" : "light");
+    const shell = document.querySelector(".min-h-screen");
+    if (shell instanceof HTMLElement) {
+      shell.classList.toggle("dark", isDark);
+      shell.classList.toggle("bg-neutral-950", isDark);
+      shell.classList.toggle("text-neutral-100", isDark);
+      shell.classList.toggle("bg-white", !isDark);
+      shell.classList.toggle("text-neutral-950", !isDark);
+    }
+    const widget = document.querySelector(".landmarks");
+    if (widget instanceof HTMLElement) {
+      widget.classList.toggle("dark", isDark);
+      widget.classList.toggle("landmarks--dark", isDark);
+    }
+  }, dark);
+  await page.waitForTimeout(250);
+}
+
+async function openCube(page, theme) {
   await page.goto(`http://127.0.0.1:${PORT}/?window=100`, { waitUntil: "networkidle", timeout: 120_000 });
   await page.waitForFunction(() => Boolean(window.__landmarksEngine?.getViewState?.()), null, { timeout: 120_000 });
+  await applyHarnessTheme(page, theme);
   await page.getByRole("radio", { name: "Inspect", exact: true }).click();
   const canvas = page.locator("canvas.landmarks__webgl").first();
   const box = await canvas.boundingBox();
@@ -36,11 +70,8 @@ async function openCube(page) {
 async function capture(theme, tag) {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
-  await page.addInitScript((t) => {
-    window.localStorage.setItem("milume-harness-theme", t);
-  }, theme);
   try {
-    const { view, bar } = await openCube(page);
+    const { view, bar } = await openCube(page, theme);
     await bar.getByRole("radio", { name: "Top view" }).click();
     await page.waitForTimeout(600);
     const top = join(OUT, `issue-172-after-2d-top-${theme}-${tag}.png`);
@@ -79,4 +110,15 @@ async function capture(theme, tag) {
 
 await capture("light", "inspect");
 await capture("dark", "inspect");
+
+const lightTop = join(OUT, "issue-172-after-2d-top-light-inspect.png");
+const darkTop = join(OUT, "issue-172-after-2d-top-dark-inspect.png");
+const hLight = md5(lightTop);
+const hDark = md5(darkTop);
+console.log("md5 2d-top light", hLight);
+console.log("md5 2d-top dark", hDark);
+if (hLight === hDark) {
+  console.error("FAIL: light and dark 2d-top screenshots are identical");
+  process.exit(1);
+}
 console.log("done");
