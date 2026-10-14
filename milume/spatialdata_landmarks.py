@@ -104,8 +104,26 @@ def _vertices_from_geometry(geom) -> tuple[str | None, list[list[float]]]:
 def landmarks_to_geodataframe(landmarks: list[dict] | None):
     """Convert widget landmark dicts to a GeoDataFrame.
 
-    Empty ``landmarks`` yields an empty GeoDataFrame with the contract columns.
-    Callers own any SpatialData assignment (e.g. ``sdata["landmarks"] = gdf``).
+    Parameters
+    ----------
+    landmarks
+        Landmark dicts from ``w.landmarks``, or ``None`` / ``[]`` for an empty
+        frame with contract columns (``id``, ``type``, ``vertices``, …).
+
+    Returns
+    -------
+    geopandas.GeoDataFrame
+        Proxy ``geometry`` plus JSON ``vertices`` as the round-trip source of
+        truth. Callers assign into SpatialData themselves
+        (e.g. ``sdata["landmarks"] = gdf``).
+
+    Examples
+    --------
+    >>> import milume
+    >>> w = milume.peek(adata)
+    >>> gdf = milume.landmarks_to_geodataframe(w.landmarks)
+    >>> len(gdf)
+    0
     """
     _require_geopandas()
     import geopandas as gpd
@@ -148,7 +166,28 @@ def landmarks_to_geodataframe(landmarks: list[dict] | None):
 
 
 def geodataframe_to_landmarks(gdf) -> list[dict]:
-    """Convert a landmarks GeoDataFrame back to widget dicts (``[]`` if empty)."""
+    """Convert a landmarks GeoDataFrame back to widget dicts.
+
+    Parameters
+    ----------
+    gdf
+        GeoDataFrame produced by `landmarks_to_geodataframe`, or ``None`` /
+        zero rows.
+
+    Returns
+    -------
+    list[dict]
+        Widget landmark dicts suitable for ``w.landmarks = ...``. Empty input
+        yields ``[]``.
+
+    Examples
+    --------
+    >>> import milume
+    >>> w = milume.peek(adata)
+    >>> w.landmarks = milume.geodataframe_to_landmarks(
+    ...     milume.landmarks_to_geodataframe(w.landmarks)
+    ... )
+    """
     if gdf is None or len(gdf) == 0:
         return []
     has_vertices_col = "vertices" in getattr(gdf, "columns", [])

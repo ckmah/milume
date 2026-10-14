@@ -36,7 +36,7 @@ done
 cp -a "${WEBSITE}/landing/." "${OUT}/"
 touch "${OUT}/.nojekyll"
 
-uv run --directory "${ROOT}" python -m pytest "${WEBSITE}/scripts/test_agent_md_format.py" -q
+uv run --directory "${ROOT}" python -m pytest "${WEBSITE}/scripts/test_agent_md_format.py" "${WEBSITE}/scripts/test_api_reference_codegen.py" -q
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/sync-api-docs.py"
 
 rm -rf "${WEBSITE}/dist"

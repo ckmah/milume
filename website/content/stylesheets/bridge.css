@@ -33,3 +33,62 @@
   font-family: var(--milume-display);
   font-weight: 700;
 }
+
+/* API traitlet tables: fit content width on desktop; scroll only on narrow viewports. */
+.md-typeset .milume-api-traitlet-table {
+  max-width: 100%;
+  margin: 1em 0;
+  overflow-x: visible;
+}
+
+.md-typeset .milume-api-traitlet-table table {
+  font-size: 0.85rem;
+  width: 100%;
+  table-layout: auto;
+}
+
+.md-typeset .milume-api-traitlet-table th:nth-child(1),
+.md-typeset .milume-api-traitlet-table td:nth-child(1),
+.md-typeset .milume-api-traitlet-table th:nth-child(2),
+.md-typeset .milume-api-traitlet-table td:nth-child(2),
+.md-typeset .milume-api-traitlet-table th:nth-child(3),
+.md-typeset .milume-api-traitlet-table td:nth-child(3) {
+  white-space: nowrap;
+  width: 1%;
+  vertical-align: top;
+}
+
+.md-typeset .milume-api-traitlet-table th:nth-child(4),
+.md-typeset .milume-api-traitlet-table td:nth-child(4) {
+  white-space: normal;
+  overflow-wrap: normal;
+  vertical-align: top;
+}
+
+@media screen and (max-width: 48em) {
+  .md-typeset .milume-api-traitlet-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .md-typeset .milume-api-traitlet-table table {
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .md-typeset .milume-api-traitlet-table th:nth-child(1),
+  .md-typeset .milume-api-traitlet-table td:nth-child(1),
+  .md-typeset .milume-api-traitlet-table th:nth-child(2),
+  .md-typeset .milume-api-traitlet-table td:nth-child(2),
+  .md-typeset .milume-api-traitlet-table th:nth-child(3),
+  .md-typeset .milume-api-traitlet-table td:nth-child(3) {
+    width: auto;
+    min-width: max-content;
+  }
+
+  .md-typeset .milume-api-traitlet-table th:nth-child(4),
+  .md-typeset .milume-api-traitlet-table td:nth-child(4) {
+    min-width: 12rem;
+  }
+}

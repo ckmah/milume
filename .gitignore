@@ -34,6 +34,9 @@ website/content/assets/hero-*
 
 # Generated during website/scripts/assemble-pages.sh
 website/snippets/api-params.md
+website/snippets/api-traitlets.md
+website/snippets/api-geodataframe.md
+website/snippets/api-methods.md
 website/content/assets/logo/
 website/landing/assets/logo/
 worktrees/

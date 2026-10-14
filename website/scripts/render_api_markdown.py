@@ -85,14 +85,37 @@ def _peek_doc(root: Path) -> str:
 
 def render_landmarks_widget_api() -> str:
     root = Path(__file__).resolve().parents[2]
-    module = griffe.load("milume.landmarks", search_paths=[str(root)])
-    widget = module.classes["LandmarksWidget"]
+    sys_path = str(Path(__file__).resolve().parent)
+    if sys_path not in __import__("sys").path:
+        __import__("sys").path.insert(0, sys_path)
+    from api_reference_codegen import (
+        _signature_fence,
+        render_constructor_params_markdown,
+        render_geodataframe_markdown,
+        render_methods_markdown,
+        render_traitlets_markdown,
+    )
 
     parts = [
         "# LandmarksWidget API",
         "",
-        "Generated from `milume.landmarks.LandmarksWidget` docstrings.",
-        "For narrative guides, see [Quickstart](../quickstart.md).",
+        "Generated from `milume` sources. For narrative guides, see [Quickstart](../quickstart.md).",
+        "",
+        "## Constructor parameters",
+        "",
+        render_constructor_params_markdown().strip(),
+        "",
+        "## Synced traitlets",
+        "",
+        render_traitlets_markdown().strip(),
+        "",
+        "## GeoDataFrame interchange",
+        "",
+        render_geodataframe_markdown().strip(),
+        "",
+        "## Methods",
+        "",
+        render_methods_markdown().strip(),
         "",
     ]
 
@@ -103,39 +126,19 @@ def render_landmarks_widget_api() -> str:
             peek_sig = peek_fn.signature()
         except (AttributeError, TypeError):
             peek_sig = "peek(...)"
-        parts.extend(
-            [
-                f"## `def {peek_sig}`",
-                "",
-                format_agent_docstring(_peek_doc(root)),
-                "",
-                "---",
-                "",
-            ]
-        )
-
-    class_doc = widget.docstring.value if widget.docstring else ""
-    parts.extend(
-        [f"## `{widget.name}`", "", format_agent_docstring(class_doc.strip()), ""]
-    )
-
-    for name in _NOTEBOOK_METHODS:
-        member = widget.members.get(name)
-        if member is None:
-            continue
-        doc = member.docstring.value if member.docstring else ""
-        try:
-            signature = member.signature()
-        except (AttributeError, TypeError):
-            signature = f"{name}(...)"
-        parts.extend(
-            [
-                f"### `def {signature}`",
-                "",
-                format_agent_docstring(doc.strip()) if doc.strip() else "",
-                "",
-            ]
-        )
+        parts = [
+            "# LandmarksWidget API",
+            "",
+            "Generated from `milume` sources. For narrative guides, see [Quickstart](../quickstart.md).",
+            "",
+            "## `peek()`",
+            *_signature_fence(peek_sig, is_method=False),
+            format_agent_docstring(_peek_doc(root)),
+            "",
+            "---",
+            "",
+            *parts[4:],
+        ]
 
     body = "\n".join(parts).strip() + "\n"
     return strip_sphinx_roles(body)
