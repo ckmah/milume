@@ -89,6 +89,7 @@ def render_landmarks_widget_api() -> str:
     if sys_path not in __import__("sys").path:
         __import__("sys").path.insert(0, sys_path)
     from api_reference_codegen import (
+        _signature_fence,
         render_constructor_params_markdown,
         render_geodataframe_markdown,
         render_methods_markdown,
@@ -130,8 +131,8 @@ def render_landmarks_widget_api() -> str:
             "",
             "Generated from `milume` sources. For narrative guides, see [Quickstart](../quickstart.md).",
             "",
-            f"## `def {peek_sig}`",
-            "",
+            "## `peek()`",
+            *_signature_fence(peek_sig, is_method=False),
             format_agent_docstring(_peek_doc(root)),
             "",
             "---",

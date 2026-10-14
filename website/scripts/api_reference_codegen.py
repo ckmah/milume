@@ -260,10 +260,26 @@ def _parse_traitlets(source: str) -> list[TraitletRow]:
     return rows
 
 
+def _short_api_heading(name: str) -> str:
+    """TOC-friendly heading; full signature lives in the body below."""
+    return f"### `{name}()`"
+
+
+def _signature_fence(signature: str, *, is_method: bool) -> list[str]:
+    sig = signature.strip()
+    if is_method and not sig.startswith("def "):
+        sig = f"def {sig}"
+    elif not is_method and not sig.startswith("def "):
+        sig = f"def {sig}"
+    return ["", "```python", sig, "```", ""]
+
+
 def _table(rows: list[TraitletRow]) -> str:
     if not rows:
         return ""
     lines = [
+        '<div class="milume-api-traitlet-table" markdown="1">',
+        "",
         "| Name | Type | Default | Meaning |",
         "| --- | --- | --- | --- |",
     ]
@@ -272,6 +288,7 @@ def _table(rows: list[TraitletRow]) -> str:
         lines.append(
             f"| `{row.name}` | {row.type_label} | {row.default_label} | {meaning} |"
         )
+    lines.extend(["", "</div>", ""])
     return "\n".join(lines)
 
 
@@ -351,8 +368,8 @@ def render_geodataframe_markdown() -> str:
         doc = _function_docstring(SPATIALDATA_PATH, name)
         parts.extend(
             [
-                f"### `{sig}`",
-                "",
+                _short_api_heading(name),
+                *_signature_fence(sig, is_method=False),
                 format_agent_docstring(doc.strip()),
                 "",
             ]
@@ -378,8 +395,8 @@ def render_methods_markdown() -> str:
             signature = f"{name}(...)"
         parts.extend(
             [
-                f"### `{signature}`",
-                "",
+                _short_api_heading(name),
+                *_signature_fence(signature, is_method=True),
                 format_agent_docstring(doc.strip()) if doc.strip() else "",
                 "",
             ]

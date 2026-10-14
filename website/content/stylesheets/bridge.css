@@ -34,17 +34,26 @@
   font-weight: 700;
 }
 
-/* API reference traitlet tables: keep readable on narrow viewports. */
-.md-typeset table:not([class]) {
-  display: block;
+/* API reference traitlet tables: scroll horizontally; keep names on one line. */
+.md-typeset .milume-api-traitlet-table {
   overflow-x: auto;
+  max-width: 100%;
+  margin: 1em 0;
+}
+
+.md-typeset .milume-api-traitlet-table table {
   font-size: 0.85rem;
+  width: max-content;
+  min-width: 100%;
 }
 
-.md-typeset table:not([class]) th {
+.md-typeset .milume-api-traitlet-table th:first-child,
+.md-typeset .milume-api-traitlet-table td:first-child {
   white-space: nowrap;
+  min-width: 11rem;
 }
 
-.md-typeset table:not([class]) td:last-child {
+.md-typeset .milume-api-traitlet-table td:last-child {
   min-width: 12rem;
+  white-space: normal;
 }

@@ -10,6 +10,7 @@ from api_reference_codegen import (
     _parse_traitlets,
     render_constructor_params_markdown,
     render_geodataframe_markdown,
+    render_methods_markdown,
     render_traitlets_markdown,
 )
 
@@ -42,3 +43,14 @@ def test_geodataframe_docs_use_peek() -> None:
     assert "landmarks_to_geodataframe" in md
     assert "milume.peek" in md
     assert "```python" in md
+
+
+def test_api_headings_short_for_toc() -> None:
+    methods = render_methods_markdown()
+    assert "### `set_points()`" in methods
+    assert methods.count("def set_points") >= 1
+    assert "### `def set_points" not in methods
+    gdf = render_geodataframe_markdown()
+    assert "### `landmarks_to_geodataframe()`" in gdf
+    traits = render_traitlets_markdown()
+    assert "milume-api-traitlet-table" in traits
