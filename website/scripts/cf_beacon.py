@@ -37,8 +37,8 @@ def write_zensical_partial(path: Path | None = None) -> None:
     target.write_text(f"{script_tag(read_token())}\n", encoding="utf-8")
 
 
-def inject_landing_html(html: str, token: str | None = None) -> str:
-    tag = script_tag(token if token is not None else read_token())
+def inject_landing_html(html: str, token: str | None) -> str:
+    tag = script_tag(token)
     if LANDING_MARKER in html:
         return html.replace(LANDING_MARKER, tag, 1)
     if not tag:
@@ -46,9 +46,9 @@ def inject_landing_html(html: str, token: str | None = None) -> str:
     return re.sub(r"(</body>)", f"{tag}\n  </body>", html, count=1, flags=re.IGNORECASE)
 
 
-def inject_landing_file(index_path: Path) -> None:
+def inject_landing_file(index_path: Path, token: str | None) -> None:
     text = index_path.read_text(encoding="utf-8")
-    index_path.write_text(inject_landing_html(text), encoding="utf-8")
+    index_path.write_text(inject_landing_html(text, token), encoding="utf-8")
 
 
 def main() -> None:
@@ -70,7 +70,7 @@ def main() -> None:
     if args.zensical_partial:
         write_zensical_partial()
     if args.landing:
-        inject_landing_file(args.landing)
+        inject_landing_file(args.landing, read_token())
     if not args.zensical_partial and not args.landing:
         parser.error("pass --zensical-partial and/or --landing")
 
