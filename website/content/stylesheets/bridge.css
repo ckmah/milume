@@ -44,35 +44,25 @@
 .md-typeset .milume-api-traitlet-table table {
   font-size: 0.85rem;
   width: 100%;
-  table-layout: fixed;
+  table-layout: auto;
 }
 
-.md-typeset .milume-api-traitlet-table th,
-.md-typeset .milume-api-traitlet-table td {
-  white-space: normal;
-  overflow-wrap: anywhere;
-  vertical-align: top;
-}
-
-.md-typeset .milume-api-traitlet-table th:first-child,
-.md-typeset .milume-api-traitlet-table td:first-child {
-  white-space: nowrap;
-  width: 16%;
-}
-
+.md-typeset .milume-api-traitlet-table th:nth-child(1),
+.md-typeset .milume-api-traitlet-table td:nth-child(1),
 .md-typeset .milume-api-traitlet-table th:nth-child(2),
-.md-typeset .milume-api-traitlet-table td:nth-child(2) {
-  width: 14%;
-}
-
+.md-typeset .milume-api-traitlet-table td:nth-child(2),
 .md-typeset .milume-api-traitlet-table th:nth-child(3),
 .md-typeset .milume-api-traitlet-table td:nth-child(3) {
-  width: 12%;
+  white-space: nowrap;
+  width: 1%;
+  vertical-align: top;
 }
 
 .md-typeset .milume-api-traitlet-table th:nth-child(4),
 .md-typeset .milume-api-traitlet-table td:nth-child(4) {
-  width: auto;
+  white-space: normal;
+  overflow-wrap: normal;
+  vertical-align: top;
 }
 
 @media screen and (max-width: 48em) {
@@ -87,9 +77,14 @@
     min-width: 100%;
   }
 
-  .md-typeset .milume-api-traitlet-table th:first-child,
-  .md-typeset .milume-api-traitlet-table td:first-child {
-    min-width: 11rem;
+  .md-typeset .milume-api-traitlet-table th:nth-child(1),
+  .md-typeset .milume-api-traitlet-table td:nth-child(1),
+  .md-typeset .milume-api-traitlet-table th:nth-child(2),
+  .md-typeset .milume-api-traitlet-table td:nth-child(2),
+  .md-typeset .milume-api-traitlet-table th:nth-child(3),
+  .md-typeset .milume-api-traitlet-table td:nth-child(3) {
+    width: auto;
+    min-width: max-content;
   }
 
   .md-typeset .milume-api-traitlet-table th:nth-child(4),
