@@ -42,16 +42,18 @@ def test_script_tag_renders_once() -> None:
     assert "data-cf-beacon='{\"token\":\"dummy-token-abc\"}'" in tag
 
 
-def test_landing_inject_no_token() -> None:
+def test_landing_inject_no_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CF_BEACON_TOKEN", "ci-token-should-not-appear")
     html = LANDING_INDEX.read_text(encoding="utf-8")
-    out = inject_landing_html(html, token=None)
+    out = inject_landing_html(html, None)
     assert "cloudflareinsights.com" not in out
     assert out.count(BEACON_SRC) == 0
 
 
-def test_landing_inject_with_token() -> None:
+def test_landing_inject_with_token(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("CF_BEACON_TOKEN", raising=False)
     html = LANDING_INDEX.read_text(encoding="utf-8")
-    out = inject_landing_html(html, token="dummy-token-abc")
+    out = inject_landing_html(html, "dummy-token-abc")
     assert out.count(BEACON_SRC) == 1
 
 
