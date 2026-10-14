@@ -1,7 +1,7 @@
 # LandmarksWidget API
 
-Generated from the public Python API. For a walkthrough, see
-[Quickstart](../quickstart.md).
+Reference for `milume.peek` and the synced widget handle it returns. For a
+walkthrough, see [Quickstart](../quickstart.md).
 
 ## `milume.peek`
 
@@ -18,16 +18,18 @@ w = milume.peek(sdata)  # table, labels, image inferred
 Returns a `LandmarksWidget` handle. Synced traitlets include `w.selections` and
 `w.landmarks`; join to `adata` with `get_obs_names` / `assign_obs_mask`.
 
-## Constructor parameters and traitlets
+## Constructor parameters
 
 --8<-- "api-params.md"
 
-## `LandmarksWidget`
+## Synced traitlets
 
-::: milume.landmarks.LandmarksWidget
-    options:
-      show_root_heading: true
-      show_source: false
-      members_order: source
-      filters:
-        - "!^set_neighbor_graphs$"
+--8<-- "api-traitlets.md"
+
+## GeoDataFrame interchange
+
+--8<-- "api-geodataframe.md"
+
+## Methods
+
+--8<-- "api-methods.md"

@@ -33,3 +33,18 @@
   font-family: var(--milume-display);
   font-weight: 700;
 }
+
+/* API reference traitlet tables: keep readable on narrow viewports. */
+.md-typeset table:not([class]) {
+  display: block;
+  overflow-x: auto;
+  font-size: 0.85rem;
+}
+
+.md-typeset table:not([class]) th {
+  white-space: nowrap;
+}
+
+.md-typeset table:not([class]) td:last-child {
+  min-width: 12rem;
+}

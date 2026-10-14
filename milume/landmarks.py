@@ -295,27 +295,6 @@ table, image, labels
 contrast_limits
     SpatialData-only image contrast ``(min, max)`` for the Inspect cube.
 
-Notebook traitlets
-------------------
-Synced on every edit (read and write from Python):
-
-``selections``, ``landmarks``
-    Region dicts. Join to `adata` with `get_obs_names` /
-    `assign_obs_mask` (`obs_names` / `point_indices`, not
-    positional row indices).
-``selected_kind``, ``selected_index``, ``selected_type_indices``
-    Active item (``""`` / ``-1`` when none). Type focus may list several
-    ``selected_type_indices`` within the active category set (browser
-    multi-select). From Python, `select_type` sets a single group.
-``inspect_cx``, ``inspect_cy``, ``inspect_size_um``
-    Inspect window centre (µm) and side length (300 µm square). The browser
-    writes size at placement; setting centre from Python moves the cube.
-``active_category``, ``active_genes``
-    View-only colour picks mirrored from chrome.
-
-SpatialData Inspect also exposes ``volume`` (cube config) and ``volume_cut``
-(µm cut box, written on slider release).
-
 Notes
 -----
 The widget keeps a reference to ``adata`` (no ``obs.copy()``, no full-``X``
