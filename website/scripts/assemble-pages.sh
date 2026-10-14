@@ -16,6 +16,9 @@ OUT="${ROOT}/site"
   npm run build:hero
 )
 
+CF_BEACON_TOKEN="${CF_BEACON_TOKEN:-}"
+uv run --directory "${ROOT}" python "${WEBSITE}/scripts/cf_beacon.py" --zensical-partial
+
 rm -rf "${OUT}"
 mkdir -p "${OUT}"
 
@@ -34,9 +37,14 @@ for dest in "${WEBSITE}/content/assets/logo" "${WEBSITE}/landing/assets/logo"; d
 done
 
 cp -a "${WEBSITE}/landing/." "${OUT}/"
+uv run --directory "${ROOT}" python "${WEBSITE}/scripts/cf_beacon.py" --landing "${OUT}/index.html"
 touch "${OUT}/.nojekyll"
 
-uv run --directory "${ROOT}" python -m pytest "${WEBSITE}/scripts/test_agent_md_format.py" "${WEBSITE}/scripts/test_api_reference_codegen.py" -q
+uv run --directory "${ROOT}" python -m pytest \
+  "${WEBSITE}/scripts/test_agent_md_format.py" \
+  "${WEBSITE}/scripts/test_api_reference_codegen.py" \
+  "${WEBSITE}/scripts/test_cf_beacon.py" \
+  -q
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/sync-api-docs.py"
 
 rm -rf "${WEBSITE}/dist"

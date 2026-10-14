@@ -22,3 +22,7 @@
     }</style>
   {% endif %}
 {% endblock %}
+{% block scripts %}
+  {{ super() }}
+  {% include "partials/cf-beacon.html" %}
+{% endblock %}
