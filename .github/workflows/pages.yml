@@ -41,6 +41,8 @@ jobs:
           node-version: "22"
 
       - name: Assemble landing + docs
+        env:
+          CF_BEACON_TOKEN: ${{ vars.CF_BEACON_TOKEN }}
         run: uv run bash website/scripts/assemble-pages.sh
 
       - name: Install frontend deps

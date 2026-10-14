@@ -47,3 +47,7 @@ cd website && uv run zensical serve
 
 `.github/workflows/pages.yml` assembles on `main` and deploys via GitHub Actions Pages.
 Target: `https://ckmah.github.io/milume/`
+
+### Cloudflare Web Analytics
+
+Set the repository variable **`CF_BEACON_TOKEN`** (Settings → Secrets and variables → Actions → Variables) to your Cloudflare Web Analytics beacon token. The Pages workflow passes it into `assemble-pages.sh` as `CF_BEACON_TOKEN`. When unset or empty, no analytics script is emitted. Locally: `CF_BEACON_TOKEN=your-token uv run bash website/scripts/assemble-pages.sh`.
