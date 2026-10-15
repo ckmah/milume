@@ -5,7 +5,7 @@ site_description = "Interactive notebook widgets for spatial omics — install g
 site_author = "ckmah"
 copyright = "Copyright &copy; ckmah — milume"
 repo_url = "https://github.com/ckmah/milume"
-repo_name = "ckmah/milume"
+repo_name = "Star on GitHub"
 
 docs_dir = "content"
 site_dir = "dist"
