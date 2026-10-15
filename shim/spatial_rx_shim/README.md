@@ -1,7 +1,7 @@
 # spatial-rx (deprecated)
 
 spatial-rx is now **[Milume](https://github.com/ckmah/milume)**: a thinking surface for
-spatial omics. This release only depends on `milume` and re-exports it as `spatial_rx`
+spatial biology. This release only depends on `milume` and re-exports it as `spatial_rx`
 with a `DeprecationWarning`.
 
 ```bash
