@@ -23,6 +23,7 @@ nav = [
     { "Select regions" = "tools/select-regions.md" },
     { Landmarks = "tools/landmarks.md" },
     { "Color & layers" = "tools/color-layers.md" },
+    { "Inspect in 3D" = "tools/inspect-3d.md" },
     { Probe = "tools/probe.md" },
     { Measure = "tools/measure.md" },
   ] },

@@ -53,5 +53,5 @@ See [Synced traitlets](../api/landmarks.md#synced-traitlets) and [Methods](../ap
 <div class="ml-cards" markdown="0">
 <a class="ml-card" href="../color-layers/"><span class="ml-card__title">Color &amp; layers →</span><span class="ml-card__hint">Points or raster</span></a>
 <a class="ml-card" href="../navigate/"><span class="ml-card__title">Navigate →</span><span class="ml-card__hint">Pan, zoom, minimap</span></a>
-<a class="ml-card" href="../select-regions/"><span class="ml-card__title">Select regions →</span><span class="ml-card__hint">Lasso, square, circle</span></a>
+<a class="ml-card" href="../inspect-3d/"><span class="ml-card__title">Inspect in 3D →</span><span class="ml-card__hint">Cube orbit and slice</span></a>
 </div>
