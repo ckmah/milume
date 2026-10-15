@@ -74,5 +74,5 @@ See [Methods](../api/landmarks.md#methods) for the full signatures.
 <div class="ml-cards" markdown="0">
 <a class="ml-card" href="../navigate/"><span class="ml-card__title">Navigate →</span><span class="ml-card__hint">Pan, zoom, minimap</span></a>
 <a class="ml-card" href="../landmarks/"><span class="ml-card__title">Landmarks →</span><span class="ml-card__hint">Durable annotations</span></a>
-<a class="ml-card" href="../"><span class="ml-card__title">Tools &amp; modes →</span><span class="ml-card__hint">Every tool, one page</span></a>
+<a class="ml-card" href="../color-layers/"><span class="ml-card__title">Color &amp; layers →</span><span class="ml-card__hint">What colors the cells</span></a>
 </div>

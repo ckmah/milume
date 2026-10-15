@@ -74,5 +74,5 @@ See [Synced traitlets](../api/landmarks.md#synced-traitlets) for the full list.
 <div class="ml-cards" markdown="0">
 <a class="ml-card" href="../select-regions/"><span class="ml-card__title">Select regions →</span><span class="ml-card__hint">Lasso, square, circle</span></a>
 <a class="ml-card" href="../landmarks/"><span class="ml-card__title">Landmarks →</span><span class="ml-card__hint">Durable annotations</span></a>
-<a class="ml-card" href="../../api/landmarks/"><span class="ml-card__title">API reference →</span><span class="ml-card__hint">Traitlets and methods</span></a>
+<a class="ml-card" href="../color-layers/"><span class="ml-card__title">Color &amp; layers →</span><span class="ml-card__hint">What colors the cells</span></a>
 </div>
