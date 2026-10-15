@@ -1,6 +1,6 @@
 # milume
 
-**A thinking surface for spatial omics.**
+**A thinking surface for spatial biology.**
 
 Layer images, cells, and transcripts in one reactive notebook widget.
 
