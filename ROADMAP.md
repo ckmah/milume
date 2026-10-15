@@ -1,6 +1,6 @@
 # Roadmap
 
-Not a viewer. A thinking surface for spatial biology.
+Not a viewer. Explore spatial biology in your notebook.
 
 Notebook-native widgets tie AnnData-backed analysis to interactive tissue exploration.
 See [`frontend/PRODUCT.md`](frontend/PRODUCT.md) for positioning and shipped capabilities.
