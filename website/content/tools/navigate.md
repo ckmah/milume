@@ -72,7 +72,7 @@ See [Synced traitlets](../api/landmarks.md#synced-traitlets) for the full list.
 ## Related
 
 <div class="ml-cards" markdown="0">
-<a class="ml-card" href="../"><span class="ml-card__title">Tools &amp; modes →</span><span class="ml-card__hint">Every tool, one page</span></a>
+<a class="ml-card" href="../select-regions/"><span class="ml-card__title">Select regions →</span><span class="ml-card__hint">Lasso, square, circle</span></a>
 <a class="ml-card" href="../../quickstart/"><span class="ml-card__title">Quickstart →</span><span class="ml-card__hint">Open the widget</span></a>
 <a class="ml-card" href="../../api/landmarks/"><span class="ml-card__title">API reference →</span><span class="ml-card__hint">Traitlets and methods</span></a>
 </div>
