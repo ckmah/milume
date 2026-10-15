@@ -20,6 +20,7 @@ nav = [
   { "Tools & modes" = [
     "tools/index.md",
     { Navigate = "tools/navigate.md" },
+    { "Select regions" = "tools/select-regions.md" },
   ] },
   { "API — LandmarksWidget" = "api/landmarks.md" },
 ]
