@@ -89,7 +89,7 @@ See [Methods](../api/landmarks.md#methods) for `set_color`, `set_raster_basis` a
 ## Related
 
 <div class="ml-cards" markdown="0">
-<a class="ml-card" href="../select-regions/"><span class="ml-card__title">Select regions →</span><span class="ml-card__hint">Lasso, square, circle</span></a>
+<a class="ml-card" href="../inspect-3d/"><span class="ml-card__title">Inspect in 3D →</span><span class="ml-card__hint">Cube orbit and slice</span></a>
 <a class="ml-card" href="../landmarks/"><span class="ml-card__title">Landmarks →</span><span class="ml-card__hint">Durable annotations</span></a>
 <a class="ml-card" href="../probe/"><span class="ml-card__title">Probe →</span><span class="ml-card__hint">Raster similarity</span></a>
 </div>
