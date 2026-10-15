@@ -1,8 +1,8 @@
 # milume
 
-**A thinking surface for spatial biology.**
+**Explore spatial biology in your notebook.**
 
-Layer images, cells, and transcripts in one reactive notebook widget.
+Layer images, cells, and transcripts in 3D, in one reactive widget.
 
 ```python
 import milume

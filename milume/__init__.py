@@ -1,4 +1,4 @@
-"""Milume: a thinking surface for spatial biology."""
+"""Milume: explore spatial biology in your notebook."""
 
 from .landmarks import _LANDMARKS_API_DOC, LandmarksWidget
 from .measure import (
