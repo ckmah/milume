@@ -1,0 +1,25 @@
+{
+ "dataset": "Stellaromics/demo:small",
+ "seed": 0,
+ "milume": "b9bc963",
+ "dark": {
+  "frames": 179,
+  "seconds": 5.97,
+  "seamless_rmse": 0.0,
+  "render": "1920:1200",
+  "crf": [
+   36,
+   24
+  ]
+ },
+ "light": {
+  "frames": 179,
+  "seconds": 5.97,
+  "seamless_rmse": 0.0,
+  "render": "1920:1200",
+  "crf": [
+   36,
+   24
+  ]
+ }
+}
