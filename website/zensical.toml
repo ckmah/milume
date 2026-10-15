@@ -10,12 +10,17 @@ repo_name = "Star on GitHub"
 docs_dir = "content"
 site_dir = "dist"
 
-extra_css = ["stylesheets/bridge.css"]
+extra_css = ["stylesheets/bridge.css", "stylesheets/tools.css"]
+extra_javascript = ["javascripts/tools.js"]
 
 nav = [
   { Home = "index.md" },
   { Install = "install.md" },
   { Quickstart = "quickstart.md" },
+  { "Tools & modes" = [
+    "tools/index.md",
+    { Navigate = "tools/navigate.md" },
+  ] },
   { "API — LandmarksWidget" = "api/landmarks.md" },
 ]
 
