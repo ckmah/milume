@@ -21,6 +21,7 @@ nav = [
     "tools/index.md",
     { Navigate = "tools/navigate.md" },
     { "Select regions" = "tools/select-regions.md" },
+    { Landmarks = "tools/landmarks.md" },
   ] },
   { "API — LandmarksWidget" = "api/landmarks.md" },
 ]
