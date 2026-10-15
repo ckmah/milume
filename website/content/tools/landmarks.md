@@ -92,5 +92,5 @@ See [GeoDataFrame interchange](../api/landmarks.md#geodataframe-interchange) in 
 <div class="ml-cards" markdown="0">
 <a class="ml-card" href="../select-regions/"><span class="ml-card__title">Select regions →</span><span class="ml-card__hint">Lasso, square, circle</span></a>
 <a class="ml-card" href="../navigate/"><span class="ml-card__title">Navigate →</span><span class="ml-card__hint">Pan, zoom, minimap</span></a>
-<a class="ml-card" href="../"><span class="ml-card__title">Tools &amp; modes →</span><span class="ml-card__hint">Every tool, one page</span></a>
+<a class="ml-card" href="../color-layers/"><span class="ml-card__title">Color &amp; layers →</span><span class="ml-card__hint">What colors the cells</span></a>
 </div>
