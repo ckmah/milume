@@ -1080,7 +1080,8 @@ class LandmarksWidget(AnyWidget):
 
         ``region`` is a selection id from ``w.selections``, or ``"focus"`` for
         the focused selection or category groups (empty when nothing is
-        focused). Raises ``KeyError`` for an unknown id. Write a column with
+        focused). A hidden selection still returns its cells; hiding only
+        affects display. Raises ``KeyError`` for an unknown id. Write a column with
         ``adata.obs[key] = adata.obs_names.isin(w.get_obs_names(region))``.
         """
         names = pd.Index(self._obs_names)

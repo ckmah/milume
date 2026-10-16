@@ -89,8 +89,6 @@ def selection_mask(
     sel = selection_by_id(selections, selection_id)
     if sel is None:
         return np.zeros(n, dtype=bool)
-    if sel.get("hidden"):
-        return np.zeros(n, dtype=bool)
 
     raw_idx = sel.get("point_indices")
     if raw_idx is not None:

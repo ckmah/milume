@@ -188,3 +188,13 @@ def test_peek_builds_a_landmarks_widget():
 
     w = milume.peek(adata_xy(np.array([0.0, 1.0]), np.array([0.0, 1.0])))
     assert isinstance(w, LandmarksWidget)
+
+
+def test_hidden_selection_still_returns_its_cells():
+    adata = adata_xy([0.0, 2.0, 2.0], [0.0, 2.0, 0.0])
+    w = LandmarksWidget(adata)
+    w.selections = [{"id": "s", "type": "points", "point_indices": [0, 2], "hidden": True}]
+    assert list(w.get_obs_names("s")) == ["c0", "c2"]
+    w.selected_kind = "selection"
+    w.selected_index = 0
+    assert list(w.get_obs_names("focus")) == ["c0", "c2"]

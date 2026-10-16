@@ -34,3 +34,4 @@ Migration:
 | `w.get_focus_obs_names(adata)` | `w.get_obs_names("focus")` |
 | `w.assign_obs_mask(adata, key, sel_id)` | `adata.obs[key] = adata.obs_names.isin(w.get_obs_names(sel_id))` |
 | result was a `np.ndarray` of str | result is a `pd.Index` |
+| a hidden selection returned no cells | a hidden selection returns its cells (hiding only affects display) |
