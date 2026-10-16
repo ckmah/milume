@@ -1,15 +1,15 @@
 {
  "dataset": "colon A2",
  "seed": null,
- "milume": "95af50a",
- "note": "Designer's capture with cursor overlay, points OFF, labels fill 0.6 (read back); 1440x900 @ 30fps; dark-only",
+ "milume": "6a9640d",
+ "note": "cursor overlay, points OFF, labels fill 0.4 (default, read back); 1440x900 @ 30fps; dark-only",
  "render": "1440:900",
  "dark": {
-  "seamless": "~112\u00b0 swing out and back (ping-pong drag); decoded seam RMSE 0.006 vs median adjacent 0.055",
+  "seamless": "~112\u00b0 swing out and back (ping-pong drag); wrap-twin RMSE 0.00005, webm first->last 0.012",
   "bytes": {
-   "webm": 1299762,
-   "mp4": 1630020,
-   "poster": 57884
+   "webm": 1306492,
+   "mp4": 1617058,
+   "poster": 58610
   }
  }
 }
