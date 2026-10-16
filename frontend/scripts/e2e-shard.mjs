@@ -1,6 +1,6 @@
 // Runs shard i of n of one Playwright spec. Tests are assigned by duration-weighted
 // LPT (longest first to the lightest shard) using e2e-shard-weights.json (#100).
-//   node scripts/e2e-shard.mjs 2/3 e2e/landmarks/landmarks-volume.spec.ts [playwright flags]
+//   node scripts/e2e-shard.mjs 2/4 e2e/landmarks/landmarks-volume.spec.ts [playwright flags]
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

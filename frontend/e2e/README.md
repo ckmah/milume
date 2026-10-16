@@ -34,7 +34,7 @@ Obsolete Soft Float assertions removed: Selection ModeToggle radio, Inspect pin 
 Software-GL frames cost ~130 ms each on CI, and every key press on a cut or Adjust slider waits for one.
 Move a Radix slider ten steps with one `Shift+Arrow` press, not ten `Arrow` presses.
 
-CI splits the volume spec across three runners (`scripts/e2e-shard.mjs i/3`, LPT by per-test seconds in `e2e-shard-weights.json`; regenerate with `build-e2e-shard-weights.mjs` from Actions list-reporter logs) plus one default-harness runner (`landmarks-volume.spec.ts` is ignored there), so a
+CI splits the volume spec across four runners (`scripts/e2e-shard.mjs i/4`, LPT by per-test seconds in `e2e-shard-weights.json`; regenerate with `build-e2e-shard-weights.mjs` from Actions list-reporter logs) plus one default-harness runner (`landmarks-volume.spec.ts` is ignored there), so a
 new test costs a third of its time in wall clock.
 
 Prefer `expect.poll` / web-first `expect` over `waitForTimeout`. A fixed wait is only for a

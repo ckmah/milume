@@ -935,7 +935,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(signal.centerLum).toBeGreaterThan(signal.edgeLum * 0.35);
   });
 
-  test("inspect cube preserves user wheel zoom across viewport resize (no re-home)", async ({ page }) => {
+  test("inspect cube preserves user wheel zoom across viewport resize (no re-home)", { tag: "@isolated" }, async ({ page }) => {
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-zoom", /\d/);

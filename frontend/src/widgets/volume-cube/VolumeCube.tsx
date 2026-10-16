@@ -409,29 +409,24 @@ export function VolumeCube({
   useEffect(() => {
     const node = hostRef.current;
     if (!node) return;
-    let raf = 0;
+    // ResizeObserver already runs after layout and before paint, so apply the
+    // size in its callback. Deferring to the next animation frame costs one
+    // full cube frame, which is long when the volume ray-marches in software GL.
     const apply = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const rect = node.getBoundingClientRect();
-        // Hidden (display: none): keep the last size.
-        if (!rect.width || !rect.height) return;
-        // Match the host's laid-out box (molab cells can be narrower than preview floors).
-        const width = Math.max(1, Math.round(rect.width));
-        const height = Math.max(1, Math.round(rect.height));
-        setBox((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
-        setViewPixelSize((prev) =>
-          prev.width === rect.width && prev.height === rect.height ? prev : { width: rect.width, height: rect.height },
-        );
-      });
+      const rect = node.getBoundingClientRect();
+      // Hidden (display: none): keep the last size.
+      if (!rect.width || !rect.height) return;
+      // Match the host's laid-out box (molab cells can be narrower than preview floors).
+      const width = Math.max(1, Math.round(rect.width));
+      const height = Math.max(1, Math.round(rect.height));
+      setBox((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
+      setViewPixelSize((prev) =>
+        prev.width === rect.width && prev.height === rect.height ? prev : { width: rect.width, height: rect.height },
+      );
     };
-    apply();
     const obs = new ResizeObserver(apply);
     obs.observe(node);
-    return () => {
-      cancelAnimationFrame(raf);
-      obs.disconnect();
-    };
+    return () => obs.disconnect();
   }, [fixedHeight]);
 
   useEffect(() => {
