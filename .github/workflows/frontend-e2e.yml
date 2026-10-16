@@ -393,7 +393,9 @@ jobs:
       - name: Open issue for nightly e2e failure
         env:
           GH_TOKEN: ${{ github.token }}
+        # No checkout in this job: without --repo, gh looks for a git remote and fails.
         run: |
           gh issue create \
+            --repo "${{ github.repository }}" \
             --title "Nightly landmarks e2e failed ($(date -u +%Y-%m-%d))" \
             --body "Scheduled frontend-e2e run failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
