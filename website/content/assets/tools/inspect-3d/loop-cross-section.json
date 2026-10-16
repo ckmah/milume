@@ -1,24 +1,15 @@
 {
  "dataset": "colon A2",
  "seed": null,
- "milume": "02c9af4",
- "note": "Designer's capture; 1440x900 @ 30fps to fit WebM budget",
- "duration_s": 6,
+ "milume": "95af50a",
+ "note": "Designer's capture, points OFF, labels fill 0.6; 1440x900 @ 30fps to fit WebM budget; dark-only (cube renders on dark in both themes)",
  "render": "1440:900",
  "dark": {
-  "seamless_rmse_encoded_webm": 0.0036,
+  "seamless": "decoded seam RMSE 0.0015",
   "bytes": {
-   "webm": 1365630,
-   "mp4": 413289,
-   "poster": 74466
-  }
- },
- "light": {
-  "seamless_rmse_encoded_webm": 0.0036,
-  "bytes": {
-   "webm": 1365764,
-   "mp4": 408828,
-   "poster": 74432
+   "webm": 1227771,
+   "mp4": 324823,
+   "poster": 59094
   }
  }
 }

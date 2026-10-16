@@ -1,24 +1,15 @@
 {
  "dataset": "colon A2",
  "seed": null,
- "milume": "02c9af4",
- "note": "Designer's capture; 1440x900 @ 30fps to fit WebM budget",
- "duration_s": 8,
+ "milume": "95af50a",
+ "note": "Designer's capture, points OFF, labels fill 0.6; 1440x900 @ 30fps to fit WebM budget; dark-only (cube renders on dark in both themes)",
  "render": "1440:900",
  "dark": {
-  "seamless_note": "360\u00b0 orbit; wrap twin f0000==f0240 RMSE 0; encoded first\u2194last ~0.076 (one angular step)",
+  "seamless": "360\u00b0 orbit; decoded seam RMSE 0.073 vs median adjacent-frame 0.064 (one angular step)",
   "bytes": {
-   "webm": 1497617,
-   "mp4": 2293474,
-   "poster": 70216
-  }
- },
- "light": {
-  "seamless_note": "same",
-  "bytes": {
-   "webm": 1499751,
-   "mp4": 2286039,
-   "poster": 69720
+   "webm": 1307005,
+   "mp4": 1958099,
+   "poster": 57060
   }
  }
 }
