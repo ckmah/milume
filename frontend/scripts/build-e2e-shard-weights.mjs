@@ -11,6 +11,7 @@ const scripts = dirname(fileURLToPath(import.meta.url));
 
 function parseDur(raw) {
   const t = raw.trim();
+  if (t.endsWith("ms")) return Math.max(1, Math.round(parseFloat(t) / 1000));
   if (t.endsWith("m")) return Math.round(parseFloat(t) * 60);
   if (t.endsWith("s")) return Math.round(parseFloat(t));
   return null;
@@ -18,7 +19,7 @@ function parseDur(raw) {
 
 function parseLog(text) {
   const re =
-    /landmarks-volume\.spec\.ts:\d+:\d+ › [^›]+ › ([^(]+?) \((\d+(?:\.\d+)?[ms])\)/g;
+    /landmarks-volume\.spec\.ts:\d+:\d+ › [^›]+ › (.+?) \((\d+(?:\.\d+)?(?:ms|m|s))\)/g;
   const map = new Map();
   for (const m of text.matchAll(re)) {
     const title = m[1].trim();
