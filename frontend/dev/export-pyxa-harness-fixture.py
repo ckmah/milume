@@ -36,7 +36,7 @@ FIXTURE_KEYS = [
     "gene_scale_mode",
     "gene_log1p",
     "gene_expression_logged",
-    "color_by",
+    "color_mode",
     "legend_labels",
     "legend_title",
     "type_neighborhoods",

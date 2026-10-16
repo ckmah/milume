@@ -15,6 +15,7 @@ from anywidget.experimental import command
 
 from milume._assets import widget_css, widget_esm
 from .categories import (
+    _MAX_LEVELS,
     as_polars,
     default_categorical_palette,
     detect_category_columns,
@@ -66,8 +67,6 @@ def _encode_colors(
     color: Any,
     color_map: dict[str, str] | None,
     n: int,
-    *,
-    continuous_range: tuple[str, str] | None = None,
 ) -> tuple[list[str], "np.ndarray", list[str], float | None, float | None]:
     """Return (palette_hex, valueA, legend_labels, vmin, vmax).
 
@@ -106,8 +105,7 @@ def _encode_colors(
         )
         return palette, idx, cats, None, None
 
-    low, high = continuous_range or (_SEQUENTIAL_LOW, _SEQUENTIAL_HIGH)
-    seq = _sequential_palette(256, low=low, high=high)
+    seq = _sequential_palette(256)
     vals = color_arr.astype(np.float64)
     finite = vals[np.isfinite(vals)]
     if finite.size == 0:
@@ -285,7 +283,8 @@ spatial_key
     ``obsm`` key for x/y coordinates (default ``"spatial"``).
 color
     ``obs`` column or ``var_names`` gene for point colour. When omitted,
-    the first detected categorical column is used.
+    the first detected categorical column is used. Assign ``w.color = key``
+    later to recolour; unknown keys raise before anything changes.
 genes
     Genes to pack for view-only colouring. ``None`` (default) packs every
     ``var_name``; pass a name or list to restrict the eager catalog.
@@ -309,6 +308,14 @@ client-side from the eager gene, embedding, and category packs.
 """
 
 
+class ColorKeyError(traitlets.TraitError, KeyError):
+    """``color`` names neither an ``obs`` column nor a gene; exported as ``milume.ColorKeyError``."""
+
+
+class ColorValueError(traitlets.TraitError, ValueError):
+    """``color`` names a column or gene that cannot be shown; exported as ``milume.ColorValueError``."""
+
+
 class LandmarksWidget(AnyWidget):
     """Draw selections and landmarks on AnnData spatial coordinates.
 
@@ -320,7 +327,8 @@ class LandmarksWidget(AnyWidget):
     _esm = widget_esm("landmarks")
     _css = widget_css()
 
-    # --- Public notebook API ---
+    # --- Public notebook API (see ``_PUBLIC_TRAITS``) ---
+    color = traitlets.Unicode("").tag(sync=True)
     selections = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
     landmarks = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
     selected_kind = traitlets.Unicode("").tag(sync=True)
@@ -348,7 +356,8 @@ class LandmarksWidget(AnyWidget):
     ).tag(sync=True)
     points_data = traitlets.Unicode("").tag(sync=True)  # base64 float32 Nx4
     point_palette = traitlets.List(traitlets.Unicode(), default_value=[]).tag(sync=True)
-    color_by = traitlets.Unicode("categorical").tag(sync=True)  # categorical | continuous
+    # Derived from ``color``: categorical | obs (numeric column) | continuous (genes) | embedding.
+    color_mode = traitlets.Unicode("categorical").tag(sync=True)
     legend_labels = traitlets.List(traitlets.Unicode(), default_value=[]).tag(sync=True)
     legend_title = traitlets.Unicode("").tag(sync=True)
     color_vmin = traitlets.Float(0.0).tag(sync=True)
@@ -509,60 +518,20 @@ class LandmarksWidget(AnyWidget):
         # Reference obs — do not obs.copy() / attach synthetic x,y columns.
         df = as_polars(adata.obs)
         cat_names = detect_category_columns(df)
-        # Explicit ``color=`` obs column is always included (and preferred).
-        if (
-            color
-            and color in df.columns
-            and color not in cat_names
-            and color not in {str(v) for v in adata.var_names}
-        ):
-            cat_names = [str(color), *cat_names]
-        elif color and color in cat_names:
+        if color and color in cat_names:
             cat_names = [str(color), *[c for c in cat_names if c != color]]
         cat_meta, cat_codes, cat_labels = encode_category_bundle(
             df, cat_names, color_maps=maps
         )
 
-        gene_color = None
-        var_names = {str(v) for v in adata.var_names}
-        color_arg: Any = None
-        cmap_arg: dict[str, str] | None = None
+        palette, value_a, labels, vmin, vmax = _encode_colors(None, None, n)
         legend = ""
-        active = color or (cat_names[0] if cat_names else "")
-        obs_cols = set(map(str, adata.obs.columns))
-        if color and color not in obs_cols and color in var_names:
-            active = ""
-            X = adata[:, [color]].X
-            if hasattr(X, "toarray"):
-                X = X.toarray()
-            gene_color = np.asarray(X, dtype=np.float64).ravel()
-            color_arg = gene_color
-            legend = str(color)
-        elif active and active in cat_labels:
-            color_arg = cat_labels[active]
-            cmap_arg = maps.get(active)
-            legend = active
-        elif color and color in df.columns:
-            color_arg = df[color].to_numpy()
-            legend = color
-
-        palette, value_a, labels, vmin, vmax = _encode_colors(
-            color_arg, cmap_arg, n
-        )
-        color_mode = (
-            "categorical"
-            if color_arg is None
-            or (
-                gene_color is None
-                and (
-                    isinstance(color_arg, str)
-                    or np.asarray(color_arg).dtype.kind in "UOS"
-                )
-            )
-            else "continuous"
-        )
-        if gene_color is not None:
-            color_mode = "continuous"
+        active_cat = ""
+        if cat_meta:
+            active_cat = cat_meta[0]["name"]
+            palette = list(cat_meta[0]["palette"])
+            labels = list(cat_meta[0]["labels"])
+            legend = active_cat
         points = np.column_stack([nx, ny, value_a, z_arr.astype(np.float32)])
 
         self._adata = adata
@@ -573,16 +542,6 @@ class LandmarksWidget(AnyWidget):
         self._data_y = y_arr
         self._obs_names = adata.obs_names
         self._data_label_arrays = cat_labels
-        active_cat = ""
-        if cat_meta and gene_color is None:
-            active_cat = active if active in cat_labels else cat_meta[0]["name"]
-            active_meta = next(
-                (c for c in cat_meta if c["name"] == active_cat), cat_meta[0]
-            )
-            palette = list(active_meta["palette"])
-            labels = list(active_meta["labels"])
-            legend = active_cat
-            color_mode = "categorical"
         self._data_labels = cat_labels.get(active_cat)
 
         gene_names = gene_names_from_adata(adata, genes)
@@ -598,7 +557,7 @@ class LandmarksWidget(AnyWidget):
             y_bounds=(ymin, ymax),
             points_data=_encode_f32(points),
             point_palette=list(palette),
-            color_by=color_mode,
+            color_mode="categorical",
             legend_labels=list(labels),
             legend_title=legend,
             color_vmin=float(vmin if vmin is not None else 0.0),
@@ -632,8 +591,8 @@ class LandmarksWidget(AnyWidget):
             neighbor_k_max=int(DEFAULT_K_MAX),
             neighbor_radius_max=radius_max,
         )
-        if gene_color is not None:
-            self.set_color(gene_color, legend_title=str(color))
+        if color:
+            self.color = str(color)
         self._pack_embedding_values()
         self._pack_embedding_matrix()
 
@@ -697,56 +656,22 @@ class LandmarksWidget(AnyWidget):
             "in the browser from coordinates (no obsp graphs)"
         )
 
-    def set_points(
-        self,
-        x: Any,
-        y: Any,
-        *,
-        color: Any = None,
-        color_map: dict[str, str] | None = None,
-        legend_title: str | None = None,
-        continuous_range: tuple[str, str] | None = None,
-    ) -> None:
-        """Replace scatter points/colors."""
-        import numpy as np
-
+    def set_points(self, x: Any, y: Any) -> None:
+        """Move the scatter points; colour stays on ``color``."""
         x_arr = np.asarray(x, dtype=np.float64).ravel()
         y_arr = np.asarray(y, dtype=np.float64).ravel()
         if x_arr.shape != y_arr.shape:
             raise ValueError("x and y must have the same shape")
-        n = int(x_arr.shape[0])
+        n = int(self._data_x.shape[0])
+        if x_arr.shape[0] != n:
+            raise ValueError(f"expected {n} points, got {x_arr.shape[0]}; rebuild the widget to change the cell count")
         xmin, xmax = self.x_bounds
         ymin, ymax = self.y_bounds
-        nx = (2.0 * (x_arr - xmin) / (xmax - xmin) - 1.0).astype(np.float32)
-        ny = (2.0 * (y_arr - ymin) / (ymax - ymin) - 1.0).astype(np.float32)
-        palette, value_a, labels, vmin, vmax = _encode_colors(
-            color, color_map, n, continuous_range=continuous_range
-        )
-        color_mode = (
-            "categorical"
-            if color is None
-            or isinstance(color, str)
-            or np.asarray(color).dtype.kind in "UOS"
-            else "continuous"
-        )
-        points = np.column_stack([nx, ny, value_a, np.zeros(n, dtype=np.float32)])
+        points = np.frombuffer(base64.b64decode(self.points_data), dtype=np.float32).reshape(n, 4).copy()
+        points[:, 0] = 2.0 * (x_arr - xmin) / (xmax - xmin) - 1.0
+        points[:, 1] = 2.0 * (y_arr - ymin) / (ymax - ymin) - 1.0
         self._data_x = x_arr
         self._data_y = y_arr
-        self._data_labels = (
-            np.asarray(color).astype(str).ravel()
-            if color is not None
-            and not isinstance(color, str)
-            and np.asarray(color).dtype.kind in "UOS"
-            else None
-        )
-        self.point_palette = list(palette)
-        self.color_by = color_mode
-        self.active_genes = []
-        self.legend_labels = list(labels)
-        if legend_title is not None:
-            self.legend_title = legend_title
-        self.color_vmin = float(vmin if vmin is not None else 0.0)
-        self.color_vmax = float(vmax if vmax is not None else 1.0)
         self.points_data = _encode_f32(points)
 
     def set_expression(self, expr: Any) -> None:
@@ -810,9 +735,9 @@ class LandmarksWidget(AnyWidget):
         if change.get("new") == change.get("old"):
             return
         genes = list(self.active_genes or [])
-        # Genes are an exclusive observation signal — keep point color_by aligned.
-        if genes and self.color_by != "continuous":
-            self.color_by = "continuous"
+        # Genes are an exclusive observation signal — keep point color_mode aligned.
+        if genes and self.color_mode != "continuous":
+            self.color_mode = "continuous"
         # Selected genes own the observation signal in bins mode (client rebuilds).
         if genes and self.raster_basis != "genes":
             self.raster_basis = "genes"
@@ -824,30 +749,30 @@ class LandmarksWidget(AnyWidget):
             raise ValueError("render_mode must be 'points' or 'raster'")
         genes = list(self.active_genes or [])
         basis = str(self.raster_basis or "composition")
-        color_by = str(self.color_by or "")
-        gene_intent = bool(genes) or basis == "genes" or color_by == "continuous"
+        color_mode = str(self.color_mode or "")
+        gene_intent = bool(genes) or basis == "genes" or color_mode == "continuous"
         embed_intent = (
-            basis == "embedding" or color_by == "embedding"
+            basis == "embedding" or color_mode == "embedding"
         ) and bool(self.raster_embedding_key)
         if m == "raster":
             # Keep the active observation when flipping geometry (incl. empty genes).
             if gene_intent:
                 self.raster_basis = "genes"
-                self.color_by = "continuous"
+                self.color_mode = "continuous"
             elif embed_intent:
                 self.raster_basis = "embedding"
-                self.color_by = "embedding"
+                self.color_mode = "embedding"
             else:
                 self.raster_basis = "composition"
-                self.color_by = "categorical"
+                self.color_mode = "categorical"
         else:
             # Points: keep the same observation family that raster was showing.
             if gene_intent:
-                self.color_by = "continuous"
-            elif basis == "embedding" or color_by == "embedding":
-                self.color_by = "embedding"
+                self.color_mode = "continuous"
+            elif basis == "embedding" or color_mode == "embedding":
+                self.color_mode = "embedding"
             else:
-                self.color_by = "categorical"
+                self.color_mode = "categorical"
         if m == "raster" and str(self.selected_kind or "") == "type":
             self.selected_kind = ""
             self.selected_index = -1
@@ -978,27 +903,124 @@ class LandmarksWidget(AnyWidget):
         if change.get("name") == "raster_embedding_key":
             self._pack_embedding_matrix()
 
-    def set_color(
-        self,
-        color: Any,
-        *,
-        color_map: dict[str, str] | None = None,
-        legend_title: str | None = None,
-        continuous_range: tuple[str, str] | None = None,
-    ) -> None:
-        """Update point colors without changing x/y."""
-        x = getattr(self, "_data_x", None)
-        y = getattr(self, "_data_y", None)
-        if x is None or y is None:
-            raise RuntimeError("internal point cache missing; call set_points first")
-        self.set_points(
-            x,
-            y,
-            color=color,
-            color_map=color_map,
-            legend_title=legend_title,
-            continuous_range=continuous_range,
+    @traitlets.validate("color")
+    def _validate_color(self, proposal: dict) -> str:
+        key = str(proposal["value"] or "")
+        if key:
+            self._color_source(key)
+        return key
+
+    def _color_source(self, key: str) -> str:
+        """Classify ``key`` as ``"category"``, ``"numeric"`` or ``"gene"``; raise if unknown."""
+        import pandas as pd
+
+        obs = self._adata.obs
+        if key in obs.columns:
+            series = obs[key]
+            if pd.api.types.is_numeric_dtype(series) and not pd.api.types.is_bool_dtype(series):
+                return "numeric"
+            n_levels = int(series.nunique(dropna=False))
+            if n_levels > _MAX_LEVELS:
+                raise ColorValueError(
+                    f"obs column {key!r} has {n_levels} levels; at most {_MAX_LEVELS} can be coloured"
+                )
+            return "category"
+        if any(g.get("name") == key for g in self.gene_columns):
+            return "gene"
+        if key in set(map(str, self._adata.var_names)):
+            raise ColorValueError(
+                f"gene {key!r} is not packed in this widget; rebuild it with genes=None or a list that includes it"
+            )
+        raise ColorKeyError(f"{key!r} is neither an adata.obs column nor a gene of this widget")
+
+    def notify_change(self, change: Any) -> None:
+        if change.get("name") != "color":
+            super().notify_change(change)
+            return
+        with self.hold_sync():
+            super().notify_change(change)
+
+    @traitlets.observe("color")
+    def _on_color(self, change: dict) -> None:
+        key = str(change["new"] or "")
+        if not key:
+            return
+        source = self._color_source(key)
+        if self.selected_kind == "type":
+            self.selected_kind = ""
+            self.selected_index = -1
+        self.selected_type_indices = []
+        if source == "gene":
+            self._show_gene(key)
+        elif source == "numeric":
+            self._show_numeric_column(key)
+        else:
+            self._show_category_column(key)
+
+    def _show_gene(self, key: str) -> None:
+        meta = next(g for g in self.gene_columns if g.get("name") == key)
+        self.active_category = ""
+        self.active_genes = [key]
+        self.color_mode = "continuous"
+        self.raster_basis = "genes"
+        self.legend_title = key
+        self.legend_labels = []
+        self.color_vmin = float(meta.get("vmin", 0.0))
+        self.color_vmax = float(meta.get("vmax", 1.0))
+
+    def _show_numeric_column(self, key: str) -> None:
+        n = int(self._data_x.shape[0])
+        vals = np.asarray(self._adata.obs[key], dtype=np.float64)
+        palette, value_a, _, vmin, vmax = _encode_colors(vals, None, n)
+        points = np.frombuffer(base64.b64decode(self.points_data), dtype=np.float32).reshape(n, 4).copy()
+        points[:, 2] = value_a
+        self.points_data = _encode_f32(points)
+        self.active_category = ""
+        self.active_genes = []
+        self.color_mode = "obs"
+        self.raster_basis = "composition"
+        self.point_palette = list(palette)
+        self.legend_labels = []
+        self.legend_title = key
+        self.color_vmin = float(vmin)
+        self.color_vmax = float(vmax)
+        self._data_labels = None
+
+    def _show_category_column(self, key: str) -> None:
+        n = int(self._data_x.shape[0])
+        frame = as_polars(self._adata.obs[[key]])
+        (meta,), codes_b64, label_arrays = encode_category_bundle(
+            frame, [key], color_maps=_color_maps_from_uns(self._adata)
         )
+        cols = list(self.category_columns or [])
+        packed = (
+            np.frombuffer(base64.b64decode(self.category_codes), dtype=np.int32).reshape(len(cols), n)
+            if cols and self.category_codes
+            else np.empty((0, n), dtype=np.int32)
+        )
+        codes = np.frombuffer(base64.b64decode(codes_b64), dtype=np.int32)
+        idx = next((i for i, c in enumerate(cols) if c.get("name") == key), -1)
+        if idx < 0:
+            cols.append(meta)
+            packed = np.vstack([packed, codes[None, :]])
+        elif cols[idx] != meta or not np.array_equal(packed[idx], codes):
+            cols[idx] = meta
+            packed = packed.copy()
+            packed[idx] = codes
+        else:
+            packed = None
+        if packed is not None:
+            self.category_codes = base64.b64encode(np.ascontiguousarray(packed).tobytes()).decode("ascii")
+            self.category_columns = cols
+        self._data_label_arrays[key] = label_arrays[key]
+        self._data_labels = label_arrays[key]
+        self.active_genes = []
+        self.active_category = key
+        self.color_mode = "categorical"
+        self.raster_basis = "composition"
+        self.point_palette = list(meta["palette"])
+        self.legend_labels = list(meta["labels"])
+        self.legend_title = key
 
     def category_colors(self, column: str | None = None) -> dict[str, str]:
         """Label -> hex colour of a categorical column, as the map draws it.
@@ -1149,6 +1171,32 @@ class LandmarksWidget(AnyWidget):
             ).tolist()
         )
         adata.obs[key] = [str(n) in names for n in adata.obs_names.astype(str)]
+
+
+_PUBLIC_TRAITS: dict[str, str] = {
+    "color": "obs column or gene the points are coloured by; assign a key to recolour (raises ColorKeyError / ColorValueError).",
+    "selections": "Drawn selections as dicts with id, name, geometry and point indices.",
+    "landmarks": "Drawn landmarks (points, lines, splines, shapes) as dicts.",
+    "selected_kind": "Kind of the focused item: selection, landmark, type, or empty.",
+    "selected_index": "Index of the focused item within its kind, or -1.",
+    "selected_type_indices": "Focused category label indices when selected_kind is type.",
+    "inspect_cx": "Inspect window centre x in spatial units, or None before placement.",
+    "inspect_cy": "Inspect window centre y in spatial units, or None before placement.",
+    "inspect_size_um": "Inspect window side length in µm.",
+    "category_colors": "Label to hex colour map of a categorical column as drawn.",
+    "clear_selections": "Remove every selection.",
+    "clear_landmarks": "Remove every landmark.",
+    "clear": "Remove all selections and landmarks.",
+    "select_type": "Focus one category group of the active column.",
+    "get_obs_names": "obs_names of cells inside a selection.",
+    "get_focus_obs_names": "obs_names of the focused type or selection.",
+    "assign_obs_mask": "Write a boolean adata.obs column for a selection.",
+    "set_points": "Move the scatter points to new x/y; colour is set with color.",
+    "set_expression": "Replace the packed gene catalogue from a table.",
+    "set_render_mode": "Switch between points and raster bins.",
+    "set_raster_basis": "Pick the raster aggregation basis: genes, embedding or composition.",
+    "clear_raster_query": "Clear the pinned raster similarity query.",
+}
 
 
 LandmarksWidget.__doc__ = (

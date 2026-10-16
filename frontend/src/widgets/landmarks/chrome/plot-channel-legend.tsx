@@ -85,7 +85,7 @@ function GenesPlotLegend({ lm }: { lm: LandmarksModel }) {
 /** Embed cube in the chart corner — dim labels appear on hover. */
 function EmbedPlotCube({ lm }: { lm: LandmarksModel }) {
   const labels = lm.embedding_channel_labels || [];
-  if (lm.color_by !== "embedding" && lm.raster_basis !== "embedding") {
+  if (lm.color_mode !== "embedding" && lm.raster_basis !== "embedding") {
     return null;
   }
   if (!labels.length) return null;

@@ -31,7 +31,7 @@ export function useCubeScatterPoints(
     lm.x_bounds,
     lm.y_bounds,
     lm.point_size,
-    lm.color_by,
+    lm.color_mode,
     lm.active_category,
     lm.category_columns,
     lm.category_codes,

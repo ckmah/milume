@@ -29,7 +29,7 @@ async function installHarnessTwinGroups(page: Page) {
     model.set("legend_title", "harness_twin");
     model.set("point_palette", ["#1f77b4", "#ff7f0e"]);
     model.set("category_codes", codeB64);
-    model.set("color_by", "categorical");
+    model.set("color_mode", "categorical");
     model.set("type_neighborhoods", [
       {
         id: "group_a",

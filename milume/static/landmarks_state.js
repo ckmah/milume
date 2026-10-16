@@ -23,12 +23,13 @@ function flushNotebook(model) {
 }
 
 export function applyActiveCategory(model, col) {
+  model.set("color", col.name);
   model.set("active_category", col.name);
   model.set("active_genes", []);
   model.set("point_palette", col.palette || []);
   model.set("legend_labels", col.labels || []);
   model.set("legend_title", col.name || "");
-  model.set("color_by", "categorical");
+  model.set("color_mode", "categorical");
   model.set("raster_basis", "composition");
   model.set("selected_type_indices", []);
 }
@@ -95,13 +96,14 @@ export function setActiveGenes(model, names) {
     if (next.length >= MAX_ACTIVE_GENES) break;
   }
   model.set("active_genes", next);
+  model.set("color", next.length === 1 ? next[0] : "");
   if (!next.length) {
-    model.set("color_by", "continuous");
+    model.set("color_mode", "continuous");
     model.set("raster_basis", "genes");
     model.set("legend_title", "");
     return;
   }
-  model.set("color_by", "continuous");
+  model.set("color_mode", "continuous");
   if (next.length === 1) {
     const g = geneCols.find((x) => x.name === next[0]);
     model.set("legend_title", next[0]);
@@ -129,29 +131,29 @@ export function setRenderMode(model, mode) {
   const next = mode === "raster" ? "raster" : "points";
   const genes = model.get("active_genes") || [];
   const basis = model.get("raster_basis");
-  const colorBy = model.get("color_by");
+  const colorMode = model.get("color_mode");
   const embKey = model.get("raster_embedding_key");
   const geneIntent =
-    genes.length > 0 || basis === "genes" || colorBy === "continuous";
+    genes.length > 0 || basis === "genes" || colorMode === "continuous";
   const embedIntent =
-    (basis === "embedding" || colorBy === "embedding") && !!embKey;
+    (basis === "embedding" || colorMode === "embedding") && !!embKey;
   if (next === "raster") {
     if (geneIntent) {
       model.set("raster_basis", "genes");
-      model.set("color_by", "continuous");
+      model.set("color_mode", "continuous");
     } else if (embedIntent) {
       model.set("raster_basis", "embedding");
-      model.set("color_by", "embedding");
+      model.set("color_mode", "embedding");
     } else {
       model.set("raster_basis", "composition");
-      model.set("color_by", "categorical");
+      model.set("color_mode", "categorical");
     }
   } else if (geneIntent) {
-    model.set("color_by", "continuous");
-  } else if (basis === "embedding" || colorBy === "embedding") {
-    model.set("color_by", "embedding");
+    model.set("color_mode", "continuous");
+  } else if (basis === "embedding" || colorMode === "embedding") {
+    model.set("color_mode", "embedding");
   } else {
-    model.set("color_by", "categorical");
+    model.set("color_mode", "categorical");
   }
   model.set("render_mode", next);
   if (next === "raster" && model.get("selected_kind") === "type") {
@@ -173,19 +175,19 @@ export function setRasterBasis(model, basis) {
   if (!allowed.has(basis)) return;
   model.set("raster_basis", basis);
   if (basis === "genes") {
-    model.set("color_by", "continuous");
+    model.set("color_mode", "continuous");
   } else if (basis === "embedding") {
     model.set("active_genes", []);
-    model.set("color_by", "embedding");
+    model.set("color_mode", "embedding");
   } else if (basis === "composition") {
-    model.set("color_by", "categorical");
+    model.set("color_mode", "categorical");
   }
 }
 
 export function setRasterEmbeddingKey(model, key) {
   model.set("raster_embedding_key", String(key || ""));
   model.set("active_genes", []);
-  model.set("color_by", "embedding");
+  model.set("color_mode", "embedding");
   model.set("raster_basis", "embedding");
   // The kernel repacks embedding_values from this key. Without a flush the
   // menu changes and the points keep the previous embedding's colors.

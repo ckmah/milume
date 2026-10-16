@@ -162,18 +162,18 @@ def test_empty_genes_keeps_gene_view_across_render_mode():
     )
     w = LandmarksWidget(adata, color="cell_class", genes=["Apob", "Lgr5"])
     w.active_genes = ["Apob"]
-    assert w.color_by == "continuous"
+    assert w.color_mode == "continuous"
 
     w.active_genes = []
     assert w.active_genes == []
-    assert w.color_by == "continuous"
+    assert w.color_mode == "continuous"
 
     w.set_render_mode("raster")
     assert w.render_mode == "raster"
     assert w.raster_basis == "genes"
-    assert w.color_by == "continuous"
+    assert w.color_mode == "continuous"
 
     w.set_render_mode("points")
     assert w.render_mode == "points"
-    assert w.color_by == "continuous"
+    assert w.color_mode == "continuous"
     assert w.raster_basis == "genes"

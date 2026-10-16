@@ -23,7 +23,7 @@ def test_requested_genes_are_packed_normalised_per_gene():
     w = _widget(genes=["Apob", "Lgr5"])
     assert [g["name"] for g in w.gene_columns] == ["Apob", "Lgr5"]
     assert w.active_genes == []
-    assert w.color_by == "categorical"
+    assert w.color_mode == "categorical"
     assert w.gene_format == "dense"
     raw = np.frombuffer(base64.b64decode(w.gene_values), dtype=np.float32)
     for column in raw.reshape((4, 2), order="F").T:

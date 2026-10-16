@@ -29,7 +29,7 @@
   "gene_scale_mode": "independent",
   "gene_log1p": false,
   "gene_expression_logged": false,
-  "color_by": "categorical",
+  "color_mode": "categorical",
   "legend_labels": [
     "type1",
     "type0"
