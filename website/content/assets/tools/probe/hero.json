@@ -1,25 +1,27 @@
 {
  "dataset": "Stellaromics/demo:small",
  "seed": 0,
- "milume": "b9bc963",
+ "milume": "95af50a",
  "dark": {
-  "frames": 179,
-  "seconds": 5.97,
-  "seamless_rmse": 0.0,
+  "frames": 180,
+  "seconds": 6.0,
+  "seamless_rmse": 0.0171,
   "render": "1920:1200",
   "crf": [
    36,
    24
-  ]
+  ],
+  "seam_check": "cyclic path: seam RMSE 0.0171 vs median adjacent-frame RMSE 0.0172"
  },
  "light": {
-  "frames": 179,
-  "seconds": 5.97,
-  "seamless_rmse": 0.0,
+  "frames": 180,
+  "seconds": 6.0,
+  "seamless_rmse": 0.0119,
   "render": "1920:1200",
   "crf": [
    36,
    24
-  ]
+  ],
+  "seam_check": "cyclic path: seam RMSE 0.0119 vs median adjacent-frame RMSE 0.0131"
  }
 }

@@ -1,6 +1,1 @@
-{
- "dataset": "colon A2",
- "seed": null,
- "milume": "02c9af4",
- "source": "orbit-*/setup.png"
-}
+{"dataset": "colon A2", "seed": null, "milume": "95af50a", "render": "points off, labels fill 0.6", "callouts": "from DOM boxes"}
