@@ -9,7 +9,7 @@ async function newPage(browser: Browser, info: Pick<TestInfo, "project">) {
   return { context, page: await context.newPage() };
 }
 
-/** Undo what a previous test did to the shared page: input state, routes, listeners, viewport. */
+/** Undo what a previous test did to the shared page: input state, routes, listeners, viewport, helper-added DOM (`window.__e2eUndo`). */
 async function resetPage(page: Page, info: Pick<TestInfo, "project">) {
   await page.mouse.up().catch(() => undefined);
   // Off the widget, so a remount does not start with the pointer (and :hover) over the map.
@@ -23,6 +23,17 @@ async function resetPage(page: Page, info: Pick<TestInfo, "project">) {
   }
   const viewport = info.project.use.viewport;
   if (viewport) await page.setViewportSize(viewport).catch(() => undefined);
+  // Undo DOM the molab embed helpers added (wrappers, stub canvases, CSS scale), newest first.
+  await page.evaluate(() => {
+    const undo: Array<() => void> = (window as any).__e2eUndo ?? [];
+    while (undo.length) {
+      try {
+        undo.pop()!();
+      } catch {
+        /* keep undoing the rest */
+      }
+    }
+  }).catch(() => undefined);
   await page.evaluate(() => {
     (document.activeElement as HTMLElement | null)?.blur?.();
     window.scrollTo(0, 0);
