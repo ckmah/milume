@@ -26,9 +26,9 @@ def test_traitlets_parsed_from_landmarks() -> None:
 
 def test_public_traitlet_tables() -> None:
     md = render_traitlets_markdown()
-    assert "### Selection & landmarks" in md
+    assert "_PUBLIC_TRAITS" in md
     assert "`selections`" in md
-    assert "Region dicts" in md
+    assert "`render_mode`" not in md
     assert "Notebook traitlets" not in md
 
 

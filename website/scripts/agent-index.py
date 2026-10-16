@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 SITE_URL = "https://ckmah.github.io/milume"
@@ -19,6 +20,19 @@ def _load_render_api():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module.render_landmarks_widget_api
+
+
+def _load_registry() -> dict[str, str]:
+    here = Path(__file__).resolve().parent
+    if str(here) not in sys.path:
+        sys.path.insert(0, str(here))
+    script = here / "api_reference_codegen.py"
+    spec = importlib.util.spec_from_file_location("api_reference_codegen", script)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Cannot load {script}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.public_registry()
 
 
 def mirror_markdown(content_dir: Path, docs_out: Path) -> list[tuple[str, Path]]:
@@ -56,6 +70,8 @@ def write_llms(site_root: Path, landing_md: Path, mirrored: list[tuple[str, Path
         title = url.rsplit("/", 1)[-1].removesuffix(".md").replace("-", " ").title()
         lines.append(f"- [{title}]({url})")
 
+    lines.extend(["", "## Public API (LandmarksWidget)", f"- Full reference: {DOCS}/api/landmarks.md"])
+    lines.extend(f"- `{name}`: {doc}" for name, doc in _load_registry().items())
     lines.extend(["", "## Landing (markdown)", f"- [index.md]({SITE_URL}/index.md)", ""])
     site_root.joinpath("llms.txt").write_text("\n".join(lines), encoding="utf-8")
 

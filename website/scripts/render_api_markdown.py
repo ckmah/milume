@@ -10,21 +10,6 @@ import griffe
 
 from agent_md_format import format_agent_docstring, strip_sphinx_roles
 
-# Public notebook API methods defined on LandmarksWidget in milume/landmarks.py.
-_NOTEBOOK_METHODS = (
-    "set_points",
-    "set_expression",
-    "set_render_mode",
-    "set_raster_basis",
-    "clear_raster_query",
-    "category_colors",
-    "clear_selections",
-    "clear_landmarks",
-    "clear",
-    "get_obs_names",
-)
-
-
 def _module_string_constants(tree: ast.Module) -> dict[str, str]:
     constants: dict[str, str] = {}
     for node in tree.body:
