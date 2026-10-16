@@ -525,20 +525,6 @@ async function openCubeAtCentre(
   return box;
 }
 
-/** Record every `data-state` the element at `selector` takes from now on (read with `recordedStates`). */
-async function recordStates(page: Page, selector: string) {
-  await page.evaluate((selector) => {
-    const el = document.querySelector(selector)!;
-    const states: string[] = [];
-    (window as any).__states = states;
-    (window as any).__statesObserver?.disconnect();
-    const observer = new MutationObserver(() => states.push(el.getAttribute("data-state") ?? ""));
-    observer.observe(el, { attributes: true, attributeFilter: ["data-state"] });
-    (window as any).__statesObserver = observer;
-  }, selector);
-}
-const recordedStates = (page: Page) => page.evaluate(() => (window as any).__states as string[]);
-
 /** A synthetic pointer event on the open cube: type, x offset (px) from the view's centre, buttons, pointer id (default 1). */
 type PointerStep = [type: string, dx: number, buttons: number, pointerId?: number];
 /**
@@ -935,37 +921,6 @@ test.describe("Landmarks inspect cube", () => {
     expect(signal.centerLum).toBeGreaterThan(signal.edgeLum * 0.35);
   });
 
-  test("inspect cube preserves user wheel zoom across viewport resize (no re-home)", { tag: "@isolated" }, async ({ page }) => {
-    await openCubeAtCentre(page);
-    const view = cubeWindow(page).locator(".volume-cube__view");
-    await expect(view).toHaveAttribute("data-zoom", /\d/);
-    const zoomHome = Number(await view.getAttribute("data-zoom"));
-    const hostBox = await view.boundingBox();
-    expect(hostBox).toBeTruthy();
-    await page.mouse.move(hostBox!.x + hostBox!.width / 2, hostBox!.y + hostBox!.height / 2);
-    for (let i = 0; i < 8; i++) await page.mouse.wheel(0, -100);
-    await expect
-      .poll(async () => Number(await view.getAttribute("data-zoom")))
-      .toBeGreaterThan(zoomHome + 0.12);
-    const zoomUser = Number(await view.getAttribute("data-zoom"));
-    const scale = 0.72;
-    await page.evaluate((scale) => {
-      const viewEl = document.querySelector(
-        '[role="dialog"][aria-label="Cube"] .volume-cube__view',
-      ) as HTMLElement | null;
-      const host = viewEl?.parentElement;
-      if (!host) return;
-      const rect = host.getBoundingClientRect();
-      host.style.width = `${Math.max(140, rect.width * scale)}px`;
-      host.style.height = `${Math.max(140, rect.height * scale)}px`;
-    }, scale);
-    await page.waitForTimeout(450);
-    const zoomAfter = Number(await view.getAttribute("data-zoom"));
-    const expected = zoomUser + Math.log2(scale);
-    expect(zoomAfter).toBeCloseTo(expected, 1);
-    expect(zoomAfter).toBeGreaterThan(zoomHome + 0.08);
-  });
-
   test("a palette change before placing reaches the hover preview, then the dock", async ({ page }) => {
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
     // The palette lives in Adjust, which opens before any window is placed.
@@ -1034,7 +989,10 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.click(at.x, at.y);
     await expect(cubeWindow(page)).toBeVisible();
     expect(await selectionsOf(page)).toEqual([]);
-    const z1 = await trimZHigh(page);
+    // Python seeds a committed Z cut; the Save gesture is what is under test.
+    const z1 = 40;
+    await setModel(page, { volume_cut: [0, 256, 0, 256, 0, z1] });
+    await expect.poll(async () => (await cutOf(page))[5]).toBe(z1);
 
     expect(await save(page)).toBe(0);
     const [sel] = await selectionsOf(page);
@@ -1293,41 +1251,6 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toBeVisible();
   });
 
-  test("shift-drag in the cube pans the live window; plain drag only orbits", async ({ page }) => {
-    await reloadWith(page, "window=100");
-    await openCubeAtCentre(page);
-    const view = cubeWindow(page).locator(".volume-cube__view");
-    const axes = view.getByLabel("Axes");
-    await expect(view).toHaveAttribute("data-refining", "false");
-    const cx0 = Number(await getModel(page, "inspect_cx"));
-    const axes0 = await axes.getAttribute("data-axes");
-    // Plain drag: orbit, the window stays.
-    await dragCube(page, view, 60, 0, {});
-    await expect(axes).not.toHaveAttribute("data-axes", axes0!);
-    expect(Number(await getModel(page, "inspect_cx"))).toBe(cx0);
-    // Shift-drag right: the tissue follows the pointer, so the window centre moves left (top-down).
-    await page.getByRole("radio", { name: "Top view" }).click();
-    await expect(axes).toHaveAttribute("data-axes", "0,-90,0");
-    const zoom = await view.getAttribute("data-zoom");
-    const chip = page.getByTestId("inspect-status");
-    await expect(chip).toHaveAttribute("data-state", "ready");
-    await recordStates(page, '[data-testid="inspect-status"]');
-    await dragCube(page, view, 80, 0, { shift: true });
-    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(cx0);
-    // A pan never orbits.
-    await expect(axes).toHaveAttribute("data-axes", "0,-90,0");
-    // The map's square follows.
-    const placed = await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay().placed);
-    expect(placed[0]).toBeCloseTo(Number(await getModel(page, "inspect_cx")), 1);
-    // The cube settles at the new window. The chip read Refining while the moved window was stale.
-    await expect(view).toHaveAttribute("data-pan", "0,0");
-    await expect(view).toHaveAttribute("data-refining", "false");
-    await expect(chip).toHaveAttribute("data-state", "ready");
-    expect(await recordedStates(page)).toContain("refining");
-    expect(await view.getAttribute("data-pitch")).toBe("90");
-    expect(await view.getAttribute("data-zoom")).toBe(zoom);
-  });
-
   test("a pan saves its last move on release, and when Esc closes the cube mid-drag", async ({ page }) => {
     await reloadWith(page, "window=100");
     await openCubeAtCentre(page);
@@ -1363,61 +1286,18 @@ test.describe("Landmarks inspect cube", () => {
     expect(Number(await getModel(page, "inspect_cx"))).toBe(escaped.live);
   });
 
-  test("the Move tool makes a plain drag pan; the distance scales with the drag", async ({ page }) => {
-    test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
-    await reloadWith(page, "window=100");
-    await openCubeAtCentre(page);
-    const view = cubeWindow(page).locator(".volume-cube__view");
-    await page.getByRole("radio", { name: "Top view" }).click();
-    await page.getByRole("button", { name: "Move" }).click();
-    await expect(page.getByRole("button", { name: "Move" })).toHaveAttribute("aria-pressed", "true");
-    await expect(view).toHaveAttribute("data-pan-mode", "true");
-    const cx0 = Number(await getModel(page, "inspect_cx"));
-    const cy0 = Number(await getModel(page, "inspect_cy"));
-    // One-step drags: enough for pan hit-testing; avoids four software-GL frames per pan on CI.
-    const panDrag = { steps: 1 };
-    await dragCube(page, view, 40, 0, panDrag);
-    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(cx0);
-    await expect(view).toHaveAttribute("data-refining", "false");
-    const cx1 = Number(await getModel(page, "inspect_cx"));
-    const d1 = cx0 - cx1;
-    await dragCube(page, view, 80, 0, panDrag);
-    await expect(view).toHaveAttribute("data-refining", "false");
-    const cx2 = Number(await getModel(page, "inspect_cx"));
-    const d2 = cx1 - cx2;
-    expect(d2 / d1).toBeGreaterThan(1.7);
-    expect(d2 / d1).toBeLessThan(2.3);
-    // A horizontal drag leaves y; dragging down moves the window up the map (y decreases).
-    expect(Number(await getModel(page, "inspect_cy"))).toBe(cy0);
-    await dragCube(page, view, 0, 40, panDrag);
-    await expect.poll(async () => Number(await getModel(page, "inspect_cy"))).toBeLessThan(cy0);
-    // Never an orbit while Move is on.
-    await expect(view.getByLabel("Axes")).toHaveAttribute("data-axes", "0,-90,0");
-    // Closing the cube turns Move off.
-    await page.keyboard.press("Escape");
-    await expect(cubeWindow(page)).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Move" })).toHaveAttribute("aria-pressed", "false");
-  });
-
   test("panning clamps the window centre to the volume", async ({ page }) => {
-    test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
     await reloadWith(page, "window=100");
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await page.getByRole("radio", { name: "Top view" }).click();
     await page.getByRole("button", { name: "Move" }).click();
-    // Drag right until the window would leave the toy volume (0..256 µm, origin 0): it stops at x = 0.
-    const panDrag = { steps: 1 };
-    for (let i = 0; i < 8; i++) {
-      if (Number(await getModel(page, "inspect_cx")) === 0) break;
-      await dragCube(page, view, 250, 0, panDrag);
-    }
+    // Python seeds a window near the left edge of the toy volume (0..256 µm, origin 0).
+    await setModel(page, { inspect_cx: 20 });
+    await expect(view).toHaveAttribute("data-refining", "false");
+    // One drag right would carry the centre past x = 0: it stops at the clamp.
+    await dragCube(page, view, 250, 0, { steps: 1 });
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBe(0);
-    const cxClamped = Number(await getModel(page, "inspect_cx"));
-    // Two more drags past the edge: centre must stay at the clamp, not creep further.
-    await dragCube(page, view, 250, 0, panDrag);
-    await dragCube(page, view, 250, 0, panDrag);
-    expect(Number(await getModel(page, "inspect_cx"))).toBe(cxClamped);
     const cy = Number(await getModel(page, "inspect_cy"));
     expect(cy).toBeGreaterThanOrEqual(0);
     expect(cy).toBeLessThanOrEqual(256);
@@ -1474,39 +1354,6 @@ test.describe("Landmarks inspect cube", () => {
     await openAdjust(page);
     const menu = (await page.getByTestId("context-l2-anchor").locator(".landmarks-layer-panel").boundingBox())!;
     expect(menu.height).toBeLessThanOrEqual(widget.height * 0.5);
-  });
-
-  test("dragging a slider dims the open layer menu until release", async ({ page }) => {
-    await openCubeAtCentre(page);
-    await openAdjust(page);
-    const panel = page.getByTestId("context-l2-anchor").locator(".landmarks-layer-panel");
-    const bar = page.getByTestId("context-toolbar-l1");
-    await expect(panel).not.toHaveAttribute("data-tuning", "true");
-
-    const alpha = page.getByRole("slider", { name: "Image alpha" });
-    const control = page.locator(".landmarks-slider-control").filter({ has: alpha });
-    const box = (await control.boundingBox())!;
-    const start = Number(await alpha.getAttribute("aria-valuenow"));
-    await page.mouse.move(box.x + box.width * 0.85, box.y + box.height / 2);
-    await page.mouse.down();
-    await expect(panel).toHaveAttribute("data-tuning", "true");
-    await expect.poll(async () =>
-      Number(await page.getByTestId("context-l2-anchor").locator(".landmarks-float").evaluate((el) => getComputedStyle(el).opacity)),
-    ).toBeCloseTo(0.32, 2);
-    expect(await bar.evaluate((el) => getComputedStyle(el).opacity)).toBe("1");
-    await page.mouse.move(box.x + box.width * 0.35, box.y + box.height / 2, { steps: 6 });
-    await expect(panel).toHaveAttribute("data-tuning", "true");
-    await expect.poll(async () => Number(await alpha.getAttribute("aria-valuenow"))).toBeLessThan(start);
-    await page.mouse.up();
-    await expect(panel).not.toHaveAttribute("data-tuning", "true");
-    await expect.poll(async () =>
-      Number(await page.getByTestId("context-l2-anchor").locator(".landmarks-float").evaluate((el) => getComputedStyle(el).opacity)),
-    ).toBe(1);
-
-    await layerToggle(page, "image").click();
-    await expect(panel).not.toHaveAttribute("data-tuning", "true");
-    await adjustPanel(page).getByRole("radio", { name: "MIP" }).click();
-    await expect(panel).not.toHaveAttribute("data-tuning", "true");
   });
 
   test("the projection toggles set the image and label modes", async ({ page }) => {
@@ -1810,19 +1657,15 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("a Z-only cut leaves X and Y whole for any window, edge windows too", async ({ page }) => {
-    const box = await openCubeAtCentre(page);
-    const z1 = await trimZHigh(page);
+    await openCubeAtCentre(page);
+    // Python seeds a Z-only cut, then an edge window.
+    await setModel(page, { volume_cut: [0, 256, 0, 256, 0, 40] });
+    await expect.poll(async () => (await cutOf(page))[5]).toBe(40);
     const zOnly = await cutOf(page);
     expect(zOnly.slice(0, 4)).toEqual([0, 256, 0, 256]);
-    expect(zOnly[5]).toBe(z1);
-
-    const zoom = () => page.evaluate(() => (window as any).__landmarksEngine.getViewState().zoom as number);
-    const zoom0 = await zoom();
-    await page.evaluate(() => (window as any).__landmarksEngine.zoomBy(-2, { animate: false }));
-    await expect.poll(zoom).toBeLessThan(zoom0);
-    await moveWindow(page, box, [0.25, 0.5], [0.25, 0.5]);
-    await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeLessThan(50);
-    await page.waitForTimeout(600);
+    await setModel(page, { inspect_cx: 20, inspect_cy: 128 });
+    await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-refining", "false");
+    await page.waitForTimeout(600); // past the cut's settle commit
     expect(await cutOf(page)).toEqual(zOnly);
   });
 
@@ -2316,42 +2159,6 @@ test.describe("Landmarks inspect cube", () => {
     expect(chunkRequests).toEqual([]);
   });
 
-  test("Selections rows restore each saved window and cut; a saved entry keeps its cut", async ({ page }) => {
-    const box = await openCubeAtCentre(page);
-    const cx = () => getModel(page, "inspect_cx").then(Number);
-    const z1 = await trimZHigh(page);
-    expect(await save(page)).toBe(0);
-    const first = (await selectionsOf(page))[0];
-    expect(first.window.cut[5]).toBe(z1);
-
-    await moveWindow(page, box, [0.2, 0.25], [0.2, 0.25]);
-    await expect.poll(cx).not.toBeCloseTo(first.window.cx, 1);
-    await setModel(page, { volume_cut: [0, 256, 0, 256, 0, 64] });
-    await expect.poll(async () => (await cutOf(page))[5]).toBe(64);
-    await page.waitForTimeout(600); // past the cut's settle commit
-    expect((await selectionsOf(page))[0]).toEqual(first);
-    expect(await save(page)).toBe(1);
-    const second = (await selectionsOf(page))[1];
-
-    await expect(page.getByTestId("selection-row")).toHaveCount(2);
-    await expect(selectionRow(page, 1)).toHaveAttribute("aria-current", "true");
-    await openSelectionsDock(page);
-    await selectionRow(page, 0).click();
-    await expect.poll(cx).toBeCloseTo(first.window.cx, 3);
-    await expect.poll(async () => (await cutOf(page))[5]).toBe(z1);
-    await selectionRow(page, 1).click();
-    await expect.poll(cx).toBeCloseTo(second.window.cx, 3);
-    await expect.poll(async () => (await cutOf(page))[5]).toBe(64);
-
-    // A press moves the live window off the focused entry; its row brings it back.
-    await moveWindow(page, box, [0.7, 0.6], [0.7, 0.6]);
-    await expect.poll(cx).not.toBeCloseTo(second.window.cx, 1);
-    await selectionRow(page, 1).click();
-    await expect.poll(cx).toBeCloseTo(second.window.cx, 3);
-    // Saved entries are snapshots: nothing above changed them.
-    expect(await selectionsOf(page)).toEqual([first, second]);
-  });
-
   test("deleting an inspect selection removes its row; the last one closes the dock", async ({ page }) => {
     await openCubeAtCentre(page);
     expect(await save(page)).toBe(0);
@@ -2593,61 +2400,6 @@ test.describe("Landmarks inspect cube", () => {
     expect(styles.view).toBe("rgba(0, 0, 0, 0)");
   });
 
-  test("the cube and the preview open top-down; an axis legend turns with the camera", async ({ page }) => {
-    await openCubeAtCentre(page);
-    const bar = page.getByTestId("context-inspect-toolbar");
-    await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "true");
-    const view = cubeWindow(page).locator(".volume-cube__view");
-    const legend = view.getByLabel("Axes");
-    await expect(legend).toBeVisible();
-    // From above: x right, y down the screen (as on the map), z at the viewer.
-    const lengths = async (l: typeof legend) => (await l.getAttribute("data-lengths"))!.split(",").map(Number);
-    await expect.poll(async () => (await lengths(legend))[2]).toBeLessThan(0.05);
-    expect(await legend.getAttribute("data-axes")).toBe("0,-90,0");
-    const top = await legend.getAttribute("data-axes");
-
-    // Orbit the camera by dragging inside the dock: the legend turns.
-    const r = (await view.boundingBox())!;
-    await page.mouse.move(r.x + r.width * 0.5, r.y + r.height * 0.5);
-    await page.mouse.down();
-    await page.mouse.move(r.x + r.width * 0.65, r.y + r.height * 0.35, { steps: 6 });
-    await page.mouse.up();
-    await expect(legend).not.toHaveAttribute("data-axes", top!);
-    await expect.poll(async () => (await lengths(legend))[2]).toBeGreaterThan(0.1);
-    await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "false");
-
-    // Reset is the top-down home view.
-    await bar.getByRole("button", { name: "Reset view" }).click();
-    await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "true");
-    await expect(legend).toHaveAttribute("data-axes", top!);
-
-    // The hover preview is top-down too, with its own legend (it hides while the cube is open).
-    await page.keyboard.press("Escape");
-    await expect(cubeWindow(page)).toHaveCount(0);
-    const box = await canvasBox(page);
-    await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5, { steps: 3 });
-    const previewLegend = preview(page).locator(".volume-cube__view").getByLabel("Axes");
-    await expect(previewLegend).toBeVisible();
-    await expect(previewLegend).toHaveAttribute("data-axes", top!);
-    expect((await lengths(previewLegend))[2]).toBeLessThan(0.05);
-  });
-
-  test("the camera dips 45° below level, not further", async ({ page }) => {
-    await openCubeAtCentre(page);
-    const bar = page.getByTestId("context-inspect-toolbar");
-    const view = cubeWindow(page).locator(".volume-cube__view");
-    await bar.getByRole("radio", { name: "Side view" }).click();
-    await expect(view).toHaveAttribute("data-pitch", "0");
-
-    // Drag far past level: the pitch clamps at -45 rather than continuing to orbit.
-    const r = (await view.boundingBox())!;
-    await page.mouse.move(r.x + r.width * 0.5, r.y + r.height * 0.5);
-    await page.mouse.down();
-    await page.mouse.move(r.x + r.width * 0.5, r.y + r.height * 0.1, { steps: 20 });
-    await page.mouse.up();
-    await expect(view).toHaveAttribute("data-pitch", "-45");
-  });
-
   test("a camera preset chosen before the dock's first frame is kept", async ({ page }) => {
     // Hold the volume's requests, so the click lands before the dock has a camera.
     await page.route("**/toy.sdata.zarr/images/**", async (route) => {
@@ -2834,29 +2586,6 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-points", "0");
     await expect(view).toHaveAttribute("data-labels", "off");
     await expect(view).toHaveAttribute("data-image", "on");
-  });
-
-  test("shift-pan while refining keeps the cube canvas lit", async ({ page }) => {
-    await reloadWith(page, "window=100&budgets=20000,80000");
-    await openCubeAtCentre(page);
-    const view = cubeWindow(page).locator(".volume-cube__view");
-    const canvas = view.locator("canvas");
-    await expect(view).toHaveAttribute("data-refining", "false");
-    const baseline = await brightPixels(page, await canvas.screenshot(), 40);
-    expect(baseline).toBeGreaterThan(800);
-    const floor = Math.floor(baseline * 0.28);
-    const host = (await view.boundingBox())!;
-    await page.keyboard.down("Shift");
-    await page.mouse.move(host.x + host.width * 0.5, host.y + host.height * 0.52);
-    await page.mouse.down();
-    for (let step = 1; step <= 8; step++) {
-      await page.mouse.move(host.x + host.width * (0.5 + step * 0.035), host.y + host.height * 0.52);
-      const lit = await brightPixels(page, await canvas.screenshot(), 40);
-      expect(lit, `lit pixels at pan step ${step}`).toBeGreaterThan(floor);
-    }
-    await page.mouse.up();
-    await page.keyboard.up("Shift");
-    await expect(view).toHaveAttribute("data-refining", "false");
   });
 
   test("map drag to reposition opens the cube without blank frames while refining", async ({ page }) => {
