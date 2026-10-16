@@ -1,8 +1,8 @@
 # Inspect in 3D
 
 <figure class="ml-hero" markdown="0">
-<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../assets/tools/inspect-3d/hero" data-theme="dark" data-only-theme="dark" poster="../../assets/tools/inspect-3d/hero.dark.poster.webp" aria-label="A 3D cube of the tissue volume orbits once with the image and cell labels layered on." width="960" height="600"><source src="../assets/tools/inspect-3d/hero.dark.webm" type="video/webm"><source src="../assets/tools/inspect-3d/hero.dark.mp4" type="video/mp4"></video>
-<img class="ml-loop-poster" src="../assets/tools/inspect-3d/hero.dark.poster.webp" alt="A 3D cube of the tissue volume orbits once with the image and cell labels layered on." width="960" height="600" loading="lazy">
+<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../assets/tools/inspect-3d/hero" data-theme="dark" data-only-theme="dark" poster="../../assets/tools/inspect-3d/hero.dark.poster.webp" aria-label="A 3D cube of the tissue volume, with the image and cell labels layered on, swings about 112° and back as the pointer drags the camera." width="960" height="600"><source src="../assets/tools/inspect-3d/hero.dark.webm" type="video/webm"><source src="../assets/tools/inspect-3d/hero.dark.mp4" type="video/mp4"></video>
+<img class="ml-loop-poster" src="../assets/tools/inspect-3d/hero.dark.poster.webp" alt="A 3D cube of the tissue volume, with the image and cell labels layered on, swings about 112° and back as the pointer drags the camera." width="960" height="600" loading="lazy">
 </figure>
 
 Place a cube window on the map, then orbit and slice image, labels and transcripts together.
@@ -47,8 +47,8 @@ Press <kbd>I</kbd> or click <svg xmlns="http://www.w3.org/2000/svg" width="16" h
 ## Cross-section
 
 <figure class="ml-hero" markdown="0">
-<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../assets/tools/inspect-3d/loop-cross-section" data-theme="dark" data-only-theme="dark" poster="../../assets/tools/inspect-3d/loop-cross-section.dark.poster.webp" aria-label="A cross-section plane sweeps through the cube and back; cell outlines stay visible on the cut." width="960" height="600"><source src="../assets/tools/inspect-3d/loop-cross-section.dark.webm" type="video/webm"><source src="../assets/tools/inspect-3d/loop-cross-section.dark.mp4" type="video/mp4"></video>
-<img class="ml-loop-poster" src="../assets/tools/inspect-3d/loop-cross-section.dark.poster.webp" alt="A cross-section plane sweeps through the cube and back; cell outlines stay visible on the cut." width="960" height="600" loading="lazy">
+<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../assets/tools/inspect-3d/loop-cross-section" data-theme="dark" data-only-theme="dark" poster="../../assets/tools/inspect-3d/loop-cross-section.dark.poster.webp" aria-label="The pointer drags the cut slider: a cross-section plane sweeps through the cube and back; cell outlines stay visible on the cut." width="960" height="600"><source src="../assets/tools/inspect-3d/loop-cross-section.dark.webm" type="video/webm"><source src="../assets/tools/inspect-3d/loop-cross-section.dark.mp4" type="video/mp4"></video>
+<img class="ml-loop-poster" src="../assets/tools/inspect-3d/loop-cross-section.dark.poster.webp" alt="The pointer drags the cut slider: a cross-section plane sweeps through the cube and back; cell outlines stay visible on the cut." width="960" height="600" loading="lazy">
 </figure>
 
 ## Python

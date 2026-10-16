@@ -2,14 +2,14 @@
  "dataset": "colon A2",
  "seed": null,
  "milume": "95af50a",
- "note": "Designer's capture, points OFF, labels fill 0.6; 1440x900 @ 30fps to fit WebM budget; dark-only (cube renders on dark in both themes)",
+ "note": "Designer's capture with cursor overlay, points OFF, labels fill 0.6 (read back); 1440x900 @ 30fps; dark-only",
  "render": "1440:900",
  "dark": {
-  "seamless": "decoded seam RMSE 0.0015",
+  "seamless": "decoded seam RMSE 0.002",
   "bytes": {
-   "webm": 1227771,
-   "mp4": 324823,
-   "poster": 59094
+   "webm": 1231405,
+   "mp4": 333209,
+   "poster": 60470
   }
  }
 }
