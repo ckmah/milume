@@ -1,6 +1,6 @@
 # Widget UI dev — quick reference
 
-Notebook-free harness for Landmarks chrome + canvas. Marimo remains the integration check before ship.
+Notebook-free harness for Landmarks chrome + canvas.
 
 ## Chrome iteration (no notebook)
 

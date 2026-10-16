@@ -31,10 +31,9 @@ test("AGENTS.md documents babysit stop rule and HF fixture policy", () => {
   assert.match(agents, /volume-xsmall-if-missing/);
 });
 
-test("verify-landmarks skill documents marimo smoke and volume webServer", () => {
+test("verify-landmarks skill documents CI watch and volume webServer", () => {
   const skill = readFileSync(join(repoRoot, ".agents/skills/verify-landmarks/SKILL.md"), "utf8");
   assert.match(skill, /gh-ci-watch/);
-  assert.match(skill, /test:e2e:marimo-volume/);
   assert.match(skill, /ERR_CONNECTION_REFUSED/);
 });
 

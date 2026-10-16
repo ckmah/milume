@@ -57,14 +57,6 @@ cd frontend
 cross-env E2E_HARNESS=landmarks-volume npx playwright test e2e/landmarks/landmarks-volume.spec.ts -g "your test"
 ```
 
-Molab / kernel comm regressions: after harness proof, run real marimo smoke:
-
-```bash
-cd frontend && npm run build && npm run test:e2e:marimo-volume
-```
-
-CI runs toy marimo selection tests plus `landmarks-inspect.spec.ts` on `demos/landmarks.py` (non-localhost origin). Harness-only green is not enough for volume-comm bugs.
-
 ## CI babysit stop rule
 
 After push, use bounded polling only:
@@ -116,7 +108,7 @@ Canvas clicks use `canvasBox(page)` for screen coordinates relative to the WebGL
 
 **Lasso strokes** — use `drawLassoStroke(page, box)` from [`frontend/e2e/helpers.ts`](../../frontend/e2e/helpers.ts):
 hold the button, trace a smooth closed circle in **96+ small moves over ~3 s**, then release
-(matching real molab usage). Marimo specs use `drawLasso` in [`frontend/e2e/marimo/helpers.ts`](../../frontend/e2e/marimo/helpers.ts), which arms lasso then calls `drawLassoStroke`. Do not use short 8–16-step drags; they do not match human timing and used to flake on molab. For fast-drag regression, use `drawLassoStrokeFast` (~10 moves / ~300 ms).
+(matching real molab usage). Do not use short 8–16-step drags; they do not match human timing and used to flake on molab. For fast-drag regression, use `drawLassoStrokeFast` (~10 moves / ~300 ms).
 
 ## Evidence
 
