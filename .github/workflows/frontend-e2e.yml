@@ -293,6 +293,54 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+  # marimo kernel e2e: Python API + kernel comm only (no UI gestures). UI-only PRs skip it.
+  e2e-marimo-api:
+    needs: changes
+    if: needs.changes.outputs.marimo_api == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: astral-sh/setup-uv@v5
+      - name: Install Python deps (demo + editable milume)
+        run: uv sync --extra demo
+        working-directory: .
+      - run: npm ci
+      - run: npx playwright install chromium --with-deps
+      - run: npm run build
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: marimo-e2e-hf-${{ runner.os }}-${{ hashFiles('demos/landmarks.py') }}
+          restore-keys: marimo-e2e-hf-${{ runner.os }}-
+      - name: Prefetch Stellaromics/demo small (landmarks.py)
+        run: uv run --extra demo python frontend/scripts/prefetch-marimo-e2e-data.py
+        working-directory: .
+      - name: Python API spec (toy kernel)
+        run: npx playwright test -c playwright.marimo.config.ts e2e/marimo/api.spec.ts
+        env:
+          CI: true
+          E2E_MARIMO_NOTEBOOK: frontend/e2e/marimo/fixtures/toy-api.marimo.py
+      - name: Kernel load + volume comm (demos/landmarks.py)
+        run: npx playwright test -c playwright.marimo.config.ts e2e/marimo/landmarks-inspect.spec.ts -g "non-localhost"
+        env:
+          CI: true
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-test-results-marimo-api
+          path: frontend/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+
   # One stable check to require in branch protection: path-gated jobs may be skipped,
   # which a required check cannot tolerate; this job passes unless a tier failed.
   post-ui-evidence-comment:
@@ -322,7 +370,7 @@ jobs:
         run: node frontend/scripts/post-pr-playwright-comment.mjs
 
   gate:
-    needs: [pr-mergeable, changes, e2e-core, e2e-landmarks-default, e2e-landmarks-volume-smoke, e2e-landmarks-volume, post-ui-evidence-comment]
+    needs: [pr-mergeable, changes, e2e-core, e2e-landmarks-default, e2e-landmarks-volume-smoke, e2e-landmarks-volume, e2e-marimo-api, post-ui-evidence-comment]
     if: always()
     runs-on: ubuntu-latest
     steps:

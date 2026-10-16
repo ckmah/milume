@@ -15,6 +15,8 @@ inside the cube. Esc closes the cube and stays in Inspect; a second Esc, or
 **Spec:** `frontend/e2e/landmarks/landmarks-volume.spec.ts` — `"Landmarks inspect cube"` describe block
 (`E2E_HARNESS=landmarks-volume`, run via `npm run test:e2e:landmarks`).
 
+**Kernel comm (Python side only):** `frontend/e2e/marimo/landmarks-inspect.spec.ts` loads `demos/landmarks.py` on a real kernel and checks the comm image store and DataView decode; no UI gestures. Inspect UI is verified in the harness spec above.
+
 **Design:** [`docs/specs/2026-09-25-landmarks-inspect-cube-design.md`](../../../docs/specs/2026-09-25-landmarks-inspect-cube-design.md) · [`docs/specs/2026-09-26-inspect-preview-dock-design.md`](../../../docs/specs/2026-09-26-inspect-preview-dock-design.md) · [`docs/specs/2026-10-02-inspect-immersive-cube-design.md`](../../../docs/specs/2026-10-02-inspect-immersive-cube-design.md) · [`docs/specs/2026-10-03-inspect-rework-design.md`](../../../docs/specs/2026-10-03-inspect-rework-design.md) · [ADR 0006](../../../docs/adr/0006-landmarks-hosts-volume-cube.md)
 
 ## Sub-features

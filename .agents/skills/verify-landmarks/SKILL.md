@@ -57,6 +57,15 @@ cd frontend
 cross-env E2E_HARNESS=landmarks-volume npx playwright test e2e/landmarks/landmarks-volume.spec.ts -g "your test"
 ```
 
+## Where to verify
+
+- **UI changes:** Vite harness only (`npm run test:e2e:landmarks`), including the simulated-molab specs `landmarks-molab-shadow` and `landmarks-molab-viewport`. UI PRs do not require marimo.
+- **Python API / kernel changes** (traitlets, `w.color`, `selections`, `get_obs_names`, volume comm): also run marimo e2e, which never drives UI gestures:
+
+```bash
+cd frontend && npm run build && npm run test:e2e:marimo-api
+```
+
 ## CI babysit stop rule
 
 After push, use bounded polling only:

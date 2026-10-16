@@ -5,6 +5,7 @@ Two tiers, path-gated in CI (`.github/workflows/frontend-e2e.yml`; the path map 
 | Tier | When it runs | Specs |
 |------|----------------|-------|
 | **core** | Shared chrome changes (`src/components`, `styles`, `lib`, `hooks`, `e2e/core`) | `e2e/core/` |
+| **marimo_api** | Python API + kernel comm only (no UI gestures); runs on Python / comm / marimo-spec changes | `e2e/marimo/` |
 | **landmarks** | Landmarks widget / harness / `e2e/landmarks` changes | `e2e/landmarks/` |
 
 Infra changes (`e2e/helpers.ts`, `playwright.config.ts`, `package-lock.json`, …) run **all** tiers.

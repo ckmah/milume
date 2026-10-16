@@ -31,10 +31,12 @@ test("AGENTS.md documents babysit stop rule and HF fixture policy", () => {
   assert.match(agents, /volume-xsmall-if-missing/);
 });
 
-test("verify-landmarks skill documents CI watch and volume webServer", () => {
+test("verify-landmarks skill documents harness-first verification and marimo API scope", () => {
   const skill = readFileSync(join(repoRoot, ".agents/skills/verify-landmarks/SKILL.md"), "utf8");
   assert.match(skill, /gh-ci-watch/);
   assert.match(skill, /ERR_CONNECTION_REFUSED/);
+  assert.match(skill, /UI PRs do not require marimo/);
+  assert.match(skill, /test:e2e:marimo-api/);
 });
 
 test("thin issue #79 empty fails widget-issue check", () => {

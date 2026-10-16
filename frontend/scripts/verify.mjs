@@ -42,6 +42,12 @@ if (hit.landmarks || hit.infra_full) {
   plan.push(["frontend", "npm run test:e2e:landmarks"]);
 }
 
+if (hit.marimo_api) {
+  // Python API / kernel changes only; UI changes never need marimo.
+  plan.push(["frontend", "npm run build"]);
+  plan.push(["frontend", "npm run test:e2e:marimo-api"]);
+}
+
 console.log(`base ${base.slice(0, 8)}, ${changed.size} changed file(s)`);
 if (!plan.length) console.log("docs / non-runtime only: nothing to run beyond CI.");
 for (const [cwd, cmd] of plan) console.log(`  ${cwd}: ${cmd}`);

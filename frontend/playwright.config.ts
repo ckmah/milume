@@ -27,9 +27,9 @@ export default defineConfig({
   testIgnore:
     harness === "landmarks-volume"
       ? process.env.E2E_SMOKE === "1"
-        ? ["**/hero-webgl.spec.ts", "**/landmarks-volume.spec.ts"]
-        : ["**/hero-webgl.spec.ts", smokeSpec]
-      : ["**/landmarks-volume.spec.ts", smokeSpec, "**/hero-webgl.spec.ts"],
+        ? ["**/hero-webgl.spec.ts", "**/landmarks-volume.spec.ts", "**/marimo/**"]
+        : ["**/hero-webgl.spec.ts", smokeSpec, "**/marimo/**"]
+      : ["**/landmarks-volume.spec.ts", smokeSpec, "**/hero-webgl.spec.ts", "**/marimo/**"],
   timeout: volumeSmoke ? 90_000 : volumeOnCi ? 240_000 : 90_000,
   expect: {
     timeout: volumeOnCi ? 30_000 : 15_000,
