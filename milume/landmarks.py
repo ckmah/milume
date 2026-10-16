@@ -67,8 +67,6 @@ def _encode_colors(
     color: Any,
     color_map: dict[str, str] | None,
     n: int,
-    *,
-    continuous_range: tuple[str, str] | None = None,
 ) -> tuple[list[str], "np.ndarray", list[str], float | None, float | None]:
     """Return (palette_hex, valueA, legend_labels, vmin, vmax).
 
@@ -107,8 +105,7 @@ def _encode_colors(
         )
         return palette, idx, cats, None, None
 
-    low, high = continuous_range or (_SEQUENTIAL_LOW, _SEQUENTIAL_HIGH)
-    seq = _sequential_palette(256, low=low, high=high)
+    seq = _sequential_palette(256)
     vals = color_arr.astype(np.float64)
     finite = vals[np.isfinite(vals)]
     if finite.size == 0:
@@ -312,11 +309,11 @@ client-side from the eager gene, embedding, and category packs.
 
 
 class ColorKeyError(traitlets.TraitError, KeyError):
-    """``color`` names neither an ``obs`` column nor a gene."""
+    """``color`` names neither an ``obs`` column nor a gene; exported as ``milume.ColorKeyError``."""
 
 
 class ColorValueError(traitlets.TraitError, ValueError):
-    """``color`` names a column or gene that cannot be shown."""
+    """``color`` names a column or gene that cannot be shown; exported as ``milume.ColorValueError``."""
 
 
 class LandmarksWidget(AnyWidget):
@@ -538,7 +535,6 @@ class LandmarksWidget(AnyWidget):
         points = np.column_stack([nx, ny, value_a, z_arr.astype(np.float32)])
 
         self._adata = adata
-        self._color_maps = maps
         self._expr_frame = None
         self._x_scale = "linear"
         self._y_scale = "linear"
@@ -660,56 +656,22 @@ class LandmarksWidget(AnyWidget):
             "in the browser from coordinates (no obsp graphs)"
         )
 
-    def set_points(
-        self,
-        x: Any,
-        y: Any,
-        *,
-        color: Any = None,
-        color_map: dict[str, str] | None = None,
-        legend_title: str | None = None,
-        continuous_range: tuple[str, str] | None = None,
-    ) -> None:
-        """Replace scatter points/colors."""
-        import numpy as np
-
+    def set_points(self, x: Any, y: Any) -> None:
+        """Move the scatter points; colour stays on ``color``."""
         x_arr = np.asarray(x, dtype=np.float64).ravel()
         y_arr = np.asarray(y, dtype=np.float64).ravel()
         if x_arr.shape != y_arr.shape:
             raise ValueError("x and y must have the same shape")
-        n = int(x_arr.shape[0])
+        n = int(self._data_x.shape[0])
+        if x_arr.shape[0] != n:
+            raise ValueError(f"expected {n} points, got {x_arr.shape[0]}; rebuild the widget to change the cell count")
         xmin, xmax = self.x_bounds
         ymin, ymax = self.y_bounds
-        nx = (2.0 * (x_arr - xmin) / (xmax - xmin) - 1.0).astype(np.float32)
-        ny = (2.0 * (y_arr - ymin) / (ymax - ymin) - 1.0).astype(np.float32)
-        palette, value_a, labels, vmin, vmax = _encode_colors(
-            color, color_map, n, continuous_range=continuous_range
-        )
-        color_mode = (
-            "categorical"
-            if color is None
-            or isinstance(color, str)
-            or np.asarray(color).dtype.kind in "UOS"
-            else "obs"
-        )
-        points = np.column_stack([nx, ny, value_a, np.zeros(n, dtype=np.float32)])
+        points = np.frombuffer(base64.b64decode(self.points_data), dtype=np.float32).reshape(n, 4).copy()
+        points[:, 0] = 2.0 * (x_arr - xmin) / (xmax - xmin) - 1.0
+        points[:, 1] = 2.0 * (y_arr - ymin) / (ymax - ymin) - 1.0
         self._data_x = x_arr
         self._data_y = y_arr
-        self._data_labels = (
-            np.asarray(color).astype(str).ravel()
-            if color is not None
-            and not isinstance(color, str)
-            and np.asarray(color).dtype.kind in "UOS"
-            else None
-        )
-        self.point_palette = list(palette)
-        self.color_mode = color_mode
-        self.active_genes = []
-        self.legend_labels = list(labels)
-        if legend_title is not None:
-            self.legend_title = legend_title
-        self.color_vmin = float(vmin if vmin is not None else 0.0)
-        self.color_vmax = float(vmax if vmax is not None else 1.0)
         self.points_data = _encode_f32(points)
 
     def set_expression(self, expr: Any) -> None:
@@ -1028,7 +990,7 @@ class LandmarksWidget(AnyWidget):
         n = int(self._data_x.shape[0])
         frame = as_polars(self._adata.obs[[key]])
         (meta,), codes_b64, label_arrays = encode_category_bundle(
-            frame, [key], color_maps=self._color_maps
+            frame, [key], color_maps=_color_maps_from_uns(self._adata)
         )
         cols = list(self.category_columns or [])
         packed = (
@@ -1212,7 +1174,7 @@ class LandmarksWidget(AnyWidget):
 
 
 _PUBLIC_TRAITS: dict[str, str] = {
-    "color": "obs column or gene the points are coloured by; assign a key to recolour.",
+    "color": "obs column or gene the points are coloured by; assign a key to recolour (raises ColorKeyError / ColorValueError).",
     "selections": "Drawn selections as dicts with id, name, geometry and point indices.",
     "landmarks": "Drawn landmarks (points, lines, splines, shapes) as dicts.",
     "selected_kind": "Kind of the focused item: selection, landmark, type, or empty.",
@@ -1229,6 +1191,7 @@ _PUBLIC_TRAITS: dict[str, str] = {
     "get_obs_names": "obs_names of cells inside a selection.",
     "get_focus_obs_names": "obs_names of the focused type or selection.",
     "assign_obs_mask": "Write a boolean adata.obs column for a selection.",
+    "set_points": "Move the scatter points to new x/y; colour is set with color.",
     "set_expression": "Replace the packed gene catalogue from a table.",
     "set_render_mode": "Switch between points and raster bins.",
     "set_raster_basis": "Pick the raster aggregation basis: genes, embedding or composition.",

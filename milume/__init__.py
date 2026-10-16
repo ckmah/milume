@@ -1,6 +1,6 @@
 """Milume: explore spatial biology in your notebook."""
 
-from .landmarks import _LANDMARKS_API_DOC, LandmarksWidget
+from .landmarks import _LANDMARKS_API_DOC, ColorKeyError, ColorValueError, LandmarksWidget
 from .measure import (
     along_positions,
     composition,
@@ -49,6 +49,8 @@ Examples
 
 
 __all__ = [
+    "ColorKeyError",
+    "ColorValueError",
     "LandmarksWidget",
     "__version__",
     "along_positions",

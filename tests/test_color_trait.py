@@ -135,3 +135,27 @@ def test_public_registry_entries_exist_on_the_class():
         if name in traits:
             assert isinstance(traits[name], traitlets.TraitType)
             assert traits[name].metadata.get("sync") is True
+
+
+def test_errors_are_exported_from_milume():
+    import milume
+
+    assert issubclass(milume.ColorKeyError, KeyError)
+    assert issubclass(milume.ColorValueError, ValueError)
+    assert {"ColorKeyError", "ColorValueError"} <= set(milume.__all__)
+    with pytest.raises(milume.ColorKeyError):
+        LandmarksWidget(_adata(), color="nope")
+
+
+def test_set_points_moves_points_and_keeps_colour():
+    w = LandmarksWidget(_adata(), color="area")
+    before = np.frombuffer(base64.b64decode(w.points_data), dtype=np.float32).reshape(4, 4)
+    w.set_points([0.0, 0.5, 1.0, 1.5], [1.0, 1.0, 0.0, 0.0])
+    after = np.frombuffer(base64.b64decode(w.points_data), dtype=np.float32).reshape(4, 4)
+    assert np.array_equal(before[:, 2], after[:, 2])
+    assert not np.array_equal(before[:, :2], after[:, :2])
+    assert w.color_mode == "obs"
+    with pytest.raises(TypeError):
+        w.set_points([0.0] * 4, [0.0] * 4, color=[1, 2, 3, 4])
+    with pytest.raises(ValueError, match="rebuild"):
+        w.set_points([0.0], [0.0])
