@@ -628,6 +628,9 @@ class LandmarksWidget(AnyWidget):
         """Read one allowlisted zarr file (optional byte range) for the Inspect cube."""
         from .volume_comm import VolumeReadError, parse_volume_get_msg, read_volume_bytes
 
+        mesh = self._cell_mesh_reply(msg)
+        if mesh is not None:
+            return mesh
         if self._volume_store_root is None:
             return {"ok": False, "status": 404, "error": "no volume store"}, []
         try:
@@ -645,6 +648,38 @@ class LandmarksWidget(AnyWidget):
         if not outcome.ok:
             return {"ok": False, "status": outcome.status, "error": outcome.error or "read failed"}, []
         return {"ok": True, "status": outcome.status}, [outcome.data]
+
+    # --- prototype: lit cell meshes (branch proto-cell-mesh) -------------------
+
+    def _attach_cell_meshes(self, shapes: Any, label_ids: dict, *, z_column: str = "Z_um", params: Any = None) -> None:
+        """Serve per-window cell meshes over ``volume_get`` (``cellmesh/x0,y0,x1,y1.bin``, µm).
+
+        ``shapes``: GeoDataFrame of per-slice cell polygons in µm with ``cell_id``
+        and ``z_column``; ``label_ids`` maps cell_id to the label volume's id.
+        """
+        from .cell_mesh import CellMeshCache, MeshParams
+
+        self._cell_mesh_cache = CellMeshCache(
+            shapes["cell_id"].astype(str).to_numpy(),
+            shapes[z_column].to_numpy(),
+            shapes.geometry.to_numpy(),
+            label_ids,
+            params or MeshParams(),
+        )
+        self.volume = {**(self.volume or {}), "mesh_url": "cellmesh/"}
+
+    def _cell_mesh_reply(self, msg: object) -> tuple[object, list[bytes]] | None:
+        if not isinstance(msg, dict) or not str(msg.get("path", "")).startswith("cellmesh/"):
+            return None
+        cache = getattr(self, "_cell_mesh_cache", None)
+        if cache is None:
+            return {"ok": False, "status": 404, "error": "no cell meshes"}, []
+        try:
+            name = str(msg["path"])[len("cellmesh/") :].removesuffix(".bin")
+            x0, y0, x1, y1 = (float(v) for v in name.split(","))
+            return {"ok": True, "status": 200}, [cache.window_bytes(x0, y0, x1, y1)]
+        except Exception as exc:  # noqa: BLE001 — comm must always reply
+            return {"ok": False, "status": 400, "error": str(exc)}, []
 
     def set_neighbor_graphs(self, *args: Any, **kwargs: Any) -> None:
         """Removed: neighborhood expand is client-side.

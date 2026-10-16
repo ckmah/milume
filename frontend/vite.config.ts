@@ -130,7 +130,9 @@ export default defineConfig(({ command }) => {
       resolve: sharedResolve,
       // Viv harnesses need default dep optimization; landmarks excludes Viv.
       optimizeDeps: usesViv ? undefined : { exclude: ["@hms-dbmi/viv"] },
-      server: sharedServer,
+      server: process.env.MILUME_MESH_PROXY
+        ? { ...sharedServer, proxy: { "/cellmesh": process.env.MILUME_MESH_PROXY } }
+        : sharedServer,
     };
   }
 

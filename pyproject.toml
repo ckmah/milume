@@ -27,6 +27,8 @@ dependencies = [
     "polars>=1.0",
     "scipy>=1.11",
     "shapely>=2.1.2",
+    "mapbox-earcut>=1.0",  # prototype: cell mesh caps
+    "numba>=0.60",  # prototype: loft kernels
     "spatialdata>=0.2",
     "traitlets>=5.0",
 ]

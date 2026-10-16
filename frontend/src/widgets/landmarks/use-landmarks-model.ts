@@ -46,6 +46,8 @@ import {
 export type LandmarksVolume = {
   image_url?: string;
   labels_url?: string;
+  /** Prototype: per-window cell mesh prefix (comm) or URL (harness). */
+  mesh_url?: string;
   voxel_size_um?: [number, number, number];
   origin_um?: [number, number, number];
   contrast_limits?: [number, number];

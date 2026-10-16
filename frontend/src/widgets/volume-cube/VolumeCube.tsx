@@ -36,6 +36,16 @@ import type { ImageFormat } from "./image-volume";
 import type { Range, ViewPreset } from "./CubeControls";
 import { type MapScatterPoint, placeScatterPoints } from "./cube-points";
 import { type CubeFrame, FramedVolumeView, labelPad } from "./frame-layers";
+import {
+  CELL_MESH_LIGHTING,
+  type CellMeshData,
+  type PlacedCellMesh,
+  cellMeshKey,
+  cellMeshLut,
+  cellMeshMatrix,
+  fetchCellMesh,
+  placedCellMeshGeometry,
+} from "./cell-mesh";
 import { type CubeOverlay, placeOverlays } from "./overlay-layers";
 import { paletteLut } from "./palettes";
 import { dragToWindowDelta } from "./pan";
@@ -150,6 +160,10 @@ export type VolumeCubeProps = {
   chunkCache?: ChunkCache | null;
   /** Comm-backed zarr reads when ``imageUrl`` is a store prefix (not HTTP). */
   volumeComm?: VolumeCommClient | null;
+  /** Prototype: per-window cell meshes (comm prefix or HTTP). Set: labels draw as lit meshes, not raycast. */
+  meshUrl?: string;
+  /** Mesh opacity (default: the label opacity, `render.cellAlpha`). */
+  meshOpacity?: number;
   /** Hold the cache's background prefetch while this cube's target loads. */
   pausesPrefetch?: boolean;
   /** Called after each deck render. */
@@ -361,9 +375,9 @@ export function VolumeCube({
   reframeOnPreset = false,
   resetTick,
   showImage = true,
-  showLabels,
+  showLabels: showLabelsProp,
   coloring,
-  render,
+  render: renderProp,
   dark,
   height = 520,
   onLoadState,
@@ -380,6 +394,8 @@ export function VolumeCube({
   showPoints = false,
   chunkCache = null,
   volumeComm = null,
+  meshUrl = "",
+  meshOpacity,
   pausesPrefetch = false,
   onRendered,
   onLevels,
@@ -393,6 +409,13 @@ export function VolumeCube({
   tightenZToSignal = true,
   loadStatusTestId = "cube-load-panel",
 }: VolumeCubeProps) {
+  // Mesh mode: the raycast keeps the image only (fainter), cells come from meshes.
+  const meshOn = Boolean(meshUrl);
+  const showLabels = showLabelsProp && !meshOn;
+  const render = useMemo(
+    () => (meshOn ? { ...renderProp, imageAlpha: renderProp.imageAlpha * 0.6 } : renderProp),
+    [meshOn, renderProp],
+  );
   const hostRef = useRef<HTMLDivElement>(null);
   const fixedHeight = typeof height === "number";
   const [box, setBox] = useState({ width: 640, height: 520 });
@@ -992,8 +1015,59 @@ export function VolumeCube({
   // point or the volume stays on the origin while the plates sit on the box.
   if (orbitViewRef.current) orbitViewRef.current.target = aimTarget;
   const onRenderedRef = useLatest(onRendered);
+  // --- prototype cell meshes ---------------------------------------------
+  const [cellMesh, setCellMesh] = useState<CellMeshData | null>(null);
+  const meshKey = cellMeshKey(winX[0], winY[0], winX[1], winY[1]);
+  useEffect(() => {
+    // Skip the empty window before the image's extent is known.
+    if (!meshOn || winX[1] - winX[0] < 1 || winY[1] - winY[0] < 1) return;
+    let live = true;
+    const t0 = performance.now();
+    fetchCellMesh(meshUrl, meshKey, volumeComm)
+      .then((m) => {
+        if (!live) return;
+        const w = window as unknown as { __cellMeshFetchMs?: number[] };
+        (w.__cellMeshFetchMs ??= []).push(performance.now() - t0);
+        setCellMesh(m);
+      })
+      .catch((e) => console.warn("cell mesh", e));
+    return () => {
+      live = false;
+    };
+  }, [meshOn, meshUrl, meshKey, volumeComm]);
+  const cellMeshGeometry = useMemo(() => (cellMesh ? placedCellMeshGeometry(cellMesh) : null), [cellMesh]);
+  const cellMeshColours = useMemo(
+    () => (cellMesh && showLabelsProp ? cellMeshLut(cellMesh, coloring) : null),
+    [cellMesh, coloring, showLabelsProp],
+  );
+  const placedCellMesh: PlacedCellMesh | null = useMemo(() => {
+    if (!cellMesh || !cellMeshGeometry || !cellMeshColours || !cubeFrame || !levelVoxel || !panBox) return null;
+    return {
+      key: "w",
+      mesh: cellMeshGeometry,
+      lut: cellMeshColours,
+      opacity: meshOpacity ?? renderProp.cellAlpha,
+      modelMatrix: cellMeshMatrix({
+        volumeMatrix,
+        originUm: cellMesh.originUm,
+        ox: oxUm,
+        oy: oyUm,
+        oz: ozUm,
+        lvx: levelVoxel[2],
+        lvy: levelVoxel[1],
+        lvz: levelVoxel[0],
+        ry,
+        panX0: panBox.x0,
+        panY1: panBox.y1,
+        zSlice: windowZSlice,
+        depth: cubeFrame.size[2],
+      }),
+    };
+  }, [cellMesh, cellMeshGeometry, cellMeshColours, cubeFrame, levelVoxel, panBox, meshOpacity, renderProp.cellAlpha, volumeMatrix, oxUm, oyUm, ozUm, ry, windowZSlice]);
+
   const deckProps = useMemo(
     () => ({
+      ...(meshOn ? { effects: [CELL_MESH_LIGHTING] } : {}),
       onAfterRender: ({ gl }: { gl: WebGL2RenderingContext }) => {
         if (typeof window !== "undefined") {
           const w = window as unknown as { __volumeCubeRenderCount?: number };
@@ -1002,7 +1076,7 @@ export function VolumeCube({
         onRenderedRef.current?.(gl.canvas as HTMLCanvasElement);
       },
     }),
-    [onRenderedRef],
+    [onRenderedRef, meshOn],
   );
   // Raw slices stay in voxel indices for the cut plates. Viv needs them scaled.
   const voxelX = levelVoxel?.[2] ?? 1;
@@ -1048,6 +1122,7 @@ export function VolumeCube({
               cubeFrame,
               cubeOverlays: placedOverlays,
               cubeScatterPoints: placedScatterPoints,
+              cubeCellMesh: placedCellMesh,
             },
           ]
         : null,
@@ -1086,6 +1161,7 @@ export function VolumeCube({
       cubeFrame,
       placedOverlays,
       placedScatterPoints,
+      placedCellMesh,
       volumeMatrix,
     ],
   );
@@ -1375,6 +1451,9 @@ export function VolumeCube({
       data-level={shown?.level.index ?? -1}
       data-refining={String(refining)}
       data-overlays={placedOverlays?.count ?? 0}
+      data-mesh-tris={cellMesh ? cellMesh.indices.length / 3 : 0}
+      data-mesh-bytes={cellMesh ? cellMesh.bytes : 0}
+      data-mesh-shown={placedCellMesh ? "true" : "false"}
       data-points={showPoints ? (placedScatterPoints?.length ?? 0) : 0}
       data-zoom={viewState ? viewState.zoom.toFixed(2) : ""}
       data-pitch={viewState ? Math.round(viewState.rotationX) : ""}
@@ -1434,7 +1513,7 @@ type VolumeCubeDeckProps = {
   views: FramedVolumeView[];
   viewStates: ViewState[];
   onViewStateChange: (args: { viewId: string; viewState: ViewState }) => ViewState;
-  deckProps: { onAfterRender: (args: { gl: WebGL2RenderingContext }) => void };
+  deckProps: { onAfterRender: (args: { gl: WebGL2RenderingContext }) => void; effects?: unknown[] };
 };
 
 /** Viv deck only: cut-face hover updates skip this subtree so deck does not redraw. */

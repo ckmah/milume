@@ -223,6 +223,8 @@ export function CubeImmersive({
           budget={budgets.dock}
           chunkCache={cache}
           volumeComm={volumeComm}
+          meshUrl={cellMeshUrl(volume.mesh_url)}
+          meshOpacity={cellMeshOpacity()}
           pausesPrefetch
           onLoadState={onLoadState}
           onRendered={onRendered}
@@ -238,4 +240,16 @@ export function CubeImmersive({
       </Suspense>
     </section>
   );
+}
+
+/** Prototype A/B switches: `?mesh=0` forces the raycast, `?meshAlpha=1` draws opaque meshes. */
+function cellMeshUrl(url: string | undefined): string {
+  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mesh") === "0") return "";
+  return url ?? "";
+}
+
+function cellMeshOpacity(): number | undefined {
+  if (typeof window === "undefined") return undefined;
+  const v = new URLSearchParams(window.location.search).get("meshAlpha");
+  return v == null ? undefined : Number(v);
 }
