@@ -14,7 +14,7 @@ export function RasterSection({ lm }: { lm: LandmarksModel }) {
   const genesMode =
     lm.render_mode === "raster"
       ? lm.raster_basis === "genes"
-      : lm.color_by === "continuous";
+      : lm.color_mode === "continuous";
   const genesHoverInert =
     genesMode && !(lm.active_genes || []).length;
 

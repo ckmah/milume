@@ -52,4 +52,4 @@ def test_choosing_active_genes_does_not_resend_the_matrix():
     packed = (w.gene_values, w.gene_csc_indptr, w.gene_csc_indices, w.gene_csc_data)
     w.active_genes = ["g0", "g17"]
     assert (w.gene_values, w.gene_csc_indptr, w.gene_csc_indices, w.gene_csc_data) == packed
-    assert w.color_by == "continuous"
+    assert w.color_mode == "continuous"

@@ -606,7 +606,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const data = getPointsData();
     const n = data.length;
     const colors = new Uint8ClampedArray(n * 4);
-    const mode = model.get("color_by") || "categorical";
+    const mode = model.get("color_mode") || "categorical";
     if (!probeField && mode === "categorical" && categoryCodes) {
       const cols = model.get("category_columns") || [];
       const ci = activeCategoryIndex();
@@ -711,7 +711,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       pointsCache.key,
       POINT_OPACITY,
       model.get("point_palette"),
-      model.get("color_by"),
+      model.get("color_mode"),
       model.get("active_genes"),
       model.get("gene_values"),
       model.get("gene_scale_mode"),
@@ -747,12 +747,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       out[offset + 3] = sim[3];
       return;
     }
-    const mode = model.get("color_by") || "categorical";
+    const mode = model.get("color_mode") || "categorical";
     let rgba;
     if (mode === "embedding") {
       rgba =
         blendEmbeddingColors(d.i, opacity) ||
         hexToRgbaBytes("#6b7280", opacity * 0.35);
+    } else if (mode === "obs") {
+      rgba = obsColumnRgba(d.valueA, opacity);
     } else if (mode === "continuous") {
       const activeGenes = model.get("active_genes") || [];
       if (activeGenes.length > 0) {
@@ -879,7 +881,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
    */
   function genesColoringOn() {
     if (isRasterMode()) return model.get("raster_basis") === "genes";
-    return model.get("color_by") === "continuous";
+    return model.get("color_mode") === "continuous";
   }
 
   /**
@@ -1532,12 +1534,12 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   /** Per-cell observation matrix for the active raster_basis / color signal. */
   function rawPointFeatureMatrix(n) {
     const basis = model.get("raster_basis") || "composition";
-    const colorBy = model.get("color_by") || "categorical";
+    const colorMode = model.get("color_mode") || "categorical";
     const key = [
       pointsCache.key,
       n,
       basis,
-      colorBy,
+      colorMode,
       (model.get("active_genes") || []).join(","),
       model.get("raster_embedding_key") || "",
       model.get("active_category") || "",
@@ -1548,12 +1550,12 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     if (rawPointFeatCache.key === key && rawPointFeatCache.n === n) {
       return rawPointFeatCache;
     }
-    if (basis === "genes" || colorBy === "continuous") {
+    if (basis === "genes" || colorMode === "continuous") {
       const gm = geneFeatureMatrix(n);
       rawPointFeatCache = { key, features: gm.features, dim: gm.dim, n };
       return rawPointFeatCache;
     }
-    if (basis === "embedding" || colorBy === "embedding") {
+    if (basis === "embedding" || colorMode === "embedding") {
       const labels = model.get("embedding_channel_labels") || [];
       const dim = labels.length | 0;
       if (!dim || !embeddingValues || embeddingValues.length < n * dim) {
@@ -1594,7 +1596,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const n = pts.length;
     const radius = probeWindowRadius();
     const basis = model.get("raster_basis") || "";
-    const colorBy = model.get("color_by") || "";
+    const colorMode = model.get("color_mode") || "";
     const genes = (model.get("active_genes") || []).join(",");
     const embKey = model.get("raster_embedding_key") || "";
     const cat = model.get("active_category") || "";
@@ -1603,7 +1605,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       n,
       radius,
       basis,
-      colorBy,
+      colorMode,
       genes,
       embKey,
       cat,
@@ -1778,7 +1780,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       n,
       raw.dim,
       model.get("raster_basis") || "",
-      model.get("color_by") || "",
+      model.get("color_mode") || "",
       (model.get("active_genes") || []).join(","),
       model.get("raster_embedding_key") || "",
       model.get("active_category") || "",
@@ -2760,7 +2762,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       legend.hidden = true;
       return;
     }
-    const mode = model.get("color_by") || "categorical";
+    const mode = model.get("color_mode") || "categorical";
     const title = model.get("legend_title") || "";
 
     legend.innerHTML = "";
@@ -2783,6 +2785,12 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     }
 
     legend.hidden = !title;
+  }
+
+  function obsColumnRgba(value, opacity) {
+    const palette = model.get("point_palette") || [FALLBACK_POINT];
+    const t = Math.max(0, Math.min(1, Number(value) || 0));
+    return hexToRgbaBytes(palette[Math.round(t * (palette.length - 1))], opacity);
   }
 
   function hexToRgbaBytes(hex, alpha) {
@@ -2910,12 +2918,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       sim[3] = Math.round((sim[3] || 255) * OTHER_ALPHA_SCALE);
       return sim;
     }
-    const mode = model.get("color_by") || "categorical";
+    const mode = model.get("color_mode") || "categorical";
     let rgba;
     if (mode === "embedding") {
       rgba =
         blendEmbeddingColors(d.i, opacity) ||
         hexToRgbaBytes("#6b7280", opacity * 0.35);
+    } else if (mode === "obs") {
+      rgba = obsColumnRgba(d.valueA, opacity);
     } else if (mode === "continuous") {
       const activeGenes = model.get("active_genes") || [];
       if (activeGenes.length > 0) {
@@ -6693,9 +6703,9 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     }
     updatePointLegend();
   });
-  ["point_palette", "point_size", "color_by", "legend_labels", "legend_title", "color_vmin", "color_vmax"].forEach((k) => {
+  ["point_palette", "point_size", "color_mode", "legend_labels", "legend_title", "color_vmin", "color_vmax"].forEach((k) => {
     onChange(k, () => {
-      if (k === "color_by") {
+      if (k === "color_mode") {
         pendingViewPulse = true;
         if (genesProbeHoverInert()) clearProbeHover();
       }

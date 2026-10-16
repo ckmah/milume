@@ -10,11 +10,11 @@ export function colorSignal(lm: LandmarksModel): ColorSignal {
     if (lm.raster_basis === "genes") return "genes";
     return "categories";
   }
-  if (lm.color_by === "embedding") return "embedding";
-  if (lm.color_by === "continuous") return "genes";
+  if (lm.color_mode === "embedding") return "embedding";
+  if (lm.color_mode === "continuous") return "genes";
   // Genes intent can outlive an empty selection (user cleared genes).
   if (lm.raster_basis === "genes") return "genes";
-  // Prefer genes whenever any are selected — color_by can lag after View flips.
+  // Prefer genes whenever any are selected — color_mode can lag after View flips.
   if ((lm.active_genes?.length || 0) > 0) {
     return "genes";
   }

@@ -44,7 +44,7 @@ FIXTURE_KEYS = [
     "gene_scale_mode",
     "gene_log1p",
     "gene_expression_logged",
-    "color_by",
+    "color_mode",
     "legend_labels",
     "legend_title",
     "type_neighborhoods",
@@ -310,7 +310,7 @@ def main() -> None:
     # Preload genes + embeddings for chrome, but start in neutral widget defaults:
     # points view, categorical color, probe off, no pinned query bin.
     widget.active_genes = ["Lgr5", "Cd3e", "Col1a1"]
-    widget.color_by = "categorical"
+    widget.color_mode = "categorical"
     widget.set_render_mode("points")
     widget.selections = [
         {

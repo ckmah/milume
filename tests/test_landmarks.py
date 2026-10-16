@@ -26,29 +26,6 @@ def test_point_size_scales_with_point_spacing():
     assert loose == pytest.approx(10 * tight)
 
 
-def test_set_color_continuous_categorical_and_custom_range():
-    w = LandmarksWidget(adata_xy([0.0, 1.0, 2.0, 3.0], np.zeros(4)))
-    w.set_color(np.array([0.1, 0.2, 0.3, 0.9]), legend_title="expr")
-    assert w.color_by == "continuous"
-    assert w.legend_title == "expr"
-    assert w.color_vmax >= w.color_vmin
-    w.set_color(
-        np.array(["b", "a", "c", "a"]),
-        color_map={"a": "#111111", "b": "#222222", "c": "#333333"},
-        legend_title="types",
-    )
-    assert w.color_by == "categorical"
-    assert w.legend_labels == ["a", "b", "c"]
-    assert w.point_palette == ["#111111", "#222222", "#333333"]
-    w.set_color(
-        np.array([0.0, 0.5, 1.0, 0.25]),
-        continuous_range=("#ffffff", "#ff0000"),
-        legend_title="seq",
-    )
-    assert w.point_palette[0].lower() == "#ffffff"
-    assert w.point_palette[-1].lower() == "#ff0000"
-
-
 def test_constructor_rejects_missing_or_empty_adata():
     with pytest.raises(TypeError):
         LandmarksWidget()

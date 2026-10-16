@@ -22,7 +22,7 @@ FIXTURE_KEYS = [
     "category_columns",
     "active_category",
     "gene_columns",
-    "color_by",
+    "color_mode",
     "legend_labels",
     "legend_title",
     "x_bounds",
