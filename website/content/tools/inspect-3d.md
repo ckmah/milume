@@ -63,7 +63,7 @@ See [Synced traitlets](../api/landmarks.md#synced-traitlets) for the volume fiel
 ## Related
 
 <div class="ml-cards" markdown="0">
-<a class="ml-card" href="../navigate/"><span class="ml-card__title">Navigate →</span><span class="ml-card__hint">Pan, zoom, minimap</span></a>
-<a class="ml-card" href="../color-layers/"><span class="ml-card__title">Color &amp; layers →</span><span class="ml-card__hint">What colors the cells</span></a>
-<a class="ml-card" href="../probe/"><span class="ml-card__title">Probe →</span><span class="ml-card__hint">Raster similarity</span></a>
+<a class="ml-card" href="navigate.md"><span class="ml-card__title">Navigate →</span><span class="ml-card__hint">Pan, zoom, minimap</span></a>
+<a class="ml-card" href="color-layers.md"><span class="ml-card__title">Color &amp; layers →</span><span class="ml-card__hint">What colors the cells</span></a>
+<a class="ml-card" href="probe.md"><span class="ml-card__title">Probe →</span><span class="ml-card__hint">Raster similarity</span></a>
 </div>

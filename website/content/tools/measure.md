@@ -123,7 +123,7 @@ The new column works like any other `obs` column, for example in `scanpy` plots 
 ## Related
 
 <div class="ml-cards" markdown="0">
-<a class="ml-card" href="../landmarks/"><span class="ml-card__title">Landmarks →</span><span class="ml-card__hint">Durable annotations</span></a>
-<a class="ml-card" href="../select-regions/"><span class="ml-card__title">Select regions →</span><span class="ml-card__hint">Lasso, square, circle</span></a>
-<a class="ml-card" href="../../api/landmarks/"><span class="ml-card__title">API reference →</span><span class="ml-card__hint">Traitlets and methods</span></a>
+<a class="ml-card" href="landmarks.md"><span class="ml-card__title">Landmarks →</span><span class="ml-card__hint">Durable annotations</span></a>
+<a class="ml-card" href="select-regions.md"><span class="ml-card__title">Select regions →</span><span class="ml-card__hint">Lasso, square, circle</span></a>
+<a class="ml-card" href="../api/landmarks.md"><span class="ml-card__title">API reference →</span><span class="ml-card__hint">Traitlets and methods</span></a>
 </div>

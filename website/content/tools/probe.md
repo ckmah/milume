@@ -8,7 +8,7 @@
 Hover a bin with Probe on; similar bins light up. Click to pin the query.
 {: .ml-caption }
 
-Probe compares raster bins, so switch the map to raster first (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-icon" aria-hidden="true"><path d="M12 3v18"></path><path d="M3 12h18"></path><rect x="3" y="3" width="18" height="18" rx="2"></rect></svg> points/raster; see [Color & layers](../color-layers/)).
+Probe compares raster bins, so switch the map to raster first (<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-icon" aria-hidden="true"><path d="M12 3v18"></path><path d="M3 12h18"></path><rect x="3" y="3" width="18" height="18" rx="2"></rect></svg> points/raster; see [Color & layers](color-layers.md)).
 
 ```python
 import milume
@@ -51,7 +51,7 @@ See [Synced traitlets](../api/landmarks.md#synced-traitlets) and [Methods](../ap
 ## Related
 
 <div class="ml-cards" markdown="0">
-<a class="ml-card" href="../color-layers/"><span class="ml-card__title">Color &amp; layers →</span><span class="ml-card__hint">Points or raster</span></a>
-<a class="ml-card" href="../navigate/"><span class="ml-card__title">Navigate →</span><span class="ml-card__hint">Pan, zoom, minimap</span></a>
-<a class="ml-card" href="../inspect-3d/"><span class="ml-card__title">Inspect in 3D →</span><span class="ml-card__hint">Cube orbit and slice</span></a>
+<a class="ml-card" href="color-layers.md"><span class="ml-card__title">Color &amp; layers →</span><span class="ml-card__hint">Points or raster</span></a>
+<a class="ml-card" href="navigate.md"><span class="ml-card__title">Navigate →</span><span class="ml-card__hint">Pan, zoom, minimap</span></a>
+<a class="ml-card" href="inspect-3d.md"><span class="ml-card__title">Inspect in 3D →</span><span class="ml-card__hint">Cube orbit and slice</span></a>
 </div>
