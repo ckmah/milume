@@ -72,7 +72,7 @@ See [Methods](../api/landmarks.md#methods) for the full signatures.
 ## Related
 
 <div class="ml-cards" markdown="0">
-<a class="ml-card" href="../navigate/"><span class="ml-card__title">Navigate →</span><span class="ml-card__hint">Pan, zoom, minimap</span></a>
-<a class="ml-card" href="../landmarks/"><span class="ml-card__title">Landmarks →</span><span class="ml-card__hint">Durable annotations</span></a>
-<a class="ml-card" href="../measure/"><span class="ml-card__title">Measure →</span><span class="ml-card__hint">Distances and composition</span></a>
+<a class="ml-card" href="navigate.md"><span class="ml-card__title">Navigate →</span><span class="ml-card__hint">Pan, zoom, minimap</span></a>
+<a class="ml-card" href="landmarks.md"><span class="ml-card__title">Landmarks →</span><span class="ml-card__hint">Durable annotations</span></a>
+<a class="ml-card" href="measure.md"><span class="ml-card__title">Measure →</span><span class="ml-card__hint">Distances and composition</span></a>
 </div>

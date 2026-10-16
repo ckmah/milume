@@ -14,7 +14,7 @@ w = milume.peek(adata)  # press 3, click points, Enter
 w.landmarks             # list of landmark dicts
 ```
 
-Landmarks are durable geometric annotations (points, lines, splines, shapes). Selections are analysis regions; see [Select regions](../select-regions/).
+Landmarks are durable geometric annotations (points, lines, splines, shapes). Selections are analysis regions; see [Select regions](select-regions.md).
 
 ## Draw tools
 
@@ -90,7 +90,7 @@ See [GeoDataFrame interchange](../api/landmarks.md#geodataframe-interchange) in 
 ## Related
 
 <div class="ml-cards" markdown="0">
-<a class="ml-card" href="../select-regions/"><span class="ml-card__title">Select regions →</span><span class="ml-card__hint">Lasso, square, circle</span></a>
-<a class="ml-card" href="../navigate/"><span class="ml-card__title">Navigate →</span><span class="ml-card__hint">Pan, zoom, minimap</span></a>
-<a class="ml-card" href="../measure/"><span class="ml-card__title">Measure →</span><span class="ml-card__hint">Distances and composition</span></a>
+<a class="ml-card" href="select-regions.md"><span class="ml-card__title">Select regions →</span><span class="ml-card__hint">Lasso, square, circle</span></a>
+<a class="ml-card" href="navigate.md"><span class="ml-card__title">Navigate →</span><span class="ml-card__hint">Pan, zoom, minimap</span></a>
+<a class="ml-card" href="measure.md"><span class="ml-card__title">Measure →</span><span class="ml-card__hint">Distances and composition</span></a>
 </div>

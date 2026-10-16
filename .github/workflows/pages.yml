@@ -45,6 +45,20 @@ jobs:
           CF_BEACON_TOKEN: ${{ vars.CF_BEACON_TOKEN }}
         run: uv run bash website/scripts/assemble-pages.sh
 
+      - name: Check links in built site
+        run: |
+          mkdir -p _linkcheck && rm -rf _linkcheck/milume && cp -r site _linkcheck/milume
+
+      - name: Lychee (internal links + anchors, offline)
+        uses: lycheeverse/lychee-action@v2
+        with:
+          fail: true
+          args: >-
+            --offline --include-fragments --index-files index.html --no-progress
+            --root-dir ${{ github.workspace }}/_linkcheck
+            --exclude-path _linkcheck/milume/hero
+            '_linkcheck/milume/**/*.html'
+
       - name: Install frontend deps
         if: github.event_name == 'pull_request'
         run: cd frontend && npm ci
