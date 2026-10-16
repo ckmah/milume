@@ -1,6 +1,6 @@
 # Widget UI dev — quick reference
 
-Notebook-free harness for Landmarks chrome + canvas. Marimo remains the integration check before ship.
+Notebook-free harness for Landmarks chrome + canvas. UI changes are verified here (including the simulated-molab harness specs); UI PRs do not require marimo. marimo e2e (`frontend/e2e/marimo/`) is only for Python API and kernel interactions.
 
 ## Chrome iteration (no notebook)
 

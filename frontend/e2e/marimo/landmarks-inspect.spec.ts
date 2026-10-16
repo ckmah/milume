@@ -1,12 +1,14 @@
 import { expect, test } from "@playwright/test";
 
 import { bytesFromCommBuffer } from "../../src/widgets/volume-cube/comm-buffer";
+import { getModel, waitForLandmarksWidget } from "./helpers";
 
 /**
- * Real marimo kernel (not the Vite harness): anywidget comm must deliver volume_get
- * binary payloads. Marimo maps buffers to DataView; `new Uint8Array(dataView)` is
- * empty in Chromium, which produced "Unexpected end of JSON input" on zarr metadata
- * (see comm-buffer.ts). This spec guards that path on demos/landmarks.py.
+ * Real marimo kernel (not the Vite harness), Python/kernel side only, no UI gestures:
+ * demos/landmarks.py loads on a non-localhost origin with no comm/console errors and
+ * attaches a comm-served image store. Marimo maps comm buffers to DataView
+ * (`new Uint8Array(dataView)` is empty in Chromium); the decode is checked below and
+ * in tests/test_marimo_comm_buffers.py.
  */
 test.describe("marimo kernel — landmarks Inspect volume comm", () => {
   test("marimo anywidget comm buffers are DataView-shaped", () => {
@@ -15,7 +17,7 @@ test.describe("marimo kernel — landmarks Inspect volume comm", () => {
     expect(new Uint8Array(dv).byteLength).toBe(0);
     expect(bytesFromCommBuffer(dv)?.byteLength).toBe(json.byteLength);
   });
-  test("Inspect cube loads image on a non-localhost origin with no comm/console failures", async ({
+  test("kernel loads and attaches a comm image store on a non-localhost origin with no comm/console failures", async ({
     page,
     baseURL,
   }) => {
@@ -41,27 +43,13 @@ test.describe("marimo kernel — landmarks Inspect volume comm", () => {
     await page.goto("/", { waitUntil: "domcontentloaded", timeout: 120_000 });
 
     // landmarks.py: HF small download + leiden + zarr write can take several minutes on cold CI.
-    const canvas = page.locator("canvas").first();
-    await canvas.waitFor({ state: "visible", timeout: onCi() ? 720_000 : 420_000 });
+    await waitForLandmarksWidget(page);
 
-    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-    const box = await canvas.boundingBox();
-    expect(box).toBeTruthy();
-    await canvas.click({
-      position: {
-        x: Math.round(box!.width * 0.55),
-        y: Math.round(box!.height * 0.55),
-      },
-    });
-
-    const cube = page.getByRole("dialog", { name: "Cube" });
-    await expect(cube).toBeVisible({ timeout: onCi() ? 180_000 : 120_000 });
-    const view = cube.locator(".volume-cube__view");
-    await expect(view).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
-    await expect(view).toHaveAttribute("data-channels", /1|2/);
-
-    const cubeText = await cube.innerText();
-    expect(cubeText).not.toMatch(/Unexpected end of JSON input/i);
+    // No UI gestures. The cube's volume_get round-trip needs the cube opened by a canvas click
+    // (or a raw-model test probe the widget does not expose), so this checks the kernel side only:
+    // the widget loads on a real kernel and Python attached a comm-served image store.
+    const volume = (await getModel(page, "volume")) as { image_url?: string };
+    expect(volume?.image_url, "widget should expose a comm image store").toMatch(/^images\//);
 
     const jsonErrors = consoleErrors.filter(
       (t) =>
@@ -71,9 +59,6 @@ test.describe("marimo kernel — landmarks Inspect volume comm", () => {
     );
     expect(jsonErrors, `console errors: ${jsonErrors.join("\n")}`).toEqual([]);
     expect(loopbackVolume).toEqual([]);
-
-    // Sanity: image channel on (labels may be present on Pyxa small).
-    await expect(view).toHaveAttribute("data-image", "on");
   });
 });
 

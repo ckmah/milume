@@ -293,9 +293,10 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  e2e-marimo-volume:
+  # marimo kernel e2e: Python API + kernel comm only (no UI gestures). UI-only PRs skip it.
+  e2e-marimo-api:
     needs: changes
-    if: needs.changes.outputs.marimo_volume == 'true'
+    if: needs.changes.outputs.marimo_api == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     defaults:
@@ -323,19 +324,19 @@ jobs:
       - name: Prefetch Stellaromics/demo small (landmarks.py)
         run: uv run --extra demo python frontend/scripts/prefetch-marimo-e2e-data.py
         working-directory: .
-      - name: Run marimo toy kernel e2e
-        run: npx playwright test -c playwright.marimo.config.ts e2e/marimo/landmarks-selection.spec.ts
+      - name: Python API spec (toy kernel)
+        run: npx playwright test -c playwright.marimo.config.ts e2e/marimo/api.spec.ts
         env:
           CI: true
-          E2E_MARIMO_NOTEBOOK: frontend/e2e/marimo/fixtures/toy-landmarks.marimo.py
-      - name: Run marimo real kernel smoke (demos/landmarks.py)
+          E2E_MARIMO_NOTEBOOK: frontend/e2e/marimo/fixtures/toy-api.marimo.py
+      - name: Kernel load + volume comm (demos/landmarks.py)
         run: npx playwright test -c playwright.marimo.config.ts e2e/marimo/landmarks-inspect.spec.ts -g "non-localhost"
         env:
           CI: true
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: playwright-test-results-marimo-volume
+          name: playwright-test-results-marimo-api
           path: frontend/test-results/
           retention-days: 14
           if-no-files-found: ignore
@@ -369,7 +370,7 @@ jobs:
         run: node frontend/scripts/post-pr-playwright-comment.mjs
 
   gate:
-    needs: [pr-mergeable, changes, e2e-core, e2e-landmarks-default, e2e-landmarks-volume-smoke, e2e-landmarks-volume, e2e-marimo-volume, post-ui-evidence-comment]
+    needs: [pr-mergeable, changes, e2e-core, e2e-landmarks-default, e2e-landmarks-volume-smoke, e2e-landmarks-volume, e2e-marimo-api, post-ui-evidence-comment]
     if: always()
     runs-on: ubuntu-latest
     steps:

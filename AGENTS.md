@@ -23,7 +23,7 @@ Wall-clock on cloud agents is often idle time waiting for the next follow-up, no
 - Do **not** use open-ended `sleep` + `gh pr checks` loops. Use `node frontend/scripts/gh-ci-watch.mjs --pr N --repo ckmah/milume` (default cap: 12 rounds × 90 s, 20 min total) or Cursor `subscribe_github_ci`, then **hand off** with the last check snapshot.
 - After the babysit budget, stop polling and report: commit SHA, conflict status (`npm run check:pr-mergeable`), and which tier failed. Do not sleep overnight for green CI.
 - Before the first push on a UI change, run `cd frontend && npm run verify` locally (typically 7–12 min for landmarks). Use CI for integration gaps, not as a retry loop for the same failing spec (cap local reruns of one grep to **3** attempts, then fix root cause).
-- Pin scope up front: read the linked issue **Outcome / Acceptance** and any PM comment before coding. Confirm dataset identity (colon vs Pyxa `small`/`xsmall` are mouse brain — never join colon IDs onto them; see issue #97). For molab / volume-comm paths, passing the Vite harness is necessary but not sufficient: run `npm run test:e2e:marimo-volume` or the `landmarks-inspect` real-kernel spec before claiming the molab path is fixed.
+- Pin scope up front: read the linked issue **Outcome / Acceptance** and any PM comment before coding. Confirm dataset identity (colon vs Pyxa `small`/`xsmall` are mouse brain — never join colon IDs onto them; see issue #97). Verify UI changes in the Vite harness (including the simulated-molab `landmarks-molab-shadow` / `landmarks-molab-viewport` specs); UI PRs do not require marimo. marimo e2e (`npm run test:e2e:marimo-api`) is only for Python API and kernel interactions (traitlets, `get_obs_names`, `color`, volume comm).
 
 ## Demo data (agents)
 

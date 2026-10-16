@@ -5,8 +5,8 @@ Two tiers, path-gated in CI (`.github/workflows/frontend-e2e.yml`; the path map 
 | Tier | When it runs | Specs |
 |------|----------------|-------|
 | **core** | Shared chrome changes (`src/components`, `styles`, `lib`, `hooks`, `e2e/core`) | `e2e/core/` |
+| **marimo_api** | Python API + kernel comm only (no UI gestures); runs on Python / comm / marimo-spec changes | `e2e/marimo/` |
 | **landmarks** | Landmarks widget / harness / `e2e/landmarks` changes | `e2e/landmarks/` |
-| **marimo_volume** | Volume comm + `volume-cube` (real `marimo run` on `demos/landmarks.py`) | `e2e/marimo/` |
 
 Infra changes (`e2e/helpers.ts`, `playwright.config.ts`, `package-lock.json`, …) run **all** tiers.
 The workflow runs on every PR; its `changes` job selects tiers, and the `gate` job is the one check to require.

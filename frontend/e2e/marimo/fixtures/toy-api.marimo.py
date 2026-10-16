@@ -7,7 +7,7 @@
 # ]
 # ///
 
-"""Fast local target for marimo volume e2e (CI uses demos/landmarks.py)."""
+"""Python API e2e target: color and selections set from Python, get_obs_names read in a reactive cell."""
 
 import marimo
 
@@ -35,13 +35,26 @@ def _():
 
 @app.cell
 def _(mo, peek, sdata):
-    widget = mo.ui.anywidget(peek(sdata, color="cell_type"))
-    return (widget,)
+    w = peek(sdata, color="cell_type")
+    # Set from Python before display: must reach the browser model.
+    w.color = "cell_id"
+    w.selections = [{"id": "api-sel", "point_indices": [0]}]
+    widget = mo.ui.anywidget(w)
+    return w, widget
 
 
 @app.cell
 def _(widget):
     widget
+    return
+
+
+@app.cell
+def _(mo, w, widget):
+    # Reading widget.value makes this cell re-run when the browser changes a trait.
+    _ = widget.value
+    _n = len(w.get_obs_names("api-sel"))
+    mo.md(f"api-probe n={_n} color={w.color}")
     return
 
 
