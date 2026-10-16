@@ -81,35 +81,6 @@ async function setShow(page: Page, layer: "image" | "labels" | "points", on: boo
   await expect(btn).toHaveAttribute("aria-pressed", on ? "true" : "false");
 }
 
-/**
- * Narrow the Z high cut by dragging the Z₁ face in Side view; returns the committed Z₁ (µm).
- * The cube's Z extent is trimmed to the planes with image signal, so a drag of `dy` px lands
- * on a value set by the toy image, not a fixed step: tests compare against what this returns.
- */
-async function trimZHigh(page: Page, dy = 48) {
-  const bar = page.getByTestId("context-inspect-toolbar");
-  const view = cubeWindow(page).locator(".volume-cube__view");
-  await bar.getByRole("radio", { name: "Side view" }).click();
-  await expect(view).toHaveAttribute("data-pitch", "0");
-  // The plates are placed once the volume's frame is known.
-  await expect(view).toHaveAttribute("data-cut-centers", /z1:/);
-  const host = await view.boundingBox();
-  expect(host).toBeTruthy();
-  const attr = await view.getAttribute("data-cut-centers");
-  const hit = attr?.match(/z1:(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-  expect(hit).toBeTruthy();
-  const center = { x: host!.x + Number(hit![1]), y: host!.y + Number(hit![2]) };
-  await page.mouse.move(center.x, center.y);
-  await page.mouse.down();
-  await page.mouse.move(center.x, center.y + dy, { steps: 6 });
-  await page.mouse.up();
-  // The toy volume is 64 µm deep; a trimmed Z₁ sits well inside it.
-  await expect.poll(async () => (await cutOf(page))[5] ?? 64).toBeLessThan(60);
-  const cut = await cutOf(page);
-  expect(cut[5]!).toBeGreaterThan(cut[4]!);
-  return cut[5]!;
-}
-
 /** Pixels of a screenshot brighter than `min` (max of r, g, b). */
 async function brightPixels(page: Page, png: Buffer, min = 60) {
   return page.evaluate(
@@ -1021,7 +992,8 @@ test.describe("Landmarks inspect cube", () => {
 
   test("the dock's Save adds one selection and row, then reads Saved until the window moves", async ({ page }) => {
     await reloadWith(page, "window=100");
-    const box = await openCubeAtCentre(page);
+    await openCubeAtCentre(page);
+    const cx0 = Number(await getModel(page, "inspect_cx"));
     const rows = page.getByTestId("selection-row");
     // A click only opens the dock.
     expect(await selectionsOf(page)).toEqual([]);
@@ -1036,15 +1008,15 @@ test.describe("Landmarks inspect cube", () => {
     await expect(saveButton(page)).toBeDisabled();
     await expect(saveButton(page)).toHaveAttribute("data-saved", "true");
 
-    // Moving the live window re-enables Save; a second Save adds a second entry.
-    await moveWindow(page, box, [0.3, 0.4], [0.3, 0.4]);
+    // Moving the live window (Python's write) re-enables Save; a second Save adds a second entry.
+    await setModel(page, { inspect_cx: cx0 - 40 });
     await expect(saveButton(page)).toHaveText("Save");
     await expect(saveButton(page)).toBeEnabled();
     expect(await save(page)).toBe(1);
     await expect(rows).toHaveCount(2);
 
     // A row restores its window, which is saved.
-    await moveWindow(page, box, [0.6, 0.6], [0.6, 0.6]);
+    await setModel(page, { inspect_cx: cx0 + 40 });
     await expect(saveButton(page)).toBeEnabled();
     await openSelectionsDock(page);
     await selectionRow(page, 0).click();
@@ -1418,7 +1390,9 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-channels", "1");
 
     await expect(view).toHaveAttribute("data-outside", "open");
-    await trimZHigh(page);
+    // A committed Z cut, as Python writes it; the face drag itself is covered by
+    // "dragging a volume face commits that cut and hides tissue outside the cut".
+    await setModel(page, { volume_cut: [0, 256, 0, 256, 0, 40] });
     await expect(view).toHaveAttribute("data-outside", "cut");
   });
 

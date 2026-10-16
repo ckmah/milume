@@ -1,55 +1,30 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { expect, type Page } from "@playwright/test";
 
 import { test } from "../fixtures";
 
-import { bootLandmarksHarness, getModel, waitForEngine } from "../helpers";
+import { bootLandmarksHarness, getModel, setModel, waitForEngine } from "../helpers";
 
-/** Harness-only second column on the committed xsmall fixture (even/odd split). */
+/** What `w.color = "harness_twin"` derives on the harness points (dev/export-harness-twin-color.py). */
+const twinColor = JSON.parse(
+  readFileSync(fileURLToPath(new URL("../../dev/harness-twin-color.json", import.meta.url)), "utf8"),
+);
+
 async function installHarnessTwinGroups(page: Page) {
-  await page.evaluate(() => {
-    const model = (window as any).__landmarksModel;
-    const b64Pts = model.get("points_data") || "";
-    const rawPts = Uint8Array.from(atob(b64Pts), (c) => c.charCodeAt(0));
-    const n = Math.floor(rawPts.length / 16);
-    const codes = new Int32Array(n);
-    for (let i = 0; i < n; i++) codes[i] = i % 2;
-    const bytes = new Uint8Array(codes.buffer);
-    let bin = "";
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    const codeB64 = btoa(bin);
-    model.set("category_columns", [
-      {
-        name: "harness_twin",
-        labels: ["group_a", "group_b"],
-        palette: ["#1f77b4", "#ff7f0e"],
-      },
-    ]);
-    model.set("active_category", "harness_twin");
-    model.set("legend_labels", ["group_a", "group_b"]);
-    model.set("legend_title", "harness_twin");
-    model.set("point_palette", ["#1f77b4", "#ff7f0e"]);
-    model.set("category_codes", codeB64);
-    model.set("color_mode", "categorical");
-    model.set("type_neighborhoods", [
-      {
-        id: "group_a",
-        column: "harness_twin",
-        neighborhood: "knn",
-        neighborhood_k: 8,
-        neighborhood_radius: 0,
-      },
-      {
-        id: "group_b",
-        column: "harness_twin",
-        neighborhood: "knn",
-        neighborhood_k: 8,
-        neighborhood_radius: 0,
-      },
-    ]);
-    model.set("selected_kind", "");
-    model.set("selected_index", -1);
-    model.set("selected_type_indices", []);
-    model.save_changes();
+  await setModel(page, {
+    ...twinColor,
+    type_neighborhoods: ["group_a", "group_b"].map((id) => ({
+      id,
+      column: "harness_twin",
+      neighborhood: "knn",
+      neighborhood_k: 8,
+      neighborhood_radius: 0,
+    })),
+    selected_kind: "",
+    selected_index: -1,
+    selected_type_indices: [],
   });
 }
 
