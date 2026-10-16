@@ -9,8 +9,9 @@
   }
 
   function apply() {
-    var t = theme();
+    var page = theme();
     document.querySelectorAll("video.ml-loop[data-src]").forEach(function (v) {
+      var t = v.getAttribute("data-only-theme") || page;
       var base = v.getAttribute("data-src");
       if (v.getAttribute("data-theme") === t) return;
       v.setAttribute("data-theme", t);
