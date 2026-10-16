@@ -73,10 +73,10 @@ def _(widget):
 
 
 @app.cell
-def _(mo, sdata, widget):
+def _(mo, widget):
     widget.value
     w = widget.widget
-    focus_n = len(list(w.get_focus_obs_names(sdata.tables["rna"])))
+    focus_n = len(w.get_obs_names("focus"))
     return mo.Html(f'<span data-testid="marimo-focus-count">{focus_n}</span>')
 
 

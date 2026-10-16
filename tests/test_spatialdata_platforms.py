@@ -57,7 +57,12 @@ def test_cosmx_no_noisy_missing_cube_warning(cosmx_sdata):
 
 def test_cosmx_get_obs_names_without_passing_adata(cosmx_sdata):
     w = LandmarksWidget(cosmx_sdata, spatial_key="global")
-    names = w.get_obs_names(selection_id="all")
+    (x0, x1), (y0, y1) = w.x_bounds, w.y_bounds
+    w.selections = [
+        {"id": "everything", "type": "rectangle", "cx": (x0 + x1) / 2, "cy": (y0 + y1) / 2,
+         "width": x1 - x0, "height": y1 - y0, "angle": 0.0}
+    ]
+    names = w.get_obs_names("everything")
     t = cosmx_sdata.tables["table"]
     assert len(names) == 6
     assert set(names) == set(t.obs_names.astype(str))
@@ -80,7 +85,7 @@ def test_cosmx_selection_picks_one_fov_in_global_px(cosmx_sdata):
             "height": 800.0,
         }
     ]
-    picked = set(w.get_obs_names(selection_id="fov1"))
+    picked = set(w.get_obs_names("fov1"))
     fov1 = set(t.obs_names[t.obs["fov"].astype(int) == 1].astype(str))
     assert picked == fov1
     assert len(picked) == 3
@@ -109,7 +114,7 @@ def test_xenium_selection_matches_spatial_subset(xenium_sdata):
             ],
         }
     ]
-    picked = set(w.get_obs_names(selection_id="left_half"))
+    picked = set(w.get_obs_names("left_half"))
     expected = set(t.obs_names[xy[:, 0] < xmid].astype(str))
     assert picked == expected
     assert 100 < len(picked) < t.n_obs

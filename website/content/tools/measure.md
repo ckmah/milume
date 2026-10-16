@@ -16,7 +16,7 @@ import milume
 from milume import landmarks_to_geodataframe
 w = milume.peek(adata, color="cell_type")
 gdf = landmarks_to_geodataframe(w.landmarks)
-sel = w.get_obs_names(adata, w.selections[-1]["id"])
+sel = w.get_obs_names(w.selections[-1]["id"])
 ```
 
 `obs_key` names the `obs` column to group cells by; every output has a `group` column with its values. When `obsm["spatial"]` has x, y and z, the outputs also carry `z` and `z_bin` (1 µm bins by default, `z_bin_size=None` turns them off).

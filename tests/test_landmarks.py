@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pytest
 
 from milume import LandmarksWidget
@@ -49,9 +50,13 @@ def test_get_obs_names_by_selection_shape(selection, expected):
     adata = adata_xy([0.0, 2.0, 2.0], [0.0, 2.0, 0.0])
     w = LandmarksWidget(adata)
     w.selections = [{"id": "s", **selection}]
-    assert list(w.get_obs_names(adata, selection_id="s")) == expected
-    assert list(w.get_obs_names(adata, selection_id="all")) == ["c0", "c1", "c2"]
-    assert list(w.get_obs_names(adata, selection_id="missing")) == []
+    names = w.get_obs_names("s")
+    assert isinstance(names, pd.Index)
+    assert list(names) == expected
+    with pytest.raises(KeyError, match="missing"):
+        w.get_obs_names("missing")
+    with pytest.raises(KeyError):
+        w.get_obs_names("all")
 
 
 def test_select_type_resets_union_from_python():
@@ -135,7 +140,7 @@ def test_browser_sync_remove_one_group_set_state():
     assert w.selected_type_indices == [1]
 
 
-def test_get_focus_obs_names_focused_selection():
+def test_focus_region_follows_focused_selection():
     adata = adata_xy([0.0, 2.0, 2.0], [0.0, 2.0, 0.0])
     w = LandmarksWidget(adata)
     w.selections = [
@@ -144,12 +149,15 @@ def test_get_focus_obs_names_focused_selection():
     ]
     w.selected_kind = "selection"
     w.selected_index = 0
-    assert list(w.get_focus_obs_names(adata)) == ["c0"]
+    assert list(w.get_obs_names("focus")) == ["c0"]
     w.selected_index = 1
-    assert set(w.get_focus_obs_names(adata)) == {"c1", "c2"}
+    assert set(w.get_obs_names("focus")) == {"c1", "c2"}
+    assert list(w.get_obs_names("focus")) == list(w.get_obs_names("s1"))
+    w.selected_kind = ""
+    assert w.get_obs_names("focus").empty
 
 
-def test_get_focus_obs_names_type_union():
+def test_focus_region_is_type_union():
     adata = adata_xy(
         [0.0, 1.0, 2.0, 3.0],
         np.zeros(4),
@@ -159,9 +167,9 @@ def test_get_focus_obs_names_type_union():
     w.selected_kind = "type"
     w.selected_index = 0
     w.selected_type_indices = [0]
-    assert list(w.get_focus_obs_names(adata)) == ["c0", "c2"]
+    assert list(w.get_obs_names("focus")) == ["c0", "c2"]
     w.selected_type_indices = [0, 1]
-    assert set(w.get_focus_obs_names(adata)) == {"c0", "c1", "c2", "c3"}
+    assert set(w.get_obs_names("focus")) == {"c0", "c1", "c2", "c3"}
 
 
 def test_category_colors_match_the_legend():
@@ -180,3 +188,13 @@ def test_peek_builds_a_landmarks_widget():
 
     w = milume.peek(adata_xy(np.array([0.0, 1.0]), np.array([0.0, 1.0])))
     assert isinstance(w, LandmarksWidget)
+
+
+def test_hidden_selection_still_returns_its_cells():
+    adata = adata_xy([0.0, 2.0, 2.0], [0.0, 2.0, 0.0])
+    w = LandmarksWidget(adata)
+    w.selections = [{"id": "s", "type": "points", "point_indices": [0, 2], "hidden": True}]
+    assert list(w.get_obs_names("s")) == ["c0", "c2"]
+    w.selected_kind = "selection"
+    w.selected_index = 0
+    assert list(w.get_obs_names("focus")) == ["c0", "c2"]

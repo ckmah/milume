@@ -20,7 +20,7 @@ SPATIALDATA_PATH = ROOT / "milume" / "spatialdata_landmarks.py"
 _SECTION_RE = re.compile(r"^\s*# --- (.+?) ---\s*$")
 # One-line meanings for public traitlets (kept in sync with milume/landmarks.py).
 _PUBLIC_MEANINGS: dict[str, str] = {
-    "selections": "Region dicts; join to adata via `get_obs_names` / `assign_obs_mask`.",
+    "selections": "Region dicts; join to adata via `get_obs_names(region)`.",
     "landmarks": "Committed landmark annotations (round-trip with GeoDataFrame helpers).",
     "selected_kind": 'Active item kind (`""` when none).',
     "selected_index": "Index of active selection or landmark (`-1` when none).",
@@ -67,15 +67,12 @@ _NOTEBOOK_METHODS = (
     "set_render_mode",
     "set_raster_basis",
     "clear_raster_query",
-    "set_color",
     "category_colors",
     "clear_selections",
     "clear_landmarks",
     "clear",
     "select_type",
-    "get_focus_obs_names",
     "get_obs_names",
-    "assign_obs_mask",
 )
 
 _GDF_FUNCTIONS = (

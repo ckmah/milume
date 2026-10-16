@@ -8,6 +8,7 @@ import warnings
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pandas as pd
 import traitlets
 from anndata import AnnData
 from anywidget import AnyWidget
@@ -27,7 +28,7 @@ from .genes import (
     gene_names_from_adata,
     pack_eager_gene_matrix,
 )
-from .selection import selection_mask
+from .selection import selection_by_id, selection_mask
 
 if TYPE_CHECKING:
     import numpy as np
@@ -1074,103 +1075,65 @@ class LandmarksWidget(AnyWidget):
                 self.selected_index = idx
                 self.selected_type_indices = [idx]
 
-    def get_focus_obs_names(
-        self,
-        adata: Any,
-        *,
-        spatial_key: str = "spatial",
-    ) -> "np.ndarray":
-        """``obs_names`` for the current type or selection focus (multi-type union)."""
-        import numpy as np
+    def get_obs_names(self, region: str) -> "pd.Index":
+        """``obs_names`` of the cells in ``region`` as a ``pd.Index``.
 
-        kind = str(self.selected_kind or "")
-        if kind == "selection":
-            selections = list(self.selections or [])
-            idx = int(self.selected_index)
-            if idx < 0 or idx >= len(selections):
-                return np.asarray([], dtype=str)
-            sel_id = selections[idx].get("id")
-            if not sel_id:
-                return np.asarray([], dtype=str)
-            return self.get_obs_names(adata, str(sel_id), spatial_key=spatial_key)
-        if kind != "type":
-            return np.asarray([], dtype=str)
-        indices = list(self.selected_type_indices or [])
-        if not indices and int(self.selected_index) >= 0:
-            indices = [int(self.selected_index)]
-        if not indices:
-            return np.asarray([], dtype=str)
-        active = str(self.active_category or "")
-        cols = list(self.category_columns or [])
-        col_idx = next((i for i, c in enumerate(cols) if c.get("name") == active), -1)
-        if col_idx < 0:
-            return np.asarray([], dtype=str)
-        b64 = str(self.category_codes or "")
-        if not b64:
-            return np.asarray([], dtype=str)
-        raw = np.frombuffer(base64.b64decode(b64), dtype=np.int32)
-        n = int(getattr(self, "_data_x", np.empty(0)).shape[0])
-        if n <= 0 or raw.size < n * len(cols):
-            return np.asarray([], dtype=str)
-        codes = raw[col_idx * n : (col_idx + 1) * n]
-        want = {int(i) for i in indices if int(i) >= 0}
-        mask = np.isin(codes, list(want))
-        names = np.asarray(self._obs_names.astype(str))
-        return names[np.asarray(mask, dtype=bool)]
-
-    def get_obs_names(
-        self,
-        adata: Any = None,
-        selection_id: str | None = "all",
-        *,
-        spatial_key: str = "spatial",
-    ) -> "np.ndarray":
-        """``obs_names`` of cells inside ``selection_id`` (durable join key).
-
-        Uses `selection_mask` (geometry or stored `point_indices`).
-        Neighborhood expand is client-side; promote freezes membership into
-        ``point_indices`` before syncing.
-
-        With no ``adata`` the widget's own coordinates and names are used, so
-        the result cannot depend on which ``spatial_key`` you pass.
+        ``region`` is a selection id from ``w.selections``, or ``"focus"`` for
+        the focused selection or category groups (empty when nothing is
+        focused). A hidden selection still returns its cells; hiding only
+        affects display. Raises ``KeyError`` for an unknown id. Write a column with
+        ``adata.obs[key] = adata.obs_names.isin(w.get_obs_names(region))``.
         """
-        import numpy as np
-
-        cached = getattr(self, "_data_x", None)
-        if adata is None:
-            x, y, names = cached, self._data_y, np.asarray(self._obs_names.astype(str))
-        else:
-            xy = np.asarray(adata.obsm[spatial_key], dtype=np.float64)
-            if cached is None or xy.shape[0] != int(cached.shape[0]):
-                raise ValueError(
-                    "adata row count != widget points; rebuild the widget after filtering"
-                )
-            x, y, names = xy[:, 0], xy[:, 1], np.asarray(adata.obs_names.astype(str))
+        names = pd.Index(self._obs_names)
+        if region == "focus":
+            return names[self._focus_mask()]
+        if selection_by_id(list(self.selections), region) is None:
+            known = [str(s.get("id")) for s in self.selections]
+            raise KeyError(f"no selection {region!r}; known ids: {known} (or 'focus')")
         mask = selection_mask(
             list(self.selections),
-            x,
-            y,
-            selection_id,
+            self._data_x,
+            self._data_y,
+            region,
             x_scale=self._x_scale,
             y_scale=self._y_scale,
         )
         return names[np.asarray(mask, dtype=bool)]
 
-    def assign_obs_mask(
-        self,
-        adata: Any,
-        key: str,
-        selection_id: str | None = "all",
-        *,
-        spatial_key: str = "spatial",
-    ) -> None:
-        """Write a boolean column on ``adata.obs`` for the current selection."""
-        names = set(
-            self.get_obs_names(
-                adata, selection_id, spatial_key=spatial_key
-            ).tolist()
-        )
-        adata.obs[key] = [str(n) in names for n in adata.obs_names.astype(str)]
+    def _focus_mask(self) -> "np.ndarray":
+        n = int(self._data_x.shape[0])
+        none = np.zeros(n, dtype=bool)
+        kind = str(self.selected_kind or "")
+        if kind == "selection":
+            selections = list(self.selections or [])
+            idx = int(self.selected_index)
+            if idx < 0 or idx >= len(selections) or not selections[idx].get("id"):
+                return none
+            return np.asarray(
+                selection_mask(
+                    selections,
+                    self._data_x,
+                    self._data_y,
+                    str(selections[idx]["id"]),
+                    x_scale=self._x_scale,
+                    y_scale=self._y_scale,
+                ),
+                dtype=bool,
+            )
+        if kind != "type":
+            return none
+        indices = list(self.selected_type_indices or [])
+        if not indices and int(self.selected_index) >= 0:
+            indices = [int(self.selected_index)]
+        cols = list(self.category_columns or [])
+        col_idx = next((i for i, c in enumerate(cols) if c.get("name") == self.active_category), -1)
+        if not indices or col_idx < 0 or not self.category_codes:
+            return none
+        raw = np.frombuffer(base64.b64decode(self.category_codes), dtype=np.int32)
+        if raw.size < n * len(cols):
+            return none
+        codes = raw[col_idx * n : (col_idx + 1) * n]
+        return np.isin(codes, [int(i) for i in indices if int(i) >= 0])
 
 
 _PUBLIC_TRAITS: dict[str, str] = {
@@ -1188,9 +1151,7 @@ _PUBLIC_TRAITS: dict[str, str] = {
     "clear_landmarks": "Remove every landmark.",
     "clear": "Remove all selections and landmarks.",
     "select_type": "Focus one category group of the active column.",
-    "get_obs_names": "obs_names of cells inside a selection.",
-    "get_focus_obs_names": "obs_names of the focused type or selection.",
-    "assign_obs_mask": "Write a boolean adata.obs column for a selection.",
+    "get_obs_names": "pd.Index of obs_names in a selection id or 'focus'; KeyError on unknown ids.",
     "set_points": "Move the scatter points to new x/y; colour is set with color.",
     "set_expression": "Replace the packed gene catalogue from a table.",
     "set_render_mode": "Switch between points and raster bins.",

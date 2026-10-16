@@ -62,8 +62,8 @@ The cells inside stay at full color and the right panel counts only them. A smal
 `w.selections` updates on every edit. Join hits to observations by name:
 
 ```python
-hits = w.get_obs_names(adata, sel_id)  # obs names inside
-w.assign_obs_mask(adata, "in_region", selection_id=sel_id)
+hits = w.get_obs_names(sel_id)  # pd.Index of obs names inside
+adata.obs["in_region"] = adata.obs_names.isin(hits)
 w.clear_selections()
 ```
 

@@ -16,7 +16,7 @@ w = milume.peek(sdata)  # table, labels, image inferred
 ```
 
 Returns a `LandmarksWidget` handle. Synced traitlets include `w.selections` and
-`w.landmarks`; join to `adata` with `get_obs_names` / `assign_obs_mask`.
+`w.landmarks`; join to `adata` with `get_obs_names(region)`.
 
 ## Constructor parameters
 
