@@ -72,11 +72,9 @@ def test_selection_membership_is_written_to_obs_by_name():
             "vertices": [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]],
         }
     ]
-    assert list(w.get_obs_names(adata, selection_id="selection 1")) == ["c0"]
-    w.assign_obs_mask(adata, "in_sel", selection_id="selection 1")
+    assert list(w.get_obs_names("selection 1")) == ["c0"]
+    adata.obs["in_sel"] = adata.obs_names.isin(w.get_obs_names("selection 1"))
     assert adata.obs["in_sel"].tolist() == [True, False, False, False]
-    with pytest.raises(ValueError, match="row count"):
-        w.get_obs_names(adata[["c0", "c2"]].copy(), selection_id="selection 1")
 
 
 def test_integer_coordinates_are_accepted():
@@ -100,7 +98,7 @@ def test_get_obs_names_needs_no_table():
             "vertices": [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]],
         }
     ]
-    assert list(w.get_obs_names(selection_id="selection 1")) == ["c0"]
+    assert list(w.get_obs_names("selection 1")) == ["c0"]
 
 
 def test_write_obs_joins_scores_by_obs_name():

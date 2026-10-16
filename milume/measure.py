@@ -33,7 +33,7 @@ each cell's `z` and `z_bin`, and `composition` counts per `z_bin`
 (`z_bin_size`, default 1 coordinate unit, i.e. 1 µm; None turns it off).
 
 Selection measures (`enrichment`, `nearest_distances`) take cell ids instead,
-e.g. `widget.get_obs_names(adata, selection_id)`.
+e.g. `widget.get_obs_names(region)`.
 """
 
 from __future__ import annotations
@@ -297,7 +297,7 @@ def distances(
             docstring).
         obs_key: `obs` column copied into the returned `group` field.
         spatial_key: `obsm` key for coordinates (default "spatial").
-        obs_names: Optional cell subset (e.g. `widget.get_obs_names(...)`).
+        obs_names: Optional cell subset (e.g. `widget.get_obs_names(region)`).
             None uses all cells.
         z_bin_size: z bin width in coordinate units (default 1, i.e. 1 µm).
             None leaves out the z columns. Ignored for 2D coordinates.
@@ -463,7 +463,7 @@ def enrichment(
 ) -> pd.DataFrame:
     """Composition of a cell subset against a background, per `obs_key` group.
 
-    Typical subset: a Selection's cells (`widget.get_obs_names(adata, id)`),
+    Typical subset: a Selection's cells (`widget.get_obs_names(region)`),
     e.g. a cell type's promoted neighborhood. `log2_enrichment` > 0 means the
     group is over-represented in the subset relative to the background.
 

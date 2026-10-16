@@ -124,7 +124,7 @@ Read results back in Python:
 
 | Need | Call |
 | --- | --- |
-| Cells in a selection | `w.get_obs_names(adata, selection_id)`, `w.assign_obs_mask(adata, key, selection_id)` |
+| Cells in a selection | `w.get_obs_names(selection_id)` or `w.get_obs_names("focus")` (a `pd.Index`); `adata.obs[key] = adata.obs_names.isin(w.get_obs_names(selection_id))` |
 | Landmarks as geometry | `landmarks_to_geodataframe(w.landmarks)` |
 | Measure against landmarks | `distances`, `composition`, `along_positions` (+ `write_obs`) |
 | Compare a subset with the tissue | `enrichment(adata, obs_names, obs_key=...)` |

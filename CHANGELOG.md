@@ -19,3 +19,18 @@ Migration:
 | `w.color_by` | removed; the internal mode is derived from `w.color` |
 
 Custom category colours still come from `adata.uns["<column>_colors"]`.
+
+### One region reader
+
+`w.get_obs_names(region)` is the only way to read cells in a region. `region` is required: a selection id from `w.selections`, or `"focus"` for the focused selection or category groups (empty when nothing is focused). It returns a `pd.Index` and raises `KeyError` for an unknown id. The `adata` argument is gone; the widget's own coordinates and `obs_names` are used.
+
+Migration:
+
+| 1.3.x | 1.4.0 |
+|---|---|
+| `w.get_obs_names(adata, sel_id)` / `w.get_obs_names(selection_id=sel_id)` | `w.get_obs_names(sel_id)` |
+| `w.get_obs_names(adata, "missing")` returned an empty array | raises `KeyError` |
+| `w.get_obs_names()` / `selection_id="all"` / `None` returned every cell | `adata.obs_names` |
+| `w.get_focus_obs_names(adata)` | `w.get_obs_names("focus")` |
+| `w.assign_obs_mask(adata, key, sel_id)` | `adata.obs[key] = adata.obs_names.isin(w.get_obs_names(sel_id))` |
+| result was a `np.ndarray` of str | result is a `pd.Index` |

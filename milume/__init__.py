@@ -36,7 +36,7 @@ Returns
 LandmarksWidget
     Widget handle ``w``. Synced traitlets include ``w.selections`` and
     ``w.landmarks``; join to ``adata`` with
-    `get_obs_names` / `assign_obs_mask`.
+    `get_obs_names(region)`.
 
 Examples
 --------

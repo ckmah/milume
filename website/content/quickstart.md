@@ -27,11 +27,8 @@ join to observations by name (not row index):
 import pandas as pd
 
 sel_id = w.selections[-1]["id"]
-hits = w.get_obs_names(adata, sel_id)
+hits = w.get_obs_names(sel_id)  # pd.Index; "focus" reads the focused selection or types
 adata.obs["in_lasso"] = adata.obs_names.isin(hits)
-
-# or write a boolean column in one call
-w.assign_obs_mask(adata, "in_lasso", selection_id=sel_id)
 
 summary = pd.DataFrame({"cell_type": adata.obs.loc[hits, "cell_type"].value_counts()})
 ```

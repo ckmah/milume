@@ -18,7 +18,7 @@ from spatial extent.
 Neighborhood expand (k-NN / radius) runs **in the browser** from coordinates
 (spatial index). No `obsp` neighbor graphs are required or synced. Promote
 freezes membership into selection `point_indices`. Persist selections as
-`obs_names` via `get_obs_names` / `assign_obs_mask` (geometry or
+`obs_names` via `get_obs_names(region)` (geometry or
 `point_indices`), not positional indices.
 
 Synced on interaction: `landmarks`, `selections`, and selection focus. Other
@@ -86,7 +86,7 @@ SpatialData attach/auto-save
 **Selection**:
 A region of tissue coordinates chosen for downstream analysis (lasso, polygon,
 rectangle, ellipse). Selections stay on the widget as synced geometry; persist
-hits via `get_obs_names` / `assign_obs_mask` as `obs_names`, not positional
+hits via `get_obs_names(region)` as `obs_names`, not positional
 indices. Selections are intentionally different from Categories / Genes /
 Landmarks layer chrome and are not written to SpatialData in M1.
 _Avoid_: layer-parity UX with landmarks; SpatialData export of selections

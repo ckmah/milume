@@ -17,13 +17,11 @@ _NOTEBOOK_METHODS = (
     "set_render_mode",
     "set_raster_basis",
     "clear_raster_query",
-    "set_color",
     "category_colors",
     "clear_selections",
     "clear_landmarks",
     "clear",
     "get_obs_names",
-    "assign_obs_mask",
 )
 
 
