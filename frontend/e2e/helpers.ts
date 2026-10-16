@@ -201,6 +201,8 @@ export async function applyMolabShadowEmbed(page: Page, opts: { scale?: boolean 
       outer.style.paddingTop = "40vh";
       outer.style.paddingBottom = "40vh";
       document.body.prepend(outer);
+      const created = outer;
+      ((window as any).__e2eUndo ??= []).push(() => created.remove());
     }
     let host = document.getElementById("molab-anywidget-host");
     if (!host) {
@@ -241,6 +243,16 @@ export async function applyMolabShadowEmbed(page: Page, opts: { scale?: boolean 
       pick.width = webgl.width || webgl.clientWidth;
       pick.height = webgl.height || webgl.clientHeight;
       plot.appendChild(pick);
+      const prevPosition = plot.style.getPropertyValue("position");
+      ((window as any).__e2eUndo ??= []).push(() => {
+        pick.remove();
+        plot.style.position = prevPosition;
+      });
+    }
+    if (!(window as any).__molabPickingLeaveHook) {
+      ((window as any).__e2eUndo ??= []).push(() => {
+        delete (window as any).__molabPickingLeaveHook;
+      });
     }
     (window as any).__molabPickingLeaveHook = () => {
       const canvas = visit(document);
@@ -268,6 +280,11 @@ export async function applyMolabViewportStress(page: Page) {
   await page.evaluate(() => {
     const root = document.querySelector(".landmarks") as HTMLElement | null;
     if (!root) return;
+    const prev = [root.style.transform, root.style.transformOrigin];
+    ((window as any).__e2eUndo ??= []).push(() => {
+      root.style.transform = prev[0];
+      root.style.transformOrigin = prev[1];
+    });
     root.style.transform = "scale(0.88)";
     root.style.transformOrigin = "center center";
   });
@@ -283,8 +300,16 @@ export async function growLandmarksFromZeroHeight(page: Page, openHeightPx = 560
     if (!shell) {
       shell = document.createElement("div");
       shell.id = "molab-deferred-shell";
-      widget.parentElement.insertBefore(shell, widget);
+      const parent = widget.parentElement;
+      parent.insertBefore(shell, widget);
       shell.appendChild(widget);
+      // React still owns the widget under `parent`: move it back before the next remount,
+      // or React's removeChild throws and the harness never renders `.landmarks` again.
+      const created = shell;
+      ((window as any).__e2eUndo ??= []).push(() => {
+        for (const child of Array.from(created.childNodes)) parent.insertBefore(child, created);
+        created.remove();
+      });
     }
     shell.style.height = "0";
     shell.style.overflow = "hidden";

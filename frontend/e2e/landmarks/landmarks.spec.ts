@@ -614,6 +614,7 @@ test.describe("LandmarksWidget", () => {
           const foreign = document.createElement("canvas");
           foreign.id = "deck-picking-swap-stub";
           document.body.appendChild(foreign);
+          ((window as any).__e2eUndo ??= []).push(() => foreign.remove());
           canvas?.dispatchEvent(
             new MouseEvent("mouseleave", { bubbles: true, relatedTarget: foreign }),
           );
@@ -643,6 +644,8 @@ test.describe("LandmarksWidget", () => {
             host = document.createElement("div");
             host.id = "molab-anywidget-host";
             document.body.appendChild(host);
+            const created = host;
+            ((window as any).__e2eUndo ??= []).push(() => created.remove());
           }
           canvas?.dispatchEvent(
             new MouseEvent("mouseleave", { bubbles: true, relatedTarget: host }),

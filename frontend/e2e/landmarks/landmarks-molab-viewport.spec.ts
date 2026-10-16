@@ -57,6 +57,7 @@ test.describe("molab viewport stress (deferred layout, CSS scale)", () => {
           const canvas = document.querySelector("canvas.landmarks__webgl");
           const foreign = document.createElement("canvas");
           document.body.appendChild(foreign);
+          ((window as any).__e2eUndo ??= []).push(() => foreign.remove());
           canvas?.dispatchEvent(
             new MouseEvent("mouseleave", { bubbles: true, relatedTarget: foreign }),
           );
