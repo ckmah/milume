@@ -1146,6 +1146,8 @@ _PUBLIC_TRAITS: dict[str, str] = {
     "inspect_cx": "Inspect window centre x in spatial units, or None before placement.",
     "inspect_cy": "Inspect window centre y in spatial units, or None before placement.",
     "inspect_size_um": "Inspect window side length in µm.",
+    "active_category": "Name of the obs column driving categorical colour and type focus.",
+    "active_genes": "Genes shown in the expression blend; unknown genes are dropped.",
     "category_colors": "Label to hex colour map of a categorical column as drawn.",
     "clear_selections": "Remove every selection.",
     "clear_landmarks": "Remove every landmark.",

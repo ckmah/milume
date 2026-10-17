@@ -96,3 +96,20 @@ def test_llms_txt_lists_exactly_registry(tmp_path):
     text = (tmp_path / "llms.txt").read_text(encoding="utf-8")
     listed = set(re.findall(r"^- `([a-z_0-9]+)`: ", text, re.MULTILINE))
     assert listed == set(_PUBLIC_TRAITS)
+
+
+def test_wheel_ships_skill(tmp_path):
+    import shutil
+    import zipfile
+
+    if shutil.which("uv") is None:
+        pytest.skip("uv not installed")
+    subprocess.run(
+        ["uv", "build", "--wheel", "--out-dir", str(tmp_path), str(ROOT)],
+        check=True,
+        capture_output=True,
+    )
+    (wheel,) = tmp_path.glob("milume-*.whl")
+    with zipfile.ZipFile(wheel) as zf:
+        shipped = zf.read("milume/skills/use-milume/SKILL.md").decode("utf-8")
+    assert shipped == SKILL.read_text(encoding="utf-8")

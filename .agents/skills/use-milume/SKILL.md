@@ -115,6 +115,8 @@ w.landmarks = geodataframe_to_landmarks(gdf)
 | `w.inspect_cx` | trait | Inspect window centre x in spatial units, or None before placement. |
 | `w.inspect_cy` | trait | Inspect window centre y in spatial units, or None before placement. |
 | `w.inspect_size_um` | trait | Inspect window side length in µm. |
+| `w.active_category` | trait | Name of the obs column driving categorical colour and type focus. |
+| `w.active_genes` | trait | Genes shown in the expression blend; unknown genes are dropped. |
 | `w.category_colors()` | method | Label to hex colour map of a categorical column as drawn. |
 | `w.clear_selections()` | method | Remove every selection. |
 | `w.clear_landmarks()` | method | Remove every landmark. |
