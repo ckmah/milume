@@ -41,13 +41,14 @@ Migration:
 New: `w.inspect_open` opens and closes the Inspect cube without a click (needs a widget built from SpatialData with a 3D image).
 
 ```python
-w.inspect_cx, w.inspect_cy = 120.0, 140.0  # optional: defaults to the volume centre
+w.inspect_cx, w.inspect_cy = 120.0, 140.0  # optional: with no window placed it opens at the volume centre
 w.inspect_open = True                      # switches to Inspect and opens the cube there
 w.inspect_cx = 150.0                       # moves the window and the open cube
-w.inspect_open = False                     # closes it
+w.inspect_open = False                     # closes it and exits Inspect, like Exit
 ```
 
 - Setting `inspect_cx` / `inspect_cy` now moves the map's window square too, not only the cube.
-- `inspect_open` follows the browser: opening or closing the cube there (a click, Esc, Exit) updates it.
+- The default position is the volume centre: `w.inspect_open = True` with `inspect_cx` / `inspect_cy` still `None` opens the cube there.
+- `inspect_open` follows the browser: opening the cube there (a click) reads `True`; closing it (Esc) or leaving Inspect (Exit) reads `False`.
 - `w.inspect_open = True` without a 3D image raises `ValueError`.
 - `volume` and `volume_cut` join `inspect_open` in the public API.

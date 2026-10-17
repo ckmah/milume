@@ -609,12 +609,26 @@ test.describe("Landmarks inspect cube", () => {
     await expect.poll(placed).toEqual([100, inspectOpen.inspect_cy]);
     await expect(cubeWindow(page)).toBeVisible();
 
-    // `w.inspect_open = False` closes the cube and stays in Inspect.
+    // `w.inspect_open = False` closes the cube and exits Inspect, like Exit: back to the tool before it.
     await setModel(page, { inspect_open: false });
     await expect(cubeWindow(page)).toHaveCount(0);
-    await expect(inspectPill(page)).toBeVisible();
+    await expect(inspectPill(page)).toHaveCount(0);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
     expect(await getModel(page, "inspect_open")).toBe(false);
     expect(await getModel(page, "inspect_cx")).toBe(100);
+  });
+
+  test("Python's close returns to the tool used before Inspect", async ({ page }) => {
+    const tools = page.getByRole("toolbar", { name: "Drawing tools" });
+    await tools.getByRole("radio", { name: "Probe", exact: true }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("probe");
+    await setModel(page, inspectOpen);
+    await expect(cubeWindow(page)).toBeVisible();
+    expect(await getModel(page, "mode")).toBe("inspect");
+    await setModel(page, { inspect_open: false });
+    await expect(inspectPill(page)).toHaveCount(0);
+    await expect.poll(() => getModel(page, "mode")).toBe("probe");
+    await expect(tools.getByRole("radio", { name: "Probe", exact: true })).toHaveAttribute("aria-checked", "true");
   });
 
   test("the browser writes inspect_open back when the user opens or closes the cube", async ({ page }) => {
@@ -624,9 +638,15 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(cubeWindow(page)).toBeVisible();
     await expect.poll(() => getModel(page, "inspect_open")).toBe(true);
+    // Esc closes the cube (a second Esc exits Inspect): Python reads False, and
+    // that write-back never makes the widget exit on its own.
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
     await expect.poll(() => getModel(page, "inspect_open")).toBe(false);
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
+    await page.keyboard.press("Escape");
+    await expect(inspectPill(page)).toHaveCount(0);
+    expect(await getModel(page, "inspect_open")).toBe(false);
     // Reopened from Python, then Exit: leaving Inspect closes it, and Python hears that too.
     await setModel(page, { inspect_open: true });
     await expect(cubeWindow(page)).toBeVisible();

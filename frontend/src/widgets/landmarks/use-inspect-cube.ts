@@ -220,9 +220,12 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   }, [engine, cx, cy]);
 
   // `inspect_open` mirrors the cube. The widget writes it when the cube opens
-  // or closes (a release, Esc, Exit, leaving Inspect); Python's write opens the
-  // cube at `inspect_cx/cy` (entering Inspect) or closes it. A request the
-  // widget cannot honour (no 3D image, no window) is written back as closed.
+  // or closes (a release, Esc, Exit, leaving Inspect: all read as closed).
+  // Python's `True` opens the cube at `inspect_cx/cy` (entering Inspect); its
+  // `False` exits Inspect like Exit, since in Inspect only the cube matters. A
+  // request the widget cannot honour (no 3D image, no window) is written back
+  // as closed. Esc only closes the cube (a second Esc exits): Python reads
+  // `False` either way, and the effect below never answers that write.
   const shownOpenRef = useRef(cube.open);
   useEffect(() => {
     if (shownOpenRef.current === cube.open) return;
@@ -238,7 +241,8 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     const want = Boolean(facade.get("inspect_open"));
     if (want === cubeOpenRef.current) return;
     if (!want) {
-      patchCube({ open: false });
+      // Python closed an open cube: leave Inspect, back to the tool used before it.
+      exitRef.current();
       return;
     }
     const x = facade.get("inspect_cx") as number | null;

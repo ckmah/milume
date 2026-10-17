@@ -344,8 +344,9 @@ class LandmarksWidget(AnyWidget):
     inspect_cx = traitlets.Float(allow_none=True, default_value=None).tag(sync=True)
     inspect_cy = traitlets.Float(allow_none=True, default_value=None).tag(sync=True)
     inspect_size_um = traitlets.Float(300.0).tag(sync=True)
-    # Whether the Inspect cube is open. Python opens it (at inspect_cx/cy) and closes
-    # it; the browser writes it when the user opens or closes the cube.
+    # Whether the Inspect cube is open. True opens it at inspect_cx/cy (the volume
+    # centre when no window is placed); False closes it and exits Inspect, like Exit.
+    # The browser writes False when the user closes the cube or leaves Inspect.
     inspect_open = traitlets.Bool(False).tag(sync=True)
     active_category = traitlets.Unicode("").tag(sync=True)
     # View-only gene selection (chrome ↔ engine); not a notebook analysis API.
@@ -1169,7 +1170,7 @@ _PUBLIC_TRAITS: dict[str, str] = {
     "inspect_cx": "Inspect window centre x in spatial units, or None before placement; set it to move the window and the open cube.",
     "inspect_cy": "Inspect window centre y in spatial units, or None before placement; set it to move the window and the open cube.",
     "inspect_size_um": "Inspect window side length in µm.",
-    "inspect_open": "Whether the Inspect cube is open; True opens it at inspect_cx/cy (the volume centre if unset), False closes it. ValueError without a 3D image.",
+    "inspect_open": "Whether the Inspect cube is open; True opens it at inspect_cx/cy, or at the volume centre when no window is placed; False closes it and exits Inspect. ValueError without a 3D image.",
     "volume": "The 3D image behind the Inspect cube (image and labels paths, voxel size, origin, contrast); {} without one. Read it, don't set it.",
     "volume_cut": "Cube cut box [x0, x1, y0, y1, z0, z1] in µm; the browser writes it on slider release, assign it to cut from Python.",
     "active_category": "Name of the obs column driving categorical colour and type focus.",
