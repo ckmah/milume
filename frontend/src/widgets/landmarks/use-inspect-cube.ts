@@ -59,7 +59,7 @@ export type InspectCube = {
   onCutCommit: (cut: CubeCut) => void;
   /**
    * Esc in the widget's chrome while in Inspect (when the engine leaves it to
-   * React): closes the cube, or with no cube open, exits Inspect.
+   * React): closes the cube and exits Inspect, like Exit.
    */
   onKeyDown: (e: React.KeyboardEvent) => void;
   /** Leave Inspect: close the cube and go back to the tool used before it. */
@@ -160,11 +160,13 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     if (!engine) return;
     return engine.subscribeInspect((e) => {
       // Placements remember where the user put the window (for the settle commit);
-      // the release (end of the click or drag) and saves open the cube. Esc
-      // closes it; an Esc with no cube open (and no press to end) exits Inspect.
+      // the release (end of the click or drag) and saves open the cube. One Esc
+      // closes the cube and exits Inspect, like Exit, so Python's
+      // `inspect_open` and the widget never disagree (#215). An Esc that ends a
+      // press on the map (no cube open) only ends the press.
       if (e.type === "close") {
-        if (openRef.current || e.press) patchCube({ open: false });
-        else exitRef.current();
+        if (e.press && !openRef.current) return;
+        exitRef.current();
       } else if (!hasVolume) {
         return;
       } else if (e.type === "place") {
@@ -224,8 +226,8 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   // Python's `True` opens the cube at `inspect_cx/cy` (entering Inspect); its
   // `False` exits Inspect like Exit, since in Inspect only the cube matters. A
   // request the widget cannot honour (no 3D image, no window) is written back
-  // as closed. Esc only closes the cube (a second Esc exits): Python reads
-  // `False` either way, and the effect below never answers that write.
+  // as closed. One Esc closes the cube and exits Inspect, so the widget and
+  // Python never disagree; the effect below never answers that write.
   const shownOpenRef = useRef(cube.open);
   useEffect(() => {
     if (shownOpenRef.current === cube.open) return;
@@ -373,7 +375,11 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
         }
       }
     }
-    if (moved || newlyFocused) patchCube({ open: true });
+    if (moved || newlyFocused) {
+      // The cube only exists in Inspect: focusing a saved window from outside it enters Inspect.
+      if (lm.mode !== "inspect") setMode("inspect");
+      patchCube({ open: true });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engine, hasVolume, focusedId, focusedWin?.cx, focusedWin?.cy, focusedWin?.size_um, restoreTick]);
 
@@ -442,12 +448,11 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
       // Esc in an open menu, or an open panel of the bar (Adjust, Cross-section:
       // each closes itself), only closes that — never the cube.
       if (target?.closest?.('[role="menu"], [data-inspect-panel-group]')) return;
-      // `open` is this render's value, so the Esc that closes the cube never
-      // also exits Inspect. Esc in a text field only leaves the field.
-      if (open) patchCube({ open: false });
-      else if (!target?.closest?.('input, textarea, [contenteditable="true"], [role="combobox"]')) exitInspect();
+      // One Esc closes the cube and exits Inspect, like Exit. With no cube open,
+      // Esc in a text field only leaves the field.
+      if (open || !target?.closest?.('input, textarea, [contenteditable="true"], [role="combobox"]')) exitInspect();
     },
-    [mode, open, patchCube, exitInspect],
+    [mode, open, exitInspect],
   );
 
   const select = lm.select;

@@ -112,8 +112,9 @@ v.inspect_open = False                     # closes the cube and exits Inspect; 
   window placed (`inspect_cx`/`inspect_cy` still `None`) opens the cube there.
   Without a 3D image it raises `ValueError`.
 - `True` switches the widget to Inspect; `False` closes the cube and exits
-  Inspect, like the Exit button. In the browser, closing the cube (Esc) or
-  leaving Inspect both set `inspect_open` back to `False`.
+  Inspect, like the Exit button. In the browser, one Esc (or Exit) closes the
+  cube and leaves Inspect, and sets `inspect_open` back to `False`; Python and
+  the widget never disagree.
 - `volume_cut` is `[x0, x1, y0, y1, z0, z1]` in µm. The browser writes it when
   a cut slider is released; X and Y are clipped to the window when drawn.
 - `v.volume` describes the 3D image (`{}` without one). Read it, don't set it.

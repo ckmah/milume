@@ -61,7 +61,7 @@ w.volume_cut                               # cut-plane state: x0, x1, y0, y1, z0
 w.inspect_open = False                     # close the cube and exit Inspect
 ```
 
-The default position is the volume's center: `w.inspect_open = True` with no window placed opens the cube there. `w.inspect_open = False` closes the cube and exits Inspect, like Exit. It follows the browser too: opening the cube there reads `True`, and closing it (<kbd>Esc</kbd>) or leaving Inspect reads `False`.
+The default position is the volume's center: `w.inspect_open = True` with no window placed opens the cube there. `w.inspect_open = False` closes the cube and exits Inspect, like Exit. It follows the browser too: opening the cube there reads `True`, and <kbd>Esc</kbd> (one press closes the cube and exits Inspect) or Exit reads `False`.
 
 See [Synced traitlets](../api/landmarks.md#synced-traitlets) for the volume fields, and pass `image=` / `labels=` to `milume.peek` in [Constructor parameters](../api/landmarks.md#constructor-parameters).
 

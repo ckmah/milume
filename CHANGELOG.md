@@ -49,6 +49,7 @@ w.inspect_open = False                     # closes it and exits Inspect, like E
 
 - Setting `inspect_cx` / `inspect_cy` now moves the map's window square too, not only the cube.
 - The default position is the volume centre: `w.inspect_open = True` with `inspect_cx` / `inspect_cy` still `None` opens the cube there.
-- `inspect_open` follows the browser: opening the cube there (a click) reads `True`; closing it (Esc) or leaving Inspect (Exit) reads `False`.
+- `inspect_open` follows the browser: opening the cube there (a click) reads `True`; Esc or Exit reads `False`.
+- Behaviour change: one Esc in Inspect now closes the cube and leaves Inspect, back to the previous tool (Select if none), like Exit. It used to take two (close the cube, then leave), which left the widget in Inspect while `inspect_open` read `False`.
 - `w.inspect_open = True` without a 3D image raises `ValueError`.
 - `volume` and `volume_cut` join `inspect_open` in the public API.

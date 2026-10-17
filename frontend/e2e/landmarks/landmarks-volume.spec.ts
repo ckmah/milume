@@ -463,10 +463,16 @@ async function dragOnMap(page: Page, box: Box, from: [number, number], to: [numb
   await page.mouse.up();
 }
 
+/** Enter Inspect from the toolbar (no cube until a click or Python opens one). */
+async function enterInspect(page: Page) {
+  await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+  await expect(inspectPill(page)).toBeVisible();
+}
+
 /**
- * Move the live window while the immersive cube is open: close it (the map is
- * covered while it is open), then press-drag on the map; the cube opens again
- * on release.
+ * Move the live window while the immersive cube is open: Esc closes it and
+ * leaves Inspect (the map is covered while it is open), then re-enter Inspect
+ * and press-drag on the map; the cube opens again on release.
  */
 async function moveWindow(page: Page, box: Box, from: [number, number], to: [number, number]) {
   if (await cubeWindow(page).count()) {
@@ -476,6 +482,7 @@ async function moveWindow(page: Page, box: Box, from: [number, number], to: [num
     }
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await enterInspect(page);
   }
   await dragOnMap(page, box, from, to);
   await expect(cubeWindow(page)).toBeVisible();
@@ -638,15 +645,11 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(cubeWindow(page)).toBeVisible();
     await expect.poll(() => getModel(page, "inspect_open")).toBe(true);
-    // Esc closes the cube (a second Esc exits Inspect): Python reads False, and
-    // that write-back never makes the widget exit on its own.
+    // One Esc closes the cube and leaves Inspect: Python reads False.
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
-    await expect.poll(() => getModel(page, "inspect_open")).toBe(false);
-    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
-    await page.keyboard.press("Escape");
     await expect(inspectPill(page)).toHaveCount(0);
-    expect(await getModel(page, "inspect_open")).toBe(false);
+    await expect.poll(() => getModel(page, "inspect_open")).toBe(false);
     // Reopened from Python, then Exit: leaving Inspect closes it, and Python hears that too.
     await setModel(page, { inspect_open: true });
     await expect(cubeWindow(page)).toBeVisible();
@@ -832,24 +835,49 @@ test.describe("Landmarks inspect cube", () => {
     await page.getByTestId("inspect-pill").getByRole("button", { name: "Save window" }).click();
     await expect.poll(async () => (await selectionsOf(page)).length).toBe(1);
     const saved = (await selectionsOf(page))[0].window;
+    await moveWindow(page, box, [0.3, 0.3], [0.35, 0.3]);
+    // One Esc closes the cube and leaves Inspect; the row click re-enters it.
     await page.keyboard.press("Escape");
-    await dragOnMap(page, box, [0.3, 0.3], [0.35, 0.3]);
-    await expect(cubeWindow(page)).toBeVisible();
-    await page.keyboard.press("Escape");
+    await expect(inspectPill(page)).toHaveCount(0);
     await openSelectionsDock(page);
     await page.getByTestId("selection-row").first().click();
     await expect(cubeWindow(page)).toBeVisible();
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBe(saved.cx);
   });
 
-  test("Esc closes the cube, a second Esc exits Inspect", async ({ page }) => {
+  test("one Esc closes the cube and exits Inspect", async ({ page }) => {
     await openCubeAtCentre(page);
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
-    await expect(page.getByTestId("inspect-pill")).toHaveAttribute("data-state", "armed");
-    await page.keyboard.press("Escape");
     await expect(page.getByTestId("inspect-pill")).toHaveCount(0);
     await expect(page.getByRole("toolbar", { name: "Drawing tools" })).toBeVisible();
+  });
+
+  test("Esc in Inspect with no cube open exits Inspect too", async ({ page }) => {
+    await enterInspect(page);
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
+    await page.locator("canvas.landmarks__webgl").first().focus();
+    await page.keyboard.press("Escape");
+    await expect(inspectPill(page)).toHaveCount(0);
+  });
+
+  test("one Esc reads inspect_open False with Inspect left; True reopens the cube", async ({ page }) => {
+    const tools = page.getByRole("toolbar", { name: "Drawing tools" });
+    await openCubeAtCentre(page);
+    await expect.poll(() => getModel(page, "inspect_open")).toBe(true);
+    await page.keyboard.press("Escape");
+    // Python and the widget agree: closed, and out of Inspect (back to Select).
+    await expect.poll(() => getModel(page, "inspect_open")).toBe(false);
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(inspectPill(page)).toHaveCount(0);
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
+    await expect(tools.getByRole("radio", { name: "Select", exact: true })).toHaveAttribute("aria-checked", "true");
+    // `w.inspect_open = True` afterwards reopens the cube at the same window.
+    const cx = await getModel(page, "inspect_cx");
+    await setModel(page, { inspect_open: true });
+    await expect(cubeWindow(page)).toBeVisible();
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "open");
+    expect(await getModel(page, "inspect_cx")).toBe(cx);
   });
 
   test("Exit and Esc go back to the tool used before Inspect", async ({ page }) => {
@@ -865,8 +893,6 @@ test.describe("Landmarks inspect cube", () => {
     await openCubeAtCentre(page);
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
-    expect(await getModel(page, "mode")).toBe("inspect");
-    await page.keyboard.press("Escape");
     await expect.poll(() => getModel(page, "mode")).toBe("probe");
     await expect(tools.getByRole("radio", { name: "Probe", exact: true })).toHaveAttribute("aria-checked", "true");
   });
@@ -1187,6 +1213,7 @@ test.describe("Landmarks inspect cube", () => {
     // The map is covered while the cube is open: close it, then press on the map.
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await enterInspect(page);
     // The top pill (the Inspect pill in Inspect) sits over the map and is always on screen.
     const pill = (await inspectPill(page).getByText("Inspect", { exact: true }).boundingBox())!;
     const overChrome = { x: pill.x + pill.width / 2, y: pill.y + pill.height / 2 };
@@ -1210,6 +1237,7 @@ test.describe("Landmarks inspect cube", () => {
     // Esc between press and release: later moves drag nothing, and the cube does not open.
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await enterInspect(page);
     await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.7);
     await page.mouse.down();
     await page.keyboard.press("Escape");
@@ -1217,7 +1245,7 @@ test.describe("Landmarks inspect cube", () => {
     await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.7, { steps: 3 });
     await page.mouse.up();
     expect(await cx()).toBe(escaped);
-    // That Esc only ended the press: still in Inspect.
+    // An Esc that ends a press on the map (no cube open) only ends the press: still in Inspect.
     expect(await getModel(page, "mode")).toBe("inspect");
     await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
     // An open on release would be async, so this passes at once; the 300 ms-guarded
@@ -1269,6 +1297,7 @@ test.describe("Landmarks inspect cube", () => {
     // The map is covered while the cube is open: close it, then drag on the map.
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await enterInspect(page);
     await dragOnMap(page, box, [0.5, 0.5], [0.56, 0.5]);
     await expect.poll(async () => Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(cx0);
     // Released: the cube reopens, loads the new window, and settles with no residual pan.
@@ -1291,6 +1320,7 @@ test.describe("Landmarks inspect cube", () => {
     // The map is covered while the cube is open: close it so the press lands on the map.
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await enterInspect(page);
     // Record inspect_cx as saved (change events fire on save_changes only).
     await page.evaluate(() => {
       const model = (window as any).__landmarksModel;
@@ -1661,6 +1691,7 @@ test.describe("Landmarks inspect cube", () => {
     // go through the engine "close" event, so client cube.cut can stay OPEN until reopen.
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await enterInspect(page);
 
     await dragOnMap(page, box, [0.5, 0.5], [0.55, 0.5]);
     await expect(cubeWindow(page)).toBeVisible();
@@ -1739,7 +1770,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(await cutOf(page)).toEqual(zOnly);
   });
 
-  test("leaving Inspect closes the cube and frees the map; Esc from its chrome closes it", async ({ page }) => {
+  test("leaving Inspect closes the cube and frees the map; Esc from its chrome closes it and exits", async ({ page }) => {
     const box = await openCubeAtCentre(page);
     // The tool pill is swapped out in Inspect: Exit leaves it.
     await inspectPill(page).getByRole("button", { name: "Exit Inspect" }).click();
@@ -1756,25 +1787,24 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
     expect(await hitsMap()).toBe(true);
 
-    // Esc with focus in the Inspect toolbar: closes the cube; a second one there exits Inspect.
+    // Esc with focus in the Inspect toolbar: one press closes the cube and exits Inspect.
     await page.mouse.click(...centre);
     await expect(cubeWindow(page)).toBeVisible();
     await page.getByTestId("context-inspect-toolbar").getByRole("radio", { name: "Top view" }).click();
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
-    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
-    await page.keyboard.press("Escape");
     await expect(inspectPill(page)).toHaveCount(0);
     await expect.poll(() => getModel(page, "mode")).toBe("select");
     await page.getByRole("radio", { name: "Inspect", exact: true }).click();
 
-    // Esc after clicking into the cube window.
+    // Esc after clicking into the cube window: the same.
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(cubeWindow(page)).toBeVisible();
     await cubeWindow(page).locator(".volume-cube__view").click({ position: { x: 12, y: 12 } });
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
-    await expect(inspectPill(page)).toHaveAttribute("data-state", "armed");
+    await expect(inspectPill(page)).toHaveCount(0);
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
 
     // Leaving Inspect any other way (here Python sets the tool) closes the cube too.
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
@@ -2220,6 +2250,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-refining", "false");
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await enterInspect(page);
     const chunkRequests: string[] = [];
     page.on("request", (r) => {
       if (/\/s\d+\/c\//.test(r.url())) chunkRequests.push(r.url());
@@ -2491,6 +2522,7 @@ test.describe("Landmarks inspect cube", () => {
     // Reopened, the dock opens in the toolbar's preset (still Oblique).
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await enterInspect(page);
     await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-pitch", "35");
@@ -2538,6 +2570,7 @@ test.describe("Landmarks inspect cube", () => {
     // The hover preview is image-only and ignores dock layer toggles.
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await enterInspect(page);
     const box = await canvasBox(page);
     await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5, { steps: 3 });
     const pv = preview(page).locator(".volume-cube__view");
@@ -2584,6 +2617,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-overlays", "2");
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await enterInspect(page);
     const box = await canvasBox(page);
     await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5, { steps: 3 });
     await expect(preview(page)).toBeVisible();
@@ -2663,6 +2697,7 @@ test.describe("Landmarks inspect cube", () => {
     const box = await openCubeAtCentre(page);
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await enterInspect(page);
     await dragOnMap(page, box, [0.5, 0.5], [0.64, 0.5]);
     const view = cubeWindow(page).locator(".volume-cube__view");
     const canvas = view.locator("canvas");
