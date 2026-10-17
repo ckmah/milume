@@ -1,0 +1,131 @@
+---
+name: use-milume
+description: >-
+  Drive milume's LandmarksWidget from Python in a notebook: open it with
+  milume.peek, recolour with w.color, read the cells in a region with
+  w.get_obs_names, match plot colours with category_colors, and write
+  landmarks to or from a GeoDataFrame / SpatialData. Use when an agent writes
+  notebook code against milume (AnnData or SpatialData spatial omics).
+---
+
+# use-milume
+
+Notebook API for `milume` 1.4+. Only the entries listed under
+[Public API](#public-api) are supported; every other synced trait is internal
+and can change without notice.
+
+The examples assume an AnnData `adata` with `obsm["spatial"]`, an
+`obs["cell_type"]` column and a gene `APOB` in `var_names`. CI runs every
+`python` block on this page in order against a small fixture
+(`tests/test_use_milume_skill.py`).
+
+## Open the widget
+
+```python
+import milume
+
+w = milume.peek(adata, color="cell_type")
+w
+```
+
+`milume.peek(sdata)` takes a SpatialData too: the table, labels and 3D image
+are inferred. `color=` takes the same keys as `w.color`.
+
+## Colour by a column or a gene
+
+```python
+w.color = "APOB"       # a gene: expression ramp
+w.color = "cell_type"  # an obs column: categorical palette
+```
+
+- `w.color` takes an `adata.obs` column (categorical or numeric) or a gene in
+  `var_names`. A column added to `adata.obs` after the widget was built works.
+- An unknown key raises `milume.ColorKeyError` (a `KeyError`). A gene the
+  widget didn't pack (`genes=` left it out), or a category column with more
+  than 128 levels, raises `milume.ColorValueError` (a `ValueError`). Nothing
+  changes when it raises.
+- Re-assigning the same key does not repack a column you rewrote; assign
+  another key first.
+
+## Cells in a region
+
+Selections are drawn in the browser; each has an `id` in `w.selections`. You
+can also write one from Python:
+
+```python
+w.selections = [
+    {"id": "crypt", "type": "rectangle", "cx": 50.0, "cy": 50.0,
+     "width": 40.0, "height": 40.0, "angle": 0.0},
+]
+cells = w.get_obs_names("crypt")              # pd.Index of obs_names
+adata.obs["in_crypt"] = adata.obs_names.isin(cells)
+focused = w.get_obs_names("focus")            # the focused selection or category groups
+```
+
+- `get_obs_names(region)` needs a selection id or `"focus"`. An unknown id
+  raises `KeyError`. A hidden selection still returns its cells.
+- For every cell use `adata.obs_names`; there is no `"all"`.
+- Join by `obs_names`, never by position.
+
+## Match colours in other plots
+
+```python
+palette = w.category_colors("cell_type")  # {label: "#rrggbb"}, as the map draws it
+```
+
+Pass it to scanpy / matplotlib (`palette=`) so plots match the widget.
+
+## Landmarks to and from a GeoDataFrame
+
+```python
+from milume import geodataframe_to_landmarks, landmarks_to_geodataframe
+
+w.landmarks = [{"id": "crypt-axis", "type": "line", "vertices": [[10.0, 10.0], [90.0, 90.0]]}]
+gdf = landmarks_to_geodataframe(w.landmarks)
+w.landmarks = geodataframe_to_landmarks(gdf)
+```
+
+- Control points live in the JSON `vertices` column; `geometry` is a GIS proxy.
+  Round-trip through these two functions, not through `geometry`.
+- The widget never writes SpatialData. Save with `sdata["landmarks"] = gdf`
+  yourself.
+- Needs the optional `geopandas` and `shapely`.
+
+## Gotchas
+
+- Landmarks are 2D. In the 3D Inspect cube a landmark extends through the
+  full depth of the window; there is no z on a landmark.
+- Never join IDs across datasets: colon (`colon_a2`) and Pyxa (`small`,
+  `xsmall`, mouse brain) are different tissues, and their `obs_names` and
+  label ids do not correspond.
+- Don't set internal traits (`color_mode`, `category_codes`, `point_palette`,
+  …) to recolour; use `w.color`.
+
+## Public API
+
+<!-- BEGIN GENERATED: _PUBLIC_TRAITS (scripts/sync-use-milume-skill.py) -->
+| Name | Kind | What it is |
+| --- | --- | --- |
+| `w.color` | trait | obs column or gene the points are coloured by; assign a key to recolour (raises ColorKeyError / ColorValueError). |
+| `w.selections` | trait | Drawn selections as dicts with id, name, geometry and point indices. |
+| `w.landmarks` | trait | Drawn landmarks (points, lines, splines, shapes) as dicts. |
+| `w.selected_kind` | trait | Kind of the focused item: selection, landmark, type, or empty. |
+| `w.selected_index` | trait | Index of the focused item within its kind, or -1. |
+| `w.selected_type_indices` | trait | Focused category label indices when selected_kind is type. |
+| `w.inspect_cx` | trait | Inspect window centre x in spatial units, or None before placement. |
+| `w.inspect_cy` | trait | Inspect window centre y in spatial units, or None before placement. |
+| `w.inspect_size_um` | trait | Inspect window side length in µm. |
+| `w.active_category` | trait | Name of the obs column driving categorical colour and type focus. |
+| `w.active_genes` | trait | Genes shown in the expression blend; unknown genes are dropped. |
+| `w.category_colors()` | method | Label to hex colour map of a categorical column as drawn. |
+| `w.clear_selections()` | method | Remove every selection. |
+| `w.clear_landmarks()` | method | Remove every landmark. |
+| `w.clear()` | method | Remove all selections and landmarks. |
+| `w.select_type()` | method | Focus one category group of the active column. |
+| `w.get_obs_names()` | method | pd.Index of obs_names in a selection id or 'focus'; KeyError on unknown ids. |
+| `w.set_points()` | method | Move the scatter points to new x/y; colour is set with color. |
+| `w.set_expression()` | method | Replace the packed gene catalogue from a table. |
+| `w.set_render_mode()` | method | Switch between points and raster bins. |
+| `w.set_raster_basis()` | method | Pick the raster aggregation basis: genes, embedding or composition. |
+| `w.clear_raster_query()` | method | Clear the pinned raster similarity query. |
+<!-- END GENERATED -->

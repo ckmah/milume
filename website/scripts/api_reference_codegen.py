@@ -18,62 +18,22 @@ LANDMARKS_PATH = ROOT / "milume" / "landmarks.py"
 SPATIALDATA_PATH = ROOT / "milume" / "spatialdata_landmarks.py"
 
 _SECTION_RE = re.compile(r"^\s*# --- (.+?) ---\s*$")
-# One-line meanings for public traitlets (kept in sync with milume/landmarks.py).
-_PUBLIC_MEANINGS: dict[str, str] = {
-    "selections": "Region dicts; join to adata via `get_obs_names(region)`.",
-    "landmarks": "Committed landmark annotations (round-trip with GeoDataFrame helpers).",
-    "selected_kind": 'Active item kind (`""` when none).',
-    "selected_index": "Index of active selection or landmark (`-1` when none).",
-    "selected_type_indices": "Legend indices for multi type focus when kind is `type`.",
-    "inspect_cx": "Inspect cube centre X (µm); `None` until placed.",
-    "inspect_cy": "Inspect cube centre Y (µm); `None` until placed.",
-    "inspect_size_um": "Inspect window side length (µm; 300 µm square).",
-    "volume": "SpatialData Inspect cube config (Python-set).",
-    "volume_cut": "µm cut box; browser writes on slider release.",
-    "active_category": "Category column mirrored from colour chrome.",
-    "active_genes": "View-only gene picks mirrored from chrome.",
-}
 
-# Sub-groups within the public notebook API (order matters).
-_PUBLIC_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    (
-        "Selection & landmarks",
-        (
-            "selections",
-            "landmarks",
-            "selected_kind",
-            "selected_index",
-            "selected_type_indices",
-        ),
-    ),
-    (
-        "Inspect (SpatialData)",
-        ("inspect_cx", "inspect_cy", "inspect_size_um", "volume", "volume_cut"),
-    ),
-    (
-        "View & coloring",
-        ("active_category", "active_genes"),
-    ),
-)
 
-_ADVANCED_SECTIONS: tuple[tuple[str, str], ...] = (
-    ("Raster & render mode", "Raster bins + similarity query"),
-    ("Volume (SpatialData)", "3D cube"),
-)
+def public_registry() -> dict[str, str]:
+    """``_PUBLIC_TRAITS`` from milume/landmarks.py, read without importing milume."""
+    tree = ast.parse(LANDMARKS_PATH.read_text(encoding="utf-8"))
+    for node in tree.body:
+        target = node.target if isinstance(node, ast.AnnAssign) else (
+            node.targets[0] if isinstance(node, ast.Assign) and len(node.targets) == 1 else None
+        )
+        if isinstance(target, ast.Name) and target.id == "_PUBLIC_TRAITS":
+            value = ast.literal_eval(node.value)
+            if not isinstance(value, dict):
+                raise TypeError("_PUBLIC_TRAITS must be a dict")
+            return value
+    raise RuntimeError("_PUBLIC_TRAITS not found in milume/landmarks.py")
 
-_NOTEBOOK_METHODS = (
-    "set_points",
-    "set_expression",
-    "set_render_mode",
-    "set_raster_basis",
-    "clear_raster_query",
-    "category_colors",
-    "clear_selections",
-    "clear_landmarks",
-    "clear",
-    "select_type",
-    "get_obs_names",
-)
 
 _GDF_FUNCTIONS = (
     "landmarks_to_geodataframe",
@@ -246,9 +206,7 @@ def _parse_traitlets(source: str) -> list[TraitletRow]:
                     name=name,
                     type_label=_traitlet_type_label(trait_call),
                     default_label=_default_label(stmt.value),
-                    meaning=meaning
-                    or _PUBLIC_MEANINGS.get(name)
-                    or "Synced widget state.",
+                    meaning=meaning or "Synced widget state.",
                     section=sections.get(stmt.lineno, "Other"),
                     lineno=stmt.lineno,
                 )
@@ -303,38 +261,20 @@ def render_constructor_params_markdown() -> str:
 
 
 def render_traitlets_markdown() -> str:
-    source = LANDMARKS_PATH.read_text(encoding="utf-8")
-    rows = _parse_traitlets(source)
-    by_name = {r.name: r for r in rows}
-
-    parts: list[str] = [
-        "These traitlets sync between Python and the browser. "
-        "UI-only chrome (modes, sliders, undoredo) is not listed.",
-        "",
+    registry = public_registry()
+    rows = [r for r in _parse_traitlets(LANDMARKS_PATH.read_text(encoding="utf-8")) if r.name in registry]
+    order = list(registry)
+    rows.sort(key=lambda r: order.index(r.name))
+    public = [
+        TraitletRow(r.name, r.type_label, r.default_label, registry[r.name], r.section, r.lineno)
+        for r in rows
     ]
-
-    for title, names in _PUBLIC_SUBGROUPS:
-        group_rows = [by_name[n] for n in names if n in by_name]
-        if not group_rows:
-            continue
-        parts.extend([f"### {title}", "", _table(group_rows), ""])
-
-    parts.extend(
-        [
-            "### Advanced synced fields",
-            "",
-            "Usually driven from notebook methods (`set_render_mode`, `set_raster_basis`, …) "
-            "or browser chrome; documented for debugging and extensions.",
-            "",
-        ]
-    )
-
-    for title, section_key in _ADVANCED_SECTIONS:
-        group_rows = [r for r in rows if section_key in r.section]
-        if not group_rows:
-            continue
-        parts.extend([f"#### {title}", "", _table(group_rows), ""])
-
+    parts = [
+        "Public traitlets from the registry (`milume.landmarks._PUBLIC_TRAITS`). "
+        "Other synced fields are internal plumbing and may change without notice.",
+        "",
+        _table(public),
+    ]
     return "\n".join(parts).strip() + "\n"
 
 
@@ -381,10 +321,11 @@ def render_methods_markdown() -> str:
         "Notebook helpers on the widget handle returned by `milume.peek`.",
         "",
     ]
-    for name in _NOTEBOOK_METHODS:
+    traits = {r.name for r in _parse_traitlets(LANDMARKS_PATH.read_text(encoding="utf-8"))}
+    for name in [n for n in public_registry() if n not in traits]:
         member = widget.members.get(name)
         if member is None:
-            continue
+            raise RuntimeError(f"registry entry {name!r} is not a LandmarksWidget member")
         doc = member.docstring.value if member.docstring else ""
         try:
             signature = member.signature()
