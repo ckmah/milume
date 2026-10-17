@@ -3,8 +3,9 @@ name: use-milume
 description: >-
   Drive milume's LandmarksWidget from Python in a notebook: open it with
   milume.peek, recolour with w.color, read the cells in a region with
-  w.get_obs_names, match plot colours with category_colors, and write
-  landmarks to or from a GeoDataFrame / SpatialData. Use when an agent writes
+  w.get_obs_names, match plot colours with category_colors, write
+  landmarks to or from a GeoDataFrame / SpatialData, and open, move or close
+  the 3D Inspect cube. Use when an agent writes
   notebook code against milume (AnnData or SpatialData spatial omics).
 ---
 
@@ -15,7 +16,8 @@ Notebook API for `milume` 1.4+. Only the entries listed under
 and can change without notice.
 
 The examples assume an AnnData `adata` with `obsm["spatial"]`, an
-`obs["cell_type"]` column and a gene `APOB` in `var_names`. CI runs every
+`obs["cell_type"]` column and a gene `APOB` in `var_names`; the Inspect
+example uses a SpatialData `sdata` with a 3D image. CI runs every
 `python` block on this page in order against a small fixture
 (`tests/test_use_milume_skill.py`).
 
@@ -91,6 +93,27 @@ w.landmarks = geodataframe_to_landmarks(gdf)
   yourself.
 - Needs the optional `geopandas` and `shapely`.
 
+## Open, move and close the Inspect cube
+
+The Inspect cube needs a 3D image, so build the widget from SpatialData:
+
+```python
+v = milume.peek(sdata)
+v.inspect_cx, v.inspect_cy = 120.0, 140.0  # window centre, in spatial units (µm)
+v.inspect_open = True                      # the cube opens there, no click needed
+v.inspect_cx = 150.0                       # moves the window and the open cube
+v.volume_cut = [*v.volume_cut[:4], 0.0, 32.0]  # keep z between 0 and 32 µm
+v.inspect_open = False                     # closes the cube; the window stays put
+```
+
+- `inspect_open = True` with no window placed opens it at the volume's centre.
+  Without a 3D image it raises `ValueError`.
+- Opening switches the widget to Inspect. When the user opens or closes the
+  cube in the browser, `inspect_open` follows.
+- `volume_cut` is `[x0, x1, y0, y1, z0, z1]` in µm. The browser writes it when
+  a cut slider is released; X and Y are clipped to the window when drawn.
+- `v.volume` describes the 3D image (`{}` without one). Read it, don't set it.
+
 ## Gotchas
 
 - Landmarks are 2D. In the 3D Inspect cube a landmark extends through the
@@ -112,9 +135,12 @@ w.landmarks = geodataframe_to_landmarks(gdf)
 | `w.selected_kind` | trait | Kind of the focused item: selection, landmark, type, or empty. |
 | `w.selected_index` | trait | Index of the focused item within its kind, or -1. |
 | `w.selected_type_indices` | trait | Focused category label indices when selected_kind is type. |
-| `w.inspect_cx` | trait | Inspect window centre x in spatial units, or None before placement. |
-| `w.inspect_cy` | trait | Inspect window centre y in spatial units, or None before placement. |
+| `w.inspect_cx` | trait | Inspect window centre x in spatial units, or None before placement; set it to move the window and the open cube. |
+| `w.inspect_cy` | trait | Inspect window centre y in spatial units, or None before placement; set it to move the window and the open cube. |
 | `w.inspect_size_um` | trait | Inspect window side length in µm. |
+| `w.inspect_open` | trait | Whether the Inspect cube is open; True opens it at inspect_cx/cy (the volume centre if unset), False closes it. ValueError without a 3D image. |
+| `w.volume` | trait | The 3D image behind the Inspect cube (image and labels paths, voxel size, origin, contrast); {} without one. Read it, don't set it. |
+| `w.volume_cut` | trait | Cube cut box [x0, x1, y0, y1, z0, z1] in µm; the browser writes it on slider release, assign it to cut from Python. |
 | `w.active_category` | trait | Name of the obs column driving categorical colour and type focus. |
 | `w.active_genes` | trait | Genes shown in the expression blend; unknown genes are dropped. |
 | `w.category_colors()` | method | Label to hex colour map of a categorical column as drawn. |

@@ -207,6 +207,57 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
   const latest = useRef({ rel: cube.cut, win, volume, cx, cy, volumeBounds });
   latest.current = { rel: cube.cut, win, volume, cx, cy, volumeBounds };
 
+  // Python's `inspect_cx/cy` move the live window: the map's square follows
+  // (no events, no save). The engine sets the model from its own window, so
+  // the widget's own moves already match and do nothing here.
+  useEffect(() => {
+    if (!engine || cx == null || cy == null) return;
+    const placed = engine.getInspectOverlay().placed;
+    if (placed && placed[0] === cx && placed[1] === cy) return;
+    // Not a user placement: nothing to settle.
+    placedRef.current = null;
+    engine.moveInspectWindow(cx, cy);
+  }, [engine, cx, cy]);
+
+  // `inspect_open` mirrors the cube. The widget writes it when the cube opens
+  // or closes (a release, Esc, Exit, leaving Inspect); Python's write opens the
+  // cube at `inspect_cx/cy` (entering Inspect) or closes it. A request the
+  // widget cannot honour (no 3D image, no window) is written back as closed.
+  const shownOpenRef = useRef(cube.open);
+  useEffect(() => {
+    if (shownOpenRef.current === cube.open) return;
+    shownOpenRef.current = cube.open;
+    if (Boolean(facade.get("inspect_open")) === cube.open) return;
+    facade.set("inspect_open", cube.open);
+    facade.save_changes();
+  }, [facade, cube.open]);
+  const wantOpen = Boolean(lm.inspect_open);
+  useEffect(() => {
+    if (!engine) return;
+    // The model's value now, not this render's: a write in the same commit wins.
+    const want = Boolean(facade.get("inspect_open"));
+    if (want === cubeOpenRef.current) return;
+    if (!want) {
+      patchCube({ open: false });
+      return;
+    }
+    const x = facade.get("inspect_cx") as number | null;
+    const y = facade.get("inspect_cy") as number | null;
+    if (!hasVolume || x == null || y == null) {
+      facade.set("inspect_open", false);
+      facade.save_changes();
+      return;
+    }
+    const placed = engine.getInspectOverlay().placed;
+    if (!placed || placed[0] !== x || placed[1] !== y) {
+      placedRef.current = null;
+      engine.moveInspectWindow(x, y);
+    }
+    if (lm.mode !== "inspect") setMode("inspect");
+    patchCube({ open: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engine, wantOpen, hasVolume]);
+
   // The last value this widget wrote, so its echo is not adopted as Python's.
   const writtenRef = useRef<string | null>(null);
   // Each committed cut also goes into the focused inspect entry's `window.cut`,

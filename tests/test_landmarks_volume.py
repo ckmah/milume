@@ -120,3 +120,45 @@ def test_contrast_limits_come_from_the_image(sdata):
 def test_explicit_contrast_limits_win(sdata):
     w = LandmarksWidget(sdata, color="cell_type", contrast_limits=(5, 900))
     assert w.volume["contrast_limits"] == [5.0, 900.0]
+
+
+def test_inspect_open_places_window_at_volume_centre(sdata):
+    """#215: opening from Python with no window placed uses the volume centre."""
+    w = LandmarksWidget(sdata, color="cell_type")
+    assert w.inspect_open is False and w.inspect_cx is None
+    w.inspect_open = True
+    x0, x1, y0, y1 = w.volume_cut[:4]
+    assert (w.inspect_cx, w.inspect_cy) == ((x0 + x1) / 2, (y0 + y1) / 2)
+    w.inspect_open = False
+    assert w.inspect_open is False
+    # Closing keeps the window where it was.
+    assert w.inspect_cx == (x0 + x1) / 2
+
+
+def test_inspect_open_keeps_a_placed_window(sdata):
+    w = LandmarksWidget(sdata, color="cell_type")
+    w.inspect_cx, w.inspect_cy = 70.0, 80.0
+    w.inspect_open = True
+    assert (w.inspect_cx, w.inspect_cy, w.inspect_open) == (70.0, 80.0, True)
+
+
+def test_inspect_open_needs_a_volume():
+    from tests.helpers import adata_xy
+
+    w = LandmarksWidget(adata_xy(np.arange(5.0), np.arange(5.0)))
+    with pytest.raises(ValueError, match="3D image"):
+        w.inspect_open = True
+    assert w.inspect_open is False and w.inspect_cx is None
+    w.inspect_open = False  # closing is always allowed
+
+
+def test_inspect_open_sends_window_before_open(sdata):
+    """The browser sees the window centre in the same or an earlier message than the open."""
+    w = LandmarksWidget(sdata, color="cell_type")
+    sent: list[dict] = []
+    w.send_state = lambda key=None: sent.append(  # type: ignore[method-assign]
+        {k: getattr(w, k) for k in ([key] if isinstance(key, str) else (key or []))}
+    )
+    w.inspect_open = True
+    keys = [k for msg in sent for k in msg]
+    assert keys.index("inspect_cx") < keys.index("inspect_open")

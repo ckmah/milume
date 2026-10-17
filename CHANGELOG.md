@@ -35,3 +35,19 @@ Migration:
 | `w.assign_obs_mask(adata, key, sel_id)` | `adata.obs[key] = adata.obs_names.isin(w.get_obs_names(sel_id))` |
 | result was a `np.ndarray` of str | result is a `pd.Index` |
 | a hidden selection returned no cells | a hidden selection returns its cells (hiding only affects display) |
+
+### Open, move and close the Inspect cube from Python
+
+New: `w.inspect_open` opens and closes the Inspect cube without a click (needs a widget built from SpatialData with a 3D image).
+
+```python
+w.inspect_cx, w.inspect_cy = 120.0, 140.0  # optional: defaults to the volume centre
+w.inspect_open = True                      # switches to Inspect and opens the cube there
+w.inspect_cx = 150.0                       # moves the window and the open cube
+w.inspect_open = False                     # closes it
+```
+
+- Setting `inspect_cx` / `inspect_cy` now moves the map's window square too, not only the cube.
+- `inspect_open` follows the browser: opening or closing the cube there (a click, Esc, Exit) updates it.
+- `w.inspect_open = True` without a 3D image raises `ValueError`.
+- `volume` and `volume_cut` join `inspect_open` in the public API.

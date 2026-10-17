@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
 import { expect, type Locator, type Page } from "@playwright/test";
 
 import { test } from "../fixtures";
@@ -26,6 +29,10 @@ import {
  * window is a fixed 300 µm, so it holds the whole toy volume; tests that need
  * a window moving inside the volume boot with `?window=100` (harness only).
  */
+/** What `w.inspect_open = True` sends on the toy store with no window placed (dev/export-harness-inspect-open.py). */
+const inspectOpen = JSON.parse(
+  readFileSync(fileURLToPath(new URL("../../dev/harness-inspect-open.json", import.meta.url)), "utf8"),
+) as { inspect_cx: number; inspect_cy: number; inspect_open: true };
 const cubeWindow = (page: Page) => page.getByRole("dialog", { name: "Cube" });
 const preview = (page: Page) => page.getByTestId("inspect-preview");
 const cutOf = async (page: Page) => (await getModel(page, "volume_cut")) as number[];
@@ -482,18 +489,28 @@ async function screenAt(page: Page, box: Box, [x, y]: [number, number]) {
   return { x: box.x + box.width / 2 + (x - vs.target[0]) * k, y: box.y + box.height / 2 + (y - vs.target[1]) * k };
 }
 
-/** Click in Inspect at the canvas centre, or at map point `at` (µm). */
+/**
+ * Open the cube from Python (#215), no click: `inspect_cx/cy` then `inspect_open`, as
+ * the kernel sends them. At the view's centre, or at map point `at` (µm).
+ */
+async function openFromPython(page: Page, at?: [number, number]) {
+  const [x, y] =
+    at ??
+    ((await page.evaluate(() => (window as any).__landmarksEngine.getViewState().target)) as number[]);
+  await setModel(page, { inspect_cx: x, inspect_cy: y, inspect_open: true });
+}
+
+/** Open the cube from Python at the view's centre, or at map point `at` (µm); returns the canvas box. */
 async function openCubeAtCentre(
   page: Page,
   { at, raster }: { at?: [number, number]; raster?: boolean } = {},
 ) {
   if (raster) await setModel(page, { render_mode: "raster" });
-  await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-  const box = await canvasBox(page);
-  const p = at ? await screenAt(page, box, at) : { x: box.x + box.width * 0.5, y: box.y + box.height * 0.5 };
-  await page.mouse.click(p.x, p.y);
+  await openFromPython(page, at);
   await expect(cubeWindow(page)).toBeVisible();
-  return box;
+  // Python never takes focus; keyboard tests need it in the widget, where a click would have put it.
+  await page.locator("canvas.landmarks__webgl").first().focus();
+  return canvasBox(page);
 }
 
 /** A synthetic pointer event on the open cube: type, x offset (px) from the view's centre, buttons, pointer id (default 1). */
@@ -572,6 +589,65 @@ test.describe("Landmarks inspect cube", () => {
     await expect(page.getByTestId("selection-row")).toHaveCount(0);
 
     await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+  });
+
+  test("Python opens the cube at its window with no click, moves it, and closes it", async ({ page }) => {
+    const placed = async () =>
+      (await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay())).placed as number[] | null;
+    // `w.inspect_open = True` with no window placed: the volume centre.
+    await setModel(page, inspectOpen);
+    await expect(cubeWindow(page)).toBeVisible();
+    await expect(inspectPill(page)).toHaveAttribute("data-state", "open");
+    await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-refining", "false");
+    expect(await placed()).toEqual([inspectOpen.inspect_cx, inspectOpen.inspect_cy]);
+    // A click never happened: nothing was saved as a selection.
+    expect(await selectionsOf(page)).toEqual([]);
+
+    // `w.inspect_cx = …` moves the map's square and the open cube.
+    await setModel(page, { inspect_cx: 100 });
+    await expect.poll(placed).toEqual([100, inspectOpen.inspect_cy]);
+    await expect(cubeWindow(page)).toBeVisible();
+
+    // `w.inspect_open = False` closes the cube and stays in Inspect.
+    await setModel(page, { inspect_open: false });
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(inspectPill(page)).toBeVisible();
+    expect(await getModel(page, "inspect_open")).toBe(false);
+    expect(await getModel(page, "inspect_cx")).toBe(100);
+  });
+
+  test("the browser writes inspect_open back when the user opens or closes the cube", async ({ page }) => {
+    expect(await getModel(page, "inspect_open")).toBeFalsy();
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const box = await canvasBox(page);
+    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await expect(cubeWindow(page)).toBeVisible();
+    await expect.poll(() => getModel(page, "inspect_open")).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await expect.poll(() => getModel(page, "inspect_open")).toBe(false);
+    // Reopened from Python, then Exit: leaving Inspect closes it, and Python hears that too.
+    await setModel(page, { inspect_open: true });
+    await expect(cubeWindow(page)).toBeVisible();
+    await inspectPill(page).getByRole("button", { name: "Exit Inspect" }).click();
+    await expect(cubeWindow(page)).toHaveCount(0);
+    await expect.poll(() => getModel(page, "inspect_open")).toBe(false);
+  });
+
+  test("a cube Python opened before display is open on mount", async ({ page }) => {
+    // The widget mounts on a model that already holds Python's open window.
+    await page.evaluate((seed) => (window as any).__harnessReset("", seed), inspectOpen);
+    await waitForEngine(page, 150);
+    await expect(cubeWindow(page)).toBeVisible();
+    await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-refining", "false");
+    expect(await getModel(page, "inspect_open")).toBe(true);
+  });
+
+  test("an open with no window placed is written back closed", async ({ page }) => {
+    // Python's own setter places the window first; a bare write cannot open a cube nowhere.
+    await setModel(page, { inspect_open: true });
+    await expect.poll(() => getModel(page, "inspect_open")).toBe(false);
     await expect(cubeWindow(page)).toHaveCount(0);
   });
 
@@ -2608,9 +2684,7 @@ test.describe("Landmarks inspect cube", () => {
     await page.goto("/", { waitUntil: "networkidle" });
     await waitForEngine(page);
     await stabilizeUi(page);
-    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-    const box = await canvasBox(page);
-    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await setModel(page, inspectOpen);
     const panel = cubeWindow(page).getByTestId("cube-load-immersive");
     await expect(panel).toBeVisible();
     await expect(panel).toHaveAttribute("data-state", "loading");
@@ -2626,9 +2700,7 @@ test.describe("Landmarks inspect cube", () => {
     await page.goto("/", { waitUntil: "networkidle" });
     await waitForEngine(page);
     await stabilizeUi(page);
-    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-    const box = await canvasBox(page);
-    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await setModel(page, inspectOpen);
     const panel = cubeWindow(page).getByTestId("cube-load-immersive");
     await expect(panel).toHaveAttribute("data-state", "error", { timeout: 30_000 });
     await expect(page.getByTestId("inspect-status")).toHaveAttribute("data-state", "error");
@@ -2643,10 +2715,8 @@ test.describe("Landmarks inspect cube", () => {
     await page.goto("/", { waitUntil: "networkidle" });
     await waitForEngine(page);
     await stabilizeUi(page);
-    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-    const box = await canvasBox(page);
     const t0 = Date.now();
-    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await setModel(page, inspectOpen);
     const panel = cubeWindow(page).getByTestId("cube-load-immersive");
     await expect(panel).toHaveAttribute("data-state", "error", { timeout: 5_000 });
     expect(Date.now() - t0).toBeLessThan(15_000);
@@ -2664,9 +2734,7 @@ test.describe("Landmarks inspect cube", () => {
     await page.goto("/", { waitUntil: "networkidle" });
     await waitForEngine(page);
     await stabilizeUi(page);
-    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-    const box = await canvasBox(page);
-    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await setModel(page, inspectOpen);
     const panel = cubeWindow(page).getByTestId("cube-load-immersive");
     await expect(panel).toBeVisible();
     await expect(panel).toHaveAttribute("data-state", "loading");
@@ -2684,9 +2752,7 @@ test.describe("Landmarks inspect cube", () => {
     await page.goto("/", { waitUntil: "networkidle" });
     await waitForEngine(page);
     await stabilizeUi(page);
-    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-    const box = await canvasBox(page);
-    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5);
+    await setModel(page, inspectOpen);
     const panel = cubeWindow(page).getByTestId("cube-load-immersive");
     await expect(panel).toHaveAttribute("data-state", "error");
     await expect(panel).toContainText("Volume load failed");

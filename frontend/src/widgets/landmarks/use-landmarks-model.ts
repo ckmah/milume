@@ -107,6 +107,8 @@ export type LandmarksState = {
   inspect_cx: number | null;
   inspect_cy: number | null;
   inspect_size_um: number;
+  /** Whether the Inspect cube is open; Python opens and closes it, the widget writes it back. */
+  inspect_open: boolean;
 };
 
 const MODEL_KEYS: (keyof LandmarksState)[] = [
@@ -163,6 +165,7 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
   "inspect_cx",
   "inspect_cy",
   "inspect_size_um",
+  "inspect_open",
 ];
 
 export type LandmarksModel = LandmarksState & {

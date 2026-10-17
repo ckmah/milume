@@ -130,7 +130,7 @@ Read results back in Python:
 | Compare a subset with the tissue | `enrichment(adata, obs_names, obs_key=...)` |
 | XY vs 3D neighbors | `nearest_distances(adata, seeds, obs_key=...)` (needs `obsm["spatial"]` x, y, z) |
 | Map colors for other plots | `w.category_colors("cell_type")` |
-| Inspect window and cube cut | `w.inspect_cx`, `w.inspect_cy`, `w.inspect_size_um`; `w.volume_cut` = x0, x1, y0, y1, z0, z1 µm (intersect X/Y with the window for the shown box) |
+| Inspect window and cube cut | `w.inspect_open = True` opens the cube at `w.inspect_cx`, `w.inspect_cy` (set them to move it; `False` closes it); `w.inspect_size_um`; `w.volume_cut` = x0, x1, y0, y1, z0, z1 µm (intersect X/Y with the window for the shown box) |
 
 Large expression matrices are sent sparse; pass `genes=` to limit the gene
 catalog.
