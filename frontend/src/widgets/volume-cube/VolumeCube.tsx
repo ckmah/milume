@@ -47,6 +47,7 @@ import {
   fetchCellMesh,
   placedCellMeshGeometry,
 } from "./cell-mesh";
+import { cellMeshClipBox, keptVertexCount } from "./cell-mesh-clip";
 import { type CubeOverlay, placeOverlays } from "./overlay-layers";
 import { paletteLut } from "./palettes";
 import { dragToWindowDelta } from "./pan";
@@ -410,13 +411,11 @@ export function VolumeCube({
   tightenZToSignal = true,
   loadStatusTestId = "cube-load-panel",
 }: VolumeCubeProps) {
-  // Mesh mode: the raycast keeps the image only (fainter), cells come from meshes.
+  // Mesh mode: the raycast keeps the image only, cells come from meshes. The image
+  // stays at full strength so a cut face shows the same DAPI slice as the raycast.
   const meshOn = Boolean(meshUrl);
   const showLabels = showLabelsProp && !meshOn;
-  const render = useMemo(
-    () => (meshOn ? { ...renderProp, imageAlpha: renderProp.imageAlpha * 0.6 } : renderProp),
-    [meshOn, renderProp],
-  );
+  const render = renderProp;
   const hostRef = useRef<HTMLDivElement>(null);
   const fixedHeight = typeof height === "number";
   const [box, setBox] = useState({ width: 640, height: 520 });
@@ -1048,6 +1047,15 @@ export function VolumeCube({
     meshBuilds.current.lut++;
     return cellMeshLut(cellMesh, coloring);
   }, [cellMesh, coloring, showLabelsProp]);
+  // The cut box in the mesh's window-relative µm: every axis, both sides (cell-mesh-clip.ts).
+  const cellMeshClip = useMemo(
+    () => (cellMesh ? cellMeshClipBox({ cut: [cx0, cx1, cy0, cy1, cz0, cz1], stackZ: [stackZ[0], stackZ[1]], originUm: cellMesh.originUm }) : null),
+    [cellMesh, cx0, cx1, cy0, cy1, cz0, cz1, stackZ[0], stackZ[1]],
+  );
+  const meshKeptVertices = useMemo(
+    () => (cellMesh && cellMeshClip ? keptVertexCount(cellMesh.positions, cellMeshClip) : 0),
+    [cellMesh, cellMeshClip],
+  );
   const placedCellMesh: PlacedCellMesh | null = useMemo(() => {
     if (!cellMesh || !cellMeshGeometry || !cellMeshColours || !cubeFrame || !levelVoxel || !panBox) return null;
     return {
@@ -1055,6 +1063,8 @@ export function VolumeCube({
       mesh: cellMeshGeometry,
       lut: cellMeshColours,
       opacity: meshOpacity ?? renderProp.cellAlpha,
+      clip: cellMeshClip,
+      capAlpha: renderProp.cellAlpha,
       modelMatrix: cellMeshMatrix({
         volumeMatrix,
         originUm: cellMesh.originUm,
@@ -1071,7 +1081,7 @@ export function VolumeCube({
         depth: cubeFrame.size[2],
       }),
     };
-  }, [cellMesh, cellMeshGeometry, cellMeshColours, cubeFrame, levelVoxel, panBox, meshOpacity, renderProp.cellAlpha, volumeMatrix, oxUm, oyUm, ozUm, ry, windowZSlice]);
+  }, [cellMesh, cellMeshGeometry, cellMeshColours, cubeFrame, levelVoxel, panBox, meshOpacity, renderProp.cellAlpha, cellMeshClip, volumeMatrix, oxUm, oyUm, ozUm, ry, windowZSlice]);
 
   const deckProps = useMemo(
     () => ({
@@ -1462,6 +1472,9 @@ export function VolumeCube({
       data-mesh-tris={cellMesh ? cellMesh.indices.length / 3 : 0}
       data-mesh-bytes={cellMesh ? cellMesh.bytes : 0}
       data-mesh-shown={placedCellMesh ? "true" : "false"}
+      data-mesh-clip={cellMeshClip ? JSON.stringify(cellMeshClip) : ""}
+      data-mesh-kept-vertices={meshKeptVertices}
+      data-mesh-vertices={cellMesh ? cellMesh.positions.length / 3 : 0}
       data-mesh-geometry-builds={meshBuilds.current.geometry}
       data-mesh-lut-builds={meshBuilds.current.lut}
       data-mesh-colours={cellMeshColours ? distinctLutColours(cellMeshColours) : 0}

@@ -16,6 +16,7 @@ import { Matrix4 } from "@math.gl/core";
 
 import { bytesFromCommBuffer } from "./comm-buffer";
 import { type CellColoring, buildCellLut } from "./cell-lut-extension";
+import { type ClipBox, cellMeshClipModule } from "./cell-mesh-clip";
 import { vivTag } from "./overlay-layers";
 import type { VolumeCommClient } from "./volume-comm";
 
@@ -153,6 +154,10 @@ export type PlacedCellMesh = {
   lut: ImageData;
   modelMatrix: Matrix4;
   opacity: number;
+  /** Window-relative µm box the shader keeps (cell-mesh-clip.ts); null: no clip. */
+  clip: ClipBox | null;
+  /** Alpha of the cut face tint (the label opacity, also when the meshes are opaque). */
+  capAlpha: number;
   key: string;
 };
 
@@ -174,12 +179,77 @@ export function placedCellMeshGeometry(m: CellMeshData): PlacedCellMesh["mesh"] 
  * every cell behind stacks another 0.4 layer, and the cells turn muddy and dark
  * over the image. Geometry and the colour LUT are shared by both draws.
  */
+/**
+ * SimpleMeshLayer's fragment shader plus the cut: fragments outside the clip box
+ * are discarded, and a back face (only visible where the cut opened a cell)
+ * draws unlit in the cell colour at the label opacity, so the cut face reads as
+ * the image slice (drawn first by the raycast, clipped to the same cut) under a
+ * 0.4 tint, as the raycast shows it, rather than a hollow shell.
+ */
+const CELL_MESH_FS = `#version 300 es
+#define SHADER_NAME cell-mesh-layer-fs
+precision highp float;
+uniform sampler2D sampler;
+in vec2 vTexCoord;
+in vec3 cameraPosition;
+in vec3 normals_commonspace;
+in vec4 position_commonspace;
+in vec4 vColor;
+in vec3 vMeshUm;
+out vec4 fragColor;
+void main(void) {
+  if (cellMeshClipped(vMeshUm)) discard;
+  geometry.uv = vTexCoord;
+  vec3 normal;
+  if (simpleMesh.flatShading) {
+    normal = normalize(cross(dFdx(position_commonspace.xyz), dFdy(position_commonspace.xyz)));
+  } else {
+    normal = normals_commonspace;
+  }
+  vec4 color = simpleMesh.hasTexture ? texture(sampler, vTexCoord) : vColor;
+  DECKGL_FILTER_COLOR(color, geometry);
+  bool back = gl_FrontFacing == (cellMeshClip.flipFacing > 0.5);
+  if (back) {
+    fragColor = vec4(color.rgb, color.a * cellMeshClip.capAlpha);
+    return;
+  }
+  vec3 lightColor = lighting_getLightColor(color.rgb, cameraPosition, position_commonspace.xyz, normal);
+  fragColor = vec4(lightColor, color.a * layer.opacity);
+}
+`;
+
+type ClipProps = { clip: ClipBox | null; capAlpha: number; flipFacing: boolean };
+
 class CellMeshLayer extends SimpleMeshLayer {
   static layerName = "CellMeshLayer";
 
+  getShaders() {
+    const s = super.getShaders() as { modules: unknown[]; inject?: Record<string, string> };
+    return {
+      ...s,
+      fs: CELL_MESH_FS,
+      modules: [...s.modules, cellMeshClipModule],
+      inject: {
+        ...(s.inject ?? {}),
+        "vs:#decl": "out vec3 vMeshUm;",
+        "vs:#main-start": "vMeshUm = positions;",
+      },
+    };
+  }
+
   draw(opts: Parameters<SimpleMeshLayer["draw"]>[0]) {
-    const model = (this.state as { model?: { parameters: Record<string, unknown>; setParameters(p: Record<string, unknown>): void } }).model;
-    if (!model || (this.props as { opacity: number }).opacity >= 0.999) return super.draw(opts);
+    const model = (this.state as { model?: { parameters: Record<string, unknown>; setParameters(p: Record<string, unknown>): void; shaderInputs: { setProps(p: Record<string, unknown>): void } } }).model;
+    if (!model) return super.draw(opts);
+    const { clip, capAlpha, flipFacing } = this.props as unknown as ClipProps;
+    model.shaderInputs.setProps({
+      cellMeshClip: {
+        lo: clip?.lo ?? [-1e9, -1e9, -1e9],
+        hi: clip?.hi ?? [1e9, 1e9, 1e9],
+        capAlpha,
+        flipFacing: flipFacing ? 1 : 0,
+      },
+    });
+    if ((this.props as { opacity: number }).opacity >= 0.999) return super.draw(opts);
     const base = model.parameters;
     model.setParameters({ ...base, depthCompare: "less-equal", depthWriteEnabled: true, colorMask: 0 });
     super.draw(opts);
@@ -202,6 +272,10 @@ export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, viewId
       getPosition: () => [0, 0, 0],
       getColor: [255, 255, 255, 255],
       modelMatrix: placed.modelMatrix,
+      clip: placed.clip,
+      capAlpha: placed.capAlpha,
+      // The model matrix flips y (texture rows run down), which turns the winding over.
+      flipFacing: placed.modelMatrix.determinant() < 0,
       coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
       opacity: placed.opacity,
       pickable: false,
