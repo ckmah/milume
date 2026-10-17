@@ -7,7 +7,7 @@
 # ]
 # ///
 
-"""Python API e2e target: color and selections set from Python, get_obs_names read in a reactive cell."""
+"""Python API e2e target: color, selections and the Inspect cube set from Python; a reactive cell reads them back."""
 
 import marimo
 
@@ -39,6 +39,8 @@ def _(mo, peek, sdata):
     # Set from Python before display: must reach the browser model.
     w.color = "cell_id"
     w.selections = [{"id": "api-sel", "point_indices": [0]}]
+    # Opens the Inspect cube at the volume centre (#215): the browser loads it over volume_get.
+    w.inspect_open = True
     widget = mo.ui.anywidget(w)
     return w, widget
 
@@ -54,7 +56,7 @@ def _(mo, w, widget):
     # Reading widget.value makes this cell re-run when the browser changes a trait.
     _ = widget.value
     _n = len(w.get_obs_names("api-sel"))
-    mo.md(f"api-probe n={_n} color={w.color}")
+    mo.md(f"api-probe n={_n} color={w.color} inspect_open={w.inspect_open}")
     return
 
 

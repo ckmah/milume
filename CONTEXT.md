@@ -31,7 +31,8 @@ element, a 3D image on the same grid, and their µm frame. **Inspect** opens a
 **cube** of the inspect window inside the widget; its rendering controls are
 client-local, and cells are colored from the category panel in the browser.
 Only `volume` (config), `volume_label_ids` and `volume_cut` are synced
-([ADR 0006](docs/adr/0006-landmarks-hosts-volume-cube.md)).
+([ADR 0006](docs/adr/0006-landmarks-hosts-volume-cube.md)), plus whether the cube
+is open (`inspect_open`), so Python can open, move and close it (#215).
 
 ## Language
 

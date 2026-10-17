@@ -111,10 +111,12 @@ test.describe("Landmarks volume smoke", () => {
     await expect(layerToggle(page, "image")).toBeVisible();
   });
 
-  test("esc closes cube", async ({ page }) => {
+  test("one esc closes the cube and leaves Inspect", async ({ page }) => {
     await openCubeAtCentre(page);
     await page.keyboard.press("Escape");
     await expect(cubeWindow(page)).toHaveCount(0);
+    await expect(page.getByTestId("inspect-pill")).toHaveCount(0);
+    await expect.poll(() => page.evaluate(() => (window as any).__landmarksModel.get("inspect_open"))).toBe(false);
   });
 
   test("cube opens on inspect click", async ({ page }) => {
