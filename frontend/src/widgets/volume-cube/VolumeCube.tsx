@@ -42,6 +42,7 @@ import {
   type PlacedCellMesh,
   cellMeshKey,
   cellMeshLut,
+  distinctLutColours,
   cellMeshMatrix,
   fetchCellMesh,
   placedCellMeshGeometry,
@@ -1035,11 +1036,18 @@ export function VolumeCube({
       live = false;
     };
   }, [meshOn, meshUrl, meshKey, volumeComm]);
-  const cellMeshGeometry = useMemo(() => (cellMesh ? placedCellMeshGeometry(cellMesh) : null), [cellMesh]);
-  const cellMeshColours = useMemo(
-    () => (cellMesh && showLabelsProp ? cellMeshLut(cellMesh, coloring) : null),
-    [cellMesh, coloring, showLabelsProp],
-  );
+  // Build counters (data-mesh-geometry-builds / data-mesh-lut-builds): a recolour must only bump the LUT.
+  const meshBuilds = useRef({ geometry: 0, lut: 0 });
+  const cellMeshGeometry = useMemo(() => {
+    if (!cellMesh) return null;
+    meshBuilds.current.geometry++;
+    return placedCellMeshGeometry(cellMesh);
+  }, [cellMesh]);
+  const cellMeshColours = useMemo(() => {
+    if (!cellMesh || !showLabelsProp) return null;
+    meshBuilds.current.lut++;
+    return cellMeshLut(cellMesh, coloring);
+  }, [cellMesh, coloring, showLabelsProp]);
   const placedCellMesh: PlacedCellMesh | null = useMemo(() => {
     if (!cellMesh || !cellMeshGeometry || !cellMeshColours || !cubeFrame || !levelVoxel || !panBox) return null;
     return {
@@ -1454,6 +1462,9 @@ export function VolumeCube({
       data-mesh-tris={cellMesh ? cellMesh.indices.length / 3 : 0}
       data-mesh-bytes={cellMesh ? cellMesh.bytes : 0}
       data-mesh-shown={placedCellMesh ? "true" : "false"}
+      data-mesh-geometry-builds={meshBuilds.current.geometry}
+      data-mesh-lut-builds={meshBuilds.current.lut}
+      data-mesh-colours={cellMeshColours ? distinctLutColours(cellMeshColours) : 0}
       data-points={showPoints ? (placedScatterPoints?.length ?? 0) : 0}
       data-zoom={viewState ? viewState.zoom.toFixed(2) : ""}
       data-pitch={viewState ? Math.round(viewState.rotationX) : ""}

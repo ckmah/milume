@@ -167,11 +167,33 @@ export function placedCellMeshGeometry(m: CellMeshData): PlacedCellMesh["mesh"] 
   };
 }
 
+/**
+ * SimpleMeshLayer with a depth pre-pass when translucent: the first draw writes
+ * only depth, the second blends colour where it matches, so each pixel shows the
+ * nearest cell surface once at the label opacity. Without it every back face and
+ * every cell behind stacks another 0.4 layer, and the cells turn muddy and dark
+ * over the image. Geometry and the colour LUT are shared by both draws.
+ */
+class CellMeshLayer extends SimpleMeshLayer {
+  static layerName = "CellMeshLayer";
+
+  draw(opts: Parameters<SimpleMeshLayer["draw"]>[0]) {
+    const model = (this.state as { model?: { parameters: Record<string, unknown>; setParameters(p: Record<string, unknown>): void } }).model;
+    if (!model || (this.props as { opacity: number }).opacity >= 0.999) return super.draw(opts);
+    const base = model.parameters;
+    model.setParameters({ ...base, depthCompare: "less-equal", depthWriteEnabled: true, colorMask: 0 });
+    super.draw(opts);
+    model.setParameters({ ...base, depthCompare: "less-equal", depthWriteEnabled: false, colorMask: 0xf });
+    super.draw(opts);
+    model.setParameters(base);
+  }
+}
+
 export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, viewId = "3d") {
   if (!placed) return [];
   const opaque = placed.opacity >= 0.999;
   return [
-    new SimpleMeshLayer({
+    new CellMeshLayer({
       id: `cube-cell-mesh-${placed.key}${vivTag(viewId)}`,
       data: [0],
       mesh: placed.mesh as never,
@@ -198,3 +220,12 @@ export const CELL_MESH_LIGHTING = new LightingEffect({
   key: new DirectionalLight({ color: [255, 255, 255], intensity: 0.9, direction: [1, -1, -1.5] }),
   fill: new DirectionalLight({ color: [255, 255, 255], intensity: 0.25, direction: [-0.5, 1, -0.5] }),
 });
+
+/** Distinct visible colours in a mesh LUT (texel 0 is the background and is skipped). */
+export function distinctLutColours(lut: ImageData): number {
+  const seen = new Set<number>();
+  for (let i = 4; i < lut.data.length; i += 4) {
+    if (lut.data[i + 3]! > 0) seen.add((lut.data[i]! << 16) | (lut.data[i + 1]! << 8) | lut.data[i + 2]!);
+  }
+  return seen.size;
+}

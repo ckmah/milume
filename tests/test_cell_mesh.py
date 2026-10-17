@@ -92,3 +92,26 @@ def test_comm_route():
     reply, bufs = w._cell_mesh_reply({"path": "cellmesh/0,0,10,10.bin"})
     assert reply["ok"] and unpack_mesh(bufs[0])["labels"].tolist() == [3]
     assert w._cell_mesh_reply({"path": "images/x/zarr.json"}) is None
+
+
+def test_recolour_keeps_mesh_geometry(tmp_path):
+    """`w.color = <other column>` only re-syncs colour traits; the mesh cache and bytes stay."""
+    gpd = pytest.importorskip("geopandas")
+    from milume import LandmarksWidget
+    from tests.helpers import toy_spatialdata
+
+    sdata = toy_spatialdata(tmp_path / "toy.zarr")
+    table = sdata.tables[next(iter(sdata.tables))]
+    table.obs["half"] = (table.obs["cell_type"].astype(str) == "type0").map({True: "a", False: "b"}).astype("category")
+    w = LandmarksWidget(sdata, color="cell_type")
+    shapes = gpd.GeoDataFrame(
+        {"cell_id": ["a"] * 3, "Z_um": [0.25, 0.75, 1.25]},
+        geometry=[shapely.Polygon(ring(5, 5, 2))] * 3,
+    )
+    w._attach_cell_meshes(shapes, {"a": 1})
+    cache, volume = w._cell_mesh_cache, dict(w.volume)
+    before = w._cell_mesh_reply({"path": "cellmesh/0,0,10,10.bin"})[1][0]
+    w.color = "half"
+    assert w.active_category == "half"
+    assert w._cell_mesh_cache is cache and w.volume == volume
+    assert w._cell_mesh_reply({"path": "cellmesh/0,0,10,10.bin"})[1][0] == before
