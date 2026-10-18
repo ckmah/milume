@@ -2,7 +2,7 @@
 // flagset "swiftshader": WebGPU on SwiftShader Vulkan (CPU emulation -- NOT a GPU number).
 import { createRequire } from "node:module";
 import http from "node:http"; import fs from "node:fs"; import path from "node:path";
-const require = createRequire("/workspace/milume-mesh/frontend/package.json");
+const require = createRequire(new URL("../../../frontend/package.json", import.meta.url));
 const { chromium } = require("@playwright/test");
 const root = path.dirname(new URL(import.meta.url).pathname);
 const srv = http.createServer((q, r) => {
