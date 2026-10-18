@@ -175,13 +175,6 @@ export function placedCellMeshGeometry(m: CellMeshData): PlacedCellMesh["mesh"] 
 }
 
 /**
- * SimpleMeshLayer with a depth pre-pass when translucent: the first draw writes
- * only depth, the second blends colour where it matches, so each pixel shows the
- * nearest cell surface once at the label opacity. Without it every back face and
- * every cell behind stacks another 0.4 layer, and the cells turn muddy and dark
- * over the image. Geometry and the colour LUT are shared by both draws.
- */
-/**
  * SimpleMeshLayer's fragment shader plus the cut: fragments outside the clip box
  * are discarded, and a back face (only visible where the cut opened a cell)
  * draws unlit in the cell colour at the label opacity, so the cut face reads as
@@ -254,7 +247,8 @@ class CellMeshLayer extends SimpleMeshLayer {
     // The eye in the mesh's µm, as Viv finds its own (viewMatrixInverse's translation, then the inverse model).
     const vmi = (this.context.viewport as unknown as { viewMatrixInverse: number[] }).viewMatrixInverse;
     const eye = new Matrix4(modelMatrix).invert().transformAsPoint([vmi[12]!, vmi[13]!, vmi[14]!]);
-    const uniforms = (colourPass: number) => ({
+    const { colourPass } = this.props as unknown as { colourPass: boolean };
+    model.shaderInputs.setProps({
       cellMeshClip: {
         lo: clip?.lo ?? [-1e9, -1e9, -1e9],
         hi: clip?.hi ?? [1e9, 1e9, 1e9],
@@ -264,49 +258,51 @@ class CellMeshLayer extends SimpleMeshLayer {
         capAlpha,
         flipFacing: flipFacing ? 1 : 0,
         shrink: shrinkUm,
-        colourPass,
+        colourPass: colourPass ? 1 : 0,
       },
     });
-    // Depth first (every surface in the clip), then colour where it matches, in
-    // both modes: the slice rule above needs the nearest surface of any kind.
-    const opaque = (this.props as { opacity: number }).opacity >= 0.999;
-    const base = model.parameters;
-    model.shaderInputs.setProps(uniforms(0));
-    model.setParameters({ ...base, depthCompare: "less-equal", depthWriteEnabled: true, colorMask: 0 });
     super.draw(opts);
-    model.shaderInputs.setProps(uniforms(1));
-    model.setParameters({ ...base, depthCompare: "less-equal", depthWriteEnabled: opaque, colorMask: 0xf });
-    super.draw(opts);
-    model.setParameters(base);
   }
 }
 
 export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, viewId = "3d") {
   if (!placed) return [];
   const opaque = placed.opacity >= 0.999;
+  const common = {
+    data: [0],
+    mesh: placed.mesh as never,
+    texture: placed.lut as never,
+    textureParameters: { minFilter: "nearest", magFilter: "nearest", mipmapFilter: "none" } as never,
+    getPosition: () => [0, 0, 0],
+    getColor: [255, 255, 255, 255],
+    modelMatrix: placed.modelMatrix,
+    clip: placed.clip,
+    capAlpha: placed.capAlpha,
+    shrinkUm: placed.shrinkUm ?? CELL_MESH_SHRINK_UM,
+    // The model matrix flips y (texture rows run down), which turns the winding over.
+    flipFacing: placed.modelMatrix.determinant() < 0,
+    coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
+    opacity: placed.opacity,
+    pickable: false,
+    // Matte: soft diffuse, no specular shine (Designer's look notes).
+    material: { ambient: 0.55, diffuse: 0.65, shininess: 1, specularColor: [0, 0, 0] },
+  };
+  // Depth first (every surface inside the clip), then colour where it matches,
+  // so each pixel shows the nearest surface once. Two layers on one mesh object:
+  // luma keeps one uniform block per model, so a pass flag cannot change
+  // between two draws of the same model.
   return [
     new CellMeshLayer({
+      ...common,
+      id: `cube-cell-mesh-depth-${placed.key}${vivTag(viewId)}`,
+      colourPass: false,
+      parameters: { depthCompare: "less-equal", depthWriteEnabled: true, colorMask: 0, cullMode: "none" },
+    } as never),
+    new CellMeshLayer({
+      ...common,
       id: `cube-cell-mesh-${placed.key}${vivTag(viewId)}`,
-      data: [0],
-      mesh: placed.mesh as never,
-      texture: placed.lut as never,
-      textureParameters: { minFilter: "nearest", magFilter: "nearest", mipmapFilter: "none" } as never,
-      getPosition: () => [0, 0, 0],
-      getColor: [255, 255, 255, 255],
-      modelMatrix: placed.modelMatrix,
-      clip: placed.clip,
-      capAlpha: placed.capAlpha,
-      shrinkUm: placed.shrinkUm ?? CELL_MESH_SHRINK_UM,
-      // The model matrix flips y (texture rows run down), which turns the winding over.
-      flipFacing: placed.modelMatrix.determinant() < 0,
-      coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
-      opacity: placed.opacity,
-      pickable: false,
-      // Matte: soft diffuse, no specular shine (Designer's look notes).
-      material: { ambient: 0.55, diffuse: 0.65, shininess: 1, specularColor: [0, 0, 0] },
-      parameters: opaque
-        ? { depthCompare: "less-equal", depthWriteEnabled: true, cullMode: "none" }
-        : { depthCompare: "less-equal", depthWriteEnabled: false, cullMode: "none" },
+      colourPass: true,
+      parameters: { depthCompare: "less-equal", depthWriteEnabled: opaque, cullMode: "none" },
     } as never),
   ];
 }
