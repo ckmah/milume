@@ -33,7 +33,10 @@ export class CellPolygonStore {
     const t0 = performance.now();
     const metadata = await parquetMetadataAsync(file);
     let cols: unknown[][] = [];
-    await parquetRead({ file, metadata, columns: ["cell_id", "ZIndex", "geometry"], geoparquet: false, utf8: true, onComplete: (rows: unknown[][]) => (cols = rows) });
+    await parquetRead({ file, metadata, columns: ["cell_id", "ZIndex", "geometry"], geoparquet: false, utf8: true,
+      // the column is a parquet GEOMETRY logical type: keep the raw WKB (hyparquet would build GeoJSON objects)
+      parsers: { geometryFromBytes: (b: Uint8Array) => b, geographyFromBytes: (b: Uint8Array) => b } as never,
+      onComplete: (rows: unknown[][]) => (cols = rows) });
     const t1 = performance.now();
     const st = new CellPolygonStore(p);
     const index = new Map<string, number>();
