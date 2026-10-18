@@ -18,11 +18,13 @@ export type WindowMesh = {
   bytes: number; built: number; cached: number; ms: number;
 };
 
+type PackedCell = { ox: number; oy: number; scale: number; z: Float64Array; rowPart: Uint32Array; partRing: Uint32Array; ringOff: Uint32Array; xy: Float32Array | Float64Array };
+
 export class CellPolygonStore {
   cellIds: string[] = [];
   labelOf: Int32Array = new Int32Array(0);
-  /** rows of each cell: z µm and decoded pieces */
-  rows: { z: number; parts: Poly[] }[][] = [];
+  /** per cell: packed polygon rings (see fromParquet) */
+  packed: PackedCell[] = [];
   bbox: Float64Array = new Float64Array(0); // 4 per cell
   p: MeshParams;
   cache = new Map<number, CellMesh>();
@@ -39,25 +41,90 @@ export class CellPolygonStore {
       onComplete: (rows: unknown[][]) => (cols = rows) });
     const t1 = performance.now();
     const st = new CellPolygonStore(p);
+    // group rows by cell, then decode each cell's WKB into one packed Float32 block (pixel xy relative to
+    // the cell's min pixel; see below): ~half the memory of per-ring Float64Arrays, and Poly
+    // objects (with their scanline caches) only live while a cell is meshed.
     const index = new Map<string, number>();
-    const bb: number[] = [];
-    for (const row of cols) {
-      const cid = String(row[0]);
+    const rowsOf: number[][] = [];
+    for (let r = 0; r < cols.length; r++) {
+      const cid = String(cols[r]![0]);
       let c = index.get(cid);
-      if (c === undefined) { c = st.cellIds.length; index.set(cid, c); st.cellIds.push(cid); st.rows.push([]); bb.push(Infinity, Infinity, -Infinity, -Infinity); }
-      const zi = Number(row[1] as number | bigint);
-      const parts = wkbPolygons(row[2] as Uint8Array, src.xyUmPerPx).map(makePoly);
-      st.rows[c]!.push({ z: (zi + 0.5) * src.zUmPerIndex, parts });
-      for (const q of parts) {
-        const b = q.bbox;
-        if (b[0] < bb[4 * c]!) bb[4 * c] = b[0]; if (b[1] < bb[4 * c + 1]!) bb[4 * c + 1] = b[1];
-        if (b[2] > bb[4 * c + 2]!) bb[4 * c + 2] = b[2]; if (b[3] > bb[4 * c + 3]!) bb[4 * c + 3] = b[3];
-      }
+      if (c === undefined) { c = st.cellIds.length; index.set(cid, c); st.cellIds.push(cid); rowsOf.push([]); }
+      rowsOf[c]!.push(r);
     }
-    st.bbox = Float64Array.from(bb);
+    const bb = new Float64Array(4 * st.cellIds.length);
+    st.packed = rowsOf.map((rs, c) => {
+      const dec = rs.map((r) => ({ z: (Number(cols[r]![1] as number | bigint) + 0.5) * src.zUmPerIndex, parts: wkbPolygons(cols[r]![2] as Uint8Array, 1) }));
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, nf = 0, np = 0, nr = 0;
+      for (const d of dec) for (const part of d.parts) {
+        np++;
+        part.forEach((ring, k) => {
+          nr++; nf += ring.length;
+          if (k) return;
+          for (let i = 0; i < ring.length; i += 2) {
+            const x = ring[i]!, y = ring[i + 1]!;
+            if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+          }
+        });
+      }
+      if (!np) { x0 = y0 = x1 = y1 = 0; }
+      const k = src.xyUmPerPx;
+      bb.set([x0 * k, y0 * k, x1 * k, y1 * k], 4 * c);
+      // pixel coords relative to the cell's min pixel: whole pixels in practice, so Float32 is exact.
+      // A cell where any coord does not round-trip bit-exactly keeps Float64 (output then matches
+      // decoding the WKB directly, bit for bit).
+      let f32 = true;
+      check: for (const d of dec) for (const part of d.parts) for (const ring of part) for (let i = 0; i < ring.length; i += 2) {
+        if (Math.fround(ring[i]! - x0) + x0 !== ring[i]! || Math.fround(ring[i + 1]! - y0) + y0 !== ring[i + 1]!) { f32 = false; break check; }
+      }
+      const P: PackedCell = { ox: x0, oy: y0, scale: k, z: new Float64Array(dec.length), rowPart: new Uint32Array(dec.length + 1),
+        partRing: new Uint32Array(np + 1), ringOff: new Uint32Array(nr + 1), xy: f32 ? new Float32Array(nf) : new Float64Array(nf) };
+      let pi = 0, ri = 0, f = 0;
+      dec.forEach((d, j) => {
+        P.z[j] = d.z;
+        for (const part of d.parts) {
+          for (const ring of part) {
+            for (let i = 0; i < ring.length; i += 2) { P.xy[f++] = ring[i]! - x0; P.xy[f++] = ring[i + 1]! - y0; }
+            P.ringOff[++ri] = f;
+          }
+          P.partRing[++pi] = ri;
+        }
+        P.rowPart[j + 1] = pi;
+      });
+      return P;
+    });
+    st.bbox = bb;
     st.labelOf = Int32Array.from(st.cellIds, (c) => src.labelIds[c] ?? 0);
     const t2 = performance.now();
-    return { store: st, timings: { parquet_read_ms: t1 - t0, decode_ms: t2 - t1, rows: cols.length, cells: st.cellIds.length } as Record<string, number> };
+    return { store: st, timings: { parquet_read_ms: t1 - t0, decode_ms: t2 - t1, rows: cols.length, cells: st.cellIds.length, polygon_mb: st.polygonBytes() / 1e6, f64_cells: st.packed.filter((P) => P.xy instanceof Float64Array).length } as Record<string, number> };
+  }
+
+  /** Decoded slices of one cell (fresh Poly objects; the loft input). */
+  slices(c: number): { z: number; parts: Poly[] }[] {
+    const P = this.packed[c]!;
+    const out: { z: number; parts: Poly[] }[] = [];
+    for (let j = 0; j < P.z.length; j++) {
+      const parts: Poly[] = [];
+      for (let pi = P.rowPart[j]!; pi < P.rowPart[j + 1]!; pi++) {
+        const rings: Float64Array[] = [];
+        for (let ri = P.partRing[pi]!; ri < P.partRing[pi + 1]!; ri++) {
+          const a = P.ringOff[ri]!, b = P.ringOff[ri + 1]!;
+          const r = new Float64Array(b - a);
+          for (let i = 0; i < b - a; i += 2) { r[i] = (P.xy[a + i]! + P.ox) * P.scale; r[i + 1] = (P.xy[a + i + 1]! + P.oy) * P.scale; }
+          rings.push(r);
+        }
+        parts.push(makePoly(rings));
+      }
+      out.push({ z: P.z[j]!, parts });
+    }
+    return out;
+  }
+
+  /** Bytes held by the packed polygons (the store's resident size, excluding the mesh cache). */
+  polygonBytes(): number {
+    let n = 0;
+    for (const P of this.packed) n += P.xy.byteLength + P.z.byteLength + P.rowPart.byteLength + P.partRing.byteLength + P.ringOff.byteLength;
+    return n;
   }
 
   /** Cells whose bbox centre lies in the window (whole cells, as the 2D map and the Python cache). */
@@ -73,7 +140,7 @@ export class CellPolygonStore {
   mesh(c: number): CellMesh {
     let m = this.cache.get(c);
     if (m) { this.cache.delete(c); this.cache.set(c, m); return m; } // LRU touch
-    m = meshCell(this.rows[c]!, this.p);
+    m = meshCell(this.slices(c), this.p);
     this.cache.set(c, m); this.cacheVerts += m.positions.length / 3;
     for (const [k, v] of this.cache) {
       if (this.cacheVerts <= this.cacheVertexBudget) break;
