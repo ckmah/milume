@@ -26,11 +26,13 @@ export class CellMeshWorkerClient {
   constructor(spec: CellPolygonSpec) {
     const worker = new Worker(new URL("./cell-mesh-worker.ts", import.meta.url), { type: "module" });
     this.worker = worker;
+    worker.onerror = (e) => console.warn("cell mesh worker error", e.message);
     let onLoaded: (t: Record<string, number>) => void = () => {};
     this.loaded = new Promise((r) => (onLoaded = r));
     this.worker.onmessage = (e) => {
       const m = e.data;
       if (m.type === "loaded") { onLoaded(m.timings); stats().load = m.timings; return; }
+      if (m.type === "error") console.warn("cell mesh worker", m.error);
       const p = this.pending.get(m.id);
       if (!p) return;
       this.pending.delete(m.id);

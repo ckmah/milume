@@ -12,6 +12,15 @@ const sel = '[role="dialog"][aria-label="Cube"] .volume-cube__view';
 const browser = await chromium.launch({ args: ["--disable-lcd-text", "--font-render-hinting=none", "--use-gl=swiftshader", "--enable-unsafe-swiftshader"] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 1 });
 page.on("console", (m) => { if (m.type() === "error" || m.text().includes("cell mesh")) log("console", m.text().slice(0, 300)); });
+// Network accounting: label-image requests (should be none with client meshes) and bytes per kind.
+const net = { labels: 0, image: 0, parquet_bytes: 0, cellmesh: 0 };
+page.on("response", async (resp) => {
+  const u = resp.url();
+  if (u.includes("/labels/")) net.labels++;
+  else if (u.includes("/images/")) net.image++;
+  else if (u.includes("/cellmesh/")) net.cellmesh++;
+  else if (u.endsWith(".parquet")) net.parquet_bytes += Number(resp.headers()["content-length"] ?? 0);
+});
 const q = new URLSearchParams({ window: WIN });
 if (process.env.FIXTURE) q.set("fixture", process.env.FIXTURE);
 if (ALPHA) q.set("meshAlpha", ALPHA);
@@ -57,7 +66,8 @@ if (CUT) {
 const attrs = () => page.evaluate((s) => { const el = document.querySelector(s); return Object.fromEntries([...el.attributes].filter((a) => a.name.startsWith("data-mesh") || ["data-points", "data-labels", "data-outside", "data-label-cells"].includes(a.name)).map((a) => [a.name, a.value])); }, sel);
 const name = (view) => `${SHOTS}/${MODE === "raycast" ? "raycast" : "mesh"}-colour${CUT ? `-cut${CUT}` : ""}${TAG}${ALPHA ? `-a${ALPHA}` : ""}${NOIMAGE ? "-noimage" : ""}-w${WIN}-${view}.png`;
 const view = page.locator(sel);
-const r = { mode: MODE, cut_axis: CUT || null, volume_cut: cutApplied, window_um: Number(WIN), image: !NOIMAGE, mesh_alpha: ALPHA ?? null, before: await attrs() };
+const workerStats = () => page.evaluate(() => ({ worker: window.__cellMeshWorker ?? null, heap_mb: performance.memory ? performance.memory.usedJSHeapSize / 1e6 : null }));
+const r = { net, ...(await workerStats()), mode: MODE, cut_axis: CUT || null, volume_cut: cutApplied, window_um: Number(WIN), image: !NOIMAGE, mesh_alpha: ALPHA ?? null, before: await attrs() };
 if (process.env.RECOLOR) {
   const delta = JSON.parse(readFileSync(process.env.RECOLOR, "utf8"));
   if (SHOTS) await view.screenshot({ path: name("top-before-recolor") });

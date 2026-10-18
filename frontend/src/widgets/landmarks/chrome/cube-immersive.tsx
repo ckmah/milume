@@ -14,6 +14,7 @@ import type { LandmarksModel } from "../use-landmarks-model";
 import { useCubeScatterPoints } from "../use-cube-scatter-points";
 import { type ChipSnapshot, SNAPSHOT_SETTLE_MS, snapshotOf, windowKey } from "./cube-snapshots";
 import { ChromeLoadIndicator } from "./load-indicator";
+import type { CellPolygonSpec } from "../../volume-cube/cell-mesh-source";
 
 // Lazy only in the dev harness: the widget build inlines dynamic imports
 // (`inlineDynamicImports`, vite.config.ts), so landmarks.mjs always carries Viv.
@@ -225,6 +226,8 @@ export function CubeImmersive({
           volumeComm={volumeComm}
           meshUrl={cellMeshUrl(volume.mesh_url)}
           meshOpacity={cellMeshOpacity()}
+          meshSource={cellMeshSource(volume.cell_polygons)}
+          meshDepthPrepass={urlFlag("meshDepth") === "1"}
           pausesPrefetch
           onLoadState={onLoadState}
           onRendered={onRendered}
@@ -244,12 +247,22 @@ export function CubeImmersive({
 
 /** Prototype A/B switches: `?mesh=0` forces the raycast, `?meshAlpha=1` draws opaque meshes. */
 function cellMeshUrl(url: string | undefined): string {
-  if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("mesh") === "0") return "";
+  if (urlFlag("mesh") === "0") return "";
   return url ?? "";
 }
 
-function cellMeshOpacity(): number | undefined {
-  if (typeof window === "undefined") return undefined;
-  const v = new URLSearchParams(window.location.search).get("meshAlpha");
-  return v == null ? undefined : Number(v);
+function urlFlag(name: string): string | null {
+  return typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get(name);
+}
+
+/** Meshes at 0.1 by default (Clarence, Oct 18); `?meshAlpha=` overrides. */
+function cellMeshOpacity(): number {
+  const v = urlFlag("meshAlpha");
+  return v == null ? 0.1 : Number(v);
+}
+
+/** Client-side meshes from the polygon parquet unless `?mesh=0` (raycast) or `?meshSource=server` (Python meshes). */
+function cellMeshSource(spec: CellPolygonSpec | undefined): CellPolygonSpec | null {
+  if (!spec || urlFlag("mesh") === "0" || urlFlag("meshSource") === "server") return null;
+  return spec;
 }

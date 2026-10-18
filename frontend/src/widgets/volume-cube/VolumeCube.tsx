@@ -48,6 +48,7 @@ import {
   placedCellMeshGeometry,
 } from "./cell-mesh";
 import { cellMeshClipBox, keptVertexCount } from "./cell-mesh-clip";
+import { type CellPolygonSpec, CellMeshWorkerClient } from "./cell-mesh-source";
 import { type CubeOverlay, placeOverlays } from "./overlay-layers";
 import { paletteLut } from "./palettes";
 import { dragToWindowDelta } from "./pan";
@@ -166,6 +167,10 @@ export type VolumeCubeProps = {
   meshUrl?: string;
   /** Mesh opacity (default: the label opacity, `render.cellAlpha`). */
   meshOpacity?: number;
+  /** Prototype (proto-cell-mesh-ts): build meshes client-side from the cell polygon parquet (wins over meshUrl). */
+  meshSource?: CellPolygonSpec | null;
+  /** Prototype A/B: keep the depth-only pre-pass (default off). */
+  meshDepthPrepass?: boolean;
   /** Hold the cache's background prefetch while this cube's target loads. */
   pausesPrefetch?: boolean;
   /** Called after each deck render. */
@@ -398,6 +403,8 @@ export function VolumeCube({
   volumeComm = null,
   meshUrl = "",
   meshOpacity,
+  meshSource = null,
+  meshDepthPrepass = false,
   pausesPrefetch = false,
   onRendered,
   onLevels,
@@ -413,9 +420,10 @@ export function VolumeCube({
 }: VolumeCubeProps) {
   // Mesh mode: the raycast keeps the image only, cells come from meshes. The image
   // stays at full strength so a cut face shows the same DAPI slice as the raycast.
-  const meshOn = Boolean(meshUrl);
+  const meshOn = Boolean(meshUrl || meshSource);
   const showLabels = showLabelsProp && !meshOn;
-  const render = renderProp;
+  // Mesh mode keeps the plain volume render: no separate cut-face slice (Clarence, Oct 18).
+  const render = useMemo(() => (meshOn ? { ...renderProp, sliceOn: 0 } : renderProp), [meshOn, renderProp]);
   const hostRef = useRef<HTMLDivElement>(null);
   const fixedHeight = typeof height === "number";
   const [box, setBox] = useState({ width: 640, height: 520 });
@@ -1023,9 +1031,11 @@ export function VolumeCube({
     if (!meshOn || winX[1] - winX[0] < 1 || winY[1] - winY[0] < 1) return;
     let live = true;
     const t0 = performance.now();
-    fetchCellMesh(meshUrl, meshKey, volumeComm)
+    const box = meshKey.split(",").map(Number) as [number, number, number, number];
+    const got = meshSource ? CellMeshWorkerClient.for(meshSource).build(box) : fetchCellMesh(meshUrl, meshKey, volumeComm);
+    got
       .then((m) => {
-        if (!live) return;
+        if (!live || !m) return;
         const w = window as unknown as { __cellMeshFetchMs?: number[] };
         (w.__cellMeshFetchMs ??= []).push(performance.now() - t0);
         setCellMesh(m);
@@ -1034,7 +1044,7 @@ export function VolumeCube({
     return () => {
       live = false;
     };
-  }, [meshOn, meshUrl, meshKey, volumeComm]);
+  }, [meshOn, meshUrl, meshKey, volumeComm, meshSource]);
   // Build counters (data-mesh-geometry-builds / data-mesh-lut-builds): a recolour must only bump the LUT.
   const meshBuilds = useRef({ geometry: 0, lut: 0 });
   const cellMeshGeometry = useMemo(() => {
@@ -1065,7 +1075,9 @@ export function VolumeCube({
       lut: cellMeshColours,
       opacity: meshOpacity ?? renderProp.cellAlpha,
       clip: cellMeshClip,
-      capAlpha: renderProp.cellAlpha,
+      // A cut opens cells: their insides (back faces) draw at the mesh opacity.
+      capAlpha: meshOpacity ?? renderProp.cellAlpha,
+      depthPrepass: meshDepthPrepass,
       modelMatrix: cellMeshMatrix({
         volumeMatrix,
         originUm: cellMesh.originUm,
@@ -1082,7 +1094,7 @@ export function VolumeCube({
         depth: cubeFrame.size[2],
       }),
     };
-  }, [cellMesh, cellMeshGeometry, cellMeshColours, cubeFrame, levelVoxel, panBox, meshOpacity, renderProp.cellAlpha, cellMeshClip, volumeMatrix, oxUm, oyUm, ozUm, ry, windowZSlice]);
+  }, [cellMesh, cellMeshGeometry, cellMeshColours, cubeFrame, levelVoxel, panBox, meshOpacity, renderProp.cellAlpha, cellMeshClip, meshDepthPrepass, volumeMatrix, oxUm, oyUm, ozUm, ry, windowZSlice]);
 
   const deckProps = useMemo(
     () => ({
@@ -1471,6 +1483,7 @@ export function VolumeCube({
       data-refining={String(refining)}
       data-overlays={placedOverlays?.count ?? 0}
       data-mesh-tris={cellMesh ? cellMesh.indices.length / 3 : 0}
+      data-mesh-source={meshSource ? "worker" : meshUrl ? "server" : ""}
       data-mesh-bytes={cellMesh ? cellMesh.bytes : 0}
       data-mesh-shown={placedCellMesh ? "true" : "false"}
       data-mesh-clip={cellMeshClip ? JSON.stringify(cellMeshClip) : ""}

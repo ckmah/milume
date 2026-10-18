@@ -10,15 +10,24 @@
 import { CellPolygonStore, type PolygonSource } from "./cell-loft/store";
 
 let store: CellPolygonStore | null = null;
-let ready: Promise<void> | null = null;
+// Builds can arrive before the load message; they wait for the store.
+let markReady: () => void = () => {};
+const ready = new Promise<void>((r) => (markReady = r));
 let latest = 0;
 const CHUNK = 48;
 const yieldToMessages = () => new Promise<void>((r) => setTimeout(r, 0));
 
 self.onmessage = async (e: MessageEvent) => {
-  const m = e.data;
+  try {
+    await handle(e.data);
+  } catch (err) {
+    (self as unknown as Worker).postMessage({ type: "error", id: e.data?.id, error: String((err as Error)?.stack ?? err) });
+  }
+};
+
+async function handle(m: { type: string; [k: string]: unknown } & Record<string, any>) {
   if (m.type === "load") {
-    ready = (async () => {
+    void (async () => {
       const t0 = performance.now();
       const res = await fetch(m.url);
       const buf = await res.arrayBuffer();
@@ -27,6 +36,7 @@ self.onmessage = async (e: MessageEvent) => {
       const src: PolygonSource = { xyUmPerPx: m.xyUmPerPx, zUmPerIndex: m.zUmPerIndex, labelIds: m.labelIds ?? {} };
       const { store: s, timings } = await CellPolygonStore.fromParquet(file, src);
       store = s;
+      markReady();
       (self as unknown as Worker).postMessage({ type: "loaded", timings: { ...timings, fetch_ms: t1 - t0, total_ms: performance.now() - t0, parquet_bytes: buf.byteLength } });
     })();
     return;
@@ -54,4 +64,4 @@ self.onmessage = async (e: MessageEvent) => {
     const mesh = { ...w, built, cached, ms: performance.now() - t0, build_ms: tb - t0, pack_ms: performance.now() - tb };
     (self as unknown as Worker).postMessage({ type: "built", id: m.id, mesh }, [w.positions.buffer, w.normals.buffer, w.cells.buffer, w.indices.buffer, w.labels.buffer]);
   }
-};
+}

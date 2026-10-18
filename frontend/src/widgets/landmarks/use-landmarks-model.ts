@@ -48,6 +48,8 @@ export type LandmarksVolume = {
   labels_url?: string;
   /** Prototype: per-window cell mesh prefix (comm) or URL (harness). */
   mesh_url?: string;
+  /** Prototype (proto-cell-mesh-ts): per-slice cell polygon parquet; meshes are built client-side in a worker. */
+  cell_polygons?: import("../volume-cube/cell-mesh-source").CellPolygonSpec;
   voxel_size_um?: [number, number, number];
   origin_um?: [number, number, number];
   contrast_limits?: [number, number];

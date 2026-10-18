@@ -160,6 +160,8 @@ export type PlacedCellMesh = {
   capAlpha: number;
   /** Surface inset (µm); default CELL_MESH_SHRINK_UM. */
   shrinkUm?: number;
+  /** Depth-only pass first (nearest surface wins). Off by default: the 0.2 µm inset already removes the speckles, and the pass doubles the mesh on the GPU. */
+  depthPrepass?: boolean;
   key: string;
 };
 
@@ -247,7 +249,7 @@ class CellMeshLayer extends SimpleMeshLayer {
     // The eye in the mesh's µm, as Viv finds its own (viewMatrixInverse's translation, then the inverse model).
     const vmi = (this.context.viewport as unknown as { viewMatrixInverse: number[] }).viewMatrixInverse;
     const eye = new Matrix4(modelMatrix).invert().transformAsPoint([vmi[12]!, vmi[13]!, vmi[14]!]);
-    const { colourPass } = this.props as unknown as { colourPass: boolean };
+    const { colourPass, depthPrepass } = this.props as unknown as { colourPass: boolean; depthPrepass?: boolean };
     model.shaderInputs.setProps({
       cellMeshClip: {
         lo: clip?.lo ?? [-1e9, -1e9, -1e9],
@@ -258,7 +260,8 @@ class CellMeshLayer extends SimpleMeshLayer {
         capAlpha,
         flipFacing: flipFacing ? 1 : 0,
         shrink: shrinkUm,
-        colourPass: colourPass ? 1 : 0,
+        // The slice-era "front face behind the cut plane" discard only belongs with the depth pre-pass look.
+        colourPass: colourPass && depthPrepass ? 1 : 0,
       },
     });
     const write = !colourPass || (this.props as { opacity: number }).opacity >= 0.999;
@@ -298,6 +301,7 @@ export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, viewId
     clip: placed.clip,
     capAlpha: placed.capAlpha,
     shrinkUm: placed.shrinkUm ?? CELL_MESH_SHRINK_UM,
+    depthPrepass: Boolean(placed.depthPrepass),
     // The model matrix flips y (texture rows run down), which turns the winding over.
     flipFacing: placed.modelMatrix.determinant() < 0,
     coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
@@ -310,6 +314,13 @@ export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, viewId
   // so each pixel shows the nearest surface once. Two layers on one mesh object:
   // luma keeps one uniform block per model, so a pass flag cannot change
   // between two draws of the same model.
+  const colour = new CellMeshLayer({
+    ...common,
+    id: `cube-cell-mesh-${placed.key}${vivTag(viewId)}`,
+    colourPass: true,
+    parameters: { depthCompare: "less-equal", depthWriteEnabled: opaque, cullMode: "none" },
+  } as never);
+  if (!placed.depthPrepass) return [colour];
   return [
     new CellMeshLayer({
       ...common,
