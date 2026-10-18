@@ -1,0 +1,40 @@
+<!doctype html><meta charset="utf-8"><title>surface nets bench</title>
+<script type="module">
+import { snWebGPU, snJS } from "./sn.js";
+window.runBench = async (name, which) => {
+  const meta = await (await fetch(`data/${name}.json`)).json();
+  const vol = new Uint32Array(await (await fetch(`data/${name}.bin`)).arrayBuffer());
+  const lut = new Uint32Array(meta.lut_len); meta.keep.forEach((l, i) => (lut[l] = i + 1));
+  const opt = { scale: meta.scale, trans: meta.trans };
+  const out = { name, shape: meta.shape };
+  const stats = (pos, idx, stride) => {   // mean vertex + mean of oriented triangle normals (checks winding)
+    const n = pos.length / stride; let m = [0, 0, 0];
+    for (let i = 0; i < n; i++) for (let d = 0; d < 3; d++) m[d] += pos[stride * i + d] / n;
+    let outward = 0;   // share of triangles whose normal points away from their cell's... use the global mean as a proxy
+    let area = 0;
+    for (let t = 0; t < idx.length; t += 3) {
+      const a = idx[t] * stride, b = idx[t + 1] * stride, c = idx[t + 2] * stride;
+      const u = [pos[b] - pos[a], pos[b + 1] - pos[a + 1], pos[b + 2] - pos[a + 2]], v = [pos[c] - pos[a], pos[c + 1] - pos[a + 1], pos[c + 2] - pos[a + 2]];
+      const nx = u[1] * v[2] - u[2] * v[1], ny = u[2] * v[0] - u[0] * v[2], nz = u[0] * v[1] - u[1] * v[0];
+      // signed volume contribution (divergence theorem): sum over closed oriented surfaces = enclosed volume > 0
+      area += (pos[a] * nx + pos[a + 1] * ny + pos[a + 2] * nz) / 6;
+    }
+    const nan = [0, 1, 2].map((d) => { let c = 0; for (let i = 0; i < n; i++) if (!Number.isFinite(pos[stride * i + d])) c++; return c; });
+    const firstNan = (() => { for (let i = 0; i < n; i++) if (!Number.isFinite(pos[stride * i + 1])) return [i, Array.from(pos.slice(stride * i, stride * i + stride))]; return null; })();
+    return { nan, firstNan, mean: m.map((x) => +x.toFixed(4)), signed_volume_um3: +area.toFixed(1) };
+  };
+  if (which.includes("js")) { const r = snJS(vol, meta.shape, lut, opt); out.js = { ...r.timings, ntri: r.ntri, nv: r.nv, ...stats(r.positions, r.indices, 3) }; }
+  if (which.includes("webgpu")) {
+    if (!navigator.gpu) { out.webgpu = { error: "navigator.gpu missing" }; return out; }
+    const adapter = await navigator.gpu.requestAdapter();
+    if (!adapter) { out.webgpu = { error: "no adapter" }; return out; }
+    const info = adapter.info ?? {};
+    const device = await adapter.requestDevice({ requiredLimits: { maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize, maxBufferSize: adapter.limits.maxBufferSize } });
+    const runs = [];
+    for (let k = 0; k < 3; k++) { const r = await snWebGPU(device, vol, meta.shape, lut, opt); runs.push({ ...r.timings, ntri: r.ntri, nv: r.nv }); if (k === 2) Object.assign(runs[2], stats(r.positions, r.indices, 4)); }
+    out.webgpu = { adapter: { vendor: info.vendor, architecture: info.architecture, device: info.device, description: info.description, isFallbackAdapter: adapter.isFallbackAdapter }, maxStorage: adapter.limits.maxStorageBufferBindingSize, runs };
+  }
+  return out;
+};
+window.ready = true;
+</script>
