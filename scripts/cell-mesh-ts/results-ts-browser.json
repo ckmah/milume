@@ -1,0 +1,263 @@
+{
+ "100": {
+  "name": "100",
+  "load_total_ms": 906.8000000007451,
+  "load": {
+   "parquet_read_ms": 369.1000000014901,
+   "decode_ms": 431.30000000074506,
+   "rows": 166453,
+   "cells": 4372,
+   "polygon_mb": 73.60714,
+   "f64_cells": 1335,
+   "fetch_ms": 70.19999999925494,
+   "total_ms": 872.0999999977648,
+   "parquet_bytes": 31192610
+  },
+  "build_roundtrip_ms": 174.39999999850988,
+  "worker": {
+   "id": 1,
+   "ms": 173.79999999701977,
+   "build_ms": 168.5,
+   "pack_ms": 5.299999997019768,
+   "built": 117,
+   "cached": 0,
+   "cells": 117,
+   "triangles": 198443,
+   "bytes": 5370042
+  },
+  "cells": 117,
+  "triangles": 198443,
+  "transferred_bytes": 5370042,
+  "main_heap_mb": 8.064481,
+  "raf_frames": 11,
+  "raf_max_gap_ms": 17
+ },
+ "300": {
+  "name": "300",
+  "load_total_ms": 881,
+  "load": {
+   "parquet_read_ms": 364.4000000022352,
+   "decode_ms": 405,
+   "rows": 166453,
+   "cells": 4372,
+   "polygon_mb": 73.60714,
+   "f64_cells": 1335,
+   "fetch_ms": 74.09999999776483,
+   "total_ms": 844.7999999970198,
+   "parquet_bytes": 31192610
+  },
+  "build_roundtrip_ms": 1210.5999999977648,
+  "worker": {
+   "id": 1,
+   "ms": 1210.199999999255,
+   "build_ms": 1181.4000000022352,
+   "pack_ms": 28.799999997019768,
+   "built": 899,
+   "cached": 0,
+   "cells": 899,
+   "triangles": 1595360,
+   "bytes": 43956414
+  },
+  "cells": 899,
+  "triangles": 1595360,
+  "transferred_bytes": 43956414,
+  "main_heap_mb": 88.484037,
+  "raf_frames": 74,
+  "raf_max_gap_ms": 17.100000001490116
+ },
+ "pan100": [
+  {
+   "ms": 30.300000000745058,
+   "worker": {
+    "id": 2,
+    "ms": 30.099999997764826,
+    "build_ms": 25.099999997764826,
+    "pack_ms": 5,
+    "built": 19,
+    "cached": 92,
+    "cells": 111,
+    "triangles": 188273,
+    "bytes": 5105680
+   },
+   "cells": 111
+  },
+  {
+   "ms": 15.5,
+   "worker": {
+    "id": 3,
+    "ms": 15.200000002980232,
+    "build_ms": 12.400000002235174,
+    "pack_ms": 2.800000000745058,
+    "built": 10,
+    "cached": 86,
+    "cells": 96,
+    "triangles": 163510,
+    "bytes": 4454864
+   },
+   "cells": 96
+  },
+  {
+   "ms": 17.100000001490116,
+   "worker": {
+    "id": 4,
+    "ms": 16.900000002235174,
+    "build_ms": 14.600000001490116,
+    "pack_ms": 2.300000000745058,
+    "built": 13,
+    "cached": 64,
+    "cells": 77,
+    "triangles": 133034,
+    "bytes": 3655266
+   },
+   "cells": 77
+  },
+  {
+   "ms": 13.600000001490116,
+   "worker": {
+    "id": 5,
+    "ms": 13.099999997764826,
+    "build_ms": 10.699999999254942,
+    "pack_ms": 2.399999998509884,
+    "built": 9,
+    "cached": 57,
+    "cells": 66,
+    "triangles": 115612,
+    "bytes": 3184260
+   },
+   "cells": 66
+  },
+  {
+   "ms": 16.699999999254942,
+   "worker": {
+    "id": 6,
+    "ms": 16.5,
+    "build_ms": 14.5,
+    "pack_ms": 2,
+    "built": 13,
+    "cached": 51,
+    "cells": 64,
+    "triangles": 112536,
+    "bytes": 3086552
+   },
+   "cells": 64
+  },
+  {
+   "ms": 13.199999999254942,
+   "worker": {
+    "id": 7,
+    "ms": 12.5,
+    "build_ms": 10.900000002235174,
+    "pack_ms": 1.5999999977648258,
+    "built": 9,
+    "cached": 45,
+    "cells": 54,
+    "triangles": 96160,
+    "bytes": 2639672
+   },
+   "cells": 54
+  },
+  {
+   "ms": 16.800000000745058,
+   "worker": {
+    "id": 8,
+    "ms": 16.399999998509884,
+    "build_ms": 14.100000001490116,
+    "pack_ms": 2.2999999970197678,
+    "built": 12,
+    "cached": 44,
+    "cells": 56,
+    "triangles": 99828,
+    "bytes": 2711308
+   },
+   "cells": 56
+  },
+  {
+   "ms": 9,
+   "worker": {
+    "id": 9,
+    "ms": 8.800000000745058,
+    "build_ms": 7.199999999254942,
+    "pack_ms": 1.6000000014901161,
+    "built": 8,
+    "cached": 43,
+    "cells": 51,
+    "triangles": 90512,
+    "bytes": 2440064
+   },
+   "cells": 51
+  },
+  {
+   "ms": 15.099999997764826,
+   "worker": {
+    "id": 10,
+    "ms": 14.800000000745058,
+    "build_ms": 13.100000001490116,
+    "pack_ms": 1.699999999254942,
+    "built": 10,
+    "cached": 42,
+    "cells": 52,
+    "triangles": 93118,
+    "bytes": 2504022
+   },
+   "cells": 52
+  },
+  {
+   "ms": 16.800000000745058,
+   "worker": {
+    "id": 11,
+    "ms": 16.399999998509884,
+    "build_ms": 14.5,
+    "pack_ms": 1.8999999985098839,
+    "built": 11,
+    "cached": 39,
+    "cells": 50,
+    "triangles": 92214,
+    "bytes": 2481986
+   },
+   "cells": 50
+  }
+ ],
+ "burst5": [
+  null,
+  null,
+  null,
+  null,
+  68
+ ],
+ "all": {
+  "name": "all",
+  "load_total_ms": 882.4000000022352,
+  "load": {
+   "parquet_read_ms": 362,
+   "decode_ms": 412.1000000014901,
+   "rows": 166453,
+   "cells": 4372,
+   "polygon_mb": 73.60714,
+   "f64_cells": 1335,
+   "fetch_ms": 62.5,
+   "total_ms": 838.3000000007451,
+   "parquet_bytes": 31192610
+  },
+  "build_roundtrip_ms": 5896.29999999702,
+  "worker": {
+   "id": 1,
+   "ms": 5895.39999999851,
+   "build_ms": 5732.599999997765,
+   "pack_ms": 162.80000000074506,
+   "built": 4372,
+   "cached": 0,
+   "cells": 4372,
+   "triangles": 7741527,
+   "bytes": 212530320
+  },
+  "cells": 4372,
+  "triangles": 7741527,
+  "transferred_bytes": 212530320,
+  "main_heap_mb": 220.802564,
+  "raf_frames": 355,
+  "raf_max_gap_ms": 18.900000002235174
+ },
+ "worker_heap_mb_after_all": null,
+ "http_bytes_total": 95385034,
+ "chromium": "153.0.8010.12"
+}
