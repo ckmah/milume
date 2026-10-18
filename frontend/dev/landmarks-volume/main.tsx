@@ -55,14 +55,20 @@ function LandmarksVolumeHarness() {
   // E2E only: remount the widget on a fresh model without reloading the page (see e2e/fixtures.ts).
   // `query` carries the options a reload would have (`window=100`); none means the defaults.
   useEffect(() => {
-    (window as unknown as { __harnessReset?: (query?: string) => Promise<void> }).__harnessReset = async (query = "") => {
+    // `seed` is state Python set before display (e.g. `dev/harness-inspect-open.json`), applied
+    // before the widget mounts.
+    (
+      window as unknown as { __harnessReset?: (query?: string, seed?: Record<string, unknown>) => Promise<void> }
+    ).__harnessReset = async (query = "", seed) => {
       resetModeDropdownMemory();
       setModel(null);
       setOptions(optionsFrom(query));
       await new Promise<void>((resolve) =>
         requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
       );
-      setModel(await loadFixtureModel());
+      const next = await loadFixtureModel();
+      for (const [k, v] of Object.entries(seed ?? {})) next.set(k, v);
+      setModel(next);
     };
     return () => {
       delete (window as unknown as { __harnessReset?: unknown }).__harnessReset;

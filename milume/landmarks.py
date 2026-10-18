@@ -338,11 +338,16 @@ class LandmarksWidget(AnyWidget):
     selected_type_indices = traitlets.List(traitlets.Int(), default_value=[]).tag(
         sync=True
     )
-    # Inspect window centre (µm; None until a press places it) and side (a fixed 300 µm,
-    # written by the browser at placement; Python reads it).
+    # Inspect window centre (µm; None until a press or Python places it) and side (a
+    # fixed 300 µm, written by the browser at placement; Python reads it). Setting the
+    # centre moves the window, and the open cube with it.
     inspect_cx = traitlets.Float(allow_none=True, default_value=None).tag(sync=True)
     inspect_cy = traitlets.Float(allow_none=True, default_value=None).tag(sync=True)
     inspect_size_um = traitlets.Float(300.0).tag(sync=True)
+    # Whether the Inspect cube is open. True opens it at inspect_cx/cy (the volume
+    # centre when no window is placed); False closes it and exits Inspect, like Exit.
+    # The browser writes False when the user closes the cube or leaves Inspect.
+    inspect_open = traitlets.Bool(False).tag(sync=True)
     active_category = traitlets.Unicode("").tag(sync=True)
     # View-only gene selection (chrome ↔ engine); not a notebook analysis API.
     active_genes = traitlets.List(traitlets.Unicode(), default_value=[]).tag(sync=True)
@@ -599,6 +604,7 @@ class LandmarksWidget(AnyWidget):
 
         self._volume_store_root = None
         self._volume_allow_prefixes: tuple[str, ...] = ()
+        self._volume_centre_xy: tuple[float, float] | None = None
         if volume_source is not None:
             self._attach_volume(volume_source, contrast_limits)
 
@@ -623,6 +629,24 @@ class LandmarksWidget(AnyWidget):
                 warnings.warn("label ids above 4,194,303 are not coloured in the cube", UserWarning, stacklevel=3)
             self.volume_label_ids = base64.b64encode(ids.tobytes()).decode("ascii")
         self.volume_cut = [ox, ox + w * sx, oy, oy + h * sy, oz, oz + d * sz]
+        self._volume_centre_xy = (ox + w * sx / 2.0, oy + h * sy / 2.0)
+
+    @traitlets.validate("inspect_open")
+    def _validate_inspect_open(self, proposal: dict[str, Any]) -> bool:
+        """Opening needs a 3D image; with no window placed yet it opens at the volume centre."""
+        value = bool(proposal["value"])
+        if not value:
+            return False
+        if not (self.volume or {}).get("image_url"):
+            raise ValueError(
+                "inspect_open needs a 3D image: build the widget from SpatialData with an image"
+            )
+        centre = getattr(self, "_volume_centre_xy", None)
+        if (self.inspect_cx is None or self.inspect_cy is None) and centre:
+            # Sent before inspect_open, so the browser opens the cube at this window.
+            with self.hold_sync():
+                self.inspect_cx, self.inspect_cy = centre
+        return True
 
     @command
     def volume_get(self, msg: object, buffers: list[bytes]) -> tuple[object, list[bytes]]:
@@ -1143,9 +1167,12 @@ _PUBLIC_TRAITS: dict[str, str] = {
     "selected_kind": "Kind of the focused item: selection, landmark, type, or empty.",
     "selected_index": "Index of the focused item within its kind, or -1.",
     "selected_type_indices": "Focused category label indices when selected_kind is type.",
-    "inspect_cx": "Inspect window centre x in spatial units, or None before placement.",
-    "inspect_cy": "Inspect window centre y in spatial units, or None before placement.",
+    "inspect_cx": "Inspect window centre x in spatial units, or None before placement; set it to move the window and the open cube.",
+    "inspect_cy": "Inspect window centre y in spatial units, or None before placement; set it to move the window and the open cube.",
     "inspect_size_um": "Inspect window side length in µm.",
+    "inspect_open": "Whether the Inspect cube is open; True opens it at inspect_cx/cy, or at the volume centre when no window is placed; False closes it and exits Inspect. ValueError without a 3D image.",
+    "volume": "The 3D image behind the Inspect cube (image and labels paths, voxel size, origin, contrast); {} without one. Read it, don't set it.",
+    "volume_cut": "Cube cut box [x0, x1, y0, y1, z0, z1] in µm; the browser writes it on slider release, assign it to cut from Python.",
     "active_category": "Name of the obs column driving categorical colour and type focus.",
     "active_genes": "Genes shown in the expression blend; unknown genes are dropped.",
     "category_colors": "Label to hex colour map of a categorical column as drawn.",

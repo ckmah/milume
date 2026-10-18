@@ -16,6 +16,7 @@ export const NOTEBOOK_KEYS = new Set([
   "selected_index",
   "inspect_cx",
   "inspect_cy",
+  "inspect_open",
   "raster_embedding_key",
   "raster_embedding_dims",
 ]);

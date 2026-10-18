@@ -54,9 +54,14 @@ Press <kbd>I</kbd> or click <svg xmlns="http://www.w3.org/2000/svg" width="16" h
 ## Python
 
 ```python
-w.inspect_cx, w.inspect_cy, w.inspect_size_um  # window center and size
-w.volume_cut                                  # cut-plane state
+w.inspect_cx, w.inspect_cy = 120.0, 140.0  # window center (µm)
+w.inspect_open = True                      # open the cube there, no click
+w.inspect_cx = 150.0                       # move the window and the open cube
+w.volume_cut                               # cut-plane state: x0, x1, y0, y1, z0, z1 (µm)
+w.inspect_open = False                     # close the cube and exit Inspect
 ```
+
+The default position is the volume's center: `w.inspect_open = True` with no window placed opens the cube there. `w.inspect_open = False` closes the cube and exits Inspect, like Exit. It follows the browser too: opening the cube there reads `True`, and <kbd>Esc</kbd> (one press closes the cube and exits Inspect) or Exit reads `False`.
 
 See [Synced traitlets](../api/landmarks.md#synced-traitlets) for the volume fields, and pass `image=` / `labels=` to `milume.peek` in [Constructor parameters](../api/landmarks.md#constructor-parameters).
 

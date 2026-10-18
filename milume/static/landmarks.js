@@ -6249,8 +6249,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
           return;
         }
         // Esc ends a press where it is: later moves drag nothing. React
-        // closes the cube on `close`, or exits Inspect when none is open and
-        // no press was ended.
+        // closes the cube and exits Inspect on `close` (#215).
         const press = Boolean(inspectGesture);
         endInspectPress();
         clearInspectHover();

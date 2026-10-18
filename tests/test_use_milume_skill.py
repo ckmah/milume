@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import pytest
-from helpers import adata_xy
+from helpers import adata_xy, toy_spatialdata
 
 from milume.landmarks import _PUBLIC_TRAITS, LandmarksWidget
 
@@ -41,13 +41,14 @@ def _fixture():
     )
 
 
-def test_skill_examples_run_against_fixture():
+def test_skill_examples_run_against_fixture(tmp_path):
     pytest.importorskip("geopandas")
+
     blocks = re.findall(
         r"```python\n(.*?)```", SKILL.read_text(encoding="utf-8"), re.DOTALL
     )
     assert len(blocks) >= 5
-    ns: dict = {"adata": _fixture()}
+    ns: dict = {"adata": _fixture(), "sdata": toy_spatialdata(tmp_path / "toy.zarr")}
     for block in blocks:
         exec(compile(block, str(SKILL), "exec"), ns)  # noqa: S102 - running the skill examples is the test
     w = ns["w"]
@@ -58,6 +59,9 @@ def test_skill_examples_run_against_fixture():
     )
     assert set(ns["palette"]) == {"enterocyte", "goblet", "stem"}
     assert w.landmarks[0]["id"] == "crypt-axis"
+    v = ns["v"]
+    assert (v.inspect_cx, v.inspect_cy, v.inspect_open) == (150.0, 140.0, False)
+    assert v.volume_cut[4:] == [0.0, 32.0]
 
 
 def test_skill_public_api_block_is_current():

@@ -116,7 +116,7 @@ w = milume.peek(sio.cosmx(path), spatial_key="global")
 ```
 
 - From a SpatialData, the widget finds the table, the labels element it annotates, a 3D image on the same grid, and their µm frame (override with `table=`, `image=`, `labels=`; `contrast_limits=` for the image).
-- Press **I** (Inspect): the top toolbar turns into a dashed Inspect pill, hovering shows a live coarse preview of the tissue under the cursor, and a click places a 300 µm window; on release a full-resolution cube of it takes over the plot area, cells drawn as outlines colored like the map, with your landmarks on top. Shift+drag in the cube (or the **Move** tool) slides the window across the tissue; a plain drag orbits. The bottom bar holds the camera, **Adjust** (image and label display) and **Cross-section** (cuts). Esc closes the cube; Esc again, or ×, leaves Inspect. The side panels' peek tabs stay over the cube, so you can focus a category or Selection to color it.
+- Press **I** (Inspect): the top toolbar turns into a dashed Inspect pill, hovering shows a live coarse preview of the tissue under the cursor, and a click places a 300 µm window; on release a full-resolution cube of it takes over the plot area, cells drawn as outlines colored like the map, with your landmarks on top. Shift+drag in the cube (or the **Move** tool) slides the window across the tissue; a plain drag orbits. The bottom bar holds the camera, **Adjust** (image and label display) and **Cross-section** (cuts). Esc (or ×) closes the cube and leaves Inspect in one press. The side panels' peek tabs stay over the cube, so you can focus a category or Selection to color it.
 - **Save window** on the Inspect pill adds the window as an **inspect selection**, listed in the Selections panel with a thumbnail and named by its main category and size (e.g. `Epithelial · 214`); hover a row for its cell count and category mix, click it to reopen the window. Read the inspected cells back with `w.get_obs_names(adata, "<inspect id>")` or `w.selections`.
 - Hold **Space** to pan in any tool.
 
@@ -130,7 +130,7 @@ Read results back in Python:
 | Compare a subset with the tissue | `enrichment(adata, obs_names, obs_key=...)` |
 | XY vs 3D neighbors | `nearest_distances(adata, seeds, obs_key=...)` (needs `obsm["spatial"]` x, y, z) |
 | Map colors for other plots | `w.category_colors("cell_type")` |
-| Inspect window and cube cut | `w.inspect_cx`, `w.inspect_cy`, `w.inspect_size_um`; `w.volume_cut` = x0, x1, y0, y1, z0, z1 µm (intersect X/Y with the window for the shown box) |
+| Inspect window and cube cut | `w.inspect_open = True` opens the cube at `w.inspect_cx`, `w.inspect_cy`, or at the volume centre when no window is placed (set them to move it; `False` closes it and exits Inspect); `w.inspect_size_um`; `w.volume_cut` = x0, x1, y0, y1, z0, z1 µm (intersect X/Y with the window for the shown box) |
 
 Large expression matrices are sent sparse; pass `genes=` to limit the gene
 catalog.
