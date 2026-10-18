@@ -261,9 +261,28 @@ class CellMeshLayer extends SimpleMeshLayer {
         colourPass: colourPass ? 1 : 0,
       },
     });
-    super.draw(opts);
+    const write = !colourPass || (this.props as { opacity: number }).opacity >= 0.999;
+    const device = this.context.device as unknown as { withParametersWebGL?(p: Record<number, unknown>, fn: () => void): void };
+    const gl = {
+      [GL_DEPTH_TEST]: true,
+      [GL_DEPTH_FUNC]: GL_LEQUAL,
+      [GL_DEPTH_WRITEMASK]: write,
+      [GL_COLOR_WRITEMASK]: colourPass ? [true, true, true, true] : [false, false, false, false],
+    };
+    if (device.withParametersWebGL) device.withParametersWebGL(gl, () => super.draw(opts));
+    else super.draw(opts);
   }
 }
+
+// Viv's XR3DLayer draws with WebGL-style `[GL.DEPTH_TEST]: false`, which stays
+// set for the layers after it; luma's `depthCompare` does not turn the test back
+// on. The mesh draws switch it on around themselves only, so the frame and
+// overlay layers after them keep the state they were written against.
+const GL_DEPTH_TEST = 0x0b71;
+const GL_DEPTH_FUNC = 0x0b74;
+const GL_DEPTH_WRITEMASK = 0x0b72;
+const GL_COLOR_WRITEMASK = 0x0c23;
+const GL_LEQUAL = 0x0203;
 
 export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, viewId = "3d") {
   if (!placed) return [];
@@ -296,7 +315,7 @@ export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, viewId
       ...common,
       id: `cube-cell-mesh-depth-${placed.key}${vivTag(viewId)}`,
       colourPass: false,
-      parameters: { depthCompare: "less-equal", depthWriteEnabled: true, colorMask: 0, cullMode: "none" },
+      parameters: { depthCompare: "less-equal", depthWriteEnabled: true, cullMode: "none" },
     } as never),
     new CellMeshLayer({
       ...common,
