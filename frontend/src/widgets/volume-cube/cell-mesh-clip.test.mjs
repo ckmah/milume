@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { OPEN, cellMeshClipBox, clipKeeps, keptVertexCount } from "./cell-mesh-clip.ts";
+import { OPEN, cellMeshClipBox, clipKeeps, keptVertexCount, sliceEntry, slicePlanes } from "./cell-mesh-clip.ts";
 
 const origin = [100, -50, 2];
 const stackZ = [0, 40];
@@ -49,4 +49,40 @@ test("a box cut on all six sides keeps only its interior", () => {
   const cut = [origin[0] + 5, origin[0] + 15, origin[1] + 5, origin[1] + 15, origin[2] + 5, origin[2] + 15];
   const box = cellMeshClipBox({ cut, stackZ, originUm: origin });
   assert.equal(keptVertexCount(grid, box), 11 ** 3);
+});
+
+const win = { x: [100, 120], y: [-50, -30] };
+
+test("slice planes sit exactly on each cut side, and only there", () => {
+  // No cut: the window's and the stack's edges are not slice planes.
+  assert.deepEqual(slicePlanes(cellMeshClipBox({ cut: full, stackZ, originUm: origin, window: win })), []);
+  const cases = [
+    [0, 107, "lo", 0, 7],
+    [1, 113, "hi", 0, 13],
+    [2, -42, "lo", 1, 8],
+    [3, -35, "hi", 1, 15],
+    [4, 10, "lo", 2, 8],
+    [5, 30, "hi", 2, 28],
+  ];
+  for (const [i, value, side, axis, at] of cases) {
+    const cut = [...full];
+    cut[i] = value;
+    const planes = slicePlanes(cellMeshClipBox({ cut, stackZ, originUm: origin, window: win }));
+    assert.deepEqual(planes, [{ axis, side, at }], `cut[${i}] = ${value}`);
+  }
+  const all = slicePlanes(cellMeshClipBox({ cut: [105, 115, -45, -35, 10, 30], stackZ, originUm: origin, window: win }));
+  assert.equal(all.length, 6);
+});
+
+test("a ray through a cut side is behind the slice; through the window's edge it is not", () => {
+  const cut = [...full];
+  cut[5] = 22; // z max cut at 20 µm window-relative
+  const box = cellMeshClipBox({ cut, stackZ, originUm: origin, window: win });
+  const eyeAbove = [10, 10, 500];
+  const hit = sliceEntry(eyeAbove, [10, 10, 5], box);
+  assert.deepEqual([hit.axis, hit.side, hit.active], [2, "hi", true]);
+  assert.ok(Math.abs(eyeAbove[2] + hit.t * (5 - eyeAbove[2]) - 20) < 1e-9, "enters on the plane z = 20");
+  // From the side, through the window's x edge: no slice in front.
+  const side = sliceEntry([-500, 10, 10], [5, 10, 10], box);
+  assert.deepEqual([side.axis, side.side, side.active], [0, "lo", false]);
 });

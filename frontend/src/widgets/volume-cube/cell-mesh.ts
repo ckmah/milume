@@ -158,6 +158,8 @@ export type PlacedCellMesh = {
   clip: ClipBox | null;
   /** Alpha of the cut face tint (the label opacity, also when the meshes are opaque). */
   capAlpha: number;
+  /** Surface inset (µm); default CELL_MESH_SHRINK_UM. */
+  shrinkUm?: number;
   key: string;
 };
 
@@ -209,6 +211,10 @@ void main(void) {
   vec4 color = simpleMesh.hasTexture ? texture(sampler, vTexCoord) : vColor;
   DECKGL_FILTER_COLOR(color, geometry);
   bool back = gl_FrontFacing == (cellMeshClip.flipFacing > 0.5);
+  // Behind a slice plane only cross-sections show: the depth pre-pass keeps
+  // every surface, so a back face wins only where it is the nearest one (the
+  // cell holds the plane point), and front faces draw nothing (the slice covers them).
+  if (cellMeshClip.colourPass > 0.5 && !back && cellMeshBehindSlice(vMeshUm)) discard;
   if (back) {
     fragColor = vec4(color.rgb, color.a * cellMeshClip.capAlpha);
     return;
@@ -218,7 +224,10 @@ void main(void) {
 }
 `;
 
-type ClipProps = { clip: ClipBox | null; capAlpha: number; flipFacing: boolean };
+type ClipProps = { clip: ClipBox | null; capAlpha: number; flipFacing: boolean; shrinkUm: number };
+
+/** Inset of every cell surface along its normal (µm, under half a 0.46 µm voxel). */
+export const CELL_MESH_SHRINK_UM = 0.2;
 
 class CellMeshLayer extends SimpleMeshLayer {
   static layerName = "CellMeshLayer";
@@ -229,31 +238,44 @@ class CellMeshLayer extends SimpleMeshLayer {
       ...s,
       fs: CELL_MESH_FS,
       modules: [...s.modules, cellMeshClipModule],
-      inject: {
-        ...(s.inject ?? {}),
-        "vs:#decl": "out vec3 vMeshUm;",
-        "vs:#main-start": "vMeshUm = positions;",
-      },
+      // Each surface steps inward along its normal by `shrink` µm, so a neighbour's
+      // wall no longer pokes through a cut face (the loft's cells overlap by a hair).
+      vs: (s as unknown as { vs: string }).vs
+        .replace("in vec3 positions;", "in vec3 positions;\nout vec3 vMeshUm;")
+        .replace("void main(void) {", "void main(void) {\nvec3 insetPos = positions - normals * cellMeshClip.shrink;\nvMeshUm = insetPos;")
+        .replace("(instanceModelMatrix * positions)", "(instanceModelMatrix * insetPos)"),
     };
   }
 
   draw(opts: Parameters<SimpleMeshLayer["draw"]>[0]) {
     const model = (this.state as { model?: { parameters: Record<string, unknown>; setParameters(p: Record<string, unknown>): void; shaderInputs: { setProps(p: Record<string, unknown>): void } } }).model;
-    if (!model) return super.draw(opts);
-    const { clip, capAlpha, flipFacing } = this.props as unknown as ClipProps;
-    model.shaderInputs.setProps({
+    if (!model) return;
+    const { clip, capAlpha, flipFacing, shrinkUm, modelMatrix } = this.props as unknown as ClipProps & { modelMatrix: Matrix4 };
+    // The eye in the mesh's µm, as Viv finds its own (viewMatrixInverse's translation, then the inverse model).
+    const vmi = (this.context.viewport as unknown as { viewMatrixInverse: number[] }).viewMatrixInverse;
+    const eye = new Matrix4(modelMatrix).invert().transformAsPoint([vmi[12]!, vmi[13]!, vmi[14]!]);
+    const uniforms = (colourPass: number) => ({
       cellMeshClip: {
         lo: clip?.lo ?? [-1e9, -1e9, -1e9],
         hi: clip?.hi ?? [1e9, 1e9, 1e9],
+        activeLo: (clip?.activeLo ?? [false, false, false]).map(Number),
+        activeHi: (clip?.activeHi ?? [false, false, false]).map(Number),
+        eye,
         capAlpha,
         flipFacing: flipFacing ? 1 : 0,
+        shrink: shrinkUm,
+        colourPass,
       },
     });
-    if ((this.props as { opacity: number }).opacity >= 0.999) return super.draw(opts);
+    // Depth first (every surface in the clip), then colour where it matches, in
+    // both modes: the slice rule above needs the nearest surface of any kind.
+    const opaque = (this.props as { opacity: number }).opacity >= 0.999;
     const base = model.parameters;
+    model.shaderInputs.setProps(uniforms(0));
     model.setParameters({ ...base, depthCompare: "less-equal", depthWriteEnabled: true, colorMask: 0 });
     super.draw(opts);
-    model.setParameters({ ...base, depthCompare: "less-equal", depthWriteEnabled: false, colorMask: 0xf });
+    model.shaderInputs.setProps(uniforms(1));
+    model.setParameters({ ...base, depthCompare: "less-equal", depthWriteEnabled: opaque, colorMask: 0xf });
     super.draw(opts);
     model.setParameters(base);
   }
@@ -274,6 +296,7 @@ export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, viewId
       modelMatrix: placed.modelMatrix,
       clip: placed.clip,
       capAlpha: placed.capAlpha,
+      shrinkUm: placed.shrinkUm ?? CELL_MESH_SHRINK_UM,
       // The model matrix flips y (texture rows run down), which turns the winding over.
       flipFacing: placed.modelMatrix.determinant() < 0,
       coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,

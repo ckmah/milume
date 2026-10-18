@@ -59,6 +59,8 @@ type CubeUniforms = Partial<RenderSettings> & {
   cutZ0?: number;
   cutZ1?: number;
   cellOutlineStrength?: number;
+  /** 1: a ray entering through a cut side shows the image sampled exactly on that plane (opaque). */
+  sliceOn?: number;
 };
 
 // The module must not share a sampler's name: luma.gl keys a module's
@@ -81,6 +83,7 @@ const cubeRenderModule = {
     cutZ0: "f32",
     cutZ1: "f32",
     cellOutlineStrength: "f32",
+    sliceOn: "f32",
   },
   defaultUniforms: {
     imageAlpha: 1,
@@ -98,6 +101,7 @@ const cubeRenderModule = {
     cutZ0: 0,
     cutZ1: 1,
     cellOutlineStrength: 2.5,
+    sliceOn: 1,
   },
   // Only the numbers reach the uniform block; the palette is a texture.
   getUniforms: (render: CubeUniforms = {}) => ({
@@ -116,6 +120,7 @@ const cubeRenderModule = {
     cutZ0: render.cutZ0 ?? 0,
     cutZ1: render.cutZ1 ?? 1,
     cellOutlineStrength: render.cellOutlineStrength ?? 2.5,
+    sliceOn: render.sliceOn ?? 1,
   }),
   // Viv's contrast ramp on the raw value: a unorm image texture (r8unorm,
   // r16unorm) samples as value / max, and imageScale (max; 1 for float)
@@ -142,6 +147,7 @@ uniform cubeRenderUniforms {
   float cutZ0;
   float cutZ1;
   float cellOutlineStrength;
+  float sliceOn;
 } cubeRender;
 
 // All 3D textures, the lookups one texel deep: luma.gl validates the program
@@ -225,6 +231,53 @@ const IN_CUT = `
       && p.y >= yLo - 0.002 && p.y <= yHi + 0.002
       && p.z >= zLo - 0.002 && p.z <= zHi + 0.002;`;
 
+/**
+ * The cut-plane slice (napari / Slicer style). Where the ray enters the cut box
+ * through a cut side (not the window's or the stack's own edge), the pixel is
+ * the image sampled exactly on that plane, through the same contrast and
+ * palette as the ray, opaque, so nothing behind it smears onto the face. With
+ * labels bound, the cell at that point tints it at the label opacity. Other rays
+ * render the volume as before. Mirrors `sliceEntry` (cell-mesh-clip.ts).
+ */
+const SLICE = `
+  bool sliceHit = false;
+  vec4 sliceOut = vec4(0.0);
+  if (cubeRender.sliceOn > 0.5 && cubeRender.imageOn > 0.5) {
+    vec2 sxS = fragmentUniforms3D.xSlice;
+    vec2 syS = fragmentUniforms3D.ySlice;
+    vec2 szS = fragmentUniforms3D.zSlice;
+    vec3 sLo = vec3(mix(sxS.x, sxS.y, cubeRender.cutX0), mix(syS.x, syS.y, cubeRender.cutY0), mix(szS.x, szS.y, cubeRender.cutZ0));
+    vec3 sHi = vec3(mix(sxS.x, sxS.y, cubeRender.cutX1), mix(syS.x, syS.y, cubeRender.cutY1), mix(szS.x, szS.y, cubeRender.cutZ1));
+    // Cut sides in texture space (cutFrac is already in texture order, as IN_CUT reads it).
+    vec3 actLo = vec3(cubeRender.cutX0 > 1e-4, cubeRender.cutY0 > 1e-4, cubeRender.cutZ0 > 1e-4);
+    vec3 actHi = vec3(cubeRender.cutX1 < 0.9999, cubeRender.cutY1 < 0.9999, cubeRender.cutZ1 < 0.9999);
+    vec3 sd = ray_dir;
+    vec3 safe = mix(sd, vec3(1e-12), lessThan(abs(sd), vec3(1e-12)));
+    vec3 t0 = (sLo - transformed_eye) / safe;
+    vec3 t1 = (sHi - transformed_eye) / safe;
+    vec3 tn = min(t0, t1);
+    vec3 tf = max(t0, t1);
+    int sAxis = tn.x >= tn.y && tn.x >= tn.z ? 0 : (tn.y >= tn.z ? 1 : 2);
+    float tEnter = tn[sAxis];
+    float tExit = min(tf.x, min(tf.y, tf.z));
+    bool fromLo = sd[sAxis] > 0.0;
+    if (tEnter > 0.0 && tEnter < tExit && (fromLo ? actLo[sAxis] : actHi[sAxis]) > 0.5) {
+      vec3 q = transformed_eye + tEnter * sd;
+      q[sAxis] = fromLo ? sLo[sAxis] : sHi[sAxis];
+      float sv = float(texture(volume0, q).r);
+      DECKGL_PROCESS_INTENSITY(sv, channelIntensity3D.contrastLimits0, 0);
+      float g = pow(clamp(sv, 0.0, 1.0), cubeRender.imageGamma);
+      vec3 rgb = srgbToLinear(texelFetch(imagePalette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
+      if (cellsOn) {
+        ivec3 cq = clamp(ivec3(q * vec3(cellSize)), ivec3(0), cellSize - 1);
+        vec4 cell = cellColor(cq);
+        if (cell.a > 0.0) rgb = mix(rgb, cell.rgb, cubeRender.cellAlpha);
+      }
+      sliceHit = true;
+      sliceOut = vec4(rgb, 1.0);
+    }
+  }`;
+
 const RENDERING = {
   _BEFORE_RENDER: `${CELL_SETUP}
   vec4 acc = vec4(0.0);
@@ -235,8 +288,10 @@ const RENDERING = {
   bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
     || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
     || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
-  float stepScale = 1.0;`,
+  float stepScale = 1.0;
+  ${SLICE}`,
   _RENDER: `
+    if (sliceHit) break;
     ${IN_CUT}
     if (!(ghosting && !inCut)) {
       if (cubeRender.imageMip > 0.5) {
@@ -278,7 +333,8 @@ const RENDERING = {
   color = vec4(
     cellsOut.rgb + (1.0 - cellsOut.a) * imageOut.rgb,
     cellsOut.a + (1.0 - cellsOut.a) * imageOut.a
-  );`,
+  );
+  if (sliceHit) color = sliceOut;`,
 };
 
 type Texture = { destroy(): void };

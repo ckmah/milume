@@ -1049,8 +1049,9 @@ export function VolumeCube({
   }, [cellMesh, coloring, showLabelsProp]);
   // The cut box in the mesh's window-relative µm: every axis, both sides (cell-mesh-clip.ts).
   const cellMeshClip = useMemo(
-    () => (cellMesh ? cellMeshClipBox({ cut: [cx0, cx1, cy0, cy1, cz0, cz1], stackZ: [stackZ[0], stackZ[1]], originUm: cellMesh.originUm }) : null),
-    [cellMesh, cx0, cx1, cy0, cy1, cz0, cz1, stackZ[0], stackZ[1]],
+    () => (cellMesh ? cellMeshClipBox({ cut: [cx0, cx1, cy0, cy1, cz0, cz1], stackZ: [stackZ[0], stackZ[1]], originUm: cellMesh.originUm, window: { x: [winX[0], winX[1]], y: [winY[0], winY[1]] } }) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cellMesh, cx0, cx1, cy0, cy1, cz0, cz1, stackZ[0], stackZ[1], winX[0], winX[1], winY[0], winY[1]],
   );
   const meshKeptVertices = useMemo(
     () => (cellMesh && cellMeshClip ? keptVertexCount(cellMesh.positions, cellMeshClip) : 0),
