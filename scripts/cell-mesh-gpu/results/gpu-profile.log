@@ -1,0 +1,37 @@
+INFO     segmentation_geometries_v1.parquet: repaired 3017 invalid polygon(s)   
+         after scaling to micrometers (max relative area change 1.3e-09)        
+300um window, 899 cells, 1 thread: 7.57s
+         5970590 function calls (5923924 primitive calls) in 7.569 seconds
+
+   Ordered by: internal time
+   List reduced from 516 to 25 due to restriction <25>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+    16561    1.786    0.000    1.786    0.000 /workspace/milume-mesh/.venv/lib/python3.12/site-packages/shapely/set_operations.py:112(intersection)
+107435/60801    0.492    0.000    0.723    0.000 /workspace/milume-mesh/.venv/lib/python3.12/site-packages/numpy/_core/numeric.py:1226(roll)
+   261605    0.481    0.000    3.104    0.000 /workspace/milume-mesh/.venv/lib/python3.12/site-packages/shapely/decorators.py:73(wrapped)
+    17296    0.329    0.000    2.867    0.000 /workspace/milume-mesh/milume/cell_mesh.py:112(_match)
+    23317    0.298    0.000    0.645    0.000 /workspace/milume-mesh/.venv/lib/python3.12/site-packages/numpy/_core/numeric.py:2320(isclose)
+     6574    0.254    0.000    0.451    0.000 /workspace/milume-mesh/milume/cell_mesh.py:181(cap)
+    23317    0.191    0.000    1.584    0.000 /workspace/milume-mesh/milume/cell_mesh.py:92(_ring_xy)
+     3292    0.179    0.000    0.363    0.000 /workspace/milume-mesh/milume/cell_mesh.py:197(tube)
+     3292    0.123    0.000    0.332    0.000 /workspace/milume-mesh/milume/cell_mesh.py:239(_stack)
+    17686    0.121    0.000    0.552    0.000 /workspace/milume-mesh/.venv/lib/python3.12/site-packages/shapely/_geometry.py:645(get_parts)
+    70346    0.121    0.000    0.121    0.000 /workspace/milume-mesh/.venv/lib/python3.12/site-packages/shapely/measurement.py:23(area)
+      931    0.112    0.000    2.993    0.003 /workspace/milume-mesh/milume/cell_mesh.py:137(_chains)
+    17686    0.103    0.000    0.215    0.000 /workspace/milume-mesh/.venv/lib/python3.12/site-packages/numpy/_core/_internal.py:632(__dtype_from_pep3118)
+    46614    0.100    0.000    0.100    0.000 /workspace/milume-mesh/.venv/lib/python3.12/site-packages/shapely/_geometry.py:481(get_exterior_ring)
+    16576    0.094    0.000    0.094    0.000 /workspace/milume-mesh/.venv/lib/python3.12/site-packages/shapely/predicates.py:844(intersects)
+    16576    0.091    0.000    0.244    0.000 /workspace/milume-mesh/.venv/lib/python3.12/site-packages/numpy/lib/_function_base_impl.py:5062(meshgrid)
+    91233    0.089    0.000    0.089    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+     9866    0.089    0.000    0.130    0.000 /workspace/milume-mesh/milume/cell_mesh.py:172(add)
+     3282    0.084    0.000    3.583    0.001 /workspace/milume-mesh/milume/cell_mesh.py:250(_loft_chain)
+    17686    0.083    0.000    0.314    0.000 /workspace/milume-mesh/.venv/lib/python3.12/site-packages/shapely/_geometry.py:789(get_num_geometries)
+    60801    0.081    0.000    0.136    0.000 /workspace/milume-mesh/.venv/lib/python3.12/site-packages/numpy/_core/numeric.py:1427(normalize_axis_tuple)
+   130659    0.079    0.000    0.079    0.000 {built-in method numpy.asarray}
+    69951    0.079    0.000    0.202    0.000 /workspace/milume-mesh/.venv/lib/python3.12/site-packages/numpy/_core/fromnumeric.py:86(_wrapreduction_any_all)
+   471395    0.065    0.000    0.065    0.000 {built-in method builtins.isinstance}
+   129726    0.064    0.000    0.064    0.000 {method 'reshape' of 'numpy.ndarray' objects}
+
+
+
