@@ -137,10 +137,11 @@ def resolve_volume(
 
     ``image`` / ``shapes``: an element name, ``None`` to infer, or ``False`` to
     leave it out. ``shapes`` is inferred when exactly one shapes element has
-    ``cell_id`` and ``Z_um`` columns. No 3D image means no cube (silently: most SpatialData are 2D);
-    warns (and returns no source) when a 3D image cannot be served, i.e. the
-    SpatialData is not backed by a Zarr store on disk or its transform is not
-    scale + translation.
+    ``cell_id`` and ``Z_um`` columns; ``image`` when exactly one 3D image exists
+    (several: warn and pass ``image=<name>``). No 3D image means no cube
+    (silently: most SpatialData are 2D); warns (and returns no source) when a
+    3D image cannot be served, i.e. the SpatialData is not backed by a Zarr
+    store on disk or its transform is not scale + translation.
     """
     table_name = _pick_table(sdata, table)
     adata = sdata.tables[table_name]
@@ -167,6 +168,12 @@ def resolve_volume(
             images3d = [n for n, e in sdata.images.items() if "z" in _level0(e).dims]
             if len(images3d) == 1:
                 image_name = images3d[0]
+            elif len(images3d) > 1:
+                warnings.warn(
+                    f"several 3D images {', '.join(images3d)}: pass image=<name>",
+                    UserWarning,
+                    stacklevel=2,
+                )
     if image_name is None:
         return adata, None
     if getattr(sdata, "path", None) is None:

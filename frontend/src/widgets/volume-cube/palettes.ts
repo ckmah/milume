@@ -18,7 +18,7 @@ export const DEFAULT_RENDER: RenderSettings = {
   palette: "gray",
   imageAlpha: 1,
   imageGamma: 1,
-  cellAlpha: 0.8,
+  cellAlpha: 0.9,
 };
 
 // sRGB stops, evenly spaced. Gray is generated instead (see `grayRamp`).

@@ -30,8 +30,9 @@ w = milume.peek(adata, color="cell_type")
 w
 ```
 
-`milume.peek(sdata)` takes a SpatialData too: the table, labels and 3D image
-are inferred. `color=` takes the same keys as `w.color`.
+`milume.peek(sdata)` takes a SpatialData too: the table, per-slice cell polygons
+and 3D image are inferred (`shapes=` / `image=` to override). `color=` takes the
+same keys as `w.color`.
 
 ## Colour by a column or a gene
 

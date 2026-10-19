@@ -1575,11 +1575,11 @@ test.describe("Landmarks inspect cube", () => {
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
 
-    // Labels menu. Default: mesh opacity 0.8.
+    // Labels menu. Default: mesh opacity 0.9.
     await openLayerMenu(page, "labels");
     const labelsPanel = page.getByTestId("adjust-labels");
     const initialLabels = await labelValues();
-    expect(initialLabels).toEqual([0.8]);
+    expect(initialLabels).toEqual([0.9]);
     await nudge("Label opacity", "ArrowLeft");
     expect(await labelValues()).not.toEqual(initialLabels);
 

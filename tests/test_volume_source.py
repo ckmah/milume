@@ -31,6 +31,15 @@ def test_overrides_and_opt_out(sdata):
     assert none is None
 
 
+def test_several_3d_images_need_a_name(sdata):
+    sdata.images["other"] = sdata.images["mosaic"]
+    with pytest.warns(UserWarning, match="several 3D images.*pass image="):
+        adata, src = resolve_volume(sdata)
+    assert src is None and adata is sdata.tables["table"]
+    _, src = resolve_volume(sdata, image="mosaic")
+    assert src.image == "mosaic"
+
+
 def test_in_memory_sdata_has_no_cube(sdata):
     import spatialdata as sd
 
