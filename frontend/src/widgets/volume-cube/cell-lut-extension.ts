@@ -1,4 +1,7 @@
 import { ColorPalette3DExtensions } from "@hms-dbmi/viv";
+import { Matrix4 } from "@math.gl/core";
+
+import type { MeshTarget } from "./cell-mesh";
 
 import { type ImageFormat, imageTextureInfo } from "./image-volume";
 import { DEFAULT_RENDER, type RenderSettings, paletteLut } from "./palettes";
@@ -7,8 +10,9 @@ import { DEFAULT_RENDER, type RenderSettings, paletteLut } from "./palettes";
  * Viv volume rendering of the image: raycast alone (`volume0`, at its own dtype:
  * image-volume.ts), coloured through a 256-texel palette (`imagePalette`) with
  * alpha and gamma from the `render` prop, clipped to the cut. With `showImage`
- * false the image adds nothing (a uniform, no refetch). Cells draw as meshes
- * beside it (cell-mesh.ts), coloured by `buildCellLut`.
+ * false the image adds nothing (a uniform, no refetch). Cells are meshes
+ * (cell-mesh.ts), coloured by `buildCellLut`, rendered offscreen just before; the
+ * ray composites their nearest front and back surfaces at their depth.
  */
 
 /** Widest a lookup texture row gets; indices wrap onto rows. */
@@ -32,6 +36,9 @@ type CubeUniforms = Partial<RenderSettings> & {
   cutY1?: number;
   cutZ0?: number;
   cutZ1?: number;
+  meshOn?: number;
+  meshInv?: number[];
+  meshViewport?: number[];
 };
 
 // The module must not share a sampler's name: luma.gl keys a module's
@@ -50,6 +57,9 @@ const cubeRenderModule = {
     cutY1: "f32",
     cutZ0: "f32",
     cutZ1: "f32",
+    meshOn: "f32",
+    meshInv: "mat4x4<f32>",
+    meshViewport: "vec4<f32>",
   },
   defaultUniforms: {
     imageAlpha: 1,
@@ -63,6 +73,9 @@ const cubeRenderModule = {
     cutY1: 1,
     cutZ0: 0,
     cutZ1: 1,
+    meshOn: 0,
+    meshInv: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+    meshViewport: [0, 0, 1, 1],
   },
   // Only the numbers reach the uniform block; the palette is a texture.
   getUniforms: (render: CubeUniforms = {}) => ({
@@ -77,6 +90,9 @@ const cubeRenderModule = {
     cutY1: render.cutY1 ?? 1,
     cutZ0: render.cutZ0 ?? 0,
     cutZ1: render.cutZ1 ?? 1,
+    meshOn: render.meshOn ?? 0,
+    meshInv: render.meshInv ?? [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+    meshViewport: render.meshViewport ?? [0, 0, 1, 1],
   }),
   // Viv's contrast ramp on the raw value: a unorm image texture (r8unorm,
   // r16unorm) samples as value / max, and imageScale (max; 1 for float)
@@ -99,12 +115,19 @@ uniform cubeRenderUniforms {
   float cutY1;
   float cutZ0;
   float cutZ1;
+  float meshOn;
+  mat4 meshInv;
+  vec4 meshViewport;
 } cubeRender;
 
 // A 3D texture one texel deep: luma.gl validates the program before it assigns
 // texture units, and a sampler2D beside Viv's sampler3Ds (all on unit 0 then)
 // fails that validation.
 uniform highp sampler3D imagePalette;
+uniform highp sampler3D meshFrontColor;
+uniform highp sampler3D meshFrontDepth;
+uniform highp sampler3D meshBackColor;
+uniform highp sampler3D meshBackDepth;
 
 vec3 srgbToLinear(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
 
@@ -118,6 +141,47 @@ vec4 imageSample(float v) {
   float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
   vec3 c = srgbToLinear(texelFetch(imagePalette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
+}
+
+const float NO_MESH = 1e9;
+
+// Viv's linear_to_srgb, per channel.
+vec3 linearToSrgb(vec3 c) { return mix(12.92 * c, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
+
+// One mesh surface at this pixel: (sRGB rgb, alpha), and its distance t along the ray
+// in the ray's space (NO_MESH when there is none). meshInv takes clip space back to
+// the unit cube the ray marches.
+vec4 meshSurface(highp sampler3D col, highp sampler3D dep, vec3 eye, vec3 dir, out float t) {
+  t = NO_MESH;
+  if (cubeRender.meshOn < 0.5) return vec4(0.0);
+  ivec3 px = ivec3(ivec2(gl_FragCoord.xy), 0);
+  vec4 d = texelFetch(dep, px, 0);
+  if (d.a < 0.5) return vec4(0.0);
+  vec4 c = texelFetch(col, px, 0);
+  float z = dot(d.rgb, vec3(1.0, 1.0 / 255.0, 1.0 / 65025.0));
+  vec2 ndc = (gl_FragCoord.xy - cubeRender.meshViewport.xy) / cubeRender.meshViewport.zw * 2.0 - 1.0;
+  vec4 q = cubeRender.meshInv * vec4(ndc, z * 2.0 - 1.0, 1.0);
+  t = dot(q.xyz / q.w - eye, dir);
+  return c;
+}
+
+// A sample over that many steps' worth of the ray.
+void addSample(inout vec4 acc, vec4 im, float steps) {
+  float a = cover(im.a, steps);
+  acc.rgb += (1.0 - acc.a) * a * im.rgb;
+  acc.a += (1.0 - acc.a) * a;
+}
+
+// Where a ray meets a mesh, the image so far (acc, the ray's usual linear sum) goes
+// into "shown" as the canvas would show it, sRGB premultiplied, then the mesh over
+// what follows, and acc starts again behind the mesh. This is how the image looked
+// under the meshes when they drew over the cube; a ray that meets none is untouched.
+void meshFlush(inout vec4 shown, inout vec4 acc, vec4 m) {
+  shown.rgb += (1.0 - shown.a) * acc.a * linearToSrgb(clamp(acc.rgb, 0.0, 1.0));
+  shown.a += (1.0 - shown.a) * acc.a;
+  acc = vec4(0.0);
+  shown.rgb += (1.0 - shown.a) * m.a * m.rgb;
+  shown.a += (1.0 - shown.a) * m.a;
 }
 `,
 };
@@ -144,6 +208,16 @@ const IN_CUT = `
 const RENDERING = {
   _BEFORE_RENDER: `
   vec4 acc = vec4(0.0);
+  float meshT0;
+  float meshT1;
+  vec4 mesh0 = meshSurface(meshFrontColor, meshFrontDepth, transformed_eye, ray_dir, meshT0);
+  vec4 mesh1 = meshSurface(meshBackColor, meshBackDepth, transformed_eye, ray_dir, meshT1);
+  if (meshT1 < meshT0) {
+    vec4 m = mesh0; mesh0 = mesh1; mesh1 = m;
+    float t = meshT0; meshT0 = meshT1; meshT1 = t;
+  }
+  bool meshHere = meshT0 < NO_MESH;
+  vec4 shown = vec4(0.0);
   float maxImage = -1.0;
   bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
     || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
@@ -151,7 +225,27 @@ const RENDERING = {
   float stepScale = 1.0;`,
   _RENDER: `
     ${IN_CUT}
-    if (!(ghosting && !inCut)) {
+    bool imageHere = !(ghosting && !inCut);
+    // This sample stands for the step around it (lo to lo + dt along the ray).
+    float lo = meshHere ? dot(p - transformed_eye, ray_dir) - 0.5 * dt : 0.0;
+    if (meshHere && cubeRender.imageMip < 0.5 && meshT0 < lo + dt) {
+      // A mesh surface inside the step splits it: the part in front goes in before
+      // the surface, the rest after.
+      vec4 im = imageHere ? imageSample(intensityValue0) : vec4(0.0);
+      float done = 0.0;
+      // At most the two surfaces; the one left after a flush moves up to mesh0.
+      for (int k = 0; k < 2; k++) {
+        if (meshT0 >= lo + dt) break;
+        float f = clamp((meshT0 - lo) / dt, done, 1.0);
+        addSample(acc, im, stepScale * (f - done));
+        done = f;
+        meshFlush(shown, acc, mesh0);
+        meshT0 = meshT1;
+        mesh0 = mesh1;
+        meshT1 = NO_MESH;
+      }
+      addSample(acc, im, stepScale * (1.0 - done));
+    } else if (imageHere) {
       if (cubeRender.imageMip > 0.5) {
         maxImage = max(maxImage, intensityValue0);
       } else if (acc.a < 0.95) {
@@ -161,7 +255,7 @@ const RENDERING = {
         acc.a += (1.0 - acc.a) * a;
       }
     }
-    if (cubeRender.imageMip < 0.5 && acc.a >= 0.95) {
+    if (cubeRender.imageMip < 0.5 && 1.0 - (1.0 - shown.a) * (1.0 - acc.a) >= 0.95) {
       break;
     }`,
   _AFTER_RENDER: `
@@ -169,11 +263,26 @@ const RENDERING = {
   if (cubeRender.imageMip > 0.5) {
     vec4 im = imageSample(maxImage);
     color = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
+  }
+  if (meshHere) {
+    // In a projection there is no depth to put the meshes at: they go over it.
+    if (cubeRender.imageMip > 0.5) {
+      acc = vec4(0.0);
+      if (meshT0 < NO_MESH) meshFlush(shown, acc, mesh0);
+      if (meshT1 < NO_MESH) meshFlush(shown, acc, mesh1);
+      acc = color;
+    } else {
+      if (meshT0 < NO_MESH) meshFlush(shown, acc, mesh0);
+      if (meshT1 < NO_MESH) meshFlush(shown, acc, mesh1);
+    }
+    meshFlush(shown, acc, vec4(0.0));
+    // Viv turns color to sRGB and the canvas blend weights it by alpha: undo both.
+    color = vec4(srgbToLinear(shown.rgb / max(shown.a, 1e-6)), shown.a);
   }`,
 };
 
 type Texture = { destroy(): void };
-type Device = { createTexture(props: Record<string, unknown>): Texture };
+type Device = { gl: WebGL2RenderingContext; createTexture(props: Record<string, unknown>): Texture };
 
 type LayerLike = {
   constructor: { layerName?: string };
@@ -188,6 +297,10 @@ type LayerLike = {
     render?: RenderSettings | null;
     /** Cut edges as fractions of the ray box. Omitted: the whole box. */
     cutFrac?: number[] | null;
+    /** The meshes' offscreen surfaces for this view (cell-mesh.ts). */
+    cubeMeshTarget?: MeshTarget | null;
+    modelMatrix?: Matrix4 | null;
+    resolutionMatrix?: Matrix4 | null;
   };
   state: {
     model?: {
@@ -199,8 +312,9 @@ type LayerLike = {
     /** Set by Viv's XR3DLayer: `volume0` is the image texture it draws. */
     textures?: { volume0?: unknown } | null;
     paletteTexture?: Texture | null;
+    scaleMatrix?: Matrix4 | null;
   };
-  context: { device: Device };
+  context: { device: Device; viewport: { viewMatrix: number[]; projectionMatrix: number[] } };
   setState(patch: Record<string, unknown>): void;
 };
 
@@ -263,7 +377,16 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
     if (!isRaycaster(layer)) return;
     const { model, paletteTexture } = layer.state;
     if (!model || !paletteTexture) return;
-    model.setBindings({ imagePalette: paletteTexture });
+    const target = layer.props.cubeMeshTarget;
+    const meshOn = Boolean(target?.drawn && target.front && target.back);
+    if (target) target.drawn = false;
+    model.setBindings({
+      imagePalette: paletteTexture,
+      meshFrontColor: meshOn ? target!.front!.color : paletteTexture,
+      meshFrontDepth: meshOn ? target!.front!.depth : paletteTexture,
+      meshBackColor: meshOn ? target!.back!.color : paletteTexture,
+      meshBackDepth: meshOn ? target!.back!.depth : paletteTexture,
+    });
     const imageOn = layer.props.showImage === false ? 0 : 1;
     // The image texture Viv binds for this draw: the one it last loaded.
     const image = imageTextureInfo(layer.state.textures?.volume0);
@@ -285,7 +408,18 @@ class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
       cutY1: frac?.[3] ?? 1,
       cutZ0: frac?.[4] ?? 0,
       cutZ1: frac?.[5] ?? 1,
+      meshOn: meshOn ? 1 : 0,
     };
+    if (meshOn) {
+      const { viewport, device } = layer.context;
+      const m = new Matrix4(viewport.projectionMatrix)
+        .multiplyRight(viewport.viewMatrix)
+        .multiplyRight(layer.props.modelMatrix ?? new Matrix4())
+        .multiplyRight(layer.state.scaleMatrix ?? new Matrix4())
+        .multiplyRight(layer.props.resolutionMatrix ?? new Matrix4());
+      uniforms.meshInv = Array.from(m.invert());
+      uniforms.meshViewport = Array.from(device.gl.getParameter(device.gl.VIEWPORT) as Int32Array);
+    }
     model.shaderInputs.setProps({ cubeRender: uniforms });
   }
 

@@ -5,6 +5,12 @@
  * placement the scatter points use, so panning only changes a matrix. Colour comes
  * from a LUT texture indexed by per-vertex texCoords, one texel per cell, so a recolour
  * swaps a texture and never rebuilds geometry.
+ *
+ * The meshes never draw to the screen. Each frame they render offscreen, before the
+ * image raycast, into a `MeshTarget`: the nearest front face and the nearest back face
+ * per pixel, each as colour + alpha and depth. The raycast (cell-lut-extension.ts)
+ * composites both surfaces at their distance along the ray, so image in front of a
+ * cell stays in front and image behind it is covered by the cell's alpha.
  */
 import { AmbientLight, COORDINATE_SYSTEM, DirectionalLight, LightingEffect } from "@deck.gl/core";
 import { SimpleMeshLayer } from "@deck.gl/mesh-layers";
@@ -34,7 +40,7 @@ export type CellMeshData = {
  * - imgBoost: contrast boost on the image under the meshes, 0 (off) to 1.
  */
 export type MeshLook = { fresnelMin: number; shine: number; flat: number; imgBoost: number };
-export const DEFAULT_MESH_LOOK: MeshLook = { fresnelMin: 0.15, shine: 0, flat: 0.6, imgBoost: 0.75 };
+export const DEFAULT_MESH_LOOK: MeshLook = { fresnelMin: 0.35, shine: 0, flat: 0.6, imgBoost: 0.75 };
 
 function meshMaterial(look: MeshLook) {
   const f = Math.min(1, Math.max(0, look.flat)), s = Math.min(1, Math.max(0, look.shine));
@@ -140,11 +146,11 @@ export type PlacedCellMesh = {
 };
 
 /**
- * SimpleMeshLayer's fragment shader with the cut and the view-angle alpha. Fragments
- * outside the clip box are discarded. Alpha runs from `fresnelMin` on a face seen head-on
- * to the peak at the silhouette, so the image shows through the middle of a cell. Back
- * faces, which show where a cut opened a cell, draw unlit at a higher floor so the cut
- * cell keeps its colour.
+ * SimpleMeshLayer's fragment shader with the cut and the view-angle alpha, writing the
+ * offscreen target (no blending). Fragments outside the clip box are discarded. The
+ * front pass keeps front faces, lit, with alpha from `fresnelMin` head-on to the peak at
+ * the silhouette; the back pass keeps back faces (the far wall, and what a cut opens),
+ * unlit at a higher floor. Depth goes out packed in RGB, A marking a surface.
  */
 const CELL_MESH_FS = `#version 300 es
 #define SHADER_NAME cell-mesh-layer-fs
@@ -156,16 +162,24 @@ in vec3 normals_commonspace;
 in vec4 position_commonspace;
 in vec4 vColor;
 in vec3 vMeshUm;
-out vec4 fragColor;
+layout(location = 0) out vec4 fragColor;
+layout(location = 1) out vec4 fragDepth;
+vec3 packDepth(float d) {
+  vec3 e = fract(d * vec3(1.0, 255.0, 65025.0));
+  return e - e.yzz * vec3(1.0 / 255.0, 1.0 / 255.0, 0.0);
+}
 void main(void) {
   if (cellMeshClipped(vMeshUm)) discard;
+  bool back = gl_FrontFacing == (cellMeshClip.flipFacing > 0.5);
+  if (back != (cellMeshClip.backPass > 0.5)) discard;
   geometry.uv = vTexCoord;
   vec3 normal = normals_commonspace;
   vec4 color = simpleMesh.hasTexture ? texture(sampler, vTexCoord) : vColor;
   DECKGL_FILTER_COLOR(color, geometry);
   float ndv = abs(dot(normalize(normal), normalize(cameraPosition - position_commonspace.xyz)));
   float rim = (1.0 - ndv) * (1.0 - ndv);
-  if (gl_FrontFacing == (cellMeshClip.flipFacing > 0.5)) {
+  fragDepth = vec4(packDepth(gl_FragCoord.z), 1.0);
+  if (back) {
     fragColor = vec4(color.rgb, color.a * mix(cellMeshClip.backMin, layer.opacity, rim));
     return;
   }
@@ -173,6 +187,74 @@ void main(void) {
   fragColor = vec4(lightColor, color.a * mix(cellMeshClip.frontMin, layer.opacity, rim));
 }
 `;
+
+type GlTexture = { handle: WebGLTexture; destroy(): void };
+type GlFramebuffer = { destroy(): void };
+type GlRenderPass = { end(): void };
+type GlDevice = {
+  gl: WebGL2RenderingContext;
+  createTexture(props: Record<string, unknown>): GlTexture;
+  createFramebuffer(props: Record<string, unknown>): GlFramebuffer;
+  beginRenderPass(props: Record<string, unknown>): GlRenderPass;
+  withParametersWebGL?(p: Record<number, unknown>, fn: () => void): void;
+};
+
+const NEAREST = {
+  minFilter: "nearest",
+  magFilter: "nearest",
+  addressModeU: "clamp-to-edge",
+  addressModeV: "clamp-to-edge",
+  addressModeW: "clamp-to-edge",
+};
+
+/** One surface per pixel: colour (sRGB, straight alpha) and packed depth. */
+type Surface = { framebuffer: GlFramebuffer; color: GlTexture; depth: GlTexture };
+
+/**
+ * The meshes' offscreen surfaces for one view, read by the image raycast in the same
+ * frame. Textures are one deep and 3D: the raycast's samplers must all be sampler3D
+ * (see the sampler note in cell-lut-extension.ts).
+ */
+export class MeshTarget {
+  front: Surface | null = null;
+  back: Surface | null = null;
+  /** Set when the meshes drew this frame; the raycast reads and clears it. */
+  drawn = false;
+  private device: GlDevice | null = null;
+  private size = [0, 0];
+
+  private surface(device: GlDevice, width: number, height: number): Surface {
+    const tex = () => device.createTexture({ dimension: "3d", width, height, depth: 1, format: "rgba8unorm", mipmaps: false, sampler: NEAREST });
+    const color = tex();
+    const depth = tex();
+    const framebuffer = device.createFramebuffer({ width, height, colorAttachments: [color, depth], depthStencilAttachment: "depth24plus" });
+    return { framebuffer, color, depth };
+  }
+
+  /** Surfaces the size of the drawing buffer, made again when it changes. */
+  ensure(device: GlDevice): void {
+    const { gl } = device;
+    const w = gl.drawingBufferWidth, h = gl.drawingBufferHeight;
+    if (this.device === device && this.front && this.size[0] === w && this.size[1] === h) return;
+    this.release();
+    this.device = device;
+    this.size = [w, h];
+    this.front = this.surface(device, w, h);
+    this.back = this.surface(device, w, h);
+  }
+
+  release(): void {
+    for (const s of [this.front, this.back]) {
+      if (!s) continue;
+      s.framebuffer.destroy();
+      s.color.destroy();
+      s.depth.destroy();
+    }
+    this.front = this.back = null;
+    this.device = null;
+    this.drawn = false;
+  }
+}
 
 /** Each surface steps inward along its normal by this much (µm), so a neighbour's wall no longer pokes through a cut face. */
 const SHRINK_UM = 0.2;
@@ -195,31 +277,58 @@ class CellMeshLayer extends SimpleMeshLayer {
 
   draw(opts: Parameters<SimpleMeshLayer["draw"]>[0]) {
     const model = (this.state as { model?: { shaderInputs: { setProps(p: Record<string, unknown>): void } } }).model;
-    if (!model) return;
-    const { clip, fresnelMin, modelMatrix, opacity } = this.props as unknown as { clip: ClipBox; fresnelMin: number; modelMatrix: Matrix4; opacity: number };
+    const { clip, fresnelMin, modelMatrix, opacity, target } = this.props as unknown as {
+      clip: ClipBox;
+      fresnelMin: number;
+      modelMatrix: Matrix4;
+      opacity: number;
+      target: MeshTarget;
+    };
+    if (!model || !target) return;
+    const device = this.context.device as unknown as GlDevice;
+    target.ensure(device);
     const front = fresnelMin > 0 ? Math.min(fresnelMin, opacity) : opacity;
-    model.shaderInputs.setProps({
-      cellMeshClip: {
-        lo: clip.lo,
-        hi: clip.hi,
-        // The model matrix flips y (texture rows run down), which turns the winding over.
-        flipFacing: modelMatrix.determinant() < 0 ? 1 : 0,
-        frontMin: front,
-        backMin: (front + opacity) / 2,
-      },
-    });
-    const device = this.context.device as unknown as { withParametersWebGL?(p: Record<number, unknown>, fn: () => void): void };
-    if (device.withParametersWebGL) device.withParametersWebGL({ [GL_DEPTH_TEST]: true }, () => super.draw(opts));
-    else super.draw(opts);
+    const uniforms = {
+      lo: clip.lo,
+      hi: clip.hi,
+      // The model matrix flips y (texture rows run down), which turns the winding over.
+      flipFacing: modelMatrix.determinant() < 0 ? 1 : 0,
+      frontMin: front,
+      backMin: (front + opacity) / 2,
+    };
+    // The view's viewport, so a mesh lands on the pixel the ray of that pixel reads.
+    const viewport = Array.from(device.gl.getParameter(device.gl.VIEWPORT) as Int32Array);
+    const context = this.context as unknown as { renderPass: unknown };
+    const screen = context.renderPass;
+    const draw = () => super.draw(opts);
+    for (const [surface, backPass] of [[target.front!, 0], [target.back!, 1]] as const) {
+      const pass = device.beginRenderPass({ framebuffer: surface.framebuffer, clearColor: [0, 0, 0, 0], clearDepth: 1, parameters: { viewport } });
+      context.renderPass = pass;
+      try {
+        model.shaderInputs.setProps({ cellMeshClip: { ...uniforms, backPass } });
+        if (device.withParametersWebGL) device.withParametersWebGL({ [GL_DEPTH_TEST]: true }, draw);
+        else draw();
+      } finally {
+        pass.end();
+        context.renderPass = screen;
+      }
+    }
+    target.drawn = true;
+  }
+
+  finalizeState(context: Parameters<SimpleMeshLayer["finalizeState"]>[0]) {
+    (this.props as unknown as { target?: MeshTarget }).target?.release();
+    super.finalizeState(context);
   }
 }
 
 // Viv's XR3DLayer draws with WebGL-style `[GL.DEPTH_TEST]: false`, which stays set for
 // the layers after it; luma's `depthCompare` does not turn the test back on. The mesh
-// draw switches it on around itself only, so the layers after it keep their state.
+// passes switch it on around themselves only, so the layers after keep their state.
 const GL_DEPTH_TEST = 0x0b71;
 
-export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, viewId = "3d") {
+/** The meshes' offscreen pass for `target`; draw it before the image raycast that reads it. */
+export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, target: MeshTarget, viewId = "3d") {
   if (!placed) return [];
   return [
     new CellMeshLayer({
@@ -233,11 +342,12 @@ export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, viewId
       modelMatrix: placed.modelMatrix,
       clip: placed.clip,
       fresnelMin: placed.look.fresnelMin,
+      target,
       coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
       opacity: placed.opacity,
       pickable: false,
       material: meshMaterial(placed.look),
-      parameters: { depthCompare: "less-equal", depthWriteEnabled: placed.opacity >= 0.999, cullMode: "none" },
+      parameters: { depthCompare: "less", depthWriteEnabled: true, cullMode: "none", blend: false },
     } as never),
   ];
 }
