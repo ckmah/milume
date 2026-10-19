@@ -56,7 +56,7 @@ w.inspect_open = False                     # closes it and exits Inspect, like E
 
 ### Inspect cube: cell meshes from polygons
 
-The Inspect cube draws each cell as a 3D mesh lofted in the browser from the store's per-slice cell polygons, instead of raycasting a label image. Default mesh opacity is 0.9.
+The Inspect cube draws each cell as a 3D mesh lofted in the browser from the store's per-slice cell polygons, instead of raycasting a label image. Default mesh opacity is 0.9. The meshes sit inside the image by depth: image in front of a cell shows in front of it, image behind it shows through the cell's opacity. Only the nearest cell surface per pixel (its front and back wall) is drawn; cells behind it are hidden there.
 
 Migration:
 

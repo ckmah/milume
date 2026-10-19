@@ -165,6 +165,13 @@ vec4 meshSurface(highp sampler3D col, highp sampler3D dep, vec3 eye, vec3 dir, o
   return c;
 }
 
+// A sample over that many steps' worth of the ray.
+void addSample(inout vec4 acc, vec4 im, float steps) {
+  float a = cover(im.a, steps);
+  acc.rgb += (1.0 - acc.a) * a * im.rgb;
+  acc.a += (1.0 - acc.a) * a;
+}
+
 // Where a ray meets a mesh, the image so far (acc, the ray's usual linear sum) goes
 // into "shown" as the canvas would show it, sRGB premultiplied, then the mesh over
 // what follows, and acc starts again behind the mesh. This is how the image looked
@@ -217,13 +224,31 @@ const RENDERING = {
     || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
   float stepScale = 1.0;`,
   _RENDER: `
-    if (meshHere && cubeRender.imageMip < 0.5) {
-      float rayT = dot(p - transformed_eye, ray_dir);
-      if (rayT >= meshT0) { meshFlush(shown, acc, mesh0); meshT0 = NO_MESH; }
-      if (rayT >= meshT1) { meshFlush(shown, acc, mesh1); meshT1 = NO_MESH; }
-    }
     ${IN_CUT}
-    if (!(ghosting && !inCut)) {
+    bool imageHere = !(ghosting && !inCut);
+    if (meshHere && cubeRender.imageMip < 0.5) {
+      // This sample stands for the step around it. A mesh surface inside the step
+      // splits it: the part in front goes in before the surface, the rest after.
+      vec4 im = imageHere ? imageSample(intensityValue0) : vec4(0.0);
+      float rayT = dot(p - transformed_eye, ray_dir);
+      float lo = rayT - 0.5 * dt;
+      float done = 0.0;
+      if (meshT0 < lo + dt) {
+        float f = clamp((meshT0 - lo) / dt, 0.0, 1.0);
+        addSample(acc, im, stepScale * f);
+        done = f;
+        meshFlush(shown, acc, mesh0);
+        meshT0 = NO_MESH;
+      }
+      if (meshT1 < lo + dt) {
+        float f = clamp((meshT1 - lo) / dt, done, 1.0);
+        addSample(acc, im, stepScale * (f - done));
+        done = f;
+        meshFlush(shown, acc, mesh1);
+        meshT1 = NO_MESH;
+      }
+      addSample(acc, im, stepScale * (1.0 - done));
+    } else if (imageHere) {
       if (cubeRender.imageMip > 0.5) {
         maxImage = max(maxImage, intensityValue0);
       } else if (acc.a < 0.95) {
