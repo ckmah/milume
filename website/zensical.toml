@@ -17,6 +17,9 @@ nav = [
   { Home = "index.md" },
   { Install = "install.md" },
   { Quickstart = "quickstart.md" },
+  { Integrations = [
+    "integrations/squidpy-color.md",
+  ] },
   { "Tools & modes" = [
     "tools/index.md",
     { Navigate = "tools/navigate.md" },

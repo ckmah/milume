@@ -120,6 +120,52 @@ v.inspect_open = False                     # closes the cube and exits Inspect; 
   a cut slider is released; X and Y are clipped to the window when drawn.
 - `v.volume` describes the 3D image (`{}` without one). Read it, don't set it.
 
+## Squidpy: niche and Moran's I
+
+Optional (`squidpy`, `scanpy`). Full walkthrough with screenshots:
+[docs/integrations/squidpy-color](https://ckmah.github.io/milume/docs/integrations/squidpy-color/).
+
+Neighborhood niches on a selection mask, then recolour by the column Squidpy
+writes (`nhood_niche_res=<resolution>`, e.g. `nhood_niche_res=0.5` when
+`resolutions=0.5`):
+
+```python
+import pandas as pd
+import scanpy as sc
+import squidpy as sq
+
+w_niche = milume.peek(adata, color="cell_type")
+w_niche.selections = [
+    {"id": "patch", "type": "rectangle", "cx": 50.0, "cy": 50.0,
+     "width": 70.0, "height": 70.0, "angle": 0.0},
+]
+mask = pd.Series(adata.obs_names.isin(w_niche.get_obs_names("patch")), index=adata.obs_names)
+sc.pp.neighbors(adata)
+sq.gr.spatial_neighbors_knn(adata, n_neighs=6)
+sq.gr.calculate_niche(
+    adata,
+    flavor="neighborhood",
+    groups="cell_type",
+    n_neighbors=6,
+    resolutions=0.5,
+    mask=mask,
+)
+w_niche.color = "nhood_niche_res=0.5"
+```
+
+Top Moran's I gene on the packed genes:
+
+```python
+import scanpy as sc
+import squidpy as sq
+
+w_moran = milume.peek(adata, color="cell_type", genes=["APOB", "Lgr5", "Muc2"])
+sc.pp.neighbors(adata)
+sq.gr.spatial_neighbors_knn(adata, n_neighs=6)
+sq.gr.spatial_autocorr(adata, mode="moran")
+w_moran.color = adata.uns["moranI"]["I"].idxmax()
+```
+
 ## Gotchas
 
 - Landmarks are 2D. In the 3D Inspect cube a landmark extends through the

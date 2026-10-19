@@ -44,12 +44,16 @@ def _fixture():
 def test_skill_examples_run_against_fixture(tmp_path):
     pytest.importorskip("geopandas")
 
+    skill_text = SKILL.read_text(encoding="utf-8")
     blocks = re.findall(
-        r"```python\n(.*?)```", SKILL.read_text(encoding="utf-8"), re.DOTALL
+        r"```python\n(.*?)```", skill_text, re.DOTALL
     )
     assert len(blocks) >= 5
     ns: dict = {"adata": _fixture(), "sdata": toy_spatialdata(tmp_path / "toy.zarr")}
     for block in blocks:
+        if "squidpy as sq" in block:
+            pytest.importorskip("squidpy")
+            pytest.importorskip("scanpy")
         exec(compile(block, str(SKILL), "exec"), ns)  # noqa: S102 - running the skill examples is the test
     w = ns["w"]
     assert isinstance(w, LandmarksWidget)

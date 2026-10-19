@@ -67,3 +67,10 @@ Migration:
 | `w.volume_label_ids` | `w.volume_cell_rows` (base64 int32, one table row per polygon cell; −1 when the table has none) |
 
 Stores without per-slice cell polygons (e.g. Xenium / CosMx) open Inspect image-only, with no cells; 2D image plus polygon rendering is tracked in [#122](https://github.com/ckmah/milume/issues/122). With several 3D images, pass `image=` to pick one.
+
+## 1.4.1 (unreleased)
+
+### Docs: Squidpy color recipes
+
+- [Integrations / Squidpy color](https://ckmah.github.io/milume/docs/integrations/squidpy-color/) documents `sq.gr.calculate_niche` → `w.color = nhood_niche_res=<resolution>` and Moran's I top gene → `w.color`, with harness screenshots.
+- The [use-milume](.agents/skills/use-milume/SKILL.md) skill lists the same recipes; optional pytest coverage lives in `tests/test_squidpy_color_recipes.py` when `squidpy` is installed.
