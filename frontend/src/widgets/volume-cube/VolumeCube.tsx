@@ -30,12 +30,24 @@ import {
   moveCutEdge,
 } from "./cut-faces";
 import { VolumeCubeCutChrome, type VolumeCubeCutChromeHandle } from "./cut-hover-chrome";
-import { type CellVolume, TOO_MANY_CELLS, markVivVolume } from "./cell-volume";
 import { AxisLegend } from "./axis-legend";
 import type { ImageFormat } from "./image-volume";
 import type { Range, ViewPreset } from "./CubeControls";
 import { type MapScatterPoint, placeScatterPoints } from "./cube-points";
 import { type CubeFrame, FramedVolumeView, labelPad } from "./frame-layers";
+import {
+  CELL_MESH_LIGHTING,
+  type CellMeshData,
+  DEFAULT_MESH_LOOK,
+  type MeshLook,
+  type PlacedCellMesh,
+  boostedImage,
+  cellMeshGeometry,
+  cellMeshLut,
+  cellMeshMatrix,
+} from "./cell-mesh";
+import { cellMeshClipBox } from "./cell-mesh-clip";
+import { type CellPolygons, cellMeshBuilder } from "./cell-mesh-source";
 import { type CubeOverlay, placeOverlays } from "./overlay-layers";
 import { paletteLut } from "./palettes";
 import { dragToWindowDelta } from "./pan";
@@ -50,7 +62,6 @@ import {
   boxIsEmpty,
   fitsBudget,
   levelBox,
-  matchingLevel,
   pickLevel,
   pyramidLevels,
   regionBox,
@@ -62,9 +73,8 @@ import {
 export type CubeCut = [number, number, number, number, number, number];
 
 export type CubeLoadState = {
+  /** The cell meshes: off (Labels off or no polygons), building the window, shown, or failed. */
   labels: "off" | "loading" | "on" | "error";
-  /** Volumes the raycast draws: 1 the image, 2 the image and the window's label texture. */
-  channels: 1 | 2;
   pan: [number, number];
   /** The displayed level. */
   level: number;
@@ -91,7 +101,10 @@ export type CubeBounds = {
 
 export type VolumeCubeProps = {
   imageUrl: string;
-  labelsUrl: string;
+  /** The per-slice cell polygons in the store, read over `volumeComm`; null draws no cells. */
+  cellPolygons?: CellPolygons | null;
+  /** Each polygon cell's table row (-1: none), in the polygons' cell order. */
+  cellRows?: Int32Array | null;
   /** z, y, x */
   voxelSizeUm: [number, number, number];
   originUm: [number, number, number];
@@ -103,8 +116,6 @@ export type VolumeCubeProps = {
   contrast: [number, number];
   /** Default "additive": the image's samples accumulate; "mip": its maximum along each ray. */
   imageMode?: "additive" | "mip";
-  /** Default "additive": label samples accumulate front to back; "mip": the strongest one along each ray. */
-  labelMode?: "additive" | "mip";
   /**
    * Applied when it changes: the preset's rotation (framed as its home view with
    * `reframeOnPreset`). The first view is this preset when set, else `home`.
@@ -116,11 +127,14 @@ export type VolumeCubeProps = {
   reframeOnPreset?: boolean;
   /** Bump to reset the camera to the home view. */
   resetTick: number;
-  /** Default true. False: the raycast adds no image signal; labels still draw (both off: an empty frame). */
+  /** Default true. False: the raycast adds no image signal; cells still draw (both off: an empty frame). */
   showImage?: boolean;
   showLabels: boolean;
   coloring: CellColoring;
+  /** `cellAlpha` is the meshes' peak opacity. */
   render: RenderSettings;
+  /** The rest of the meshes' look; default DEFAULT_MESH_LOOK. */
+  meshLook?: Partial<MeshLook>;
   dark: boolean;
   /** Default 520 (px). */
   height?: number | string;
@@ -154,8 +168,8 @@ export type VolumeCubeProps = {
   pausesPrefetch?: boolean;
   /** Called after each deck render. */
   onRendered?: (canvas: HTMLCanvasElement) => void;
-  /** Called when each pyramid opens: the image levels, and the labels levels once wanted (else null). */
-  onLevels?: (image: ZarrSource[], labels: ZarrSource[] | null) => void;
+  /** Called when the image pyramid opens. */
+  onLevels?: (image: ZarrSource[]) => void;
   /** Called when the shown window changes: its level index and voxel box. */
   onShown?: (level: number, box: Box) => void;
   /** The Move tool: a plain left drag pans (with `onPan`) instead of orbiting. Default false. */
@@ -339,14 +353,15 @@ function useLatest<T>(value: T) {
 }
 
 /**
- * The Viv volume cube for one inspect window: loads the OME-Zarr image (and
- * labels on first use), fetches the window's voxels and draws them with the
- * cube shader. Everything it shows comes from props; it reports what it loaded,
+ * The Viv volume cube for one inspect window: loads the OME-Zarr image, fetches
+ * the window's voxels and draws them with the cube shader, and the window's cells
+ * as meshes built from their polygons. Everything it shows comes from props; it reports what it loaded,
  * the ranges its cuts can take and the camera preset back through callbacks.
  */
 export function VolumeCube({
   imageUrl,
-  labelsUrl,
+  cellPolygons = null,
+  cellRows = null,
   voxelSizeUm,
   originUm,
   windowCx: window_cx,
@@ -355,7 +370,6 @@ export function VolumeCube({
   cut,
   contrast,
   imageMode = "additive",
-  labelMode = "additive",
   preset,
   home = "iso",
   reframeOnPreset = false,
@@ -364,6 +378,7 @@ export function VolumeCube({
   showLabels,
   coloring,
   render,
+  meshLook: meshLookProp,
   dark,
   height = 520,
   onLoadState,
@@ -399,9 +414,7 @@ export function VolumeCube({
   /** Canvas size in CSS px (for deck-aligned cut-plate projection). */
   const [viewPixelSize, setViewPixelSize] = useState({ width: 640, height: 520 });
   const [image, setImage] = useState<ZarrSource[] | null>(null);
-  const [labels, setLabels] = useState<ZarrSource[] | null>(null);
   const [error, setError] = useState("");
-  const [labelsError, setLabelsError] = useState("");
   const [viewState, setViewState] = useState<ViewState | null>(null);
   /** Pan must not drift the cube; the window moves the content instead. */
   const fixedTargetRef = useRef<number[] | null>(null);
@@ -469,37 +482,10 @@ export function VolumeCube({
     return () => window.clearTimeout(timer);
   }, [imageUrl, image, error]);
 
-  // Labels load on first use and then stay: the Labels switch and highlights
-  // only rewrite a colour lookup, never the loaded volume.
-  const [labelsWanted, setLabelsWanted] = useState(false);
-  useEffect(() => {
-    if (showLabels) setLabelsWanted(true);
-  }, [showLabels]);
-  const wantLabels = Boolean(labelsUrl) && labelsWanted;
-  useEffect(() => {
-    let cancelled = false;
-    setLabels(null);
-    setLabelsError("");
-    if (!wantLabels) return;
-    (async () => {
-      try {
-        const pyramid = await loadVolumePyramid(labelsUrl, volumeComm);
-        pyramid.forEach((level, i) => chunkCache?.attach(level._data, `${labelsUrl}#${i}`));
-        if (!cancelled) setLabels(pyramid);
-      } catch (err) {
-        if (!cancelled) setLabelsError(errorText(err));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wantLabels, labelsUrl]);
-
   const onLevelsRef = useLatest(onLevels);
   useEffect(() => {
-    if (image) onLevelsRef.current?.(image, labels);
-  }, [image, labels, onLevelsRef]);
+    if (image) onLevelsRef.current?.(image);
+  }, [image, onLevelsRef]);
 
   const [szUm, syUm, sxUm] = voxelSizeUm;
   const [ozUm, oyUm, oxUm] = originUm;
@@ -515,7 +501,6 @@ export function VolumeCube({
   const [cx, cy] = center.split(",").map(Number) as [number, number];
 
   // The target: what the props ask for, fetched in full before it is shown.
-  // Labels share the image's grid, so the same voxel box cuts both.
   const regionScale = region?.scale ?? 0;
   const regionBudget = region?.budget ?? 0;
   const regionCx = region?.cx ?? 0;
@@ -528,8 +513,8 @@ export function VolumeCube({
     if (!regionScale) box = windowBox(level, frame, cx, cy, window_size_um);
     else if (fitsBudget(levelBox(level), regionBudget)) box = levelBox(level);
     else box = regionBox(level, frame, regionCx, regionCy, size);
-    return { level, box, cells: labels ? matchingLevel(labels, level) : null };
-  }, [levels, labels, frame, cx, cy, window_size_um, budget, regionScale, regionBudget, regionCx, regionCy]);
+    return { level, box };
+  }, [levels, frame, cx, cy, window_size_um, budget, regionScale, regionBudget, regionCx, regionCy]);
   // The dock's first step: a level coarse enough to arrive at once.
   const coarseScale = coarse?.scale ?? 0;
   const coarseBudget = coarse?.budget ?? 0;
@@ -537,11 +522,10 @@ export function VolumeCube({
     if (!levels || !coarseScale || regionScale) return null;
     const level = pickLevel(levels, frame, window_size_um * coarseScale, coarseBudget);
     const box = windowBox(level, frame, cx, cy, window_size_um);
-    return { level, box, cells: labels ? matchingLevel(labels, level) : null };
-  }, [levels, labels, frame, cx, cy, window_size_um, coarseScale, coarseBudget, regionScale]);
-  const labelsMismatch = Boolean(wantLabels && labels && target && !target.cells);
+    return { level, box };
+  }, [levels, frame, cx, cy, window_size_um, coarseScale, coarseBudget, regionScale]);
 
-  const { shown, shownIsCoarse, imageError, cellsError } = useShownWindow({
+  const { shown, shownIsCoarse, imageError } = useShownWindow({
     levels,
     frame,
     fine: target,
@@ -569,7 +553,7 @@ export function VolumeCube({
 
   // Viv is only handed the image, at its own dtype, and only once its fetch has
   // resolved, so a new loader swaps in at once (VolumeLayer refetches per loader
-  // identity, from memory here). Labels arriving for the same window leave it be.
+  // identity, from memory here).
   const shownImage = shown?.image ?? null;
   const loader = useMemo(() => (shownImage ? [shownImage] : null), [shownImage]);
   const [contentZSpan, setContentZSpan] = useState<ContentZSpan | null>(null);
@@ -579,9 +563,8 @@ export function VolumeCube({
     contentZSpanImage.current = null;
   }, [shownImage]);
   const imageSignalMin = contrast[0];
-  // Tags each volume Viv reads with its window, so the shader draws the labels
-  // of the image Viv is drawing (see CellVolume). Viv has read the whole window
-  // by then (its own copy, laid out for upload), so the fetched block goes.
+  // Viv has read the whole window by then (its own copy, laid out for upload),
+  // so the fetched block goes.
   const onViewportLoad = useMemo(
     () =>
       shownImage
@@ -601,23 +584,29 @@ export function VolumeCube({
                 ),
               );
             }
-            markVivVolume(raw, shownImage);
             shownImage.release();
           }
         : undefined,
     [shownImage, imageSignalMin, tightenZToSignal],
   );
-  const cells = shown?.cells ?? null;
-  const hasCells = Boolean(cells);
-  // The label texture a layer draws now (set from the draw, once uploaded).
-  const [gpuCells, setGpuCells] = useState<CellVolume | null>(null);
-  const onCellsBound = useCallback((c: CellVolume | null) => setGpuCells(c), []);
   // The format of the image texture a layer draws now (image-volume.ts).
   const [imageFormat, setImageFormat] = useState<ImageFormat | null>(null);
   const onImageBound = useCallback((f: ImageFormat | null) => setImageFormat(f), []);
-  const cellsOnGpu = Boolean(cells && gpuCells === cells);
-  const cellColoring = showLabels ? coloring : null;
   const imagePalette = useMemo(() => paletteLut(render.palette), [render.palette]);
+  const meshesOn = Boolean(showLabels && cellPolygons && cellRows && volumeComm);
+  const look: MeshLook = { ...DEFAULT_MESH_LOOK, ...meshLookProp };
+  // Under the meshes the image draws boosted over the active contrast and gamma; the
+  // settings themselves, and the 2D view, keep theirs.
+  const imageGamma = render.imageGamma ?? 1;
+  const shownImageLook = useMemo(
+    () => (meshesOn ? boostedImage(contrast, imageGamma, look.imgBoost) : { contrast, gamma: imageGamma }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [meshesOn, contrast[0], contrast[1], imageGamma, look.imgBoost],
+  );
+  const shownRender = useMemo(
+    () => (shownImageLook.gamma === imageGamma ? render : { ...render, imageGamma: shownImageLook.gamma }),
+    [render, imageGamma, shownImageLook.gamma],
+  );
 
   // Frame, camera and cuts live in the requested window; the shown volume pans
   // under it until the new window arrives, so moving Inspect slides the tissue
@@ -909,10 +898,13 @@ export function VolumeCube({
     [],
   );
 
-  // One channel, the image; cells come from the label texture beside it. The
-  // cube shader colours the image from `imagePalette`; `colors` is unused by it
-  // and only satisfies Viv's props.
-  const contrastLimits = useMemo(() => [[contrast[0], contrast[1]]] as [number, number][], [contrast[0], contrast[1]]);
+  // One channel, the image; the cells are meshes beside it. The cube shader
+  // colours the image from `imagePalette`; `colors` is unused by it and only
+  // satisfies Viv's props.
+  const contrastLimits = useMemo(
+    () => [[shownImageLook.contrast[0], shownImageLook.contrast[1]]] as [number, number][],
+    [shownImageLook.contrast[0], shownImageLook.contrast[1]],
+  );
 
   const cubeFrame: CubeFrame | null = useMemo(
     () =>
@@ -975,6 +967,56 @@ export function VolumeCube({
     return placeScatterPoints(scatterInCut, toWorldXY, windowRect, scatterZAt, cubeFrame.umPerUnit);
   }, [showPoints, scatterInCut, liveBox, cubeFrame, toWorldXY, windowRect, scatterZAt]);
 
+  // Cells: the worker meshes the window's cells; the last window's meshes stay up
+  // (placed by their own origin) until the new ones arrive.
+  const meshBox = `${winX[0]},${winY[0]},${winX[1]},${winY[1]}`;
+  const [cellMesh, setCellMesh] = useState<{ box: string; mesh: CellMeshData } | null>(null);
+  const [meshError, setMeshError] = useState("");
+  useEffect(() => {
+    if (!meshesOn || winX[1] - winX[0] < 1 || winY[1] - winY[0] < 1) return;
+    let live = true;
+    setMeshError("");
+    cellMeshBuilder(cellPolygons!, cellRows!, volumeComm!)
+      .build(meshBox.split(",").map(Number) as [number, number, number, number])
+      .then((mesh) => {
+        if (live && mesh) setCellMesh({ box: meshBox, mesh });
+      })
+      .catch((err) => live && setMeshError(errorText(err)));
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meshesOn, meshBox, cellPolygons, cellRows, volumeComm]);
+  const mesh = meshesOn ? (cellMesh?.mesh ?? null) : null;
+  const meshGeometry = useMemo(() => (mesh ? cellMeshGeometry(mesh) : null), [mesh]);
+  const meshLut = useMemo(() => (mesh ? cellMeshLut(mesh, coloring) : null), [mesh, coloring]);
+  const placedCellMesh: PlacedCellMesh | null = useMemo(() => {
+    if (!mesh || !meshGeometry || !meshLut || !cubeFrame || !levelVoxel || !panBox) return null;
+    return {
+      mesh: meshGeometry,
+      lut: meshLut,
+      clip: cellMeshClipBox([cx0, cx1, cy0, cy1, cz0, cz1], stackZ, mesh.originUm),
+      opacity: render.cellAlpha,
+      look,
+      modelMatrix: cellMeshMatrix({
+        volumeMatrix,
+        originUm: mesh.originUm,
+        ox: oxUm,
+        oy: oyUm,
+        oz: ozUm,
+        lvx: levelVoxel[2],
+        lvy: levelVoxel[1],
+        lvz: levelVoxel[0],
+        ry,
+        panX0: panBox.x0,
+        panY1: panBox.y1,
+        zSlice: windowZSlice,
+        depth: cubeFrame.size[2],
+      }),
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mesh, meshGeometry, meshLut, cubeFrame, levelVoxel, panBox, cx0, cx1, cy0, cy1, cz0, cz1, stackZ[0], stackZ[1], render.cellAlpha, look.fresnelMin, look.shine, look.flat, volumeMatrix, oxUm, oyUm, ozUm, ry, windowZSlice]);
+
   const orbitViewRef = useRef<FramedVolumeView | null>(null);
   const views = useMemo(() => {
     if (!orbitViewRef.current) {
@@ -994,6 +1036,7 @@ export function VolumeCube({
   const onRenderedRef = useLatest(onRendered);
   const deckProps = useMemo(
     () => ({
+      effects: [CELL_MESH_LIGHTING],
       onAfterRender: ({ gl }: { gl: WebGL2RenderingContext }) => {
         if (typeof window !== "undefined") {
           const w = window as unknown as { __volumeCubeRenderCount?: number };
@@ -1034,13 +1077,9 @@ export function VolumeCube({
               resolution: 0,
               extensions: cubeExtensions,
               imageMode,
-              labelMode,
-              cellVolume: cells,
-              cellColoring,
-              onCellsBound,
               onImageBound,
               imagePalette,
-              render,
+              render: shownRender,
               showImage,
               modelMatrix: volumeMatrix,
               frameMatrix: Z_UP,
@@ -1048,6 +1087,7 @@ export function VolumeCube({
               cubeFrame,
               cubeOverlays: placedOverlays,
               cubeScatterPoints: placedScatterPoints,
+              cubeCellMesh: placedCellMesh,
             },
           ]
         : null,
@@ -1075,17 +1115,14 @@ export function VolumeCube({
       stackZ[0],
       stackZ[1],
       imageMode,
-      labelMode,
-      cells,
-      cellColoring,
-      onCellsBound,
       onImageBound,
       imagePalette,
-      render,
+      shownRender,
       showImage,
       cubeFrame,
       placedOverlays,
       placedScatterPoints,
+      placedCellMesh,
       volumeMatrix,
     ],
   );
@@ -1109,29 +1146,20 @@ export function VolumeCube({
   // The image failed with nothing kept on screen.
   const loadError = error || (refineFailed ? "" : imageError);
 
-  // Labels only show over a loaded image, so an image failure fails them too.
-  const labelsFailure = labelsError || cellsError || error || (refineFailed ? "" : imageError);
   let status = "";
   if (!image) status = error || "Loading volume…";
   else if (imageError && !refineFailed) status = `Could not load this window: ${imageError}`;
   else if (outside) status = "Inspect window is outside the volume";
   // The image is open but no window has arrived yet: nothing is drawn.
   else if (!shown) status = "Loading window…";
-  else if (labelsMismatch) status = "Labels are on a different grid from the image";
-  else if (showLabels && labelsFailure === TOO_MANY_CELLS) status = TOO_MANY_CELLS;
-  else if (showLabels && labelsFailure) status = `Could not load labels: ${labelsFailure}`;
+  else if (meshesOn && meshError) status = `Could not load cells: ${meshError}`;
 
   let labelsState: CubeLoadState["labels"] = "off";
-  if (showLabels) {
-    if (labelsMismatch || labelsFailure) labelsState = "error";
-    else labelsState = hasCells ? "on" : "loading";
-  }
+  if (meshesOn) labelsState = meshError ? "error" : cellMesh?.box === meshBox ? "on" : "loading";
   const groups = coloring.kind === "groups" ? coloring.groups : NO_GROUPS;
-  const highlighted = showLabels && hasCells ? groups.filter((g) => g.labels.length > 0) : NO_GROUPS;
+  const highlighted = mesh ? groups.filter((g) => g.labels.length > 0) : NO_GROUPS;
   const legend = showLegend ? highlighted : NO_GROUPS;
-  // Only cells actually on the GPU are coloured, so the mirror follows them.
-  const coloringState = showLabels && hasCells ? coloring.kind : "off";
-  const channels = showLabels && cellsOnGpu ? 2 : 1;
+  const coloringState = mesh ? coloring.kind : "off";
   const levelIndex = level ? level.index : 0;
 
   const contrastMax = base && base.dtype === "Uint8" ? 255 : Math.max(255, Math.ceil(contrast[1] * 4));
@@ -1141,7 +1169,6 @@ export function VolumeCube({
   useLayoutEffect(() => {
     onLoadStateRef.current?.({
       labels: labelsState,
-      channels,
       pan: [panX, panY],
       level: levelIndex,
       refining,
@@ -1149,7 +1176,7 @@ export function VolumeCube({
       imageError: loadError,
       outside,
     });
-  }, [labelsState, channels, panX, panY, levelIndex, refining, refineError, loadError, outside, onLoadStateRef]);
+  }, [labelsState, panX, panY, levelIndex, refining, refineError, loadError, outside, onLoadStateRef]);
 
   // Reported once the image is open: before that the volume has no extent.
   const onBoundsRef = useLatest(onBounds);
@@ -1361,17 +1388,14 @@ export function VolumeCube({
       style={{ height }}
       data-image={showImage ? "on" : "off"}
       data-labels={labelsState}
-      data-channels={channels}
       data-image-format={imageFormat ?? "none"}
-      data-label-format={cellsOnGpu ? "rg8" : "none"}
-      data-label-cells={cells?.count ?? 0}
+      data-label-cells={mesh?.ids.length ?? 0}
       data-coloring={coloringState}
       data-highlight={highlighted.length}
       data-image-mode={imageMode}
-      data-label-mode={labelMode}
       data-pan={`${panX},${panY}`}
       data-palette={render.palette}
-      data-image-gamma={render.imageGamma}
+      data-image-gamma={shownRender.imageGamma}
       data-level={shown?.level.index ?? -1}
       data-refining={String(refining)}
       data-overlays={placedOverlays?.count ?? 0}
@@ -1434,7 +1458,7 @@ type VolumeCubeDeckProps = {
   views: FramedVolumeView[];
   viewStates: ViewState[];
   onViewStateChange: (args: { viewId: string; viewState: ViewState }) => ViewState;
-  deckProps: { onAfterRender: (args: { gl: WebGL2RenderingContext }) => void };
+  deckProps: { effects: unknown[]; onAfterRender: (args: { gl: WebGL2RenderingContext }) => void };
 };
 
 /** Viv deck only: cut-face hover updates skip this subtree so deck does not redraw. */

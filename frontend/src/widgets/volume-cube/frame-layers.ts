@@ -5,6 +5,7 @@ import { VolumeView } from "@hms-dbmi/viv";
 
 import type { PreBox } from "./cut-faces";
 import { CubeVolumeLayer } from "./image-volume";
+import { type PlacedCellMesh, cellMeshLayers } from "./cell-mesh";
 import { type PlacedScatterPoint, scatterPointLayers } from "./cube-points";
 import { type PlacedOverlays, overlayLayers, vivTag } from "./overlay-layers";
 
@@ -197,7 +198,10 @@ export class FramedVolumeView extends VolumeView {
     const overlays = props.cubeOverlays as PlacedOverlays | null | undefined;
     const scatter = props.cubeScatterPoints as PlacedScatterPoint[] | null | undefined;
     const extra = overlays ? overlayLayers(overlays, frameMatrix, id) : [];
-    const scatterLayers = scatter?.length ? scatterPointLayers(scatter, volumeMatrix, id) : [];
+    const scatterLayers = [
+      ...(scatter?.length ? scatterPointLayers(scatter, volumeMatrix, id) : []),
+      ...cellMeshLayers(props.cubeCellMesh as PlacedCellMesh | null, id),
+    ];
     if (!frame) return [...layers, ...scatterLayers, ...extra];
     // Scatter points sit inside the volume; overlays go over the frame's lines.
     const [lines, labels] = frameLayers(frame, frameMatrix, id);

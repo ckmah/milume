@@ -5,6 +5,7 @@ import { useNotebookTheme } from "@/hooks/use-notebook-theme";
 import { cn } from "@/lib/utils";
 
 import type { CellColoring } from "@/widgets/volume-cube/cell-lut-extension";
+import type { MeshLook } from "@/widgets/volume-cube/cell-mesh";
 import { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import { volumeCommClientFor } from "@/widgets/volume-cube/volume-comm";
 import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
@@ -67,6 +68,7 @@ export function LandmarksView({
   cubeBudgets,
   inspectWindowUm,
   labelAlpha,
+  meshLook,
 }: {
   hostEl: HTMLElement;
   model: AnyModel;
@@ -76,8 +78,10 @@ export function LandmarksView({
   cubeBudgets?: { preview: number; dock: number };
   /** Harness only: the Inspect window's side (µm); the toy volume is smaller than the default 300. */
   inspectWindowUm?: number;
-  /** Harness only: live Labels alpha from DialKit. */
+  /** Harness only: live mesh opacity from DialKit. */
   labelAlpha?: number;
+  /** Harness only: the rest of the live mesh look from DialKit. */
+  meshLook?: Partial<MeshLook>;
 }) {
   const dark = useNotebookTheme(hostEl.parentElement);
   const facade = useMemo(() => wrapLandmarksModel(model), [model]);
@@ -131,10 +135,6 @@ export function LandmarksView({
     () => (hasVolume ? decodeF32Base64(lm.points_data) : null),
     [hasVolume, lm.points_data],
   );
-  const labelIds = useMemo(
-    () => (hasVolume && lm.volume_label_ids ? decodeI32Base64(lm.volume_label_ids) : null),
-    [hasVolume, lm.volume_label_ids],
-  );
   const codes = useMemo(
     () => (hasVolume && lm.category_codes ? decodeI32Base64(lm.category_codes) : null),
     [hasVolume, lm.category_codes],
@@ -145,7 +145,6 @@ export function LandmarksView({
       points,
       xBounds: lm.x_bounds,
       yBounds: lm.y_bounds,
-      labelIds,
       codes,
       columns: lm.category_columns.map((c) => ({
         name: c.name,
@@ -176,7 +175,6 @@ export function LandmarksView({
     points,
     lm.x_bounds,
     lm.y_bounds,
-    labelIds,
     codes,
     lm.category_columns,
     lm.active_category,
@@ -466,7 +464,7 @@ export function LandmarksView({
           <InspectToolbar
             settings={cube}
             patch={patchCube}
-            labelsAvailable={Boolean(lm.volume?.labels_url)}
+            labelsAvailable={Boolean(lm.volume?.cells)}
             pointsAvailable={(lm.render_mode || "points") === "points"}
             cut={inspectCube.cut}
             cutRanges={inspectCube.cutRanges}
@@ -500,6 +498,7 @@ export function LandmarksView({
             onCutLive={inspectCube.onCutLive}
             onCutCommit={inspectCube.onCutCommit}
             labelAlpha={labelAlpha}
+            meshLook={meshLook}
           />
         ) : null}
 

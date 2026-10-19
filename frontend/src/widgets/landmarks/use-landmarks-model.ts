@@ -1,4 +1,5 @@
 import { useModel } from "@/hooks/use-model";
+import type { CellPolygons } from "@/widgets/volume-cube/cell-mesh-source";
 
 import type {
   AnyModel,
@@ -45,7 +46,8 @@ import {
 /** The inferred 3D image of a SpatialData (`{}` without one). Frames are z, y, x. */
 export type LandmarksVolume = {
   image_url?: string;
-  labels_url?: string;
+  /** The per-slice cell polygons the cube meshes. */
+  cells?: CellPolygons;
   voxel_size_um?: [number, number, number];
   origin_um?: [number, number, number];
   contrast_limits?: [number, number];
@@ -100,8 +102,8 @@ export type LandmarksState = {
   raster_n_bins: number;
   raster_similarity_enabled: boolean;
   volume: LandmarksVolume;
-  /** Base64 int32 label id per table row (0 = none). */
-  volume_label_ids: string;
+  /** Base64 int32 table row per polygon cell (-1 = none), in the polygons' cell order. */
+  volume_cell_rows: string;
   /** x0, x1, y0, y1, z0, z1 in µm; `[]` before a cut exists. */
   volume_cut: number[];
   inspect_cx: number | null;
@@ -160,7 +162,7 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
   "raster_n_bins",
   "raster_similarity_enabled",
   "volume",
-  "volume_label_ids",
+  "volume_cell_rows",
   "volume_cut",
   "inspect_cx",
   "inspect_cy",

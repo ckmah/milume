@@ -10,7 +10,7 @@ export type RenderSettings = {
   imageAlpha: number;
   /** Exponent on the contrast-limited image value. */
   imageGamma: number;
-  /** Scales label fill and outline opacity along the ray (outline texels stay stronger than fill). */
+  /** Peak opacity of the cell meshes (their silhouettes). */
   cellAlpha: number;
 };
 
@@ -18,7 +18,7 @@ export const DEFAULT_RENDER: RenderSettings = {
   palette: "gray",
   imageAlpha: 1,
   imageGamma: 1,
-  cellAlpha: 0.4,
+  cellAlpha: 0.8,
 };
 
 // sRGB stops, evenly spaced. Gray is generated instead (see `grayRamp`).

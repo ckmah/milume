@@ -1,6 +1,6 @@
 import { VolumeLayer, XR3DLayer } from "@hms-dbmi/viv";
 
-import type { Texture } from "./cell-volume";
+type Texture = { destroy(): void; copyImageData(options: { data: ArrayBufferView }): void };
 
 /**
  * The image window on the GPU at its own dtype.
@@ -63,8 +63,8 @@ export function imageTextureInfo(texture: unknown): { format: ImageFormat; scale
  * in its state for the life of the window, but reads it only to create the
  * texture: its XR3DLayer re-uploads only when a new volume arrives (a new
  * array), and a new XR3DLayer (a new window size) comes with a new volume.
- * Detaching the buffer (the array stays, empty, as the identity Viv and the
- * label binding compare) lets it be collected. Only a buffer the array owns
+ * Detaching the buffer (the array stays, empty, as the identity Viv compares)
+ * lets it be collected. Only a buffer the array owns
  * whole is detached, never a view into someone else's.
  */
 function releaseVivVolume(data: Volume): void {

@@ -15,7 +15,6 @@ export type CubeHighlightInput = {
   points: Float32Array; // points_data decoded: [nx, ny, valueA, _] per cell
   xBounds: number[];
   yBounds: number[];
-  labelIds: Int32Array | null; // volume_label_ids decoded
   codes: Int32Array | null; // category_codes decoded (column-major)
   columns: { name: string; labels: string[]; palette: string[] }[];
   activeCategory: string;
@@ -87,11 +86,11 @@ function memberFilter(
 }
 
 function categoryGroups(input: CubeHighlightInput): CellColoring {
-  const { points, labelIds, codes, columns, window: win } = input;
+  const { points, codes, columns, window: win } = input;
   const n = Math.floor(points.length / 4);
   const col = columns.findIndex((c) => c.name === input.activeCategory);
   if (!win || col < 0) return NO_GROUPS;
-  if (!labelIds || !codes || labelIds.length !== n) return INSTANCES;
+  if (!codes) return INSTANCES;
   const member = memberFilter(input, n, col);
   if (member === "hidden-selection") return NO_GROUPS;
   const { labels, palette } = columns[col]!;
@@ -103,12 +102,11 @@ function categoryGroups(input: CubeHighlightInput): CellColoring {
     const x = x0! + ((points[i * 4]! + 1) / 2) * (x1! - x0!);
     const y = y0! + ((points[i * 4 + 1]! + 1) / 2) * (y1! - y0!);
     if (Math.abs(x - win.cx) > half || Math.abs(y - win.cy) > half) continue;
-    const id = labelIds[i]!;
-    if (id <= 0 || (member && !member(i))) continue;
+    if (member && !member(i)) continue;
     const code = codes[col * n + i]!;
     let ids = byCode.get(code);
     if (!ids) byCode.set(code, (ids = []));
-    ids.push(id);
+    ids.push(i + 1);
   }
   const groups: HighlightGroup[] = [...byCode.entries()]
     .sort((a, b) => a[0] - b[0])
@@ -121,11 +119,10 @@ function categoryGroups(input: CubeHighlightInput): CellColoring {
 }
 
 function geneExpressionColoring(input: CubeHighlightInput): CellColoring {
-  const { points, labelIds, codes, columns, window: win, activeGenes } = input;
+  const { points, codes, columns, window: win, activeGenes } = input;
   const n = Math.floor(points.length / 4);
   const col = columns.findIndex((c) => c.name === input.activeCategory);
   if (!win || !activeGenes.length) return categoryGroups(input);
-  if (!labelIds || labelIds.length !== n) return INSTANCES;
   const member = col >= 0 && codes ? memberFilter(input, n, col) : null;
   if (member === "hidden-selection") return NO_GROUPS;
   const pack: GeneExpressionPack = {
@@ -149,9 +146,8 @@ function geneExpressionColoring(input: CubeHighlightInput): CellColoring {
     const x = x0! + ((points[i * 4]! + 1) / 2) * (x1! - x0!);
     const y = y0! + ((points[i * 4 + 1]! + 1) / 2) * (y1! - y0!);
     if (Math.abs(x - win.cx) > half || Math.abs(y - win.cy) > half) continue;
-    const id = labelIds[i]!;
-    if (id <= 0 || (member && !member(i))) continue;
-    byLabel.set(id, srgbBytesToLinear(blendGeneSrgb(pack, i)));
+    if (member && !member(i)) continue;
+    byLabel.set(i + 1, srgbBytesToLinear(blendGeneSrgb(pack, i)));
   }
   return { kind: "expression", byLabel };
 }
@@ -159,7 +155,7 @@ function geneExpressionColoring(input: CubeHighlightInput): CellColoring {
 /**
  * How the cube colours the cells near the window.
  *
- * With active genes selected, labels follow the same gene blend as the 2D map.
+ * Cell ids are table row + 1 (see CellMeshData.ids). With active genes selected, cells follow the same gene blend as the 2D map.
  * Until a gene is picked, category colouring is kept even on the genes tab.
  * Type focus uses `selected_type_indices` (multi-select union). Selection focus
  * filters cells the same way in category and gene modes.
