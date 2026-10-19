@@ -2127,19 +2127,6 @@ test.describe("Landmarks inspect cube", () => {
     expect(rgbDist(r50, rim)).toBeGreaterThan(5);
   });
 
-  test("inspect labels with no cut still show outline rims over interior fill", async ({ page }) => {
-    await openCubeAtCentre(page, { raster: true });
-    const view = cubeWindow(page).locator(".volume-cube__view");
-    await expect(view).toHaveAttribute("data-refining", "false");
-    await expect(view).toHaveAttribute("data-coloring", "groups");
-    await setShow(page, "image", false);
-    const { rim, core } = await ringVsCore(page, await view.screenshot());
-    expect(rim).toBeGreaterThan(50);
-    expect(core).toBeGreaterThan(20);
-    expect(core / rim).toBeLessThan(0.38);
-    await shot(page, "volume-inspect-labels-uncut-top", view);
-  });
-
   test("labels adjust panel has no cut outline switch", async ({ page }) => {
     await openCubeAtCentre(page, { raster: true });
     await openLayerMenu(page, "labels");

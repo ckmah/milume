@@ -1395,7 +1395,7 @@ export function VolumeCube({
       data-image-mode={imageMode}
       data-pan={`${panX},${panY}`}
       data-palette={render.palette}
-      data-image-gamma={shownRender.imageGamma}
+      data-image-gamma={render.imageGamma}
       data-level={shown?.level.index ?? -1}
       data-refining={String(refining)}
       data-overlays={placedOverlays?.count ?? 0}
