@@ -63,7 +63,7 @@ w.inspect_open = False                     # close the cube and exit Inspect
 
 The default position is the volume's center: `w.inspect_open = True` with no window placed opens the cube there. `w.inspect_open = False` closes the cube and exits Inspect, like Exit. It follows the browser too: opening the cube there reads `True`, and <kbd>Esc</kbd> (one press closes the cube and exits Inspect) or Exit reads `False`.
 
-See [Synced traitlets](../api/landmarks.md#synced-traitlets) for the volume fields, and pass `image=` / `shapes=` to `milume.peek` in [Constructor parameters](../api/landmarks.md#constructor-parameters). With several 3D images, pass `image=` to pick one.
+See [Synced traitlets](../api/landmarks.md#synced-traitlets) for the volume fields, and pass `image=` / `shapes=` to `milume.peek` in [Constructor parameters](../api/landmarks.md#constructor-parameters). With several 3D images, pass `image=` to pick one. Stores without per-slice cell polygons (e.g. Xenium / CosMx) open Inspect image-only, with no cells; 2D image plus polygon rendering is tracked in [#122](https://github.com/ckmah/milume/issues/122).
 
 Cell meshes run in an inline Web Worker. Strict notebook Content-Security-Policies must allow `worker-src blob:` (the defaults in JupyterLab and VS Code already do).
 
