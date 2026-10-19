@@ -10,7 +10,7 @@ Place a cube window on the map, then orbit and slice image, labels and transcrip
 
 ```python
 import milume
-w = milume.peek(sdata, image="mosaic", labels="cells")  # press I, then click the tissue
+w = milume.peek(sdata, image="mosaic", shapes="cell_boundaries_z")  # press I, then click the tissue
 w.volume_cut  # cut-plane state after you slide the cross-section
 ```
 
@@ -38,7 +38,7 @@ Press <kbd>I</kbd> or click <svg xmlns="http://www.w3.org/2000/svg" width="16" h
 | <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-icon" aria-hidden="true"><path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"></path><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"></path><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"></path><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"></path></svg> <span class="ml-badge">2</span> | Move | Drag to pan the cube window on the map. |
 | <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-icon" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> | Reset view | Return the cube camera to its default. |
 | <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-icon" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect><circle cx="9" cy="9" r="2"></circle><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path></svg> <span class="ml-badge">3</span> | Image | Show or hide the image layer. Right-click for palette, contrast, alpha, gamma and projection. |
-| <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-icon" aria-hidden="true"><path d="M13.172 2a2 2 0 0 1 1.414.586l6.71 6.71a2.4 2.4 0 0 1 0 3.408l-4.592 4.592a2.4 2.4 0 0 1-3.408 0l-6.71-6.71A2 2 0 0 1 6 9.172V3a1 1 0 0 1 1-1z"></path><path d="M2 7v6.172a2 2 0 0 0 .586 1.414l6.71 6.71a2.4 2.4 0 0 0 3.191.193"></path><circle cx="10.5" cy="6.5" r=".5" fill="currentColor"></circle></svg> <span class="ml-badge">4</span> | Labels | Show or hide the labels layer. Right-click for projection and fill. Cell outlines stay on. |
+| <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-icon" aria-hidden="true"><path d="M13.172 2a2 2 0 0 1 1.414.586l6.71 6.71a2.4 2.4 0 0 1 0 3.408l-4.592 4.592a2.4 2.4 0 0 1-3.408 0l-6.71-6.71A2 2 0 0 1 6 9.172V3a1 1 0 0 1 1-1z"></path><path d="M2 7v6.172a2 2 0 0 0 .586 1.414l6.71 6.71a2.4 2.4 0 0 0 3.191.193"></path><circle cx="10.5" cy="6.5" r=".5" fill="currentColor"></circle></svg> <span class="ml-badge">4</span> | Labels | Show or hide the cell meshes. Right-click for their opacity. |
 | <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-icon" aria-hidden="true"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="12" r="10"></circle></svg> <span class="ml-badge">5</span> | Points | Show or hide the points layer. |
 | <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-icon" aria-hidden="true"><path d="M2 12h20"></path><path d="M21 16v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-3"></path><path d="M3 8V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3"></path></svg> | Cross-section | Slide a cut plane through the cube. |
 
@@ -63,7 +63,7 @@ w.inspect_open = False                     # close the cube and exit Inspect
 
 The default position is the volume's center: `w.inspect_open = True` with no window placed opens the cube there. `w.inspect_open = False` closes the cube and exits Inspect, like Exit. It follows the browser too: opening the cube there reads `True`, and <kbd>Esc</kbd> (one press closes the cube and exits Inspect) or Exit reads `False`.
 
-See [Synced traitlets](../api/landmarks.md#synced-traitlets) for the volume fields, and pass `image=` / `labels=` to `milume.peek` in [Constructor parameters](../api/landmarks.md#constructor-parameters).
+See [Synced traitlets](../api/landmarks.md#synced-traitlets) for the volume fields, and pass `image=` / `shapes=` to `milume.peek` in [Constructor parameters](../api/landmarks.md#constructor-parameters).
 
 ## Related
 

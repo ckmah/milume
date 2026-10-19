@@ -173,7 +173,7 @@ counter in one shot), `newCategoryPixels` (the hues a second shot added),
 `getByTestId("context-cube-adjust" | "adjust-image" | "adjust-labels" | "context-cube-cross" | "context-cube-cuts")`.
 
 Model keys: `mode`, `inspect_cx`, `inspect_cy`, `inspect_size_um`, `volume`,
-`volume_label_ids`, `volume_cut`, `selections` (`type: "inspect"` entries).
+`volume_cell_rows`, `volume_cut`, `selections` (`type: "inspect"` entries).
 
 **Proof**
 
