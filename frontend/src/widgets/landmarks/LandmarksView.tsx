@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Rise } from "cube-motion/react";
 
 import { useNotebookTheme } from "@/hooks/use-notebook-theme";
@@ -15,7 +15,6 @@ import { decodeF32Base64, decodeI32Base64 } from "./binary";
 import {
   LayersPanel,
   MinimapPanel,
-  InspectMinimapPanel,
   SelectionToolbar,
   Topbar,
   InspectPill,
@@ -55,6 +54,10 @@ const MAX_HEIGHT = 1400;
 const NARROW_BREAKPOINT = 640;
 /** No cube open: nothing to colour. */
 const NO_COLORING: CellColoring = { kind: "groups", groups: [] };
+
+const InspectMinimapPanel = lazy(() =>
+  import("./chrome/inspect-minimap-panel").then((m) => ({ default: m.InspectMinimapPanel })),
+);
 
 const ALL_MODES = [
   ...INTERACTION_MODE_IDS,
@@ -643,20 +646,22 @@ export function LandmarksView({
                 onMouseDown={(e) => e.stopPropagation()}
                 onWheel={(e) => e.stopPropagation()}
               >
-                <InspectMinimapPanel
-                  lm={lm}
-                  engine={engine}
-                  dark={dark}
-                  volumeComm={volumeComm}
-                  chunkCache={chunkCache}
-                  volumeXY={
-                    cube.bounds
-                      ? { x: cube.bounds.volumeX, y: cube.bounds.volumeY }
-                      : null
-                  }
-                  onPan={inspectCube.panWindow}
-                  onPanEnd={inspectCube.panEnd}
-                />
+                <Suspense fallback={null}>
+                  <InspectMinimapPanel
+                    lm={lm}
+                    engine={engine}
+                    dark={dark}
+                    volumeComm={volumeComm}
+                    chunkCache={chunkCache}
+                    volumeXY={
+                      cube.bounds
+                        ? { x: cube.bounds.volumeX, y: cube.bounds.volumeY }
+                        : null
+                    }
+                    onPan={inspectCube.panWindow}
+                    onPanEnd={inspectCube.panEnd}
+                  />
+                </Suspense>
               </div>
             ) : null}
           </>
