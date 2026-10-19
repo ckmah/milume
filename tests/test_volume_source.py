@@ -12,20 +12,21 @@ def sdata(tmp_path):
     return toy_spatialdata(tmp_path / "toy.zarr")
 
 
-def test_infers_table_labels_image_and_frame(sdata):
+def test_infers_table_image_cell_polygons_and_frame(sdata):
     adata, src = resolve_volume(sdata)
     assert adata is sdata.tables["table"]
     assert src.image == "mosaic"
-    assert src.labels == "cells"
+    assert src.shapes == "cell_polygons"
     assert src.shape_zyx == (64, 256, 256)
     assert src.voxel_size_um == (1.0, 1.0, 1.0)
     assert src.origin_um == (0.0, 0.0, 0.0)
-    np.testing.assert_array_equal(src.label_ids, adata.obs["cell_id"].to_numpy())
+    np.testing.assert_array_equal(src.cell_rows, np.arange(adata.n_obs))
 
 
 def test_overrides_and_opt_out(sdata):
-    _, src = resolve_volume(sdata, labels="cells", image="mosaic", table="table")
+    _, src = resolve_volume(sdata, shapes="cell_polygons", image="mosaic", table="table")
     assert src.image == "mosaic"
+    assert resolve_volume(sdata, shapes=False)[1].shapes is None
     _, none = resolve_volume(sdata, image=False)
     assert none is None
 
@@ -43,19 +44,6 @@ def test_several_tables_need_a_name(sdata):
     sdata.tables["other"] = sdata.tables["table"].copy()
     with pytest.raises(ValueError, match="annotates"):
         resolve_volume(sdata)
-
-
-def test_non_integer_instance_key_omits_label_ids_with_warning(sdata):
-    table = sdata.tables["table"]
-    table.obs["cell_id"] = [f"id-{i}" for i in range(table.n_obs)]
-    table.uns["spatialdata_attrs"] = {
-        **table.uns["spatialdata_attrs"],
-        "instance_key": "cell_id",
-    }
-    with pytest.warns(UserWarning, match="not integer"):
-        _, src = resolve_volume(sdata)
-    assert src is not None
-    assert src.label_ids is None
 
 
 def test_a_table_with_several_regions_is_not_the_linked_one(sdata):

@@ -33,7 +33,7 @@ function optionsFrom(search: string) {
  */
 function LandmarksVolumeHarness() {
   // Live: every value is a uniform or layer prop, so a drag never rebuilds the meshes.
-  const { opacity, ...meshLook } = useDialKit("Mesh", {
+  const mesh = useDialKit("Mesh", {
     opacity: [DEFAULT_RENDER.cellAlpha, 0, 1, 0.05],
     fresnelMin: [DEFAULT_MESH_LOOK.fresnelMin, 0, 1, 0.01],
     shine: [DEFAULT_MESH_LOOK.shine, 0, 1, 0.05],
@@ -94,8 +94,8 @@ function LandmarksVolumeHarness() {
             defaultHeight={820}
             cubeBudgets={options.cubeBudgets}
             inspectWindowUm={options.inspectWindowUm}
-            labelAlpha={opacity}
-            meshLook={meshLook}
+            labelAlpha={mesh.opacity}
+            meshLook={mesh}
           />
         ) : (
           <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>

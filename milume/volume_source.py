@@ -1,9 +1,9 @@
-"""Find what the Landmarks cube needs in a SpatialData: table, labels, 3D image, frame.
+"""Find what the Landmarks cube needs in a SpatialData: table, 3D image, frame, cells.
 
-The table's ``spatialdata_attrs`` name the labels element it annotates and the
-``obs`` column holding each cell's label id. The image is the 3D image in the
-same coordinate system on the labels' grid (else the only 3D image there). The
-frame comes from the element's transform to that coordinate system, so window
+The cells are a shapes element of per-slice polygons: one row per cell and
+z plane, with ``cell_id`` (the table's ``obs_names``) and ``Z_um`` (the plane's
+z) columns, in the coordinate system unchanged. The image is the only 3D image.
+The frame comes from the image's transform to that coordinate system, so window
 coordinates and ``obsm["spatial"]`` share units (µm for Pyxa / Meteor). Landmarks
 raster defaults read the same coordinate-unit metadata (reader attrs, CosMx
 ``global``/``fov`` systems, NGFF axis units when present).
@@ -23,12 +23,17 @@ import numpy as np
 class VolumeSource:
     table_name: str
     image: str | None
-    labels: str | None
+    shapes: str | None
     root: Path
     voxel_size_um: tuple[float, float, float]
     origin_um: tuple[float, float, float]
     shape_zyx: tuple[int, int, int]
-    label_ids: np.ndarray | None
+    #: Per polygon cell (first-appearance order in the file): its table row, -1 for none.
+    cell_rows: np.ndarray | None
+
+    @property
+    def shapes_path(self) -> str:
+        return f"shapes/{self.shapes}/shapes.parquet"
 
 
 def _level0(element: Any):
@@ -105,17 +110,34 @@ def _pick_table(sdata: Any, table: str | None) -> str:
     raise ValueError(f"several tables {', '.join(detail)}: pass table=<name>")
 
 
+CELL_POLYGON_COLUMNS = ("cell_id", "Z_um")
+
+
+def _is_cell_polygons(gdf: Any) -> bool:
+    return set(CELL_POLYGON_COLUMNS) <= set(gdf.columns)
+
+
+def _cell_rows(path: Path, obs_names: Any) -> np.ndarray:
+    import pandas as pd
+    import pyarrow.parquet as pq
+
+    ids = pq.read_table(path, columns=["cell_id"]).column("cell_id").to_pandas()
+    rows = pd.Index(obs_names).get_indexer(pd.unique(ids.astype(str)))
+    return rows.astype(np.int32)
+
+
 def resolve_volume(
     sdata: Any,
     *,
     table: str | None = None,
     image: str | bool | None = None,
-    labels: str | bool | None = None,
+    shapes: str | bool | None = None,
 ) -> tuple[Any, VolumeSource | None]:
     """The table to plot and, when the cube is possible, its volume source.
 
-    ``image`` / ``labels``: an element name, ``None`` to infer, or ``False`` to
-    leave it out. No 3D image means no cube (silently: most SpatialData are 2D);
+    ``image`` / ``shapes``: an element name, ``None`` to infer, or ``False`` to
+    leave it out. ``shapes`` is inferred when exactly one shapes element has
+    ``cell_id`` and ``Z_um`` columns. No 3D image means no cube (silently: most SpatialData are 2D);
     warns (and returns no source) when a 3D image cannot be served, i.e. the
     SpatialData is not backed by a Zarr store on disk or its transform is not
     scale + translation.
@@ -125,15 +147,16 @@ def resolve_volume(
     attrs = adata.uns.get("spatialdata_attrs", {})
     cs = "global"
 
-    labels_name = None
-    if labels is not False:
-        region = labels if isinstance(labels, str) else attrs.get("region")
-        if isinstance(region, str) and region in sdata.labels:
-            labels_name = region
-    if labels_name is not None:
+    shapes_name = None
+    if isinstance(shapes, str):
+        shapes_name = shapes
+    elif shapes is not False:
+        found = [n for n, g in sdata.shapes.items() if _is_cell_polygons(g)]
+        shapes_name = found[0] if len(found) == 1 else None
+    if shapes_name is not None:
         from spatialdata.transformations import get_transformation
 
-        systems = list(get_transformation(sdata.labels[labels_name], get_all=True))
+        systems = list(get_transformation(sdata.shapes[shapes_name], get_all=True))
         cs = "global" if "global" in systems else systems[0]
 
     image_name = None
@@ -142,15 +165,7 @@ def resolve_volume(
             image_name = image
         else:
             images3d = [n for n, e in sdata.images.items() if "z" in _level0(e).dims]
-            if labels_name is not None:
-                target = _frame_or_none(sdata.labels[labels_name], cs)
-                aligned = [
-                    n
-                    for n in images3d
-                    if target is not None and _frame_or_none(sdata.images[n], cs) == target
-                ]
-                image_name = (aligned or images3d or [None])[0]
-            elif len(images3d) == 1:
+            if len(images3d) == 1:
                 image_name = images3d[0]
     if image_name is None:
         return adata, None
@@ -163,30 +178,31 @@ def resolve_volume(
     except ValueError as err:
         warnings.warn(f"image {image_name!r} in {cs!r}: {err}: no cube", UserWarning, stacklevel=2)
         return adata, None
-    if labels_name is not None and _frame_or_none(sdata.labels[labels_name], cs) != (voxel, origin, shape):
-        warnings.warn(
-            f"labels {labels_name!r} are on another grid than {image_name!r}: cube shows the image only",
-            UserWarning,
-            stacklevel=2,
-        )
-        labels_name = None
-    label_ids = None
-    instance_key = attrs.get("instance_key")
-    if labels_name is not None and instance_key in adata.obs:
-        import pandas as pd
+    cell_rows = None
+    if shapes_name is not None:
+        cell_rows, problem = _shapes_problem(sdata, shapes_name, cs, adata)
+        if problem:
+            warnings.warn(f"shapes {shapes_name!r} {problem}: cube shows the image only", UserWarning, stacklevel=2)
+            shapes_name = None
+    return adata, VolumeSource(table_name, image_name, shapes_name, Path(sdata.path), voxel, origin, shape, cell_rows)
 
-        col = adata.obs[instance_key]
-        if pd.api.types.is_integer_dtype(col) or (
-            col.dtype == object and all(isinstance(v, (int, np.integer)) for v in col.dropna().head(8))
-        ):
-            label_ids = col.to_numpy().astype(np.int32)
-        elif col.dtype.kind in "iu":
-            label_ids = col.to_numpy().astype(np.int32)
-        else:
-            warnings.warn(
-                f"table {table_name!r} instance_key {instance_key!r} is not integer: "
-                "cube label ids omitted",
-                UserWarning,
-                stacklevel=2,
-            )
-    return adata, VolumeSource(table_name, image_name, labels_name, Path(sdata.path), voxel, origin, shape, label_ids)
+
+def _shapes_problem(sdata: Any, name: str, cs: str, adata: Any) -> tuple[np.ndarray | None, str]:
+    """The polygon cells' table rows, or why the cube cannot mesh them."""
+    from spatialdata.transformations import get_transformation
+
+    gdf = sdata.shapes[name]
+    if not _is_cell_polygons(gdf):
+        return None, f"lack {' / '.join(CELL_POLYGON_COLUMNS)} columns"
+    try:
+        affine = get_transformation(gdf, to_coordinate_system=cs).to_affine_matrix(
+            input_axes=("x", "y"), output_axes=("x", "y")
+        )
+    except (KeyError, ValueError):
+        return None, f"have no transform to {cs!r}"
+    if not np.allclose(affine, np.eye(3)):
+        return None, f"are not in {cs!r} coordinates as stored"
+    path = Path(sdata.path) / "shapes" / name / "shapes.parquet"
+    if not path.is_file():
+        return None, "are not written as one parquet file"
+    return _cell_rows(path, adata.obs_names), ""

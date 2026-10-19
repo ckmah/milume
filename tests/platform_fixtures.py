@@ -48,4 +48,4 @@ def read_pyxa(profile: str):
         )
         / profile
     )
-    return pyxa(data_dir, cell_assigned_gene=False, labels=True)
+    return pyxa(data_dir, cell_assigned_gene=False)

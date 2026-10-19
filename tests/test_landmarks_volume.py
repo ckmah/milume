@@ -10,7 +10,7 @@ from milume import LandmarksWidget
 from milume.volume_cube import TOY_CONTRAST_LIMITS, toy_volumes
 from tests.helpers import toy_spatialdata
 
-NEW_TRAITS = {"volume", "volume_label_ids", "volume_cut"}
+NEW_TRAITS = {"volume", "volume_cell_rows", "volume_cut"}
 
 
 @pytest.fixture
@@ -21,14 +21,15 @@ def sdata(tmp_path):
 def test_widget_from_sdata_exposes_comm_volume_urls(sdata):
     with patch("http.server.ThreadingHTTPServer", side_effect=AssertionError("no HTTP server")):
         w = LandmarksWidget(sdata, color="cell_type")
-    assert set(w.volume) == {"image_url", "labels_url", "voxel_size_um", "origin_um", "contrast_limits"}
+    assert set(w.volume) == {"image_url", "cells", "voxel_size_um", "origin_um", "contrast_limits"}
     assert w.volume["voxel_size_um"] == [1.0, 1.0, 1.0]
     assert w.volume["image_url"] == "images/mosaic/"
-    assert w.volume["labels_url"] == "labels/cells/"
-    meta, buffers = w.volume_get({"path": "images/mosaic/zarr.json"}, [])
-    assert meta["ok"] is True and buffers[0]
-    ids = np.frombuffer(base64.b64decode(w.volume_label_ids), dtype=np.int32)
-    np.testing.assert_array_equal(ids, sdata.tables["table"].obs["cell_id"].to_numpy())
+    cells = w.volume["cells"]
+    assert cells["url"] == "shapes/cell_polygons/shapes.parquet"
+    meta, buffers = w.volume_get({"path": cells["url"]}, [])
+    assert meta["ok"] is True and len(buffers[0]) == cells["bytes"]
+    rows = np.frombuffer(base64.b64decode(w.volume_cell_rows), dtype=np.int32)
+    np.testing.assert_array_equal(rows, np.arange(sdata.tables["table"].n_obs))
     assert w.volume_cut == [0.0, 256.0, 0.0, 256.0, 0.0, 64.0]
 
 
@@ -45,14 +46,13 @@ def test_issue_113_comm_serves_zarr_without_http_or_bind(sdata):
     assert chunk["ok"] is True and chunk_bufs[0]
 
 
-def test_widget_comm_serves_only_the_cube_image_and_labels(sdata):
+def test_widget_comm_serves_only_the_cube_image_and_cell_polygons(sdata):
     w = LandmarksWidget(sdata, color="cell_type")
     assert (sdata.path / "tables" / "table" / "zarr.json").is_file()
     ok, _ = w.volume_get({"path": "images/mosaic/zarr.json"}, [])
     assert ok["ok"] is True
-    ok, _ = w.volume_get({"path": "labels/cells/zarr.json"}, [])
-    assert ok["ok"] is True
     for path in (
+        "labels/cells/zarr.json",
         "tables/table/zarr.json",
         "tables/table/X/zarr.json",
         "zarr.json",
@@ -91,7 +91,7 @@ def test_volume_get_returns_structured_error_on_internal_failure(sdata):
 
 def test_adata_widget_has_empty_volume(sdata):
     w = LandmarksWidget(sdata.tables["table"])
-    assert w.volume == {} and w.volume_label_ids == ""
+    assert w.volume == {} and w.volume_cell_rows == ""
 
 
 def test_volume_contract_is_three_synced_traits():

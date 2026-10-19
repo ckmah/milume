@@ -88,7 +88,7 @@ def _(Path, pyxa, snapshot_download):
         )
         / "small"
     )
-    pyxa_sdata = pyxa(data_dir, cell_assigned_gene=False, labels=True)
+    pyxa_sdata = pyxa(data_dir, cell_assigned_gene=False)
     return (pyxa_sdata,)
 
 

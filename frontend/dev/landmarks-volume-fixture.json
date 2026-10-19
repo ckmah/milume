@@ -52,18 +52,18 @@
     192.2
   ],
   "point_size": 28.844410203711917,
-  "points_data": "Yid2v2Indr8AAAAAs42GQWIndj8HRIY+AACAPwAAAEJCGqS+Yid2PwAAAAADGj9C",
+  "points_data": "Yid2v2Indr8AAAAAs42GQWIndj8HRIY+AAAAAAAAAEJCGqS+Yid2PwAAAAADGj9C",
   "point_palette": [
     "#1f77b4",
     "#ff7f0e"
   ],
   "category_codes": "AAAAAAEAAAAAAAAA",
-  "gene_values": "AAAAAAAAAD8AAIA/",
+  "gene_values": "AAAAAAAAAAAAAAAA",
   "color_vmin": 0.0,
   "color_vmax": 1.0,
   "render_mode": "points",
-  "raster_bin_size": 8.0,
-  "raster_window_radius": 24.0,
+  "raster_bin_size": 144.22205101855957,
+  "raster_window_radius": 432.6661530556787,
   "raster_basis": "composition",
   "raster_embedding_key": "",
   "raster_embedding_keys": [],
@@ -82,7 +82,6 @@
   "inspect_cy": null,
   "volume": {
     "image_url": "images/mosaic/",
-    "labels_url": "labels/cells/",
     "voxel_size_um": [
       1.0,
       1.0,
@@ -96,9 +95,13 @@
     "contrast_limits": [
       0.0,
       48.0
-    ]
+    ],
+    "cells": {
+      "url": "shapes/cell_polygons/shapes.parquet",
+      "bytes": 40203
+    }
   },
-  "volume_label_ids": "AQAAAAIAAAADAAAA",
+  "volume_cell_rows": "AAAAAAEAAAACAAAA",
   "volume_cut": [
     0.0,
     256.0,
