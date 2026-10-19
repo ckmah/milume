@@ -21,7 +21,7 @@ const MINIMAP_ASPECT = 1.35;
 /** Roughly match deck scrollZoom: ~0.01 zoom units per wheel deltaY. */
 const MINIMAP_ZOOM_PER_DELTA = 0.01;
 
-function mapLayout(
+export function mapLayout(
   cssW: number,
   cssH: number,
   xBounds: number[],
@@ -57,7 +57,7 @@ function mapLayout(
  * the bottom of the screen (CSS-like). Canvas y also grows downward, so
  * minY → row 0 matches the main plot — do not invert Y here.
  */
-function toCanvasXY(
+export function toCanvasXY(
   x: number,
   y: number,
   layout: ReturnType<typeof mapLayout>,
@@ -67,7 +67,7 @@ function toCanvasXY(
   return [layout.ox + u * layout.mapW, layout.oy + v * layout.mapH] as const;
 }
 
-function clientToWorld(
+export function clientToWorld(
   clientX: number,
   clientY: number,
   rect: DOMRect,
@@ -85,7 +85,7 @@ function clientToWorld(
   };
 }
 
-function roundRectPath(
+export function roundRectPath(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
