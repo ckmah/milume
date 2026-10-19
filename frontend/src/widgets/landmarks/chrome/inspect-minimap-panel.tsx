@@ -137,6 +137,8 @@ export function InspectMinimapPanel({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
+  const moveRaf = useRef<number | null>(null);
+  const pendingClient = useRef<{ x: number; y: number } | null>(null);
   const squareRef = useRef("");
   const [overview, setOverview] = useState<InspectOverview | null>(null);
   const overviewRef = useRef<InspectOverview | null>(null);
@@ -246,6 +248,26 @@ export function InspectMinimapPanel({
     [engine, lm.inspect_cx, lm.inspect_cy, lm.x_bounds, lm.y_bounds, volumeXY, onPan],
   );
 
+  const queueMoveAt = useCallback(
+    (clientX: number, clientY: number) => {
+      pendingClient.current = { x: clientX, y: clientY };
+      if (moveRaf.current != null) return;
+      moveRaf.current = requestAnimationFrame(() => {
+        moveRaf.current = null;
+        const p = pendingClient.current;
+        if (p) moveAt(p.x, p.y);
+      });
+    },
+    [moveAt],
+  );
+
+  useEffect(
+    () => () => {
+      if (moveRaf.current != null) cancelAnimationFrame(moveRaf.current);
+    },
+    [],
+  );
+
   const onPointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     dragging.current = true;
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -254,12 +276,17 @@ export function InspectMinimapPanel({
 
   const onPointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!dragging.current) return;
-    moveAt(e.clientX, e.clientY);
+    queueMoveAt(e.clientX, e.clientY);
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (dragging.current) onPanEnd();
     dragging.current = false;
+    pendingClient.current = null;
+    if (moveRaf.current != null) {
+      cancelAnimationFrame(moveRaf.current);
+      moveRaf.current = null;
+    }
     try {
       e.currentTarget.releasePointerCapture(e.pointerId);
     } catch {
