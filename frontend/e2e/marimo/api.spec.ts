@@ -37,10 +37,10 @@ test.describe("marimo kernel — Python API", () => {
     await expect(cube).toBeVisible({ timeout: onCi() ? 120_000 : 60_000 });
     expect(await getModel(page, "inspect_cx")).toBe(128);
     expect(await getModel(page, "inspect_cy")).toBe(128);
-    // Its image and labels arrive through the kernel's volume_get command (DataView buffers).
+    // Its image and cell polygons arrive through the kernel's volume_get command (DataView buffers).
     const view = cube.locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false", { timeout: onCi() ? 120_000 : 60_000 });
-    await expect(view).toHaveAttribute("data-channels", /1|2/);
+    await expect(view).toHaveAttribute("data-labels", "on");
     await expect(page.getByTestId("inspect-status")).not.toHaveAttribute("data-state", "error");
 
     // The browser closes it (what Esc writes); Python's reactive cell reads the close.

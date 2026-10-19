@@ -36,7 +36,7 @@ test.describe("Landmarks volume smoke", () => {
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
-    await expect(view).toHaveAttribute("data-channels", /1|2/);
+    await expect(view).toHaveAttribute("data-labels", "on");
     await expect(layerToggle(page, "image")).toHaveAttribute("aria-pressed", "true");
     await expect(layerToggle(page, "labels")).toHaveAttribute("aria-pressed", "true");
   });
@@ -50,7 +50,7 @@ test.describe("Landmarks volume smoke", () => {
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
-    await expect(view).toHaveAttribute("data-channels", /1|2/);
+    await expect(view).toHaveAttribute("data-labels", "on");
     const reads = await page.evaluate(
       () => (window as { __volumeCommReads?: () => number }).__volumeCommReads?.() ?? 0,
     );

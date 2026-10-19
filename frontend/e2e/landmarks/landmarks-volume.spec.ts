@@ -588,7 +588,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page)).toBeVisible();
     await expect(inspectPill(page)).toHaveAttribute("data-state", "open");
     await expect(inspectPill(page).getByText(/^[\d.]+ µm$/)).toBeVisible();
-    await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-channels", /1|2/);
+    await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-labels", "on");
     expect(Number(await getModel(page, "inspect_cx"))).toBeGreaterThan(0);
     expect((await page.evaluate(() => (window as any).__landmarksEngine.getInspectOverlay())).placed).not.toBeNull();
     // A click only places the window: no selection, no Selections row.
@@ -683,7 +683,7 @@ test.describe("Landmarks inspect cube", () => {
     await openCubeAtCentre(page);
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
-    await expect(view).toHaveAttribute("data-channels", /1|2/);
+    await expect(view).toHaveAttribute("data-labels", "on");
     const reads = await page.evaluate(() => (window as { __volumeCommReads?: () => number }).__volumeCommReads?.() ?? 0);
     // Harness disables client metadata cache (see landmarks-volume/main.tsx) so each zarr
     // metadata/key read is one comm round trip, like a remote kernel cold load (~35 for toy).
@@ -1414,24 +1414,6 @@ test.describe("Landmarks inspect cube", () => {
     await expect(adjustPanel(page)).toHaveCount(0);
   });
 
-  test("Adjust has an Image and a Labels column with independent projections", async ({ page }) => {
-    await openCubeAtCentre(page);
-    const view = cubeWindow(page).locator(".volume-cube__view");
-    await openAdjust(page);
-    await adjustPanel(page).getByRole("radio", { name: "MIP" }).click();
-    await expect(view).toHaveAttribute("data-image-mode", "mip");
-    await expect(view).toHaveAttribute("data-label-mode", "additive");
-    await page.keyboard.press("Escape");
-    await openLayerMenu(page, "labels");
-    await page.getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
-    await expect(view).toHaveAttribute("data-label-mode", "mip");
-    await openAdjust(page);
-    await adjustPanel(page).getByRole("radio", { name: "Additive" }).click();
-    await expect(view).toHaveAttribute("data-image-mode", "additive");
-    await expect(view).toHaveAttribute("data-label-mode", "mip");
-    await expect(adjustPanel(page).getByRole("button", { name: "Palette" })).toBeVisible();
-  });
-
   test("panels stay short enough not to cover the cube", async ({ page }) => {
     await page.setViewportSize({ width: 900, height: 520 });
     // The harness widget keeps its 820 px height in a short window: drag its
@@ -1454,38 +1436,11 @@ test.describe("Landmarks inspect cube", () => {
     expect(menu.height).toBeLessThanOrEqual(widget.height * 0.5);
   });
 
-  test("the projection toggles set the image and label modes", async ({ page }) => {
-    await openCubeAtCentre(page);
-    const view = cubeWindow(page).locator(".volume-cube__view");
-    await expect(view).toHaveAttribute("data-image-mode", "additive");
-    await expect(view).toHaveAttribute("data-label-mode", "additive");
-    // Each projection lives in its own layer's menu.
-    await openAdjust(page);
-    const image = page.getByLabel("Image projection", { exact: true });
-    await expect(image.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
-    await image.getByRole("radio", { name: "MIP" }).click();
-    await expect(view).toHaveAttribute("data-image-mode", "mip");
-    await expect(image.getByRole("radio", { name: "MIP" })).toHaveAttribute("aria-checked", "true");
-    await page.keyboard.press("Escape");
-    await openLayerMenu(page, "labels");
-    const labels = page.getByLabel("Labels projection", { exact: true });
-    await expect(labels.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
-    await labels.getByRole("radio", { name: "MIP" }).click();
-    await expect(view).toHaveAttribute("data-label-mode", "mip");
-    await expect(labels.getByRole("radio", { name: "MIP" })).toHaveAttribute("aria-checked", "true");
-    // The image's projection is unchanged by the labels'.
-    await expect(view).toHaveAttribute("data-image-mode", "mip");
-  });
-
   test("inspect toolbar: presets, MIP, palette, alpha/gamma, committed Z cut", async ({ page }) => {
     test.slow(Boolean(process.env.CI), "many renders on the CI software GL runner");
     await openCubeAtCentre(page, { raster: true });
     const bar = page.getByTestId("context-inspect-toolbar");
     const view = cubeWindow(page).locator(".volume-cube__view");
-    // The image alone, so the uniform-only check below has one channel to count.
-    await setShow(page, "labels", false);
-    await expect(view).toHaveAttribute("data-channels", "1");
-
     await bar.getByRole("radio", { name: "Top view" }).click();
     await expect(bar.getByRole("radio", { name: "Top view" })).toHaveAttribute("aria-checked", "true");
     const topZoom = await view.getAttribute("data-zoom");
@@ -1512,8 +1467,6 @@ test.describe("Landmarks inspect cube", () => {
     await alpha.focus();
     await page.keyboard.press("ArrowLeft");
     await expect(alpha).toHaveAttribute("aria-valuenow", "0.95");
-    // Uniforms only: no labels fetched, same single image channel.
-    await expect(view).toHaveAttribute("data-channels", "1");
 
     await expect(view).toHaveAttribute("data-outside", "open");
     // A committed Z cut, as Python writes it; the face drag itself is covered by
@@ -1599,8 +1552,7 @@ test.describe("Landmarks inspect cube", () => {
       await now("Image alpha"),
       await now("Image gamma"),
     ];
-    const labelValues = async () => [await now("Label fill")];
-    const modes = async () => [await view.getAttribute("data-image-mode"), await view.getAttribute("data-label-mode")];
+    const labelValues = async () => [await now("Label opacity")];
     const widthsOf = (region: Locator) =>
       region.locator(".landmarks-slider-control").evaluateAll((els) =>
         els.map((el) => Math.round(el.getBoundingClientRect().width)),
@@ -1612,7 +1564,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(panel.getByRole("heading")).toHaveText(["Image"]);
     const initialImage = await imageValues();
     expect(initialImage).toEqual([0, 48, 1, 0]);
-    expect(await modes()).toEqual(["additive", "additive"]);
+    await expect(view).toHaveAttribute("data-image-mode", "additive");
     const widths = await widthsOf(panel);
     await nudge("Contrast", "ArrowLeft", 1);
     await nudge("Image alpha", "ArrowLeft");
@@ -1623,20 +1575,17 @@ test.describe("Landmarks inspect cube", () => {
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
 
-    // Labels menu. Defaults: label fill 0.4, Additive.
+    // Labels menu. Default: mesh opacity 0.8.
     await openLayerMenu(page, "labels");
     const labelsPanel = page.getByTestId("adjust-labels");
     const initialLabels = await labelValues();
-    expect(initialLabels).toEqual([0.4]);
-    await nudge("Label fill", "ArrowLeft");
-    await labelsPanel.getByRole("radio", { name: "MIP" }).click();
-    await expect(view).toHaveAttribute("data-label-mode", "mip");
+    expect(initialLabels).toEqual([0.8]);
+    await nudge("Label opacity", "ArrowLeft");
     expect(await labelValues()).not.toEqual(initialLabels);
 
     // Resets restore sliders and projection only: the bar toggles stay as the user set them.
     await setShow(page, "labels", false);
     await labelsPanel.getByRole("button", { name: "Reset labels" }).click();
-    await expect(view).toHaveAttribute("data-label-mode", "additive");
     expect(await labelValues()).toEqual(initialLabels);
     await expect(layerToggle(page, "labels")).toHaveAttribute("aria-pressed", "false");
     // The Labels Reset leaves the image's settings alone.
@@ -1651,7 +1600,6 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-image-mode", "additive");
     expect(await imageValues()).toEqual(initialImage);
     await expect(layerToggle(page, "image")).toHaveAttribute("aria-pressed", "false");
-    await expect(view).toHaveAttribute("data-label-mode", "additive");
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
 
@@ -1888,8 +1836,6 @@ test.describe("Landmarks inspect cube", () => {
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-labels", "on");
     await expect(view).toHaveAttribute("data-coloring", "groups");
-    await expect(view).toHaveAttribute("data-channels", "2");
-    await expect(view).toHaveAttribute("data-label-format", "rg8");
     await expect(view).toHaveAttribute("data-label-cells", "3");
     // Nothing focused: every cell in the window, by category (type1 and type0).
     await expect(view).toHaveAttribute("data-highlight", "2");
@@ -1962,33 +1908,28 @@ test.describe("Landmarks inspect cube", () => {
     await expect(right.getByTestId("genes-channel-legend")).toHaveCount(0);
   });
 
-  test("with Labels on each toy cell renders in its category colour in the dock", { tag: "@isolated" }, async ({ page }) => {
-    // Record the width of every R8 (image) and RG8 (labels) 3D texture allocated.
+  test("with Labels on each toy cell renders as a mesh in its category colour in the dock", { tag: "@isolated" }, async ({ page }) => {
+    // Record the width of every R8 (image) 3D texture allocated.
     await page.addInitScript(() => {
-      const widths = { r8: [] as number[], rg8: [] as number[] };
+      const widths = { r8: [] as number[] };
       (window as any).__tex3dWidths = widths;
       const proto = WebGL2RenderingContext.prototype;
       const texStorage3D = proto.texStorage3D;
       proto.texStorage3D = function (this: WebGL2RenderingContext, ...args: Parameters<typeof texStorage3D>) {
         if (args[2] === this.R8) widths.r8.push(args[3]);
-        if (args[2] === this.RG8) widths.rg8.push(args[3]);
         return texStorage3D.apply(this, args);
       };
     });
     // A 100 µm window over cells 2 (type0, at 160, 150) and 3 (type1, at 100, 190)
-    // and not cell 1: the first cell encoded is global 2, so local index 1 is
-    // global 2 and a local/global mix-up changes the colours.
+    // and not cell 1: the window's first cell is table row 1, so a mix-up of window
+    // and table order changes the colours.
     await loadFresh(page, "window=100");
     await openCubeAtCentre(page, { at: [130, 170], raster: true });
     const view = cubeWindow(page).locator(".volume-cube__view");
     // Half-µm centre: the level-0 box is X 80-181, Y 120-221, an odd 101 voxels
-    // wide (R8 image rows of 101 bytes and RG8 label rows of 202, not 4-byte
-    // aligned, like A2's 667).
+    // wide (R8 image rows of 101 bytes, not 4-byte aligned, like A2's 667).
     await setModel(page, { inspect_cx: 130.5, inspect_cy: 170.5 });
-    // Labels composite over the image in every projection, so the default
-    // (Additive) shows deep cells too.
     await expect(view).toHaveAttribute("data-image-mode", "additive");
-    await expect(view).toHaveAttribute("data-label-mode", "additive");
     await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-pan", "0,0");
     // The image at one byte per voxel.
@@ -1998,10 +1939,9 @@ test.describe("Landmarks inspect cube", () => {
     const off = await view.screenshot();
 
     await setShow(page, "labels", true);
-    await expect(view).toHaveAttribute("data-channels", "2");
+    await expect(view).toHaveAttribute("data-labels", "on");
     await expect(view).toHaveAttribute("data-label-cells", "2");
     await expect(view).toHaveAttribute("data-highlight", "2");
-    expect((await page.evaluate(() => (window as any).__tex3dWidths)).rg8).toContain(101);
     const on = await newCategoryPixels(page, off, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
     // Cell 3 (type1, blue) and cell 2 (type0, orange) both show...
     expect(on.type1.count).toBeGreaterThan(50);
@@ -2011,7 +1951,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(on.type0.y).toBeLessThan(on.type1.y - 20);
   });
 
-  test("each toy cell keeps its category colour with Image MIP, under Labels Additive and Labels MIP", async ({ page }) => {
+  test("each toy cell keeps its category colour with Image MIP", async ({ page }) => {
     // The window and cells of the test above: cell 2 (type0) right of and above cell 3 (type1).
     await reloadWith(page, "window=100");
     await openCubeAtCentre(page, { at: [130, 170], raster: true });
@@ -2027,9 +1967,8 @@ test.describe("Landmarks inspect cube", () => {
     await setShow(page, "labels", false);
     const off = await view.screenshot();
 
-    // Image MIP + Labels Additive (the hover preview's look): as saturated as Additive/Additive.
     await setShow(page, "labels", true);
-    await expect(view).toHaveAttribute("data-label-mode", "additive");
+    await expect(view).toHaveAttribute("data-labels", "on");
     await expect(view).toHaveAttribute("data-label-cells", "2");
     await expect(view).toHaveAttribute("data-refining", "false");
     const additive = await view.screenshot();
@@ -2038,19 +1977,30 @@ test.describe("Landmarks inspect cube", () => {
     expect(add.type0.count).toBeGreaterThan(50);
     expect(add.type0.x).toBeGreaterThan(add.type1.x + 20);
     expect(add.type0.y).toBeLessThan(add.type1.y - 20);
+  });
 
-    // Image MIP + Labels MIP: uncut interiors stay faint while rims stay stronger; category hues still separate.
-    await openLayerMenu(page, "labels");
-    await page.getByTestId("adjust-labels").getByRole("radio", { name: "MIP" }).click();
-    await page.keyboard.press("Escape");
-    await expect(page.getByTestId("adjust-labels")).toHaveCount(0);
-    await expect(view).toHaveAttribute("data-label-mode", "mip");
+  test("a cut clips the cell meshes", async ({ page }) => {
+    // Cell 2 (type0, x 132-188 µm) and cell 3 (type1, around x 100) in a 100 µm window.
+    await reloadWith(page, "window=100");
+    await openCubeAtCentre(page, { at: [130, 170], raster: true });
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await setModel(page, { inspect_cx: 130.5, inspect_cy: 170.5 });
+    await setShow(page, "image", false);
+    await expect(view).toHaveAttribute("data-labels", "on");
+    await expect(view).toHaveAttribute("data-label-cells", "2");
     await expect(view).toHaveAttribute("data-refining", "false");
-    const mip = await newCategoryPixels(page, off, await view.screenshot(), 0.05, TINT.hueTolerance);
-    expect(mip.type1.count).toBeGreaterThan(50);
-    expect(mip.type0.count).toBeGreaterThan(50);
-    expect(mip.type0.x).toBeGreaterThan(mip.type1.x + 20);
-    expect(mip.type0.y).toBeLessThan(mip.type1.y - 20);
+    const whole = await categoryPixels(page, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
+    expect(whole.type0).toBeGreaterThan(50);
+    expect(whole.type1).toBeGreaterThan(50);
+
+    // Keep x below 130 µm: all of cell 2 lies past the cut, most of cell 3 inside it.
+    await setModel(page, { volume_cut: [0, 130, 0, 256, 0, 64] });
+    await expect(view).toHaveAttribute("data-outside", "cut");
+    await expect
+      .poll(async () => (await categoryPixels(page, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance)).type0)
+      .toBeLessThan(whole.type0 / 20);
+    const cut = await categoryPixels(page, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
+    expect(cut.type1).toBeGreaterThan(whole.type1 / 4);
   });
 
   test("the cube opens showing the cells, with no trip to Adjust", async ({ page }) => {
@@ -2061,8 +2011,6 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-labels", "on");
     await expect(view).toHaveAttribute("data-image", "on");
     await expect(view).toHaveAttribute("data-coloring", "groups");
-    await expect(view).toHaveAttribute("data-channels", "2");
-    await expect(view).toHaveAttribute("data-label-format", "rg8");
     const pixels = async () => categoryPixels(page, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
     await expect.poll(async () => (await pixels()).type1, { timeout: 60_000 }).toBeGreaterThan(50);
     await expect.poll(async () => (await pixels()).type0, { timeout: 60_000 }).toBeGreaterThan(50);
@@ -2562,7 +2510,6 @@ test.describe("Landmarks inspect cube", () => {
     // Labels still draw with no image behind them.
     await setShow(page, "labels", true);
     await expect(dock).toHaveAttribute("data-labels", "on");
-    await expect(dock).toHaveAttribute("data-channels", "2");
     await expect(dock).toHaveAttribute("data-image", "off");
     const cells = await newCategoryPixels(page, empty, await dock.screenshot(), TINT.minSaturation, TINT.hueTolerance);
     expect(cells.type1.count + cells.type0.count).toBeGreaterThan(50);
