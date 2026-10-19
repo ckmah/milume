@@ -22,6 +22,38 @@
     }</style>
   {% endif %}
 {% endblock %}
+{#-
+  Link previews (Open Graph + Twitter/X) for docs pages. The card image lives with
+  the landing page (website/landing/assets) so the root and docs share one URL.
+-#}
+{% block extrahead %}
+  {{ super() }}
+  {% set home = config.extra.homepage | d("https://ckmah.github.io/milume/", true) %}
+  {% set card = home ~ "assets/milume-social-card.png" %}
+  {% if page and (page.is_homepage or page.url in ["", "./", "index.html"]) %}
+    {% set og_title = "milume: Explore spatial biology in your notebook." %}
+  {% elif page and page.title %}
+    {% set og_title = page.title | striptags ~ " · milume docs" %}
+  {% else %}
+    {% set og_title = config.site_name %}
+  {% endif %}
+  {% set og_desc = (page.meta and page.meta.description) or "Layer images, cells, and transcripts in 3D, in one reactive widget." %}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="milume">
+  <meta property="og:title" content="{{ og_title }}">
+  <meta property="og:description" content="{{ og_desc }}">
+  {% if page and page.canonical_url %}
+    <meta property="og:url" content="{{ page.canonical_url }}">
+  {% endif %}
+  <meta property="og:image" content="{{ card }}">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ og_title }}">
+  <meta name="twitter:description" content="{{ og_desc }}">
+  <meta name="twitter:image" content="{{ card }}">
+{% endblock %}
 {% block scripts %}
   {{ super() }}
   {% include "partials/cf-beacon.html" %}
