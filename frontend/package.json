@@ -25,6 +25,7 @@
     "test:e2e:core:hero": "cd .. && uv run bash website/scripts/assemble-pages.sh && cd frontend && playwright test --config=playwright.website.config.ts",
     "test:e2e:marimo-api": "cross-env E2E_MARIMO_NOTEBOOK=frontend/e2e/marimo/fixtures/toy-api.marimo.py playwright test -c playwright.marimo.config.ts api.spec.ts && playwright test -c playwright.marimo.config.ts landmarks-inspect.spec.ts",
     "test:e2e:landmarks": "cross-env E2E_HARNESS=landmarks-volume playwright test e2e/landmarks/landmarks-volume.spec.ts && playwright test e2e/landmarks",
+    "test:e2e:landmarks:smoke": "cross-env E2E_HARNESS=landmarks-volume E2E_SMOKE=1 E2E_RETRIES=0 playwright test e2e/landmarks/landmarks-volume-smoke.spec.ts && playwright test e2e/landmarks",
     "test:e2e:install": "playwright install chromium",
     "test:e2e:mac": "cross-env PLAYWRIGHT_CHANNEL=chrome playwright test",
     "test:e2e:update": "playwright test --update-snapshots=all",

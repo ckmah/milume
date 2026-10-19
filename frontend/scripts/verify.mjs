@@ -3,6 +3,7 @@
 //   npm run verify                 # base = merge-base with origin/main
 //   npm run verify -- --base HEAD~3
 //   npm run verify -- --dry-run    # print the plan only
+//   npm run verify -- --full-volume  # full cube spec on Linux too (or MILUME_E2E_FULL_VOLUME=1)
 import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join, matchesGlob } from "node:path";
@@ -12,6 +13,12 @@ const frontend = join(dirname(fileURLToPath(import.meta.url)), "..");
 const root = join(frontend, "..");
 const args = process.argv.slice(2);
 const dry = args.includes("--dry-run");
+// Playwright enables a GPU only on macOS (playwright.config.ts), so Linux renders the cube on
+// SwiftShader. There the full cube spec runs on CI's four shards and locally runs as its smoke spec.
+const fullVolume =
+  args.includes("--full-volume") ||
+  process.env.MILUME_E2E_FULL_VOLUME === "1" ||
+  process.platform !== "linux";
 const baseArg = args.includes("--base") ? args[args.indexOf("--base") + 1] : "origin/main";
 
 const git = (...a) => execFileSync("git", a, { cwd: root, encoding: "utf8" }).trim();
@@ -39,7 +46,7 @@ if (hit.python) plan.push([".", "uv run pytest"]);
 if (hit.core || hit.infra_full || hit.infra_core) plan.push(["frontend", "npm run test:e2e:core"]);
 if (hit.landmarks || hit.infra_full) {
   plan.push(["frontend", "npm run test:unit"]);
-  plan.push(["frontend", "npm run test:e2e:landmarks"]);
+  plan.push(["frontend", fullVolume ? "npm run test:e2e:landmarks" : "npm run test:e2e:landmarks:smoke"]);
 }
 
 if (hit.marimo_api) {
@@ -51,6 +58,9 @@ if (hit.marimo_api) {
 console.log(`base ${base.slice(0, 8)}, ${changed.size} changed file(s)`);
 if (!plan.length) console.log("docs / non-runtime only: nothing to run beyond CI.");
 for (const [cwd, cmd] of plan) console.log(`  ${cwd}: ${cmd}`);
+if ((hit.landmarks || hit.infra_full) && !fullVolume) {
+  console.log("software GL: cube smoke spec only; --full-volume or the run-volume-full PR label runs all of it.");
+}
 if (hit.landmarks || hit.infra_full) {
   console.log(
     "landmarks surface touched: also match .agents/skills/verify-landmarks/features/ proof criteria\n" +

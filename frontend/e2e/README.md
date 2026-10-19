@@ -41,7 +41,7 @@ Prefer `expect.poll` / web-first `expect` over `waitForTimeout`. A fixed wait is
 negative check that must outlast a debounce (e.g. "nothing written back" past the cube's
 settle commit) and should say so in a comment.
 
-Canonical platform: **Linux Chromium** (GitHub Actions). macOS soft-skips screenshots unless `E2E_SCREENSHOTS=1`.
+Canonical platform: **Linux Chromium** (GitHub Actions). Screenshot asserts are skipped unless `E2E_SCREENSHOTS=1`, locally and on CI.
 
 The Landmarks toolbar regroup (lasso/landmark dropdowns, cube icon), panel
 peek tabs all changed chrome pixels: regenerate the Landmarks `rest` snapshot and
@@ -69,7 +69,7 @@ npm run test:e2e:update:landmarks
 
 ```bash
 npm run test:e2e:mac          # functional; screenshots skipped by default
-E2E_SCREENSHOTS=0 npm run test:e2e
+E2E_SCREENSHOTS=1 npm run test:e2e:landmarks   # also compare snapshots (Linux)
 ```
 
 Harness: Vite per tier via `playwright.config.ts` `webServer` (`dev:landmarks` default;
@@ -79,7 +79,10 @@ also has a 3D image, so its Inspect cube opens).
 
 `npm run test:e2e:landmarks` already runs both: the `landmarks-volume` harness
 against `landmarks-volume.spec.ts`, then the default `dev:landmarks` harness
-against the rest of `e2e/landmarks/`.
+against the rest of `e2e/landmarks/`. On Linux, `npm run verify` runs
+`test:e2e:landmarks:smoke` instead, which swaps the full cube spec for
+`landmarks-volume-smoke.spec.ts`. Pass `--full-volume` or set
+`MILUME_E2E_FULL_VOLUME=1` to run the full spec.
 
 Hooks:
 
