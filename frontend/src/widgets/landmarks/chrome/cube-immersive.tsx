@@ -255,10 +255,10 @@ function urlFlag(name: string): string | null {
   return typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get(name);
 }
 
-/** Meshes at 0.1 by default (Clarence, Oct 18); `?meshAlpha=` overrides. */
+/** Meshes at 0.6 by default (Clarence, Oct 18 PM); `?meshAlpha=` overrides. */
 function cellMeshOpacity(): number {
   const v = urlFlag("meshAlpha");
-  return v == null ? 0.1 : Number(v);
+  return v == null ? 0.6 : Number(v);
 }
 
 /** Client-side meshes from the polygon parquet unless `?mesh=0` (raycast) or `?meshSource=server` (Python meshes). */
