@@ -76,3 +76,4 @@ Stores without per-slice cell polygons (e.g. Xenium / CosMx) open Inspect image-
 ### Inspect minimap
 
 - The Inspect view has a minimap ([#226](https://github.com/ckmah/milume/pull/226) `inspect-minimap-218`). Click or drag on it to move the cube; the mouse wheel does nothing over it. It is lazy-loaded, so it costs nothing until Inspect opens.
+- The minimap's active region (the 2D viewport rectangle and the Inspect window square) is drawn with square corners; it no longer rounds to a near-circle when zoomed in ([#232](https://github.com/ckmah/milume/pull/232) `minimap-square-region`).
