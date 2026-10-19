@@ -226,25 +226,22 @@ const RENDERING = {
   _RENDER: `
     ${IN_CUT}
     bool imageHere = !(ghosting && !inCut);
-    if (meshHere && cubeRender.imageMip < 0.5) {
-      // This sample stands for the step around it. A mesh surface inside the step
-      // splits it: the part in front goes in before the surface, the rest after.
+    // This sample stands for the step around it (lo to lo + dt along the ray).
+    float lo = meshHere ? dot(p - transformed_eye, ray_dir) - 0.5 * dt : 0.0;
+    if (meshHere && cubeRender.imageMip < 0.5 && meshT0 < lo + dt) {
+      // A mesh surface inside the step splits it: the part in front goes in before
+      // the surface, the rest after.
       vec4 im = imageHere ? imageSample(intensityValue0) : vec4(0.0);
-      float rayT = dot(p - transformed_eye, ray_dir);
-      float lo = rayT - 0.5 * dt;
       float done = 0.0;
-      if (meshT0 < lo + dt) {
-        float f = clamp((meshT0 - lo) / dt, 0.0, 1.0);
-        addSample(acc, im, stepScale * f);
-        done = f;
-        meshFlush(shown, acc, mesh0);
-        meshT0 = NO_MESH;
-      }
-      if (meshT1 < lo + dt) {
-        float f = clamp((meshT1 - lo) / dt, done, 1.0);
+      // At most the two surfaces; the one left after a flush moves up to mesh0.
+      for (int k = 0; k < 2; k++) {
+        if (meshT0 >= lo + dt) break;
+        float f = clamp((meshT0 - lo) / dt, done, 1.0);
         addSample(acc, im, stepScale * (f - done));
         done = f;
-        meshFlush(shown, acc, mesh1);
+        meshFlush(shown, acc, mesh0);
+        meshT0 = meshT1;
+        mesh0 = mesh1;
         meshT1 = NO_MESH;
       }
       addSample(acc, im, stepScale * (1.0 - done));
