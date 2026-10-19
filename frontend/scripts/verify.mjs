@@ -58,10 +58,10 @@ if (hit.marimo_api) {
 console.log(`base ${base.slice(0, 8)}, ${changed.size} changed file(s)`);
 if (!plan.length) console.log("docs / non-runtime only: nothing to run beyond CI.");
 for (const [cwd, cmd] of plan) console.log(`  ${cwd}: ${cmd}`);
-if ((hit.landmarks || hit.infra_full) && !fullVolume) {
-  console.log("software GL: cube smoke spec only; --full-volume or the run-volume-full PR label runs all of it.");
-}
 if (hit.landmarks || hit.infra_full) {
+  if (!fullVolume) {
+    console.log("software GL: cube smoke spec only; --full-volume or the run-volume-full PR label runs all of it.");
+  }
   console.log(
     "landmarks surface touched: also match .agents/skills/verify-landmarks/features/ proof criteria\n" +
       "and update the map when adding coverage.",
