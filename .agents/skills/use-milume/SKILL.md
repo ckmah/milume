@@ -144,7 +144,7 @@ v.inspect_open = False                     # closes the cube and exits Inspect; 
 | `w.inspect_cy` | trait | Inspect window centre y in spatial units, or None before placement; set it to move the window and the open cube. |
 | `w.inspect_size_um` | trait | Inspect window side length in µm. |
 | `w.inspect_open` | trait | Whether the Inspect cube is open; True opens it at inspect_cx/cy, or at the volume centre when no window is placed; False closes it and exits Inspect. ValueError without a 3D image. |
-| `w.volume` | trait | The 3D image behind the Inspect cube (image and labels paths, voxel size, origin, contrast); {} without one. Read it, don't set it. |
+| `w.volume` | trait | The 3D image behind the Inspect cube (image path, cell polygons path and size, voxel size, origin, contrast); {} without one. Read it, don't set it. |
 | `w.volume_cut` | trait | Cube cut box [x0, x1, y0, y1, z0, z1] in µm; the browser writes it on slider release, assign it to cut from Python. |
 | `w.active_category` | trait | Name of the obs column driving categorical colour and type focus. |
 | `w.active_genes` | trait | Genes shown in the expression blend; unknown genes are dropped. |
