@@ -1703,6 +1703,15 @@
   display: none;
 }
 
+.landmarks__chrome-minimap--inspect {
+  width: 11.5rem;
+  z-index: 22;
+}
+
+.landmarks--cube-open .landmarks__chrome-minimap {
+  z-index: 22;
+}
+
 /* Narrow: Info on top (natural height, capped); Layers fills and scrolls. */
 .landmarks--narrow .landmarks__chrome-dock {
   display: none;
