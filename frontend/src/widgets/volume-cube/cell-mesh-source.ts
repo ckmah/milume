@@ -17,6 +17,7 @@ class CellMeshWorkerClient {
   private worker = new CellMeshWorker();
   private next = 1;
   private pending = new Map<number, (m: CellMeshData | null) => void>();
+  private loaded: Promise<void>;
 
   constructor(cells: CellPolygons, rows: Int32Array, comm: VolumeCommClient) {
     this.worker.onmessage = (e: MessageEvent<Reply>) => {
@@ -24,9 +25,9 @@ class CellMeshWorkerClient {
       this.pending.get(e.data.id)?.(e.data.mesh);
       this.pending.delete(e.data.id);
     };
-    void readAll(comm, cells).then((parquet) => {
-      const rowsCopy = rows.slice();
-      this.post({ type: "load", parquet: parquet.buffer as ArrayBuffer, rows: rowsCopy }, [parquet.buffer as ArrayBuffer, rowsCopy.buffer]);
+    this.loaded = readAll(comm, cells).then((parquet) => {
+      const own = rows.slice();
+      this.post({ type: "load", parquet: parquet.buffer as ArrayBuffer, rows: own }, [parquet.buffer, own.buffer]);
     });
   }
 
@@ -34,7 +35,8 @@ class CellMeshWorkerClient {
     this.worker.postMessage(msg, transfer);
   }
 
-  build(box: [number, number, number, number]): Promise<CellMeshData | null> {
+  async build(box: [number, number, number, number]): Promise<CellMeshData | null> {
+    await this.loaded;
     const id = this.next++;
     return new Promise((resolve) => {
       this.pending.set(id, resolve);

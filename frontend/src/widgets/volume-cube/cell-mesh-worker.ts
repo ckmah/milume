@@ -12,7 +12,7 @@ export type WorkerRequest =
 
 const CHUNK = 48;
 
-let store: Promise<CellPolygonStore> | null = null;
+let store: Promise<CellPolygonStore>;
 let latest = 0;
 const post = (msg: unknown, transfer: Transferable[] = []) => (self as unknown as Worker).postMessage(msg, transfer);
 const yieldToMessages = () => new Promise<void>((r) => setTimeout(r, 0));
@@ -25,7 +25,7 @@ self.onmessage = async (e: MessageEvent<WorkerRequest>) => {
   }
   latest = m.id;
   try {
-    const s = await store!;
+    const s = await store;
     const [x0, y0, x1, y1] = m.box;
     const cells = s.cellsIn(x0, y0, x1, y1);
     const meshes = [];

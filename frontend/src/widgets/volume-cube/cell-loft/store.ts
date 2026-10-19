@@ -131,12 +131,12 @@ export class CellPolygonStore {
     return out;
   }
 
-  /** Cells whose bbox centre lies in the window: whole cells, as the 2D map selects them. */
+  /** Cells reaching into the window; the cube clips them to it. */
   cellsIn(x0: number, y0: number, x1: number, y1: number): number[] {
     const out: number[] = [];
+    const b = this.bbox;
     for (let c = 0; c < this.cells.length; c++) {
-      const cx = (this.bbox[4 * c]! + this.bbox[4 * c + 2]!) / 2, cy = (this.bbox[4 * c + 1]! + this.bbox[4 * c + 3]!) / 2;
-      if (x0 <= cx && cx <= x1 && y0 <= cy && cy <= y1) out.push(c);
+      if (b[4 * c]! < x1 && b[4 * c + 2]! > x0 && b[4 * c + 1]! < y1 && b[4 * c + 3]! > y0) out.push(c);
     }
     return out;
   }
