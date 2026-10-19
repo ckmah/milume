@@ -27,12 +27,13 @@ const BLOCK = `uniform cellMeshClipUniforms {
   float flipFacing;
   float frontMin;
   float backMin;
+  float backPass;
 } cellMeshClip;`;
 
 export const cellMeshClipModule = {
   name: "cellMeshClip",
-  uniformTypes: { lo: "vec3<f32>", hi: "vec3<f32>", flipFacing: "f32", frontMin: "f32", backMin: "f32" },
-  defaultUniforms: { lo: [-OPEN, -OPEN, -OPEN], hi: [OPEN, OPEN, OPEN], flipFacing: 0, frontMin: 1, backMin: 1 },
+  uniformTypes: { lo: "vec3<f32>", hi: "vec3<f32>", flipFacing: "f32", frontMin: "f32", backMin: "f32", backPass: "f32" },
+  defaultUniforms: { lo: [-OPEN, -OPEN, -OPEN], hi: [OPEN, OPEN, OPEN], flipFacing: 0, frontMin: 1, backMin: 1, backPass: 0 },
   vs: BLOCK,
   fs: `${BLOCK}
 bool cellMeshClipped(vec3 p) {
