@@ -15,6 +15,8 @@ import { useCubeScatterPoints } from "../use-cube-scatter-points";
 import { type ChipSnapshot, SNAPSHOT_SETTLE_MS, snapshotOf, windowKey } from "./cube-snapshots";
 import { ChromeLoadIndicator } from "./load-indicator";
 import type { CellPolygonSpec } from "../../volume-cube/cell-mesh-source";
+import { DEFAULT_MESH_LOOK, type MeshLook } from "../../volume-cube/cell-mesh";
+import { urlMeshLook } from "../../volume-cube/mesh-look-url";
 
 // Lazy only in the dev harness: the widget build inlines dynamic imports
 // (`inlineDynamicImports`, vite.config.ts), so landmarks.mjs always carries Viv.
@@ -50,6 +52,7 @@ export function CubeImmersive({
   onCutLive,
   onCutCommit,
   labelAlpha,
+  meshLook,
 }: {
   lm: LandmarksModel;
   engine: EngineHandle | null;
@@ -79,6 +82,8 @@ export function CubeImmersive({
   onCutCommit: (cut: CubeCut) => void;
   /** Harness DialKit. Omitted: the Labels alpha slider in cube settings. */
   labelAlpha?: number;
+  /** Harness DialKit: live mesh look (wins over the URL overrides it was seeded from). */
+  meshLook?: Partial<MeshLook>;
 }) {
   const loadRef = useRef<CubeLoadState | null>(null);
   const onLoadState = useCallback(
@@ -225,7 +230,8 @@ export function CubeImmersive({
           chunkCache={cache}
           volumeComm={volumeComm}
           meshUrl={cellMeshUrl(volume.mesh_url)}
-          meshOpacity={cellMeshOpacity()}
+          meshOpacity={meshLook?.opacity ?? cellMeshOpacity()}
+          meshLook={{ ...urlMeshLook(), ...meshLook }}
           meshSource={cellMeshSource(volume.cell_polygons)}
           meshDepthPrepass={urlFlag("meshDepth") === "1"}
           pausesPrefetch
@@ -257,8 +263,7 @@ function urlFlag(name: string): string | null {
 
 /** Meshes at 0.6 by default (Clarence, Oct 18 PM); `?meshAlpha=` overrides. */
 function cellMeshOpacity(): number {
-  const v = urlFlag("meshAlpha");
-  return v == null ? 0.6 : Number(v);
+  return urlMeshLook().opacity ?? DEFAULT_MESH_LOOK.opacity;
 }
 
 /** Client-side meshes from the polygon parquet unless `?mesh=0` (raycast) or `?meshSource=server` (Python meshes). */

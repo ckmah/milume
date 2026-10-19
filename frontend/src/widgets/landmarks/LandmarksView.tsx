@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import type { MeshLook } from "@/widgets/volume-cube/cell-mesh";
 import { Rise } from "cube-motion/react";
 
 import { useNotebookTheme } from "@/hooks/use-notebook-theme";
@@ -67,6 +68,7 @@ export function LandmarksView({
   cubeBudgets,
   inspectWindowUm,
   labelAlpha,
+  meshLook,
 }: {
   hostEl: HTMLElement;
   model: AnyModel;
@@ -78,6 +80,8 @@ export function LandmarksView({
   inspectWindowUm?: number;
   /** Harness only: live Labels alpha from DialKit. */
   labelAlpha?: number;
+  /** Harness only: live mesh look from DialKit. */
+  meshLook?: Partial<MeshLook>;
 }) {
   const dark = useNotebookTheme(hostEl.parentElement);
   const facade = useMemo(() => wrapLandmarksModel(model), [model]);
@@ -500,6 +504,7 @@ export function LandmarksView({
             onCutLive={inspectCube.onCutLive}
             onCutCommit={inspectCube.onCutCommit}
             labelAlpha={labelAlpha}
+            meshLook={meshLook}
           />
         ) : null}
 

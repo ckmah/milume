@@ -40,6 +40,9 @@ import {
   CELL_MESH_LIGHTING,
   type CellMeshData,
   type PlacedCellMesh,
+  type MeshLook,
+  DEFAULT_MESH_LOOK,
+  boostedImage,
   cellMeshKey,
   cellMeshLut,
   distinctLutColours,
@@ -171,6 +174,8 @@ export type VolumeCubeProps = {
   meshSource?: CellPolygonSpec | null;
   /** Prototype A/B: keep the depth-only pre-pass (default off). */
   meshDepthPrepass?: boolean;
+  /** Mesh look: fresnel floor, shine, flatness, mesh-mode image boost (DEFAULT_MESH_LOOK for missing fields; opacity is `meshOpacity`). */
+  meshLook?: Partial<Omit<MeshLook, "opacity">>;
   /** Hold the cache's background prefetch while this cube's target loads. */
   pausesPrefetch?: boolean;
   /** Called after each deck render. */
@@ -403,6 +408,7 @@ export function VolumeCube({
   volumeComm = null,
   meshUrl = "",
   meshOpacity,
+  meshLook: meshLookProp,
   meshSource = null,
   meshDepthPrepass = false,
   pausesPrefetch = false,
@@ -423,7 +429,20 @@ export function VolumeCube({
   const meshOn = Boolean(meshUrl || meshSource);
   const showLabels = showLabelsProp && !meshOn;
   // Mesh mode keeps the plain volume render: no separate cut-face slice (Clarence, Oct 18).
-  const render = useMemo(() => (meshOn ? { ...renderProp, sliceOn: 0 } : renderProp), [meshOn, renderProp]);
+  const meshLook: MeshLook = useMemo(
+    () => ({ ...DEFAULT_MESH_LOOK, ...meshLookProp, opacity: meshOpacity ?? renderProp.cellAlpha }),
+    [meshLookProp?.fresnelMin, meshLookProp?.shine, meshLookProp?.flat, meshLookProp?.imgBoost, meshOpacity, renderProp.cellAlpha],
+  );
+  // Mesh mode only: the image boost sits on top of whatever contrast / gamma is active (user or default),
+  // and only for what this cube draws; the settings themselves (and the 2D view) are untouched.
+  const meshImage = useMemo(
+    () => (meshOn ? boostedImage(contrast, renderProp.imageGamma ?? 1, meshLook.imgBoost) : { contrast, gamma: renderProp.imageGamma ?? 1 }),
+    [meshOn, contrast[0], contrast[1], renderProp.imageGamma, meshLook.imgBoost],
+  );
+  const render = useMemo(
+    () => (meshOn ? { ...renderProp, sliceOn: 0, imageGamma: meshImage.gamma } : renderProp),
+    [meshOn, renderProp, meshImage.gamma],
+  );
   const hostRef = useRef<HTMLDivElement>(null);
   const fixedHeight = typeof height === "number";
   const [box, setBox] = useState({ width: 640, height: 520 });
@@ -943,7 +962,10 @@ export function VolumeCube({
   // One channel, the image; cells come from the label texture beside it. The
   // cube shader colours the image from `imagePalette`; `colors` is unused by it
   // and only satisfies Viv's props.
-  const contrastLimits = useMemo(() => [[contrast[0], contrast[1]]] as [number, number][], [contrast[0], contrast[1]]);
+  const contrastLimits = useMemo(
+    () => [[meshImage.contrast[0], meshImage.contrast[1]]] as [number, number][],
+    [meshImage.contrast[0], meshImage.contrast[1]],
+  );
 
   const cubeFrame: CubeFrame | null = useMemo(
     () =>
@@ -1078,6 +1100,7 @@ export function VolumeCube({
       // A cut opens cells: their insides (back faces) draw at the mesh opacity.
       capAlpha: meshOpacity ?? renderProp.cellAlpha,
       depthPrepass: meshDepthPrepass,
+      look: meshLook,
       modelMatrix: cellMeshMatrix({
         volumeMatrix,
         originUm: cellMesh.originUm,
@@ -1094,7 +1117,7 @@ export function VolumeCube({
         depth: cubeFrame.size[2],
       }),
     };
-  }, [cellMesh, cellMeshGeometry, cellMeshColours, cubeFrame, levelVoxel, panBox, meshOpacity, renderProp.cellAlpha, cellMeshClip, meshDepthPrepass, volumeMatrix, oxUm, oyUm, ozUm, ry, windowZSlice]);
+  }, [cellMesh, cellMeshGeometry, cellMeshColours, cubeFrame, levelVoxel, panBox, meshOpacity, renderProp.cellAlpha, cellMeshClip, meshDepthPrepass, meshLook, volumeMatrix, oxUm, oyUm, ozUm, ry, windowZSlice]);
 
   const deckProps = useMemo(
     () => ({
@@ -1479,6 +1502,8 @@ export function VolumeCube({
       data-pan={`${panX},${panY}`}
       data-palette={render.palette}
       data-image-gamma={render.imageGamma}
+      data-image-contrast={`${meshImage.contrast[0]},${meshImage.contrast[1]}`}
+      data-mesh-look={meshOn ? JSON.stringify(meshLook) : undefined}
       data-level={shown?.level.index ?? -1}
       data-refining={String(refining)}
       data-overlays={placedOverlays?.count ?? 0}

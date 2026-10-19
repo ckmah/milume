@@ -8,6 +8,8 @@ import "@/widgets/landmarks/landmarks.css";
 import type { AnyModel } from "@/widgets/landmarks/helpers";
 import { resetModeDropdownMemory } from "@/widgets/landmarks/chrome/mode-dropdown";
 import { LandmarksView } from "@/widgets/landmarks/LandmarksView";
+import { DEFAULT_MESH_LOOK } from "@/widgets/volume-cube/cell-mesh";
+import { urlMeshLook } from "@/widgets/volume-cube/mesh-look-url";
 
 import { loadFixtureModel } from "../mock-model";
 
@@ -32,6 +34,16 @@ function optionsFrom(search: string) {
 function LandmarksVolumeHarness() {
   const labels = useDialKit("Labels", {
     cellAlpha: [0.4, 0, 1, 0.05],
+  });
+  // Mesh look (proto-cell-mesh-ts): seeded from the URL overrides, live (uniforms/props only, no rebuild).
+  // fresnelMin / shine / imgBoost: 0 = off.
+  const seed = { ...DEFAULT_MESH_LOOK, ...urlMeshLook() };
+  const mesh = useDialKit("Mesh", {
+    opacity: [seed.opacity, 0, 1, 0.05],
+    fresnelMin: [seed.fresnelMin, 0, 1, 0.01],
+    shine: [seed.shine, 0, 1, 0.05],
+    flat: [seed.flat, 0, 1, 0.05],
+    imgBoost: [seed.imgBoost, 0, 1, 0.05],
   });
   const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
   const [model, setModel] = useState<AnyModel | null>(null);
@@ -82,6 +94,7 @@ function LandmarksVolumeHarness() {
             cubeBudgets={options.cubeBudgets}
             inspectWindowUm={options.inspectWindowUm}
             labelAlpha={labels.cellAlpha}
+            meshLook={mesh}
           />
         ) : (
           <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>

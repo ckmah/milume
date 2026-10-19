@@ -2,6 +2,7 @@
 // Env: BASE_URL, WINDOW (µm), NOIMAGE=1, MESH_ALPHA, FIXTURE (harness ?fixture=), SHOTS (dir), TAG,
 // RECOLOR (path to a JSON of synced trait deltas to replay, e.g. what `w.color = "FOV"` sends),
 // CUT=x|y|z (Python-style `volume_cut` write through the window's middle on that axis),
+// EXTRA_QS (more harness query params), HIDE_DIAL=1 (hide the DialKit panel),
 // MODE=raycast (Viv labels, `?mesh=0`), VIEWS=top,orbit (default both), PITCH (extra orbit drag, px).
 import { chromium } from "@playwright/test";
 import { mkdirSync, readFileSync } from "node:fs";
@@ -27,7 +28,10 @@ if (ALPHA) q.set("meshAlpha", ALPHA);
 const MODE = process.env.MODE ?? "mesh", CUT = process.env.CUT ?? "";
 const VIEWS = (process.env.VIEWS ?? "top,orbit").split(",");
 if (MODE === "raycast") q.set("mesh", "0");
+for (const [k, v] of new URLSearchParams(process.env.EXTRA_QS ?? "")) q.set(k, v);
 await page.goto(`${BASE}/?${q}`, { waitUntil: "domcontentloaded", timeout: 180_000 });
+// HIDE_DIAL=1: no harness DialKit panel over the view (before/after comparisons).
+if (process.env.HIDE_DIAL === "1") await page.addStyleTag({ content: ".dialkit-root{display:none!important}" });
 await page.waitForFunction(() => window.__landmarksEngine?.getViewState?.()?.zoom != null, null, { timeout: 180_000 });
 // The 2D view in the same colours, for comparison.
 if (SHOTS) { mkdirSync(SHOTS, { recursive: true }); }
@@ -63,7 +67,7 @@ if (CUT) {
   await page.waitForFunction(`document.querySelector('${sel}')?.getAttribute("data-refining") === "false"`, null, { timeout: 300_000 }).catch(() => log("cut refine wait timed out"));
   await page.waitForTimeout(2000);
 }
-const attrs = () => page.evaluate((s) => { const el = document.querySelector(s); return Object.fromEntries([...el.attributes].filter((a) => a.name.startsWith("data-mesh") || ["data-points", "data-labels", "data-outside", "data-label-cells"].includes(a.name)).map((a) => [a.name, a.value])); }, sel);
+const attrs = () => page.evaluate((s) => { const el = document.querySelector(s); return Object.fromEntries([...el.attributes].filter((a) => a.name.startsWith("data-mesh") || ["data-points", "data-labels", "data-outside", "data-label-cells", "data-image-contrast", "data-image-gamma"].includes(a.name)).map((a) => [a.name, a.value])); }, sel);
 const name = (view) => `${SHOTS}/${MODE === "raycast" ? "raycast" : "mesh"}-colour${CUT ? `-cut${CUT}` : ""}${TAG}${ALPHA ? `-a${ALPHA}` : ""}${NOIMAGE ? "-noimage" : ""}-w${WIN}-${view}.png`;
 const view = page.locator(sel);
 const workerStats = () => page.evaluate(() => ({ worker: window.__cellMeshWorker ?? null, heap_mb: performance.memory ? performance.memory.usedJSHeapSize / 1e6 : null }));

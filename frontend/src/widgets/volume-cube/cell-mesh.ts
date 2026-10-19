@@ -160,10 +160,44 @@ export type PlacedCellMesh = {
   capAlpha: number;
   /** Surface inset (µm); default CELL_MESH_SHRINK_UM. */
   shrinkUm?: number;
+  /** View-angle alpha and shading (MeshLook, resolved). */
+  look?: MeshLook;
   /** Depth-only pass first (nearest surface wins). Off by default: the 0.2 µm inset already removes the speckles, and the pass doubles the mesh on the GPU. */
   depthPrepass?: boolean;
   key: string;
 };
+
+/**
+ * How the meshes draw over the image (proto-cell-mesh-ts, Oct 18 PM). All of it is uniforms or
+ * layer props: changing any field redraws, never rebuilds geometry.
+ * - opacity: peak alpha (the silhouette).
+ * - fresnelMin: alpha of a face seen head-on (clamped to <= opacity); 0 = fresnel off.
+ *   alpha = mix(fresnelMin, opacity, (1 - |n.v|)^2).
+ * - shine: specular strength 0..1 (0 = none, matte).
+ * - flat: shading flatness 0..1 (0 = the earlier ambient 0.55 / diffuse 0.65; 1 = nearly unlit).
+ * - imgBoost: mesh-mode image contrast boost 0..1 (0 = off), applied on top of the active contrast.
+ */
+export type MeshLook = { opacity: number; fresnelMin: number; shine: number; flat: number; imgBoost: number };
+export const DEFAULT_MESH_LOOK: MeshLook = { opacity: 0.6, fresnelMin: 0.15, shine: 0, flat: 0.6, imgBoost: 0.75 };
+
+/** Material for a look: flatter = more ambient, less diffuse; shine adds a soft specular. */
+export function meshMaterial(look: Pick<MeshLook, "shine" | "flat">) {
+  const f = Math.min(1, Math.max(0, look.flat)), s = Math.min(1, Math.max(0, look.shine));
+  const spec = Math.round(255 * 0.5 * s);
+  return { ambient: 0.55 + 0.45 * f, diffuse: 0.65 * (1 - 0.7 * f), shininess: s > 0 ? 4 + 28 * s : 1, specularColor: [spec, spec, spec] };
+}
+
+/**
+ * Mesh-mode image modifier over the active contrast window and gamma: the window narrows
+ * (lo up 20%, hi down 30% of its width at boost 1) and gamma rises (x1.6), so nuclei brighten and
+ * the dim background darkens and thins under the meshes. 0 returns the inputs unchanged.
+ */
+export function boostedImage(contrast: [number, number], gamma: number, boost: number): { contrast: [number, number]; gamma: number } {
+  const b = Math.min(1, Math.max(0, boost));
+  if (!b) return { contrast, gamma };
+  const w = contrast[1] - contrast[0];
+  return { contrast: [contrast[0] + 0.2 * b * w, contrast[1] - 0.3 * b * w], gamma: gamma * (1 + 0.6 * b) };
+}
 
 export function placedCellMeshGeometry(m: CellMeshData): PlacedCellMesh["mesh"] {
   return {
@@ -210,14 +244,28 @@ void main(void) {
   // every surface, so a back face wins only where it is the nearest one (the
   // cell holds the plane point), and front faces draw nothing (the slice covers them).
   if (cellMeshClip.colourPass > 0.5 && !back && cellMeshBehindSlice(vMeshUm)) discard;
+  // View-angle (fresnel) alpha: head-on faces thin out to fresnelMin, silhouettes keep the peak.
+  float ndv = abs(dot(normalize(normal), normalize(cameraPosition - position_commonspace.xyz)));
+  float rim = pow(1.0 - ndv, cellMeshClip.fresnelPow);
   if (back) {
-    fragColor = vec4(color.rgb, color.a * cellMeshClip.capAlpha);
+    // Back faces stay (a cut cell keeps its colour inside), with their own, higher floor.
+    fragColor = vec4(color.rgb, color.a * mix(cellMeshClip.backFresnelMin, cellMeshClip.capAlpha, rim));
     return;
   }
   vec3 lightColor = lighting_getLightColor(color.rgb, cameraPosition, position_commonspace.xyz, normal);
-  fragColor = vec4(lightColor, color.a * layer.opacity);
+  fragColor = vec4(lightColor, color.a * mix(cellMeshClip.fresnelMin, layer.opacity, rim));
 }
 `;
+
+/**
+ * Head-on alpha floors. 0 = fresnel off (floor = peak). Back faces get a floor halfway between the
+ * front floor and the cap alpha, so the inside of a cut cell keeps most of its colour.
+ */
+export function fresnelFloors(min: number, peak: number, capAlpha: number): { front: number; back: number } {
+  if (!(min > 0)) return { front: peak, back: capAlpha };
+  const front = Math.min(min, peak);
+  return { front, back: Math.min(capAlpha, (front + capAlpha) / 2) };
+}
 
 type ClipProps = { clip: ClipBox | null; capAlpha: number; flipFacing: boolean; shrinkUm: number };
 
@@ -249,7 +297,9 @@ class CellMeshLayer extends SimpleMeshLayer {
     // The eye in the mesh's µm, as Viv finds its own (viewMatrixInverse's translation, then the inverse model).
     const vmi = (this.context.viewport as unknown as { viewMatrixInverse: number[] }).viewMatrixInverse;
     const eye = new Matrix4(modelMatrix).invert().transformAsPoint([vmi[12]!, vmi[13]!, vmi[14]!]);
-    const { colourPass, depthPrepass } = this.props as unknown as { colourPass: boolean; depthPrepass?: boolean };
+    const { colourPass, depthPrepass, fresnelMin } = this.props as unknown as { colourPass: boolean; depthPrepass?: boolean; fresnelMin?: number };
+    const peak = (this.props as { opacity: number }).opacity;
+    const fres = fresnelFloors(fresnelMin ?? 0, peak, capAlpha);
     model.shaderInputs.setProps({
       cellMeshClip: {
         lo: clip?.lo ?? [-1e9, -1e9, -1e9],
@@ -262,6 +312,9 @@ class CellMeshLayer extends SimpleMeshLayer {
         shrink: shrinkUm,
         // The slice-era "front face behind the cut plane" discard only belongs with the depth pre-pass look.
         colourPass: colourPass && depthPrepass ? 1 : 0,
+        fresnelMin: fres.front,
+        fresnelPow: 2,
+        backFresnelMin: fres.back,
       },
     });
     const write = !colourPass || (this.props as { opacity: number }).opacity >= 0.999;
@@ -307,8 +360,9 @@ export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, viewId
     coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
     opacity: placed.opacity,
     pickable: false,
-    // Matte: soft diffuse, no specular shine (Designer's look notes).
-    material: { ambient: 0.55, diffuse: 0.65, shininess: 1, specularColor: [0, 0, 0] },
+    // Matte and flat by default (Clarence, Oct 18 PM): see MeshLook.
+    material: meshMaterial(placed.look ?? DEFAULT_MESH_LOOK),
+    fresnelMin: (placed.look ?? DEFAULT_MESH_LOOK).fresnelMin,
   };
   // Depth first (every surface inside the clip), then colour where it matches,
   // so each pixel shows the nearest surface once. Two layers on one mesh object:

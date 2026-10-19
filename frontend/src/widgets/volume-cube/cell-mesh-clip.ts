@@ -112,6 +112,9 @@ const BLOCK = `uniform cellMeshClipUniforms {
   float flipFacing;
   float shrink;
   float colourPass;
+  float fresnelMin;
+  float fresnelPow;
+  float backFresnelMin;
 } cellMeshClip;`;
 
 export const cellMeshClipModule = {
@@ -126,6 +129,9 @@ export const cellMeshClipModule = {
     flipFacing: "f32",
     shrink: "f32",
     colourPass: "f32",
+    fresnelMin: "f32",
+    fresnelPow: "f32",
+    backFresnelMin: "f32",
   },
   defaultUniforms: {
     lo: [-OPEN, -OPEN, -OPEN],
@@ -137,6 +143,9 @@ export const cellMeshClipModule = {
     flipFacing: 0,
     shrink: 0,
     colourPass: 1,
+    fresnelMin: 1,
+    fresnelPow: 2,
+    backFresnelMin: 1,
   },
   vs: BLOCK,
   fs: `${BLOCK}
