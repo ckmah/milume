@@ -71,8 +71,8 @@ Stores without per-slice cell polygons (e.g. Xenium / CosMx) open Inspect image-
 ### Inspect cube: cell meshes composited by depth
 
 - Cell meshes sit inside the image by depth instead of drawing over it ([#228](https://github.com/ckmah/milume/pull/228)): image in front of a cell (DAPI above a cell wall) shows in front of it, image behind it shows through the cell's opacity. Per pixel, the nearest cell's front and back walls are drawn; cells behind them are hidden there. In MIP mode the meshes draw over the projection.
+- Default mesh `fresnelMin` is 0.35 (was 0.15); opacity stays 0.9.
 
 ### Inspect minimap
 
 - The Inspect view has a minimap ([#226](https://github.com/ckmah/milume/pull/226) `inspect-minimap-218`). Click or drag on it to move the cube; the mouse wheel does nothing over it. It is lazy-loaded, so it costs nothing until Inspect opens.
-- Default mesh `fresnelMin` is 0.35 (was 0.15); opacity stays 0.9.
