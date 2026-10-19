@@ -120,7 +120,7 @@ without new traits:
   around the window) was added and then removed 2026-10-03, as it gave no
   functional value; see
   [`2026-10-03-inspect-rework-design.md`](../superpowers/specs/2026-10-03-inspect-rework-design.md).
-- No new synced traits; `volume`, `volume_label_ids`, `volume_cut`, `inspect_*`
+- No new synced traits; `volume`, `volume_cell_rows`, `volume_cut`, `inspect_*`
   and `selections` keep their meaning, and ADR 0005 still holds (the cube's
   controls stay client-local).
 

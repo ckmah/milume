@@ -8,6 +8,8 @@ import "@/widgets/landmarks/landmarks.css";
 import type { AnyModel } from "@/widgets/landmarks/helpers";
 import { resetModeDropdownMemory } from "@/widgets/landmarks/chrome/mode-dropdown";
 import { LandmarksView } from "@/widgets/landmarks/LandmarksView";
+import { DEFAULT_MESH_LOOK } from "@/widgets/volume-cube/cell-mesh";
+import { DEFAULT_RENDER } from "@/widgets/volume-cube/palettes";
 
 import { loadFixtureModel } from "../mock-model";
 
@@ -30,8 +32,13 @@ function optionsFrom(search: string) {
  * opens the immersive cube over the plot area on release. The engine exposes `window.__landmarksEngine` / `__landmarksModel`.
  */
 function LandmarksVolumeHarness() {
-  const labels = useDialKit("Labels", {
-    cellAlpha: [0.4, 0, 1, 0.05],
+  // Live: every value is a uniform or layer prop, so a drag never rebuilds the meshes.
+  const mesh = useDialKit("Mesh", {
+    opacity: [DEFAULT_RENDER.cellAlpha, 0, 1, 0.05],
+    fresnelMin: [DEFAULT_MESH_LOOK.fresnelMin, 0, 1, 0.01],
+    shine: [DEFAULT_MESH_LOOK.shine, 0, 1, 0.05],
+    flat: [DEFAULT_MESH_LOOK.flat, 0, 1, 0.05],
+    imgBoost: [DEFAULT_MESH_LOOK.imgBoost, 0, 1, 0.05],
   });
   const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
   const [model, setModel] = useState<AnyModel | null>(null);
@@ -87,7 +94,8 @@ function LandmarksVolumeHarness() {
             defaultHeight={820}
             cubeBudgets={options.cubeBudgets}
             inspectWindowUm={options.inspectWindowUm}
-            labelAlpha={labels.cellAlpha}
+            labelAlpha={mesh.opacity}
+            meshLook={mesh}
           />
         ) : (
           <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>

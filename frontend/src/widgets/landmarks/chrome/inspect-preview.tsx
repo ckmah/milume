@@ -15,7 +15,6 @@ import {
   chunkRing,
   fitsBudget,
   levelBox,
-  matchingLevel,
   pickLevel,
   pyramidLevels,
 } from "@/widgets/volume-cube/window-source";
@@ -192,13 +191,13 @@ export function InspectPreview({
   const [extent, setExtent] = useState<Extent | null>(null);
   const [failed, setFailed] = useState(false);
 
-  const levelsRef = useRef<{ image: ZarrSource[]; labels: ZarrSource[] | null; levels: Level[] } | null>(null);
+  const levelsRef = useRef<{ image: ZarrSource[]; levels: Level[] } | null>(null);
   const regionRef = useRef<Region | null>(null);
   const samplesRef = useRef<{ t: number; x: number; y: number }[]>([]);
   const extentRef = useRef<Extent | null>(null);
   extentRef.current = extent;
-  const latest = useRef({ active, frame, budget: budgets.preview, rootEl, labels: settings.showLabels });
-  latest.current = { active, frame, budget: budgets.preview, rootEl, labels: settings.showLabels };
+  const latest = useRef({ active, frame, budget: budgets.preview, rootEl });
+  latest.current = { active, frame, budget: budgets.preview, rootEl };
 
   // Leaving Inspect (or unmounting) drops the preview's queued prefetches.
   useEffect(() => {
@@ -296,8 +295,8 @@ export function InspectPreview({
   }, [engine, updateRegion]);
 
   const onLevels = useCallback(
-    (image: ZarrSource[], labels: ZarrSource[] | null) => {
-      levelsRef.current = { image, labels, levels: pyramidLevels(image) };
+    (image: ZarrSource[]) => {
+      levelsRef.current = { image, levels: pyramidLevels(image) };
       const h = lastHoverRef.current;
       if (h) updateRegion(h.x, h.y, h.sizeUm);
     },
@@ -324,17 +323,15 @@ export function InspectPreview({
   const onShown = useCallback(
     (index: number, box: Box) => {
       const pyramid = levelsRef.current;
-      // Labels opening later prefetch theirs at the same region.
-      const key = `${index}:${box.z0},${box.z1},${box.y0},${box.y1},${box.x0},${box.x1}:${latest.current.labels && pyramid?.labels ? 1 : 0}`;
+      const key = `${index}:${box.z0},${box.z1},${box.y0},${box.y1},${box.x0},${box.x1}`;
       const r = regionRef.current;
       // A load landing after Inspect ends queues nothing.
       if (!latest.current.active || key === prefetchedRef.current || !pyramid || !r) return;
       prefetchedRef.current = key;
       const level = pyramid.levels[index];
       if (!level) return;
-      const { frame: f, labels: wantLabels } = latest.current;
-      const cells = wantLabels && pyramid.labels ? matchingLevel(pyramid.labels, level) : null;
-      const sources = [level.source, ...(cells ? [cells] : [])];
+      const { frame: f } = latest.current;
+      const sources = [level.source];
       const bytes = sources.reduce((n, s) => n + voxels(levelBox({ ...level, source: s })) * dtypeBytes(s.dtype), 0);
       const whole = bytes <= CHUNK_CACHE_BYTES / 2;
       const [vx, vy] = velocity();
@@ -354,7 +351,7 @@ export function InspectPreview({
       };
       if (whole) {
         for (const [role, source] of sources.entries()) {
-          // Queued once per level and role (0 image, 1 labels): the cache keeps it.
+          // Queued once per level: the cache keeps it.
           const wholeKey = `${index}:${role}`;
           if (wholeRef.current.has(wholeKey)) continue;
           wholeRef.current.add(wholeKey);
@@ -363,7 +360,7 @@ export function InspectPreview({
         }
         return;
       }
-      // The ring, most ahead first, cut to RING_BYTES (image and labels together)
+      // The ring, most ahead first, cut to RING_BYTES
       // so it never evicts the shown region or the dock's window.
       const ring = sources.flatMap((source) => {
         const ahead = aheadOf(source);
@@ -409,7 +406,6 @@ export function InspectPreview({
       <Suspense fallback={null}>
         <VolumeCube
           imageUrl={volume.image_url ?? ""}
-          labelsUrl={volume.labels_url ?? ""}
           voxelSizeUm={voxelSizeUm}
           originUm={originUm}
           windowCx={hover.x}
@@ -418,7 +414,6 @@ export function InspectPreview({
           cut={OPEN_CUT}
           contrast={settings.contrast}
           imageMode="mip"
-          labelMode="additive"
           preset="top"
           home="top"
           reframeOnPreset

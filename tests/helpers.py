@@ -42,12 +42,15 @@ def adata_xy(
 
 
 def toy_spatialdata(dest):
-    """On-disk SpatialData on the toy volume grid: image, labels, table (1 µm voxels)."""
+    """On-disk SpatialData on the toy volume grid (1 µm voxels): image, labels, the
+    cells' per-plane polygons (a circle per plane through each blob), table."""
     import anndata as ad
+    import geopandas as gpd
     import numpy as np
     import pandas as pd
     import spatialdata as sd
-    from spatialdata.models import Image3DModel, Labels3DModel, TableModel
+    from shapely.geometry import Polygon
+    from spatialdata.models import Image3DModel, Labels3DModel, ShapesModel, TableModel
     from spatialdata.transformations import Identity
 
     from milume.volume_cube import toy_volumes
@@ -67,6 +70,17 @@ def toy_spatialdata(dest):
         },
         index=[f"cell{i}" for i in ids],
     )
+    rows = []
+    for i in ids:
+        zz, yy, xx = np.nonzero(labels == i)
+        cz, cy, cx = zz.mean(), yy.mean() + 0.5, xx.mean() + 0.5
+        radius = (np.ptp(xx) + 1) / 2
+        for z in np.unique(zz):
+            r = np.sqrt(max(radius**2 - (z - cz) ** 2, 0.25))
+            t = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+            ring = np.c_[cx + r * np.cos(t), cy + r * np.sin(t)]
+            rows.append({"cell_id": f"cell{i}", "Z_um": z + 0.5, "geometry": Polygon(ring)})
+    polygons = ShapesModel.parse(gpd.GeoDataFrame(rows), transformations={"global": Identity()})
     table = ad.AnnData(np.ones((len(ids), 1), dtype=np.float32), obs=obs)
     table.obsm["spatial"] = np.asarray(centroids, dtype=float)
     sdata = sd.SpatialData(
@@ -86,6 +100,7 @@ def toy_spatialdata(dest):
                 scale_factors=[2, 2],
             )
         },
+        shapes={"cell_polygons": polygons},
         tables={"table": TableModel.parse(table, region="cells", region_key="region", instance_key="cell_id")},
     )
     sdata.write(dest)

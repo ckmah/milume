@@ -11,13 +11,11 @@ export type CubeSettings = {
   open: boolean;
   /** Projection of the image in the cube: accumulated samples or maximum intensity. */
   imageMode: "additive" | "mip";
-  /** Projection of the labels: accumulated front to back or the strongest sample. */
-  labelMode: "additive" | "mip";
   preset: ViewPreset | null;
   resetTick: number;
-  /** The image in the cube views (dock and preview); off leaves only labels. */
+  /** The image in the cube views (dock and preview); off leaves only the cells. */
   showImage: boolean;
-  /** Default on: a store with labels opens showing its cells. */
+  /** Default on: a store with cell polygons opens showing its cells. */
   showLabels: boolean;
   /** Scatter points from the 2D layer inside the cube. */
   showPoints: boolean;
@@ -46,7 +44,6 @@ export function useCubeSettings(
   const [settings, setSettings] = useState<CubeSettings>(() => ({
     open: false,
     imageMode: "additive",
-    labelMode: "additive",
     preset: "top",
     resetTick: 0,
     showImage: true,

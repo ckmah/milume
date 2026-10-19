@@ -539,14 +539,9 @@ export function InspectToolbar({
 
   const labelsMenu = (
     <AdjustSection title="Labels" testId="adjust-labels" onReset={() => onReset("labels")}>
-      <ProjectionRow
-        label="Labels projection"
-        value={settings.labelMode}
-        onChange={(labelMode) => patch({ labelMode })}
-      />
       <SoftFloatCapsuleSlider
-        aria-label="Label fill"
-        caption="Fill"
+        aria-label="Label opacity"
+        caption="Opacity"
         min={0}
         max={1}
         step={0.05}

@@ -17,16 +17,15 @@ PUBLIC = DEV / "landmarks-volume" / "public"
 def main() -> None:
     toy = json.loads((DEV / "landmarks-volume-fixture.json").read_text())
     small = json.loads((DEV / "landmarks-volume-fixture.small.json").read_text())
-    for key in ("volume", "volume_label_ids", "volume_cut", "inspect_size_um", "x_bounds", "y_bounds"):
+    for key in ("volume", "volume_cell_rows", "volume_cut", "inspect_size_um", "x_bounds", "y_bounds"):
         toy[key] = small[key]
     comm_path = DEV / "landmarks-volume-fixture.small-bench.json"
     comm_path.write_text(json.dumps(toy, indent=2) + "\n")
     http = json.loads(comm_path.read_text())
     vol = http["volume"]
-    for key in ("image_url", "labels_url"):
-        url = str(vol.get(key) or "")
-        if url and not url.startswith("/"):
-            vol[key] = f"/small.sdata.zarr/{url}"
+    url = str(vol.get("image_url") or "")
+    if url and not url.startswith("/"):
+        vol["image_url"] = f"/small.sdata.zarr/{url}"
     http_path = DEV / "landmarks-volume-fixture.small-bench.http.json"
     http_path.write_text(json.dumps(http, indent=2) + "\n")
     for name in (comm_path.name, http_path.name):

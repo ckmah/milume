@@ -85,7 +85,7 @@ FIXTURE_KEYS = [
     "inspect_cy",
 ]
 
-VOLUME_KEYS = ["volume", "volume_label_ids", "volume_cut", "inspect_size_um"]
+VOLUME_KEYS = ["volume", "volume_cell_rows", "volume_cut", "inspect_size_um"]
 
 
 def _write_store_toy(store: Path):
@@ -118,7 +118,6 @@ def _write_store_pyxa(store: Path, hf_profile: str):
         data_dir,
         cell_assigned_gene=False,
         segmentation_geometries=True,
-        labels=True,
     )
     pyxa_sdata.write(store)
     return sd.read_zarr(store)

@@ -82,7 +82,6 @@
   "inspect_cy": null,
   "volume": {
     "image_url": "images/mosaic/",
-    "labels_url": "labels/cells/",
     "voxel_size_um": [
       1.0,
       1.0,
@@ -96,9 +95,13 @@
     "contrast_limits": [
       0.0,
       48.0
-    ]
+    ],
+    "cells": {
+      "url": "shapes/cell_polygons/shapes.parquet",
+      "bytes": 40203
+    }
   },
-  "volume_label_ids": "AQAAAAIAAAADAAAA",
+  "volume_cell_rows": "AAAAAAEAAAACAAAA",
   "volume_cut": [
     0.0,
     256.0,

@@ -1,12 +1,14 @@
-import { Suspense, lazy, useCallback, useEffect, useRef } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from "react";
 
 import type { CellColoring } from "@/widgets/volume-cube/cell-lut-extension";
+import type { MeshLook } from "@/widgets/volume-cube/cell-mesh";
 import type { ChunkCache } from "@/widgets/volume-cube/chunk-cache";
 import type { VolumeCommClient } from "@/widgets/volume-cube/volume-comm";
 import type { CubeOverlay } from "@/widgets/volume-cube/overlay-layers";
 import type { CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
 import { PREVIEW_REGION_SCALE } from "@/widgets/volume-cube/window-source";
 
+import { decodeI32Base64 } from "../binary";
 import { INSPECT_WINDOW_UM, type EngineHandle } from "../engine";
 import type { CubeSettings, CubeSettingsPatch } from "../use-cube-settings";
 import { inspectWindowOf } from "../use-inspect-cube";
@@ -49,6 +51,7 @@ export function CubeImmersive({
   onCutLive,
   onCutCommit,
   labelAlpha,
+  meshLook,
 }: {
   lm: LandmarksModel;
   engine: EngineHandle | null;
@@ -76,8 +79,10 @@ export function CubeImmersive({
   /** A drag on a volume face, live, then committed on release. */
   onCutLive: (cut: CubeCut) => void;
   onCutCommit: (cut: CubeCut) => void;
-  /** Harness DialKit. Omitted: the Labels alpha slider in cube settings. */
+  /** Harness DialKit. Omitted: the Labels opacity slider in cube settings. */
   labelAlpha?: number;
+  /** Harness DialKit: the rest of the meshes' look. */
+  meshLook?: Partial<MeshLook>;
 }) {
   const loadRef = useRef<CubeLoadState | null>(null);
   const onLoadState = useCallback(
@@ -167,6 +172,7 @@ export function CubeImmersive({
   });
 
   const volume = lm.volume ?? {};
+  const cellRows = useMemo(() => (lm.volume_cell_rows ? decodeI32Base64(lm.volume_cell_rows) : null), [lm.volume_cell_rows]);
   const size = lm.inspect_size_um || INSPECT_WINDOW_UM;
   const scatterPoints = useCubeScatterPoints(engine, lm, lm.inspect_cx, lm.inspect_cy, size);
   const drawPoints = settings.showPoints && scatterPoints.length > 0;
@@ -193,7 +199,8 @@ export function CubeImmersive({
       >
         <VolumeCube
           imageUrl={volume.image_url ?? ""}
-          labelsUrl={volume.labels_url ?? ""}
+          cellPolygons={volume.cells}
+          cellRows={cellRows}
           voxelSizeUm={volume.voxel_size_um ?? VOXEL_ZYX}
           originUm={volume.origin_um ?? ORIGIN_ZYX}
           windowCx={lm.inspect_cx ?? 0}
@@ -202,7 +209,6 @@ export function CubeImmersive({
           cut={cut}
           contrast={settings.contrast}
           imageMode={settings.imageMode}
-          labelMode={settings.labelMode}
           preset={settings.preset}
           home="top"
           reframeOnPreset
@@ -213,6 +219,7 @@ export function CubeImmersive({
           render={
             labelAlpha == null ? settings.render : { ...settings.render, cellAlpha: labelAlpha }
           }
+          meshLook={meshLook}
           dark={dark}
           height="100%"
           showLegend={false}

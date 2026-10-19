@@ -32,7 +32,6 @@ async function cubeAttrs(page) {
       image: el.getAttribute("data-image"),
       labelCells: el.getAttribute("data-label-cells"),
       refining: el.getAttribute("data-refining"),
-      labelMode: el.getAttribute("data-label-mode"),
       imageMode: el.getAttribute("data-image-mode"),
       renders: window.__volumeCubeRenderCount ?? 0,
     };

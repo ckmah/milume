@@ -12,7 +12,7 @@ entry point; it constructs `LandmarksWidget` with the same keyword arguments.
 import milume
 
 w = milume.peek(adata, color="cell_type")
-w = milume.peek(sdata)  # table, labels, image inferred
+w = milume.peek(sdata)  # table, cell polygons, image inferred
 ```
 
 Returns a `LandmarksWidget` handle. Synced traitlets include `w.selections` and

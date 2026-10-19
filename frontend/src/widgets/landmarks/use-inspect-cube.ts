@@ -69,7 +69,7 @@ export type InspectCube = {
   /** Save the live window, with its cut, as an inspect Selection (the Inspect pill's Save). */
   save: () => void;
   /**
-   * Back to defaults: one section (Image and Labels with their projection), or
+   * Back to defaults: one section (Image with its projection, or Labels), or
    * "all" of Adjust (Image and Labels). Open cuts are committed like a slider release.
    */
   resetAdjust: (section: AdjustSection | "all") => void;
@@ -530,10 +530,7 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
         });
       }
       if (all || section === "labels") {
-        patchCube({
-          labelMode: "additive",
-          render: { cellAlpha: DEFAULT_RENDER.cellAlpha },
-        });
+        patchCube({ render: { cellAlpha: DEFAULT_RENDER.cellAlpha } });
       }
       if (all || section === "points") {
         patchCube({ showPoints: false });

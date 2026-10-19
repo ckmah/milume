@@ -289,9 +289,10 @@ color
 genes
     Genes to pack for view-only colouring. ``None`` (default) packs every
     ``var_name``; pass a name or list to restrict the eager catalog.
-table, image, labels
+table, image, shapes
     SpatialData-only overrides for the inferred table, multiscale image, and
-    labels layer.
+    the shapes element of per-slice cell polygons (``cell_id`` and ``Z_um``
+    columns) the Inspect cube meshes. ``False`` leaves one out.
 contrast_limits
     SpatialData-only image contrast ``(min, max)`` for the Inspect cube.
 
@@ -439,11 +440,11 @@ class LandmarksWidget(AnyWidget):
     raster_threshold = traitlets.Float(0.0).tag(sync=True)
     raster_status = traitlets.Unicode("").tag(sync=True)
 
-    # 3D cube (LandmarksWidget(sdata)): Python-set config, per-cell label ids, and
-    # the cut box the widget writes on slider release. Rendering controls are
-    # client-local (ADR 0005 / 0006).
+    # 3D cube (LandmarksWidget(sdata)): Python-set config, the table row of each
+    # polygon cell, and the cut box the widget writes on slider release. Rendering
+    # controls are client-local (ADR 0005 / 0006).
     volume = traitlets.Dict(default_value={}).tag(sync=True)
-    volume_label_ids = traitlets.Unicode("").tag(sync=True)  # base64 int32, table order
+    volume_cell_rows = traitlets.Unicode("").tag(sync=True)  # base64 int32, polygon cell order
     volume_cut = traitlets.List(traitlets.Float(), default_value=[]).tag(sync=True)
 
     def __init__(
@@ -455,7 +456,7 @@ class LandmarksWidget(AnyWidget):
         genes: str | list[str] | None = None,
         table: str | None = None,
         image: str | bool | None = None,
-        labels: str | bool | None = None,
+        shapes: str | bool | None = None,
         contrast_limits: tuple[float, float] | None = None,
     ) -> None:
         """Build from AnnData or SpatialData.
@@ -466,7 +467,7 @@ class LandmarksWidget(AnyWidget):
         Examples
         --------
         >>> w = LandmarksWidget(adata, color="cell_type")
-        >>> w = LandmarksWidget(sdata)  # table, labels, image, frame inferred
+        >>> w = LandmarksWidget(sdata)  # table, image, cell polygons, frame inferred
         """
         import numpy as np
 
@@ -477,7 +478,7 @@ class LandmarksWidget(AnyWidget):
 
             source_sdata = adata
             sdata = adata
-            adata, volume_source = resolve_volume(sdata, table=table, image=image, labels=labels)
+            adata, volume_source = resolve_volume(sdata, table=table, image=image, shapes=shapes)
             if volume_source is not None and contrast_limits is None:
                 contrast_limits = image_contrast_limits(sdata.images[volume_source.image])
         if not isinstance(adata, AnnData):
@@ -611,23 +612,22 @@ class LandmarksWidget(AnyWidget):
     def _attach_volume(self, src: Any, contrast_limits: tuple[float, float]) -> None:
         from .volume_comm import normalize_allow_prefixes
 
-        # Only the cube's image and labels: tables and expression are never served.
-        allow = (f"images/{src.image}/",) + ((f"labels/{src.labels}/",) if src.labels else ())
+        # Only the cube's image and cell polygons: tables and expression are never served.
+        allow = (f"images/{src.image}/",) + ((f"shapes/{src.shapes}/",) if src.shapes else ())
         self._volume_store_root = src.root
         self._volume_allow_prefixes = normalize_allow_prefixes(allow)
         (sz, sy, sx), (oz, oy, ox), (d, h, w) = src.voxel_size_um, src.origin_um, src.shape_zyx
-        self.volume = {
+        volume = {
             "image_url": f"images/{src.image}/",
-            "labels_url": f"labels/{src.labels}/" if src.labels else "",
             "voxel_size_um": [sz, sy, sx],
             "origin_um": [oz, oy, ox],
             "contrast_limits": [float(v) for v in contrast_limits],
         }
-        if src.label_ids is not None:
-            ids = np.asarray(src.label_ids, dtype=np.int32)
-            if ids.size and int(ids.max()) >= 2**22:  # 2048 x 2048 lookup texels
-                warnings.warn("label ids above 4,194,303 are not coloured in the cube", UserWarning, stacklevel=3)
-            self.volume_label_ids = base64.b64encode(ids.tobytes()).decode("ascii")
+        if src.shapes:
+            path = src.shapes_path
+            volume["cells"] = {"url": path, "bytes": (src.root / path).stat().st_size}
+            self.volume_cell_rows = base64.b64encode(src.cell_rows.tobytes()).decode("ascii")
+        self.volume = volume
         self.volume_cut = [ox, ox + w * sx, oy, oy + h * sy, oz, oz + d * sz]
         self._volume_centre_xy = (ox + w * sx / 2.0, oy + h * sy / 2.0)
 
@@ -1171,7 +1171,7 @@ _PUBLIC_TRAITS: dict[str, str] = {
     "inspect_cy": "Inspect window centre y in spatial units, or None before placement; set it to move the window and the open cube.",
     "inspect_size_um": "Inspect window side length in µm.",
     "inspect_open": "Whether the Inspect cube is open; True opens it at inspect_cx/cy, or at the volume centre when no window is placed; False closes it and exits Inspect. ValueError without a 3D image.",
-    "volume": "The 3D image behind the Inspect cube (image and labels paths, voxel size, origin, contrast); {} without one. Read it, don't set it.",
+    "volume": "The 3D image behind the Inspect cube (image path, cell polygons path and size, voxel size, origin, contrast); {} without one. Read it, don't set it.",
     "volume_cut": "Cube cut box [x0, x1, y0, y1, z0, z1] in µm; the browser writes it on slider release, assign it to cut from Python.",
     "active_category": "Name of the obs column driving categorical colour and type focus.",
     "active_genes": "Genes shown in the expression blend; unknown genes are dropped.",

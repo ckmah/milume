@@ -45,10 +45,9 @@ def read(source: Path):
         return pyxa(
             source / "ag_output",
             cell_assigned_gene=False,
-            labels=True,
             image=source / "Region" / "mosaic" / "mosaic_3d.ome.zarr",
         )
-    return pyxa(source, cell_assigned_gene=False, labels=True)
+    return pyxa(source, cell_assigned_gene=False)
 
 
 def main() -> None:
