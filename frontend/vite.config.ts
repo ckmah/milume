@@ -128,8 +128,10 @@ export default defineConfig(({ command }) => {
         __MILUME_VOLUME_FIXTURE_FILE__: JSON.stringify(volumeFixtureFile),
       },
       resolve: sharedResolve,
-      // Viv harnesses need default dep optimization; landmarks excludes Viv.
-      optimizeDeps: usesViv ? undefined : { exclude: ["@hms-dbmi/viv"] },
+      // Viv harnesses need default dep optimization; landmarks excludes Viv. The scan
+      // skips worker imports, so the mesh worker's deps are listed or their late
+      // discovery reloads the page mid-test.
+      optimizeDeps: usesViv ? { include: ["earcut", "hyparquet", "polygon-clipping"] } : { exclude: ["@hms-dbmi/viv"] },
       server: sharedServer,
     };
   }
