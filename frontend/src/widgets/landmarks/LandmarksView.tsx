@@ -15,6 +15,7 @@ import { decodeF32Base64, decodeI32Base64 } from "./binary";
 import {
   LayersPanel,
   MinimapPanel,
+  InspectMinimapPanel,
   SelectionToolbar,
   Topbar,
   InspectPill,
@@ -627,13 +628,37 @@ export function LandmarksView({
                 onExpand={() => setCollapsed((c) => ({ ...c, right: false }))}
               />
             ) : null}
-            <div
-              className="landmarks__chrome-minimap"
-              onMouseDown={(e) => e.stopPropagation()}
-              onWheel={(e) => e.stopPropagation()}
-            >
-              <MinimapPanel lm={lm} engine={engine} dark={dark} />
-            </div>
+            {!inspecting ? (
+              <div
+                className="landmarks__chrome-minimap"
+                onMouseDown={(e) => e.stopPropagation()}
+                onWheel={(e) => e.stopPropagation()}
+              >
+                <MinimapPanel lm={lm} engine={engine} dark={dark} />
+              </div>
+            ) : null}
+            {cubeOpen ? (
+              <div
+                className="landmarks__chrome-minimap landmarks__chrome-minimap--inspect"
+                onMouseDown={(e) => e.stopPropagation()}
+                onWheel={(e) => e.stopPropagation()}
+              >
+                <InspectMinimapPanel
+                  lm={lm}
+                  engine={engine}
+                  dark={dark}
+                  volumeComm={volumeComm}
+                  chunkCache={chunkCache}
+                  volumeXY={
+                    cube.bounds
+                      ? { x: cube.bounds.volumeX, y: cube.bounds.volumeY }
+                      : null
+                  }
+                  onPan={inspectCube.panWindow}
+                  onPanEnd={inspectCube.panEnd}
+                />
+              </div>
+            ) : null}
           </>
         )}
         <LandmarkCanvasMenu lm={lm} engine={engine} rootEl={rootEl} />
