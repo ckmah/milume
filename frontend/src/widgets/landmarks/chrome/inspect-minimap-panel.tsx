@@ -17,7 +17,6 @@ import { FLOAT_PANEL, FLOAT_PANEL_CLIP } from "./sections";
 import {
   clientToWorld,
   mapLayout,
-  roundRectPath,
   toCanvasXY,
 } from "./minimap-panel";
 import { frameFromVolume, loadInspectOverview, type InspectOverview } from "./inspect-minimap-overview";
@@ -90,13 +89,12 @@ function drawInspectMinimap(
     const rh = Math.max(0, bottom - top);
     square = `${(left / dpr).toFixed(2)},${(top / dpr).toFixed(2)},${(rw / dpr).toFixed(2)},${(rh / dpr).toFixed(2)}`;
     if (rw > 0.5 && rh > 0.5) {
-      const cssRadius = parseFloat(getComputedStyle(canvas).borderTopLeftRadius) || 0;
-      const radius = Math.max(0, cssRadius * dpr);
       ctx.strokeStyle = dark ? "rgba(255, 255, 255, 0.92)" : "rgba(17, 17, 17, 0.88)";
       ctx.lineWidth = 1.5 * dpr;
-      roundRectPath(ctx, left, top, rw, rh, radius);
+      // Square corners: a small region with the panel radius reads as a circle.
+      ctx.beginPath();
+      ctx.rect(left, top, rw, rh);
       ctx.stroke();
-      roundRectPath(ctx, left, top, rw, rh, radius);
       ctx.fillStyle = dark ? "rgba(255, 255, 255, 0.10)" : "rgba(17, 17, 17, 0.08)";
       ctx.fill();
     }
