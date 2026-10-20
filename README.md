@@ -10,6 +10,10 @@
 
 Layer images, cells, and transcripts in 3D, in one reactive widget.
 
+<p align="center">
+  <a href="https://ckmah.github.io/milume/assets/milume-montage-web.mp4"><img src="https://raw.githubusercontent.com/ckmah/milume/main/website/landing/assets/montage-poster.png" width="720" alt="milume montage (43 s, click to play): one call opens the widget, draw a spline landmark, measure distances in Python, probe, trace a cell type's nearest neighbors, and inspect cell meshes in 3D" /></a>
+</p>
+
 You have a spatial dataset and a hunch. milume turns a notebook cell into a tactile,
 reactive surface where you can look at your tissue, select what catches your eye, and
 carry that selection straight into code. Cells, landmarks and measurements stay in
