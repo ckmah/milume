@@ -80,10 +80,10 @@ def _image(values, scale_factors=None):
     return Image3DModel.parse(values[None], dims=("c", "z", "y", "x"), scale_factors=scale_factors)
 
 
-def test_contrast_limits_span_the_image_percentiles():
+def test_contrast_limits_span_p1_to_the_image_max():
     values = np.random.default_rng(0).integers(1000, 30000, size=(8, 32, 32), dtype=np.uint16)
     lo, hi = image_contrast_limits(_image(values))
-    np.testing.assert_allclose((lo, hi), np.percentile(values, [1, 99.5]))
+    np.testing.assert_allclose((lo, hi), (np.percentile(values, 1), values.max()))
 
 
 def test_contrast_limits_read_the_coarsest_level():
@@ -94,7 +94,7 @@ def test_contrast_limits_read_the_coarsest_level():
     ramp = np.arange(level.size, dtype=np.uint16).reshape(level.shape)
     image["scale2"] = coarsest.dataset.assign({name: level.copy(data=ramp)})
     lo, hi = image_contrast_limits(image)
-    np.testing.assert_allclose((lo, hi), np.percentile(ramp, [1, 99.5]))
+    np.testing.assert_allclose((lo, hi), (np.percentile(ramp, 1), ramp.max()))
 
 
 def test_a_constant_image_still_has_a_contrast_range():

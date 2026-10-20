@@ -101,7 +101,7 @@ w = milume.peek(sdata, color="cell_type")   # SpatialData on disk: adds the 3D c
 | `genes` | gene(s) to expose for coloring; limits the catalog on large matrices |
 | `spatial_key` | `obsm` key holding coordinates (default `"spatial"`) |
 | `table`, `image`, `labels` | override what is inferred from a `SpatialData` |
-| `contrast_limits` | display range for the 3D image (default: its 1st to 99.5th percentile, from the coarsest pyramid level) |
+| `contrast_limits` | display range for the 3D image (default: its 1st percentile to its max, from the coarsest pyramid level) |
 
 `milume.peek` works on `AnnData` and on-disk `SpatialData` (including Pyxa-backed
 mosaics). For **Xenium**, **Atera**, **CosMx**, and other readers, see
