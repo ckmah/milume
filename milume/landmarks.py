@@ -295,6 +295,7 @@ table, image, shapes
     columns) the Inspect cube meshes. ``False`` leaves one out.
 contrast_limits
     SpatialData-only image contrast ``(min, max)`` for the Inspect cube.
+    Defaults to the coarsest pyramid level's 1st percentile and max.
 
 Notes
 -----

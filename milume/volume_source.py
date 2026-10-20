@@ -44,6 +44,11 @@ def _level0(element: Any):
 
 
 def image_contrast_limits(element: Any) -> tuple[float, float]:
+    """Default Inspect contrast ``(p1, max)`` of the coarsest pyramid level.
+
+    The coarsest level already compresses the dynamic range, so its max is the
+    upper limit; a high percentile there clips bright tissue to white.
+    """
     from .volume_cube import DEFAULT_CONTRAST_LIMITS
 
     levels = [next(iter(element[k].values())) for k in element.children] if hasattr(element, "children") else []
@@ -54,9 +59,9 @@ def image_contrast_limits(element: Any) -> tuple[float, float]:
     values = values[np.isfinite(values)]
     if not values.size:
         return DEFAULT_CONTRAST_LIMITS
-    lo, hi = (float(v) for v in np.percentile(values, [1, 99.5]))
+    lo, hi = float(np.percentile(values, 1)), float(values.max())
     if hi <= lo:
-        hi = max(float(values.max()), lo + 1.0)
+        hi = lo + 1.0
     return lo, hi
 
 
