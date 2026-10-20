@@ -37,6 +37,7 @@ demo = [
     "igraph>=0.11",
     "marimo>=0.25.1",
     "scanpy>=1.10",
+    "squidpy>=1.6",
     "spatialdata-io; python_version >= '3.12'",
 ]
 test = [
@@ -59,9 +60,11 @@ dev = [
     "mkdocstrings-python>=2.0.9",
     "pytest>=8.3.3",
     "ruff>=0.16.6",
+    "scanpy>=1.10",
     "shapely>=2.1.2",
     "spatialdata>=0.2",
     "spatialdata-io; python_version >= '3.12'",
+    "squidpy>=1.6",
     "watchfiles>=1.2.0",
     "zensical>=0.0.69",
 ]
