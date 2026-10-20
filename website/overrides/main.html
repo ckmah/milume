@@ -29,7 +29,7 @@
 {% block extrahead %}
   {{ super() }}
   {% set home = config.extra.homepage | d("https://ckmah.github.io/milume/", true) %}
-  {% set card = home ~ "assets/milume-social-card-v7.png" %}
+  {% set card = home ~ "assets/milume-social-card-v8.png" %}
   {% if page and (page.is_homepage or page.url in ["", "./", "index.html"]) %}
     {% set og_title = "milume: Explore spatial biology in your notebook." %}
   {% elif page and page.title %}
