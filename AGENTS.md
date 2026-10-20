@@ -51,6 +51,10 @@ Needs a green `gate` check and a conflict-free non-draft PR. Squash, delete the 
 - Verification failed, or passing would require inventing UI/tests with no real product surface
 - A stacked PR whose ancestor is not yet merged and verified
 
+## Releases
+
+Follow [`docs/publishing.md`](docs/publishing.md). Before asking Clarence to test a release branch, run `scripts/release-demo-check.sh` on it (fresh venv, release build, demo notebook headless) and report its `PASS` output. Never tag or publish without Clarence's own confirmation that he tested locally.
+
 ## Product scope
 
 Imaging and single-molecule resolved platforms; expand live landmarks chrome. Not Visium HD or spot-parity UX. Design from `DESIGN.md` plus the harness, not speculative overview mockups.
