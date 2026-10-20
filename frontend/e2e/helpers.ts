@@ -1,11 +1,8 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-/** Linux CI + local Linux compare snapshots; Mac soft-skips unless forced. */
+/** Snapshot asserts run only with E2E_SCREENSHOTS=1, as on CI's update and UI evidence runs. */
 export function screenshotsEnabled(): boolean {
-  if (process.env.E2E_SCREENSHOTS === "0") return false;
-  if (process.env.E2E_SCREENSHOTS === "1") return true;
-  if (process.env.CI) return false;
-  return process.platform === "linux";
+  return process.env.E2E_SCREENSHOTS === "1";
 }
 
 export async function waitForEngine(page: Page, settleMs = 400) {
@@ -93,7 +90,7 @@ export async function shot(page: Page, name: string, target?: Locator) {
   if (!screenshotsEnabled()) {
     test.info().annotations.push({
       type: "note",
-      description: `Skipped screenshot "${name}" (set E2E_SCREENSHOTS=1 or run on Linux/CI)`,
+      description: `Skipped screenshot "${name}" (set E2E_SCREENSHOTS=1)`,
     });
     return;
   }
