@@ -5,7 +5,7 @@ import { VolumeView } from "@hms-dbmi/viv";
 
 import type { PreBox } from "./cut-faces";
 import { CubeVolumeLayer } from "./image-volume";
-import { type PlacedCellMesh, cellMeshLayers } from "./cell-mesh";
+import { MeshTarget, type PlacedCellMesh, cellMeshLayers } from "./cell-mesh";
 import { type PlacedScatterPoint, scatterPointLayers } from "./cube-points";
 import { type PlacedOverlays, overlayLayers, vivTag } from "./overlay-layers";
 
@@ -170,6 +170,7 @@ export function cutFrameLayers(box: PreBox | null | undefined, modelMatrix: Matr
 /** Viv's VolumeView plus the frame, so both share one deck and one camera. */
 export class FramedVolumeView extends VolumeView {
   private readonly controller: boolean;
+  private readonly meshTarget = new MeshTarget();
 
   /** Viv's VolumeView always makes a controller; `controller: false` fixes the camera. */
   constructor({ controller = true, ...args }: { controller?: boolean } & ConstructorParameters<typeof VolumeView>[0]) {
@@ -188,7 +189,11 @@ export class FramedVolumeView extends VolumeView {
     // Viv's VolumeView.getLayers, with the cube's VolumeLayer (the image at its
     // own dtype, image-volume.ts) under Viv's own layer id.
     const loader = props.loader as { type?: string };
-    const layers = [new CubeVolumeLayer(props, { id: `${loader.type}${vivTag(id)}` })];
+    // The meshes render offscreen first; the raycast composites them by depth.
+    const layers = [
+      ...cellMeshLayers(props.cubeCellMesh as PlacedCellMesh | null, this.meshTarget, id),
+      new CubeVolumeLayer({ ...props, cubeMeshTarget: this.meshTarget }, { id: `${loader.type}${vivTag(id)}` }),
+    ];
     const frame = props.cubeFrame as CubeFrame | undefined;
     // The frame marks the requested window: it keeps its place while a loaded
     // window pans under it (`frameMatrix`), and otherwise shares the volume's.
@@ -198,10 +203,7 @@ export class FramedVolumeView extends VolumeView {
     const overlays = props.cubeOverlays as PlacedOverlays | null | undefined;
     const scatter = props.cubeScatterPoints as PlacedScatterPoint[] | null | undefined;
     const extra = overlays ? overlayLayers(overlays, frameMatrix, id) : [];
-    const scatterLayers = [
-      ...(scatter?.length ? scatterPointLayers(scatter, volumeMatrix, id) : []),
-      ...cellMeshLayers(props.cubeCellMesh as PlacedCellMesh | null, id),
-    ];
+    const scatterLayers = scatter?.length ? scatterPointLayers(scatter, volumeMatrix, id) : [];
     if (!frame) return [...layers, ...scatterLayers, ...extra];
     // Scatter points sit inside the volume; overlays go over the frame's lines.
     const [lines, labels] = frameLayers(frame, frameMatrix, id);

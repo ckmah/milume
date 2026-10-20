@@ -1,6 +1,13 @@
 # Changelog
 
-## 1.4.0 (unreleased)
+## 2.0.1 (unreleased)
+
+### Docs: Squidpy color recipes
+
+- [Integrations / Squidpy color](https://ckmah.github.io/milume/docs/integrations/squidpy-color/) documents `sq.gr.calculate_niche` → `w.color = nhood_niche_res=<resolution>` and Moran's I top gene → `w.color`, with harness screenshots.
+- The [use-milume](.agents/skills/use-milume/SKILL.md) skill lists the same recipes; optional pytest coverage lives in `tests/test_squidpy_color_recipes.py` when `squidpy` is installed.
+
+## 2.0.0 (2026-10-19)
 
 Breaking: no deprecation release.
 
@@ -10,7 +17,7 @@ Breaking: no deprecation release.
 
 Migration:
 
-| 1.3.x | 1.4.0 |
+| 1.3.x | 2.0.0 |
 |---|---|
 | `w.set_color(adata.obs["cell_type"])` | `w.color = "cell_type"` |
 | `w.set_color(gene_values, legend_title="APOB")` | `w.color = "APOB"` |
@@ -26,7 +33,7 @@ Custom category colours still come from `adata.uns["<column>_colors"]`.
 
 Migration:
 
-| 1.3.x | 1.4.0 |
+| 1.3.x | 2.0.0 |
 |---|---|
 | `w.get_obs_names(adata, sel_id)` / `w.get_obs_names(selection_id=sel_id)` | `w.get_obs_names(sel_id)` |
 | `w.get_obs_names(adata, "missing")` returned an empty array | raises `KeyError` |
@@ -60,7 +67,7 @@ The Inspect cube draws each cell as a 3D mesh lofted in the browser from the sto
 
 Migration:
 
-| 1.3.x | 1.4.0 |
+| 1.3.x | 2.0.0 |
 |---|---|
 | `milume.peek(sdata, labels="cells")` / `LandmarksWidget(..., labels=)` | `shapes="cell_boundaries_z"` (a shapes element with `cell_id` and `Z_um`) |
 | `w.volume["labels_url"]` | `w.volume["cells"]` → `{url, bytes}` for the polygon parquet |
@@ -68,9 +75,46 @@ Migration:
 
 Stores without per-slice cell polygons (e.g. Xenium / CosMx) open Inspect image-only, with no cells; 2D image plus polygon rendering is tracked in [#122](https://github.com/ckmah/milume/issues/122). With several 3D images, pass `image=` to pick one.
 
-## 1.4.1 (unreleased)
+### Inspect cube: cell meshes composited by depth
 
-### Docs: Squidpy color recipes
+- Cell meshes sit inside the image by depth instead of drawing over it ([#228](https://github.com/ckmah/milume/pull/228)): image in front of a cell (DAPI above a cell wall) shows in front of it, image behind it shows through the cell's opacity. Per pixel, the nearest cell's front and back walls are drawn; cells behind them are hidden there. In MIP mode the meshes draw over the projection.
+- Default mesh `fresnelMin` is 0.35 (was 0.15); opacity stays 0.9.
 
-- [Integrations / Squidpy color](https://ckmah.github.io/milume/docs/integrations/squidpy-color/) documents `sq.gr.calculate_niche` → `w.color = nhood_niche_res=<resolution>` and Moran's I top gene → `w.color`, with harness screenshots.
-- The [use-milume](.agents/skills/use-milume/SKILL.md) skill lists the same recipes; optional pytest coverage lives in `tests/test_squidpy_color_recipes.py` when `squidpy` is installed.
+### Inspect minimap
+
+- The Inspect view has a minimap ([#226](https://github.com/ckmah/milume/pull/226) `inspect-minimap-218`). Click or drag on it to move the cube; the mouse wheel does nothing over it. It is lazy-loaded, so it costs nothing until Inspect opens.
+- The minimap's active region (the 2D viewport rectangle and the Inspect window square) is drawn with square corners; it no longer rounds to a near-circle when zoomed in ([#232](https://github.com/ckmah/milume/pull/232) `minimap-square-region`).
+
+### Merged pull requests (since [v1.3.5](https://github.com/ckmah/milume/releases/tag/v1.3.5))
+
+- [#178](https://github.com/ckmah/milume/pull/178) — docs: readable API reference for milume 1.3.5
+- [#180](https://github.com/ckmah/milume/pull/180) — Add Cloudflare Web Analytics beacon to Pages site
+- [#181](https://github.com/ckmah/milume/pull/181) — Fix landing beacon inject ignoring explicit empty token
+- [#183](https://github.com/ckmah/milume/pull/183) — Copy: spatial biology tagline + Star on GitHub navbar CTA
+- [#184](https://github.com/ckmah/milume/pull/184) / [#185](https://github.com/ckmah/milume/pull/185) — Copy: headline Explore spatial biology in your notebook + 3D subtitle
+- [#186](https://github.com/ckmah/milume/pull/186) — Docs: ROADMAP headline
+- [#187](https://github.com/ckmah/milume/pull/187) — Docs: Tools & modes index, page template, and Navigate page
+- [#188](https://github.com/ckmah/milume/pull/188) — Docs: Select regions page (Tools & modes)
+- [#189](https://github.com/ckmah/milume/pull/189) — Docs: Landmarks page (Tools & modes)
+- [#190](https://github.com/ckmah/milume/pull/190) — Docs: Color & layers page (Tools & modes)
+- [#191](https://github.com/ckmah/milume/pull/191) — Docs: Probe and Measure pages (Tools & modes)
+- [#192](https://github.com/ckmah/milume/pull/192) — Docs: Inspect in 3D page (Tools & modes)
+- [#193](https://github.com/ckmah/milume/pull/193) — Docs: fix related-tools card links; lychee link check on Pages build
+- [#194](https://github.com/ckmah/milume/pull/194) — Docs: Tools & modes visuals (Inspect points off, DOM callouts, cursor in loops)
+- [#195](https://github.com/ckmah/milume/pull/195) — Docs: Inspect loops with visible cursor (dark-only)
+- [#196](https://github.com/ckmah/milume/pull/196) / [#198](https://github.com/ckmah/milume/pull/198) — e2e: undo molab helper DOM on the shared worker page
+- [#197](https://github.com/ckmah/milume/pull/197) / [#199](https://github.com/ckmah/milume/pull/199) — fix(volume-cube): apply cube host resize without a frame of lag
+- [#200](https://github.com/ckmah/milume/pull/200) / [#204](https://github.com/ckmah/milume/pull/204) / [#210](https://github.com/ckmah/milume/pull/210) — e2e: trim slow Inspect cube gesture tests; Python-seed pan clamp, Save, Z-only cut
+- [#201](https://github.com/ckmah/milume/pull/201) — Docs: Inspect media with labels at the 0.4 default
+- [#208](https://github.com/ckmah/milume/pull/208) — Public-trait registry + `w.color = key` (breaking)
+- [#211](https://github.com/ckmah/milume/pull/211) — Breaking `get_obs_names(region) -> pd.Index` (breaking)
+- [#213](https://github.com/ckmah/milume/pull/213) — e2e: seed setup-only state from Python instead of gestures
+- [#214](https://github.com/ckmah/milume/pull/214) — Drop marimo/molab e2e tests and marimo verification rules
+- [#216](https://github.com/ckmah/milume/pull/216) — Add use-milume skill; generate API docs from `_PUBLIC_TRAITS`
+- [#217](https://github.com/ckmah/milume/pull/217) — Open, move and close the Inspect cube from Python (`inspect_open`)
+- [#220](https://github.com/ckmah/milume/pull/220) — Inspect: cell meshes from per-slice polygons replace the label image (breaking)
+- [#222](https://github.com/ckmah/milume/pull/222) — Docs site: Open Graph / Twitter link-preview tags + social card
+- [#223](https://github.com/ckmah/milume/pull/223) — Social card v3: active Inspect cube (Iso) with cell meshes on colon crypts
+- [#228](https://github.com/ckmah/milume/pull/228) — Inspect: composite cell meshes inside the image raycast by depth
+- [#226](https://github.com/ckmah/milume/pull/226) — Inspect: minimap overlay while the cube is open (#218)
+- [#232](https://github.com/ckmah/milume/pull/232) — Minimap: draw the active region with square corners

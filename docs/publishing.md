@@ -17,6 +17,24 @@ One-time setup (trusted publishing — no API tokens in GitHub secrets):
 
 ## Release flow
 
+0. **Before asking Clarence to test the release branch:** in a fresh venv with the
+   release-branch build, run the in-repo demo notebook headless and confirm every cell
+   runs with no errors and the widget renders. From a checkout of the release branch:
+
+```bash
+scripts/release-demo-check.sh demos/landmarks.py
+```
+
+   It builds the frontend and wheel (as `publish.yml` does), installs the wheel plus the
+   notebook's PEP 723 dependencies (minus `milume`) into a fresh venv, runs
+   `marimo export html demos/landmarks.py`, and prints `PASS` only when marimo exits 0, no
+   cell has an error output or traceback, and a `LandmarksWidget` model with its ESM is
+   in the export. Report the cell count, error count and widget line with the head SHA.
+   Don't test with `pip install "milume @ git+https://…"`: `milume/static/bundled/` is
+   gitignored, so that install has no widget bundle and `import milume` fails. Don't use
+   `uv run` / `marimo edit --sandbox` on the demo either; its header resolves `milume`
+   from PyPI, not the release branch.
+
 1. Dry run on TestPyPI first: Actions → **Publish (TestPyPI)** → Run workflow, then:
 
 ```bash

@@ -5,6 +5,7 @@
     "frontend/src/widgets/landmarks/chrome/inspect-toolbar.tsx",
     "frontend/src/widgets/landmarks/chrome/cube-immersive.tsx",
     "frontend/e2e/landmarks/landmarks-volume-smoke.spec.ts",
+    "frontend/e2e/landmarks/landmarks-inspect-minimap.spec.ts",
     "milume/volume_cube.py"
   ],
   "marimo_api": [

@@ -7,10 +7,10 @@ const webServerCommands: Record<string, string> = {
   "landmarks-volume":
     "npm run dev:landmarks-volume -- --host 127.0.0.1 --port 5173 --strictPort",
 };
-// The inspect cube redraws a ray-marched volume (image and labels) per frame; on the
-// CI SwiftShader runner one frame of an orbit or cut drag can take over a second.
-const volumeOnCi = harness === "landmarks-volume" && Boolean(process.env.CI);
-const volumeSmoke = volumeOnCi && process.env.E2E_SMOKE === "1";
+// The inspect cube redraws a ray-marched volume (image and labels) per frame; on
+// SwiftShader one frame of an orbit or cut drag can take over a second.
+const volume = harness === "landmarks-volume";
+const volumeSmoke = volume && process.env.E2E_SMOKE === "1";
 const smokeSpec = "**/landmarks-volume-smoke.spec.ts";
 const webServerCommand =
   webServerCommands[harness] ?? webServerCommands.landmarks;
@@ -20,7 +20,7 @@ const webServerCommand =
 const useGpu = process.platform === "darwin" && !process.env.CI && process.env.E2E_GPU !== "0";
 const gpuArgs = useGpu ? ["--use-angle=metal", "--use-gl=angle", "--ignore-gpu-blocklist", "--enable-gpu"] : [];
 
-/** Canonical visual snapshots: Linux Chromium (CI). Mac soft-skips unless E2E_SCREENSHOTS=1. */
+/** Canonical visual snapshots: Linux Chromium (CI). Screenshot asserts run only with E2E_SCREENSHOTS=1. */
 export default defineConfig({
   testDir: "./e2e",
   // The inspect-cube spec needs the toy SpatialData served by its own harness.
@@ -29,10 +29,16 @@ export default defineConfig({
       ? process.env.E2E_SMOKE === "1"
         ? ["**/hero-webgl.spec.ts", "**/landmarks-volume.spec.ts", "**/marimo/**"]
         : ["**/hero-webgl.spec.ts", smokeSpec, "**/marimo/**"]
-      : ["**/landmarks-volume.spec.ts", smokeSpec, "**/hero-webgl.spec.ts", "**/marimo/**"],
-  timeout: volumeSmoke ? 90_000 : volumeOnCi ? 240_000 : 90_000,
+      : [
+          "**/landmarks-volume.spec.ts",
+          "**/landmarks-inspect-minimap.spec.ts",
+          smokeSpec,
+          "**/hero-webgl.spec.ts",
+          "**/marimo/**",
+        ],
+  timeout: volume && !volumeSmoke ? 240_000 : 90_000,
   expect: {
-    timeout: volumeOnCi ? 30_000 : 15_000,
+    timeout: volume ? 30_000 : 15_000,
     toHaveScreenshot: {
       maxDiffPixelRatio: 0.02,
       animations: "disabled",
@@ -40,7 +46,7 @@ export default defineConfig({
   },
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: Number(process.env.E2E_RETRIES ?? (process.env.CI ? 1 : 0)),
+  retries: Number(process.env.E2E_RETRIES ?? 1),
   workers: Number(process.env.E2E_WORKERS ?? (process.env.CI ? 2 : 4)),
   reporter: process.env.CI
     ? [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]]

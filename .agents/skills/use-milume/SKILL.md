@@ -11,7 +11,7 @@ description: >-
 
 # use-milume
 
-Notebook API for `milume` 1.4+. Only the entries listed under
+Notebook API for `milume` 2.0+. Only the entries listed under
 [Public API](#public-api) are supported; every other synced trait is internal
 and can change without notice.
 
