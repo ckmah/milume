@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.4.0 (2026-10-19)
+## 2.0.0 (2026-10-19)
 
 Breaking: no deprecation release.
 
@@ -10,7 +10,7 @@ Breaking: no deprecation release.
 
 Migration:
 
-| 1.3.x | 1.4.0 |
+| 1.3.x | 2.0.0 |
 |---|---|
 | `w.set_color(adata.obs["cell_type"])` | `w.color = "cell_type"` |
 | `w.set_color(gene_values, legend_title="APOB")` | `w.color = "APOB"` |
@@ -26,7 +26,7 @@ Custom category colours still come from `adata.uns["<column>_colors"]`.
 
 Migration:
 
-| 1.3.x | 1.4.0 |
+| 1.3.x | 2.0.0 |
 |---|---|
 | `w.get_obs_names(adata, sel_id)` / `w.get_obs_names(selection_id=sel_id)` | `w.get_obs_names(sel_id)` |
 | `w.get_obs_names(adata, "missing")` returned an empty array | raises `KeyError` |
@@ -60,7 +60,7 @@ The Inspect cube draws each cell as a 3D mesh lofted in the browser from the sto
 
 Migration:
 
-| 1.3.x | 1.4.0 |
+| 1.3.x | 2.0.0 |
 |---|---|
 | `milume.peek(sdata, labels="cells")` / `LandmarksWidget(..., labels=)` | `shapes="cell_boundaries_z"` (a shapes element with `cell_id` and `Z_um`) |
 | `w.volume["labels_url"]` | `w.volume["cells"]` → `{url, bytes}` for the polygon parquet |
