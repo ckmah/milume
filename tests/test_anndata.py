@@ -46,7 +46,7 @@ def test_constructor_uses_uns_colors_and_packs_requested_genes():
     assert w.legend_title == "cell_type"
     assert w.legend_labels == ["a", "b", "c"]
     assert w.point_palette == ["#111111", "#222222", "#333333"]
-    assert [g["name"] for g in w.gene_columns] == ["g1"]
+    assert [g["name"] for g in w.gene_names] == ["g1"]
     assert w.gene_csc_data
 
 

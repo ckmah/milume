@@ -22,7 +22,7 @@ function base64Bytes(b64: string): number {
  * fixtures carry dense col-major ``gene_values``; newer ones the CSC traits.
  */
 function kernelGenes(state: Record<string, unknown>): Map<string, KernelGene> {
-  const meta = (state.gene_columns as Array<{ name: string; vmin?: number; vmax?: number }>) ?? [];
+  const meta = (state.gene_names as Array<{ name: string; vmin?: number; vmax?: number }>) ?? [];
   const n = Math.floor(base64Bytes(String(state.points_data ?? "")) / 16);
   const out = new Map<string, KernelGene>();
   const put = (j: number, rows: Int32Array, values: Float32Array) => {
@@ -71,12 +71,12 @@ export function createMockModel(
   const genesKernel = kernelGenes(state);
   const geneRequests: string[][] = [];
   if (!eagerGenes) {
-    state.gene_columns = ((state.gene_columns as Array<{ name: string }>) ?? []).map((g) => ({ name: g.name }));
+    state.gene_names = ((state.gene_names as Array<{ name: string }>) ?? []).map((g) => ({ name: g.name }));
     state.gene_csc_indptr = "";
     state.gene_csc_indices = "";
     state.gene_csc_data = "";
   } else if (!state.gene_csc_indptr && genesKernel.size) {
-    const meta = (state.gene_columns as Array<{ name: string }>) ?? [];
+    const meta = (state.gene_names as Array<{ name: string }>) ?? [];
     const slices = meta.map((m) => genesKernel.get(m.name));
     const indptr = new Int32Array(meta.length + 1);
     slices.forEach((g, j) => (indptr[j + 1] = indptr[j]! + (g?.rows.length ?? 0)));
@@ -160,7 +160,7 @@ export function createMockModel(
       return [{ ok: false, status: 400, error: "names must list 1 to 16 gene names" }, []];
     }
     if (hook?.fail) return [{ ok: false, status: 500, error: "_gene_get failed (injected)" }, []];
-    const known = new Set(((state.gene_columns as Array<{ name: string }>) ?? []).map((g) => g.name));
+    const known = new Set(((state.gene_names as Array<{ name: string }>) ?? []).map((g) => g.name));
     const unknown = names.filter((n) => !known.has(String(n)));
     if (unknown.length) return [{ ok: false, status: 404, error: `not in the gene catalog: ${unknown}` }, []];
     geneRequests.push(names.map(String));

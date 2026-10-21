@@ -25,7 +25,7 @@ FIXTURE_KEYS = [
     "landmarks",
     "category_columns",
     "active_category",
-    "gene_columns",
+    "gene_names",
     "gene_csc_indptr",
     "gene_csc_indices",
     "gene_csc_data",

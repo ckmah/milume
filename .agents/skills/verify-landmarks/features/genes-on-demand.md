@@ -11,7 +11,7 @@ first coloured, into a byte-budgeted LRU; 4–8 genes colour by one aggregate (i
 
 ## Proof
 
-- Boot: `gene_columns` entries are `{name}` only, `gene_csc_data` is empty, `__geneRequests()` is `[]`.
+- Boot: `gene_names` entries are `{name}` only, `gene_csc_data` is empty, `__geneRequests()` is `[]`.
 - One gene picked: one request, `getGeneStats().denseColumns === 1`, point colours change.
 - Five genes: `genes-aggregate` shows Mean / Median / Max; each changes point colours on one magenta ramp.
 - No whole-matrix densify: after 18 genes cycled three at a time, `denseColumns === 3`.

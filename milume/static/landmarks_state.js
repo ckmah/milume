@@ -87,7 +87,7 @@ export function selectTypeIndex(model, labelIndex, { additive = false } = {}) {
 }
 
 export function setActiveGenes(model, names) {
-  const geneCols = model.get("gene_columns") || [];
+  const geneCols = model.get("gene_names") || [];
   const known = new Set(geneCols.map((g) => g.name));
   const next = [];
   for (const name of names || []) {

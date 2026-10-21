@@ -45,7 +45,7 @@ async function pickGene(page: Page, name: string) {
 
 async function catalog(page: Page) {
   return page.evaluate(() =>
-    ((window as any).__landmarksModel.get("gene_columns") as { name: string }[]).map((g) => g.name),
+    ((window as any).__landmarksModel.get("gene_names") as { name: string }[]).map((g) => g.name),
   );
 }
 
@@ -55,7 +55,7 @@ test.describe("Landmarks lazy genes", () => {
   });
 
   test("opens with a names-only catalog and fetches nothing until a gene is coloured", async ({ page }) => {
-    const cols = await getModel(page, "gene_columns");
+    const cols = await getModel(page, "gene_names");
     expect(cols.length).toBeGreaterThan(100);
     expect(cols.every((g: object) => Object.keys(g).join() === "name")).toBe(true);
     expect(await getModel(page, "gene_csc_data")).toBe("");

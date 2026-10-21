@@ -18,7 +18,7 @@
     }
   ],
   "active_category": "cell_type",
-  "gene_columns": [
+  "gene_names": [
     {
       "name": "0",
       "vmin": 1.0,

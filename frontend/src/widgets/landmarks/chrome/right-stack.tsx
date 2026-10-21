@@ -113,7 +113,7 @@ export function RightChromeStack({
                 <CategoriesControls lm={lm} signal={colorBy} />
               </TabsContent>
               <TabsContent value="genes" className="m-0 flex-none">
-                {lm.gene_columns.length ? (
+                {lm.gene_names.length ? (
                   <GenesCombobox lm={lm} />
                 ) : (
                   <FieldDescription>
