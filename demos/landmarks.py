@@ -6,7 +6,7 @@
 #     "leidenalg>=0.10",
 #     "marimo>=0.25.1",
 #     "marimo-lens",
-#     "milume>=1.2.0",
+#     "milume @ https://github.com/ckmah/milume/releases/download/preview-feat-lazy-genes/milume-0.0.0.dev0-py3-none-any.whl",
 #     "scanpy>=1.10",
 #     "spatialdata>=0.2",
 #     "spatialdata-io @ git+https://github.com/ckmah/spatialdata-io@pyxa-reader",
