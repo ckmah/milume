@@ -74,6 +74,7 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_DRAFT: ${{ github.event.pull_request.draft }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
           CHANGED_FILES: ${{ steps.paths.outputs.paths }}
         run: node scripts/check-pr-policy.mjs --issue-bodies-file ../issue-bodies.json --draft "$PR_DRAFT"
 
