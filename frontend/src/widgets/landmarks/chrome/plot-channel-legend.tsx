@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-import { GENE_COLORS, blendHex } from "../helpers";
+import { GENE_COLORS, blendHex, geneColor } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { colorSignal } from "./coloring";
 import { cubeCornerLabel } from "./rgb-cube";
@@ -66,7 +66,7 @@ function GenesPlotLegend({ lm }: { lm: LandmarksModel }) {
   const selected = lm.active_genes || [];
   if (colorSignal(lm) !== "genes" || !selected.length) return null;
 
-  if (selected.length >= 3) {
+  if (selected.length === GENE_COLORS.length) {
     return (
       <LegendAnchor testId="genes-channel-legend" interactive>
         <RgbCubeLegend labels={selected.slice(0, 3)} labelMode="name" />
@@ -74,7 +74,7 @@ function GenesPlotLegend({ lm }: { lm: LandmarksModel }) {
     );
   }
 
-  const colors = selected.map((_, i) => GENE_COLORS[i % GENE_COLORS.length]);
+  const colors = selected.length > GENE_COLORS.length ? [geneColor(0, selected.length)] : selected.map((_, i) => geneColor(i, selected.length));
   return (
     <LegendAnchor testId="genes-channel-legend">
       <VerticalChannelBar colors={colors} />

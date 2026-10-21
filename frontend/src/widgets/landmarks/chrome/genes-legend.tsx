@@ -14,11 +14,14 @@ import {
   ComboboxValue,
   useComboboxAnchor,
 } from "@/components/ui/combobox";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import { GENE_COLORS, MAX_ACTIVE_GENES } from "../helpers";
+import { GENE_AGGREGATES, type GeneAggregate } from "../gene-store.js";
+import { GENE_COLORS, MAX_ACTIVE_GENES, geneColor } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { colorSignal } from "./coloring";
 import { CHIP_CLASS, ChromeTooltip, ColorSwatch } from "./primitives";
@@ -39,6 +42,52 @@ function ScaleInfoTip({ label }: { label: string }) {
         <InfoIcon />
       </Button>
     </ChromeTooltip>
+  );
+}
+
+function geneSwatch(index: number, count: number): string | undefined {
+  return index < 0 ? undefined : geneColor(index, count);
+}
+
+const AGGREGATE_LABEL: Record<GeneAggregate, string> = { mean: "Mean", median: "Median", max: "Max" };
+
+/** 4+ genes: pick how the selected genes' normalized values combine per cell. */
+function GenesAggregateControl({ lm }: { lm: LandmarksModel }) {
+  const count = lm.active_genes?.length || 0;
+  if (count <= GENE_COLORS.length) return null;
+  return (
+    <div className="flex flex-col gap-1 text-xs text-foreground" data-testid="genes-aggregate">
+      <Label className="text-xs font-normal">Combine {count} genes</Label>
+      <ToggleGroup
+        type="single"
+        size="sm"
+        spacing={1}
+        aria-label="Combine selected genes"
+        className="w-full gap-0.5"
+        value={lm.genes.aggregate}
+        onValueChange={(v) => v && lm.setGeneAggregate(v as GeneAggregate)}
+      >
+        {GENE_AGGREGATES.map((mode) => (
+          <ToggleGroupItem key={mode} value={mode} className="h-6 flex-1 px-2 text-[11px]" data-testid={`genes-aggregate-${mode}`}>
+            {AGGREGATE_LABEL[mode]}
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    </div>
+  );
+}
+
+/** Loading / failure line for genes still arriving from the kernel. */
+function GenesLoadStatus({ lm }: { lm: LandmarksModel }) {
+  const selected = lm.active_genes || [];
+  const pending = lm.genes.pending().filter((n) => selected.includes(n));
+  const failed = selected.filter((n) => lm.genes.error(n));
+  if (!pending.length && !failed.length) return null;
+  return (
+    <p className="text-[11px] text-muted-foreground" data-testid="genes-load-status" role="status">
+      {pending.length ? `Loading ${pending.length === 1 ? pending[0] : `${pending.length} genes`}…` : null}
+      {failed.length ? ` Couldn't load ${failed.join(", ")}: ${lm.genes.error(failed[0]!)}` : null}
+    </p>
   );
 }
 
@@ -117,7 +166,7 @@ export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
             <ComboboxValue>
               {selected.map((name, i) => (
                 <ComboboxChip key={name} className={cn(CHIP_CLASS, "max-w-full gap-1 truncate rounded-md text-[10px]")}>
-                  <ColorSwatch color={GENE_COLORS[i % GENE_COLORS.length]} />
+                  <ColorSwatch color={geneSwatch(i, selected.length)} />
                   {name}
                 </ComboboxChip>
               ))}
@@ -145,13 +194,7 @@ export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
                   disabled={disabled}
                   className="py-1 text-xs"
                 >
-                  <ColorSwatch
-                    color={
-                      selIdx >= 0
-                        ? GENE_COLORS[selIdx % GENE_COLORS.length]
-                        : undefined
-                    }
-                  />
+                  <ColorSwatch color={geneSwatch(selIdx, selected.length)} />
                   {name}
                 </ComboboxItem>
               );
@@ -159,6 +202,8 @@ export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
           </ComboboxList>
         </ComboboxContent>
       </Combobox>
+      <GenesLoadStatus lm={lm} />
+      <GenesAggregateControl lm={lm} />
       <GenesScaleToggles lm={lm} />
     </div>
   );

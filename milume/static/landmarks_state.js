@@ -7,7 +7,7 @@ export const DEFAULT_HOOD = {
 };
 
 /** Keep in sync with frontend helpers MAX_ACTIVE_GENES. */
-export const MAX_ACTIVE_GENES = 3;
+export const MAX_ACTIVE_GENES = 8;
 
 export function withHood(item) {
   return { ...DEFAULT_HOOD, ...item };
