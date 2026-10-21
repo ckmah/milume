@@ -7,7 +7,7 @@ the checks for your diff from [`.github/e2e-tiers.json`](.github/e2e-tiers.json)
 | Rule | Enforced by |
 | ---- | ----------- |
 | Landmarks UI issues have Outcome, Acceptance, and Visual acceptance | [`.github/ISSUE_TEMPLATE/landmarks-ui.yml`](.github/ISSUE_TEMPLATE/landmarks-ui.yml) (required fields); `npm run check:widget-issue`; linked issues when a UI PR says `Closes #N` ([`pr-policy.yml`](.github/workflows/pr-policy.yml)) |
-| UI PRs link the issue they close (`Closes #N` / `Fixes #N` in the body, including drafts) | `npm run check:pr-policy` / [`pr-policy.yml`](.github/workflows/pr-policy.yml) |
+| UI PRs into main link the issue they close (`Closes #N` / `Fixes #N` in the body, including drafts); PRs into a `feat/*` base say `Part of #N` | `npm run check:pr-policy` / [`pr-policy.yml`](.github/workflows/pr-policy.yml) |
 | Ready UI PRs embed screenshots or video in the body (not only Actions artifacts) | `npm run check:pr-policy` / [`pr-policy.yml`](.github/workflows/pr-policy.yml) |
 | Playwright runs on UI changes; artifact pointers posted on PRs | [`frontend-e2e.yml`](.github/workflows/frontend-e2e.yml) `post-ui-evidence-comment` |
 | Widget chrome uses shadcn primitives, scoped CSS, cube-motion channels | `npm run check:chrome` |
