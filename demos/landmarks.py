@@ -98,7 +98,6 @@ def _(Path, pyxa, snapshot_download):
 def _(pyxa_sdata, sc):
     # Exploratory clusters to color by
     adata = pyxa_sdata.tables["rna"]
-    sc.pp.normalize_total(adata)
     sc.pp.log1p(adata)
     sc.pp.pca(adata)
     sc.pp.neighbors(adata)
@@ -110,7 +109,7 @@ def _(pyxa_sdata, sc):
 @app.cell
 def _(Path, pyxa_sdata, sd, tempfile):
     # The inspect cube reads the image from a SpatialData Zarr store on disk.
-    store = Path(tempfile.gettempdir()) / "milume-small.sdata.zarr"
+    store = Path(tempfile.mkdtemp(prefix="milume-")) / "small.sdata.zarr"
     pyxa_sdata.write(store, overwrite=True)
     sdata = sd.read_zarr(store)
     sdata
