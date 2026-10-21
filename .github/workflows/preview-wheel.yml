@@ -1,0 +1,75 @@
+name: Preview wheel
+
+# Each push to a feat/** branch rebuilds milume into the rolling prerelease
+# preview-<branch>, so that branch's demo can install it by URL (#243). The wheel
+# version is fixed at 0.0.0.dev0 so the asset URL never changes between pushes;
+# milume/static/bundled/BUILD records the commit.
+on:
+  push:
+    branches: ["feat/**"]
+  delete:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: preview-wheel-${{ github.event_name == 'delete' && github.event.ref || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.event_name != 'delete'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci && npm run build
+        working-directory: frontend
+
+      - name: Build wheel
+        run: |
+          set -euo pipefail
+          sed -i 's/^version = .*/version = "0.0.0.dev0"/' pyproject.toml
+          sed -i 's/^__version__ = .*/__version__ = "0.0.0.dev0"/' milume/__init__.py
+          echo "$GITHUB_SHA" > milume/static/bundled/BUILD
+          uv build --wheel
+          unzip -l dist/milume-0.0.0.dev0-py3-none-any.whl | grep -E 'milume/static/bundled/(landmarks\.mjs|BUILD)$'
+
+      - name: Publish to the rolling prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          tag="preview-${BRANCH//\//-}"
+          whl=milume-0.0.0.dev0-py3-none-any.whl
+          notes="Preview build of \`${BRANCH}\` at ${GITHUB_SHA} ($(date -u +%Y-%m-%dT%H:%M:%SZ)). Not a release.
+
+          - Wheel: https://github.com/${GITHUB_REPOSITORY}/releases/download/${tag}/${whl}
+          - molab: https://molab.marimo.io/github/${GITHUB_REPOSITORY}/blob/${BRANCH}/demos/landmarks.py
+          - Local: \`uvx marimo edit --sandbox https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${BRANCH}/demos/landmarks.py\`"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release edit "$tag" --notes "$notes"
+          else
+            gh release create "$tag" --prerelease --latest=false --target "$GITHUB_SHA" --title "Preview: ${BRANCH}" --notes "$notes"
+          fi
+          gh release upload "$tag" "dist/${whl}" --clobber
+
+  cleanup:
+    if: github.event_name == 'delete' && github.event.ref_type == 'branch' && startsWith(github.event.ref, 'feat/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete the branch's preview prerelease and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.ref }}
+        run: gh release delete "preview-${BRANCH//\//-}" --cleanup-tag --yes -R "$GITHUB_REPOSITORY" || true
