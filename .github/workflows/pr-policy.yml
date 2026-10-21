@@ -25,6 +25,13 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: node frontend/scripts/check-pr-mergeable.mjs
 
+  demo-pins:
+    if: github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: scripts/check-demo-pins.sh
+
   changes:
     uses: ./.github/workflows/detect-changes.yml
 

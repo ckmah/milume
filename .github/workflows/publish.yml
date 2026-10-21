@@ -39,5 +39,6 @@ jobs:
           test "$TAG" = "$VERSION"
 
       - run: uv run pytest
+      - run: scripts/check-demo-pins.sh
       - run: uv build
       - run: uv publish
