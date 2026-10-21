@@ -96,7 +96,6 @@ def _(Path, pyxa, snapshot_download):
 def _(pyxa_sdata, sc):
     # Exploratory clusters to color by
     adata = pyxa_sdata.tables["rna"]
-    sc.pp.normalize_total(adata)
     sc.pp.log1p(adata)
     sc.pp.pca(adata)
     sc.pp.neighbors(adata)
