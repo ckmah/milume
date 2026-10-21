@@ -40,13 +40,15 @@ export function hasVisualEvidence(text) {
 }
 
 /**
- * @param {{ changedPaths: string[], body: string, isDraft: boolean, issueBodies?: Record<number, string> }}
+ * Closing keywords only fire on the default branch, so PRs into a long-lived
+ * branch (e.g. feat/*) say "Part of #N" and skip that rule. `baseRef` defaults to main.
+ * @param {{ changedPaths: string[], body: string, isDraft: boolean, issueBodies?: Record<number, string>, baseRef?: string }}
  */
-export function validateUiPullRequest({ changedPaths, body, isDraft, issueBodies = {} }) {
+export function validateUiPullRequest({ changedPaths, body, isDraft, issueBodies = {}, baseRef = "main" }) {
   const errors = [];
   if (!isUiPullRequest(changedPaths)) return errors;
 
-  if (!hasClosingKeyword(body)) {
+  if (baseRef === "main" && !hasClosingKeyword(body)) {
     errors.push(
       'UI pull request body must include "Closes #N" or "Fixes #N" (title-only references do not auto-close issues)',
     );
