@@ -136,8 +136,8 @@ function GenesScaleToggles({ lm }: { lm: LandmarksModel }) {
 }
 
 export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
-  const { gene_columns, active_genes } = lm;
-  const names = gene_columns.map((g) => g.name);
+  const { gene_names, active_genes } = lm;
+  const names = gene_names.map((g) => g.name);
   const selected = active_genes || [];
   const atMax = selected.length >= MAX_ACTIVE_GENES;
   const [wrapRef, portalEl] = useWidgetPortalContainer();

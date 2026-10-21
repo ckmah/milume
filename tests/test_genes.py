@@ -21,7 +21,7 @@ def _widget(**kwargs):
 
 def test_requested_genes_are_packed_normalised_per_gene():
     w = _widget(genes=["Apob", "Lgr5"])
-    assert [g["name"] for g in w.gene_columns] == ["Apob", "Lgr5"]
+    assert [g["name"] for g in w.gene_names] == ["Apob", "Lgr5"]
     assert w.active_genes == []
     assert w.color_mode == "categorical"
     for column in _decode_payload(_payload(w), 4, 2).T:
@@ -35,14 +35,14 @@ def test_requested_genes_are_packed_normalised_per_gene():
 )
 def test_genes_argument_selects_the_catalog(genes, expected):
     kwargs = {} if genes is None else {"genes": genes}
-    assert [g["name"] for g in _widget(**kwargs).gene_columns] == expected
+    assert [g["name"] for g in _widget(**kwargs).gene_names] == expected
 
 
 def test_set_expression_replaces_the_gene_catalog():
     w = _widget(genes=["Apob", "Lgr5"])
     w.active_genes = ["Apob", "Lgr5"]
     w.set_expression({"Lgr5": [0.0, 0.0, 0.5, 1.0]})
-    assert [g["name"] for g in w.gene_columns] == ["Lgr5"]
+    assert [g["name"] for g in w.gene_names] == ["Lgr5"]
     assert w.active_genes == ["Lgr5"]
     with pytest.raises(ValueError, match="n_points"):
         w.set_expression({"Lgr5": [0.0, 1.0]})
@@ -250,8 +250,8 @@ def test_default_construct_sends_names_only():
     import json
 
     adata, w = _sparse_widget(20_000, 2_000, 0.1)
-    assert [g["name"] for g in w.gene_columns] == list(adata.var_names)
-    assert all(set(g) == {"name"} for g in w.gene_columns)
+    assert [g["name"] for g in w.gene_names] == list(adata.var_names)
+    assert all(set(g) == {"name"} for g in w.gene_names)
     assert (w.gene_csc_indptr, w.gene_csc_indices, w.gene_csc_data) == ("", "", "")
     # The eager pack would be ~32 MiB; comm-open carries points + names only.
     state = w.get_state()
@@ -310,8 +310,8 @@ def test_colour_by_a_lazy_gene_sets_its_range():
 
 def test_genes_allowlist_is_packed_eagerly():
     adata, w = _sparse_widget(2_000, 30, 0.1, genes=["g2", "g9"])
-    assert [g["name"] for g in w.gene_columns] == ["g2", "g9"]
-    assert all({"vmin", "vmax"} <= set(g) for g in w.gene_columns)
+    assert [g["name"] for g in w.gene_names] == ["g2", "g9"]
+    assert all({"vmin", "vmax"} <= set(g) for g in w.gene_names)
     packed = _decode_payload(_payload(w), 2_000, 2)
     resp, buffers = w._gene_get({"names": ["g2", "g9"]}, [])
     rows = np.frombuffer(buffers[0], dtype=np.int32)
@@ -334,7 +334,7 @@ def test_oversized_allowlist_falls_back_to_on_demand(monkeypatch):
         _, w = _sparse_widget(2_000, 30, 0.1, genes=["g2", "g9", "g11"])
     msgs = [str(x.message) for x in caught if issubclass(x.category, UserWarning)]
     assert len(msgs) == 1 and "eager limit" in msgs[0] and "genes=" in msgs[0]
-    assert [g["name"] for g in w.gene_columns] == ["g2", "g9", "g11"]
+    assert [g["name"] for g in w.gene_names] == ["g2", "g9", "g11"]
     assert w.gene_csc_data == ""
     # Still restricted to the allowlist, and still fetchable.
     assert w._gene_get({"names": ["g9"]}, [])[0]["ok"] is True

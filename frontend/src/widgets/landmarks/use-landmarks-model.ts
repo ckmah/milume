@@ -66,7 +66,7 @@ export type LandmarksState = {
   selected_type_indices: number[];
   category_columns: CategoryColumn[];
   active_category: string;
-  gene_columns: GeneColumn[];
+  gene_names: GeneColumn[];
   active_genes: string[];
   gene_scale_mode: GeneScaleMode;
   gene_log1p: boolean;
@@ -121,7 +121,7 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
   "selected_type_indices",
   "category_columns",
   "active_category",
-  "gene_columns",
+  "gene_names",
   "active_genes",
   "gene_scale_mode",
   "gene_log1p",

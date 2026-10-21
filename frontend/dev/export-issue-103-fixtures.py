@@ -21,7 +21,7 @@ FIXTURE_KEYS = [
     "landmarks",
     "category_columns",
     "active_category",
-    "gene_columns",
+    "gene_names",
     "color_mode",
     "legend_labels",
     "legend_title",

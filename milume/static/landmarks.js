@@ -6667,7 +6667,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       setDeckLayers();
     });
   });
-  ["gene_columns", "active_genes", "gene_scale_mode", "gene_log1p", "gene_expression_logged"].forEach((k) => {
+  ["gene_names", "active_genes", "gene_scale_mode", "gene_log1p", "gene_expression_logged"].forEach((k) => {
     onChange(k, () => {
       if (k === "active_genes") {
         clientRasterKey = "";

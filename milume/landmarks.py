@@ -365,8 +365,8 @@ class LandmarksWidget(AnyWidget):
     category_columns = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
     category_codes = traitlets.Unicode("").tag(sync=True)  # base64 int32, col-major
     # Gene catalog: ``{"name"}`` each, plus ``vmin``/``vmax`` for preloaded genes.
-    gene_columns = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
-    # Preloaded ``genes=`` pack: one CSC over gene_columns (empty = load on demand).
+    gene_names = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
+    # Preloaded ``genes=`` pack: one CSC over gene_names (empty = load on demand).
     gene_csc_indptr = traitlets.Unicode("").tag(sync=True)
     gene_csc_indices = traitlets.Unicode("").tag(sync=True)
     gene_csc_data = traitlets.Unicode("").tag(sync=True)
@@ -563,7 +563,7 @@ class LandmarksWidget(AnyWidget):
             category_columns=cat_meta,
             category_codes=cat_codes,
             active_category=active_cat,
-            gene_columns=gene_meta,
+            gene_names=gene_meta,
             **gene_payload,
             active_genes=[],
             gene_log1p=False,
@@ -658,7 +658,7 @@ class LandmarksWidget(AnyWidget):
 
     def _set_gene_source(self, source: Any, meta: list[dict[str, Any]]) -> None:
         self._gene_source = source
-        self._gene_names = {str(m["name"]) for m in meta}
+        self._gene_name_set = {str(m["name"]) for m in meta}
         self._gene_meta = {str(m["name"]): m for m in meta if "vmax" in m}
 
     def _gene_range(self, name: str) -> dict[str, Any]:
@@ -687,7 +687,7 @@ class LandmarksWidget(AnyWidget):
                 "status": 400,
                 "error": f"names must list 1 to {GENE_FETCH_MAX_NAMES} gene names",
             }, []
-        unknown = [n for n in names if n not in self._gene_names]
+        unknown = [n for n in names if n not in self._gene_name_set]
         if unknown:
             return {"ok": False, "status": 404, "error": f"not in the gene catalog: {unknown}"}, []
         try:
@@ -754,10 +754,10 @@ class LandmarksWidget(AnyWidget):
         meta, payload = gene_catalog(source, names, n)
         with self.hold_sync():
             self._set_gene_source(source, meta)
-            self.gene_columns = meta
+            self.gene_names = meta
             for key, value in payload.items():
                 setattr(self, key, value)
-            known = self._gene_names
+            known = self._gene_name_set
             self.active_genes = [g for g in (self.active_genes or []) if g in known]
             logged = expression_is_log_scaled(getattr(self, "_adata", None))
             if not logged and names:
@@ -961,7 +961,7 @@ class LandmarksWidget(AnyWidget):
                     f"obs column {key!r} has {n_levels} levels; at most {_MAX_LEVELS} can be coloured"
                 )
             return "category"
-        if key in self._gene_names:
+        if key in self._gene_name_set:
             return "gene"
         if key in set(map(str, self._adata.var_names)):
             raise ColorValueError(

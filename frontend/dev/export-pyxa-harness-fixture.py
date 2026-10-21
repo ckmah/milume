@@ -31,7 +31,7 @@ FIXTURE_KEYS = [
     "selected_index",
     "category_columns",
     "active_category",
-    "gene_columns",
+    "gene_names",
     "active_genes",
     "gene_scale_mode",
     "gene_log1p",

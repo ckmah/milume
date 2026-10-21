@@ -70,7 +70,7 @@ export function geneStoreFor(model: GeneModel): GeneStore {
   const loadEager = () => {
     const indptr = decodeI32Base64(String(model.get("gene_csc_indptr") || ""));
     store.setEager(
-      (model.get("gene_columns") as Array<{ name: string; vmin?: number; vmax?: number }>) ?? [],
+      (model.get("gene_names") as Array<{ name: string; vmin?: number; vmax?: number }>) ?? [],
       indptr.length ? indptr : null,
       decodeI32Base64(String(model.get("gene_csc_indices") || "")),
       decodeF32Base64(String(model.get("gene_csc_data") || "")),
@@ -80,7 +80,7 @@ export function geneStoreFor(model: GeneModel): GeneStore {
     void store.ensure(active().filter((n) => !store.error(n)));
   };
   loadEager();
-  for (const key of ["gene_columns", "gene_csc_indptr", "gene_csc_indices", "gene_csc_data"]) {
+  for (const key of ["gene_names", "gene_csc_indptr", "gene_csc_indices", "gene_csc_data"]) {
     model.on(`change:${key}`, () => {
       store.clear();
       loadEager();

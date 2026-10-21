@@ -8,6 +8,7 @@
 - `genes=[...]` still restricts the catalog and preloads it when it packs under 64 MiB. A larger list loads on demand too, with a `UserWarning`, instead of sending a multi-GB payload; the old warn-and-send-anyway 25 MiB threshold is gone. Colouring by a gene outside the catalog still raises `milume.ColorValueError`.
 - The browser densifies one cell-length column per gene on screen, never the whole matrix (2D points, raster bins, the Inspect cube and the info-panel densities).
 - Pick up to 8 genes. Up to three blend one colour channel each, as before. Four or more colour by one combined value on a single ramp, with **Mean** / **Median** / **Max** under the gene field.
+- The synced gene-catalogue trait `gene_columns` is renamed `gene_names`. It stays internal (not listed in the notebook API), but code that read `w.gene_columns` should now read `w.gene_names`.
 
 ### Inspect image contrast default reaches the image max
 
