@@ -1,5 +1,7 @@
 import type { AbsolutePath, AsyncReadable, RangeQuery } from "@zarrita/storage";
 
+import { invokeCommand } from "../landmarks/comm-command.js";
+
 import { bytesFromCommBuffer } from "./comm-buffer";
 import { isCommVolumeUrl } from "./volume-url";
 
@@ -18,43 +20,6 @@ type VolumeGetResponse = { ok: boolean; status?: number; error?: string };
 const COMMAND = "volume_get";
 const DEFAULT_CONCURRENCY = 8;
 const METADATA_CACHE_BYTES = 4 * 1024 * 1024;
-
-function randomId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-}
-
-function invoke(
-  model: VolumeCommModel,
-  name: string,
-  msg: unknown,
-  options: { signal?: AbortSignal; buffers?: ArrayBuffer[] } = {},
-): Promise<[VolumeGetResponse, ArrayBuffer[]]> {
-  const id = randomId();
-  const signal = options.signal ?? AbortSignal.timeout(120_000);
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      reject(signal.reason);
-      return;
-    }
-    const handler = (raw: unknown, buffers?: ArrayBuffer[]) => {
-      const body = raw as { id?: string; response?: VolumeGetResponse };
-      if (body?.id !== id) return;
-      model.off?.("msg:custom", handler);
-      resolve([body.response ?? { ok: false }, buffers ?? []]);
-    };
-    const onAbort = () => {
-      model.off?.("msg:custom", handler);
-      reject(signal.reason);
-    };
-    signal.addEventListener("abort", onAbort, { once: true });
-    model.on("msg:custom", handler);
-    model.send(
-      { id, kind: "anywidget-command", name, msg },
-      undefined,
-      options.buffers ?? [],
-    );
-  });
-}
 
 function joinStorePath(base: string, key: AbsolutePath): string {
   const root = base.endsWith("/") ? base : `${base}/`;
@@ -132,7 +97,7 @@ export class VolumeCommClient {
     this._reads++;
     const msg: { path: string; range?: RangeQuery } = { path };
     if (range) msg.range = range;
-    const [response, buffers] = await invoke(this.model, COMMAND, msg);
+    const [response, buffers] = await invokeCommand<VolumeGetResponse>(this.model, COMMAND, msg);
     if (!response.ok) {
       if (response.status === 404) return undefined;
       const detail =
