@@ -31,7 +31,6 @@ FIXTURE_KEYS = [
     "points_data",
     "point_palette",
     "category_codes",
-    "gene_values",
     "render_mode",
     "raster_bin_size",
     "raster_window_radius",

@@ -41,9 +41,12 @@ import {
   distPointToSeg,
 } from "./landmarks_geometry.js";
 import {
+  aggregateGeneT,
   blendGeneSrgb,
   LOW_EXPR_SRGB,
+  MAX_RGB_GENES,
 } from "./gene-expression-blend.js";
+import { geneStoreFor } from "../../frontend/src/widgets/landmarks/gene-store-model.ts";
 import {
   LANDMARK_BUFFER_FILL_ALPHA,
   LANDMARK_BUFFER_LINE_ALPHA,
@@ -468,10 +471,9 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   let resetZoom = () => { };
   let zoomInterpolator = null;
   let categoryCodes = null;
-  let geneValues = null; // dense Float32Array col-major (all catalog genes) or null
-  let geneCsc = null; // { indptr, indices, data, nObs } or null
-  /** Lazily densified CSC → col-major Float32Array (nObs × nGenes), same layout as gene_values. */
-  let geneDenseFromCsc = null;
+  /** Sparse per-gene slices; dense columns only for active genes (gene-store.js). */
+  const geneStore = geneStoreFor(model);
+  let geneColsCache = { key: "", cols: new Map() };
   let spatialIndex = null;
   let spatialIndexPointCount = 0;
   let spatialIndexBuildHandle = 0;
@@ -516,49 +518,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   }
   refreshCategoryCodes();
 
-  function refreshGeneValues() {
-    const fmt = model.get("gene_format") || "dense";
-    geneValues = null;
-    geneCsc = null;
-    geneDenseFromCsc = null;
-    if (fmt === "csc") {
-      const indptr = decodeI32Base64(model.get("gene_csc_indptr") || "");
-      const indices = decodeI32Base64(model.get("gene_csc_indices") || "");
-      const data = decodeF32Base64(model.get("gene_csc_data") || "");
-      if (indptr.length) geneCsc = { indptr, indices, data };
-      return;
-    }
-    const b64 = model.get("gene_values") || "";
-    geneValues = b64 ? decodeF32Base64(b64) : null;
-  }
-  refreshGeneValues();
-
-  /** One-time CSC → dense for O(1) point lookups (coloring + raster). */
-  function ensureGeneDenseFromCsc() {
-    if (!geneCsc) return null;
-    const { indptr, indices, data } = geneCsc;
-    const nGenes = Math.max(0, (indptr.length | 0) - 1);
-    const n = getPointsData().length;
-    if (!nGenes || !n) {
-      geneDenseFromCsc = new Float32Array(0);
-      return geneDenseFromCsc;
-    }
-    if (geneDenseFromCsc && geneDenseFromCsc.length === n * nGenes) {
-      return geneDenseFromCsc;
-    }
-    const dense = new Float32Array(n * nGenes);
-    for (let g = 0; g < nGenes; g++) {
-      const start = indptr[g] | 0;
-      const end = indptr[g + 1] | 0;
-      const col = g * n;
-      for (let p = start; p < end; p++) {
-        const i = indices[p] | 0;
-        if (i >= 0 && i < n) dense[col + i] = data[p] || 0;
-      }
-    }
-    geneDenseFromCsc = dense;
-    return dense;
-  }
 
   function refreshEmbeddingValues() {
     const b64 = model.get("embedding_values") || "";
@@ -713,7 +672,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       model.get("point_palette"),
       model.get("color_mode"),
       model.get("active_genes"),
-      model.get("gene_values"),
+      geneStore.version,
       model.get("gene_scale_mode"),
       model.get("gene_log1p"),
       model.get("embedding_values"),
@@ -907,21 +866,12 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const active = model.get("active_genes") || [];
     const dim = active.length | 0;
     if (!dim) return { features: null, dim: 0, labels: [] };
-    if (!geneValues?.length && !geneCsc) return { features: null, dim: 0, labels: [] };
-    const denseCsc = geneCsc ? ensureGeneDenseFromCsc() : null;
     const features = new Float32Array(n * dim);
     for (let g = 0; g < dim; g++) {
-      const gi = geneColumnIndex(active[g]);
-      if (gi < 0) continue;
-      if (denseCsc) {
-        const col = gi * n;
-        for (let i = 0; i < n; i++) {
-          features[i * dim + g] = denseCsc[col + i] || 0;
-        }
-      } else {
-        for (let i = 0; i < n; i++) {
-          features[i * dim + g] = genePackedAt(i, gi) || 0;
-        }
+      const col = geneColumn(active[g]);
+      if (!col) continue;
+      for (let i = 0; i < n; i++) {
+        features[i * dim + g] = col[i] || 0;
       }
     }
     return { features, dim, labels: active.map(String) };
@@ -980,8 +930,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       cat,
       embeddingMatrix ? embeddingMatrix.length : 0,
       embeddingMatrixDim,
-      geneValues ? geneValues.length : 0,
-      geneCsc ? geneCsc.indptr.length : 0,
+      geneStore.version,
       categoryCodes ? categoryCodes.length : 0,
     ].join("|");
     if (
@@ -1317,6 +1266,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         const t = clamp01((feats[off] - st.lo) / st.span);
         return lerpRgb(low, RASTER_SEQ_HIGH, t);
       }
+      if (dim > MAX_RGB_GENES) {
+        const ts = [];
+        for (let d = 0; d < dim; d++) {
+          const st = colStats[d] || { lo: 0, span: 1 };
+          ts.push(clamp01((feats[off + d] - st.lo) / st.span));
+        }
+        return lerpRgb(low, RASTER_SEQ_HIGH, aggregateGeneT(ts, geneStore.aggregate));
+      }
       let r = 0;
       let g = 0;
       let b = 0;
@@ -1331,23 +1288,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         g += rgb[1] * t;
         b += rgb[2] * t;
         w += t;
-      }
-      if (dim > nChan) {
-        let extra = 0;
-        let extraN = 0;
-        for (let d = nChan; d < dim; d++) {
-          const st = colStats[d] || { lo: 0, span: 1 };
-          extra += clamp01((feats[off + d] - st.lo) / st.span);
-          extraN += 1;
-        }
-        if (extraN) {
-          const t = extra / extraN;
-          const rgb = hexToRgbaBytes(RASTER_RGB_CHANNELS[0], 1);
-          r += rgb[0] * t;
-          g += rgb[1] * t;
-          b += rgb[2] * t;
-          w += t;
-        }
       }
       if (w < 1e-6) return low;
       const a = Math.min(1, w);
@@ -1543,7 +1483,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       (model.get("active_genes") || []).join(","),
       model.get("raster_embedding_key") || "",
       model.get("active_category") || "",
-      geneValues ? geneValues.length : 0,
+      geneStore.version,
       embeddingValues ? embeddingValues.length : 0,
       categoryCodes ? categoryCodes.length : 0,
     ].join("|");
@@ -1610,7 +1550,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       embKey,
       cat,
       radiusGraph ? radiusGraph.indptr.length : 0,
-      geneValues ? geneValues.length : 0,
+      geneStore.version,
       embeddingValues ? embeddingValues.length : 0,
       categoryCodes ? categoryCodes.length : 0,
     ].join("|");
@@ -1784,7 +1724,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       (model.get("active_genes") || []).join(","),
       model.get("raster_embedding_key") || "",
       model.get("active_category") || "",
-      geneValues ? geneValues.length : 0,
+      geneStore.version,
       embeddingValues ? embeddingValues.length : 0,
       categoryCodes ? categoryCodes.length : 0,
     ].join("|");
@@ -2429,56 +2369,24 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   const GENE_COLORS = ["#ff0099", "#5cbf00", "#0088cc"];
 
   function geneMeta(geneName) {
-    const genes = model.get("gene_columns") || [];
-    return genes.find((g) => g.name === geneName) || null;
+    return geneStore.meta(geneName);
   }
 
-  function geneColumnIndex(geneName) {
-    const genes = model.get("gene_columns") || [];
-    return genes.findIndex((g) => g.name === geneName);
-  }
-
-  /** Dense [0,1] value for point i, catalog gene column gi. */
-  function genePackedAt(i, gi) {
-    const pts = getPointsData();
-    const n = pts.length;
-    if (gi < 0 || i < 0 || i >= n) return null;
-    if (geneCsc) {
-      const dense = ensureGeneDenseFromCsc();
-      if (!dense) return 0;
-      const nGenes = Math.max(0, (geneCsc.indptr.length | 0) - 1);
-      if (gi >= nGenes) return null;
-      return dense[gi * n + i] || 0;
+  /** Dense column of an active gene, resolved once per store version and gene set. */
+  function geneColumn(geneName) {
+    const key = `${geneStore.version}|${(model.get("active_genes") || []).join(",")}`;
+    if (geneColsCache.key !== key) geneColsCache = { key, cols: new Map() };
+    let col = geneColsCache.cols.get(geneName);
+    if (col === undefined) {
+      col = geneStore.column(geneName);
+      geneColsCache.cols.set(geneName, col);
     }
-    if (!geneValues || !geneValues.length) return null;
-    const nGenes = (model.get("gene_columns") || []).length || 0;
-    if (!nGenes || geneValues.length < n * nGenes) {
-      // Legacy layout: columns = active_genes only.
-      const active = model.get("active_genes") || [];
-      if (geneValues.length === n * active.length) {
-        const ai = active.indexOf((model.get("gene_columns") || [])[gi]?.name);
-        if (ai < 0) return null;
-        return geneValues[ai * n + i];
-      }
-    }
-    return geneValues[gi * n + i];
+    return col;
   }
 
   function geneValueAt(i, geneName) {
-    const gi = geneColumnIndex(geneName);
-    if (gi < 0) return null;
-    return genePackedAt(i, gi);
-  }
-
-  /** Data-space gene value (pre-log1p) from packed [0, 1]. */
-  function geneRawAt(i, geneName) {
-    const t01 = geneValueAt(i, geneName);
-    if (t01 == null || !Number.isFinite(t01)) return null;
-    const meta = geneMeta(geneName);
-    const lo = Number.isFinite(meta?.vmin) ? meta.vmin : 0;
-    const hi = Number.isFinite(meta?.vmax) && meta.vmax > lo ? meta.vmax : lo + 1;
-    const t = Math.max(0, Math.min(1, t01));
-    return Math.max(0, lo + t * (hi - lo));
+    const col = geneColumn(geneName);
+    return col ? col[i] : null;
   }
 
   function geneUsesLog1p() {
@@ -2496,6 +2404,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       log1p: geneUsesLog1p(),
       valueAt: (pi, name) => geneValueAt(pi, name),
       metaAt: (name) => geneMeta(name),
+      aggregate: geneStore.aggregate,
     });
     if (
       rgb[0] === LOW_EXPR_SRGB[0] &&
@@ -6689,7 +6598,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     hoodHighlightData = [];
     hoodHighlightKey = "";
     invalidatePointGeometryBuffers();
-    geneDenseFromCsc = null;
     spatialIndex = null;
     spatialIndexPointCount = 0;
     scheduleSpatialIndexBuild();
@@ -6719,18 +6627,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     schedulePointFillColorsBuild();
     setDeckLayers();
   });
-  onChange("gene_values", () => {
-    refreshGeneValues();
-    clientRasterKey = "";
-    setDeckLayers();
-  });
-  ["gene_format", "gene_csc_indptr", "gene_csc_indices", "gene_csc_data"].forEach((k) => {
-    onChange(k, () => {
-      refreshGeneValues();
+  // Slices land asynchronously (and the aggregate can change): recolour like a gene pick.
+  unsubs.push(
+    geneStore.subscribe(() => {
       clientRasterKey = "";
+      updatePointLegend();
       setDeckLayers();
-    });
-  });
+    }),
+  );
   onChange("embedding_values", () => {
     refreshEmbeddingValues();
     setDeckLayers();
@@ -7237,6 +7141,10 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         sizeUm: inspectWindowUm,
         placedSizeUm: volumeWindow?.size ?? null,
       };
+    },
+    /** Test probe: gene cache counters (slices held, dense columns, fetches). */
+    getGeneStats() {
+      return geneStore.stats();
     },
     /** Test / membership probe: `[x, y]` per point, in the `inspect_cx/cy` frame (µm). */
     getPoints() {

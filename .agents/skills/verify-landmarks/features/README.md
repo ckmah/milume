@@ -25,6 +25,7 @@ capability** to existing Playwright coverage — not a product roadmap.
 | [toolbar-layout](toolbar-layout.md) | `landmarks.spec.ts` — `"toolbar: interaction order, lasso and landmark dropdowns, cube icon"`, `"active lasso keeps its colours on hover in dark mode"` | — |
 | [panel-peek](panel-peek.md) | `landmarks.spec.ts` — `"side panels collapse to a peek tab and come back"` | — |
 | [canvas-rulers](canvas-rulers.md) | `landmarks.spec.ts` — `"rulers: labels sit on the data and follow a pan; a grid line at every tick above the map"` | — |
+| [genes-on-demand](genes-on-demand.md) | `landmarks-genes-lazy.spec.ts` — `"Landmarks lazy genes"` describe block | — |
 
 `inspect-cube` and `inspect-history` run under a separate spec file and
 harness (`E2E_HARNESS=landmarks-volume`,

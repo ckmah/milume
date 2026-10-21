@@ -170,6 +170,7 @@ export type EngineHandle = {
   };
   /** Test probe: `[x, y]` per point (µm, the `inspect_cx/cy` frame). */
   getPoints(): [number, number][];
+  getGeneStats(): import("./gene-store.js").GeneStoreStats;
   /**
    * Scatter points inside an Inspect window for the 3D cube: map µm position,
    * fill colour (RGBA bytes) and radius (µm), matching the 2D points layer.

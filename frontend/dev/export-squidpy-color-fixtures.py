@@ -26,6 +26,9 @@ FIXTURE_KEYS = [
     "category_columns",
     "active_category",
     "gene_columns",
+    "gene_csc_indptr",
+    "gene_csc_indices",
+    "gene_csc_data",
     "active_genes",
     "color_mode",
     "legend_labels",
@@ -36,7 +39,6 @@ FIXTURE_KEYS = [
     "points_data",
     "point_palette",
     "category_codes",
-    "gene_values",
     "render_mode",
 ]
 
