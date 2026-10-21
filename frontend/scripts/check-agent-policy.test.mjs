@@ -119,3 +119,24 @@ test("linked thin issue fails when PR closes it", () => {
   });
   assert.ok(errors.some((e) => e.includes("linked issue #77")));
 });
+
+test("PR into a feat/* base may say Part of #N instead of Closes", () => {
+  const pr = {
+    body: "Part of #241\n\n![x](https://example.com/x.png)\n",
+    changedPaths: ["frontend/src/widgets/landmarks/gene-store.js"],
+    isDraft: false,
+  };
+  assert.deepEqual(validateUiPullRequest({ ...pr, baseRef: "feat/lazy-genes" }), []);
+  assert.ok(validateUiPullRequest({ ...pr, baseRef: "main" }).some((e) => e.includes("Closes #N")));
+  assert.ok(validateUiPullRequest(pr).some((e) => e.includes("Closes #N")));
+});
+
+test("PR into a feat/* base still needs visuals when ready", () => {
+  const errors = validateUiPullRequest({
+    body: "Part of #241\n",
+    changedPaths: ["frontend/src/widgets/landmarks/gene-store.js"],
+    isDraft: false,
+    baseRef: "feat/lazy-genes",
+  });
+  assert.ok(errors.some((e) => e.includes("screenshots or video")));
+});

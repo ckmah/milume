@@ -1,6 +1,6 @@
 // Enforces Landmarks/widget UI PR hygiene (see AGENTS.md enforcement table).
 // CI: .github/workflows/pr-policy.yml
-// Local: node scripts/check-pr-policy.mjs --body-file /tmp/body.md --draft false --changed frontend/src/widgets/landmarks/foo.tsx
+// Local: node scripts/check-pr-policy.mjs --body-file /tmp/body.md --draft false --base main --changed frontend/src/widgets/landmarks/foo.tsx
 // Fixtures: node scripts/check-pr-policy.mjs --fixture pr-58
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -35,7 +35,8 @@ if (fixture) {
   let issueBodies = {};
   const issueBodiesFile = arg("--issue-bodies-file", "");
   if (issueBodiesFile) issueBodies = JSON.parse(readFileSync(issueBodiesFile, "utf8"));
-  payload = { body, changedPaths: changed, isDraft, issueBodies };
+  const baseRef = arg("--base", process.env.PR_BASE ?? "main") || "main";
+  payload = { body, changedPaths: changed, isDraft, issueBodies, baseRef };
 }
 
 const errors = validateUiPullRequest(payload);
