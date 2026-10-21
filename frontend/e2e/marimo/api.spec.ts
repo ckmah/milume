@@ -48,4 +48,20 @@ test.describe("marimo kernel — Python API", () => {
     await expect(cube).toHaveCount(0);
     await expect(page.getByText("inspect_open=False")).toBeVisible({ timeout: onCi() ? 120_000 : 30_000 });
   });
+
+  test("a gene coloured in the browser loads over the kernel's _gene_get command (binary buffers)", async ({ page }) => {
+    test.slow(onCi(), "marimo kernel boot");
+    await page.goto("/", { waitUntil: "domcontentloaded", timeout: 120_000 });
+    await waitForLandmarksWidget(page);
+
+    // Names-only catalog at comm-open: nothing preloaded.
+    expect(await getModel(page, "gene_columns")).toEqual([{ name: "0" }]);
+    expect(await getModel(page, "gene_csc_data")).toBe("");
+    await setModelFromBrowser(page, { active_genes: ["0"], color_mode: "continuous" });
+    const stats = () => page.evaluate(() => (window as any).__landmarksEngine.getGeneStats());
+    await expect.poll(async () => (await stats()).fetchedGenes, { timeout: 60_000 }).toBe(1);
+    const s = await stats();
+    expect(s.denseColumns).toBe(1);
+    expect(s.pending).toBe(0);
+  });
 });
