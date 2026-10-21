@@ -8,9 +8,10 @@ Point scatter, landmarks, selections, and drafts use deck.gl orthographic
 layers via `LandmarksWidget(adata, color=..., genes=...)`. AnnData is the
 analysis object: coordinates in `obsm["spatial"]`, labels in `obs`,
 expression in `X`. The widget holds a **reference** to the caller’s AnnData
-(no `obs.copy()`, no dense copy of `X`; sparse expression packs straight to
-CSC). Gene names and expression pack at construct for view-only coloring
-(`genes=` restricts the catalog; large matrices warn but still send). Chrome
+(no `obs.copy()`, no dense copy of `X`). Gene names go to the browser at
+construct; each gene's normalized sparse column loads over the `_gene_get` comm
+command when it is first coloured, into a browser LRU cache (`genes=` restricts
+the catalog and preloads it under 64 MiB). Chrome
 follows the notebook cell width. Marker radius is derived from median
 nearest-neighbor distance; opacity and default buffer are fixed or computed
 from spatial extent.

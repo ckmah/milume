@@ -2,6 +2,13 @@
 
 ## 2.0.1 (unreleased)
 
+### Genes load on demand, so whole-transcriptome panels open ([#241](https://github.com/ckmah/milume/issues/241))
+
+- `milume.peek(adata)` no longer packs every gene at construct. The widget opens with gene names only, and the browser fetches a gene's normalized sparse column from the kernel the first time it is coloured, then keeps it in an LRU cache (128 MiB). On a 170,057-cell × 18,028-gene matrix at 10% density (Atera WTA breast scale), the kernel's peak extra memory from construct through comm-open drops from about 9.6 GiB (2.0.0, extrapolated from 0.96 GiB and 1.88 GiB measured at 1/10 and 1/5 of the cells) to 77 MiB measured at full scale, and the gene part of the comm-open message drops from about 3.1 GiB to 0.3 MiB. The 2.0.0 path OOM-killed the Jupyter kernel on that dataset.
+- `genes=[...]` still restricts the catalog and preloads it when it packs under 64 MiB. A larger list loads on demand too, with a `UserWarning`, instead of sending a multi-GB payload; the old warn-and-send-anyway 25 MiB threshold is gone. Colouring by a gene outside the catalog still raises `milume.ColorValueError`.
+- The browser densifies one cell-length column per gene on screen, never the whole matrix (2D points, raster bins, the Inspect cube and the info-panel densities).
+- Pick up to 8 genes. Up to three blend one colour channel each, as before. Four or more colour by one combined value on a single ramp, with **Mean** / **Median** / **Max** under the gene field.
+
 ### Inspect image contrast default reaches the image max
 
 - When `contrast_limits` is not passed, the Inspect cube's default upper limit is now the max of the image's coarsest pyramid level instead of its 99.5th percentile; the lower limit stays at the 1st percentile. The coarsest level already compresses the dynamic range, so the percentile clipped bright tissue to white (on the colon A2 image the default goes from `(0, 171)` to `(0, 249)`), which washed out a top z cut and hid the cell meshes behind it. Passing `contrast_limits=(lo, hi)` works as before.
