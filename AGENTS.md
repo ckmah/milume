@@ -42,6 +42,7 @@ Wall-clock on cloud agents is often idle time waiting for the next follow-up, no
 
 - Landmarks changes: [`.agents/skills/verify-landmarks/`](.agents/skills/verify-landmarks/); update its feature map when adding coverage.
 - Widget chrome: [`shadcn-anywidget`](.agents/skills/shadcn-anywidget/SKILL.md), then [`shadcn`](.agents/skills/shadcn/SKILL.md). Motion: [`cube-motion`](.agents/skills/cube-motion/SKILL.md) only when editing `Rise` / `Morph` / `leave` / `reveal`.
+- Workflow: develop milume with [`/poteto-mode`](.agents/skills/poteto-mode/SKILL.md) and fan out parallel work with [`/swarm`](.agents/skills/swarm/SKILL.md). The [pstack](https://github.com/cursor/plugins/tree/main/pstack) skills (`poteto-mode`, its `playbooks/` and `references/`, `swarm`, `principle-*`, and the rest) are vendored in `.agents/skills/` through `skills-lock.json` (MIT, [`.agents/licenses/pstack-LICENSE`](.agents/licenses/pstack-LICENSE)). Don't edit them in place. Update with `npx skills update`, or rerun `npx skills add https://github.com/cursor/plugins/tree/main/pstack --skill '*' -a cursor --copy -y`.
 
 ## Merging your own PR
 
