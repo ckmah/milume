@@ -9,6 +9,10 @@
 - The `demo` extra is removed: `pip install "milume[demo]"` no longer exists. Each demo notebook lists its own dependencies in its PEP 723 inline script header; from a checkout, `uv sync --group demo` installs them as a development dependency group.
 - `pyarrow>=16` is now declared; milume reads cell-polygon parquet with it. It was already installed through `spatialdata`, so nothing new is downloaded.
 
+### Smaller sdist
+
+- The source distribution no longer ships `website/`, the README screenshots (`assets/*.png`), the Playwright e2e snapshots or the vendored `.agents/` skills and `.cursor/` config (the `use-milume` skill is still included), dropping it from about 60 MB to about 4.3 MB. The wheel contents are unchanged. The install docs now show `uv pip install --compile-bytecode milume`.
+
 ### Inspect image contrast default reaches the image max
 
 - When `contrast_limits` is not passed, the Inspect cube's default upper limit is now the max of the image's coarsest pyramid level instead of its 99.5th percentile; the lower limit stays at the 1st percentile. The coarsest level already compresses the dynamic range, so the percentile clipped bright tissue to white (on the colon A2 image the default goes from `(0, 171)` to `(0, 249)`), which washed out a top z cut and hid the cell meshes behind it. Passing `contrast_limits=(lo, hi)` works as before.
