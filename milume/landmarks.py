@@ -1193,3 +1193,4 @@ _PUBLIC_TRAITS: dict[str, str] = {
 LandmarksWidget.__doc__ = (
     (LandmarksWidget.__doc__ or "").rstrip() + "\n\n" + _LANDMARKS_API_DOC
 )
+# timing probe
