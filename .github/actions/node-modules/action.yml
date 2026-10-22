@@ -1,0 +1,48 @@
+name: node_modules
+description: >-
+  Restore <dir>/node_modules keyed on its package-lock.json (plus OS, arch and Node version)
+  and run `npm ci` only on a miss, with a per-attempt timeout and retries. Needs setup-node first.
+
+inputs:
+  dir:
+    description: Directory holding package.json / package-lock.json
+    default: frontend
+  timeout-seconds:
+    description: Per-attempt limit for `npm ci`
+    default: "300"
+  attempts:
+    description: How many times to try `npm ci`
+    default: "3"
+
+outputs:
+  cache-hit:
+    description: "'true' when node_modules came from the cache and npm ci was skipped"
+    value: ${{ steps.cache.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    - id: node
+      shell: bash
+      run: |
+        echo "version=$(node -v)" >> "$GITHUB_OUTPUT"
+        name=$(echo "${{ inputs.dir }}" | tr '[:lower:]' '[:upper:]' | tr -c 'A-Z0-9\n' '_')
+        echo "env=MILUME_DEPS_READY_${name}" >> "$GITHUB_OUTPUT"
+
+    - id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ inputs.dir }}/node_modules
+        key: node-modules-${{ runner.os }}-${{ runner.arch }}-${{ steps.node.outputs.version }}-${{ inputs.dir }}-${{ hashFiles(format('{0}/package-lock.json', inputs.dir)) }}
+
+    - name: npm ci (cache miss)
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      working-directory: ${{ inputs.dir }}
+      run: bash "${GITHUB_ACTION_PATH}/../retry.sh" "${{ inputs.attempts }}" "${{ inputs.timeout-seconds }}" npm ci --no-audit --no-fund
+
+    # Lets scripts that run their own `npm ci` (website/scripts/assemble-pages.sh) skip it.
+    - shell: bash
+      run: |
+        echo "node-modules: ${{ inputs.dir }} cache-hit=${{ steps.cache.outputs.cache-hit || 'false' }}"
+        echo "${{ steps.node.outputs.env }}=1" >> "$GITHUB_ENV"

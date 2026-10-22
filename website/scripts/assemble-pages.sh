@@ -8,7 +8,9 @@ OUT="${ROOT}/site"
 
 (
   cd "${WEBSITE}"
-  if [[ -f package-lock.json ]]; then
+  if [[ "${MILUME_DEPS_READY_WEBSITE:-}" == "1" ]]; then
+    echo "assemble-pages: website/node_modules already installed (CI cache), skipping npm ci"
+  elif [[ -f package-lock.json ]]; then
     npm ci
   else
     npm install
