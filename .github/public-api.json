@@ -40,7 +40,8 @@
       "set_expression": "method (expr: 'Any') -> 'None'",
       "set_render_mode": "method (mode: 'str') -> 'None'",
       "set_raster_basis": "method (*, genes: 'str | None' = None, embedding: 'str | None' = None, composition: 'str | None' = None) -> 'None'",
-      "clear_raster_query": "method () -> 'None'"
+      "clear_raster_query": "method () -> 'None'",
+      "point_size": "trait Float"
     }
   },
   "internal": {
@@ -70,7 +71,6 @@
       "neighbor_k_max": "trait Int",
       "neighbor_radius_max": "trait Float",
       "point_palette": "trait List",
-      "point_size": "trait Float",
       "points_data": "trait Unicode",
       "promote_buffer_tick": "trait Int",
       "promote_tick": "trait Int",
