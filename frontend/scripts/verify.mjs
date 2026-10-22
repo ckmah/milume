@@ -9,6 +9,8 @@ import { readFileSync } from "node:fs";
 import { dirname, join, matchesGlob } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { molabPathsHit } from "./lib/e2e-scope.mjs";
+
 const frontend = join(dirname(fileURLToPath(import.meta.url)), "..");
 const root = join(frontend, "..");
 const args = process.argv.slice(2);
@@ -37,10 +39,16 @@ const hit = Object.fromEntries(
   ]),
 );
 const frontendChanged = [...changed].some((f) => f.startsWith("frontend/"));
+const scope = JSON.parse(readFileSync(join(frontend, "e2e", "e2e-scope.json"), "utf8"));
+const molabHit = molabPathsHit([...changed], scope);
 
 const plan = [];
 if (frontendChanged) {
-  plan.push(["frontend", "npm run check:chrome"], ["frontend", "npm run typecheck"]);
+  plan.push(
+    ["frontend", "npm run check:chrome"],
+    ["frontend", "npm run typecheck"],
+    ["frontend", "npm run check:e2e-scope"],
+  );
 }
 if (hit.python) plan.push([".", "uv run pytest"]);
 if (hit.core || hit.infra_full || hit.infra_core) plan.push(["frontend", "npm run test:e2e:core"]);
@@ -58,6 +66,10 @@ if (hit.marimo_api) {
 console.log(`base ${base.slice(0, 8)}, ${changed.size} changed file(s)`);
 if (!plan.length) console.log("docs / non-runtime only: nothing to run beyond CI.");
 for (const [cwd, cmd] of plan) console.log(`  ${cwd}: ${cmd}`);
+if (molabHit.length) {
+  console.log(`molab paths touched (${molabHit.join(", ")}): the landmarks run includes`);
+  for (const spec of scope.molab.specs) console.log(`  ${spec}`);
+}
 if (hit.landmarks || hit.infra_full) {
   if (!fullVolume) {
     console.log("software GL: cube smoke spec only; --full-volume or the run-volume-full PR label runs all of it.");

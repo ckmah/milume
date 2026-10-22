@@ -85,7 +85,11 @@
     "frontend/scripts/lib/widget-issue.mjs",
     "frontend/scripts/post-pr-playwright-comment.mjs",
     "frontend/scripts/pr-policy-fixtures/**",
-    "frontend/scripts/widget-issue-fixtures/**"
+    "frontend/scripts/widget-issue-fixtures/**",
+    "frontend/scripts/check-e2e-scope.mjs",
+    "frontend/scripts/lib/e2e-scope.mjs",
+    "frontend/e2e/e2e-scope.json",
+    "frontend/e2e/flaky-registry.json"
   ],
   "ci_frontend": [
     "frontend/**",
