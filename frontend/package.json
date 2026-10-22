@@ -39,6 +39,8 @@
     "check:ci-legs": "node scripts/check-ci-legs.mjs",
     "check:e2e-scope": "node scripts/check-e2e-scope.mjs",
     "check:pr-mergeable": "node scripts/check-pr-mergeable.mjs",
+    "check:pr-overlap": "node scripts/check-pr-hygiene.mjs overlap",
+    "check:pr-stack": "node scripts/check-pr-hygiene.mjs stack",
     "check:pr-policy": "node scripts/check-pr-policy.mjs",
     "check:public-api": "uv run --directory .. python scripts/public_api.py",
     "check:widget-issue": "node scripts/check-widget-issue.mjs",

@@ -1,0 +1,4 @@
+{
+  "pr": { "number": 136, "body": "Closes #128", "base": "ci-split-a", "head": "ci-split-b", "draft": false, "files": ["ci.yml"], "commits": ["b1"] },
+  "others": [{ "number": 135, "body": "Part of #128", "base": "main", "head": "ci-split-a", "draft": false, "files": ["ci.yml"], "commits": ["a1"] }]
+}

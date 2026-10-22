@@ -92,7 +92,10 @@
       "scripts/check-wheel-bundle.sh",
       ".github/workflows/ci.yml",
       "scripts/public_api.py",
-      ".github/public-api.json"
+      ".github/public-api.json",
+      "frontend/scripts/check-pr-hygiene.mjs",
+      "frontend/scripts/lib/pr-hygiene.mjs",
+      "frontend/scripts/pr-hygiene-fixtures/**"
     ],
     "ci_frontend": [
       "frontend/**",
