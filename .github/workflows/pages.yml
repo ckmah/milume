@@ -9,6 +9,7 @@ on:
       - "website/**"
       - "milume/**"
       - ".github/workflows/pages.yml"
+      - ".github/actions/**"
       - "pyproject.toml"
       - "uv.lock"
   workflow_dispatch:
@@ -39,6 +40,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: |
+            website/package-lock.json
+            frontend/package-lock.json
+
+      # website/node_modules from cache; assemble-pages.sh skips its own npm ci then.
+      - uses: ./.github/actions/node-modules
+        with:
+          dir: website
 
       - name: Assemble landing + docs
         env:
@@ -61,11 +71,15 @@ jobs:
 
       - name: Install frontend deps
         if: github.event_name == 'pull_request'
-        run: cd frontend && npm ci
+        uses: ./.github/actions/node-modules
+
+      - name: Playwright browser
+        if: github.event_name == 'pull_request'
+        uses: ./.github/actions/playwright-browser
 
       - name: Hero WebGL Playwright
         if: github.event_name == 'pull_request'
-        run: cd frontend && npx playwright install chromium && npx playwright test --config=playwright.website.config.ts
+        run: cd frontend && npx playwright test --config=playwright.website.config.ts
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'

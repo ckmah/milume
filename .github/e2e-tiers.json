@@ -61,6 +61,8 @@
       "frontend/package.json",
       ".github/workflows/detect-changes.yml",
       ".github/actions/playwright-browser/**",
+      ".github/actions/node-modules/**",
+      ".github/actions/retry.sh",
       ".github/e2e-tiers.json"
     ],
     "policy": [
