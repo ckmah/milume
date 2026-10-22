@@ -15,6 +15,17 @@ also need marimo, scanpy, squidpy and leidenalg:
 pip install "milume[demo]"
 ```
 
+## uv
+
+```bash
+uv pip install --compile-bytecode milume
+```
+
+`--compile-bytecode` compiles `.pyc` files at install time, so the first
+`import milume` doesn't pay for compiling milume and its dependencies. In a
+project, `uv add milume` works too (set `UV_COMPILE_BYTECODE=1` for the same
+effect).
+
 ## From source
 
 ```bash

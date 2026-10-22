@@ -27,7 +27,8 @@ dependencies = [
     "pyarrow>=16",
     "scipy>=1.11",
     "shapely>=2.1.2",
-    "spatialdata>=0.7.3",
+    "spatialdata>=0.7.3; python_version < '3.12'",
+    "spatialdata>=0.8.0; python_version >= '3.12'",
     "traitlets>=5.0",
 ]
 
@@ -46,7 +47,8 @@ test = [
     "pandas>=2.0",
     "pytest>=8.3.3",
     "shapely>=2.1.2",
-    "spatialdata>=0.7.3",
+    "spatialdata>=0.7.3; python_version < '3.12'",
+    "spatialdata>=0.8.0; python_version >= '3.12'",
 ]
 
 [project.urls]
@@ -64,7 +66,8 @@ dev = [
     "ruff>=0.16.6",
     "scanpy>=1.10",
     "shapely>=2.1.2",
-    "spatialdata>=0.7.3",
+    "spatialdata>=0.7.3; python_version < '3.12'",
+    "spatialdata>=0.8.0; python_version >= '3.12'",
     "spatialdata-io; python_version >= '3.12'",
     "squidpy>=1.6",
     "watchfiles>=1.2.0",
@@ -84,6 +87,18 @@ exclude = ["milume/static/*.js"]
 # Ship the use-milume agent skill inside the package (milume/skills/use-milume/SKILL.md).
 [tool.hatch.build.targets.wheel.force-include]
 ".agents/skills/use-milume/SKILL.md" = "milume/skills/use-milume/SKILL.md"
+
+[tool.hatch.build.targets.sdist]
+# Keep the sdist small (~60 MB -> a few MB): the docs site, README screenshots
+# and Playwright e2e snapshots aren't needed to build or test the package.
+exclude = [
+  "website/",
+  "assets/*.png",
+  "frontend/e2e/**/*-snapshots/",
+  # Vendored agent skills / editor config. The use-milume skill is force-included below.
+  ".agents/",
+  ".cursor/",
+]
 
 [tool.hatch.build.targets.sdist.force-include]
 ".agents/skills/use-milume/SKILL.md" = ".agents/skills/use-milume/SKILL.md"
