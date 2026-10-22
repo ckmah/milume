@@ -30,8 +30,23 @@ def test_leidenalg_is_demo_only():
 def test_pyarrow_and_spatialdata_floor_are_declared():
     core = _names(PYPROJECT["project"]["dependencies"])
     assert core["pyarrow"] == "pyarrow>=16"
-    assert core["spatialdata"] == "spatialdata>=0.7.3"
     assert "geopandas" in core
+
+
+def test_spatialdata_floor_is_anndata_013_safe_on_py312():
+    # anndata 0.13 needs Python >= 3.12 and breaks spatialdata 0.7.3
+    # (TableModel.parse); 0.8.0 is the first release that works with it (#315).
+    # 3.11 can't get anndata 0.13 or spatialdata 0.8.0, so it keeps 0.7.3.
+    for reqs in (
+        PYPROJECT["project"]["dependencies"],
+        PYPROJECT["project"]["optional-dependencies"]["test"],
+        PYPROJECT["dependency-groups"]["dev"],
+    ):
+        sd = sorted(r for r in reqs if r.split(">=")[0].strip() == "spatialdata")
+        assert sd == [
+            "spatialdata>=0.7.3; python_version < '3.12'",
+            "spatialdata>=0.8.0; python_version >= '3.12'",
+        ]
 
 
 def test_milume_sources_never_import_leidenalg_or_igraph():

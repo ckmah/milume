@@ -27,7 +27,8 @@ dependencies = [
     "pyarrow>=16",
     "scipy>=1.11",
     "shapely>=2.1.2",
-    "spatialdata>=0.7.3",
+    "spatialdata>=0.7.3; python_version < '3.12'",
+    "spatialdata>=0.8.0; python_version >= '3.12'",
     "traitlets>=5.0",
 ]
 
@@ -46,7 +47,8 @@ test = [
     "pandas>=2.0",
     "pytest>=8.3.3",
     "shapely>=2.1.2",
-    "spatialdata>=0.7.3",
+    "spatialdata>=0.7.3; python_version < '3.12'",
+    "spatialdata>=0.8.0; python_version >= '3.12'",
 ]
 
 [project.urls]
@@ -64,7 +66,8 @@ dev = [
     "ruff>=0.16.6",
     "scanpy>=1.10",
     "shapely>=2.1.2",
-    "spatialdata>=0.7.3",
+    "spatialdata>=0.7.3; python_version < '3.12'",
+    "spatialdata>=0.8.0; python_version >= '3.12'",
     "spatialdata-io; python_version >= '3.12'",
     "squidpy>=1.6",
     "watchfiles>=1.2.0",
