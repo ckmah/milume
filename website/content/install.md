@@ -8,6 +8,24 @@ pip install milume
 
 Requires Python 3.11+.
 
+The demo notebooks and the [Squidpy recipes](integrations/squidpy-color.md)
+also need marimo, scanpy, squidpy and leidenalg:
+
+```bash
+pip install "milume[demo]"
+```
+
+## uv
+
+```bash
+uv pip install --compile-bytecode milume
+```
+
+`--compile-bytecode` compiles `.pyc` files at install time, so the first
+`import milume` doesn't pay for compiling milume and its dependencies. In a
+project, `uv add milume` works too (set `UV_COMPILE_BYTECODE=1` for the same
+effect).
+
 ## From source
 
 ```bash
