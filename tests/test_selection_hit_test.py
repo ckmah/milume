@@ -57,3 +57,43 @@ def test_log_scale_points_outside_the_domain_are_never_selected():
     with np.errstate(divide="ignore", invalid="ignore"):
         mask = selection_mask([sel], x, y, "s", x_scale="log", y_scale="log")
     assert mask.tolist() == [True, False, False, True]
+
+
+def test_milume_never_imports_matplotlib():
+    import ast
+    import subprocess
+    import sys
+    import textwrap
+
+    root = Path(__file__).resolve().parents[1]
+    for path in (root / "milume").rglob("*.py"):
+        for node in ast.walk(ast.parse(path.read_text(), filename=str(path))):
+            if isinstance(node, ast.Import):
+                mods = [a.name for a in node.names]
+            elif isinstance(node, ast.ImportFrom):
+                mods = [node.module or ""]
+            else:
+                continue
+            assert all(m.split(".")[0] != "matplotlib" for m in mods), f"{path}: imports matplotlib"
+    code = textwrap.dedent(
+        """
+        import sys
+        class Block:
+            def find_spec(self, name, path=None, target=None):
+                if name.split('.')[0] == 'matplotlib':
+                    raise ModuleNotFoundError(name)
+        sys.meta_path.insert(0, Block())
+        import numpy as np
+        from milume import LandmarksWidget
+        from tests.helpers import adata_xy
+        a = adata_xy([0, 1, 2, 3], [0, 1, 0, 1], color=["a", "b", "a", "c"], color_key="t")
+        a.obs["score"] = [0.1, 0.5, 0.2, 0.9]
+        w = LandmarksWidget(a, color="t")
+        w.color = "score"
+        w.selections = [{"id": "s", "type": "lasso", "vertices": [[-1, -1], [1.5, -1], [1.5, 2], [-1, 2]]}]
+        print(sorted(w.get_obs_names("s")))
+        """
+    )
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=root)
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.strip() == "['c0', 'c1']"
