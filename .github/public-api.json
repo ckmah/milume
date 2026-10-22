@@ -99,6 +99,7 @@
       "raster_window_radius": "trait Float",
       "render_mode": "trait Unicode",
       "show_rulers": "trait Bool",
+      "throwaway_probe": "trait Int",
       "type_neighborhoods": "trait List",
       "volume_cell_rows": "trait Unicode",
       "x_bounds": "trait Tuple",

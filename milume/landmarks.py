@@ -355,6 +355,7 @@ class LandmarksWidget(AnyWidget):
     active_genes = traitlets.List(traitlets.Unicode(), default_value=[]).tag(sync=True)
 
     # --- Internal plumbing (synced, not notebook API) ---
+    throwaway_probe = traitlets.Int(0).tag(sync=True)
     mode = traitlets.Unicode("select").tag(sync=True)
     x_bounds = traitlets.Tuple(
         traitlets.Float(), traitlets.Float(), default_value=(0.0, 1.0)
