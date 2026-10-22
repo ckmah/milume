@@ -9,6 +9,7 @@ import { ciLegErrors, loadCiConfig, selectLegs, tiersHit } from "./lib/ci-legs.m
 import { unconditionalSkips, uiGestures, unlinkedFlakyEntries, unroutedMolabPaths } from "./lib/e2e-scope.mjs";
 import { assignShards } from "./lib/e2e-shard-plan.mjs";
 import { mergeabilityError } from "./lib/pr-mergeable.mjs";
+import { canonicalTagline, parseShotSpec, shotSpecErrors } from "./lib/shot-spec.mjs";
 import { failingTiers, handoffSnapshot, stallVerdict, stalledMarker, watchBody, watchSessions } from "./lib/ci-budget.mjs";
 import { runPlan, verifyTimeoutMs } from "./lib/verify-run.mjs";
 import { validateUiPullRequest, visualAcceptanceItems } from "./lib/pr-policy.mjs";
@@ -331,6 +332,38 @@ test("PRs into feat/lazy-genes pass pr-stack and aren't compared with the integr
   const f = hygieneFixture("feat-base");
   assert.deepEqual(stackErrors(f.pr, f.others), []);
   assert.deepEqual(overlapReport(f.pr, f.others), { failures: [], warnings: [] });
+});
+
+const shotSpecMd = readFileSync(join(repoRoot, "docs", "montage", "shot-spec.md"), "utf8");
+const tagline = canonicalTagline(readFileSync(join(repoRoot, "website", "landing", "index.html"), "utf8"));
+const specCtx = { tagline, root: repoRoot };
+
+test("check:shot-spec passes on the repo and covers the shipped montage", () => {
+  const r = run("check-shot-spec.mjs", []);
+  assert.equal(r.status, 0, r.stderr);
+  const ids = parseShotSpec(shotSpecMd).rows.map((x) => x.id);
+  assert.deepEqual(ids, ["title", "peek", "spline-buffer", "distances", "probe", "knn", "inspect-zcut", "end"]);
+});
+
+test("check:shot-spec fails a tagline caption that drifts from the landing <h1>", () => {
+  const drifted = shotSpecMd.replace(
+    "| Explore spatial biology in your notebook. | tagline | manual: end card",
+    "| Explore spatial data in your notebook. | tagline | manual: end card",
+  );
+  assert.notEqual(drifted, shotSpecMd);
+  const errors = shotSpecErrors(drifted, specCtx);
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /\(end\): tagline caption "Explore spatial data in your notebook\." doesn't match the landing <h1>/);
+});
+
+test("check:shot-spec checks schema and that capture scripts exist", () => {
+  const row = (cells) => `## Shots\n\n| id | dataset | setup | duration_s | caption | caption_kind | capture | status | owner |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| ${cells} |\n`;
+  assert.deepEqual(shotSpecErrors(row("a | colon_a2 | s | 2 | x | feature | frontend/scripts/hero-record.mjs | planned | Developer"), specCtx), []);
+  const bad = shotSpecErrors(row("Bad_Id | mouse | s | 0 | x | feature | scripts/nope.mjs | done | Bob"), specCtx);
+  for (const want of [/kebab-case/, /dataset/, /duration_s/, /`scripts\/nope\.mjs` doesn't exist/, /status/, /owner/]) {
+    assert.ok(bad.some((e) => want.test(e)), `expected ${want}`);
+  }
+  assert.match(shotSpecErrors("## Shots\n\n| id | caption |\n| --- | --- |\n| a | b |\n", specCtx).join(), /columns must be/);
 });
 
 const HOUR = 3.6e6;

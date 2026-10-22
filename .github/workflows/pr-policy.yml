@@ -182,5 +182,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: check:shot-spec
+        run: node scripts/check-shot-spec.mjs
+        working-directory: frontend
       - run: node --test scripts/check-agent-policy.test.mjs
         working-directory: frontend

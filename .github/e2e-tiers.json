@@ -96,6 +96,10 @@
       "frontend/scripts/check-pr-hygiene.mjs",
       "frontend/scripts/lib/pr-hygiene.mjs",
       "frontend/scripts/pr-hygiene-fixtures/**",
+      "docs/montage/**",
+      "website/landing/index.html",
+      "frontend/scripts/check-shot-spec.mjs",
+      "frontend/scripts/lib/shot-spec.mjs",
       "frontend/scripts/lib/ci-budget.mjs",
       "frontend/scripts/stale-prs.mjs",
       "frontend/scripts/lib/verify-run.mjs",
@@ -157,6 +161,10 @@
         [
           "frontend",
           "npm run check:ci-legs"
+        ],
+        [
+          "frontend",
+          "npm run check:shot-spec"
         ],
         [
           "frontend",
