@@ -17,7 +17,7 @@ the checks for your diff from [`.github/e2e-tiers.json`](.github/e2e-tiers.json)
 | Right e2e tier for the diff: CI and `npm run verify` read one path → tier → leg → job map; wheel builds ship the widget bundle | `npm run check:ci-legs` ([`pr-policy.yml`](.github/workflows/pr-policy.yml) `ci-legs`) + [`.github/e2e-tiers.json`](.github/e2e-tiers.json); [`scripts/check-wheel-bundle.sh`](scripts/check-wheel-bundle.sh) in [`ci.yml`](.github/workflows/ci.yml) |
 | Landing montage shots are rows in [`docs/montage/shot-spec.md`](docs/montage/shot-spec.md) (dataset, setup, duration, caption, capture, status, owner); handoffs name shot ids; tagline captions match the landing `<h1>`; new or re-shot rows name a capture script (or `N/A: <reason>`) | `npm run check:shot-spec` ([`pr-policy.yml`](.github/workflows/pr-policy.yml) `agent-policy-tests`); [Montage issue template](.github/ISSUE_TEMPLATE/montage.yml) |
 | Bots wait on CI in bounded sessions, then hand off with the snapshot (head SHA, conflicts, failing tier): `gh-ci-watch.mjs` gives 3 sessions of at most 20 min per head SHA; `npm run verify` stops at 15 min naming the step that hung; ready bot-branch PRs with red or pending CI and no push for 6 h get a `stalled` comment | [`gh-ci-watch.mjs`](frontend/scripts/gh-ci-watch.mjs) (refuses the 4th session); [`verify.mjs`](frontend/scripts/verify.mjs) (`MILUME_VERIFY_TIMEOUT_MIN`); [`stale-prs.yml`](.github/workflows/stale-prs.yml) (hourly) |
-| Merge only on green `gate`, non-draft, conflicts resolved | Branch protection + [`frontend-e2e.yml`](.github/workflows/frontend-e2e.yml) `gate` job |
+| Merge only on green required checks, non-draft, conflicts resolved | Ruleset [`main: require demo-pins`](https://github.com/ckmah/milume/rules/25597767) requires `demo-pins`, `gate`, `e2e-scope`, `ci-legs`, `public-api`, `pr-hygiene`, `ui-pr-policy`, `agent-policy-tests` (skipped counts as passing); `gate` is the [`frontend-e2e.yml`](.github/workflows/frontend-e2e.yml) job, the rest are in [`pr-policy.yml`](.github/workflows/pr-policy.yml). Required jobs must always report on PRs to main: filter with job-level `if`, never workflow `paths` |
 
 - **Branch names:** agent branches use the `agent/` prefix (e.g. `agent/montage-capture-script`). In PR mentions, the short name is the part after the prefix (`montage-capture-script`).
 - **Draft UI PRs:** keep PRs in draft while iterating. Draft runs the fast tier (`test`, `e2e-core`, landmarks default harness) without volume shards.
@@ -45,7 +45,7 @@ Wall-clock on cloud agents is often idle time waiting for the next follow-up, no
 
 ## Merging your own PR
 
-Needs a green `gate` check and a conflict-free non-draft PR. Squash, delete the branch, and note what you verified. Visual changes show up as snapshot diffs in the PR; regenerate baselines on Linux CI.
+Needs the required checks green (see the table above) and a conflict-free non-draft PR. Squash, delete the branch, and note what you verified. Visual changes show up as snapshot diffs in the PR; regenerate baselines on Linux CI.
 
 **Stop and escalate to Clarence instead of merging** on:
 
