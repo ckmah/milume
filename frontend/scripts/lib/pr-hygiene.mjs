@@ -61,6 +61,9 @@ export function stackErrors(pr, others) {
   for (const o of others) {
     if (o.number === pr.number || o.head === pr.head) continue;
     const shared = o.commits.filter((c) => mine.has(c));
+    // Shared commits belong to the smaller PR: a larger `o` is the one stacked on us, even
+    // when it was cut from an older head of this PR.
+    if (o.commits.length > mine.size) continue;
     if (shared.length) {
       errors.push(
         `head carries ${shared.length} commit(s) from open PR #${o.number} (\`${o.head}\`), e.g. ${shared[0].slice(0, 7)}. Rebase onto main after it merges.`,

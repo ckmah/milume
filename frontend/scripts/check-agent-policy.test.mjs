@@ -243,6 +243,16 @@ test("pr-stack fails a PR carrying another open PR's commits (#135 carrying #123
   assert.match(errors.join("\n"), /open PR #123/);
 });
 
+test("the parent of a stacked PR is not flagged for the child's commits", () => {
+  const parent = { number: 279, body: "", base: "main", head: "pr-hygiene", files: [], commits: ["p1"] };
+  const child = { number: 284, body: "", base: "main", head: "child", files: [], commits: ["p1", "c1"] };
+  assert.deepEqual(stackErrors(parent, [child]), []);
+  assert.match(stackErrors(child, [parent]).join("\n"), /open PR #279/);
+  const pushedAgain = { ...parent, commits: ["p1", "p2"] };
+  const staleChild = { ...child, commits: ["p1", "a1", "c1"] };
+  assert.deepEqual(stackErrors(pushedAgain, [staleChild]), []);
+});
+
 test("PRs into feat/lazy-genes pass pr-stack and aren't compared with the integration PR", () => {
   const f = hygieneFixture("feat-base");
   assert.deepEqual(stackErrors(f.pr, f.others), []);
