@@ -9,6 +9,10 @@
 - On Python 3.12+ the `spatialdata` floor is `>=0.8.0` (3.11 keeps `>=0.7.3`). anndata 0.13, which needs Python 3.12+, breaks spatialdata 0.7.3 (`TableModel.parse` fails), so holding spatialdata at 0.7.3 there gave a broken install. 0.8.0 is the first release that works with anndata 0.13, and it pulls the same dependencies as 0.7.3. Fresh installs already resolve 0.8.0, so nothing new is downloaded (#315).
 - `pyarrow>=16` is now declared; milume reads cell-polygon parquet with it. It was already installed through `spatialdata`, so nothing new is downloaded.
 
+### Smaller sdist
+
+- The source distribution no longer ships `website/`, the README screenshots (`assets/*.png`), the Playwright e2e snapshots or the vendored `.agents/` skills and `.cursor/` config (the `use-milume` skill is still included), dropping it from about 60 MB to about 4.3 MB. The wheel contents are unchanged. The install docs now show `uv pip install --compile-bytecode milume`.
+
 ### Inspect image contrast default reaches the image max
 
 - When `contrast_limits` is not passed, the Inspect cube's default upper limit is now the max of the image's coarsest pyramid level instead of its 99.5th percentile; the lower limit stays at the 1st percentile. The coarsest level already compresses the dynamic range, so the percentile clipped bright tissue to white (on the colon A2 image the default goes from `(0, 171)` to `(0, 249)`), which washed out a top z cut and hid the cell meshes behind it. Passing `contrast_limits=(lo, hi)` works as before.
