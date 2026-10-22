@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig } from "vite";
+import { defineConfig, transformWithEsbuild, type Plugin, type ResolvedConfig } from "vite";
 
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(rootDir, "..");
@@ -101,6 +101,39 @@ function serveLandmarksVolumeFixture() {
   };
 }
 
+/**
+ * Vite's ES lib mode minifies identifiers and syntax but keeps whitespace, so
+ * downstream bundlers can still see `@__PURE__` annotations. landmarks.mjs is the
+ * final artifact anywidget loads (nothing tree-shakes it again), so strip whitespace
+ * too (#318). Same esbuild minifier, same build target; still one file.
+ */
+function minifyWidgetBundle(): Plugin {
+  let target: ResolvedConfig["build"]["target"] = "esnext";
+  return {
+    name: "milume-minify-widget-bundle",
+    apply: "build",
+    enforce: "post",
+    configResolved(config) {
+      target = config.build.target;
+    },
+    // generateBundle, not renderChunk: Vite's own esbuild renderChunk runs after
+    // user plugins and would see unminified input either way.
+    async generateBundle(_options, bundle) {
+      for (const chunk of Object.values(bundle)) {
+        if (chunk.type !== "chunk") continue;
+        const result = await transformWithEsbuild(chunk.code, chunk.fileName, {
+          loader: "js",
+          format: "esm",
+          minify: true,
+          target: target === false ? "esnext" : target,
+          sourcemap: false,
+        });
+        chunk.code = result.code;
+      }
+    },
+  };
+}
+
 const usesViv = devWidget === "landmarks-volume";
 
 export default defineConfig(({ command }) => {
@@ -137,7 +170,7 @@ export default defineConfig(({ command }) => {
   }
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [react(), tailwindcss(), minifyWidgetBundle()],
     resolve: sharedResolve,
     server: sharedServer,
     // Browser ESM has no Node `process`. polygon-clipping reads optional
