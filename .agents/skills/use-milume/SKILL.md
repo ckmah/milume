@@ -44,7 +44,7 @@ w.color = "cell_type"  # an obs column: categorical palette
 - `w.color` takes an `adata.obs` column (categorical or numeric) or a gene in
   `var_names`. A column added to `adata.obs` after the widget was built works.
 - An unknown key raises `milume.ColorKeyError` (a `KeyError`). A gene the
-  widget didn't pack (`genes=` left it out), or a category column with more
+  widget's catalog doesn't include (`genes=` left it out), or a category column with more
   than 128 levels, raises `milume.ColorValueError` (a `ValueError`). Nothing
   changes when it raises.
 - Re-assigning the same key does not repack a column you rewrote; assign
@@ -202,7 +202,7 @@ w_moran.color = adata.uns["moranI"]["I"].idxmax()
 | `w.select_type()` | method | Focus one category group of the active column. |
 | `w.get_obs_names()` | method | pd.Index of obs_names in a selection id or 'focus'; KeyError on unknown ids. |
 | `w.set_points()` | method | Move the scatter points to new x/y; colour is set with color. |
-| `w.set_expression()` | method | Replace the packed gene catalogue from a table. |
+| `w.set_expression()` | method | Replace the gene catalogue from a table. |
 | `w.set_render_mode()` | method | Switch between points and raster bins. |
 | `w.set_raster_basis()` | method | Pick the raster aggregation basis: genes, embedding or composition. |
 | `w.clear_raster_query()` | method | Clear the pinned raster similarity query. |

@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react";
+
 import { useModel } from "@/hooks/use-model";
 import type { CellPolygons } from "@/widgets/volume-cube/cell-mesh-source";
 
@@ -10,6 +12,8 @@ import type {
   SelectionItem,
   TypeNeighborhood,
 } from "./helpers";
+import type { GeneAggregate, GeneStore } from "./gene-store.js";
+import { geneStoreFor } from "./gene-store-model";
 import {
   applyActiveCategory,
   clearRasterQuery as clearRasterQueryTrait,
@@ -62,7 +66,7 @@ export type LandmarksState = {
   selected_type_indices: number[];
   category_columns: CategoryColumn[];
   active_category: string;
-  gene_columns: GeneColumn[];
+  gene_names: GeneColumn[];
   active_genes: string[];
   gene_scale_mode: GeneScaleMode;
   gene_log1p: boolean;
@@ -76,11 +80,6 @@ export type LandmarksState = {
   y_bounds: number[];
   points_data: string;
   category_codes: string;
-  gene_values: string;
-  gene_format: string;
-  gene_csc_indptr: string;
-  gene_csc_indices: string;
-  gene_csc_data: string;
   embedding_values: string;
   embedding_channel_labels: string[];
   point_size: number;
@@ -122,7 +121,7 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
   "selected_type_indices",
   "category_columns",
   "active_category",
-  "gene_columns",
+  "gene_names",
   "active_genes",
   "gene_scale_mode",
   "gene_log1p",
@@ -136,11 +135,6 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
   "y_bounds",
   "points_data",
   "category_codes",
-  "gene_values",
-  "gene_format",
-  "gene_csc_indptr",
-  "gene_csc_indices",
-  "gene_csc_data",
   "embedding_values",
   "embedding_channel_labels",
   "point_size",
@@ -171,6 +165,11 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
 ];
 
 export type LandmarksModel = LandmarksState & {
+  /** Loaded gene slices and the multi-gene aggregate (UI-only, shared with the engine). */
+  genes: GeneStore;
+  /** Bumps when a gene slice lands or the aggregate changes. */
+  gene_version: number;
+  setGeneAggregate(mode: GeneAggregate): void;
   setMode(mode: string): void;
   select(kind: string, index: number): void;
   setActiveCategory(col: CategoryColumn): void;
@@ -212,9 +211,16 @@ export type LandmarksModel = LandmarksState & {
 /** Typed landmarks state + domain actions; chrome never touches raw traitlets. */
 export function useLandmarksModel(model: AnyModel): LandmarksModel {
   const state = useModel<LandmarksState>(model, MODEL_KEYS);
+  const genes = geneStoreFor(model);
+  const gene_version = useSyncExternalStore(genes.subscribe, () => genes.version);
 
   return {
     ...state,
+    genes,
+    gene_version,
+    setGeneAggregate(mode) {
+      genes.setAggregate(mode);
+    },
     setMode(mode) {
       setModeTrait(model, mode);
     },

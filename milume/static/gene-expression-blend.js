@@ -3,6 +3,21 @@ export const GENE_BLEND_COLORS = ["#ff0099", "#5cbf00", "#0088cc"];
 
 export const LOW_EXPR_SRGB = [107, 114, 128];
 
+/** One gene per RGB channel up to this many; more genes blend into one aggregate. */
+export const MAX_RGB_GENES = GENE_BLEND_COLORS.length;
+
+/** Combine per-gene scaled values ``ts`` (each in [0, 1]) into one: mean, median or max. */
+export function aggregateGeneT(ts, mode) {
+  if (!ts.length) return 0;
+  if (mode === "max") return Math.max(...ts);
+  if (mode === "median") {
+    const s = [...ts].sort((a, b) => a - b);
+    const mid = s.length >> 1;
+    return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+  }
+  return ts.reduce((a, b) => a + b, 0) / ts.length;
+}
+
 export function geneUsesLog1pFromFlags(geneLog1p, geneExpressionLogged) {
   return !!geneLog1p && !geneExpressionLogged;
 }
@@ -71,8 +86,10 @@ function parseHexRgb(hex) {
 }
 
 /**
- * Additive sRGB bytes for one point. `valueAt(i, geneName)` returns packed [0,1]
- * or null; `metaAt(geneName)` returns `{ vmin, vmax }` or null.
+ * sRGB bytes for one point. Up to ``MAX_RGB_GENES`` genes add one channel each;
+ * more genes colour by their ``aggregate`` (mean / median / max) on the first
+ * gene's ramp. `valueAt(i, geneName)` returns packed [0,1] or null;
+ * `metaAt(geneName)` returns `{ vmin, vmax }` or null (gene not loaded).
  */
 export function blendGeneSrgb({
   activeGenes,
@@ -81,26 +98,39 @@ export function blendGeneSrgb({
   log1p,
   valueAt,
   metaAt,
+  aggregate = "mean",
 }) {
   if (!activeGenes?.length || pointIndex < 0) return LOW_EXPR_SRGB;
   const shared = scaleMode === "shared" ? sharedGeneCeiling(activeGenes, metaAt, log1p) : 0;
-  let r = 0;
-  let g = 0;
-  let b = 0;
-  let w = 0;
-  for (let ai = 0; ai < activeGenes.length; ai++) {
-    const geneName = activeGenes[ai];
+  const tFor = (geneName) => {
     const meta = metaAt(geneName);
-    if (!meta) continue;
-    const t01 = valueAt(pointIndex, geneName);
-    const t = scaledGeneT({
-      t01,
+    if (!meta) return null;
+    return scaledGeneT({
+      t01: valueAt(pointIndex, geneName),
       vmin: meta.vmin ?? 0,
       vmax: meta.vmax ?? 1,
       scaleMode,
       sharedCeiling: shared,
       log1p,
     });
+  };
+  if (activeGenes.length > MAX_RGB_GENES) {
+    const ts = [];
+    for (const geneName of activeGenes) {
+      const t = tFor(geneName);
+      if (t != null) ts.push(t);
+    }
+    const t = aggregateGeneT(ts, aggregate);
+    if (!(t > 1e-6)) return LOW_EXPR_SRGB;
+    const rgb = parseHexRgb(GENE_BLEND_COLORS[0]);
+    return [Math.round(rgb[0] * t), Math.round(rgb[1] * t), Math.round(rgb[2] * t)];
+  }
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  let w = 0;
+  for (let ai = 0; ai < activeGenes.length; ai++) {
+    const t = tFor(activeGenes[ai]);
     if (!(t > 0)) continue;
     const rgb = parseHexRgb(GENE_BLEND_COLORS[ai % GENE_BLEND_COLORS.length]);
     r += rgb[0] * t;

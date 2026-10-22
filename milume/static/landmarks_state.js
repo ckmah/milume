@@ -7,7 +7,7 @@ export const DEFAULT_HOOD = {
 };
 
 /** Keep in sync with frontend helpers MAX_ACTIVE_GENES. */
-export const MAX_ACTIVE_GENES = 3;
+export const MAX_ACTIVE_GENES = 8;
 
 export function withHood(item) {
   return { ...DEFAULT_HOOD, ...item };
@@ -87,7 +87,7 @@ export function selectTypeIndex(model, labelIndex, { additive = false } = {}) {
 }
 
 export function setActiveGenes(model, names) {
-  const geneCols = model.get("gene_columns") || [];
+  const geneCols = model.get("gene_names") || [];
   const known = new Set(geneCols.map((g) => g.name));
   const next = [];
   for (const name of names || []) {

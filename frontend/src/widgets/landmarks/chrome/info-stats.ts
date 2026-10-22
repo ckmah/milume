@@ -1,4 +1,4 @@
-import { GENE_COLORS } from "../helpers";
+import { geneColor } from "../helpers";
 import type { CategoryColumn, SelectionItem } from "../helpers";
 import { decodeF32Base64, decodeI32Base64 } from "../binary";
 import { typeFocusIndicesFromState } from "../type-focus";
@@ -156,92 +156,30 @@ export function compositionSlices(opts: {
  * Axis domain follows selected-gene display bounds when provided so ticks
  * update with the gene set; otherwise uses the observed sample range.
  *
- * Gene packs are catalog col-major (dense ``gene_values`` or CSC). Active
- * genes are resolved through ``geneColumns`` name → column index.
+ * ``columnAt(name)`` is the gene's dense [0, 1] column (null while it loads).
  */
 export function geneDensities(opts: {
   n: number;
   mask: Uint8Array;
-  geneValuesB64: string;
   activeGenes: string[];
   geneLog1p: boolean;
-  /** Catalog metadata; required to map active names → packed columns. */
-  geneColumns?: Array<{ name: string }>;
-  geneFormat?: string;
-  geneCscIndptrB64?: string;
-  geneCscIndicesB64?: string;
-  geneCscDataB64?: string;
+  columnAt: (name: string) => Float32Array | null;
   /** Per-gene display bounds (same scale as samples when log1p). */
   geneBounds?: Array<{ lo: number; hi: number }>;
   bins?: number;
 }): { series: DensitySeries[]; rows: DensityRow[]; xMin: number; xMax: number } {
-  const {
-    n,
-    mask,
-    geneValuesB64,
-    activeGenes,
-    geneLog1p,
-    geneColumns = [],
-    geneFormat = "dense",
-    geneCscIndptrB64 = "",
-    geneCscIndicesB64 = "",
-    geneCscDataB64 = "",
-    geneBounds,
-    bins = 48,
-  } = opts;
+  const { n, mask, activeGenes, geneLog1p, columnAt, geneBounds, bins = 48 } = opts;
   const series: DensitySeries[] = activeGenes.map((name, i) => ({
     key: `g${i}`,
     label: name,
-    color: GENE_COLORS[i % GENE_COLORS.length],
+    color: geneColor(i, activeGenes.length),
   }));
   if (!series.length || n <= 0) {
     return { series, rows: [], xMin: 0, xMax: 1 };
   }
-
-  const colIndex = new Map(
-    geneColumns.map((c, i) => [String(c.name), i] as const),
-  );
-  const catalogIdx = activeGenes.map((name) => colIndex.get(name) ?? -1);
-
-  /** Value for active-series gene g at observation i (display-normalized). */
-  let valueAt: (g: number, i: number) => number;
-  if (geneFormat === "csc" && geneCscIndptrB64) {
-    const indptr = decodeI32Base64(geneCscIndptrB64);
-    const indices = decodeI32Base64(geneCscIndicesB64);
-    const data = decodeF32Base64(geneCscDataB64);
-    // Densify selected columns once (catalog may be sparse).
-    const dense = new Float32Array(series.length * n);
-    for (let g = 0; g < series.length; g++) {
-      const gi = catalogIdx[g];
-      if (gi < 0 || gi + 1 >= indptr.length) continue;
-      const start = indptr[gi] | 0;
-      const end = indptr[gi + 1] | 0;
-      const off = g * n;
-      for (let p = start; p < end; p++) {
-        const i = indices[p] | 0;
-        if (i >= 0 && i < n) dense[off + i] = data[p] || 0;
-      }
-    }
-    valueAt = (g, i) => dense[g * n + i];
-  } else if (geneValuesB64) {
-    const values = decodeF32Base64(geneValuesB64);
-    const nGenes =
-      geneColumns.length || Math.floor(values.length / Math.max(n, 1));
-    valueAt = (g, i) => {
-      const gi = catalogIdx[g];
-      if (gi < 0) return NaN;
-      // Catalog col-major. Legacy: packed columns == active_genes order.
-      if (values.length >= n * nGenes && nGenes > 0) {
-        return values[gi * n + i];
-      }
-      if (values.length >= n * series.length) {
-        return values[g * n + i];
-      }
-      return NaN;
-    };
-  } else {
-    return { series, rows: [], xMin: 0, xMax: 1 };
-  }
+  const columns = activeGenes.map((name) => columnAt(name));
+  if (columns.every((c) => !c)) return { series, rows: [], xMin: 0, xMax: 1 };
+  const valueAt = (g: number, i: number) => columns[g]?.[i] ?? NaN;
 
   const samples: number[][] = series.map(() => []);
   let obsLo = Infinity;

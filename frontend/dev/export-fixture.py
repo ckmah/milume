@@ -39,7 +39,7 @@ FIXTURE_KEYS = [
     "selected_index",
     "category_columns",
     "active_category",
-    "gene_columns",
+    "gene_names",
     "active_genes",
     "gene_scale_mode",
     "gene_log1p",
@@ -51,7 +51,6 @@ FIXTURE_KEYS = [
     "default_buffer_width",
     "neighbor_radius_max",
     "neighbor_k_max",
-    "gene_format",
     "gene_csc_indptr",
     "gene_csc_indices",
     "gene_csc_data",
@@ -61,7 +60,6 @@ FIXTURE_KEYS = [
     "points_data",
     "point_palette",
     "category_codes",
-    "gene_values",
     "color_vmin",
     "color_vmax",
     "render_mode",
@@ -389,7 +387,7 @@ def main() -> None:
         f"span={xb[1]-xb[0]:.1f}×{yb[1]-yb[0]:.1f}"
     )
     print(f"  embeddings: {payload.get('raster_embedding_keys')}")
-    print(f"  genes: {[g['name'] for g in payload['gene_columns']]}")
+    print(f"  genes: {[g['name'] for g in payload['gene_names']]}")
     print(f"  categories: {[c['name'] for c in payload['category_columns']]}")
 
 
