@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { unconditionalSkips, uiGestures, unlinkedFlakyEntries, unroutedMolabPaths } from "./lib/e2e-scope.mjs";
 import { assignShards } from "./lib/e2e-shard-plan.mjs";
 import { mergeabilityError } from "./lib/pr-mergeable.mjs";
 import { validateUiPullRequest } from "./lib/pr-policy.mjs";
@@ -31,12 +32,50 @@ test("AGENTS.md documents babysit stop rule and HF fixture policy", () => {
   assert.match(agents, /volume-xsmall-if-missing/);
 });
 
-test("verify-landmarks skill documents harness-first verification and marimo API scope", () => {
+test("verify-landmarks skill documents the babysit cap and webServer readiness", () => {
   const skill = readFileSync(join(repoRoot, ".agents/skills/verify-landmarks/SKILL.md"), "utf8");
   assert.match(skill, /gh-ci-watch/);
   assert.match(skill, /ERR_CONNECTION_REFUSED/);
-  assert.match(skill, /UI PRs do not require marimo/);
-  assert.match(skill, /test:e2e:marimo-api/);
+});
+
+test("molab specs: unconditional skip/fixme is flagged, conditional skip is not", () => {
+  assert.deepEqual(
+    unconditionalSkips('test.skip("lasso", async () => {});\ntest.fixme();\ntest.describe.skip("x", () => {});').map(
+      (s) => s.call,
+    ),
+    ["test.skip", "test.fixme", "test.skip"],
+  );
+  assert.deepEqual(unconditionalSkips('test.skip(browserName === "webkit", "no webgl");'), []);
+});
+
+test("molab spec in flaky-registry needs an issue link", () => {
+  const specs = ["frontend/e2e/landmarks/landmarks-molab-shadow.spec.ts"];
+  const entry = { file: "e2e/landmarks/landmarks-molab-shadow.spec.ts", title: "lasso" };
+  assert.equal(unlinkedFlakyEntries({ tests: [entry] }, specs).length, 1);
+  assert.equal(unlinkedFlakyEntries({ tests: [{ ...entry, issue: "#258" }] }, specs).length, 0);
+  assert.equal(unlinkedFlakyEntries({ tests: [{ ...entry, file: "e2e/landmarks/other.spec.ts" }] }, specs).length, 0);
+});
+
+test("molab path outside the landmarks run tiers is unrouted", () => {
+  const scope = { molab: { paths: ["frontend/src/widgets/landmarks/**"], runTiers: ["landmarks"] } };
+  const files = ["frontend/src/widgets/landmarks/LandmarksView.tsx"];
+  assert.deepEqual(unroutedMolabPaths(files, scope, { landmarks: ["frontend/src/widgets/**"] }), []);
+  assert.deepEqual(unroutedMolabPaths(files, scope, { landmarks: ["milume/**"] }), files);
+});
+
+test("marimo e2e rejects UI gestures and keeps kernel probes", () => {
+  const gestures = uiGestures("a.spec.ts", 'await page.mouse.move(1, 2);\nawait page.getByRole("button").click();\nawait drawLassoStroke(page, box);\nawait page.keyboard.press("Escape");');
+  assert.deepEqual(gestures.map((g) => g.gesture), ["page.mouse", ".click(", "drawLasso*", "keyboard input"]);
+  assert.deepEqual(uiGestures("a.spec.ts", 'page.on("console", (msg) => msg.type());\nawait getModel(page, "volume");'), []);
+  assert.deepEqual(
+    uiGestures("a.spec.ts", "await page.keyboard.press('Enter');", [{ file: "a.spec.ts", text: "press('Enter')", reason: "kernel run" }]),
+    [],
+  );
+});
+
+test("check:e2e-scope passes on the repo", () => {
+  const r = run("check-e2e-scope.mjs", ["--no-list"]);
+  assert.equal(r.status, 0, r.stderr);
 });
 
 test("thin issue #79 empty fails widget-issue check", () => {

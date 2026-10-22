@@ -7,6 +7,8 @@ kernel load, volume comm (`DataView` buffers), traitlet round-trips, `w.color` /
 **No UI gestures here.** Lasso, clicks, Inspect interaction and molab embed layout are
 verified in the Vite harness (`e2e/landmarks/`, including the simulated-molab
 `landmarks-molab-shadow` and `landmarks-molab-viewport` specs). UI PRs do not need marimo.
+`npm run check:e2e-scope` fails on gesture APIs here; the allowlist is `marimo_api.allow` in
+[`../e2e-scope.json`](../e2e-scope.json).
 
 | Spec | Notebook | Covers |
 |---|---|---|

@@ -32,6 +32,21 @@ jobs:
       - uses: actions/checkout@v4
       - run: scripts/check-demo-pins.sh
 
+  e2e-scope:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run check:e2e-scope
+
   changes:
     uses: ./.github/workflows/detect-changes.yml
 
