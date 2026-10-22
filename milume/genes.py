@@ -208,6 +208,67 @@ def _scale_to_unit(vals: "np.ndarray", vmin: float, vmax: float) -> "np.ndarray"
 
 GeneSlice = tuple[dict[str, Any], "np.ndarray", "np.ndarray"]
 
+# Rows searched together by ``_csr_columns``: bounds its scratch to ~1 MiB and keeps
+# each pass over the probes cache-sized.
+_CSR_SEARCH_ROWS = 1 << 16
+
+
+def _csr_columns(X: Any, idx: list[int]) -> Any:
+    """CSC of ``X[:, idx]`` for a canonical CSR ``X`` without scanning every entry.
+
+    ``X[:, idx]`` on CSR reads all ``nnz`` stored indices per request (about 1 s at
+    170k x 18k with 307M stored values). Each row's indices are sorted, so a
+    lower-bound binary search per row finds column ``j`` in ``log2(max row length)``
+    steps, all rows at once. Cost per gene scales with ``n_obs * log2(row length)``
+    and needs no index, so nothing is retained between requests.
+    """
+    import numpy as np
+    from scipy import sparse
+
+    n_obs = int(X.shape[0])
+    if X.nnz == 0:
+        return sparse.csc_matrix((n_obs, len(idx)), dtype=X.dtype)
+    indices = X.indices
+    max_len = int(np.diff(X.indptr).max())
+    # Positions reach ``nnz + 2 * max_len`` mid-search; int32 halves the working set.
+    pos_dtype = np.int32 if int(X.nnz) + 2 * max_len < 2**31 else np.int64
+    indptr = np.asarray(X.indptr, dtype=pos_dtype)
+    rows_out: list[list[np.ndarray]] = [[] for _ in idx]
+    data_out: list[list[np.ndarray]] = [[] for _ in idx]
+    for r0 in range(0, n_obs, _CSR_SEARCH_ROWS):
+        r1 = min(n_obs, r0 + _CSR_SEARCH_ROWS)
+        start, end = indptr[r0:r1], indptr[r0 + 1 : r1 + 1]
+        base = np.empty(r1 - r0, dtype=pos_dtype)
+        probe = np.empty_like(base)
+        hit = np.empty(r1 - r0, dtype=bool)
+        below = np.empty_like(hit)
+        for k, j in enumerate(idx):
+            target = indices.dtype.type(j)
+            # base: last position in the row whose index is < target (start - 1 if none).
+            np.subtract(start, 1, out=base)
+            step = 1 << max_len.bit_length()
+            while step:
+                np.add(base, step, out=probe)
+                np.less(probe, end, out=hit)
+                np.less(indices.take(probe, mode="clip"), target, out=below)
+                hit &= below
+                np.add(base, step, out=base, where=hit)
+                step >>= 1
+            base += 1
+            np.less(base, end, out=hit)
+            np.equal(indices.take(base, mode="clip"), target, out=below)
+            hit &= below
+            rows = np.flatnonzero(hit)
+            data_out[k].append(np.asarray(X.data.take(base[rows])))
+            rows_out[k].append((rows + r0).astype(np.int32, copy=False))
+    colptr = np.zeros(len(idx) + 1, dtype=np.int64)
+    np.cumsum([sum(r.size for r in rs) for rs in rows_out], out=colptr[1:])
+    data_out = [d for ds in data_out for d in ds]
+    rows_out = [r for rs in rows_out for r in rs]
+    data = np.concatenate(data_out)
+    rows = np.concatenate(rows_out)
+    return sparse.csc_matrix((data, rows, colptr), shape=(n_obs, len(idx)))
+
 
 def _sparse_slice(
     name: str, rows: "np.ndarray", stored: "np.ndarray", n_obs: int
@@ -248,8 +309,12 @@ def gene_slices(adata: Any, names: list[str]) -> list[GeneSlice]:
     n_obs = int(X.shape[0])
     if sparse.issparse(X):
         idx = [_var_index(adata, name) for name in names]
-        sub = X[:, idx] if X.format in ("csr", "csc") else sparse.csc_matrix(X)[:, idx]
-        sub = sparse.csc_matrix(sub)
+        if X.format == "csr" and X.has_canonical_format:
+            # Checked once per matrix (scipy caches it); duplicates or unsorted rows scan.
+            sub = _csr_columns(X, idx)
+        else:
+            sub = X[:, idx] if X.format in ("csr", "csc") else sparse.csc_matrix(X)[:, idx]
+            sub = sparse.csc_matrix(sub)
         if not sub.has_canonical_format:
             sub = sub.copy()
             sub.sum_duplicates()
