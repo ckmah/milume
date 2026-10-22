@@ -17,11 +17,31 @@ milume.__version__
     These changes are on the `main` branch. `pip install milume` still gives you
     2.0.0 until the next release.
 
-A lighter install and a smaller widget bundle. The Python API is the same as
-2.0.0.
+Genes load on demand, so whole-transcriptome datasets open, and the install
+is lighter. The public Python API is the same as 2.0.0. Two internal widget
+traits changed, listed under **Changed**.
+
+**New**
+
+- Genes load on demand. `milume.peek(adata)` opens with gene names only and
+  fetches a gene from the kernel the first time you color by it. On a
+  170,057-cell by 18,028-gene matrix, the kernel's extra memory drops from
+  about 9.6 GiB to 77 MiB. 2.0.0 ran the Jupyter kernel out of memory on that
+  data.
+- Pick up to 8 genes. Up to three blend one color channel each, as before.
+  Four or more color by one combined value, with **Mean**, **Median**, or
+  **Max** under the gene field. See [Color & layers](tools/color-layers.md#genes).
+- The [Squidpy color](integrations/squidpy-color.md) page shows how to color
+  the widget by Squidpy niches and by the top Moran's I gene.
 
 **Changed**
 
+- `genes=[...]` still limits which genes the widget offers, and preloads them
+  when they fit in 64 MiB. A larger list loads on demand and warns with a
+  `UserWarning`.
+- If your code reads `w.gene_columns`, read `w.gene_names` instead. The
+  `gene_format` and `gene_values` traits are gone. These traits are internal
+  and not in the API reference.
 - `pip install milume` no longer installs matplotlib or polars. On Linux with
   Python 3.12 that is about 280 MB less on disk. If your own code uses either
   one, install it yourself.
@@ -41,11 +61,6 @@ A lighter install and a smaller widget bundle. The Python API is the same as
 - In Inspect, the default contrast now reaches the brightest value in the
   image, so bright tissue no longer clips to white. Pass
   `contrast_limits=(lo, hi)` to set it yourself, as before.
-
-**New**
-
-- The [Squidpy color](integrations/squidpy-color.md) page shows how to color
-  the widget by Squidpy niches and by the top Moran's I gene.
 
 ## 2.0.0 (October 20, 2026) { #v2.0.0 }
 
