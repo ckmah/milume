@@ -24,7 +24,6 @@ dependencies = [
     "matplotlib>=3.0",
     "numpy>=1.24",
     "pandas>=2.0",
-    "polars>=1.0",
     "scipy>=1.11",
     "shapely>=2.1.2",
     "spatialdata>=0.2",
