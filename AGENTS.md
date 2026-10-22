@@ -8,7 +8,7 @@ the checks for your diff from [`.github/e2e-tiers.json`](.github/e2e-tiers.json)
 | ---- | ----------- |
 | Landmarks UI issues have Outcome, Acceptance, and Visual acceptance | [`.github/ISSUE_TEMPLATE/landmarks-ui.yml`](.github/ISSUE_TEMPLATE/landmarks-ui.yml) (required fields); `npm run check:widget-issue`; linked issues when a UI PR says `Closes #N` ([`pr-policy.yml`](.github/workflows/pr-policy.yml)) |
 | UI PRs into main link the issue they close (`Closes #N` / `Fixes #N` in the body, including drafts); PRs into a `feat/*` base say `Part of #N` | `npm run check:pr-policy` / [`pr-policy.yml`](.github/workflows/pr-policy.yml) |
-| Ready UI PRs embed screenshots or video in the body (not only Actions artifacts) | `npm run check:pr-policy` / [`pr-policy.yml`](.github/workflows/pr-policy.yml) |
+| Ready UI PRs (UI paths or the `ui-evidence` label) have a `## Visual acceptance` section: one entry per linked-issue item, in order, each with an image/video or `N/A: <reason>`; one agent pass on ready-for-review checks the shots | `npm run check:pr-policy` / [`pr-policy.yml`](.github/workflows/pr-policy.yml) `ui-pr-policy`; [`verify-visual-acceptance`](.agents/skills/verify-visual-acceptance/SKILL.md) |
 | Playwright runs on UI changes; artifact pointers posted on PRs | [`frontend-e2e.yml`](.github/workflows/frontend-e2e.yml) `post-ui-evidence-comment` |
 | Widget chrome uses shadcn primitives, scoped CSS, cube-motion channels | `npm run check:chrome` |
 | Simulated-molab specs always run in `e2e-landmarks (default)` for gesture/DOM paths; marimo e2e has no UI gestures | `npm run check:e2e-scope` + [`frontend/e2e/e2e-scope.json`](frontend/e2e/e2e-scope.json) / [`pr-policy.yml`](.github/workflows/pr-policy.yml) `e2e-scope` |
@@ -17,7 +17,7 @@ the checks for your diff from [`.github/e2e-tiers.json`](.github/e2e-tiers.json)
 | Right e2e tier for the diff: CI and `npm run verify` read one path → tier → leg → job map; wheel builds ship the widget bundle | `npm run check:ci-legs` ([`pr-policy.yml`](.github/workflows/pr-policy.yml) `ci-legs`) + [`.github/e2e-tiers.json`](.github/e2e-tiers.json); [`scripts/check-wheel-bundle.sh`](scripts/check-wheel-bundle.sh) in [`ci.yml`](.github/workflows/ci.yml) |
 | Merge only on green `gate`, non-draft, conflicts resolved | Branch protection + [`frontend-e2e.yml`](.github/workflows/frontend-e2e.yml) `gate` job |
 
-- **Draft UI PRs:** keep PRs in draft while iterating. Draft runs the fast tier (`test`, `e2e-core`, landmarks default harness) without volume shards. Mark **ready for review** (or add the `ui-evidence` label / run the **UI evidence** workflow) to capture screenshots for the PR body before merge.
+- **Draft UI PRs:** keep PRs in draft while iterating. Draft runs the fast tier (`test`, `e2e-core`, landmarks default harness) without volume shards.
 
 ## Agent run budgets
 
