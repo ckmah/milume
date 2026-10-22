@@ -85,6 +85,18 @@ exclude = ["milume/static/*.js"]
 [tool.hatch.build.targets.wheel.force-include]
 ".agents/skills/use-milume/SKILL.md" = "milume/skills/use-milume/SKILL.md"
 
+[tool.hatch.build.targets.sdist]
+# Keep the sdist small (~60 MB -> a few MB): the docs site, README screenshots
+# and Playwright e2e snapshots aren't needed to build or test the package.
+exclude = [
+  "website/",
+  "assets/*.png",
+  "frontend/e2e/**/*-snapshots/",
+  # Vendored agent skills / editor config. The use-milume skill is force-included below.
+  ".agents/",
+  ".cursor/",
+]
+
 [tool.hatch.build.targets.sdist.force-include]
 ".agents/skills/use-milume/SKILL.md" = ".agents/skills/use-milume/SKILL.md"
 
