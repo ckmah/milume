@@ -17,7 +17,7 @@ from anywidget.experimental import command
 from milume._assets import widget_css, widget_esm
 from .categories import (
     _MAX_LEVELS,
-    as_polars,
+    as_frame,
     default_categorical_palette,
     detect_category_columns,
     encode_category_bundle,
@@ -537,7 +537,7 @@ class LandmarksWidget(AnyWidget):
 
         maps = _color_maps_from_uns(adata)
         # Reference obs — do not obs.copy() / attach synthetic x,y columns.
-        df = as_polars(adata.obs)
+        df = as_frame(adata.obs)
         cat_names = detect_category_columns(df)
         if color and color in cat_names:
             cat_names = [str(color), *[c for c in cat_names if c != color]]
@@ -721,11 +721,11 @@ class LandmarksWidget(AnyWidget):
         x = getattr(self, "_data_x", None)
         if x is None:
             raise RuntimeError("internal point cache missing")
-        from .categories import as_polars
+        from .categories import as_frame
 
         import numpy as np
 
-        frame = as_polars(expr)
+        frame = as_frame(expr)
         self._expr_frame = frame
         names = [str(c) for c in frame.columns]
         n = int(x.shape[0])
@@ -1027,7 +1027,7 @@ class LandmarksWidget(AnyWidget):
 
     def _show_category_column(self, key: str) -> None:
         n = int(self._data_x.shape[0])
-        frame = as_polars(self._adata.obs[[key]])
+        frame = as_frame(self._adata.obs[[key]])
         (meta,), codes_b64, label_arrays = encode_category_bundle(
             frame, [key], color_maps=_color_maps_from_uns(self._adata)
         )
