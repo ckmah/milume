@@ -16,3 +16,12 @@ Synthetic CosMx SMI **flat-file** layout (2 FOVs, 6 cells): `*_exprMat_file.csv`
 use `spatial_key="global"` in milume.
 
 Regenerate: `python tests/data/make_cosmx_synthetic_tiny.py`.
+
+## `palettes_matplotlib.json`, `selection_hit_test_matplotlib.npz` (committed)
+
+matplotlib reference outputs, so milume can drop the matplotlib dependency and still prove
+parity: the tab10/tab20/tab20b/tab20c and default sequential hex palettes, and
+`Path.contains_points` masks for the 170k-point lasso cases in `tests/selection_cases.py`
+(packed bits). `tests/test_palettes.py` and `tests/test_selection_hit_test.py` also compare
+against live matplotlib when it is installed. Regenerate with
+`python tests/data/make_matplotlib_fixtures.py` in an env that has matplotlib.

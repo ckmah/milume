@@ -1,5 +1,7 @@
 name: Playwright browser
-description: Cache Chromium under ~/.cache/ms-playwright; install browsers on miss, deps every run.
+description: >-
+  Cache Chromium under ~/.cache/ms-playwright and the apt .debs that `install-deps` pulls,
+  so a slow Ubuntu mirror can't stall the job. Network steps get a timeout and retries.
 
 runs:
   using: composite
@@ -10,6 +12,7 @@ runs:
       run: |
         v=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
         echo "version=${v}" >> "$GITHUB_OUTPUT"
+        echo "image=${ImageOS:-unknown}-${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
 
     - uses: actions/cache@v4
       id: playwright-cache
@@ -17,11 +20,46 @@ runs:
         path: ~/.cache/ms-playwright
         key: ms-playwright-${{ runner.os }}-${{ steps.version.outputs.version }}
 
-    - shell: bash
+    # The .debs for Chromium's system deps. Keyed on the runner image; an older image's
+    # debs still seed apt, which then only downloads what changed.
+    - uses: actions/cache@v4
+      id: apt-cache
+      with:
+        path: ~/.cache/playwright-apt
+        key: playwright-apt-${{ runner.os }}-${{ steps.version.outputs.image }}-${{ steps.version.outputs.version }}
+        restore-keys: playwright-apt-${{ runner.os }}-
+
+    - name: apt timeouts + seed cached debs
+      shell: bash
+      run: |
+        sudo tee /etc/apt/apt.conf.d/99-ci-network > /dev/null <<'CONF'
+        Acquire::Retries "3";
+        Acquire::http::Timeout "30";
+        Acquire::https::Timeout "30";
+        Binary::apt::APT::Keep-Downloaded-Packages "true";
+        CONF
+        shopt -s nullglob
+        debs=(~/.cache/playwright-apt/*.deb)
+        echo "playwright-apt: ${#debs[@]} cached .deb(s) (cache-hit=${{ steps.apt-cache.outputs.cache-hit || 'false' }})"
+        if ((${#debs[@]})); then sudo cp "${debs[@]}" /var/cache/apt/archives/; fi
+
+    - name: Install Chromium (cache miss)
+      shell: bash
       if: steps.playwright-cache.outputs.cache-hit != 'true'
       working-directory: frontend
-      run: npx playwright install chromium
+      run: bash "${GITHUB_ACTION_PATH}/../retry.sh" 3 300 npx playwright install chromium
 
-    - shell: bash
+    - name: Install Chromium system deps
+      shell: bash
       working-directory: frontend
-      run: npx playwright install-deps chromium
+      run: bash "${GITHUB_ACTION_PATH}/install-deps.sh" 3 180
+
+    - name: Stash apt debs for the cache
+      shell: bash
+      if: steps.apt-cache.outputs.cache-hit != 'true'
+      run: |
+        mkdir -p ~/.cache/playwright-apt
+        shopt -s nullglob
+        debs=(/var/cache/apt/archives/*.deb)
+        echo "playwright-apt: saving ${#debs[@]} .deb(s)"
+        if ((${#debs[@]})); then cp "${debs[@]}" ~/.cache/playwright-apt/; fi

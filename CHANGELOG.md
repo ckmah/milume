@@ -6,7 +6,17 @@
 
 - `leidenalg` (and `igraph` with it) is no longer installed by `pip install milume`. milume never imports it; the demo notebook and the Squidpy niche recipe need it for `sc.tl.leiden`. Install it with `pip install "milume[demo]"` or `pip install leidenalg`.
 - `spatialdata` stays a core dependency, now `spatialdata>=0.7.3` (was `>=0.2`). Older releases fail to import (`xarray-schema` needs `pkg_resources`) or fail to write the Zarr store the Inspect cube reads with current geopandas / zarr / ome-zarr.
+- On Python 3.12+ the `spatialdata` floor is `>=0.8.0` (3.11 keeps `>=0.7.3`). anndata 0.13, which needs Python 3.12+, breaks spatialdata 0.7.3 (`TableModel.parse` fails), so holding spatialdata at 0.7.3 there gave a broken install. 0.8.0 is the first release that works with anndata 0.13, and it pulls the same dependencies as 0.7.3. Fresh installs already resolve 0.8.0, so nothing new is downloaded (#315).
 - `pyarrow>=16` is now declared; milume reads cell-polygon parquet with it. It was already installed through `spatialdata`, so nothing new is downloaded.
+- `matplotlib` is no longer installed by `pip install milume` (nor contourpy, cycler, fonttools, kiwisolver, pyparsing): about 17 MB less to download and 54 MB less installed on Linux / Python 3.12. The tab10/tab20/tab20b/tab20c category palettes and the default sequential palette are hardcoded with the same hex values, and lasso / polygon selection uses a numpy port of matplotlib's point-in-path test that gives the same cells (points on an edge and self-intersecting lassos included). `import milume` is about 0.3 s faster because `matplotlib.pyplot` is no longer imported. Install matplotlib yourself if your own plotting code needs it.
+
+### Smaller sdist
+
+- The source distribution no longer ships `website/`, the README screenshots (`assets/*.png`), the Playwright e2e snapshots or the vendored `.agents/` skills and `.cursor/` config (the `use-milume` skill is still included), dropping it from about 60 MB to about 4.3 MB. The wheel contents are unchanged. The install docs now show `uv pip install --compile-bytecode milume`.
+
+### Widget bundle is minified
+
+- `milume/static/bundled/landmarks.mjs` now ships minified: 5.17 → 3.99 MB raw (1.41 → 1.24 MB gzip), still one file. Vite's ES library mode kept whitespace; the build now strips it with the same esbuild minifier ([#318](https://github.com/ckmah/milume/issues/318)).
 
 ### Inspect image contrast default reaches the image max
 
