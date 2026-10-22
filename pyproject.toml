@@ -20,13 +20,13 @@ dependencies = [
     "anndata>=0.10",
     "anywidget>=0.9.2",
     "geopandas>=1.1.4",
-    "leidenalg>=0.12.0",
     "matplotlib>=3.0",
     "numpy>=1.24",
     "pandas>=2.0",
+    "pyarrow>=16",
     "scipy>=1.11",
     "shapely>=2.1.2",
-    "spatialdata>=0.2",
+    "spatialdata>=0.7.3",
     "traitlets>=5.0",
 ]
 
@@ -34,6 +34,7 @@ dependencies = [
 demo = [
     "huggingface-hub>=0.30",
     "igraph>=0.11",
+    "leidenalg>=0.12.0",
     "marimo>=0.25.1",
     "scanpy>=1.10",
     "squidpy>=1.6",
@@ -44,7 +45,7 @@ test = [
     "pandas>=2.0",
     "pytest>=8.3.3",
     "shapely>=2.1.2",
-    "spatialdata>=0.2",
+    "spatialdata>=0.7.3",
 ]
 
 [project.urls]
@@ -56,12 +57,13 @@ Issues = "https://github.com/ckmah/milume/issues"
 dev = [
     "geopandas>=1.1.4",
     "huggingface-hub>=0.30",
+    "leidenalg>=0.12.0",
     "mkdocstrings-python>=2.0.9",
     "pytest>=8.3.3",
     "ruff>=0.16.6",
     "scanpy>=1.10",
     "shapely>=2.1.2",
-    "spatialdata>=0.2",
+    "spatialdata>=0.7.3",
     "spatialdata-io; python_version >= '3.12'",
     "squidpy>=1.6",
     "watchfiles>=1.2.0",
