@@ -28,6 +28,10 @@
 - [Integrations / Squidpy color](https://ckmah.github.io/milume/docs/integrations/squidpy-color/) documents `sq.gr.calculate_niche` → `w.color = nhood_niche_res=<resolution>` and Moran's I top gene → `w.color`, with harness screenshots.
 - The [use-milume](.agents/skills/use-milume/SKILL.md) skill lists the same recipes; optional pytest coverage lives in `tests/test_squidpy_color_recipes.py` when `squidpy` is installed.
 
+### Install: polars is no longer a dependency
+
+- `pip install milume` no longer installs polars (polars + polars-runtime-32): about 59 MB less to download and 225 MB less installed on Linux / Python 3.12. Category columns are now encoded with pandas categorical codes; labels, their order, colours and `w.category_colors()` are unchanged, and colouring a 170k-cell obs is faster (constructor category pass about 210 → 60 ms, `w.color = "<category>"` about 55 → 17 ms). `LandmarksWidget.set_expression` still accepts a polars DataFrame when you have polars installed.
+
 ## 2.0.0 (2026-10-19)
 
 Breaking: no deprecation release.
