@@ -4,8 +4,8 @@ Recolour the widget from Squidpy niche labels and Moran's I without a custom
 parser: write results to `adata.obs` or pick a packed gene, then assign
 `w.color`.
 
-Needs `squidpy` and `scanpy` (`pip install "milume[demo]"` or install them
-yourself). These recipes use the synthetic harness geometry from CI, not colon
+Needs `squidpy`, `scanpy` and `leidenalg` (`pip install "milume[demo]"` or
+install them yourself). These recipes use the synthetic harness geometry from CI, not colon
 or Pyxa demo slices.
 
 ## Niche labels from a selection

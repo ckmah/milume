@@ -2,6 +2,12 @@
 
 ## 2.0.1 (unreleased)
 
+### Install: lighter core dependencies
+
+- `leidenalg` (and `igraph` with it) is no longer installed by `pip install milume`. milume never imports it; the demo notebook and the Squidpy niche recipe need it for `sc.tl.leiden`. Install it with `pip install "milume[demo]"` or `pip install leidenalg`.
+- `spatialdata` stays a core dependency, now `spatialdata>=0.7.3` (was `>=0.2`). Older releases fail to import (`xarray-schema` needs `pkg_resources`) or fail to write the Zarr store the Inspect cube reads with current geopandas / zarr / ome-zarr.
+- `pyarrow>=16` is now declared; milume reads cell-polygon parquet with it. It was already installed through `spatialdata`, so nothing new is downloaded.
+
 ### Smaller sdist
 
 - The source distribution no longer ships `website/`, the README screenshots (`assets/*.png`) or the Playwright e2e snapshots, dropping it from about 60 MB to about 4.4 MB. The wheel is unchanged. The install docs now show `uv pip install --compile-bytecode milume`.
