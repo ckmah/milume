@@ -32,6 +32,51 @@ jobs:
       - uses: actions/checkout@v4
       - run: scripts/check-demo-pins.sh
 
+  public-api:
+    if: github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: check:public-api
+        id: api
+        continue-on-error: true
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: uv run --frozen --no-dev python scripts/public_api.py --base "$BASE_SHA" --report public-api-report.md
+      # Public changes get public-api + needs-clarence; internal-only changes get the comment only.
+      - name: Label and comment
+        if: steps.api.outputs.public_changed == 'true' || steps.api.outputs.internal_changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          PUBLIC: ${{ steps.api.outputs.public_changed }}
+        run: |
+          set -euo pipefail
+          repo="repos/${GITHUB_REPOSITORY}"
+          if [[ "${PUBLIC}" == "true" ]]; then
+            gh label create public-api --color B60205 --description "Changes milume's public API" -R "${GITHUB_REPOSITORY}" 2>/dev/null || true
+            gh label create needs-clarence --color D93F0B --description "Stops for Clarence before merge" -R "${GITHUB_REPOSITORY}" 2>/dev/null || true
+            gh api "${repo}/issues/${PR}/labels" -f "labels[]=public-api" -f "labels[]=needs-clarence" >/dev/null
+          fi
+          id=$(gh api "${repo}/issues/${PR}/comments" --paginate --jq '.[] | select(.body | startswith("<!-- public-api-report -->")) | .id' | head -1)
+          if [[ -n "${id}" ]]; then
+            gh api -X PATCH "${repo}/issues/comments/${id}" -F body=@public-api-report.md >/dev/null
+          else
+            gh api "${repo}/issues/${PR}/comments" -F body=@public-api-report.md >/dev/null
+          fi
+      - name: Fail on a stale snapshot or a missing CHANGELOG line
+        if: steps.api.outcome == 'failure'
+        run: exit 1
+
   ci-legs:
     runs-on: ubuntu-latest
     steps:

@@ -17,3 +17,5 @@ jobs:
           set -euo pipefail
           gh label create ui-evidence --color 1D76DB --description "Run the UI evidence capture workflow on this PR" 2>/dev/null || gh label edit ui-evidence --color 1D76DB --description "Run the UI evidence capture workflow on this PR"
           gh label create run-volume-full --color 0E8A16 --description "Run the full landmarks volume e2e matrix on this PR" 2>/dev/null || gh label edit run-volume-full --color 0E8A16 --description "Run the full landmarks volume e2e matrix on this PR"
+          gh label create public-api --color B60205 --description "Changes milume's public API" 2>/dev/null || gh label edit public-api --color B60205 --description "Changes milume's public API"
+          gh label create needs-clarence --color D93F0B --description "Stops for Clarence before merge" 2>/dev/null || gh label edit needs-clarence --color D93F0B --description "Stops for Clarence before merge"

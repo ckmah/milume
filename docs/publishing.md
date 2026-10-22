@@ -15,6 +15,8 @@ One-time setup (trusted publishing — no API tokens in GitHub secrets):
    The project must exist on PyPI before the first trusted publish (upload once manually or
    register the name first).
 
+Public API (`milume.__all__`, `_PUBLIC_TRAITS`) is snapshotted in `.github/public-api.json`; `npm run check:public-api` fails on drift, and a PR into `main` that changes it needs a CHANGELOG line under the unreleased section and gets `public-api` + `needs-clarence`.
+
 ## Release flow
 
 0. **Before asking Clarence to test the release branch:** in a fresh venv with the
