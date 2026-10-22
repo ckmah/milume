@@ -25,7 +25,9 @@ runs:
     - id: node
       shell: bash
       run: |
-        echo "version=$(node -v)" >> "$GITHUB_OUTPUT"
+        # Major only: hosted runners mix Node patch versions (v22.23.3 / v22.23.4), which
+        # would split the cache; native deps (esbuild, rollup) only care about OS/arch/ABI.
+        echo "version=node$(node -p 'process.versions.node.split(".")[0]')" >> "$GITHUB_OUTPUT"
         name=$(echo "${{ inputs.dir }}" | tr '[:lower:]' '[:upper:]' | tr -c 'A-Z0-9\n' '_')
         echo "env=MILUME_DEPS_READY_${name}" >> "$GITHUB_OUTPUT"
 
