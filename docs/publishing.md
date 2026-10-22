@@ -43,7 +43,12 @@ scripts/release-demo-check.sh demos/landmarks.py
 pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ milume
 ```
 
-2. Trigger publish on PyPI:
+2. Update the user changelog at `website/content/changelog.md`: move the
+   **Unreleased** section under a `## X.Y.Z (Month D, YYYY) { #vX.Y.Z }` heading and
+   rewrite it for users. `tests/test_user_changelog.py` fails until the page has a
+   heading for every version in `CHANGELOG.md` and for `milume.__version__`.
+
+3. Trigger publish on PyPI:
 
 ```bash
 # bump milume/__init__.py __version__

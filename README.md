@@ -54,6 +54,8 @@ uv add milume
 uv pip install --compile-bytecode milume
 ```
 
+See the [changelog](https://ckmah.github.io/milume/docs/changelog/) for what changed in each release.
+
 Contributors: see [AGENTS.md](AGENTS.md) for dev setup.
 
 ### Migrate from spatial-rx

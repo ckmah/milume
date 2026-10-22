@@ -116,7 +116,9 @@
       "milume/**",
       "tests/**",
       "pyproject.toml",
-      "uv.lock"
+      "uv.lock",
+      "CHANGELOG.md",
+      "website/content/changelog.md"
     ],
     "wheel": [
       "milume/**",
