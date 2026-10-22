@@ -10,7 +10,7 @@
 
 ### Smaller sdist
 
-- The source distribution no longer ships `website/`, the README screenshots (`assets/*.png`) or the Playwright e2e snapshots, dropping it from about 60 MB to about 4.4 MB. The wheel is unchanged. The install docs now show `uv pip install --compile-bytecode milume`.
+- The source distribution no longer ships `website/`, the README screenshots (`assets/*.png`), the Playwright e2e snapshots or the vendored `.agents/` skills and `.cursor/` config (the `use-milume` skill is still included), dropping it from about 60 MB to about 4.3 MB. The wheel contents are unchanged. The install docs now show `uv pip install --compile-bytecode milume`.
 
 ### Inspect image contrast default reaches the image max
 
