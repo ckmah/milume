@@ -2,7 +2,7 @@ name: PR policy
 
 on:
   pull_request:
-    types: [opened, edited, synchronize, reopened, ready_for_review]
+    types: [opened, edited, synchronize, reopened, ready_for_review, labeled, unlabeled]
 
 permissions:
   contents: read
@@ -128,9 +128,10 @@ jobs:
   changes:
     uses: ./.github/workflows/detect-changes.yml
 
+  # Ready UI PRs (ui paths) or any PR labelled ui-evidence; per-item Visual acceptance gate (#262).
   ui-pr-policy:
     needs: changes
-    if: needs.changes.outputs.ui == 'true'
+    if: needs.changes.outputs.ui == 'true' || contains(github.event.pull_request.labels.*.name, 'ui-evidence')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -169,6 +170,7 @@ jobs:
           PR_DRAFT: ${{ github.event.pull_request.draft }}
           PR_BASE: ${{ github.event.pull_request.base.ref }}
           CHANGED_FILES: ${{ steps.paths.outputs.paths }}
+          PR_LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: node scripts/check-pr-policy.mjs --issue-bodies-file ../issue-bodies.json --draft "$PR_DRAFT"
 
   agent-policy-tests:

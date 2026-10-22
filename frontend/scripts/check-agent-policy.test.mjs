@@ -9,7 +9,7 @@ import { ciLegErrors, loadCiConfig, selectLegs, tiersHit } from "./lib/ci-legs.m
 import { unconditionalSkips, uiGestures, unlinkedFlakyEntries, unroutedMolabPaths } from "./lib/e2e-scope.mjs";
 import { assignShards } from "./lib/e2e-shard-plan.mjs";
 import { mergeabilityError } from "./lib/pr-mergeable.mjs";
-import { validateUiPullRequest } from "./lib/pr-policy.mjs";
+import { validateUiPullRequest, visualAcceptanceItems } from "./lib/pr-policy.mjs";
 import { validateWidgetIssueBody } from "./lib/widget-issue.mjs";
 
 const scripts = dirname(fileURLToPath(import.meta.url));
@@ -130,7 +130,7 @@ test("volume e2e LPT sharding spreads the two slowest pans across shards", () =>
 
 test("PR #80 with Closes and visuals passes pr-policy", () => {
   const errors = validateUiPullRequest({
-    body: "Closes #79\n\n![points](https://example.com/a.png)\n",
+    body: "Closes #79\n\n## Visual acceptance\n\n- ![points](https://example.com/a.png)\n",
     changedPaths: ["frontend/src/widgets/volume-cube/cube-points.ts"],
     isDraft: false,
     issueBodies: {
@@ -181,6 +181,69 @@ test("PR into a feat/* base still needs visuals when ready", () => {
     baseRef: "feat/lazy-genes",
   });
   assert.ok(errors.some((e) => e.includes("screenshots or video")));
+});
+
+const issue2 =
+  "## Outcome\n\nx\n\n## Acceptance\n\n- [ ] y\n\n## Visual acceptance\n\n- Uncut Top matches main\n- Z-cut Side shows rims\n\n## Notes\n\n- not an item\n";
+const ready = (body, extra = {}) =>
+  validateUiPullRequest({
+    body,
+    changedPaths: ["frontend/src/widgets/volume-cube/cut-plates.tsx"],
+    isDraft: false,
+    issueBodies: { 5: issue2 },
+    ...extra,
+  });
+
+test("replaying #120 against #117 names the unsatisfied Visual acceptance item", () => {
+  const r = run("check-pr-policy.mjs", ["--fixture", "pr-120-replay"]);
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /#117/);
+  assert.match(r.stderr, /item 1: "Before\/after screenshots on Pyxa small or colon A2/);
+});
+
+test("visualAcceptanceItems reads list entries, else paragraphs, and skips N/A", () => {
+  assert.deepEqual(visualAcceptanceItems(issue2), ["Uncut Top matches main", "Z-cut Side shows rims"]);
+  assert.deepEqual(visualAcceptanceItems("## Visual acceptance\nOne paragraph\nwrapped.\n\nSecond.\n"), [
+    "One paragraph\nwrapped.",
+    "Second.",
+  ]);
+  assert.deepEqual(visualAcceptanceItems("## Visual acceptance\n\nN/A\n"), []);
+  // #182: an example shot under a paragraph is part of that item, not a second one.
+  assert.equal(visualAcceptanceItems("## Visual acceptance\n\nHero shows the h1:\n\n![hero](https://x/h.png)\n").length, 1);
+});
+
+test("a ready UI PR missing evidence for one item fails and names it", () => {
+  const errors = ready("Closes #5\n\n## Visual acceptance\n\n- ![top](https://x/a.png)\n- rims look right\n");
+  assert.equal(errors.length, 1);
+  assert.match(errors[0], /item 2 .*"Z-cut Side shows rims"/);
+  const short = ready("Closes #5\n\n## Visual acceptance\n\n- ![top](https://x/a.png)\n");
+  assert.match(short.join("\n"), /item 2 has no entry: "Z-cut Side shows rims"/);
+});
+
+test("per-item entries pass with media or N/A: <reason>, nested lines included", () => {
+  const body =
+    "Closes #5\n\n## Visual acceptance\n\n1. Uncut Top\n   ![top](https://x/a.png)\n2. N/A: covered by the Playwright Z-cut snapshot\n";
+  assert.deepEqual(ready(body), []);
+  assert.match(ready(body.replace("N/A: covered by the Playwright Z-cut snapshot", "N/A")).join(), /item 2/);
+});
+
+test("a body-wide screenshot no longer satisfies the per-item gate", () => {
+  assert.match(ready("Closes #5\n\n![x](https://x/a.png)\n").join(), /no "Visual acceptance" section for #5/);
+});
+
+test("per-issue Visual acceptance headings map to their issue", () => {
+  const errors = ready(
+    "Closes #5, closes #6\n\n### Visual acceptance (#6)\n\n- ![b](https://x/b.png)\n\n### Visual acceptance (#5)\n\n- ![a](https://x/a.png)\n- ![c](https://x/c.png)\n",
+    { issueBodies: { 5: issue2, 6: issue2.replace("- Z-cut Side shows rims\n", "") } },
+  );
+  assert.deepEqual(errors, []);
+});
+
+test("drafts and non-UI PRs without ui-evidence are not gated; the label opts in", () => {
+  assert.deepEqual(ready("Closes #5\n", { isDraft: true }), []);
+  const docs = { changedPaths: ["docs/publishing.md"] };
+  assert.deepEqual(ready("Closes #5\n", docs), []);
+  assert.match(ready("Closes #5\n", { ...docs, labels: ["ui-evidence"] }).join(), /Visual acceptance/);
 });
 
 const config = loadCiConfig(repoRoot);
