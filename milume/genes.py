@@ -208,66 +208,74 @@ def _scale_to_unit(vals: "np.ndarray", vmin: float, vmax: float) -> "np.ndarray"
 
 GeneSlice = tuple[dict[str, Any], "np.ndarray", "np.ndarray"]
 
-# Rows searched together by ``_csr_columns``: bounds its scratch to ~1 MiB and keeps
-# each pass over the probes cache-sized.
+# Rows ``_csr_columns`` searches per pass: ``_CSR_SEARCH_ROWS // genes**2``, at least
+# ``_CSR_SEARCH_MIN_ROWS``. Keeps scratch under ~1 MiB; at 170k x 18k this measured
+# 45 ms for 1 gene and 350 ms for 16 (vs 480 ms with 4096-row passes).
 _CSR_SEARCH_ROWS = 1 << 16
+_CSR_SEARCH_MIN_ROWS = 1 << 10
 
 
 def _csr_columns(X: Any, idx: list[int]) -> Any:
     """CSC of ``X[:, idx]`` for a canonical CSR ``X`` without scanning every entry.
 
-    ``X[:, idx]`` on CSR reads all ``nnz`` stored indices per request (about 1 s at
+    ``X[:, idx]`` on CSR reads all ``nnz`` stored indices per request (about 0.6 s at
     170k x 18k with 307M stored values). Each row's indices are sorted, so a
     lower-bound binary search per row finds column ``j`` in ``log2(max row length)``
-    steps, all rows at once. Cost per gene scales with ``n_obs * log2(row length)``
-    and needs no index, so nothing is retained between requests.
+    steps, for every (row, gene) pair at once. Cost scales with
+    ``n_obs * len(idx) * log2(row length)``; no index is built or kept.
     """
     import numpy as np
     from scipy import sparse
 
-    n_obs = int(X.shape[0])
+    n_obs, k = int(X.shape[0]), len(idx)
     if X.nnz == 0:
-        return sparse.csc_matrix((n_obs, len(idx)), dtype=X.dtype)
+        return sparse.csc_matrix((n_obs, k), dtype=X.dtype)
     indices = X.indices
     max_len = int(np.diff(X.indptr).max())
     # Positions reach ``nnz + 2 * max_len`` mid-search; int32 halves the working set.
     pos_dtype = np.int32 if int(X.nnz) + 2 * max_len < 2**31 else np.int64
     indptr = np.asarray(X.indptr, dtype=pos_dtype)
-    rows_out: list[list[np.ndarray]] = [[] for _ in idx]
-    data_out: list[list[np.ndarray]] = [[] for _ in idx]
-    for r0 in range(0, n_obs, _CSR_SEARCH_ROWS):
-        r1 = min(n_obs, r0 + _CSR_SEARCH_ROWS)
-        start, end = indptr[r0:r1], indptr[r0 + 1 : r1 + 1]
-        base = np.empty(r1 - r0, dtype=pos_dtype)
+    targets = np.asarray(idx, dtype=indices.dtype)
+    # Rows per pass: big for one gene (fewer numpy calls), small for many genes so
+    # every gene probes the same few MiB of rows while they are still in cache.
+    chunk = max(_CSR_SEARCH_MIN_ROWS, _CSR_SEARCH_ROWS // (k * k))
+    rows_parts: list[list[Any]] = [[] for _ in idx]
+    data_parts: list[list[Any]] = [[] for _ in idx]
+    for r0 in range(0, n_obs, chunk):
+        r1 = min(n_obs, r0 + chunk)
+        m = r1 - r0
+        # Lane ``g * m + r`` searches row ``r0 + r`` for gene ``idx[g]``.
+        end = np.tile(indptr[r0 + 1 : r1 + 1], k)
+        target = np.repeat(targets, m)
+        # base: last position in the row holding an index < target (row start - 1 if none).
+        base = np.tile(indptr[r0:r1], k) - 1
         probe = np.empty_like(base)
-        hit = np.empty(r1 - r0, dtype=bool)
+        hit = np.empty(base.shape, dtype=bool)
         below = np.empty_like(hit)
-        for k, j in enumerate(idx):
-            target = indices.dtype.type(j)
-            # base: last position in the row whose index is < target (start - 1 if none).
-            np.subtract(start, 1, out=base)
-            step = 1 << max_len.bit_length()
-            while step:
-                np.add(base, step, out=probe)
-                np.less(probe, end, out=hit)
-                np.less(indices.take(probe, mode="clip"), target, out=below)
-                hit &= below
-                np.add(base, step, out=base, where=hit)
-                step >>= 1
-            base += 1
-            np.less(base, end, out=hit)
-            np.equal(indices.take(base, mode="clip"), target, out=below)
+        step = 1 << max_len.bit_length()
+        while step:
+            np.add(base, step, out=probe)
+            np.less(probe, end, out=hit)
+            np.less(indices.take(probe, mode="clip"), target, out=below)
             hit &= below
-            rows = np.flatnonzero(hit)
-            data_out[k].append(np.asarray(X.data.take(base[rows])))
-            rows_out[k].append((rows + r0).astype(np.int32, copy=False))
-    colptr = np.zeros(len(idx) + 1, dtype=np.int64)
-    np.cumsum([sum(r.size for r in rs) for rs in rows_out], out=colptr[1:])
-    data_out = [d for ds in data_out for d in ds]
-    rows_out = [r for rs in rows_out for r in rs]
-    data = np.concatenate(data_out)
-    rows = np.concatenate(rows_out)
-    return sparse.csc_matrix((data, rows, colptr), shape=(n_obs, len(idx)))
+            np.add(base, step, out=base, where=hit)
+            step >>= 1
+        base += 1
+        np.less(base, end, out=hit)
+        np.equal(indices.take(base, mode="clip"), target, out=below)
+        hit &= below
+        lanes = np.flatnonzero(hit)
+        vals = np.asarray(X.data.take(base[lanes]))
+        rows = (lanes % m + r0).astype(np.int32)
+        cut = np.searchsorted(lanes // m, np.arange(k + 1))
+        for g in range(k):
+            rows_parts[g].append(rows[cut[g] : cut[g + 1]])
+            data_parts[g].append(vals[cut[g] : cut[g + 1]])
+    colptr = np.zeros(k + 1, dtype=np.int64)
+    np.cumsum([sum(r.size for r in parts) for parts in rows_parts], out=colptr[1:])
+    data = np.concatenate([d for parts in data_parts for d in parts])
+    rows = np.concatenate([r for parts in rows_parts for r in parts])
+    return sparse.csc_matrix((data, rows, colptr), shape=(n_obs, k))
 
 
 def _sparse_slice(

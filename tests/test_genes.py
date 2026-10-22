@@ -379,8 +379,8 @@ def _csr_edge_matrix():
 
 
 @pytest.mark.parametrize("index_dtype", [np.int32, np.int64])
-@pytest.mark.parametrize("chunk_rows", [7, 1 << 16])
-def test_csr_columns_match_scipy_column_slices(index_dtype, chunk_rows, monkeypatch):
+@pytest.mark.parametrize(("chunk_rows", "min_rows"), [(7, 1), (64, 3), (1 << 16, 1 << 10)])
+def test_csr_columns_match_scipy_column_slices(index_dtype, chunk_rows, min_rows, monkeypatch):
     """The per-row search returns exactly ``X[:, idx]``, entries and stored zeros alike."""
     from scipy import sparse
 
@@ -388,6 +388,7 @@ def test_csr_columns_match_scipy_column_slices(index_dtype, chunk_rows, monkeypa
     from milume.genes import _csr_columns
 
     monkeypatch.setattr(genes, "_CSR_SEARCH_ROWS", chunk_rows)
+    monkeypatch.setattr(genes, "_CSR_SEARCH_MIN_ROWS", min_rows)
     X = _csr_edge_matrix()
     X.indices = X.indices.astype(index_dtype)
     X.indptr = X.indptr.astype(index_dtype)
