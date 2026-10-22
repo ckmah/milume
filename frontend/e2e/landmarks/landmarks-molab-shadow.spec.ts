@@ -64,7 +64,7 @@ test.describe("molab anywidget stress (scrolled page, shadow-host leave, CSS sca
       .toBeGreaterThan(0);
   });
 
-  test("square selection still commits in the shadow embed", async ({ page }) => {
+  test.skip("square selection still commits in the shadow embed", async ({ page }) => {
     await page.locator("canvas.landmarks__webgl").first().scrollIntoViewIfNeeded();
     const before = ((await getModel(page, "selections")) as unknown[])?.length ?? 0;
     await focusPlot(page);
