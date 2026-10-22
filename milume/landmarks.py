@@ -49,13 +49,26 @@ def _sequential_palette(
     low: str = _SEQUENTIAL_LOW,
     high: str = _SEQUENTIAL_HIGH,
 ) -> list[str]:
-    """Sample a two-stop sequential colormap to hex colors (low → high)."""
-    import matplotlib.colors as mcolors
+    """Sample a two-stop sequential colormap to hex colors (low → high).
 
-    cmap = mcolors.LinearSegmentedColormap.from_list("seq", [low, high], N=max(n, 2))
+    Same hex as ``matplotlib.colors.LinearSegmentedColormap.from_list`` with
+    ``N=max(n, 2)`` sampled at ``i / (n - 1)`` (``tests/test_palettes.py``):
+    linear interpolation per channel, rounded half-to-even to 8 bits.
+    """
+    import numpy as np
+
+    lo = np.array([int(low[i : i + 2], 16) / 255 for i in (1, 3, 5)])
+    hi = np.array([int(high[i : i + 2], 16) / 255 for i in (1, 3, 5)])
     if n <= 1:
-        return [mcolors.to_hex(cmap(0.5))]
-    return [mcolors.to_hex(cmap(i / (n - 1))) for i in range(n)]
+        # matplotlib maps 0.5 on an N=2 table to the top entry.
+        rgb = hi[None, :]
+    else:
+        # Same float steps as matplotlib's ``_create_lookup_table``.
+        t = ((n - 1) * np.linspace(0.0, 1.0, n))[1:-1, None] / (n - 1)
+        rgb = np.vstack([lo, t * (hi - lo) + lo, hi])
+    return [
+        "#" + "".join(format(round(float(c) * 255), "02x") for c in row) for row in rgb
+    ]
 
 
 def _encode_f32(arr: "np.ndarray") -> str:

@@ -2,6 +2,10 @@
 
 ## 2.0.1 (unreleased)
 
+### Install: matplotlib is no longer a dependency
+
+- `pip install milume` no longer installs matplotlib (or contourpy, cycler, fonttools, kiwisolver, pyparsing): about 17 MB less to download and 54 MB less installed on Linux / Python 3.12. The tab10/tab20/tab20b/tab20c category palettes and the default sequential palette are hardcoded with the same hex values, and lasso / polygon selection uses a numpy port of matplotlib's point-in-path test that gives the same cells (points on an edge and self-intersecting lassos included). `import milume` is about 0.3 s faster because `matplotlib.pyplot` is no longer imported. Install matplotlib yourself if your own plotting code needs it.
+
 ### Inspect image contrast default reaches the image max
 
 - When `contrast_limits` is not passed, the Inspect cube's default upper limit is now the max of the image's coarsest pyramid level instead of its 99.5th percentile; the lower limit stays at the 1st percentile. The coarsest level already compresses the dynamic range, so the percentile clipped bright tissue to white (on the colon A2 image the default goes from `(0, 171)` to `(0, 249)`), which washed out a top z cut and hid the cell meshes behind it. Passing `contrast_limits=(lo, hi)` works as before.
