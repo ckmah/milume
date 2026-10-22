@@ -2,6 +2,12 @@
 
 ## 2.0.1 (unreleased)
 
+### Install: lighter core dependencies
+
+- `leidenalg` (and `igraph` with it) is no longer installed by `pip install milume`. milume never imports it; the demo notebook and the Squidpy niche recipe need it for `sc.tl.leiden`. Install it with `pip install "milume[demo]"` or `pip install leidenalg`.
+- `spatialdata` stays a core dependency, now `spatialdata>=0.7.3` (was `>=0.2`). Older releases fail to import (`xarray-schema` needs `pkg_resources`) or fail to write the Zarr store the Inspect cube reads with current geopandas / zarr / ome-zarr.
+- `pyarrow>=16` is now declared; milume reads cell-polygon parquet with it. It was already installed through `spatialdata`, so nothing new is downloaded.
+
 ### Inspect image contrast default reaches the image max
 
 - When `contrast_limits` is not passed, the Inspect cube's default upper limit is now the max of the image's coarsest pyramid level instead of its 99.5th percentile; the lower limit stays at the 1st percentile. The coarsest level already compresses the dynamic range, so the percentile clipped bright tissue to white (on the colon A2 image the default goes from `(0, 171)` to `(0, 249)`), which washed out a top z cut and hid the cell meshes behind it. Passing `contrast_limits=(lo, hi)` works as before.
