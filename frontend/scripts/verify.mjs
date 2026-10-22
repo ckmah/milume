@@ -1,14 +1,15 @@
-// Runs the verification this change set needs, chosen from `git diff` against the
-// tier map in .github/e2e-tiers.json (the same file CI's path filter reads).
+// Runs the verification this change set needs: `git diff` -> tiers -> legs -> `verify`
+// commands, all from .github/e2e-tiers.json (the same file CI's legs come from).
 //   npm run verify                 # base = merge-base with origin/main
 //   npm run verify -- --base HEAD~3
 //   npm run verify -- --dry-run    # print the plan only
 //   npm run verify -- --full-volume  # full cube spec on Linux too (or MILUME_E2E_FULL_VOLUME=1)
 import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dirname, join, matchesGlob } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { loadCiConfig, selectLegs, tiersHit, verifyPlan } from "./lib/ci-legs.mjs";
 import { molabPathsHit } from "./lib/e2e-scope.mjs";
 
 const frontend = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -31,37 +32,11 @@ const changed = new Set([
   ...lines(git("ls-files", "-o", "--exclude-standard")),
 ]);
 
-const tiers = JSON.parse(readFileSync(join(root, ".github", "e2e-tiers.json"), "utf8"));
-const hit = Object.fromEntries(
-  Object.entries(tiers).map(([name, globs]) => [
-    name,
-    [...changed].some((f) => globs.some((g) => matchesGlob(f, g))),
-  ]),
-);
-const frontendChanged = [...changed].some((f) => f.startsWith("frontend/"));
+const config = loadCiConfig(root);
+const legs = selectLegs(config, tiersHit(config, [...changed]));
 const scope = JSON.parse(readFileSync(join(frontend, "e2e", "e2e-scope.json"), "utf8"));
 const molabHit = molabPathsHit([...changed], scope);
-
-const plan = [];
-if (frontendChanged) {
-  plan.push(
-    ["frontend", "npm run check:chrome"],
-    ["frontend", "npm run typecheck"],
-    ["frontend", "npm run check:e2e-scope"],
-  );
-}
-if (hit.python) plan.push([".", "uv run pytest"]);
-if (hit.core || hit.infra_full || hit.infra_core) plan.push(["frontend", "npm run test:e2e:core"]);
-if (hit.landmarks || hit.infra_full) {
-  plan.push(["frontend", "npm run test:unit"]);
-  plan.push(["frontend", fullVolume ? "npm run test:e2e:landmarks" : "npm run test:e2e:landmarks:smoke"]);
-}
-
-if (hit.marimo_api) {
-  // Python API / kernel changes only; UI changes never need marimo.
-  plan.push(["frontend", "npm run build"]);
-  plan.push(["frontend", "npm run test:e2e:marimo-api"]);
-}
+const plan = verifyPlan(config, legs, { fullVolume });
 
 console.log(`base ${base.slice(0, 8)}, ${changed.size} changed file(s)`);
 if (!plan.length) console.log("docs / non-runtime only: nothing to run beyond CI.");
@@ -70,7 +45,7 @@ if (molabHit.length) {
   console.log(`molab paths touched (${molabHit.join(", ")}): the landmarks run includes`);
   for (const spec of scope.molab.specs) console.log(`  ${spec}`);
 }
-if (hit.landmarks || hit.infra_full) {
+if (legs.landmarks) {
   if (!fullVolume) {
     console.log("software GL: cube smoke spec only; --full-volume or the run-volume-full PR label runs all of it.");
   }

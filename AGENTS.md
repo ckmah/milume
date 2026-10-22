@@ -12,7 +12,7 @@ the checks for your diff from [`.github/e2e-tiers.json`](.github/e2e-tiers.json)
 | Playwright runs on UI changes; artifact pointers posted on PRs | [`frontend-e2e.yml`](.github/workflows/frontend-e2e.yml) `post-ui-evidence-comment` |
 | Widget chrome uses shadcn primitives, scoped CSS, cube-motion channels | `npm run check:chrome` |
 | Simulated-molab specs always run in `e2e-landmarks (default)` for gesture/DOM paths; marimo e2e has no UI gestures | `npm run check:e2e-scope` + [`frontend/e2e/e2e-scope.json`](frontend/e2e/e2e-scope.json) / [`pr-policy.yml`](.github/workflows/pr-policy.yml) `e2e-scope` |
-| Right e2e tier for the diff | `npm run verify` + [`.github/e2e-tiers.json`](.github/e2e-tiers.json) |
+| Right e2e tier for the diff: CI and `npm run verify` read one path → tier → leg → job map; wheel builds ship the widget bundle | `npm run check:ci-legs` ([`pr-policy.yml`](.github/workflows/pr-policy.yml) `ci-legs`) + [`.github/e2e-tiers.json`](.github/e2e-tiers.json); [`scripts/check-wheel-bundle.sh`](scripts/check-wheel-bundle.sh) in [`ci.yml`](.github/workflows/ci.yml) |
 | Merge only on green `gate`, non-draft, conflicts resolved | Branch protection + [`frontend-e2e.yml`](.github/workflows/frontend-e2e.yml) `gate` job |
 
 - **Draft UI PRs:** keep PRs in draft while iterating. Draft runs the fast tier (`test`, `e2e-core`, landmarks default harness) without volume shards. Mark **ready for review** (or add the `ui-evidence` label / run the **UI evidence** workflow) to capture screenshots for the PR body before merge.

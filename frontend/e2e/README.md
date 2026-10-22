@@ -1,6 +1,6 @@
 # Frontend e2e (Playwright)
 
-Two tiers, path-gated in CI (`.github/workflows/frontend-e2e.yml`; the path map lives in `.github/e2e-tiers.json`, shared with `npm run verify`):
+Path-gated in CI (`.github/workflows/frontend-e2e.yml`). `.github/e2e-tiers.json` maps paths to `tiers`, tiers to CI `legs`, and each leg to its jobs and `npm run verify` commands; `npm run check:ci-legs` fails when a workflow disagrees:
 
 | Tier | When it runs | Specs |
 |------|----------------|-------|
