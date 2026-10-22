@@ -1187,6 +1187,7 @@ _PUBLIC_TRAITS: dict[str, str] = {
     "set_render_mode": "Switch between points and raster bins.",
     "set_raster_basis": "Pick the raster aggregation basis: genes, embedding or composition.",
     "clear_raster_query": "Clear the pinned raster similarity query.",
+    "point_size": "Point radius in pixels.",
 }
 
 
