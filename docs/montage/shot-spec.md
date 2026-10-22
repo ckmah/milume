@@ -37,4 +37,4 @@ The current cut (43 s, #237). Durations come from the shipped mp4's scene cuts (
 | probe | colon_a2 | Probe panel: local cell composition and embedding | 5.5 | Probe local cell compositions and embedding spaces | feature | manual: Cap screen recording, played at 2x | shipped | Developer |
 | knn | colon_a2 | Pick a cell type and show its k-NN neighborhoods | 7 | Trace a cell type’s k nearest neighbors | feature | manual: Cap screen recording, played at 2x | shipped | Developer |
 | inspect-zcut | colon_a2 | Inspect cube, cell meshes, orbit and Z cut | 9 | Inspect · cell meshes in 3D | feature | manual: Cap screen recording, played at 2x | shipped | Developer |
-| end | colon_a2 | End card: wordmark, tagline, `pip install milume`, site URL | 4 | Explore spatial biology in your notebook. | tagline | manual: end card built in the editor | shipped | Designer |
+| end | colon_a2 | End card: wordmark, tagline, `pip install milume`, site URL | 4 | Explore spatial data in your notebook. | tagline | manual: end card built in the editor | shipped | Designer |
