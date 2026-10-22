@@ -10,7 +10,25 @@
 - Pick up to 8 genes. Up to three blend one colour channel each, as before. Four or more colour by one combined value on a single ramp, with **Mean** / **Median** / **Max** under the gene field.
 - Fetching a gene from a CSR `adata.X` (the usual AnnData layout) no longer scans the whole matrix. The kernel binary-searches each cell's sorted column indices instead, with no index built and no extra memory kept. On the 170,057 × 18,028 matrix (307M stored values, memory-mapped) one gene now takes about 47 ms instead of 545 ms, and a 16-gene request about 375 ms instead of 590 ms. The first fetch also checks once that the rows are sorted (about 0.3 s from page cache); CSR with unsorted or duplicate entries keeps the old scan. CSC input was already fast and is unchanged ([#253](https://github.com/ckmah/milume/issues/253)).
 - Pressing Escape in the Explore genes picker now only closes the popup. It used to clear every picked gene when the popup was already closed ([#252](https://github.com/ckmah/milume/issues/252)); the × button and each chip's remove still clear.
-- The synced gene-catalogue trait `gene_columns` is renamed `gene_names`. It stays internal (not listed in the notebook API), but code that read `w.gene_columns` should now read `w.gene_names`.
+- The synced gene-catalogue trait `gene_columns` is renamed `gene_names`, with no deprecated alias. It stays internal (not listed in the notebook API), but code that read `w.gene_columns` should now read `w.gene_names`.
+- The synced traits `gene_format` and `gene_values` are removed. A preloaded `genes=[...]` list always ships as sparse CSC (`gene_csc_indptr` / `gene_csc_indices` / `gene_csc_data`), and with `genes=None` nothing is preloaded: those traits stay empty and genes arrive per gene on demand.
+
+### Install: lighter core dependencies
+
+- `leidenalg` (and `igraph` with it) is no longer installed by `pip install milume`. milume never imports it; the demo notebook and the Squidpy niche recipe need it for `sc.tl.leiden`. Install it yourself with `pip install leidenalg`, or run the notebook from its own inline script header (`uvx marimo edit --sandbox demos/landmarks.py`, or molab), which already lists it.
+- `spatialdata` stays a core dependency, now `spatialdata>=0.7.3` (was `>=0.2`). Older releases fail to import (`xarray-schema` needs `pkg_resources`) or fail to write the Zarr store the Inspect cube reads with current geopandas / zarr / ome-zarr.
+- On Python 3.12+ the `spatialdata` floor is `>=0.8.0` (3.11 keeps `>=0.7.3`). anndata 0.13, which needs Python 3.12+, breaks spatialdata 0.7.3 (`TableModel.parse` fails), so holding spatialdata at 0.7.3 there gave a broken install. 0.8.0 is the first release that works with anndata 0.13, and it pulls the same dependencies as 0.7.3. Fresh installs already resolve 0.8.0, so nothing new is downloaded (#315).
+- The `demo` extra is removed: `pip install "milume[demo]"` no longer exists. Each demo notebook lists its own dependencies in its PEP 723 inline script header; from a checkout, `uv sync --group demo` installs them as a development dependency group.
+- `pyarrow>=16` is now declared; milume reads cell-polygon parquet with it. It was already installed through `spatialdata`, so nothing new is downloaded.
+- `matplotlib` is no longer installed by `pip install milume` (nor contourpy, cycler, fonttools, kiwisolver, pyparsing): about 17 MB less to download and 54 MB less installed on Linux / Python 3.12. The tab10/tab20/tab20b/tab20c category palettes and the default sequential palette are hardcoded with the same hex values, and lasso / polygon selection uses a numpy port of matplotlib's point-in-path test that gives the same cells (points on an edge and self-intersecting lassos included). `import milume` is about 0.3 s faster because `matplotlib.pyplot` is no longer imported. Install matplotlib yourself if your own plotting code needs it.
+
+### Smaller sdist
+
+- The source distribution no longer ships `website/`, the README screenshots (`assets/*.png`), the Playwright e2e snapshots or the vendored `.agents/` skills and `.cursor/` config (the `use-milume` skill is still included), dropping it from about 60 MB to about 4.3 MB. The wheel contents are unchanged. The install docs now show `uv pip install --compile-bytecode milume`.
+
+### Widget bundle is minified
+
+- `milume/static/bundled/landmarks.mjs` now ships minified: 5.17 → 3.99 MB raw (1.41 → 1.24 MB gzip), still one file. Vite's ES library mode kept whitespace; the build now strips it with the same esbuild minifier ([#318](https://github.com/ckmah/milume/issues/318)).
 
 ### Inspect image contrast default reaches the image max
 
@@ -20,6 +38,10 @@
 
 - [Integrations / Squidpy color](https://ckmah.github.io/milume/docs/integrations/squidpy-color/) documents `sq.gr.calculate_niche` → `w.color = nhood_niche_res=<resolution>` and Moran's I top gene → `w.color`, with harness screenshots.
 - The [use-milume](.agents/skills/use-milume/SKILL.md) skill lists the same recipes; optional pytest coverage lives in `tests/test_squidpy_color_recipes.py` when `squidpy` is installed.
+
+### Install: polars is no longer a dependency
+
+- `pip install milume` no longer installs polars (polars + polars-runtime-32): about 59 MB less to download and 225 MB less installed on Linux / Python 3.12. Category columns are now encoded with pandas categorical codes; labels, their order, colours and `w.category_colors()` are unchanged, and colouring a 170k-cell obs is faster (constructor category pass about 210 → 60 ms, `w.color = "<category>"` about 55 → 17 ms). `LandmarksWidget.set_expression` still accepts a polars DataFrame when you have polars installed.
 
 ## 2.0.0 (2026-10-19)
 

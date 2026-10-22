@@ -4,12 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
-      - "website/**"
-      - "demos/**"
-      - ".github/ISSUE_TEMPLATE/**"
 
 jobs:
   changes:
@@ -17,26 +11,23 @@ jobs:
 
   test:
     needs: changes
-    if: needs.changes.outputs.ci_frontend == 'true' || needs.changes.outputs.ci_pytest == 'true'
+    if: needs.changes.outputs.ci_frontend == 'true' || needs.changes.outputs.ci_pytest == 'true' || needs.changes.outputs.ci_uv_build == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
       - uses: astral-sh/setup-uv@v5
-        if: needs.changes.outputs.ci_pytest == 'true'
+        if: needs.changes.outputs.ci_pytest == 'true' || needs.changes.outputs.ci_uv_build == 'true'
         with:
           enable-cache: true
 
       - uses: actions/setup-node@v4
-        if: needs.changes.outputs.ci_frontend == 'true' || needs.changes.outputs.ci_pytest == 'true'
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - if: needs.changes.outputs.ci_frontend == 'true' || needs.changes.outputs.ci_pytest == 'true'
-        run: npm ci
-        working-directory: frontend
+      - uses: ./.github/actions/node-modules
 
       - if: needs.changes.outputs.ci_frontend == 'true'
         run: npm run check:chrome
@@ -46,8 +37,7 @@ jobs:
         run: npm run typecheck
         working-directory: frontend
 
-      - if: needs.changes.outputs.ci_frontend == 'true' || needs.changes.outputs.ci_pytest == 'true'
-        run: npm run build
+      - run: npm run build
         working-directory: frontend
 
       - if: needs.changes.outputs.ci_pytest == 'true'
@@ -57,4 +47,4 @@ jobs:
         run: uv run pytest
 
       - if: needs.changes.outputs.ci_uv_build == 'true'
-        run: uv build
+        run: scripts/check-wheel-bundle.sh

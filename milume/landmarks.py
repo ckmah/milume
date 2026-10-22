@@ -17,7 +17,7 @@ from anywidget.experimental import command
 from milume._assets import widget_css, widget_esm
 from .categories import (
     _MAX_LEVELS,
-    as_polars,
+    as_frame,
     default_categorical_palette,
     detect_category_columns,
     encode_category_bundle,
@@ -50,13 +50,26 @@ def _sequential_palette(
     low: str = _SEQUENTIAL_LOW,
     high: str = _SEQUENTIAL_HIGH,
 ) -> list[str]:
-    """Sample a two-stop sequential colormap to hex colors (low → high)."""
-    import matplotlib.colors as mcolors
+    """Sample a two-stop sequential colormap to hex colors (low → high).
 
-    cmap = mcolors.LinearSegmentedColormap.from_list("seq", [low, high], N=max(n, 2))
+    Same hex as ``matplotlib.colors.LinearSegmentedColormap.from_list`` with
+    ``N=max(n, 2)`` sampled at ``i / (n - 1)`` (``tests/test_palettes.py``):
+    linear interpolation per channel, rounded half-to-even to 8 bits.
+    """
+    import numpy as np
+
+    lo = np.array([int(low[i : i + 2], 16) / 255 for i in (1, 3, 5)])
+    hi = np.array([int(high[i : i + 2], 16) / 255 for i in (1, 3, 5)])
     if n <= 1:
-        return [mcolors.to_hex(cmap(0.5))]
-    return [mcolors.to_hex(cmap(i / (n - 1))) for i in range(n)]
+        # matplotlib maps 0.5 on an N=2 table to the top entry.
+        rgb = hi[None, :]
+    else:
+        # Same float steps as matplotlib's ``_create_lookup_table``.
+        t = ((n - 1) * np.linspace(0.0, 1.0, n))[1:-1, None] / (n - 1)
+        rgb = np.vstack([lo, t * (hi - lo) + lo, hi])
+    return [
+        "#" + "".join(format(round(float(c) * 255), "02x") for c in row) for row in rgb
+    ]
 
 
 def _encode_f32(arr: "np.ndarray") -> str:
@@ -512,7 +525,7 @@ class LandmarksWidget(AnyWidget):
 
         maps = _color_maps_from_uns(adata)
         # Reference obs — do not obs.copy() / attach synthetic x,y columns.
-        df = as_polars(adata.obs)
+        df = as_frame(adata.obs)
         cat_names = detect_category_columns(df)
         if color and color in cat_names:
             cat_names = [str(color), *[c for c in cat_names if c != color]]
@@ -739,11 +752,11 @@ class LandmarksWidget(AnyWidget):
         x = getattr(self, "_data_x", None)
         if x is None:
             raise RuntimeError("internal point cache missing")
-        frame = as_polars(expr)
+        frame = as_frame(expr)
         names = [str(c) for c in frame.columns]
         n = int(x.shape[0])
-        if names and frame.height != n:
-            raise ValueError(f"expr rows {frame.height} != n_points {n}")
+        if names and len(frame) != n:
+            raise ValueError(f"expr rows {len(frame)} != n_points {n}")
         self._expr_frame = frame
         mat = (
             np.column_stack([np.asarray(frame[c].to_numpy(), dtype=np.float64) for c in names])
@@ -1024,7 +1037,7 @@ class LandmarksWidget(AnyWidget):
 
     def _show_category_column(self, key: str) -> None:
         n = int(self._data_x.shape[0])
-        frame = as_polars(self._adata.obs[[key]])
+        frame = as_frame(self._adata.obs[[key]])
         (meta,), codes_b64, label_arrays = encode_category_bundle(
             frame, [key], color_maps=_color_maps_from_uns(self._adata)
         )

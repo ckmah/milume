@@ -50,6 +50,8 @@ With [uv](https://docs.astral.sh/uv/):
 
 ```bash
 uv add milume
+# or, into an existing environment, with .pyc compiled up front for a faster first import:
+uv pip install --compile-bytecode milume
 ```
 
 Contributors: see [AGENTS.md](AGENTS.md) for dev setup.

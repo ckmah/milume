@@ -1,0 +1,4 @@
+{
+  "pr": { "number": 279, "body": "Closes #261\n\nPart of #257, build order 2.", "base": "main", "head": "pr-hygiene", "draft": false, "files": ["AGENTS.md", ".github/workflows/pr-policy.yml"], "commits": ["h1"] },
+  "others": [{ "number": 274, "body": "Closes #260\n\nPart of #257, build order 2.", "base": "main", "head": "public-api-check", "draft": false, "files": ["AGENTS.md", ".github/workflows/pr-policy.yml"], "commits": ["p1"] }]
+}

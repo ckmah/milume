@@ -1,6 +1,6 @@
 {
   "name": "milume",
-  "install": "curl -LsSf https://astral.sh/uv/install.sh | sh && \"$HOME/.local/bin/uv\" sync --extra demo --group dev",
+  "install": "curl -LsSf https://astral.sh/uv/install.sh | sh && \"$HOME/.local/bin/uv\" sync --group demo --group dev",
   "terminals": [
     {
       "name": "marimo-landmarks",

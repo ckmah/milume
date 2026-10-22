@@ -8,22 +8,26 @@ the checks for your diff from [`.github/e2e-tiers.json`](.github/e2e-tiers.json)
 | ---- | ----------- |
 | Landmarks UI issues have Outcome, Acceptance, and Visual acceptance | [`.github/ISSUE_TEMPLATE/landmarks-ui.yml`](.github/ISSUE_TEMPLATE/landmarks-ui.yml) (required fields); `npm run check:widget-issue`; linked issues when a UI PR says `Closes #N` ([`pr-policy.yml`](.github/workflows/pr-policy.yml)) |
 | UI PRs into main link the issue they close (`Closes #N` / `Fixes #N` in the body, including drafts); PRs into a `feat/*` base say `Part of #N` | `npm run check:pr-policy` / [`pr-policy.yml`](.github/workflows/pr-policy.yml) |
-| Ready UI PRs embed screenshots or video in the body (not only Actions artifacts) | `npm run check:pr-policy` / [`pr-policy.yml`](.github/workflows/pr-policy.yml) |
+| Ready UI PRs (UI paths or the `ui-evidence` label) have a `## Visual acceptance` section: one entry per linked-issue item, in order, each with an image/video or `N/A: <reason>`; one agent pass on ready-for-review checks the shots | `npm run check:pr-policy` / [`pr-policy.yml`](.github/workflows/pr-policy.yml) `ui-pr-policy`; [`verify-visual-acceptance`](.agents/skills/verify-visual-acceptance/SKILL.md) |
 | Playwright runs on UI changes; artifact pointers posted on PRs | [`frontend-e2e.yml`](.github/workflows/frontend-e2e.yml) `post-ui-evidence-comment` |
 | Widget chrome uses shadcn primitives, scoped CSS, cube-motion channels | `npm run check:chrome` |
-| Right e2e tier for the diff | `npm run verify` + [`.github/e2e-tiers.json`](.github/e2e-tiers.json) |
-| Merge only on green `gate`, non-draft, conflicts resolved | Branch protection + [`frontend-e2e.yml`](.github/workflows/frontend-e2e.yml) `gate` job |
+| Simulated-molab specs always run in `e2e-landmarks (default)` for gesture/DOM paths; marimo e2e has no UI gestures | `npm run check:e2e-scope` + [`frontend/e2e/e2e-scope.json`](frontend/e2e/e2e-scope.json) / [`pr-policy.yml`](.github/workflows/pr-policy.yml) `e2e-scope` |
+| Public API changes (`milume.__all__`, `_PUBLIC_TRAITS`, their signatures) update `.github/public-api.json`, add a CHANGELOG line under unreleased, and stop for Clarence | `npm run check:public-api` / [`pr-policy.yml`](.github/workflows/pr-policy.yml) `public-api` (labels `public-api` + `needs-clarence`) |
+| Ready PRs are unstacked (base `main` or `feat/*`, no commits from another open PR) and not duplicates (another open PR closes the same issue and touches the same files); a shared file or `Part of #N` alone gets a warning comment | `npm run check:pr-stack` / `npm run check:pr-overlap -- --branch <name>` ([`pr-policy.yml`](.github/workflows/pr-policy.yml) `pr-hygiene`) |
+| Right e2e tier for the diff: CI and `npm run verify` read one path → tier → leg → job map; wheel builds ship the widget bundle | `npm run check:ci-legs` ([`pr-policy.yml`](.github/workflows/pr-policy.yml) `ci-legs`) + [`.github/e2e-tiers.json`](.github/e2e-tiers.json); [`scripts/check-wheel-bundle.sh`](scripts/check-wheel-bundle.sh) in [`ci.yml`](.github/workflows/ci.yml) |
+| Landing montage shots are rows in [`docs/montage/shot-spec.md`](docs/montage/shot-spec.md) (dataset, setup, duration, caption, capture, status, owner); handoffs name shot ids; tagline captions match the landing `<h1>`; new or re-shot rows name a capture script (or `N/A: <reason>`) | `npm run check:shot-spec` ([`pr-policy.yml`](.github/workflows/pr-policy.yml) `agent-policy-tests`); [Montage issue template](.github/ISSUE_TEMPLATE/montage.yml) |
+| Bots wait on CI in bounded sessions, then hand off with the snapshot (head SHA, conflicts, failing tier): `gh-ci-watch.mjs` gives 3 sessions of at most 20 min per head SHA; `npm run verify` stops at 15 min naming the step that hung; ready bot-branch PRs with red or pending CI and no push for 6 h get a `stalled` comment | [`gh-ci-watch.mjs`](frontend/scripts/gh-ci-watch.mjs) (refuses the 4th session); [`verify.mjs`](frontend/scripts/verify.mjs) (`MILUME_VERIFY_TIMEOUT_MIN`); [`stale-prs.yml`](.github/workflows/stale-prs.yml) (hourly) |
+| Merge only on green required checks, non-draft, conflicts resolved | Ruleset [`main: require demo-pins`](https://github.com/ckmah/milume/rules/25597767) requires `demo-pins`, `gate`, `e2e-scope`, `ci-legs`, `public-api`, `pr-hygiene`, `ui-pr-policy`, `agent-policy-tests` (skipped counts as passing); `gate` is the [`frontend-e2e.yml`](.github/workflows/frontend-e2e.yml) job, the rest are in [`pr-policy.yml`](.github/workflows/pr-policy.yml). Required jobs must always report on PRs to main: filter with job-level `if`, never workflow `paths` |
 
-- **Draft UI PRs:** keep PRs in draft while iterating. Draft runs the fast tier (`test`, `e2e-core`, landmarks default harness) without volume shards. Mark **ready for review** (or add the `ui-evidence` label / run the **UI evidence** workflow) to capture screenshots for the PR body before merge.
+- **Branch names:** agent branches use the `agent/` prefix (e.g. `agent/montage-capture-script`). In PR mentions, the short name is the part after the prefix (`montage-capture-script`).
+- **Draft UI PRs:** keep PRs in draft while iterating. Draft runs the fast tier (`test`, `e2e-core`, landmarks default harness) without volume shards.
 
 ## Agent run budgets
 
 Wall-clock on cloud agents is often idle time waiting for the next follow-up, not tool work. When you have pushed and CI is running:
 
-- Do **not** use open-ended `sleep` + `gh pr checks` loops. Use `node frontend/scripts/gh-ci-watch.mjs --pr N --repo ckmah/milume` (default cap: 12 rounds × 90 s, 20 min total) or Cursor `subscribe_github_ci`, then **hand off** with the last check snapshot.
-- After the babysit budget, stop polling and report: commit SHA, conflict status (`npm run check:pr-mergeable`), and which tier failed. Do not sleep overnight for green CI.
 - Before the first push on a UI change, run `cd frontend && npm run verify` locally (about 4 min for landmarks on GPU-less Linux, where it runs the cube smoke spec; about 8 min with `--full-volume`). Use CI for integration gaps, not as a retry loop for the same failing spec (cap local reruns of one grep to **3** attempts, then fix root cause).
-- Pin scope up front: read the linked issue **Outcome / Acceptance** and any PM comment before coding. Confirm dataset identity (colon vs Pyxa `small`/`xsmall` are mouse brain — never join colon IDs onto them; see issue #97). Verify UI changes in the Vite harness (including the simulated-molab `landmarks-molab-shadow` / `landmarks-molab-viewport` specs); UI PRs do not require marimo. marimo e2e (`npm run test:e2e:marimo-api`) is only for Python API and kernel interactions (traitlets, `get_obs_names`, `color`, volume comm).
+- Pin scope up front: read the linked issue **Outcome / Acceptance** and any PM comment before coding. Confirm dataset identity (colon vs Pyxa `small`/`xsmall` are mouse brain — never join colon IDs onto them; see issue #97).
 
 ## Demo data (agents)
 
@@ -38,10 +42,11 @@ Wall-clock on cloud agents is often idle time waiting for the next follow-up, no
 
 - Landmarks changes: [`.agents/skills/verify-landmarks/`](.agents/skills/verify-landmarks/); update its feature map when adding coverage.
 - Widget chrome: [`shadcn-anywidget`](.agents/skills/shadcn-anywidget/SKILL.md), then [`shadcn`](.agents/skills/shadcn/SKILL.md). Motion: [`cube-motion`](.agents/skills/cube-motion/SKILL.md) only when editing `Rise` / `Morph` / `leave` / `reveal`.
+- Workflow: develop milume with [`/poteto-mode`](.agents/skills/poteto-mode/SKILL.md) and fan out parallel work with [`/swarm`](.agents/skills/swarm/SKILL.md). The [pstack](https://github.com/cursor/plugins/tree/main/pstack) skills (`poteto-mode`, its `playbooks/` and `references/`, `swarm`, `principle-*`, and the rest) are vendored in `.agents/skills/` through `skills-lock.json` (MIT, [`.agents/licenses/pstack-LICENSE`](.agents/licenses/pstack-LICENSE)). Don't edit them in place. Update with `npx skills update`, or rerun `npx skills add https://github.com/cursor/plugins/tree/main/pstack --skill '*' -a cursor --copy -y`.
 
 ## Merging your own PR
 
-Needs a green `gate` check and a conflict-free non-draft PR. Squash, delete the branch, and note what you verified. Visual changes show up as snapshot diffs in the PR; regenerate baselines on Linux CI.
+Needs the required checks green (see the table above) and a conflict-free non-draft PR. Squash, delete the branch, and note what you verified. Visual changes show up as snapshot diffs in the PR; regenerate baselines on Linux CI.
 
 **Stop and escalate to Clarence instead of merging** on:
 
@@ -49,7 +54,6 @@ Needs a green `gate` check and a conflict-free non-draft PR. Squash, delete the 
 - Scope creep outside product rules (Visium HD, speculative chrome, new panels without an issue/brief)
 - ADR / SpatialData / landmarks persistence contract breaks without an explicit decision
 - Verification failed, or passing would require inventing UI/tests with no real product surface
-- A stacked PR whose ancestor is not yet merged and verified
 
 ## Releases
 

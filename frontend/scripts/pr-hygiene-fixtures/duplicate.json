@@ -1,0 +1,4 @@
+{
+  "pr": { "number": 22, "body": "Closes #6", "base": "main", "head": "fix-legend-b", "draft": false, "files": ["demo.py", "CHANGELOG.md"], "commits": ["b1"] },
+  "others": [{ "number": 7, "body": "Fixes #6", "base": "main", "head": "fix-legend-a", "draft": false, "files": ["demo.py"], "commits": ["a1"] }]
+}

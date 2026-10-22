@@ -8,8 +8,8 @@ labels to ``xsmall/``/``small/`` mouse brain by ``cell_id`` (ID collisions with 
 
 Usage::
 
-  uv run --extra demo --directory .. python frontend/dev/export-colon-a2-harness-fixture.py --cells 5000
-  uv run --extra demo --directory .. python frontend/dev/export-colon-a2-harness-fixture.py --cells full
+  uv run --group demo --directory .. python frontend/dev/export-colon-a2-harness-fixture.py --cells 5000
+  uv run --group demo --directory .. python frontend/dev/export-colon-a2-harness-fixture.py --cells full
 """
 
 from __future__ import annotations

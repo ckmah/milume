@@ -8,14 +8,34 @@ pip install milume
 
 Requires Python 3.11+.
 
+Each demo notebook lists its own dependencies in its inline script header, so
+`uvx marimo edit --sandbox demos/landmarks.py` (or opening it on molab) installs
+them for you. The [Squidpy recipes](integrations/squidpy-color.md) also need
+scanpy, squidpy and leidenalg:
+
+```bash
+pip install squidpy scanpy leidenalg
+```
+
+## uv
+
+```bash
+uv pip install --compile-bytecode milume
+```
+
+`--compile-bytecode` compiles `.pyc` files at install time, so the first
+`import milume` doesn't pay for compiling milume and its dependencies. In a
+project, `uv add milume` works too (set `UV_COMPILE_BYTECODE=1` for the same
+effect).
+
 ## From source
 
 ```bash
-uv sync --extra demo --group dev
+uv sync --group demo --group dev
 ```
 
-Use the `demo` extra for marimo notebooks and spatial-omics helpers used by
-`demos/`.
+The `demo` dependency group adds marimo and the spatial-omics packages used by
+`demos/`. It is a development group, not a published extra.
 
 ## Quickstart
 

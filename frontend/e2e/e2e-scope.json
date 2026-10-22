@@ -1,0 +1,29 @@
+{
+  "molab": {
+    "specs": [
+      "frontend/e2e/landmarks/landmarks-molab-shadow.spec.ts",
+      "frontend/e2e/landmarks/landmarks-molab-viewport.spec.ts"
+    ],
+    "paths": [
+      "milume/static/landmarks.js",
+      "frontend/src/widgets/landmarks/engine.*",
+      "frontend/src/widgets/landmarks/index.tsx",
+      "frontend/src/widgets/landmarks/LandmarksView.tsx",
+      "frontend/src/widgets/landmarks/helpers.ts",
+      "frontend/src/widgets/landmarks/selection-members.*",
+      "frontend/src/widgets/landmarks/use-inspect-cube.ts",
+      "frontend/src/widgets/landmarks/chrome/inspect-*.tsx",
+      "frontend/src/widgets/landmarks/chrome/mode-dropdown.tsx",
+      "frontend/src/widgets/landmarks/chrome/primitives.tsx",
+      "frontend/src/widgets/landmarks/chrome/use-widget-portal.ts",
+      "frontend/src/widgets/landmarks/chrome/widget-portal-context.tsx",
+      "frontend/e2e/helpers.ts",
+      "frontend/e2e/landmarks/landmarks-molab-*.spec.ts"
+    ],
+    "runLeg": "landmarks"
+  },
+  "marimo_api": {
+    "dir": "frontend/e2e/marimo",
+    "allow": []
+  }
+}

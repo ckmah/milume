@@ -78,11 +78,10 @@ def selection_mask(
     polygon / rectangle / ellipse point-in-path.
     """
     import numpy as np
-    from matplotlib.path import Path as MplPath
 
     x_arr = np.asarray(x_arr, dtype=float)
     y_arr = np.asarray(y_arr, dtype=float)
-    n = int(len(x_arr))
+    n = len(x_arr)
     if selection_id is None or selection_id == "all":
         return np.ones(n, dtype=bool)
 
@@ -105,5 +104,48 @@ def selection_mask(
 
     x_d = np.log10(x_arr) if x_scale == "log" else x_arr
     y_d = np.log10(y_arr) if y_scale == "log" else y_arr
-    path = MplPath(verts)
-    return path.contains_points(np.column_stack([x_d, y_d]))
+    return points_in_polygon(verts, x_d, y_d)
+
+
+def points_in_polygon(verts: Any, x: Any, y: Any) -> Any:
+    """Boolean mask of points inside the closed polygon ``verts`` (even-odd rule).
+
+    Ports the crossings test matplotlib's ``Path.contains_points`` runs
+    (Eric Haines' "crossings multiply", Agg ``point_in_path_impl``) with the
+    same float comparisons, so masks match it bit for bit, including points on
+    an edge or vertex and self-intersecting lassos. Non-finite points are outside.
+    """
+    import numpy as np
+
+    v = np.asarray(verts, dtype=float).reshape(-1, 2)
+    x = np.asarray(x, dtype=float).ravel()
+    y = np.asarray(y, dtype=float).ravel()
+    out = np.zeros(x.shape[0], dtype=bool)
+    v = v[np.isfinite(v).all(axis=1)]
+    if v.shape[0] < 3:
+        return out
+    vy = v[:, 1]
+    # An edge can only flip a point whose y lies in (min(y0, y1), max(y0, y1)]:
+    # elsewhere both ``vy >= y`` flags agree. Sort candidates by y once and
+    # visit each edge's band only; the comparisons stay exact.
+    cand = np.isfinite(x) & np.isfinite(y) & (y <= vy.max()) & (y > vy.min())
+    idx = np.flatnonzero(cand)
+    if idx.size == 0:
+        return out
+    idx = idx[np.argsort(y[idx], kind="stable")]
+    tx = x[idx]
+    ty = y[idx]
+    inside = np.zeros(idx.size, dtype=bool)
+    x0, y0 = v[-1]
+    for x1, y1 in v:
+        # Edge (x0, y0) -> (x1, y1); the last vertex closes onto the first.
+        if y0 != y1:
+            lo, hi = np.searchsorted(ty, [min(y0, y1), max(y0, y1)], side="right")
+            if hi > lo:
+                bx = tx[lo:hi]
+                by = ty[lo:hi]
+                yflag1 = y1 >= by
+                inside[lo:hi] ^= ((y1 - by) * (x0 - x1) >= (x1 - bx) * (y0 - y1)) == yflag1
+        x0, y0 = x1, y1
+    out[idx] = inside
+    return out
