@@ -2301,8 +2301,10 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.11" },
     { name = "shapely", specifier = ">=2.1.2" },
     { name = "shapely", marker = "extra == 'test'", specifier = ">=2.1.2" },
-    { name = "spatialdata", specifier = ">=0.7.3" },
-    { name = "spatialdata", marker = "extra == 'test'", specifier = ">=0.7.3" },
+    { name = "spatialdata", marker = "python_full_version < '3.12'", specifier = ">=0.7.3" },
+    { name = "spatialdata", marker = "python_full_version >= '3.12'", specifier = ">=0.8.0" },
+    { name = "spatialdata", marker = "python_full_version >= '3.12' and extra == 'test'", specifier = ">=0.8.0" },
+    { name = "spatialdata", marker = "python_full_version < '3.12' and extra == 'test'", specifier = ">=0.7.3" },
     { name = "traitlets", specifier = ">=5.0" },
 ]
 provides-extras = ["test"]
@@ -2326,7 +2328,8 @@ dev = [
     { name = "ruff", specifier = ">=0.16.6" },
     { name = "scanpy", specifier = ">=1.10" },
     { name = "shapely", specifier = ">=2.1.2" },
-    { name = "spatialdata", specifier = ">=0.7.3" },
+    { name = "spatialdata", marker = "python_full_version < '3.12'", specifier = ">=0.7.3" },
+    { name = "spatialdata", marker = "python_full_version >= '3.12'", specifier = ">=0.8.0" },
     { name = "spatialdata-io", marker = "python_full_version >= '3.12'", git = "https://github.com/ckmah/spatialdata-io?branch=pyxa-reader" },
     { name = "squidpy", specifier = ">=1.6" },
     { name = "watchfiles", specifier = ">=1.2.0" },

@@ -117,8 +117,13 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
+          cache-dependency-path: |
+            frontend/package-lock.json
+            website/package-lock.json
+      - uses: ./.github/actions/node-modules
+      - uses: ./.github/actions/node-modules
+        with:
+          dir: website
       - uses: ./.github/actions/playwright-browser
       - name: Run core e2e
         if: ${{ github.event_name != 'workflow_dispatch' || inputs.update_snapshots != true }}
@@ -171,7 +176,7 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
+      - uses: ./.github/actions/node-modules
       - uses: ./.github/actions/playwright-browser
       - run: npm run test:unit
       - name: Run landmarks e2e (default harness)
@@ -230,7 +235,7 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
+      - uses: ./.github/actions/node-modules
       - uses: ./.github/actions/playwright-browser
       - name: Run volume smoke e2e
         run: npx playwright test e2e/landmarks/landmarks-volume-smoke.spec.ts
@@ -270,7 +275,7 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
+      - uses: ./.github/actions/node-modules
       - uses: ./.github/actions/playwright-browser
       - name: Run volume e2e shard
         run: ${{ matrix.cmd }}
@@ -313,7 +318,7 @@ jobs:
       - name: Install Python deps (demo + editable milume)
         run: uv sync --group demo
         working-directory: .
-      - run: npm ci
+      - uses: ./.github/actions/node-modules
       - uses: ./.github/actions/playwright-browser
       - run: npm run build
       - uses: actions/cache@v4
