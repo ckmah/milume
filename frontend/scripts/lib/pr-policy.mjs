@@ -63,11 +63,17 @@ function sectionEntries(lines) {
     }
   }
   if (entries.length) return entries;
-  return lines
-    .join("\n")
-    .split(/\n\s*\n/)
-    .map((p) => p.trim())
-    .filter(Boolean);
+  // A paragraph that is only media (an example shot) belongs to the paragraph before it.
+  const paras = [];
+  for (const p of lines.join("\n").split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean)) {
+    const mediaOnly = !p.replace(/!\[[^\]]*\]\([^)]+\)|<img\s[^>]*>/gi, "").trim();
+    if (paras.length && mediaOnly) {
+      paras[paras.length - 1] += "\n" + p;
+    } else {
+      paras.push(p);
+    }
+  }
+  return paras;
 }
 
 /**

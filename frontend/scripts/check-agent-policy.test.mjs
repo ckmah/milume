@@ -208,6 +208,8 @@ test("visualAcceptanceItems reads list entries, else paragraphs, and skips N/A",
     "Second.",
   ]);
   assert.deepEqual(visualAcceptanceItems("## Visual acceptance\n\nN/A\n"), []);
+  // #182: an example shot under a paragraph is part of that item, not a second one.
+  assert.equal(visualAcceptanceItems("## Visual acceptance\n\nHero shows the h1:\n\n![hero](https://x/h.png)\n").length, 1);
 });
 
 test("a ready UI PR missing evidence for one item fails and names it", () => {
