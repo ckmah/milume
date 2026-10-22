@@ -13,6 +13,10 @@
 
 - The source distribution no longer ships `website/`, the README screenshots (`assets/*.png`), the Playwright e2e snapshots or the vendored `.agents/` skills and `.cursor/` config (the `use-milume` skill is still included), dropping it from about 60 MB to about 4.3 MB. The wheel contents are unchanged. The install docs now show `uv pip install --compile-bytecode milume`.
 
+### Widget bundle is minified
+
+- `milume/static/bundled/landmarks.mjs` now ships minified: 5.17 → 3.99 MB raw (1.41 → 1.24 MB gzip), still one file. Vite's ES library mode kept whitespace; the build now strips it with the same esbuild minifier ([#318](https://github.com/ckmah/milume/issues/318)).
+
 ### Inspect image contrast default reaches the image max
 
 - When `contrast_limits` is not passed, the Inspect cube's default upper limit is now the max of the image's coarsest pyramid level instead of its 99.5th percentile; the lower limit stays at the 1st percentile. The coarsest level already compresses the dynamic range, so the percentile clipped bright tissue to white (on the colon A2 image the default goes from `(0, 171)` to `(0, 249)`), which washed out a top z cut and hid the cell meshes behind it. Passing `contrast_limits=(lo, hi)` works as before.
