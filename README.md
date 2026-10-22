@@ -140,5 +140,6 @@ Read results back in Python:
 | Map colors for other plots | `w.category_colors("cell_type")` |
 | Inspect window and cube cut | `w.inspect_open = True` opens the cube at `w.inspect_cx`, `w.inspect_cy`, or at the volume centre when no window is placed (set them to move it; `False` closes it and exits Inspect); `w.inspect_size_um`; `w.volume_cut` = x0, x1, y0, y1, z0, z1 µm (intersect X/Y with the window for the shown box) |
 
-Large expression matrices are sent sparse; pass `genes=` to limit the gene
-catalog.
+Gene expression loads per gene when you first colour by it, so whole-transcriptome
+panels (18k genes × 170k cells) open without sending the matrix. `genes=[...]` restricts
+the catalog and preloads it when it packs under 64 MiB.

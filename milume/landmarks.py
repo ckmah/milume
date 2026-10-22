@@ -24,9 +24,10 @@ from .categories import (
 )
 from .genes import (
     _normalize_column,
+    GENE_FETCH_MAX_NAMES,
     expression_is_log_scaled,
-    gene_names_from_adata,
-    pack_eager_gene_matrix,
+    gene_catalog,
+    gene_slices,
 )
 from .selection import selection_by_id, selection_mask
 
@@ -158,20 +159,6 @@ def _color_maps_from_uns(adata: Any) -> dict[str, dict[str, str]]:
     return maps
 
 
-def _expr_from_adata(adata: Any, genes: str | list[str] | None) -> Any:
-    """Build a dense expression DataFrame (explicit ``set_expression`` path only)."""
-    import numpy as np
-    import pandas as pd
-
-    wanted = gene_names_from_adata(adata, genes)
-    if not wanted:
-        return None
-    X = adata[:, wanted].X
-    if hasattr(X, "toarray"):
-        X = X.toarray()
-    return pd.DataFrame(np.asarray(X), columns=wanted)
-
-
 _NN_RADIUS_FRAC = 0.4
 # Default neighborhood radius cap as a fraction of spatial diagonal.
 _DEFAULT_RADIUS_MAX_FRAC = 0.05
@@ -300,8 +287,10 @@ color
     the first detected categorical column is used. Assign ``w.color = key``
     later to recolour; unknown keys raise before anything changes.
 genes
-    Genes to pack for view-only colouring. ``None`` (default) packs every
-    ``var_name``; pass a name or list to restrict the eager catalog.
+    Genes offered for view-only colouring. ``None`` (default) offers every
+    ``var_name`` and sends each gene's values only when it is first coloured.
+    A name or list restricts the catalog and preloads it when it packs under
+    64 MiB; larger lists load on demand too, with a warning.
 table, image, shapes
     SpatialData-only overrides for the inferred table, multiscale image, and
     the shapes element of per-slice cell polygons (``cell_id`` and ``Z_um``
@@ -320,7 +309,7 @@ distance. Neighbourhood expand runs in the browser from coordinates; no
 
 UI chrome (mode, neighbourhoods, raster controls) stays in the browser and
 is not part of the notebook API. Raster bins and probe scores are built
-client-side from the eager gene, embedding, and category packs.
+client-side from the loaded gene, embedding, and category packs.
 """
 
 
@@ -388,10 +377,9 @@ class LandmarksWidget(AnyWidget):
     type_neighborhoods = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
     category_columns = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
     category_codes = traitlets.Unicode("").tag(sync=True)  # base64 int32, col-major
-    gene_columns = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
-    # Eager expression pack (all catalog genes). Format: dense | csc.
-    gene_format = traitlets.Unicode("dense").tag(sync=True)
-    gene_values = traitlets.Unicode("").tag(sync=True)  # dense: base64 float32 col-major
+    # Gene catalog: ``{"name"}`` each, plus ``vmin``/``vmax`` for preloaded genes.
+    gene_names = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
+    # Preloaded ``genes=`` pack: one CSC over gene_names (empty = load on demand).
     gene_csc_indptr = traitlets.Unicode("").tag(sync=True)
     gene_csc_indices = traitlets.Unicode("").tag(sync=True)
     gene_csc_data = traitlets.Unicode("").tag(sync=True)
@@ -565,9 +553,9 @@ class LandmarksWidget(AnyWidget):
         self._data_label_arrays = cat_labels
         self._data_labels = cat_labels.get(active_cat)
 
-        gene_names = gene_names_from_adata(adata, genes)
-        gene_meta, gene_payload = pack_eager_gene_matrix(adata, gene_names, n)
-        gene_logged = bool(expression_is_log_scaled(adata)) if gene_names else False
+        gene_meta, gene_payload = gene_catalog(adata, genes, n)
+        self._set_gene_source(adata, gene_meta)
+        gene_logged = bool(expression_is_log_scaled(adata)) if gene_meta else False
         embedding_keys = _discover_embedding_keys(adata, spatial_key=spatial_key)
         embedding_key = _pick_default_embedding_key(embedding_keys)
 
@@ -588,12 +576,8 @@ class LandmarksWidget(AnyWidget):
             category_columns=cat_meta,
             category_codes=cat_codes,
             active_category=active_cat,
-            gene_columns=gene_meta,
-            gene_format=str(gene_payload.get("gene_format") or "dense"),
-            gene_values=str(gene_payload.get("gene_values") or ""),
-            gene_csc_indptr=str(gene_payload.get("gene_csc_indptr") or ""),
-            gene_csc_indices=str(gene_payload.get("gene_csc_indices") or ""),
-            gene_csc_data=str(gene_payload.get("gene_csc_data") or ""),
+            gene_names=gene_meta,
+            **gene_payload,
             active_genes=[],
             gene_log1p=False,
             gene_expression_logged=gene_logged,
@@ -685,6 +669,52 @@ class LandmarksWidget(AnyWidget):
             return {"ok": False, "status": outcome.status, "error": outcome.error or "read failed"}, []
         return {"ok": True, "status": outcome.status}, [outcome.data]
 
+    def _set_gene_source(self, source: Any, meta: list[dict[str, Any]]) -> None:
+        self._gene_source = source
+        self._gene_name_set = {str(m["name"]) for m in meta}
+        self._gene_meta = {str(m["name"]): m for m in meta if "vmax" in m}
+
+    def _gene_range(self, name: str) -> dict[str, Any]:
+        """``{"name", "vmin", "vmax"}`` of one catalog gene, computed once on demand."""
+        meta = self._gene_meta.get(name)
+        if meta is None:
+            meta = gene_slices(self._gene_source, [name])[0][0]
+            self._gene_meta[name] = meta
+        return meta
+
+    @command
+    def _gene_get(self, msg: object, buffers: list[bytes]) -> tuple[object, list[bytes]]:
+        """Normalized sparse slices for up to ``GENE_FETCH_MAX_NAMES`` catalog genes.
+
+        Reply ``genes`` lists ``{"name", "vmin", "vmax", "nnz"}`` in request order;
+        buffer 0 is every gene's int32 rows and buffer 1 its float32 values, concatenated.
+        """
+        names = msg.get("names") if isinstance(msg, dict) else None
+        if (
+            not isinstance(names, list)
+            or not 0 < len(names) <= GENE_FETCH_MAX_NAMES
+            or not all(isinstance(n, str) for n in names)
+        ):
+            return {
+                "ok": False,
+                "status": 400,
+                "error": f"names must list 1 to {GENE_FETCH_MAX_NAMES} gene names",
+            }, []
+        unknown = [n for n in names if n not in self._gene_name_set]
+        if unknown:
+            return {"ok": False, "status": 404, "error": f"not in the gene catalog: {unknown}"}, []
+        try:
+            slices = gene_slices(self._gene_source, names)
+        except Exception as exc:  # noqa: BLE001 — comm must always reply
+            return {"ok": False, "status": 500, "error": str(exc)}, []
+        genes = []
+        for meta, rows, _ in slices:
+            self._gene_meta.setdefault(meta["name"], meta)
+            genes.append({**meta, "nnz": int(rows.size)})
+        rows = np.concatenate([r for _, r, _ in slices]).astype(np.int32, copy=False)
+        vals = np.concatenate([v for _, _, v in slices]).astype(np.float32, copy=False)
+        return {"ok": True, "genes": genes}, [rows.tobytes(), vals.tobytes()]
+
     def set_neighbor_graphs(self, *args: Any, **kwargs: Any) -> None:
         """Removed: neighborhood expand is client-side.
 
@@ -714,60 +744,40 @@ class LandmarksWidget(AnyWidget):
         self.points_data = _encode_f32(points)
 
     def set_expression(self, expr: Any) -> None:
-        """Replace the eager gene catalog/matrix from a table (view-only).
+        """Replace the gene catalog from a table (view-only).
 
-        Packs all columns immediately for the browser gene picker.
+        Every column becomes a gene; it preloads under the eager size limit and
+        loads on demand above it, like ``genes=``.
         """
         x = getattr(self, "_data_x", None)
         if x is None:
             raise RuntimeError("internal point cache missing")
-        from .categories import as_frame
-
-        import numpy as np
-
         frame = as_frame(expr)
-        self._expr_frame = frame
         names = [str(c) for c in frame.columns]
         n = int(x.shape[0])
-        # Build a tiny AnnData-like pack via dense columns.
-        meta: list[dict[str, Any]] = []
-        cols: list[Any] = []
-        from .genes import _normalize_column
-
-        for name in names:
-            vals = np.asarray(frame[name].to_numpy(), dtype=np.float64).ravel()
-            if vals.shape[0] != n:
-                raise ValueError(f"expr rows {vals.shape[0]} != n_points {n}")
-            norm, vmin, vmax = _normalize_column(vals)
-            meta.append({"name": name, "vmin": vmin, "vmax": vmax})
-            cols.append(norm)
-        if not cols:
-            self.gene_columns = []
-            self.gene_format = "dense"
-            self.gene_values = ""
-            self.gene_csc_indptr = ""
-            self.gene_csc_indices = ""
-            self.gene_csc_data = ""
-            self.active_genes = []
-            return
-        mat = np.column_stack(cols).astype(np.float32, copy=False)
-        self.gene_columns = meta
-        self.gene_format = "dense"
-        self.gene_values = base64.b64encode(mat.ravel(order="F").tobytes()).decode(
-            "ascii"
+        if names and len(frame) != n:
+            raise ValueError(f"expr rows {len(frame)} != n_points {n}")
+        self._expr_frame = frame
+        mat = (
+            np.column_stack([np.asarray(frame[c].to_numpy(), dtype=np.float64) for c in names])
+            if names
+            else np.zeros((n, 0))
         )
-        self.gene_csc_indptr = ""
-        self.gene_csc_indices = ""
-        self.gene_csc_data = ""
-        known = {m["name"] for m in meta}
-        self.active_genes = [g for g in (self.active_genes or []) if g in known]
-        logged = expression_is_log_scaled(getattr(self, "_adata", None))
-        if not logged and meta:
-            col0 = frame[meta[0]["name"]].to_numpy()
-            logged = expression_is_log_scaled(sample=np.asarray(col0, dtype=np.float64))
-        self.gene_expression_logged = bool(logged)
-        if logged:
-            self.gene_log1p = False
+        source = AnnData(X=mat, var=pd.DataFrame(index=pd.Index(names, dtype=str)))
+        meta, payload = gene_catalog(source, names, n)
+        with self.hold_sync():
+            self._set_gene_source(source, meta)
+            self.gene_names = meta
+            for key, value in payload.items():
+                setattr(self, key, value)
+            known = self._gene_name_set
+            self.active_genes = [g for g in (self.active_genes or []) if g in known]
+            logged = expression_is_log_scaled(getattr(self, "_adata", None))
+            if not logged and names:
+                logged = expression_is_log_scaled(sample=mat[:, 0])
+            self.gene_expression_logged = bool(logged)
+            if logged:
+                self.gene_log1p = False
 
     @traitlets.observe("active_genes")
     def _on_active_genes(self, change: dict) -> None:
@@ -964,11 +974,11 @@ class LandmarksWidget(AnyWidget):
                     f"obs column {key!r} has {n_levels} levels; at most {_MAX_LEVELS} can be coloured"
                 )
             return "category"
-        if any(g.get("name") == key for g in self.gene_columns):
+        if key in self._gene_name_set:
             return "gene"
         if key in set(map(str, self._adata.var_names)):
             raise ColorValueError(
-                f"gene {key!r} is not packed in this widget; rebuild it with genes=None or a list that includes it"
+                f"gene {key!r} is not in this widget's gene catalog; rebuild it with genes=None or a list that includes it"
             )
         raise ColorKeyError(f"{key!r} is neither an adata.obs column nor a gene of this widget")
 
@@ -997,7 +1007,7 @@ class LandmarksWidget(AnyWidget):
             self._show_category_column(key)
 
     def _show_gene(self, key: str) -> None:
-        meta = next(g for g in self.gene_columns if g.get("name") == key)
+        meta = self._gene_range(key)
         self.active_category = ""
         self.active_genes = [key]
         self.color_mode = "continuous"
@@ -1196,7 +1206,7 @@ _PUBLIC_TRAITS: dict[str, str] = {
     "select_type": "Focus one category group of the active column.",
     "get_obs_names": "pd.Index of obs_names in a selection id or 'focus'; KeyError on unknown ids.",
     "set_points": "Move the scatter points to new x/y; colour is set with color.",
-    "set_expression": "Replace the packed gene catalogue from a table.",
+    "set_expression": "Replace the gene catalogue from a table.",
     "set_render_mode": "Switch between points and raster bins.",
     "set_raster_basis": "Pick the raster aggregation basis: genes, embedding or composition.",
     "clear_raster_query": "Clear the pinned raster similarity query.",

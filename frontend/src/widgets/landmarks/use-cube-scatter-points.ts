@@ -36,7 +36,7 @@ export function useCubeScatterPoints(
     lm.category_columns,
     lm.category_codes,
     lm.active_genes,
-    lm.gene_values,
+    lm.gene_version,
     lm.gene_scale_mode,
     lm.gene_log1p,
     lm.embedding_values,

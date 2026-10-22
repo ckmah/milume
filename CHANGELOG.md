@@ -2,6 +2,17 @@
 
 ## 2.0.1 (unreleased)
 
+### Genes load on demand, so whole-transcriptome panels open ([#241](https://github.com/ckmah/milume/issues/241))
+
+- `milume.peek(adata)` no longer packs every gene at construct. The widget opens with gene names only, and the browser fetches a gene's normalized sparse column from the kernel the first time it is coloured, then keeps it in an LRU cache (128 MiB). On a 170,057-cell × 18,028-gene matrix at 10% density (Atera WTA breast scale), the kernel's peak extra memory from construct through comm-open drops from about 9.6 GiB (2.0.0, extrapolated from 0.96 GiB and 1.88 GiB measured at 1/10 and 1/5 of the cells) to 77 MiB measured at full scale, and the gene part of the comm-open message drops from about 3.1 GiB to 0.3 MiB. The 2.0.0 path OOM-killed the Jupyter kernel on that dataset.
+- `genes=[...]` still restricts the catalog and preloads it when it packs under 64 MiB. A larger list loads on demand too, with a `UserWarning`, instead of sending a multi-GB payload; the old warn-and-send-anyway 25 MiB threshold is gone. Colouring by a gene outside the catalog still raises `milume.ColorValueError`.
+- The browser densifies one cell-length column per gene on screen, never the whole matrix (2D points, raster bins, the Inspect cube and the info-panel densities).
+- Pick up to 8 genes. Up to three blend one colour channel each, as before. Four or more colour by one combined value on a single ramp, with **Mean** / **Median** / **Max** under the gene field.
+- Fetching a gene from a CSR `adata.X` (the usual AnnData layout) no longer scans the whole matrix. The kernel binary-searches each cell's sorted column indices instead, with no index built and no extra memory kept. On the 170,057 × 18,028 matrix (307M stored values, memory-mapped) one gene now takes about 47 ms instead of 545 ms, and a 16-gene request about 375 ms instead of 590 ms. The first fetch also checks once that the rows are sorted (about 0.3 s from page cache); CSR with unsorted or duplicate entries keeps the old scan. CSC input was already fast and is unchanged ([#253](https://github.com/ckmah/milume/issues/253)).
+- Pressing Escape in the Explore genes picker now only closes the popup. It used to clear every picked gene when the popup was already closed ([#252](https://github.com/ckmah/milume/issues/252)); the × button and each chip's remove still clear.
+- The synced gene-catalogue trait `gene_columns` is renamed `gene_names`, with no deprecated alias. It stays internal (not listed in the notebook API), but code that read `w.gene_columns` should now read `w.gene_names`.
+- The synced traits `gene_format` and `gene_values` are removed. A preloaded `genes=[...]` list always ships as sparse CSC (`gene_csc_indptr` / `gene_csc_indices` / `gene_csc_data`), and with `genes=None` nothing is preloaded: those traits stay empty and genes arrive per gene on demand.
+
 ### Install: lighter core dependencies
 
 - `leidenalg` (and `igraph` with it) is no longer installed by `pip install milume`. milume never imports it; the demo notebook and the Squidpy niche recipe need it for `sc.tl.leiden`. Install it yourself with `pip install leidenalg`, or run the notebook from its own inline script header (`uvx marimo edit --sandbox demos/landmarks.py`, or molab), which already lists it.

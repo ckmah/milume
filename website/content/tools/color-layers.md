@@ -30,6 +30,15 @@ The right panel has three pill tabs. They have no icons, so the table names each
 
 ### genes
 
+Pick up to three genes to blend them, one colour channel each. Pick four to eight and
+the cells colour by one combined value on a single ramp; choose **Mean**, **Median** or
+**Max** of the picked genes' normalized expression under the gene field.
+
+Each gene's values load from the kernel the first time you colour by it, so the widget
+opens fast on whole-transcriptome panels (an 18k-gene Atera breast section included).
+`genes=[...]` preloads a short list instead, which helps when the kernel is slow to reply.
+A list that would pack over 64 MiB loads on demand too, with a warning.
+
 <figure class="ml-hero ml-hero--still" markdown="0">
 <img class="ml-only-dark" src="../assets/tools/color-layers/still-genes.dark.png" alt="The genes tab with three genes picked: ridgeline densities per gene, a blend legend, the gene chips, and Shared scale and log scale switches." loading="lazy">
 <img class="ml-only-light" src="../assets/tools/color-layers/still-genes.light.png" alt="The genes tab with three genes picked: ridgeline densities per gene, a blend legend, the gene chips, and Shared scale and log scale switches." loading="lazy">

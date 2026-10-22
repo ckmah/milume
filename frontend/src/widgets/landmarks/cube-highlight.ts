@@ -1,6 +1,7 @@
 import type { CellColoring, HighlightGroup } from "@/widgets/volume-cube/cell-lut-extension";
 
-import type { GeneColumn, GeneScaleMode } from "./helpers";
+import type { GeneStore } from "./gene-store.js";
+import type { GeneScaleMode } from "./helpers";
 import { blendGeneSrgb, srgbBytesToLinear, type GeneExpressionPack } from "./gene-expression-colors";
 import { typeFocusIndicesFromState } from "./type-focus";
 
@@ -19,12 +20,7 @@ export type CubeHighlightInput = {
   columns: { name: string; labels: string[]; palette: string[] }[];
   activeCategory: string;
   activeGenes: string[];
-  geneColumns: GeneColumn[];
-  geneValuesB64: string;
-  geneFormat: string;
-  geneCscIndptrB64: string;
-  geneCscIndicesB64: string;
-  geneCscDataB64: string;
+  genes: GeneStore;
   geneScaleMode: GeneScaleMode;
   geneLog1p: boolean;
   geneExpressionLogged: boolean;
@@ -127,13 +123,8 @@ function geneExpressionColoring(input: CubeHighlightInput): CellColoring {
   if (member === "hidden-selection") return NO_GROUPS;
   const pack: GeneExpressionPack = {
     n,
-    geneColumns: input.geneColumns,
     activeGenes,
-    geneFormat: input.geneFormat,
-    geneValuesB64: input.geneValuesB64,
-    geneCscIndptrB64: input.geneCscIndptrB64,
-    geneCscIndicesB64: input.geneCscIndicesB64,
-    geneCscDataB64: input.geneCscDataB64,
+    genes: input.genes,
     geneScaleMode: input.geneScaleMode,
     geneLog1p: input.geneLog1p,
     geneExpressionLogged: input.geneExpressionLogged,

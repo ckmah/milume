@@ -31,7 +31,7 @@ FIXTURE_KEYS = [
     "selected_index",
     "category_columns",
     "active_category",
-    "gene_columns",
+    "gene_names",
     "active_genes",
     "gene_scale_mode",
     "gene_log1p",
@@ -43,7 +43,6 @@ FIXTURE_KEYS = [
     "default_buffer_width",
     "neighbor_radius_max",
     "neighbor_k_max",
-    "gene_format",
     "gene_csc_indptr",
     "gene_csc_indices",
     "gene_csc_data",
@@ -53,7 +52,6 @@ FIXTURE_KEYS = [
     "points_data",
     "point_palette",
     "category_codes",
-    "gene_values",
     "color_vmin",
     "color_vmax",
     "render_mode",
@@ -180,10 +178,12 @@ def main() -> None:
     args = parser.parse_args()
     adata = load_adata(args.profile)
     color_key = "region" if "region" in adata.obs.columns else None
+    # Preload every gene: the harness mock serves _gene_get from this pack.
     widget = LandmarksWidget(
         adata,
         spatial_key="spatial",
         color=color_key,
+        genes=list(adata.var_names),
     )
     # Harness label only — mouse brain demo slice for timing/CI, not colon tissue.
     widget.legend_title = (
