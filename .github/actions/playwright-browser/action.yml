@@ -52,7 +52,7 @@ runs:
     - name: Install Chromium system deps
       shell: bash
       working-directory: frontend
-      run: bash "${GITHUB_ACTION_PATH}/install-deps.sh" 3 180
+      run: bash "${GITHUB_ACTION_PATH}/install-deps.sh" 3 180 4
 
     - name: Stash apt debs for the cache
       shell: bash
