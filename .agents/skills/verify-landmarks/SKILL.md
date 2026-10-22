@@ -74,7 +74,7 @@ After push, use bounded polling only:
 node frontend/scripts/gh-ci-watch.mjs --pr <N> --repo ckmah/milume --check gate
 ```
 
-Exit **2** means budget exhausted — post status and hand off; do not chain 15–30 minute sleeps. If `npm run check:pr-mergeable` fails, rebase before watching CI (conflicted PRs skip checks; see bc-fb7104a0 #121, #132).
+Exit **2** means the budget is spent: post the snapshot it prints and hand off. It allows 3 sessions per head SHA and refuses the 4th; conflicted PRs exit 1 (rebase first, #121, #132).
 
 ## Doctor check (harness readiness)
 

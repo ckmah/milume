@@ -9,6 +9,8 @@ import { ciLegErrors, loadCiConfig, selectLegs, tiersHit } from "./lib/ci-legs.m
 import { unconditionalSkips, uiGestures, unlinkedFlakyEntries, unroutedMolabPaths } from "./lib/e2e-scope.mjs";
 import { assignShards } from "./lib/e2e-shard-plan.mjs";
 import { mergeabilityError } from "./lib/pr-mergeable.mjs";
+import { failingTiers, handoffSnapshot, stallVerdict, stalledMarker, watchBody, watchSessions } from "./lib/ci-budget.mjs";
+import { runPlan, verifyTimeoutMs } from "./lib/verify-run.mjs";
 import { validateUiPullRequest, visualAcceptanceItems } from "./lib/pr-policy.mjs";
 import { validateWidgetIssueBody } from "./lib/widget-issue.mjs";
 
@@ -29,7 +31,7 @@ test("mergeabilityError flags conflicting PRs like #121 and #132", () => {
 test("AGENTS.md documents babysit stop rule and HF fixture policy", () => {
   const agents = readFileSync(join(repoRoot, "AGENTS.md"), "utf8");
   assert.match(agents, /gh-ci-watch/);
-  assert.match(agents, /check:pr-mergeable/);
+  assert.match(agents, /stale-prs\.yml/);
   assert.match(agents, /colon_a2/);
   assert.match(agents, /volume-xsmall-if-missing/);
 });
@@ -329,4 +331,77 @@ test("PRs into feat/lazy-genes pass pr-stack and aren't compared with the integr
   const f = hygieneFixture("feat-base");
   assert.deepEqual(stackErrors(f.pr, f.others), []);
   assert.deepEqual(overlapReport(f.pr, f.others), { failures: [], warnings: [] });
+});
+
+const HOUR = 3.6e6;
+const now = Date.parse("2026-10-22T12:00:00Z");
+const stalePr = (over = {}) => ({
+  head: "cursor/fix-thing-ab12",
+  draft: false,
+  sha: "abc1234def",
+  lastPushAt: new Date(now - 7 * HOUR).toISOString(),
+  checks: [{ name: "e2e-landmarks (default)", bucket: "fail" }],
+  comments: [],
+  ...over,
+});
+
+test("stale-PR verdict flags a red bot PR idle past 6 h, once per head SHA", () => {
+  assert.equal(stallVerdict(stalePr(), { now }).stalled, true);
+  assert.equal(stallVerdict(stalePr({ checks: [{ name: "gate", bucket: "pending" }] }), { now }).stalled, true);
+  const flagged = stalePr({ comments: [{ body: `${stalledMarker("abc1234def")}\nstalled` }] });
+  assert.equal(stallVerdict(flagged, { now }).stalled, false);
+  assert.equal(stallVerdict({ ...flagged, sha: "new5678" }, { now }).stalled, true);
+});
+
+test("stale-PR verdict ignores drafts, human branches, green CI and recent pushes", () => {
+  assert.equal(stallVerdict(stalePr({ draft: true }), { now }).reason, "draft");
+  assert.equal(stallVerdict(stalePr({ head: "feat/lazy-genes" }), { now }).reason, "human branch");
+  assert.equal(stallVerdict(stalePr({ head: "visual-acceptance-gate" }), { now }).reason, "human branch");
+  assert.equal(stallVerdict(stalePr({ checks: [{ name: "gate", bucket: "pass" }] }), { now }).reason, "CI green");
+  assert.equal(stallVerdict(stalePr({ lastPushAt: new Date(now - 2 * HOUR).toISOString() }), { now }).stalled, false);
+});
+
+test("hand-off snapshot names the failing tier and conflict status", () => {
+  const checks = [
+    { name: "e2e-landmarks (default)", bucket: "fail", link: "https://x/1" },
+    { name: "mystery", bucket: "fail" },
+    { name: "test", bucket: "pass" },
+  ];
+  assert.deepEqual(failingTiers(checks, config), ["landmarks", "mystery"]);
+  const snap = handoffSnapshot({ sha: "abc1234def", checks, conflicting: false, config });
+  assert.match(snap, /CI \*\*fail\*\*; conflicts: none; failing tier: `landmarks`, `mystery`/);
+  assert.match(snap, /\| e2e-landmarks \(default\) \| fail \| \[log\]\(https:\/\/x\/1\) \|/);
+  assert.doesNotMatch(snap, /\| test \|/);
+});
+
+test("gh-ci-watch session budget: 3 per head SHA, a new head resets", () => {
+  let comments = [];
+  for (let i = 1; i <= 3; i++) {
+    const { comment, sessions } = watchSessions(comments, "sha1");
+    assert.equal(sessions, i - 1);
+    comments = [{ id: 1, body: watchBody("sha1", sessions + 1) }];
+    assert.ok(comment === null || comment.id === 1);
+  }
+  assert.equal(watchSessions(comments, "sha1").sessions, 3); // the 4th call refuses (sessions >= 3)
+  assert.equal(watchSessions(comments, "sha2").sessions, 0);
+});
+
+test("verify wall-clock cap stops a hanging step and names it", async () => {
+  const lines = [];
+  const r = await runPlan(
+    [
+      [repoRoot, "node -e 0", "policy"],
+      [repoRoot, "node -e 'setInterval(() => {}, 1000)'", "landmarks"],
+      [repoRoot, "node -e 0", "never-runs"],
+    ],
+    { budgetMs: 1500, stdio: "ignore", log: (s) => lines.push(s) },
+  );
+  assert.equal(r.status, 124);
+  assert.match(r.message, /cap of 0m02s hit while running `node -e 'setInterval/);
+  assert.match(r.message, /leg `landmarks`/);
+  assert.equal(lines.length, 2); // the third step never starts
+  assert.equal((await runPlan([[repoRoot, "node -e 0", "x"]], { budgetMs: 5000, stdio: "ignore", log: () => {} })).status, 0);
+  assert.equal(verifyTimeoutMs({}), 15 * 60_000);
+  assert.equal(verifyTimeoutMs({ MILUME_VERIFY_TIMEOUT_MIN: "30" }), 30 * 60_000);
+  assert.equal(verifyTimeoutMs({ MILUME_VERIFY_TIMEOUT_MIN: "0" }), Infinity);
 });
