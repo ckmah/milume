@@ -311,7 +311,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - uses: astral-sh/setup-uv@v5
       - name: Install Python deps (demo + editable milume)
-        run: uv sync --extra demo
+        run: uv sync --group demo
         working-directory: .
       - run: npm ci
       - uses: ./.github/actions/playwright-browser
@@ -322,7 +322,7 @@ jobs:
           key: marimo-e2e-hf-${{ runner.os }}-${{ hashFiles('demos/landmarks.py') }}
           restore-keys: marimo-e2e-hf-${{ runner.os }}-
       - name: Prefetch Stellaromics/demo small (landmarks.py)
-        run: uv run --extra demo python frontend/scripts/prefetch-marimo-e2e-data.py
+        run: uv run --group demo python frontend/scripts/prefetch-marimo-e2e-data.py
         working-directory: .
       - name: Python API spec (toy kernel)
         run: npx playwright test -c playwright.marimo.config.ts e2e/marimo/api.spec.ts

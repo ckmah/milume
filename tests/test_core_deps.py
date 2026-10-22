@@ -1,4 +1,4 @@
-"""Core install surface: leidenalg is demo-only, pyarrow is declared, spatialdata has a working floor."""
+"""Core install surface: leidenalg is demo-only, no published demo extra, pyarrow is declared, spatialdata has a working floor."""
 
 import ast
 import subprocess
@@ -22,9 +22,15 @@ def _names(reqs: list[str]) -> dict[str, str]:
 
 def test_leidenalg_is_demo_only():
     core = _names(PYPROJECT["project"]["dependencies"])
-    demo = _names(PYPROJECT["project"]["optional-dependencies"]["demo"])
+    demo = _names(PYPROJECT["dependency-groups"]["demo"])
     assert "leidenalg" not in core
     assert "leidenalg" in demo
+
+
+def test_demo_is_a_dependency_group_not_a_published_extra():
+    # Demo notebooks carry their own PEP 723 headers; nothing demo-only ships in PyPI metadata.
+    assert "demo" not in PYPROJECT["project"].get("optional-dependencies", {})
+    assert "marimo" in _names(PYPROJECT["dependency-groups"]["demo"])
 
 
 def test_pyarrow_and_spatialdata_floor_are_declared():

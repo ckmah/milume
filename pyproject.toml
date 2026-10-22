@@ -32,15 +32,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-demo = [
-    "huggingface-hub>=0.30",
-    "igraph>=0.11",
-    "leidenalg>=0.12.0",
-    "marimo>=0.25.1",
-    "scanpy>=1.10",
-    "squidpy>=1.6",
-    "spatialdata-io; python_version >= '3.12'",
-]
 test = [
     "geopandas>=1.1.4",
     "pandas>=2.0",
@@ -55,6 +46,15 @@ Repository = "https://github.com/ckmah/milume"
 Issues = "https://github.com/ckmah/milume/issues"
 
 [dependency-groups]
+demo = [
+    "huggingface-hub>=0.30",
+    "igraph>=0.11",
+    "leidenalg>=0.12.0",
+    "marimo>=0.25.1",
+    "scanpy>=1.10",
+    "squidpy>=1.6",
+    "spatialdata-io; python_version >= '3.12'",
+]
 dev = [
     "geopandas>=1.1.4",
     "huggingface-hub>=0.30",

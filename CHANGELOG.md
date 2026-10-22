@@ -4,8 +4,9 @@
 
 ### Install: lighter core dependencies
 
-- `leidenalg` (and `igraph` with it) is no longer installed by `pip install milume`. milume never imports it; the demo notebook and the Squidpy niche recipe need it for `sc.tl.leiden`. Install it with `pip install "milume[demo]"` or `pip install leidenalg`.
+- `leidenalg` (and `igraph` with it) is no longer installed by `pip install milume`. milume never imports it; the demo notebook and the Squidpy niche recipe need it for `sc.tl.leiden`. Install it yourself with `pip install leidenalg`, or run the notebook from its own inline script header (`uvx marimo edit --sandbox demos/landmarks.py`, or molab), which already lists it.
 - `spatialdata` stays a core dependency, now `spatialdata>=0.7.3` (was `>=0.2`). Older releases fail to import (`xarray-schema` needs `pkg_resources`) or fail to write the Zarr store the Inspect cube reads with current geopandas / zarr / ome-zarr.
+- The `demo` extra is removed: `pip install "milume[demo]"` no longer exists. Each demo notebook lists its own dependencies in its PEP 723 inline script header; from a checkout, `uv sync --group demo` installs them as a development dependency group.
 - `pyarrow>=16` is now declared; milume reads cell-polygon parquet with it. It was already installed through `spatialdata`, so nothing new is downloaded.
 
 ### Inspect image contrast default reaches the image max

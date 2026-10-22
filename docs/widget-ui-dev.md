@@ -39,7 +39,7 @@ Select elements in the browser, generate variants, accept to write source. Live 
 
 ```bash
 cd frontend && npm run watch:landmarks
-ANYWIDGET_HMR=1 uv run --extra demo marimo edit demos/landmarks.py
+ANYWIDGET_HMR=1 uv run --group demo marimo edit demos/landmarks.py
 ```
 
 Uses real AnnData and kernel sync; not a substitute for the harness, but required before release.
@@ -87,7 +87,7 @@ Use anywidget file-watch HMR, not the Vite dev server:
 
 ```bash
 cd frontend && npm run watch:landmarks
-ANYWIDGET_HMR=1 uv run --extra demo marimo edit demos/<demo>.py
+ANYWIDGET_HMR=1 uv run --group demo marimo edit demos/<demo>.py
 ```
 
 Landmarks-with-a-cube harness (Playwright / manual, toy SpatialData with a 3D image):

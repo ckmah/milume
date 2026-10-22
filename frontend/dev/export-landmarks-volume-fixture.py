@@ -163,7 +163,7 @@ def main() -> None:
         "--profile",
         choices=("toy", "xsmall", "small"),
         default="toy",
-        help="toy: synthetic CI fixture; xsmall/small: HF Stellaromics/demo (requires --extra demo)",
+        help="toy: synthetic CI fixture; xsmall/small: HF Stellaromics/demo (requires --group demo)",
     )
     parser.add_argument(
         "--if-present",

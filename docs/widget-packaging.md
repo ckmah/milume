@@ -44,7 +44,7 @@ No Node, no `frontend/`, no build step.
 **Contributor** (Python-only changes):
 
 ```bash
-uv sync --extra demo --group dev
+uv sync --group demo --group dev
 uv run pytest
 ```
 
@@ -79,7 +79,7 @@ channel.
 cd frontend && npm run watch:landmarks
 
 # terminal 2 — ANYWIDGET_HMR must be set before Python starts
-ANYWIDGET_HMR=1 uv run --extra demo marimo edit demos/landmarks.py
+ANYWIDGET_HMR=1 uv run --group demo marimo edit demos/landmarks.py
 ```
 
 Requirements:

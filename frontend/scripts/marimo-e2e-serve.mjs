@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Start `marimo run` for Playwright (real kernel, anywidget comm).
- * CI: run after `npm run build` and `uv sync --extra demo`.
+ * CI: run after `npm run build` and `uv sync --group demo`.
  */
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -14,7 +14,7 @@ const port = marimoE2ePort();
 const notebook =
   process.env.E2E_MARIMO_NOTEBOOK ?? join(root, "demos", "landmarks.py");
 
-const cmd = `printf 'n\\n' | uv run --extra demo marimo run --headless --no-token --host 0.0.0.0 --port ${port} ${JSON.stringify(notebook)}`;
+const cmd = `printf 'n\\n' | uv run --group demo marimo run --headless --no-token --host 0.0.0.0 --port ${port} ${JSON.stringify(notebook)}`;
 
 const child = spawn("bash", ["-lc", cmd], {
   cwd: root,
