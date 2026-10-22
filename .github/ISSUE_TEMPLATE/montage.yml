@@ -1,0 +1,40 @@
+name: Montage
+description: Change landing montage shots, captions or the cut (docs/montage/shot-spec.md)
+title: "[montage] "
+labels:
+  - montage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Shots are rows in [`docs/montage/shot-spec.md`](../blob/main/docs/montage/shot-spec.md). Refer to them by **id** here and in handoff notes, not in free-form chat. `npm run check:shot-spec` validates the table; tagline captions must match the landing `<h1>`.
+
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: What should the montage show or say differently?
+    validations:
+      required: true
+
+  - type: textarea
+    id: shots
+    attributes:
+      label: Shots
+      description: One checklist line per shot id this touches (new ids get a row first). Designer ticks "spec" when the row is `spec-done`; Developer ticks "clip" when it is `clip-done`.
+      placeholder: |
+        - [ ] `knn` spec (Designer)
+        - [ ] `knn` clip (Developer)
+        - [ ] `inspect-zcut` spec (Designer)
+        - [ ] `inspect-zcut` clip (Developer)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: handoff
+    attributes:
+      label: Handoff
+      options:
+        - label: Shot-spec rows updated in a PR (setup, duration, caption, capture, owner)
+        - label: Every row in the cut is `clip-done` before PM edits
+        - label: The PR that replaces the mp4 sets the rows to `shipped`

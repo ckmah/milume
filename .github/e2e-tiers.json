@@ -95,7 +95,11 @@
       ".github/public-api.json",
       "frontend/scripts/check-pr-hygiene.mjs",
       "frontend/scripts/lib/pr-hygiene.mjs",
-      "frontend/scripts/pr-hygiene-fixtures/**"
+      "frontend/scripts/pr-hygiene-fixtures/**",
+      "docs/montage/**",
+      "website/landing/index.html",
+      "frontend/scripts/check-shot-spec.mjs",
+      "frontend/scripts/lib/shot-spec.mjs"
     ],
     "ci_frontend": [
       "frontend/**",
@@ -152,6 +156,10 @@
         [
           "frontend",
           "npm run check:ci-legs"
+        ],
+        [
+          "frontend",
+          "npm run check:shot-spec"
         ],
         [
           "frontend",

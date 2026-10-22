@@ -42,6 +42,7 @@
     "check:pr-overlap": "node scripts/check-pr-hygiene.mjs overlap",
     "check:pr-stack": "node scripts/check-pr-hygiene.mjs stack",
     "check:pr-policy": "node scripts/check-pr-policy.mjs",
+    "check:shot-spec": "node scripts/check-shot-spec.mjs",
     "check:public-api": "uv run --directory .. python scripts/public_api.py",
     "check:widget-issue": "node scripts/check-widget-issue.mjs",
     "test:agent-policy": "node --test scripts/check-agent-policy.test.mjs",
