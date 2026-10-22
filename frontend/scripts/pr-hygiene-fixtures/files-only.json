@@ -1,0 +1,7 @@
+{
+  "pr": { "number": 157, "body": "Closes #150", "base": "main", "head": "inspect-pan", "draft": false, "files": ["frontend/src/a.ts", "CHANGELOG.md"], "commits": ["c1"] },
+  "others": [
+    { "number": 149, "body": "Closes #146", "base": "main", "head": "inspect-zoom", "draft": false, "files": ["frontend/src/a.ts"], "commits": ["d1"] },
+    { "number": 160, "body": "Closes #158", "base": "main", "head": "notes", "draft": false, "files": ["CHANGELOG.md"], "commits": ["e1"] }
+  ]
+}

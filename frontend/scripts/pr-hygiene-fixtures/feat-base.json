@@ -1,0 +1,4 @@
+{
+  "pr": { "number": 256, "body": "Part of #241", "base": "feat/lazy-genes", "head": "gene-names-rename", "draft": false, "files": ["milume/genes.py"], "commits": ["g1"] },
+  "others": [{ "number": 248, "body": "Closes #241", "base": "main", "head": "feat/lazy-genes", "draft": false, "files": ["milume/genes.py"], "commits": ["f1"] }]
+}

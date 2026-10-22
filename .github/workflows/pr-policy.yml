@@ -79,6 +79,28 @@ jobs:
         if: steps.api.outcome == 'failure'
         run: exit 1
 
+  # Runs on every PR event so a later push can't hide an earlier failure; the stack rule applies once ready.
+  pr-hygiene:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: check:pr-stack
+        if: github.event.pull_request.draft == false
+        run: node frontend/scripts/check-pr-hygiene.mjs stack
+      - name: check:pr-overlap
+        if: success() || failure()
+        run: node frontend/scripts/check-pr-hygiene.mjs overlap --comment
+
   ci-legs:
     runs-on: ubuntu-latest
     steps:

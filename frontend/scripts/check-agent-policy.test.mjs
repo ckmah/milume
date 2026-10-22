@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { linkedIssues, overlapReport, stackErrors } from "./lib/pr-hygiene.mjs";
 import { ciLegErrors, loadCiConfig, selectLegs, tiersHit } from "./lib/ci-legs.mjs";
 import { unconditionalSkips, uiGestures, unlinkedFlakyEntries, unroutedMolabPaths } from "./lib/e2e-scope.mjs";
 import { assignShards } from "./lib/e2e-shard-plan.mjs";
@@ -210,4 +211,50 @@ test("check:ci-legs flags a job gated on a leg the config does not list", () => 
 test("check:ci-legs passes on the repo", () => {
   const r = run("check-ci-legs.mjs", []);
   assert.equal(r.status, 0, r.stderr);
+});
+
+const hygieneFixture = (name) =>
+  JSON.parse(readFileSync(join(scripts, "pr-hygiene-fixtures", `${name}.json`), "utf8"));
+
+test("linkedIssues reads Closes/Fixes/Resolves and Part of", () => {
+  assert.deepEqual(linkedIssues("Closes #261\nPart of #257\nfixes #9, see #1"), [9, 257, 261]);
+});
+
+test("pr-overlap fails a duplicate (same issue and files) like pyxa #7 / #22, naming the other PR", () => {
+  const { failures } = overlapReport(...Object.values(hygieneFixture("duplicate")));
+  assert.equal(failures.length, 1);
+  assert.match(failures[0], /#7 .*links #6 and touches `demo.py`/);
+});
+
+test("pr-overlap only warns on file overlap and ignores shared files like CHANGELOG.md", () => {
+  const { failures, warnings } = overlapReport(...Object.values(hygieneFixture("files-only")));
+  assert.deepEqual(failures, []);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /#149/);
+});
+
+test("pr-stack fails a PR based on another PR's branch (#136 on #135)", () => {
+  const errors = stackErrors(...Object.values(hygieneFixture("stacked-on-pr")));
+  assert.match(errors.join("\n"), /head of open PR #135/);
+});
+
+test("pr-stack fails a PR carrying another open PR's commits (#135 carrying #123)", () => {
+  const errors = stackErrors(...Object.values(hygieneFixture("carries-commits")));
+  assert.match(errors.join("\n"), /open PR #123/);
+});
+
+test("the parent of a stacked PR is not flagged for the child's commits", () => {
+  const parent = { number: 279, body: "", base: "main", head: "pr-hygiene", files: [], commits: ["p1"] };
+  const child = { number: 284, body: "", base: "main", head: "child", files: [], commits: ["p1", "c1"] };
+  assert.deepEqual(stackErrors(parent, [child]), []);
+  assert.match(stackErrors(child, [parent]).join("\n"), /open PR #279/);
+  const pushedAgain = { ...parent, commits: ["p1", "p2"] };
+  const staleChild = { ...child, commits: ["p1", "a1", "c1"] };
+  assert.deepEqual(stackErrors(pushedAgain, [staleChild]), []);
+});
+
+test("PRs into feat/lazy-genes pass pr-stack and aren't compared with the integration PR", () => {
+  const f = hygieneFixture("feat-base");
+  assert.deepEqual(stackErrors(f.pr, f.others), []);
+  assert.deepEqual(overlapReport(f.pr, f.others), { failures: [], warnings: [] });
 });
