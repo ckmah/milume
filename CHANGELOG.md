@@ -8,6 +8,7 @@
 - `genes=[...]` still restricts the catalog and preloads it when it packs under 64 MiB. A larger list loads on demand too, with a `UserWarning`, instead of sending a multi-GB payload; the old warn-and-send-anyway 25 MiB threshold is gone. Colouring by a gene outside the catalog still raises `milume.ColorValueError`.
 - The browser densifies one cell-length column per gene on screen, never the whole matrix (2D points, raster bins, the Inspect cube and the info-panel densities).
 - Pick up to 8 genes. Up to three blend one colour channel each, as before. Four or more colour by one combined value on a single ramp, with **Mean** / **Median** / **Max** under the gene field.
+- Fetching a gene from a CSR `adata.X` (the usual AnnData layout) no longer scans the whole matrix. The kernel binary-searches each cell's sorted column indices instead, with no index built and no extra memory kept. On the 170,057 × 18,028 matrix (307M stored values, memory-mapped) one gene now takes about 47 ms instead of 545 ms, and a 16-gene request about 375 ms instead of 590 ms. The first fetch also checks once that the rows are sorted (about 0.3 s from page cache); CSR with unsorted or duplicate entries keeps the old scan. CSC input was already fast and is unchanged ([#253](https://github.com/ckmah/milume/issues/253)).
 - The synced gene-catalogue trait `gene_columns` is renamed `gene_names`. It stays internal (not listed in the notebook API), but code that read `w.gene_columns` should now read `w.gene_names`.
 
 ### Inspect image contrast default reaches the image max
