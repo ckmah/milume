@@ -359,3 +359,105 @@ def test_colouring_by_a_gene_outside_the_catalog_errors():
     _, w = _sparse_widget(500, 10, 0.2, genes=["g1"])
     with pytest.raises(ColorValueError, match="genes="):
         w.color = "g2"
+
+
+def _csr_edge_matrix():
+    """CSR with empty rows, a row holding every column, explicit zeros and negatives."""
+    from scipy import sparse
+
+    rng = np.random.default_rng(11)
+    n_obs, n_vars = 400, 37
+    dense = rng.integers(-3, 9, (n_obs, n_vars)).astype(np.float32)
+    dense[rng.random((n_obs, n_vars)) < 0.8] = 0.0
+    dense[5] = 0.0  # empty row
+    dense[-1] = 0.0  # empty last row
+    dense[7] = np.arange(1, n_vars + 1)  # full row
+    dense[:, 4] = 0.0  # empty column
+    X = sparse.csr_matrix(dense)
+    X.data[X.indptr[10]] = 0.0  # explicit stored zero (scipy keeps it)
+    return X
+
+
+@pytest.mark.parametrize("index_dtype", [np.int32, np.int64])
+@pytest.mark.parametrize(("chunk_rows", "min_rows"), [(7, 1), (64, 3), (1 << 16, 1 << 10)])
+def test_csr_columns_match_scipy_column_slices(index_dtype, chunk_rows, min_rows, monkeypatch):
+    """The per-row search returns exactly ``X[:, idx]``, entries and stored zeros alike."""
+    from scipy import sparse
+
+    from milume import genes
+    from milume.genes import _csr_columns
+
+    monkeypatch.setattr(genes, "_CSR_SEARCH_ROWS", chunk_rows)
+    monkeypatch.setattr(genes, "_CSR_SEARCH_MIN_ROWS", min_rows)
+    X = _csr_edge_matrix()
+    X.indices = X.indices.astype(index_dtype)
+    X.indptr = X.indptr.astype(index_dtype)
+    assert X.has_canonical_format
+    idx = [0, 3, 4, 36, 17, 3]
+    got = _csr_columns(X, idx)
+    want = sparse.csc_matrix(X[:, idx])
+    assert got.shape == want.shape
+    np.testing.assert_array_equal(got.indptr, want.indptr)
+    np.testing.assert_array_equal(got.indices, want.indices)
+    np.testing.assert_array_equal(got.data, want.data)
+    assert got.data.dtype == X.dtype
+    empty = _csr_columns(sparse.csr_matrix((6, 3), dtype=np.float32), [2, 0])
+    assert empty.shape == (6, 2) and empty.nnz == 0
+
+
+def _slices_by_layout(X):
+    from scipy import sparse
+
+    from milume.genes import gene_slices
+
+    names = [f"g{j}" for j in (0, 3, 4, 36, 17)]
+    layouts = {
+        "csr": sparse.csr_matrix(X),
+        "csc": sparse.csc_matrix(X),
+        "dense": np.asarray(X.toarray()),
+    }
+    return {k: gene_slices(_plain_adata(v), names) for k, v in layouts.items()}
+
+
+def test_gene_slices_identical_for_csr_csc_and_dense():
+    out = _slices_by_layout(_csr_edge_matrix())
+    for layout in ("csc", "dense"):
+        for (m_csr, r_csr, v_csr), (m, r, v) in zip(out["csr"], out[layout], strict=True):
+            assert m_csr == m, layout
+            np.testing.assert_array_equal(r_csr, r)
+            np.testing.assert_array_equal(v_csr, v)
+
+
+def test_gene_slices_on_non_canonical_csr_sum_duplicates():
+    """Duplicate or unsorted CSR entries fall back to scipy's scan and still sum."""
+    from scipy import sparse
+
+    from milume.genes import gene_slices
+
+    data = np.array([2.0, 3.0, 5.0, 1.0], dtype=np.float32)
+    # Row 0 stores column 1 twice (2 + 5) around column 2, so it is unsorted too.
+    indices = np.array([1, 2, 1, 0], dtype=np.int32)
+    X = sparse.csr_matrix((data, indices, np.array([0, 3, 4])), shape=(2, 3))
+    assert not X.has_canonical_format
+    (meta, rows, vals), = gene_slices(_plain_adata(X), ["g1"])
+    np.testing.assert_array_equal(rows, [0])
+    assert meta["vmax"] == pytest.approx(7.0 * 0.99)  # p99 of the summed column [7, 0]
+    assert vals[0] == pytest.approx(1.0)
+
+
+def test_gene_get_bytes_identical_for_csr_csc_and_dense():
+    from scipy import sparse
+
+    from milume import LandmarksWidget
+
+    X = _csr_edge_matrix()
+    rng = np.random.default_rng(2)
+    xy = rng.random((X.shape[0], 2)) * 100.0
+    names = ["g36", "g0", "g4", "g7"]
+    replies = {}
+    for layout, M in {"csr": X, "csc": sparse.csc_matrix(X), "dense": X.toarray()}.items():
+        adata = _plain_adata(M)
+        adata.obsm["spatial"] = xy
+        replies[layout] = LandmarksWidget(adata)._gene_get({"names": names}, [])
+    assert replies["csr"][0]["ok"] is True
+    assert replies["csr"] == replies["csc"] == replies["dense"]
