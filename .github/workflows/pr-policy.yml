@@ -46,6 +46,8 @@ jobs:
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+      # Importing milume needs the widget bundle paths to exist; the snapshot only reads signatures.
+      - run: mkdir -p milume/static/bundled && touch milume/static/bundled/landmarks.mjs milume/static/bundled/widgets.css
       - name: check:public-api
         id: api
         continue-on-error: true
