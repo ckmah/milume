@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { ciLegErrors, loadCiConfig, selectLegs, tiersHit } from "./lib/ci-legs.mjs";
 import { unconditionalSkips, uiGestures, unlinkedFlakyEntries, unroutedMolabPaths } from "./lib/e2e-scope.mjs";
 import { assignShards } from "./lib/e2e-shard-plan.mjs";
 import { mergeabilityError } from "./lib/pr-mergeable.mjs";
@@ -57,10 +58,11 @@ test("molab spec in flaky-registry needs an issue link", () => {
 });
 
 test("molab path outside the landmarks run tiers is unrouted", () => {
-  const scope = { molab: { paths: ["frontend/src/widgets/landmarks/**"], runTiers: ["landmarks"] } };
+  const scope = { molab: { paths: ["frontend/src/widgets/landmarks/**"], runLeg: "landmarks" } };
   const files = ["frontend/src/widgets/landmarks/LandmarksView.tsx"];
-  assert.deepEqual(unroutedMolabPaths(files, scope, { landmarks: ["frontend/src/widgets/**"] }), []);
-  assert.deepEqual(unroutedMolabPaths(files, scope, { landmarks: ["milume/**"] }), files);
+  const config = (globs) => ({ tiers: { landmarks: globs }, legs: { landmarks: { tiers: ["landmarks"] } } });
+  assert.deepEqual(unroutedMolabPaths(files, scope, config(["frontend/src/widgets/**"])), []);
+  assert.deepEqual(unroutedMolabPaths(files, scope, config(["milume/**"])), files);
 });
 
 test("marimo e2e rejects UI gestures and keeps kernel probes", () => {
@@ -178,4 +180,34 @@ test("PR into a feat/* base still needs visuals when ready", () => {
     baseRef: "feat/lazy-genes",
   });
   assert.ok(errors.some((e) => e.includes("screenshots or video")));
+});
+
+const config = loadCiConfig(repoRoot);
+const legsFor = (files) => selectLegs(config, tiersHit(config, files));
+const on = (legs) => Object.keys(legs).filter((k) => legs[k]).sort();
+
+test("milume/landmarks.py alone builds the wheel (no Python-only shortcut)", () => {
+  const legs = legsFor(["milume/landmarks.py"]);
+  assert.equal(legs.ci_uv_build, true);
+  assert.equal(legs.ci_pytest, true);
+});
+
+test("docs-only and demos-only diffs select no legs", () => {
+  assert.deepEqual(on(legsFor(["docs/publishing.md", "README.md", "website/index.md"])), []);
+  assert.deepEqual(on(legsFor(["demos/pyxa.py"])), []);
+});
+
+test("infra_core runs core and keeps landmarks path-gated", () => {
+  assert.deepEqual(on(legsFor(["frontend/package.json"])), ["ci_frontend", "ci_uv_build", "core", "ui"]);
+  assert.equal(legsFor(["frontend/playwright.config.ts"]).landmarks, true);
+});
+
+test("check:ci-legs flags a job gated on a leg the config does not list", () => {
+  const yaml = "jobs:\n  extra:\n    if: needs.changes.outputs.core == 'true'\n    runs-on: x\n";
+  assert.ok(ciLegErrors(config, { "x.yml": yaml }).some((e) => e.includes("x.yml:extra")));
+});
+
+test("check:ci-legs passes on the repo", () => {
+  const r = run("check-ci-legs.mjs", []);
+  assert.equal(r.status, 0, r.stderr);
 });

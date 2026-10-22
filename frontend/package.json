@@ -36,6 +36,7 @@
     "test:ui-evidence:landmarks": "playwright test e2e/ui-evidence/landmarks.spec.ts",
     "test:ui-evidence:volume": "playwright test e2e/ui-evidence/volume.spec.ts",
     "check:chrome": "node scripts/check-chrome.mjs",
+    "check:ci-legs": "node scripts/check-ci-legs.mjs",
     "check:e2e-scope": "node scripts/check-e2e-scope.mjs",
     "check:pr-mergeable": "node scripts/check-pr-mergeable.mjs",
     "check:pr-policy": "node scripts/check-pr-policy.mjs",

@@ -15,7 +15,7 @@ const VISUAL_EVIDENCE_RE =
   /!\[[^\]]*\]\([^)]+\)|<img\s[^>]*src=|\.(?:png|jpe?g|gif|webp|webm|mp4)(?:\?[^)\s]*)?\)|cursor\.com\/agents\/[^/]+\/artifacts\?path=/i;
 
 export function isUiPullRequest(changedPaths) {
-  const tiers = JSON.parse(readFileSync(join(root, ".github", "e2e-tiers.json"), "utf8"));
+  const { tiers } = JSON.parse(readFileSync(join(root, ".github", "e2e-tiers.json"), "utf8"));
   const uiGlobs = [...(tiers.core ?? []), ...(tiers.landmarks ?? [])];
   return changedPaths.some((f) => uiGlobs.some((g) => matchesGlob(f, g)));
 }

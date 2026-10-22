@@ -1,107 +1,289 @@
 {
-  "volume_cube": [
-    "frontend/src/widgets/volume-cube/**",
-    "frontend/src/widgets/landmarks/use-inspect-cube.ts",
-    "frontend/src/widgets/landmarks/chrome/inspect-toolbar.tsx",
-    "frontend/src/widgets/landmarks/chrome/cube-immersive.tsx",
-    "frontend/e2e/landmarks/landmarks-volume-smoke.spec.ts",
-    "frontend/e2e/landmarks/landmarks-inspect-minimap.spec.ts",
-    "milume/volume_cube.py"
-  ],
-  "marimo_api": [
-    "milume/**/*.py",
-    "pyproject.toml",
-    "uv.lock",
-    "frontend/src/widgets/volume-cube/comm-buffer.ts",
-    "frontend/e2e/marimo/**",
-    "frontend/playwright.marimo.config.ts",
-    "frontend/scripts/marimo-e2e-serve.mjs",
-    "frontend/scripts/marimo-e2e-host.mjs",
-    "frontend/scripts/prefetch-marimo-e2e-data.py",
-    "demos/landmarks.py"
-  ],
-  "core": [
-    "website/landing/hero/**",
-    "website/landing/assets/hero-renderer.js",
-    "frontend/e2e/core/hero-webgl.spec.ts",
-    "frontend/playwright.website.config.ts",
-    "frontend/src/components/**",
-    "frontend/src/styles/**",
-    "frontend/src/lib/**",
-    "frontend/src/hooks/**",
-    "frontend/components.json",
-    "frontend/e2e/core/**"
-  ],
-  "landmarks": [
-    "frontend/src/widgets/**",
-    "frontend/src/*.ts",
-    "frontend/e2e/landmarks/**",
-    "frontend/dev/**",
-    "milume/static/**",
-    "milume/volume_cube.py",
-    "milume/landmarks.py",
-    "milume/selection.py",
-    "milume/categories.py",
-    "milume/genes.py",
-    "milume/spatialdata_landmarks.py",
-    "milume/volume_source.py",
-    "milume/volume_comm.py"
-  ],
-  "infra_full": [
-    "frontend/e2e/helpers.ts",
-    "frontend/e2e/fixtures.ts",
-    "frontend/playwright.config.ts",
-    "frontend/package-lock.json",
-    "frontend/vite.config.*",
-    ".github/workflows/frontend-e2e.yml"
-  ],
-  "infra_core": [
-    "frontend/index.html",
-    "frontend/package.json",
-    ".github/workflows/detect-changes.yml",
-    ".github/actions/playwright-browser/**",
-    ".github/e2e-tiers.json"
-  ],
-  "python": [
-    "milume/**",
-    "tests/**",
-    "pyproject.toml"
-  ],
-  "policy": [
-    "AGENTS.md",
-    ".github/ISSUE_TEMPLATE/**",
-    ".github/workflows/pr-policy.yml",
-    ".github/workflows/frontend-e2e.yml",
-    ".github/workflows/detect-changes.yml",
-    "frontend/scripts/check-agent-policy.test.mjs",
-    "frontend/scripts/check-pr-mergeable.mjs",
-    "frontend/scripts/gh-ci-watch.mjs",
-    "frontend/scripts/lib/pr-mergeable.mjs",
-    "frontend/scripts/prefetch-hf-demo-fixtures.py",
-    "frontend/scripts/check-pr-policy.mjs",
-    "frontend/scripts/check-widget-issue.mjs",
-    "frontend/scripts/fetch-linked-issue-bodies.mjs",
-    "frontend/scripts/lib/pr-policy.mjs",
-    "frontend/scripts/lib/widget-issue.mjs",
-    "frontend/scripts/post-pr-playwright-comment.mjs",
-    "frontend/scripts/pr-policy-fixtures/**",
-    "frontend/scripts/widget-issue-fixtures/**",
-    "frontend/scripts/check-e2e-scope.mjs",
-    "frontend/scripts/lib/e2e-scope.mjs",
-    "frontend/e2e/e2e-scope.json",
-    "frontend/e2e/flaky-registry.json"
-  ],
-  "ci_frontend": [
-    "frontend/**",
-    "milume/static/**"
-  ],
-  "ci_python": [
-    "milume/**",
-    "tests/**",
-    "pyproject.toml",
-    "uv.lock"
-  ],
-  "all": [
-    "**"
-  ]
+  "tiers": {
+    "volume_cube": [
+      "frontend/src/widgets/volume-cube/**",
+      "frontend/src/widgets/landmarks/use-inspect-cube.ts",
+      "frontend/src/widgets/landmarks/chrome/inspect-toolbar.tsx",
+      "frontend/src/widgets/landmarks/chrome/cube-immersive.tsx",
+      "frontend/e2e/landmarks/landmarks-volume-smoke.spec.ts",
+      "frontend/e2e/landmarks/landmarks-inspect-minimap.spec.ts",
+      "milume/volume_cube.py"
+    ],
+    "marimo_api": [
+      "milume/**/*.py",
+      "pyproject.toml",
+      "uv.lock",
+      "frontend/src/widgets/volume-cube/comm-buffer.ts",
+      "frontend/e2e/marimo/**",
+      "frontend/playwright.marimo.config.ts",
+      "frontend/scripts/marimo-e2e-serve.mjs",
+      "frontend/scripts/marimo-e2e-host.mjs",
+      "frontend/scripts/prefetch-marimo-e2e-data.py",
+      "demos/landmarks.py"
+    ],
+    "core": [
+      "website/landing/hero/**",
+      "website/landing/assets/hero-renderer.js",
+      "frontend/e2e/core/hero-webgl.spec.ts",
+      "frontend/playwright.website.config.ts",
+      "frontend/src/components/**",
+      "frontend/src/styles/**",
+      "frontend/src/lib/**",
+      "frontend/src/hooks/**",
+      "frontend/components.json",
+      "frontend/e2e/core/**"
+    ],
+    "landmarks": [
+      "frontend/src/widgets/**",
+      "frontend/src/*.ts",
+      "frontend/e2e/landmarks/**",
+      "frontend/dev/**",
+      "milume/static/**",
+      "milume/volume_cube.py",
+      "milume/landmarks.py",
+      "milume/selection.py",
+      "milume/categories.py",
+      "milume/genes.py",
+      "milume/spatialdata_landmarks.py",
+      "milume/volume_source.py",
+      "milume/volume_comm.py"
+    ],
+    "infra_full": [
+      "frontend/e2e/helpers.ts",
+      "frontend/e2e/fixtures.ts",
+      "frontend/playwright.config.ts",
+      "frontend/package-lock.json",
+      "frontend/vite.config.*",
+      ".github/workflows/frontend-e2e.yml"
+    ],
+    "infra_core": [
+      "frontend/index.html",
+      "frontend/package.json",
+      ".github/workflows/detect-changes.yml",
+      ".github/actions/playwright-browser/**",
+      ".github/e2e-tiers.json"
+    ],
+    "policy": [
+      "AGENTS.md",
+      ".github/ISSUE_TEMPLATE/**",
+      ".github/workflows/pr-policy.yml",
+      ".github/workflows/frontend-e2e.yml",
+      ".github/workflows/detect-changes.yml",
+      "frontend/scripts/check-agent-policy.test.mjs",
+      "frontend/scripts/check-pr-mergeable.mjs",
+      "frontend/scripts/gh-ci-watch.mjs",
+      "frontend/scripts/lib/pr-mergeable.mjs",
+      "frontend/scripts/prefetch-hf-demo-fixtures.py",
+      "frontend/scripts/check-pr-policy.mjs",
+      "frontend/scripts/check-widget-issue.mjs",
+      "frontend/scripts/fetch-linked-issue-bodies.mjs",
+      "frontend/scripts/lib/pr-policy.mjs",
+      "frontend/scripts/lib/widget-issue.mjs",
+      "frontend/scripts/post-pr-playwright-comment.mjs",
+      "frontend/scripts/pr-policy-fixtures/**",
+      "frontend/scripts/widget-issue-fixtures/**",
+      "frontend/scripts/check-e2e-scope.mjs",
+      "frontend/scripts/lib/e2e-scope.mjs",
+      "frontend/e2e/e2e-scope.json",
+      "frontend/e2e/flaky-registry.json",
+      "frontend/scripts/check-ci-legs.mjs",
+      "frontend/scripts/select-ci-legs.mjs",
+      "frontend/scripts/lib/ci-legs.mjs",
+      "scripts/check-wheel-bundle.sh",
+      ".github/workflows/ci.yml"
+    ],
+    "ci_frontend": [
+      "frontend/**",
+      "milume/static/**"
+    ],
+    "ci_python": [
+      "milume/**",
+      "tests/**",
+      "pyproject.toml",
+      "uv.lock"
+    ],
+    "wheel": [
+      "milume/**",
+      "frontend/src/**",
+      "frontend/package.json",
+      "frontend/package-lock.json",
+      "frontend/vite.config.*",
+      "pyproject.toml",
+      "uv.lock",
+      "scripts/check-wheel-bundle.sh"
+    ]
+  },
+  "legs": {
+    "ci_frontend": {
+      "tiers": [
+        "ci_frontend"
+      ],
+      "jobs": [
+        "ci.yml:test"
+      ],
+      "verify": [
+        [
+          "frontend",
+          "npm run check:chrome"
+        ],
+        [
+          "frontend",
+          "npm run typecheck"
+        ],
+        [
+          "frontend",
+          "npm run check:e2e-scope"
+        ]
+      ]
+    },
+    "policy": {
+      "tiers": [
+        "policy"
+      ],
+      "jobs": [
+        "pr-policy.yml:agent-policy-tests"
+      ],
+      "verify": [
+        [
+          "frontend",
+          "npm run check:ci-legs"
+        ],
+        [
+          "frontend",
+          "npm run test:agent-policy"
+        ]
+      ]
+    },
+    "ci_pytest": {
+      "tiers": [
+        "ci_python"
+      ],
+      "jobs": [
+        "ci.yml:test"
+      ],
+      "verify": [
+        [
+          ".",
+          "uv run pytest"
+        ]
+      ]
+    },
+    "ci_uv_build": {
+      "tiers": [
+        "wheel"
+      ],
+      "jobs": [
+        "ci.yml:test"
+      ],
+      "verify": [
+        [
+          "frontend",
+          "npm run build"
+        ],
+        [
+          ".",
+          "scripts/check-wheel-bundle.sh"
+        ]
+      ]
+    },
+    "core": {
+      "tiers": [
+        "core",
+        "infra_full",
+        "infra_core"
+      ],
+      "jobs": [
+        "frontend-e2e.yml:e2e-core"
+      ],
+      "verify": [
+        [
+          "frontend",
+          "npm run test:e2e:core"
+        ]
+      ]
+    },
+    "landmarks": {
+      "tiers": [
+        "landmarks",
+        "infra_full"
+      ],
+      "jobs": [
+        "frontend-e2e.yml:e2e-landmarks-default",
+        "frontend-e2e.yml:e2e-landmarks-volume-smoke",
+        "frontend-e2e.yml:e2e-landmarks-volume",
+        "frontend-e2e.yml:post-ui-evidence-comment"
+      ],
+      "verify": [
+        [
+          "frontend",
+          "npm run test:unit"
+        ],
+        [
+          "frontend",
+          "npm run test:e2e:landmarks:smoke"
+        ]
+      ]
+    },
+    "volume_cube": {
+      "tiers": [
+        "volume_cube"
+      ],
+      "jobs": [
+        "frontend-e2e.yml:e2e-landmarks-volume-smoke"
+      ],
+      "verify": []
+    },
+    "marimo_api": {
+      "tiers": [
+        "marimo_api"
+      ],
+      "jobs": [
+        "frontend-e2e.yml:e2e-marimo-api"
+      ],
+      "verify": [
+        [
+          "frontend",
+          "npm run build"
+        ],
+        [
+          "frontend",
+          "npm run test:e2e:marimo-api"
+        ]
+      ]
+    },
+    "ui": {
+      "legs": [
+        "core",
+        "landmarks"
+      ],
+      "jobs": [
+        "pr-policy.yml:ui-pr-policy"
+      ],
+      "verify": []
+    }
+  },
+  "dispatch": {
+    "always": [
+      "volume_cube",
+      "ci_frontend",
+      "ci_pytest",
+      "ci_uv_build"
+    ],
+    "by_tier": {
+      "all": [
+        "core",
+        "landmarks",
+        "marimo_api"
+      ],
+      "core": [
+        "core"
+      ],
+      "landmarks": [
+        "landmarks"
+      ]
+    }
+  },
+  "full_volume": {
+    "npm run test:e2e:landmarks:smoke": "npm run test:e2e:landmarks"
+  }
 }

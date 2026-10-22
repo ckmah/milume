@@ -46,13 +46,14 @@ export function molabPathsHit(files, scope) {
   return files.filter((f) => scope.molab.paths.some((g) => matchesGlob(f, g)));
 }
 
-/** Registered molab paths that no tier running `e2e-landmarks (default)` would pick up. */
-export function unroutedMolabPaths(files, scope, tiers) {
-  const runGlobs = scope.molab.runTiers.flatMap((t) => tiers[t] ?? []);
+/** Registered molab paths that the leg running `e2e-landmarks (default)` would not pick up. */
+export function unroutedMolabPaths(files, scope, ciConfig) {
+  const leg = ciConfig.legs[scope.molab.runLeg];
+  const runGlobs = (leg?.tiers ?? []).flatMap((t) => ciConfig.tiers[t] ?? []);
   return molabPathsHit(files, scope).filter((f) => !runGlobs.some((g) => matchesGlob(f, g)));
 }
 
-export function scopeErrors({ scope, tiers, trackedFiles, read, registry, listedSpecs }) {
+export function scopeErrors({ scope, ciConfig, trackedFiles, read, registry, listedSpecs }) {
   const errors = [];
   const { specs } = scope.molab;
   for (const spec of specs) {
@@ -72,8 +73,8 @@ export function scopeErrors({ scope, tiers, trackedFiles, read, registry, listed
   for (const t of unlinkedFlakyEntries(registry, specs)) {
     errors.push(`flaky-registry.json: "${t.title}" (${t.file}) is a molab spec with no "issue" link.`);
   }
-  for (const f of unroutedMolabPaths(trackedFiles, scope, tiers)) {
-    errors.push(`${f}: molab path not routed to e2e-landmarks (default) by tiers ${scope.molab.runTiers.join(", ")}.`);
+  for (const f of unroutedMolabPaths(trackedFiles, scope, ciConfig)) {
+    errors.push(`${f}: molab path not routed to e2e-landmarks (default) by leg ${scope.molab.runLeg} in e2e-tiers.json.`);
   }
   const dir = `${scope.marimo_api.dir}/`;
   for (const f of trackedFiles.filter((p) => p.startsWith(dir) && /\.[cm]?[jt]s$/.test(p))) {

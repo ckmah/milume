@@ -20,7 +20,7 @@
       "frontend/e2e/helpers.ts",
       "frontend/e2e/landmarks/landmarks-molab-*.spec.ts"
     ],
-    "runTiers": ["landmarks", "infra_full"]
+    "runLeg": "landmarks"
   },
   "marimo_api": {
     "dir": "frontend/e2e/marimo",

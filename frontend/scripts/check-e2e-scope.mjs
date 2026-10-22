@@ -35,7 +35,7 @@ function listedSpecs() {
 
 const errors = scopeErrors({
   scope,
-  tiers: readJson(".github/e2e-tiers.json"),
+  ciConfig: readJson(".github/e2e-tiers.json"),
   trackedFiles: execFileSync("git", ["ls-files"], { cwd: root, encoding: "utf8" }).split("\n").filter(Boolean),
   read: (p) => readFileSync(join(root, p), "utf8"),
   registry: readJson("frontend/e2e/flaky-registry.json"),
