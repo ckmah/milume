@@ -82,7 +82,7 @@ if (mode === "stack") {
 } else if (mode === "overlap") {
   const { failures, warnings } = overlapReport(pr, others);
   for (const w of warnings) console.log(`check:pr-overlap: warning: ${w}`);
-  for (const f of failures) console.error(`check:pr-overlap: ${f}. Same issue and same files: likely a duplicate; close one or coordinate.`);
+  for (const f of failures) console.error(`check:pr-overlap: ${f}. Closes the same issue and touches the same files: likely a duplicate; close one or coordinate.`);
   if (rest.includes("--comment")) {
     const lines = [...failures.map((f) => `- **Duplicate?** ${f}`), ...warnings.map((w) => `- ${w}`)];
     upsertComment(pr.number, lines.length ? `${MARKER}\n### Overlapping open PRs\n\n${lines.join("\n")}\n` : null);

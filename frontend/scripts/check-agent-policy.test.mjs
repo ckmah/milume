@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { linkedIssues, overlapReport, stackErrors } from "./lib/pr-hygiene.mjs";
+import { closedIssues, linkedIssues, overlapReport, stackErrors } from "./lib/pr-hygiene.mjs";
 import { ciLegErrors, loadCiConfig, selectLegs, tiersHit } from "./lib/ci-legs.mjs";
 import { unconditionalSkips, uiGestures, unlinkedFlakyEntries, unroutedMolabPaths } from "./lib/e2e-scope.mjs";
 import { assignShards } from "./lib/e2e-shard-plan.mjs";
@@ -216,8 +216,17 @@ test("check:ci-legs passes on the repo", () => {
 const hygieneFixture = (name) =>
   JSON.parse(readFileSync(join(scripts, "pr-hygiene-fixtures", `${name}.json`), "utf8"));
 
-test("linkedIssues reads Closes/Fixes/Resolves and Part of", () => {
-  assert.deepEqual(linkedIssues("Closes #261\nPart of #257\nfixes #9, see #1"), [9, 257, 261]);
+test("linkedIssues reads Closes/Fixes/Resolves and Part of; closedIssues skips Part of", () => {
+  const body = "Closes #261\nPart of #257\nfixes #9, see #1";
+  assert.deepEqual(linkedIssues(body), [9, 257, 261]);
+  assert.deepEqual(closedIssues(body), [9, 261]);
+});
+
+test("pr-overlap only warns when two PRs share a Part of tracker and files (#274 / #279)", () => {
+  const { failures, warnings } = overlapReport(...Object.values(hygieneFixture("tracker-only")));
+  assert.deepEqual(failures, []);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /#274 .*links #257 and touches `AGENTS.md`/);
 });
 
 test("pr-overlap fails a duplicate (same issue and files) like pyxa #7 / #22, naming the other PR", () => {

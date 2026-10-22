@@ -11,11 +11,17 @@ const SHARED_FILES = [
   ".github/public-api.json",
 ];
 
-const LINK_RE = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|part of)\s+#(\d+)\b/gi;
+const CLOSE_RE = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)\b/gi;
+const PART_RE = /\bpart of\s+#(\d+)\b/gi;
 
-export function linkedIssues(body) {
-  return [...new Set([...(body ?? "").matchAll(LINK_RE)].map((m) => Number(m[1])))].sort((a, b) => a - b);
-}
+const numbers = (body, re) =>
+  [...new Set([...(body ?? "").matchAll(re)].map((m) => Number(m[1])))].sort((a, b) => a - b);
+
+/** Issues the PR closes (`Closes`/`Fixes`/`Resolves #N`). */
+export const closedIssues = (body) => numbers(body, CLOSE_RE);
+
+/** Every linked issue, including `Part of #N`. */
+export const linkedIssues = (body) => [...new Set([...closedIssues(body), ...numbers(body, PART_RE)])].sort((a, b) => a - b);
 
 const counts = (f) => !SHARED_FILES.some((g) => matchesGlob(f, g));
 
@@ -24,24 +30,27 @@ export function integrationBase(base) {
 }
 
 /**
- * `failures` share a linked issue and a file; `warnings` share one of the two. A PR into an
- * integration branch is not compared with that branch's own PR (#248 for feat/lazy-genes).
+ * `failures` close the same issue and share a file (a duplicate). Everything else shared (a
+ * `Part of #N` tracker, a file, or a closed issue alone) is a warning. A PR into an integration
+ * branch is not compared with that branch's own PR (#248 for feat/lazy-genes).
  */
 export function overlapReport(pr, others) {
-  const issues = new Set(linkedIssues(pr.body));
+  const closes = new Set(closedIssues(pr.body));
+  const links = new Set(linkedIssues(pr.body));
   const files = new Set(pr.files.filter(counts));
   const failures = [];
   const warnings = [];
   for (const o of others) {
     if (o.number === pr.number || o.head === pr.base || o.base === pr.head) continue;
-    const sharedIssues = linkedIssues(o.body).filter((n) => issues.has(n));
+    const sharedLinks = linkedIssues(o.body).filter((n) => links.has(n));
+    const sharedCloses = closedIssues(o.body).filter((n) => closes.has(n));
     const sharedFiles = o.files.filter((f) => files.has(f));
-    if (!sharedIssues.length && !sharedFiles.length) continue;
+    if (!sharedLinks.length && !sharedFiles.length) continue;
     const parts = [];
-    if (sharedIssues.length) parts.push(`links ${sharedIssues.map((n) => `#${n}`).join(", ")}`);
+    if (sharedLinks.length) parts.push(`links ${sharedLinks.map((n) => `#${n}`).join(", ")}`);
     if (sharedFiles.length) parts.push(`touches ${sharedFiles.map((f) => `\`${f}\``).join(", ")}`);
     const line = `#${o.number} (\`${o.head}\`) also ${parts.join(" and ")}`;
-    (sharedIssues.length && sharedFiles.length ? failures : warnings).push(line);
+    (sharedCloses.length && sharedFiles.length ? failures : warnings).push(line);
   }
   return { failures, warnings };
 }
