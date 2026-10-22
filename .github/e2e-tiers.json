@@ -90,7 +90,9 @@
       "frontend/scripts/select-ci-legs.mjs",
       "frontend/scripts/lib/ci-legs.mjs",
       "scripts/check-wheel-bundle.sh",
-      ".github/workflows/ci.yml"
+      ".github/workflows/ci.yml",
+      "scripts/public_api.py",
+      ".github/public-api.json"
     ],
     "ci_frontend": [
       "frontend/**",
@@ -151,6 +153,10 @@
         [
           "frontend",
           "npm run test:agent-policy"
+        ],
+        [
+          ".",
+          "uv run python scripts/public_api.py"
         ]
       ]
     },
