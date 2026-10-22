@@ -16,6 +16,7 @@ the checks for your diff from [`.github/e2e-tiers.json`](.github/e2e-tiers.json)
 | Ready PRs are unstacked (base `main` or `feat/*`, no commits from another open PR) and not duplicates (another open PR closes the same issue and touches the same files); a shared file or `Part of #N` alone gets a warning comment | `npm run check:pr-stack` / `npm run check:pr-overlap -- --branch <name>` ([`pr-policy.yml`](.github/workflows/pr-policy.yml) `pr-hygiene`) |
 | Right e2e tier for the diff: CI and `npm run verify` read one path → tier → leg → job map; wheel builds ship the widget bundle | `npm run check:ci-legs` ([`pr-policy.yml`](.github/workflows/pr-policy.yml) `ci-legs`) + [`.github/e2e-tiers.json`](.github/e2e-tiers.json); [`scripts/check-wheel-bundle.sh`](scripts/check-wheel-bundle.sh) in [`ci.yml`](.github/workflows/ci.yml) |
 | Landing montage shots are rows in [`docs/montage/shot-spec.md`](docs/montage/shot-spec.md) (dataset, setup, duration, caption, capture, status, owner); handoffs name shot ids; tagline captions match the landing `<h1>` | `npm run check:shot-spec` ([`pr-policy.yml`](.github/workflows/pr-policy.yml) `agent-policy-tests`); [Montage issue template](.github/ISSUE_TEMPLATE/montage.yml) |
+| Bots wait on CI in bounded sessions, then hand off with the snapshot (head SHA, conflicts, failing tier): `gh-ci-watch.mjs` gives 3 sessions of at most 20 min per head SHA; `npm run verify` stops at 15 min naming the step that hung; ready bot-branch PRs with red or pending CI and no push for 6 h get a `stalled` comment | [`gh-ci-watch.mjs`](frontend/scripts/gh-ci-watch.mjs) (refuses the 4th session); [`verify.mjs`](frontend/scripts/verify.mjs) (`MILUME_VERIFY_TIMEOUT_MIN`); [`stale-prs.yml`](.github/workflows/stale-prs.yml) (hourly) |
 | Merge only on green `gate`, non-draft, conflicts resolved | Branch protection + [`frontend-e2e.yml`](.github/workflows/frontend-e2e.yml) `gate` job |
 
 - **Draft UI PRs:** keep PRs in draft while iterating. Draft runs the fast tier (`test`, `e2e-core`, landmarks default harness) without volume shards.
@@ -24,8 +25,6 @@ the checks for your diff from [`.github/e2e-tiers.json`](.github/e2e-tiers.json)
 
 Wall-clock on cloud agents is often idle time waiting for the next follow-up, not tool work. When you have pushed and CI is running:
 
-- Do **not** use open-ended `sleep` + `gh pr checks` loops. Use `node frontend/scripts/gh-ci-watch.mjs --pr N --repo ckmah/milume` (default cap: 12 rounds × 90 s, 20 min total) or Cursor `subscribe_github_ci`, then **hand off** with the last check snapshot.
-- After the babysit budget, stop polling and report: commit SHA, conflict status (`npm run check:pr-mergeable`), and which tier failed. Do not sleep overnight for green CI.
 - Before the first push on a UI change, run `cd frontend && npm run verify` locally (about 4 min for landmarks on GPU-less Linux, where it runs the cube smoke spec; about 8 min with `--full-volume`). Use CI for integration gaps, not as a retry loop for the same failing spec (cap local reruns of one grep to **3** attempts, then fix root cause).
 - Pin scope up front: read the linked issue **Outcome / Acceptance** and any PM comment before coding. Confirm dataset identity (colon vs Pyxa `small`/`xsmall` are mouse brain — never join colon IDs onto them; see issue #97).
 

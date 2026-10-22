@@ -99,7 +99,12 @@
       "docs/montage/**",
       "website/landing/index.html",
       "frontend/scripts/check-shot-spec.mjs",
-      "frontend/scripts/lib/shot-spec.mjs"
+      "frontend/scripts/lib/shot-spec.mjs",
+      "frontend/scripts/lib/ci-budget.mjs",
+      "frontend/scripts/stale-prs.mjs",
+      "frontend/scripts/lib/verify-run.mjs",
+      "frontend/scripts/verify.mjs",
+      ".github/workflows/stale-prs.yml"
     ],
     "ci_frontend": [
       "frontend/**",
