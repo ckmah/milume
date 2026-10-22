@@ -19,9 +19,22 @@ table in CI (`agent-policy-tests`).
   mix their cell IDs in one shot (#97).
 - Montage work uses the **Montage** issue template, which lists shot ids as a checklist.
 
+## Capture scripts
+
+- A new or re-shot row's `capture` is the repo path of the script that records it (e.g.
+  `frontend/scripts/montage/knn.mjs`), or `N/A: <reason>` when no script can (say why).
+  `check:shot-spec` fails on `manual:` and on a path that doesn't exist.
+- The 8 rows below were captured by hand before this rule and keep `manual: <how>` while
+  `status` is `shipped` (`GRANDFATHERED_MANUAL` in `frontend/scripts/lib/shot-spec.mjs`).
+  Re-shooting one means moving it off `shipped`, and then it needs a script too.
+- Scripts must uphold Clarence's rules:
+  - **Inspect never shows points.**
+  - **The cursor is visible whenever it's in use** (clicks, drags, drawing).
+  - **The default palette is used** (no custom colours).
+
 Columns: `id` (kebab-case, unique) · `dataset` (`colon_a2`, `pyxa_small`, `pyxa_xsmall`, `none`)
 · `setup` (widget state) · `duration_s` (in the cut) · `caption` · `caption_kind` (`tagline`,
-`feature`, `none`) · `capture` (a repo path, or `manual: <how>`) · `status` (`planned`,
+`feature`, `none`) · `capture` (a script path in the repo, or `N/A: <reason>`; see below) · `status` (`planned`,
 `spec-done`, `clip-done`, `shipped`) · `owner` (`Designer`, `Developer`, `PM`).
 
 ## Shots

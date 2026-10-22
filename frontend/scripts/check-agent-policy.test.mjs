@@ -9,7 +9,7 @@ import { ciLegErrors, loadCiConfig, selectLegs, tiersHit } from "./lib/ci-legs.m
 import { unconditionalSkips, uiGestures, unlinkedFlakyEntries, unroutedMolabPaths } from "./lib/e2e-scope.mjs";
 import { assignShards } from "./lib/e2e-shard-plan.mjs";
 import { mergeabilityError } from "./lib/pr-mergeable.mjs";
-import { canonicalTagline, parseShotSpec, shotSpecErrors } from "./lib/shot-spec.mjs";
+import { GRANDFATHERED_MANUAL, canonicalTagline, parseShotSpec, shotSpecErrors } from "./lib/shot-spec.mjs";
 import { failingTiers, handoffSnapshot, stallVerdict, stalledMarker, watchBody, watchSessions } from "./lib/ci-budget.mjs";
 import { runPlan, verifyTimeoutMs } from "./lib/verify-run.mjs";
 import { validateUiPullRequest, visualAcceptanceItems } from "./lib/pr-policy.mjs";
@@ -437,4 +437,18 @@ test("verify wall-clock cap stops a hanging step and names it", async () => {
   assert.equal(verifyTimeoutMs({}), 15 * 60_000);
   assert.equal(verifyTimeoutMs({ MILUME_VERIFY_TIMEOUT_MIN: "30" }), 30 * 60_000);
   assert.equal(verifyTimeoutMs({ MILUME_VERIFY_TIMEOUT_MIN: "0" }), Infinity);
+});
+
+test("check:shot-spec: new or re-shot rows need a capture script or N/A: <reason>", () => {
+  const row = (cells) =>
+    `## Shots\n\n| id | dataset | setup | duration_s | caption | caption_kind | capture | status | owner |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| ${cells} |\n`;
+  const errs = (cells) => shotSpecErrors(row(cells), specCtx).join("\n");
+  assert.match(errs("new-shot | colon_a2 | s | 2 | x | feature | manual: Cap | planned | Developer"), /need a capture script/);
+  assert.match(errs("knn | colon_a2 | s | 2 | x | feature | manual: Cap | spec-done | Designer"), /grandfathered only while status is shipped/);
+  assert.equal(errs("knn | colon_a2 | s | 2 | x | feature | manual: Cap | shipped | Developer"), "");
+  assert.equal(errs("new-shot | colon_a2 | s | 2 | x | feature | N/A: title card drawn in the editor | planned | Designer"), "");
+  assert.match(errs("new-shot | colon_a2 | s | 2 | x | feature | N/A | planned | Designer"), /needs a reason/);
+  assert.match(errs("new-shot | colon_a2 | s | 2 | x | feature | frontend/scripts/montage/nope.mjs | planned | Developer"), /`frontend\/scripts\/montage\/nope\.mjs` doesn't exist/);
+  assert.match(errs("new-shot | colon_a2 | s | 2 | x | feature | frontend/scripts | planned | Developer"), /doesn't exist/);
+  assert.deepEqual([...GRANDFATHERED_MANUAL], parseShotSpec(shotSpecMd).rows.map((r) => r.id));
 });

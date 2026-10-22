@@ -1,6 +1,6 @@
 // Montage shot-spec contract (#264): docs/montage/shot-spec.md is one table row per shot.
 
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 export const COLUMNS = ["id", "dataset", "setup", "duration_s", "caption", "caption_kind", "capture", "status", "owner"];
@@ -8,6 +8,13 @@ const DATASETS = new Set(["colon_a2", "pyxa_small", "pyxa_xsmall", "none"]);
 const KINDS = new Set(["tagline", "feature", "none"]);
 const STATUSES = new Set(["planned", "spec-done", "clip-done", "shipped"]);
 const OWNERS = new Set(["Designer", "Developer", "PM"]);
+
+/**
+ * Shots captured by hand before capture scripts were required. They keep `manual: <how>` only
+ * while `status` is `shipped`; re-shooting one (any other status) needs a script or `N/A:`.
+ * Don't add ids here: new shots need a script.
+ */
+export const GRANDFATHERED_MANUAL = new Set(["title", "peek", "spline-buffer", "distances", "probe", "knn", "inspect-zcut", "end"]);
 
 const cells = (line) =>
   line
@@ -77,11 +84,22 @@ export function shotSpecErrors(md, { tagline, root }) {
     if (r.caption_kind === "tagline" && tagline && r.caption !== tagline) {
       errors.push(`${at}: tagline caption "${r.caption}" doesn't match the landing <h1> "${tagline}"`);
     }
-    if (/^manual:/.test(r.capture)) {
-      if (!r.capture.replace(/^manual:/, "").trim()) errors.push(`${at}: manual capture needs a description`);
+    if (/^manual:/i.test(r.capture)) {
+      if (!GRANDFATHERED_MANUAL.has(r.id) || r.status !== "shipped") {
+        errors.push(
+          `${at}: new or re-shot rows need a capture script (a repo path) or "N/A: <reason>", not "manual:"` +
+            (GRANDFATHERED_MANUAL.has(r.id) ? " (grandfathered only while status is shipped)" : ""),
+        );
+      } else if (!r.capture.replace(/^manual:/i, "").trim()) {
+        errors.push(`${at}: manual capture needs a description`);
+      }
+    } else if (/^N\/A\b/i.test(r.capture)) {
+      if (!/^N\/A:\s*\S/i.test(r.capture)) errors.push(`${at}: capture "N/A" needs a reason ("N/A: <reason>")`);
     } else {
       const path = r.capture.replace(/^`|`$/g, "");
-      if (!path || !existsSync(join(root, path))) errors.push(`${at}: capture script \`${path}\` doesn't exist`);
+      if (!path || !existsSync(join(root, path)) || !statSync(join(root, path)).isFile()) {
+        errors.push(`${at}: capture script \`${path}\` doesn't exist`);
+      }
     }
     if (!STATUSES.has(r.status)) errors.push(`${at}: status must be one of ${[...STATUSES].join(", ")}`);
     if (!OWNERS.has(r.owner)) errors.push(`${at}: owner must be one of ${[...OWNERS].join(", ")}`);
