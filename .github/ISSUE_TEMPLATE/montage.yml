@@ -36,5 +36,6 @@ body:
       label: Handoff
       options:
         - label: Shot-spec rows updated in a PR (setup, duration, caption, capture, owner)
+        - label: Each new or re-shot row's capture is a script path in the repo (or "N/A: <reason>"), and the script keeps Inspect free of points, shows the cursor whenever it's in use, and uses the default palette
         - label: Every row in the cut is `clip-done` before PM edits
         - label: The PR that replaces the mp4 sets the rows to `shipped`
