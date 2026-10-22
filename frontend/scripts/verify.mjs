@@ -4,13 +4,15 @@
 //   npm run verify -- --base HEAD~3
 //   npm run verify -- --dry-run    # print the plan only
 //   npm run verify -- --full-volume  # full cube spec on Linux too (or MILUME_E2E_FULL_VOLUME=1)
-import { execFileSync, spawnSync } from "node:child_process";
+// Stops after 15 min of wall clock with the step that hung (MILUME_VERIFY_TIMEOUT_MIN overrides; 0 = off).
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { loadCiConfig, selectLegs, tiersHit, verifyPlan } from "./lib/ci-legs.mjs";
 import { molabPathsHit } from "./lib/e2e-scope.mjs";
+import { runPlan, verifyTimeoutMs } from "./lib/verify-run.mjs";
 
 const frontend = join(dirname(fileURLToPath(import.meta.url)), "..");
 const root = join(frontend, "..");
@@ -56,8 +58,9 @@ if (legs.landmarks) {
 }
 if (dry) process.exit(0);
 
-for (const [cwd, cmd] of plan) {
-  console.log(`\n$ ${cmd}`);
-  const r = spawnSync(cmd, { cwd: join(root, cwd), stdio: "inherit", shell: true });
-  if (r.status !== 0) process.exit(r.status ?? 1);
-}
+const r = await runPlan(
+  plan.map(([cwd, cmd, leg]) => [join(root, cwd), cmd, leg]),
+  { budgetMs: verifyTimeoutMs() },
+);
+if (r.message) console.error(`\n${r.message}`);
+process.exit(r.status);

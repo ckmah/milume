@@ -1,0 +1,41 @@
+name: Stale bot PRs
+
+# Hourly: ready PRs from bot branches (cursor/, claude/, codex/, agent/, bot/) with red or
+# pending CI and no push for 6 h get one `stalled` comment per head SHA (#263).
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: Hours without a push before a PR counts as stalled
+        required: false
+        default: "6"
+      pr:
+        description: Only this PR number (optional)
+        required: false
+
+permissions:
+  contents: read
+  checks: read
+  pull-requests: write
+  issues: write
+
+concurrency:
+  group: stale-prs
+  cancel-in-progress: false
+
+jobs:
+  stalled:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Flag stalled bot PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STALL_HOURS: ${{ inputs.hours || '6' }}
+          PR_NUMBER: ${{ inputs.pr }}
+        run: node frontend/scripts/stale-prs.mjs --repo "$GITHUB_REPOSITORY" --comment

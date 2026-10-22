@@ -40,7 +40,7 @@ export function dispatchLegs(config, tier) {
   return resolve(config, (name) => on.has(name));
 }
 
-/** Ordered, de-duplicated [cwd, command] steps for the legs that are on. */
+/** Ordered, de-duplicated [cwd, command, leg] steps for the legs that are on (first leg wins). */
 export function verifyPlan(config, legs, { fullVolume = false } = {}) {
   const seen = new Set();
   const plan = [];
@@ -51,7 +51,7 @@ export function verifyPlan(config, legs, { fullVolume = false } = {}) {
       const key = `${cwd}\0${c}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      plan.push([cwd, c]);
+      plan.push([cwd, c, name]);
     }
   }
   return plan;
