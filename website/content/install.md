@@ -8,6 +8,13 @@ pip install milume
 
 Requires Python 3.11+.
 
+The demo notebooks and the [Squidpy recipes](integrations/squidpy-color.md)
+also need marimo, scanpy, squidpy and leidenalg:
+
+```bash
+pip install "milume[demo]"
+```
+
 ## From source
 
 ```bash
