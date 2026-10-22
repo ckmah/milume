@@ -56,3 +56,4 @@ Full walkthrough: [Quickstart](quickstart.md).
 - [Quickstart](quickstart.md)
 - [LandmarksWidget API](api/landmarks/)
 - [Open Landmarks demo](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/landmarks.py)
+- [Changelog](changelog.md): what changed in each release
