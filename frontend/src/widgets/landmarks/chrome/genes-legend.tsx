@@ -149,7 +149,13 @@ export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
         items={names}
         multiple
         value={selected}
-        onValueChange={(next) => {
+        onValueChange={(next, details) => {
+          // Base UI clears a multi-select on Escape when the popup is closed (#252).
+          // Escape should only ever close the popup; × and chip removal clear genes.
+          if (details.reason === "escape-key") {
+            details.cancel();
+            return;
+          }
           const arr = Array.isArray(next) ? next.map(String) : [];
           lm.setActiveGenes(arr.slice(0, MAX_ACTIVE_GENES));
         }}
