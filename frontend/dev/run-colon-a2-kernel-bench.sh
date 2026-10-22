@@ -8,7 +8,7 @@ PORT_MAIN="${PORT_MAIN:-8891}"
 PORT_COMM="${PORT_COMM:-8890}"
 
 if [[ ! -d "$STORE" ]]; then
-  echo "Missing $STORE — run: uv run --extra demo python frontend/dev/build_colon_a2_store.py --download --overwrite" >&2
+  echo "Missing $STORE — run: uv run --group demo python frontend/dev/build_colon_a2_store.py --download --overwrite" >&2
   exit 1
 fi
 
@@ -20,7 +20,7 @@ bench_one() {
   tmux -f /exec-daemon/tmux.portal.conf kill-session -t "marimo-bench-$port" 2>/dev/null || true
   tmux -f /exec-daemon/tmux.portal.conf new-session -d -s "marimo-bench-$port" -c "$ROOT" -- \
     env COLON_A2_STORE="$STORE" PYTHONPATH="$milume_dir${PYTHONPATH:+:$PYTHONPATH}" \
-    uv run --extra demo marimo run --headless --no-token --no-sandbox --port "$port" frontend/dev/colon_a2_kernel_bench.py
+    uv run --group demo marimo run --headless --no-token --no-sandbox --port "$port" frontend/dev/colon_a2_kernel_bench.py
   for _ in $(seq 1 60); do
     if curl -sf "http://127.0.0.1:$port/" >/dev/null 2>&1; then break; fi
     sleep 2

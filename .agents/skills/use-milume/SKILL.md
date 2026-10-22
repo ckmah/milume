@@ -122,7 +122,7 @@ v.inspect_open = False                     # closes the cube and exits Inspect; 
 
 ## Squidpy: niche and Moran's I
 
-Optional (`squidpy`, `scanpy`, `leidenalg`; all in `pip install "milume[demo]"`). Full walkthrough with screenshots:
+Optional (`pip install squidpy scanpy leidenalg`). Full walkthrough with screenshots:
 [docs/integrations/squidpy-color](https://ckmah.github.io/milume/docs/integrations/squidpy-color/).
 
 Neighborhood niches on a selection mask, then recolour by the column Squidpy

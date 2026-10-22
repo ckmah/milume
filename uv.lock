@@ -2242,17 +2242,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-demo = [
-    { name = "huggingface-hub" },
-    { name = "igraph" },
-    { name = "leidenalg" },
-    { name = "marimo" },
-    { name = "scanpy", version = "1.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "scanpy", version = "1.12.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "spatialdata-io", marker = "python_full_version >= '3.12'" },
-    { name = "squidpy", version = "1.8.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
-    { name = "squidpy", version = "1.8.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-]
 test = [
     { name = "geopandas" },
     { name = "pandas", version = "2.3.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -2264,6 +2253,17 @@ test = [
 ]
 
 [package.dev-dependencies]
+demo = [
+    { name = "huggingface-hub" },
+    { name = "igraph" },
+    { name = "leidenalg" },
+    { name = "marimo" },
+    { name = "scanpy", version = "1.11.5", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scanpy", version = "1.12.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "spatialdata-io", marker = "python_full_version >= '3.12'" },
+    { name = "squidpy", version = "1.8.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "squidpy", version = "1.8.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+]
 dev = [
     { name = "geopandas" },
     { name = "huggingface-hub" },
@@ -2289,16 +2289,11 @@ requires-dist = [
     { name = "anywidget", specifier = ">=0.9.2" },
     { name = "geopandas", specifier = ">=1.1.4" },
     { name = "geopandas", marker = "extra == 'test'", specifier = ">=1.1.4" },
-    { name = "huggingface-hub", marker = "extra == 'demo'", specifier = ">=0.30" },
-    { name = "igraph", marker = "extra == 'demo'", specifier = ">=0.11" },
-    { name = "leidenalg", marker = "extra == 'demo'", specifier = ">=0.12.0" },
-    { name = "marimo", marker = "extra == 'demo'", specifier = ">=0.25.1" },
     { name = "numpy", specifier = ">=1.24" },
     { name = "pandas", specifier = ">=2.0" },
     { name = "pandas", marker = "extra == 'test'", specifier = ">=2.0" },
     { name = "pyarrow", specifier = ">=16" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8.3.3" },
-    { name = "scanpy", marker = "extra == 'demo'", specifier = ">=1.10" },
     { name = "scipy", specifier = ">=1.11" },
     { name = "shapely", specifier = ">=2.1.2" },
     { name = "shapely", marker = "extra == 'test'", specifier = ">=2.1.2" },
@@ -2306,13 +2301,20 @@ requires-dist = [
     { name = "spatialdata", marker = "python_full_version >= '3.12'", specifier = ">=0.8.0" },
     { name = "spatialdata", marker = "python_full_version >= '3.12' and extra == 'test'", specifier = ">=0.8.0" },
     { name = "spatialdata", marker = "python_full_version < '3.12' and extra == 'test'", specifier = ">=0.7.3" },
-    { name = "spatialdata-io", marker = "python_full_version >= '3.12' and extra == 'demo'", git = "https://github.com/ckmah/spatialdata-io?branch=pyxa-reader" },
-    { name = "squidpy", marker = "extra == 'demo'", specifier = ">=1.6" },
     { name = "traitlets", specifier = ">=5.0" },
 ]
-provides-extras = ["demo", "test"]
+provides-extras = ["test"]
 
 [package.metadata.requires-dev]
+demo = [
+    { name = "huggingface-hub", specifier = ">=0.30" },
+    { name = "igraph", specifier = ">=0.11" },
+    { name = "leidenalg", specifier = ">=0.12.0" },
+    { name = "marimo", specifier = ">=0.25.1" },
+    { name = "scanpy", specifier = ">=1.10" },
+    { name = "spatialdata-io", marker = "python_full_version >= '3.12'", git = "https://github.com/ckmah/spatialdata-io?branch=pyxa-reader" },
+    { name = "squidpy", specifier = ">=1.6" },
+]
 dev = [
     { name = "geopandas", specifier = ">=1.1.4" },
     { name = "huggingface-hub", specifier = ">=0.30" },
