@@ -8,6 +8,7 @@
 - `spatialdata` stays a core dependency, now `spatialdata>=0.7.3` (was `>=0.2`). Older releases fail to import (`xarray-schema` needs `pkg_resources`) or fail to write the Zarr store the Inspect cube reads with current geopandas / zarr / ome-zarr.
 - On Python 3.12+ the `spatialdata` floor is `>=0.8.0` (3.11 keeps `>=0.7.3`). anndata 0.13, which needs Python 3.12+, breaks spatialdata 0.7.3 (`TableModel.parse` fails), so holding spatialdata at 0.7.3 there gave a broken install. 0.8.0 is the first release that works with anndata 0.13, and it pulls the same dependencies as 0.7.3. Fresh installs already resolve 0.8.0, so nothing new is downloaded (#315).
 - `pyarrow>=16` is now declared; milume reads cell-polygon parquet with it. It was already installed through `spatialdata`, so nothing new is downloaded.
+- `matplotlib` is no longer installed by `pip install milume` (nor contourpy, cycler, fonttools, kiwisolver, pyparsing): about 17 MB less to download and 54 MB less installed on Linux / Python 3.12. The tab10/tab20/tab20b/tab20c category palettes and the default sequential palette are hardcoded with the same hex values, and lasso / polygon selection uses a numpy port of matplotlib's point-in-path test that gives the same cells (points on an edge and self-intersecting lassos included). `import milume` is about 0.3 s faster because `matplotlib.pyplot` is no longer imported. Install matplotlib yourself if your own plotting code needs it.
 
 ### Smaller sdist
 
