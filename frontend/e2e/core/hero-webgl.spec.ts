@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   canvasBrightPixelCount,
   HERO_MIN_BRIGHT_PIXELS,
@@ -9,9 +9,18 @@ const REF_PATH = "/hero/reference/index.html";
 const HERO_BASE_POINTS = 650;
 const LOOP_SEC = 10;
 
+/** Landing montage video keeps HTTP busy; networkidle adds ~15s per navigation in CI. */
+async function gotoLanding(page: Page) {
+  await page.goto(`${SITE}/`, { waitUntil: "load" });
+}
+
+async function gotoHeroReference(page: Page) {
+  await page.goto(`${SITE}${REF_PATH}`, { waitUntil: "load" });
+}
+
 test.describe("milume hero WebGL", () => {
   test("canvas renders a non-blank frame on the landing page", async ({ page }) => {
-    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await gotoLanding(page);
     const root = page.locator("[data-milume-hero]").first();
     await expect(root).toHaveAttribute("data-hero-mode", "webgl");
     const canvas = root.locator("canvas.milume-hero__canvas");
@@ -36,7 +45,7 @@ test.describe("milume hero WebGL", () => {
 
   test("prefers-reduced-motion keeps a static webgl frame", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
-    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await gotoLanding(page);
     const root = page.locator("[data-milume-hero]").first();
     await expect(root).toHaveAttribute("data-hero-mode", "webgl");
     await expect(root.locator("canvas.milume-hero__canvas")).toBeVisible();
@@ -50,21 +59,21 @@ test.describe("milume hero WebGL", () => {
   });
 
   test("seeded base point count is constant", async ({ page }) => {
-    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await gotoLanding(page);
     await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.getBasePointCount);
     const n = await page.evaluate(() => window.__milumeHeroHandles?.[0]?.getBasePointCount?.() ?? 0);
     expect(n).toBe(HERO_BASE_POINTS);
   });
 
   test("field has no NaN", async ({ page }) => {
-    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await gotoLanding(page);
     await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.fieldHasNaN);
     const bad = await page.evaluate(() => window.__milumeHeroHandles?.[0]?.fieldHasNaN?.());
     expect(bad).toBe(false);
   });
 
   test("visible instance count is deterministic at fixed times", async ({ page }) => {
-    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await gotoLanding(page);
     await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.setTime);
     const times = [0, 1.5, 9.7];
     const run = () =>
@@ -83,7 +92,7 @@ test.describe("milume hero WebGL", () => {
   });
 
   test("designer reference page renders non-blank at t=1.5", async ({ page }) => {
-    await page.goto(`${SITE}${REF_PATH}`, { waitUntil: "networkidle" });
+    await gotoHeroReference(page);
     await page.waitForFunction(() => window.__heroRefReady === true);
     await page.evaluate(async () => {
       window.__heroRefDraw(1.5);
@@ -95,7 +104,7 @@ test.describe("milume hero WebGL", () => {
   });
 
   test("designer reference and live hero are both non-blank at t=1.5", async ({ page }) => {
-    await page.goto(`${SITE}${REF_PATH}`, { waitUntil: "networkidle" });
+    await gotoHeroReference(page);
     await page.waitForFunction(() => window.__heroRefReady === true);
     await page.evaluate(async () => {
       window.__heroRefDraw(1.5);
@@ -104,7 +113,7 @@ test.describe("milume hero WebGL", () => {
     const refBright = await canvasBrightPixelCount(page, "#c");
     expect(refBright).toBeGreaterThan(HERO_MIN_BRIGHT_PIXELS);
 
-    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await gotoLanding(page);
     await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.setTime);
     await page.evaluate(async () => {
       const h = window.__milumeHeroHandles?.[0];
@@ -117,7 +126,7 @@ test.describe("milume hero WebGL", () => {
   });
 
   test("pauses when off screen", async ({ page }) => {
-    await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
+    await gotoLanding(page);
     const root = page.locator("[data-milume-hero]").first();
     await expect(root).toHaveAttribute("data-hero-mode", "webgl");
     await page.waitForFunction(() => (window.__milumeHeroHandles?.[0]?.getFrameId?.() ?? 0) > 2);
