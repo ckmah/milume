@@ -1,4 +1,5 @@
 import { InfoIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
+import { filterGeneNamesForPicker } from "../gene-picker-list.js";
 import { GENE_AGGREGATES, type GeneAggregate } from "../gene-store.js";
 import { GENE_COLORS, MAX_ACTIVE_GENES, geneColor } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
@@ -137,16 +139,24 @@ function GenesScaleToggles({ lm }: { lm: LandmarksModel }) {
 
 export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
   const { gene_names, active_genes } = lm;
-  const names = gene_names.map((g) => g.name);
+  const names = useMemo(() => gene_names.map((g) => g.name), [gene_names]);
   const selected = active_genes || [];
   const atMax = selected.length >= MAX_ACTIVE_GENES;
   const [wrapRef, portalEl] = useWidgetPortalContainer();
   const anchor = useComboboxAnchor();
+  const [filterQuery, setFilterQuery] = useState("");
+  const visibleNames = useMemo(
+    () => filterGeneNamesForPicker(names, filterQuery),
+    [names, filterQuery],
+  );
 
   return (
     <div ref={wrapRef} className="flex min-w-0 flex-col gap-2">
       <Combobox
         items={names}
+        filteredItems={visibleNames}
+        onInputValueChange={(value) => setFilterQuery(String(value ?? ""))}
+        autoHighlight
         multiple
         value={selected}
         onValueChange={(next, details) => {
