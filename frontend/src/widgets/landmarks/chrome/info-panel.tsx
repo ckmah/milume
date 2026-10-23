@@ -1,11 +1,4 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import {
-  Pie,
-  PieChart,
-  Cell,
-  Sector,
-  Label,
-} from "recharts";
 
 import {
   Card,
@@ -13,12 +6,6 @@ import {
   CardDescription,
   CardHeader,
 } from "@/components/ui/card";
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from "@/components/ui/chart";
 import { FieldDescription } from "@/components/ui/field";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +27,7 @@ import {
   type DensitySeries,
 } from "./info-stats";
 import { CLOUD_CUBE, embeddingCloudPointRadius } from "./rgb-cube";
+import { InfoDonut } from "./info-donut";
 import { PlotChannelLegend } from "./plot-channel-legend";
 import { geneDisplayBounds } from "./genes-ternary";
 import {
@@ -340,19 +328,6 @@ export function InfoPanel({
     return null;
   }, [hoverTypeIndex, selected_kind, selected_index]);
 
-  const pieConfig = useMemo(() => {
-    const cfg: ChartConfig = {};
-    for (const s of composition) {
-      cfg[s.key] = { label: s.label, color: s.fill };
-    }
-    return cfg;
-  }, [composition]);
-
-  const pieTotal = useMemo(
-    () => composition.reduce((acc, s) => acc + s.value, 0),
-    [composition],
-  );
-
   const embeddingCloud = useMemo(() => {
     if (!showEmbedding) return [];
     const labels = lm.embedding_channel_labels || [];
@@ -454,119 +429,11 @@ export function InfoPanel({
       ) : composition.length ? (
         <div className="flex h-full w-full items-center justify-center">
           <div className="relative aspect-square h-full max-h-44 w-auto max-w-full">
-          <ChartContainer
-            config={pieConfig}
-            className="aspect-square h-full w-full [&_.recharts-responsive-container]:!aspect-square"
-            initialDimension={{ width: 176, height: 176 }}
-          >
-            <PieChart>
-              <ChartTooltip
-                cursor={false}
-                content={
-                  <ChartTooltipContent
-                    hideLabel
-                    formatter={(value, _name, item) => {
-                      const row = item?.payload as
-                        | { label?: string; value?: number }
-                        | undefined;
-                      const count = Number(value) || 0;
-                      const pct =
-                        pieTotal > 0
-                          ? ((count / pieTotal) * 100).toFixed(1)
-                          : "0";
-                      return (
-                        <div className="flex min-w-0 flex-col gap-0.5">
-                          <span className="truncate font-medium text-foreground">
-                            {row?.label ?? ""}
-                          </span>
-                          <span className="whitespace-nowrap text-muted-foreground tabular-nums">
-                            {count.toLocaleString()} cells · {pct}%
-                          </span>
-                        </div>
-                      );
-                    }}
-                  />
-                }
-              />
-              <Pie
-                data={composition}
-                dataKey="value"
-                nameKey="key"
-                innerRadius="66%"
-                outerRadius="82%"
-                stroke="none"
-                strokeWidth={0}
-                isAnimationActive={false}
-                // Recharts 3 drives activeIndex from tooltip hover only; use shape.
-                shape={(props) => {
-                  const p = props as {
-                    outerRadius?: number;
-                    cx?: number;
-                    cy?: number;
-                    innerRadius?: number;
-                    startAngle?: number;
-                    endAngle?: number;
-                    fill?: string;
-                    payload?: { key?: string };
-                  };
-                  const typeIdx = Number(
-                    String(p.payload?.key ?? "").replace(/^c/, ""),
-                  );
-                  const active =
-                    activeTypeIndex != null &&
-                    Number.isFinite(typeIdx) &&
-                    typeIdx === activeTypeIndex;
-                  return (
-                    <Sector
-                      cx={p.cx}
-                      cy={p.cy}
-                      innerRadius={p.innerRadius}
-                      outerRadius={(p.outerRadius ?? 0) + (active ? 10 : 0)}
-                      startAngle={p.startAngle}
-                      endAngle={p.endAngle}
-                      fill={p.fill}
-                      stroke="none"
-                    />
-                  );
-                }}
-              >
-                {composition.map((s) => (
-                  <Cell key={s.key} fill={s.fill} fillOpacity={1} />
-                ))}
-                <Label
-                  content={({ viewBox }) => {
-                    if (!viewBox || !("cx" in viewBox) || !("cy" in viewBox)) {
-                      return null;
-                    }
-                    const { cx, cy } = viewBox;
-                    return (
-                      <text
-                        x={cx}
-                        y={cy}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                      >
-                        <tspan
-                          x={cx}
-                          y={(cy ?? 0) - 6}
-                          className="fill-foreground text-lg font-semibold tabular-nums"
-                        >
-                          {scopeCount.toLocaleString()}
-                        </tspan>
-                        <tspan
-                          x={cx}
-                          y={(cy ?? 0) + 12}
-                          className="fill-muted-foreground text-[0.65rem]"
-                        >
-                          cells
-                        </tspan>
-                      </text>
-                    );
-                  }}
-                />
-              </Pie>
-            </PieChart>
-          </ChartContainer>
+            <InfoDonut
+              slices={composition}
+              scopeCount={scopeCount}
+              activeTypeIndex={activeTypeIndex}
+            />
           </div>
         </div>
       ) : (
