@@ -5,6 +5,7 @@ export type ColorSignal = "categories" | "genes" | "embedding";
 
 /** Resolve the active coloring family from model traits. */
 export function colorSignal(lm: LandmarksModel): ColorSignal {
+  if (lm.color_mode === "obs") return "categories";
   if (lm.render_mode === "raster") {
     if (lm.raster_basis === "embedding") return "embedding";
     if (lm.raster_basis === "genes") return "genes";
@@ -38,6 +39,9 @@ export function colorSignalDetail(
     const labels = lm.embedding_channel_labels || [];
     if (labels.length) return `${key} · ${labels.join(", ")}`;
     return key;
+  }
+  if (lm.color_mode === "obs") {
+    return lm.legend_title || "None selected";
   }
   return lm.active_category || "None selected";
 }

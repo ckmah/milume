@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { GENE_COLORS, blendHex, geneColor } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { colorSignal } from "./coloring";
+import { ObsRampLegend } from "./obs-ramp-legend";
 import { cubeCornerLabel } from "./rgb-cube";
 import { RgbCubeLegend } from "./rgb-cube-legend";
 
@@ -14,6 +15,7 @@ import { RgbCubeLegend } from "./rgb-cube-legend";
  */
 export function PlotChannelLegend({ lm }: { lm: LandmarksModel }) {
   const signal = colorSignal(lm);
+  if (lm.color_mode === "obs") return <ObsPlotLegend lm={lm} />;
   if (signal === "genes") return <GenesPlotLegend lm={lm} />;
   if (signal === "embedding") return <EmbedPlotCube lm={lm} />;
   return null;
@@ -59,6 +61,15 @@ function VerticalChannelBar({ colors }: { colors: string[] }) {
       role="img"
       aria-label="Expression scale"
     />
+  );
+}
+
+function ObsPlotLegend({ lm }: { lm: LandmarksModel }) {
+  if (lm.color_mode !== "obs") return null;
+  return (
+    <LegendAnchor testId="obs-ramp-legend-anchor">
+      <ObsRampLegend lm={lm} />
+    </LegendAnchor>
   );
 }
 

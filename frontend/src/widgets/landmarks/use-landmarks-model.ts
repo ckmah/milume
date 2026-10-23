@@ -73,6 +73,10 @@ export type LandmarksState = {
   gene_expression_logged: boolean;
   color_mode: string;
   legend_labels: string[];
+  legend_title: string;
+  color_vmin: number;
+  color_vmax: number;
+  point_palette: string[];
   type_neighborhoods: TypeNeighborhood[];
   neighbor_radius_max: number;
   neighbor_k_max: number;
@@ -128,6 +132,10 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
   "gene_expression_logged",
   "color_mode",
   "legend_labels",
+  "legend_title",
+  "color_vmin",
+  "color_vmax",
+  "point_palette",
   "type_neighborhoods",
   "neighbor_radius_max",
   "neighbor_k_max",
