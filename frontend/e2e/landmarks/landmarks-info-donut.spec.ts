@@ -27,12 +27,9 @@ test.describe("Info donut", () => {
     expect(await segments.count()).toBeGreaterThan(0);
 
     await stabilizeUi(page);
-    const donutBox = await donut.boundingBox();
-    expect(donutBox).toBeTruthy();
-    await page.mouse.move(
-      donutBox!.x + donutBox!.width * 0.88,
-      donutBox!.y + donutBox!.height * 0.5,
-    );
+    const segment = segments.first();
+    await segment.scrollIntoViewIfNeeded();
+    await segment.hover({ force: true });
     const tooltip = page.getByTestId("info-donut-tooltip");
     await expect(tooltip).toBeVisible();
     await expect(tooltip).toContainText("cells ·");
