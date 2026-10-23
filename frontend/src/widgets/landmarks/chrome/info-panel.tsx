@@ -213,6 +213,7 @@ export function InfoPanel({
 
   const genes = active_genes || [];
   const signal = colorSignal(lm);
+  const showObs = lm.color_mode === "obs";
   const showGenes = signal === "genes";
   const showEmbedding = signal === "embedding";
 
@@ -274,7 +275,7 @@ export function InfoPanel({
 
   const composition = useMemo(
     () =>
-      showGenes
+      showGenes || showObs
         ? []
         : compositionSlices({
             n,
@@ -285,6 +286,7 @@ export function InfoPanel({
           }),
     [
       showGenes,
+      showObs,
       n,
       compositionMask,
       category_codes,
@@ -426,6 +428,12 @@ export function InfoPanel({
             </FieldDescription>
           </div>
         )
+      ) : showObs ? (
+        <div className="flex h-full w-full items-center justify-center px-2">
+          <FieldDescription className="m-0 text-center">
+            Numeric observation column; scale at top right.
+          </FieldDescription>
+        </div>
       ) : composition.length ? (
         <div className="flex h-full w-full items-center justify-center">
           <div className="relative aspect-square h-full max-h-44 w-auto max-w-full">
