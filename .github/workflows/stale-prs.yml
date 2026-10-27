@@ -33,6 +33,7 @@ jobs:
         name: Check for open bot PRs
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && -n "${{ inputs.pr }}" ]]; then
