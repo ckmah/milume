@@ -1,4 +1,4 @@
-/** Annular slice geometry for the Info hand-drawn donut (degrees: 0 = 3 o'clock, CCW positive). */
+/** Annular slice geometry for the Info donut (degrees: 0 = 3 o'clock, CCW positive). */
 
 export type DonutSliceInput = {
   key: string;
@@ -35,81 +35,42 @@ function polar(cx: number, cy: number, r: number, deg: number) {
   return { x: cx + r * Math.cos(rad), y: cy - r * Math.sin(rad) };
 }
 
-function wobbleRadius(
-  r: number,
-  t: number,
-  seed: number,
-  amplitude: number,
-): number {
-  return (
-    r +
-    amplitude *
-      (0.65 * Math.sin(seed * 0.017 + t * 11.3) +
-        0.35 * Math.cos(seed * 0.023 + t * 7.1))
-  );
-}
-
-function hashSeed(key: string): number {
-  let h = 0;
-  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) | 0;
-  return h;
-}
-
 /**
- * Closed SVG path for one donut slice with a subtle hand-drawn radius wobble.
+ * Closed SVG path for one annular donut slice using circular arc commands.
  * `outerR` / `innerR` are in the same units as `cx` / `cy`.
  */
-export function wobbleDonutSlicePath(opts: {
+export function donutSlicePath(opts: {
   cx: number;
   cy: number;
   innerR: number;
   outerR: number;
   startDeg: number;
   endDeg: number;
-  sliceKey: string;
-  wobbleAmp?: number;
 }): string {
-  const {
-    cx,
-    cy,
-    innerR,
-    outerR,
-    startDeg,
-    endDeg,
-    sliceKey,
-    wobbleAmp = 1.15,
-  } = opts;
+  const { cx, cy, innerR, outerR, startDeg, endDeg } = opts;
   const sweep = Math.abs(endDeg - startDeg);
   if (sweep < 1e-6) return "";
 
-  const seed = hashSeed(sliceKey);
-  const steps = Math.max(10, Math.ceil(sweep / 6));
+  const largeArc = sweep > 180 ? 1 : 0;
+  const clockwise = endDeg < startDeg;
+  const outerSweep = clockwise ? 1 : 0;
+  const innerSweep = clockwise ? 0 : 1;
 
-  const outerPts: { x: number; y: number }[] = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const deg = startDeg + (endDeg - startDeg) * t;
-    const r = wobbleRadius(outerR, t, seed, wobbleAmp);
-    outerPts.push(polar(cx, cy, r, deg));
-  }
-
-  const innerPts: { x: number; y: number }[] = [];
-  for (let i = steps; i >= 0; i--) {
-    const t = i / steps;
-    const deg = startDeg + (endDeg - startDeg) * t;
-    const r = wobbleRadius(innerR, t + 0.37, seed + 3, wobbleAmp * 0.55);
-    innerPts.push(polar(cx, cy, r, deg));
-  }
+  const outerStart = polar(cx, cy, outerR, startDeg);
+  const outerEnd = polar(cx, cy, outerR, endDeg);
+  const innerEnd = polar(cx, cy, innerR, endDeg);
+  const innerStart = polar(cx, cy, innerR, startDeg);
 
   const fmt = (p: { x: number; y: number }) =>
     `${p.x.toFixed(2)} ${p.y.toFixed(2)}`;
 
-  let d = `M ${fmt(outerPts[0]!)}`;
-  for (let i = 1; i < outerPts.length; i++) d += ` L ${fmt(outerPts[i]!)}`;
-  d += ` L ${fmt(innerPts[0]!)}`;
-  for (let i = 1; i < innerPts.length; i++) d += ` L ${fmt(innerPts[i]!)}`;
-  d += " Z";
-  return d;
+  return [
+    `M ${fmt(outerStart)}`,
+    `A ${outerR} ${outerR} 0 ${largeArc} ${outerSweep} ${fmt(outerEnd)}`,
+    `L ${fmt(innerEnd)}`,
+    `A ${innerR} ${innerR} 0 ${largeArc} ${innerSweep} ${fmt(innerStart)}`,
+    "Z",
+  ].join(" ");
 }
 
 export function typeIndexFromSliceKey(key: string): number | null {
