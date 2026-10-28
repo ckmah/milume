@@ -16,7 +16,7 @@ from helpers import adata_xy, toy_spatialdata
 from milume.landmarks import _PUBLIC_TRAITS, LandmarksWidget
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL = ROOT / ".agents" / "skills" / "use-milume" / "SKILL.md"
+SKILL = ROOT / "skills" / "use-milume" / "SKILL.md"
 SCRIPTS = ROOT / "website" / "scripts"
 
 
@@ -104,6 +104,8 @@ def test_llms_txt_lists_exactly_registry(tmp_path):
     text = (tmp_path / "llms.txt").read_text(encoding="utf-8")
     listed = set(re.findall(r"^- `([a-z_0-9]+)`: ", text, re.MULTILINE))
     assert listed == set(_PUBLIC_TRAITS)
+    assert "use-milume" in text
+    assert "skills/use-milume/SKILL.md" in text
 
 
 def test_wheel_ships_skill(tmp_path):
@@ -121,3 +123,83 @@ def test_wheel_ships_skill(tmp_path):
     with zipfile.ZipFile(wheel) as zf:
         shipped = zf.read("milume/skills/use-milume/SKILL.md").decode("utf-8")
     assert shipped == SKILL.read_text(encoding="utf-8")
+
+
+def test_sdist_ships_skill(tmp_path):
+    import shutil
+    import tarfile
+
+    if shutil.which("uv") is None:
+        pytest.skip("uv not installed")
+    subprocess.run(
+        ["uv", "build", "--sdist", "--out-dir", str(tmp_path), str(ROOT)],
+        check=True,
+        capture_output=True,
+    )
+    (sdist,) = tmp_path.glob("milume-*.tar.gz")
+    with tarfile.open(sdist, "r:gz") as tf:
+        names = [n for n in tf.getnames() if n.endswith("skills/use-milume/SKILL.md")]
+        assert len(names) == 1, names
+        shipped = tf.extractfile(names[0]).read().decode("utf-8")
+    assert shipped == SKILL.read_text(encoding="utf-8")
+
+
+def test_skill_module_from_wheel(tmp_path):
+    import shutil
+
+    if shutil.which("uv") is None:
+        pytest.skip("uv not installed")
+    subprocess.run(
+        ["uv", "build", "--wheel", "--out-dir", str(tmp_path), str(ROOT)],
+        check=True,
+        capture_output=True,
+    )
+    (wheel,) = tmp_path.glob("milume-*.whl")
+    venv = tmp_path / "venv"
+    subprocess.run(
+        ["uv", "venv", str(venv), "--seed"],
+        check=True,
+        capture_output=True,
+    )
+    py = venv / "bin" / "python"
+    subprocess.run(
+        ["uv", "pip", "install", "--python", str(py), str(wheel)],
+        check=True,
+        capture_output=True,
+    )
+    path_out = subprocess.run(
+        [str(py), "-m", "milume.skill"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    printed = Path(path_out.stdout.strip())
+    assert printed.is_file()
+    assert printed.name == "SKILL.md"
+    assert printed.read_text(encoding="utf-8") == SKILL.read_text(encoding="utf-8")
+
+    dest = tmp_path / "agent-skills"
+    install_out = subprocess.run(
+        [str(py), "-m", "milume.skill", "install", str(dest)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    installed = Path(install_out.stdout.strip())
+    assert installed == dest / "use-milume" / "SKILL.md"
+    assert installed.read_text(encoding="utf-8") == SKILL.read_text(encoding="utf-8")
+
+    refuse = subprocess.run(
+        [str(py), "-m", "milume.skill", "install", str(dest)],
+        capture_output=True,
+        text=True,
+    )
+    assert refuse.returncode != 0
+    assert "already exists" in refuse.stderr
+
+    subprocess.run(
+        [str(py), "-m", "milume.skill", "install", str(dest), "--force"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )

@@ -84,7 +84,7 @@ exclude = ["milume/static/*.js"]
 
 # Ship the use-milume agent skill inside the package (milume/skills/use-milume/SKILL.md).
 [tool.hatch.build.targets.wheel.force-include]
-".agents/skills/use-milume/SKILL.md" = "milume/skills/use-milume/SKILL.md"
+"skills/use-milume/SKILL.md" = "milume/skills/use-milume/SKILL.md"
 
 [tool.hatch.build.targets.sdist]
 # Keep the sdist small (~60 MB -> a few MB): the docs site, README screenshots
@@ -99,7 +99,7 @@ exclude = [
 ]
 
 [tool.hatch.build.targets.sdist.force-include]
-".agents/skills/use-milume/SKILL.md" = ".agents/skills/use-milume/SKILL.md"
+"skills/use-milume/SKILL.md" = "skills/use-milume/SKILL.md"
 
 [tool.hatch.build]
 artifacts = ["milume/static/bundled/*"]

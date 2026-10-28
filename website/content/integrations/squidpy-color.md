@@ -73,4 +73,4 @@ w.color = top_gene
 
 - [Color & layers](../tools/color-layers.md) — category, genes and embed tabs
 - [Select regions](../tools/select-regions.md) — selections and `get_obs_names`
-- [use-milume agent skill](https://github.com/ckmah/milume/blob/main/.agents/skills/use-milume/SKILL.md)
+- [use-milume agent skill](https://github.com/ckmah/milume/blob/main/skills/use-milume/SKILL.md)
