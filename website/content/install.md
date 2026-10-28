@@ -56,7 +56,7 @@ Full walkthrough: [Quickstart](quickstart.md).
 Install the [use-milume](https://github.com/ckmah/milume/blob/main/skills/use-milume/SKILL.md) skill so your agent knows LandmarksWidget workflows and the public API:
 
 ```bash
-npx skills add ckmah/milume --skill use-milume -a cursor -y
+npx skills add ckmah/milume --skill use-milume
 ```
 
 In Claude Code:

@@ -59,7 +59,7 @@ See the [changelog](https://ckmah.github.io/milume/docs/changelog/) for what cha
 ### Use with AI agents
 
 ```bash
-npx skills add ckmah/milume --skill use-milume -a cursor -y
+npx skills add ckmah/milume --skill use-milume
 ```
 
 In Claude Code, add the marketplace once, then install the plugin (only the `use-milume` skill):
