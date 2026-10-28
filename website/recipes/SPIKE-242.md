@@ -6,15 +6,22 @@ Build: `bash website/recipes/scripts/build-studio-export.sh`
 
 ## Measured export times (Linux CI-like VM, 2026-10-28)
 
+See GitHub Actions workflow `recipe-studio-export.yml` on this branch for authoritative cold/warm CI timings (job summaries on each run).
+
+Local re-check after notebook fix (no `mo.ui.anywidget`, niche + display in one cell):
+
 | Step | Condition | Seconds |
 | ---- | --------- | ------- |
-| `marimo-studio view preflight` | Cold (`__marimo__` removed); **failed** on first attempt | 42.58 (error) |
-| `marimo-studio view export` | Cold (empty marimo + export cache) | 22.90 |
-| `marimo-studio view export` | Warm (`Prepared reused`, marimo cell cache present) | 10.08–10.11 |
-| `marimo-studio view preflight` | Warm | 9.37 |
-| `marimo export html` (comparison) | Same notebook | 15.81 |
+| `marimo-studio view preflight` | Cold (`__marimo__` removed) | **~29–39** (PASS) |
+| `marimo-studio view export` | Cold | **~30–39** |
+| `marimo-studio view export` | Warm (`Prepared reused`) | **~10** |
 
-Export breakdown (cold): HTML build ~0.08s; state prepare ~5.3s (5 cell cache misses); bundle ~2.7s; marimo cache 3 hits / 5 misses.
+Earlier spike (with `mo.ui.anywidget`) cold preflight **failed** in 42.58s; see `UPSTREAM-preflight.md`.
+
+## Preflight root cause and fix
+
+- **Cause:** `mo.ui.anywidget(w)` registered export control input `widget`; marimo-export **rejected** its baseline value on the first prepare (`input_value_invalid`). Second preflight or `view export` could succeed after partial cache.
+- **Fix (recipe-only):** display `w` directly in `landmark_map`; run `run_niche_recipe` + `w.color = niche_col` in that same cell so prepared state captures `active_category: nhood_niche_res=0.5`.
 
 ## Persistent cache
 
@@ -30,8 +37,8 @@ Warm export logs `Prepared reused (1/1)` and skips re-running notebook cells whe
 
 Headless Chromium against `python -m http.server` serving the export:
 
-- `marimo-anywidget` host present; **2** canvases; WebGL context attaches.
-- Screenshot: `spike-artifacts/studio-squidpy-zero-python.png` (niche-colored points, selection list shows `patch`, category donut).
+- Prepared model **`active_category`: `nhood_niche_res=0.5`** (verified in export `.cell.json`).
+- Screenshot: `spike-artifacts/studio-squidpy-zero-python.png` (category panel shows `nhood_niche_r…`, multi-niche point colours).
 
 No live Python kernel at read time; widget model and outputs come from prepared export state (`marimo-export` / `_marimo-studio/views/.../zero-python/`).
 

@@ -1,0 +1,124 @@
+# Issue #242 / PR #344 gates: cold preflight, warm export cache, measured timings.
+name: Recipe studio export
+
+on:
+  pull_request:
+    paths:
+      - "website/recipes/**"
+      - ".github/workflows/recipe-studio-export.yml"
+      - "frontend/**"
+      - "milume/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "tests/squidpy_color_recipes.py"
+  workflow_dispatch:
+
+concurrency:
+  group: recipe-studio-export-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MARIMO_EXPORT_REPOSITORY: ${{ github.workspace }}/.cache/marimo-export-recipes
+  RECIPE_NB: website/recipes/squidpy_color_niche.py
+  RECIPE_VIEW: docs
+
+jobs:
+  cold-preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python deps
+        run: uv sync --group dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: ./.github/actions/node-modules
+        with:
+          dir: frontend
+
+      - name: Build Landmarks widget bundle
+        run: npm run -s build
+        working-directory: frontend
+
+      - name: Cold preflight (no marimo cache)
+        id: cold
+        run: |
+          rm -rf website/recipes/__marimo__ "${MARIMO_EXPORT_REPOSITORY}"
+          start="${SECONDS}"
+          uv run marimo-studio view preflight "${RECIPE_VIEW}" --target "${RECIPE_NB}"
+          elapsed=$((SECONDS - start))
+          echo "seconds=${elapsed}" >> "${GITHUB_OUTPUT}"
+          echo "## Gate 1: cold preflight" >> "${GITHUB_STEP_SUMMARY}"
+          echo "PASS in ${elapsed}s (no \`__marimo__\` / export store)" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Save marimo recipe caches
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            website/recipes/__marimo__
+            .cache/marimo-export-recipes
+          key: recipe-studio-${{ hashFiles('website/recipes/squidpy_color_niche.py', 'uv.lock') }}
+
+  warm-export:
+    needs: cold-preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python deps
+        run: uv sync --group dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: ./.github/actions/node-modules
+        with:
+          dir: frontend
+
+      - name: Build Landmarks widget bundle
+        run: npm run -s build
+        working-directory: frontend
+
+      - name: Restore marimo recipe caches
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            website/recipes/__marimo__
+            .cache/marimo-export-recipes
+          key: recipe-studio-${{ hashFiles('website/recipes/squidpy_color_niche.py', 'uv.lock') }}
+          fail-on-cache-miss: true
+
+      - name: Warm export
+        id: warm
+        run: |
+          start="${SECONDS}"
+          set -o pipefail
+          uv run marimo-studio view export "${RECIPE_VIEW}" --target "${RECIPE_NB}" \
+            --output website/recipes/dist-spike/docs --force 2>&1 | tee /tmp/recipe-export.log
+          elapsed=$((SECONDS - start))
+          if ! grep -q "Prepared reused" /tmp/recipe-export.log; then
+            echo "Expected 'Prepared reused' in warm export log" >&2
+            exit 1
+          fi
+          echo "seconds=${elapsed}" >> "${GITHUB_OUTPUT}"
+          echo "## Gate 3: warm export" >> "${GITHUB_STEP_SUMMARY}"
+          echo "PASS in ${elapsed}s (\`Prepared reused\` present)" >> "${GITHUB_STEP_SUMMARY}"
+          echo "" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Cold preflight: ${{ needs.cold-preflight.outputs.seconds }}s (job \`cold-preflight\`)" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Warm export: ${elapsed}s (this job)" >> "${GITHUB_STEP_SUMMARY}"

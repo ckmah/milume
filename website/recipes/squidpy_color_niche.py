@@ -13,7 +13,7 @@
 # runtimes = ["server", "zero-python"]
 #
 # [tool.marimo-studio.cells]
-# cell-1 = {ref = "cell:v1:a54ce8c5034085f1302e2273aad32173ecfaf9a0aa357236cdb43afd65e3cfbf:ac4532616a5847bc00b3c8dd8d41f2be3550011c462f1d8d3ef621b42d0fd2d7:0"}
+# cell-1 = {ref = "cell:v1:b43fb1ce723e6ba8b0856f2881cdd133d48db94855bdb057e71e54775dc9b0cf:d7708ec00ead9434feb672ca4ade6025d725970c1aa27aca100ca4c6c1e2aadb:0"}
 # ///
 """Squidpy niche color recipe — marimo-studio spike for issue #242."""
 
@@ -34,6 +34,10 @@ def _(mo):
 
         **Open in molab:**
         [squidpy_color_niche.py](https://molab.marimo.io/github/ckmah/milume/blob/main/website/recipes/squidpy_color_niche.py)
+
+        > **Static docs view:** this page replays a **prepared** export state (fixed
+        > selection and niche colouring). To draw new selections or re-run Squidpy
+        > on changed regions, use **Open in molab** above.
         """
     )
     return
@@ -90,22 +94,11 @@ def _(adata, milume):
 
 
 @app.cell
-def _(adata, run_niche_recipe, w):
+def landmark_map(adata, run_niche_recipe, w):
     niche_col = run_niche_recipe(adata, w, "patch")
     w.color = niche_col
-    return (niche_col,)
-
-
-@app.cell
-def _(mo, w):
-    widget = mo.ui.anywidget(w)
-    return (widget,)
-
-
-@app.cell
-def landmark_map(mo, widget):
-    widget
-    return (widget,)
+    w
+    return (niche_col, w)
 
 
 @app.cell
