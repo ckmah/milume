@@ -55,6 +55,9 @@ jobs:
         with:
           dir: frontend
 
+      - name: Playwright browser (recipe export prune + payload check)
+        uses: ./.github/actions/playwright-browser
+
       - name: Restore marimo recipe export cache
         uses: actions/cache/restore@v4
         with:
