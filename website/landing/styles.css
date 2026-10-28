@@ -11,6 +11,10 @@
   --body: "IBM Plex Sans", "Segoe UI", sans-serif;
   --code: "JetBrains Mono", ui-monospace, monospace;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* #337: local scrim behind the hero video + frame shadow */
+  --hero-media-scrim: rgba(10, 14, 18, 0.86);
+  --hero-media-scrim-mid: rgba(10, 14, 18, 0.6);
+  --hero-media-shadow: 0 24px 64px -20px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(232, 238, 244, 0.04);
   color-scheme: dark;
 }
 
@@ -114,6 +118,7 @@ code {
 .site-nav a {
   color: var(--fog);
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .site-nav a:hover {
@@ -125,6 +130,7 @@ code {
   min-height: 100svh;
   display: grid;
   align-items: end;
+  align-content: end;
   padding: clamp(5.5rem, 12vh, 7rem) clamp(1.25rem, 4vw, 2.5rem)
     clamp(2rem, 6vh, 3.5rem);
   overflow: clip;
@@ -162,20 +168,6 @@ code {
   object-position: center center;
 }
 
-.promo-montage {
-  padding: 0 clamp(1.25rem, 4vw, 2.5rem) 2.5rem;
-  background: linear-gradient(180deg, transparent 0%, rgba(7, 10, 14, 0.85) 12%);
-}
-
-.promo-montage__video {
-  display: block;
-  width: min(100%, 72rem);
-  margin: 0 auto;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: #0b0b0b;
-}
-
 .hero-veil {
   position: absolute;
   inset: 0;
@@ -189,6 +181,7 @@ code {
   position: relative;
   z-index: 1;
   max-width: 38rem;
+  min-width: 0;
   animation: copy-rise 0.9s var(--ease-out) 0.12s both;
 }
 
@@ -203,7 +196,7 @@ code {
 }
 
 .hero h1 {
-  margin: 0 0 1rem;
+  margin: 0 0 1.75rem;
   font-family: var(--display);
   font-weight: 700;
   font-size: clamp(1.35rem, 2.8vw, 1.85rem);
@@ -211,12 +204,6 @@ code {
   letter-spacing: -0.02em;
   color: var(--paper);
   max-width: 28ch;
-}
-
-.lede {
-  margin: 0 0 1.75rem;
-  color: var(--fog);
-  max-width: 42ch;
 }
 
 .cta-group {
@@ -298,6 +285,123 @@ code {
   font-size: 0.95rem;
 }
 
+/* #337: montage video in the hero, beside (desktop) or under (narrow) the copy */
+.hero-media {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Local scrim: darkens only the field behind the frame, follows the video box */
+.hero-media::before {
+  content: "";
+  position: absolute;
+  inset: -14% -9%;
+  z-index: -1;
+  background: radial-gradient(
+    closest-side,
+    var(--hero-media-scrim) 0%,
+    var(--hero-media-scrim-mid) 62%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+.hero-media__video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #0b0b0b;
+  box-shadow: var(--hero-media-shadow);
+}
+
+/* Click to play: centred button over the poster; native controls once playing */
+.hero-media__play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4.5rem;
+  height: 4.5rem;
+  margin: -2.25rem 0 0 -2.25rem;
+  border: 0;
+  border-radius: 50%;
+  background: var(--phosphor);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--phosphor) 22%, transparent),
+    0 12px 32px -8px rgba(0, 0, 0, 0.7);
+  cursor: pointer;
+  transition: background-color 160ms var(--ease-out);
+}
+
+.hero-media__play::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 54%;
+  width: 1.35rem;
+  height: 1.55rem;
+  transform: translate(-50%, -50%);
+  background: var(--phosphor-ink);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+
+.hero-media__play:hover {
+  background: color-mix(in srgb, var(--phosphor) 82%, white);
+}
+
+.hero-media[data-state="playing"] .hero-media__play,
+.hero-media[data-state="paused"] .hero-media__play {
+  display: none;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Stacked (<960px): video first, then copy. Visual order only; DOM order
+   stays copy -> video so the h1 is read first. The stack is centred in the
+   hero; .hero uses min-height, so a stack taller than the viewport grows the
+   hero and starts at the top padding instead of clipping. */
+@media (max-width: 959px) {
+  .hero {
+    align-content: center;
+    padding-top: clamp(4.75rem, 12vh, 7rem);
+  }
+
+  .hero-media {
+    order: -1;
+    margin-bottom: 2rem;
+  }
+}
+
+@media (min-width: 960px) {
+  .hero {
+    grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+    column-gap: clamp(2.5rem, 4.5vw, 4.5rem);
+    align-items: center;
+  }
+
+  .hero-media {
+    justify-self: end;
+    max-width: 52rem;
+  }
+}
+
+/* Copy column at full width only once the video can stay >= ~540px wide */
+@media (min-width: 1240px) {
+  .hero {
+    grid-template-columns: minmax(0, 34rem) minmax(0, 1fr);
+  }
+}
+
 @keyframes copy-rise {
   from {
     opacity: 0;
@@ -339,6 +443,22 @@ code {
   }
 }
 
+/* Narrow phones: keep the nav on one line down to 360px */
+@media (max-width: 420px) {
+  .site-header {
+    gap: 0.75rem;
+  }
+
+  .site-header .wordmark-img {
+    height: 1.5rem;
+  }
+
+  .site-nav {
+    gap: 0.75rem;
+    font-size: 0.85rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -347,7 +467,8 @@ code {
   .hero-copy,
   .milume-hero__canvas,
   .copy-btn,
-  .btn {
+  .btn,
+  .hero-media__play {
     animation: none !important;
     transition: none !important;
     filter: none !important;

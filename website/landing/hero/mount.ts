@@ -6,6 +6,7 @@ import { createGl, drawFrame, lastDrawInstanceCount, visiblePointCount } from ".
 export type HeroHandle = {
   pause: () => void;
   resume: () => void;
+  setHeldByVideo: (held: boolean) => void;
   destroy: () => void;
   isLive: () => boolean;
   getFrameId: () => number;
@@ -68,6 +69,7 @@ export function mountHero(root: HTMLElement): HeroHandle {
   let lastSimMs = 0;
   let lastDrawMs = 0;
   let frozenT: number | null = reduced ? REDUCED_MOTION_TIME : null;
+  let heldByVideo = false;
   let start = performance.now();
   let width = 0;
   let height = 0;
@@ -135,9 +137,13 @@ export function mountHero(root: HTMLElement): HeroHandle {
   };
 
   const resume = () => {
-    if (!live || reduced) return;
-    frozenT = null;
-    start = performance.now();
+    if (!live || reduced || heldByVideo) return;
+    if (frozenT !== null) {
+      start = performance.now() - frozenT * 1000;
+      frozenT = null;
+    } else {
+      start = performance.now();
+    }
     running = true;
     schedule();
   };
@@ -179,6 +185,9 @@ export function mountHero(root: HTMLElement): HeroHandle {
   return {
     pause,
     resume,
+    setHeldByVideo: (held: boolean) => {
+      heldByVideo = held;
+    },
     destroy: () => {
       pause();
       io.disconnect();

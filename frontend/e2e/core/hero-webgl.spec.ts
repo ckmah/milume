@@ -130,7 +130,13 @@ test.describe("milume hero WebGL", () => {
     const root = page.locator("[data-milume-hero]").first();
     await expect(root).toHaveAttribute("data-hero-mode", "webgl");
     await page.waitForFunction(() => (window.__milumeHeroHandles?.[0]?.getFrameId?.() ?? 0) > 2);
-    await page.evaluate(() => window.scrollTo(0, window.innerHeight * 1.25));
+    await page.evaluate(() => {
+      const spacer = document.createElement("div");
+      spacer.setAttribute("data-e2e-scroll-spacer", "true");
+      spacer.style.height = "120vh";
+      document.body.appendChild(spacer);
+      window.scrollTo(0, document.documentElement.scrollHeight);
+    });
     await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.isPaused?.() === true);
     const before = await page.evaluate(() => window.__milumeHeroHandles?.[0]?.getFrameId?.() ?? 0);
     await page.waitForTimeout(900);

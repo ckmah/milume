@@ -24,6 +24,9 @@
     "core": [
       "website/landing/hero/**",
       "website/landing/assets/hero-renderer.js",
+      "website/landing/assets/hero-video-poster.jpg",
+      "website/landing/main.js",
+      "website/landing/styles.css",
       "frontend/e2e/core/hero-webgl.spec.ts",
       "frontend/playwright.website.config.ts",
       "frontend/src/components/**",

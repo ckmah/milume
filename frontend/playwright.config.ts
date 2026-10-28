@@ -27,13 +27,14 @@ export default defineConfig({
   testIgnore:
     harness === "landmarks-volume"
       ? process.env.E2E_SMOKE === "1"
-        ? ["**/hero-webgl.spec.ts", "**/landmarks-volume.spec.ts", "**/marimo/**"]
-        : ["**/hero-webgl.spec.ts", smokeSpec, "**/marimo/**"]
+        ? ["**/hero-webgl.spec.ts", "**/hero-video.spec.ts", "**/landmarks-volume.spec.ts", "**/marimo/**"]
+        : ["**/hero-webgl.spec.ts", "**/hero-video.spec.ts", smokeSpec, "**/marimo/**"]
       : [
           "**/landmarks-volume.spec.ts",
           "**/landmarks-inspect-minimap.spec.ts",
           smokeSpec,
           "**/hero-webgl.spec.ts",
+          "**/hero-video.spec.ts",
           "**/marimo/**",
         ],
   timeout: volume && !volumeSmoke ? 240_000 : 90_000,
