@@ -6,15 +6,14 @@ Build: `bash website/recipes/scripts/build-studio-export.sh`
 
 ## Measured export times (Linux CI-like VM, 2026-10-28)
 
-See GitHub Actions workflow `recipe-studio-export.yml` on this branch for authoritative cold/warm CI timings (job summaries on each run).
+See GitHub Actions workflow `recipe-studio-export.yml` on this branch for authoritative cold/warm CI timings.
 
-Local re-check after notebook fix (no `mo.ui.anywidget`, niche + display in one cell):
+**Measured CI (run [40747195756](https://github.com/ckmah/milume/actions/runs/40747195756)):**
 
-| Step | Condition | Seconds |
-| ---- | --------- | ------- |
-| `marimo-studio view preflight` | Cold (`__marimo__` removed) | **~29–39** (PASS) |
-| `marimo-studio view export` | Cold | **~30–39** |
-| `marimo-studio view export` | Warm (`Prepared reused`) | **~10** |
+| Step | Seconds |
+| ---- | ------- |
+| Cold `view preflight` (job `cold-preflight`, step only) | **59.8** |
+| Warm `view export` with cache restore (job `warm-export`, step only) | **15.0** (`Prepared reused (1/1)`) |
 
 Earlier spike (with `mo.ui.anywidget`) cold preflight **failed** in 42.58s; see `UPSTREAM-preflight.md`.
 
