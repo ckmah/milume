@@ -24,6 +24,7 @@ dependencies = [
     "pandas>=2.0",
     "pyarrow>=16",
     "scipy>=1.11",
+    "s3fs>=2024.1",
     "shapely>=2.1.2",
     "spatialdata>=0.7.3; python_version < '3.12'",
     "spatialdata>=0.8.0; python_version >= '3.12'",

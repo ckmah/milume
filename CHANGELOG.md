@@ -25,6 +25,7 @@
 - The `demo` extra is removed: `pip install "milume[demo]"` no longer exists. Each demo notebook lists its own dependencies in its PEP 723 inline script header; from a checkout, `uv sync --group demo` installs them as a development dependency group.
 - `pyarrow>=16` is now declared; milume reads cell-polygon parquet with it. It was already installed through `spatialdata`, so nothing new is downloaded.
 - `matplotlib` is no longer installed by `pip install milume` (nor contourpy, cycler, fonttools, kiwisolver, pyparsing): about 17 MB less to download and 54 MB less installed on Linux / Python 3.12. The tab10/tab20/tab20b/tab20c category palettes and the default sequential palette are hardcoded with the same hex values, and lasso / polygon selection uses a numpy port of matplotlib's point-in-path test that gives the same cells (points on an edge and self-intersecting lassos included). `import milume` is about 0.3 s faster because `matplotlib.pyplot` is no longer imported. Install matplotlib yourself if your own plotting code needs it.
+- On Python 3.14, `uv add milume` in a project that also depends on `matplotlib>=3.11.2` could fail building ancient `s3fs` 0.3.5 (removed `configparser.SafeConfigParser`). Declare `s3fs>=2024.1` so uv cannot pick pre-wheel sdists; `spatialdata` already pulled `s3fs` transitively, so nothing new is installed ([#350](https://github.com/ckmah/milume/issues/350)).
 
 ### Smaller sdist
 
