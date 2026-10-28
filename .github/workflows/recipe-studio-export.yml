@@ -1,0 +1,149 @@
+# Issue #242: marimo-studio recipe exports (cold preflight + warm cache).
+name: Recipe studio export
+
+on:
+  pull_request:
+    paths:
+      - "demos/recipes/**"
+      - "website/scripts/export-recipes.sh"
+      - "website/scripts/assemble-pages.sh"
+      - ".github/workflows/recipe-studio-export.yml"
+      - "frontend/**"
+      - "milume/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "tests/squidpy_color_recipes.py"
+  push:
+    branches:
+      - main
+    paths:
+      - "demos/recipes/**"
+      - "website/scripts/export-recipes.sh"
+      - "website/scripts/assemble-pages.sh"
+      - ".github/workflows/recipe-studio-export.yml"
+      - "pyproject.toml"
+      - "uv.lock"
+  workflow_dispatch:
+
+concurrency:
+  group: recipe-studio-export-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MARIMO_EXPORT_REPOSITORY: ${{ github.workspace }}/.cache/marimo-export-recipes
+  RECIPE_NB: demos/recipes/squidpy_color.py
+  RECIPE_VIEW: docs
+
+jobs:
+  cold-preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python deps
+        run: uv sync --group dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: ./.github/actions/node-modules
+        with:
+          dir: frontend
+
+      - name: Build Landmarks widget bundle
+        run: npm run -s build
+        working-directory: frontend
+
+      - name: Cold preflight (no marimo cache)
+        id: cold
+        run: |
+          rm -rf demos/recipes/__marimo__ "${MARIMO_EXPORT_REPOSITORY}"
+          start="${SECONDS}"
+          uv run marimo-studio view preflight "${RECIPE_VIEW}" --target "${RECIPE_NB}"
+          elapsed=$((SECONDS - start))
+          echo "seconds=${elapsed}" >> "${GITHUB_OUTPUT}"
+          echo "## Recipe export CI" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Cold preflight: **${elapsed}s** (empty cache)" >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Save marimo recipe caches
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            demos/recipes/__marimo__
+            .cache/marimo-export-recipes
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'uv.lock') }}
+
+  warm-export:
+    needs: cold-preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python deps
+        run: uv sync --group dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: ./.github/actions/node-modules
+        with:
+          dir: frontend
+
+      - name: Build Landmarks widget bundle
+        run: npm run -s build
+        working-directory: frontend
+
+      - name: Restore marimo recipe caches
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            demos/recipes/__marimo__
+            .cache/marimo-export-recipes
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'uv.lock') }}
+          fail-on-cache-miss: true
+
+      - name: Warm export
+        id: warm
+        run: |
+          start="${SECONDS}"
+          set -o pipefail
+          uv run marimo-studio view export "${RECIPE_VIEW}" --target "${RECIPE_NB}" \
+            --output /tmp/recipe-export/docs --force 2>&1 | tee /tmp/recipe-export.log
+          elapsed=$((SECONDS - start))
+          if ! grep -q "Prepared reused" /tmp/recipe-export.log; then
+            echo "Expected 'Prepared reused' in warm export log" >&2
+            exit 1
+          fi
+          python3 <<'PY'
+          import json, re
+          from pathlib import Path
+          for path in Path("/tmp/recipe-export/docs").rglob("*.cell.json"):
+              d = json.loads(path.read_text())
+              if d.get("cell", {}).get("name") != "landmark_map":
+                  continue
+              m = re.search(r'"active_category"\s*:\s*"([^"]+)"', path.read_text())
+              ac = m.group(1) if m else ""
+              console = d.get("console") or []
+              if ac != "nhood_niche_res=0.5":
+                  raise SystemExit(f"active_category={ac!r}")
+              if console:
+                  raise SystemExit(f"landmark_map console not empty: {console!r}")
+          print("active_category ok, console empty")
+          PY
+          echo "seconds=${elapsed}" >> "${GITHUB_OUTPUT}"
+          echo "Warm export: **${elapsed}s** (\`Prepared reused\`)" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Cold preflight: ${{ needs.cold-preflight.outputs.seconds }}s" >> "${GITHUB_STEP_SUMMARY}"

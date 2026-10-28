@@ -9,6 +9,7 @@ Public GitHub Pages sources for **milume** (landing + Zensical docs).
 | `zensical.toml` | Docs config (`docs_dir = content`, `site_dir = dist`) |
 | `PRODUCT.md` / `DESIGN.landing.md` | Impeccable product + landing design contracts |
 | `scripts/assemble-pages.sh` | Merge landing + Zensical into repo-root `site/` |
+| `docs-redirects.toml` | Retired docs URLs → static redirect stubs under `site/docs/` |
 
 Engineering notes stay in the repo’s top-level `docs/` and are **not** the Zensical tree.
 

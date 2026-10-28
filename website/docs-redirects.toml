@@ -1,0 +1,6 @@
+# Static HTML redirects under site/docs/ after assemble-pages.sh.
+# Epic #339: every retired docs URL maps to its new home.
+# Keys are paths under docs/ (no leading slash). Values are directory URLs under docs/.
+
+[redirects]
+"integrations/squidpy-color" = "recipes/squidpy_color/"

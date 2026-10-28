@@ -10,7 +10,7 @@ Requires Python 3.11+.
 
 Each demo notebook lists its own dependencies in its inline script header, so
 `uvx marimo edit --sandbox demos/landmarks.py` (or opening it on molab) installs
-them for you. The [Squidpy recipes](integrations/squidpy-color.md) also need
+them for you. The [Squidpy recipe](recipes/) also needs
 scanpy, squidpy and leidenalg:
 
 ```bash

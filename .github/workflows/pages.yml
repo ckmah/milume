@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - "website/**"
+      - "demos/recipes/**"
       - "milume/**"
       - ".github/workflows/pages.yml"
       - ".github/actions/**"
@@ -50,6 +51,20 @@ jobs:
         with:
           dir: website
 
+      - uses: ./.github/actions/node-modules
+        with:
+          dir: frontend
+
+      - name: Restore marimo recipe export cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            demos/recipes/__marimo__
+            .cache/marimo-export-recipes
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'uv.lock') }}
+          restore-keys: |
+            recipe-studio-
+
       - name: Assemble landing + docs
         env:
           CF_BEACON_TOKEN: ${{ vars.CF_BEACON_TOKEN }}
@@ -80,6 +95,15 @@ jobs:
       - name: Hero WebGL Playwright
         if: github.event_name == 'pull_request'
         run: cd frontend && npx playwright test --config=playwright.website.config.ts
+
+      - name: Save marimo recipe export cache
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            demos/recipes/__marimo__
+            .cache/marimo-export-recipes
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'uv.lock') }}
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'

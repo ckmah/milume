@@ -40,7 +40,7 @@
 
 ### Docs: Squidpy color recipes
 
-- [Integrations / Squidpy color](https://ckmah.github.io/milume/docs/integrations/squidpy-color/) documents `sq.gr.calculate_niche` → `w.color = nhood_niche_res=<resolution>` and Moran's I top gene → `w.color`, with harness screenshots.
+- [Recipes / Squidpy colour](https://ckmah.github.io/milume/docs/recipes/) documents `sq.gr.calculate_niche` → `w.color = nhood_niche_res=<resolution>` via the marimo studio export; Moran's I remains in the notebook for a follow-up recipe.
 - The [use-milume](skills/use-milume/SKILL.md) skill lists the same recipes; optional pytest coverage lives in `tests/test_squidpy_color_recipes.py` when `squidpy` is installed.
 
 ### Install: polars is no longer a dependency
