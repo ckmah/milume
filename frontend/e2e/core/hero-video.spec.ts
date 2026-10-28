@@ -105,6 +105,21 @@ test.describe("landing hero montage video (#337)", () => {
     expect(frameAfterVis).toBe(frameBefore);
   });
 
+  test("desktop: hero row is vertically centred below the header (#337A)", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await gotoLanding(page);
+    const header = await page.locator(".site-header").boundingBox();
+    const media = await page.locator(".hero-media").boundingBox();
+    expect(header && media).toBeTruthy();
+    if (header && media) {
+      const belowHeaderTop = header.y + header.height;
+      const viewportBottom = 800;
+      const bandCenterY = (belowHeaderTop + viewportBottom) / 2;
+      const mediaCenterY = media.y + media.height / 2;
+      expect(Math.abs(mediaCenterY - bandCenterY)).toBeLessThan(24);
+    }
+  });
+
   test("mobile stack: video first, CTAs on one line; subtitle only in meta", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await gotoLanding(page);

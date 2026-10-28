@@ -383,10 +383,14 @@ code {
 }
 
 @media (min-width: 960px) {
+  /* Centre the two-column row in the space below the header (#337, option A) */
   .hero {
     grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
     column-gap: clamp(2.5rem, 4.5vw, 4.5rem);
     align-items: center;
+    align-content: center;
+    padding-top: 6rem;
+    padding-bottom: 2rem;
   }
 
   .hero-media {
