@@ -4,7 +4,7 @@
 #     "leidenalg>=0.12",
 #     "marimo>=0.25.1",
 #     "marimo-studio==0.4.1",
-#     "milume @ file:///workspace",
+#     "milume",
 #     "scanpy>=1.10",
 #     "squidpy>=1.6"
 # ]
