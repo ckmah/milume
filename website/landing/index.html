@@ -101,9 +101,6 @@
             />
           </p>
           <h1>Explore spatial biology in your notebook.</h1>
-          <p class="lede">
-            Layer images, cells, and transcripts in 3D, in one reactive widget.
-          </p>
           <div class="cta-group">
             <div class="install" role="group" aria-label="Install command">
               <code id="install-cmd">pip install milume</code>
@@ -119,23 +116,28 @@
             >
           </div>
         </div>
+
+        <div class="hero-media" data-state="idle">
+          <video
+            class="hero-media__video"
+            src="assets/milume-montage-web.mp4"
+            poster="assets/hero-video-poster.jpg"
+            preload="metadata"
+            muted
+            playsinline
+            controls
+            width="1280"
+            height="720"
+            aria-label="milume product montage, 43 seconds, no audio"
+          >
+            <track kind="captions" />
+          </video>
+          <button type="button" class="hero-media__play" hidden>
+            <span class="visually-hidden">Play the milume montage (43 s, no audio)</span>
+          </button>
+        </div>
       </section>
 
-      <section class="promo-montage" aria-label="Product montage">
-        <video
-          class="promo-montage__video"
-          src="assets/milume-montage-web.mp4"
-          poster="assets/montage-poster.png"
-          preload="metadata"
-          muted
-          playsinline
-          controls
-          width="1280"
-          height="720"
-        >
-          <track kind="captions" />
-        </video>
-      </section>
     </main>
 
     <footer class="site-footer">
