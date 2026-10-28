@@ -1,25 +1,37 @@
-# Issue #242 / PR #344 gates: cold preflight, warm export cache, measured timings.
+# Issue #242: marimo-studio recipe exports (cold preflight + warm cache).
 name: Recipe studio export
 
 on:
   pull_request:
     paths:
-      - "website/recipes/**"
+      - "demos/recipes/**"
+      - "website/scripts/export-recipes.sh"
+      - "website/scripts/assemble-pages.sh"
       - ".github/workflows/recipe-studio-export.yml"
       - "frontend/**"
       - "milume/**"
       - "pyproject.toml"
       - "uv.lock"
       - "tests/squidpy_color_recipes.py"
+  push:
+    branches:
+      - main
+    paths:
+      - "demos/recipes/**"
+      - "website/scripts/export-recipes.sh"
+      - "website/scripts/assemble-pages.sh"
+      - ".github/workflows/recipe-studio-export.yml"
+      - "pyproject.toml"
+      - "uv.lock"
   workflow_dispatch:
 
 concurrency:
-  group: recipe-studio-export-${{ github.ref }}
+  group: recipe-studio-export-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   MARIMO_EXPORT_REPOSITORY: ${{ github.workspace }}/.cache/marimo-export-recipes
-  RECIPE_NB: website/recipes/squidpy_color_niche.py
+  RECIPE_NB: demos/recipes/squidpy_color.py
   RECIPE_VIEW: docs
 
 jobs:
@@ -52,21 +64,21 @@ jobs:
       - name: Cold preflight (no marimo cache)
         id: cold
         run: |
-          rm -rf website/recipes/__marimo__ "${MARIMO_EXPORT_REPOSITORY}"
+          rm -rf demos/recipes/__marimo__ "${MARIMO_EXPORT_REPOSITORY}"
           start="${SECONDS}"
           uv run marimo-studio view preflight "${RECIPE_VIEW}" --target "${RECIPE_NB}"
           elapsed=$((SECONDS - start))
           echo "seconds=${elapsed}" >> "${GITHUB_OUTPUT}"
-          echo "## Gate 1: cold preflight" >> "${GITHUB_STEP_SUMMARY}"
-          echo "PASS in ${elapsed}s (no \`__marimo__\` / export store)" >> "${GITHUB_STEP_SUMMARY}"
+          echo "## Recipe export CI" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Cold preflight: **${elapsed}s** (empty cache)" >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Save marimo recipe caches
         uses: actions/cache/save@v4
         with:
           path: |
-            website/recipes/__marimo__
+            demos/recipes/__marimo__
             .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('website/recipes/squidpy_color_niche.py', 'uv.lock') }}
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'uv.lock') }}
 
   warm-export:
     needs: cold-preflight
@@ -99,9 +111,9 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
-            website/recipes/__marimo__
+            demos/recipes/__marimo__
             .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('website/recipes/squidpy_color_niche.py', 'uv.lock') }}
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'uv.lock') }}
           fail-on-cache-miss: true
 
       - name: Warm export
@@ -110,15 +122,28 @@ jobs:
           start="${SECONDS}"
           set -o pipefail
           uv run marimo-studio view export "${RECIPE_VIEW}" --target "${RECIPE_NB}" \
-            --output website/recipes/dist-spike/docs --force 2>&1 | tee /tmp/recipe-export.log
+            --output /tmp/recipe-export/docs --force 2>&1 | tee /tmp/recipe-export.log
           elapsed=$((SECONDS - start))
           if ! grep -q "Prepared reused" /tmp/recipe-export.log; then
             echo "Expected 'Prepared reused' in warm export log" >&2
             exit 1
           fi
+          python3 <<'PY'
+          import json, re
+          from pathlib import Path
+          for path in Path("/tmp/recipe-export/docs").rglob("*.cell.json"):
+              d = json.loads(path.read_text())
+              if d.get("cell", {}).get("name") != "landmark_map":
+                  continue
+              m = re.search(r'"active_category"\s*:\s*"([^"]+)"', path.read_text())
+              ac = m.group(1) if m else ""
+              console = d.get("console") or []
+              if ac != "nhood_niche_res=0.5":
+                  raise SystemExit(f"active_category={ac!r}")
+              if console:
+                  raise SystemExit(f"landmark_map console not empty: {console!r}")
+          print("active_category ok, console empty")
+          PY
           echo "seconds=${elapsed}" >> "${GITHUB_OUTPUT}"
-          echo "## Gate 3: warm export" >> "${GITHUB_STEP_SUMMARY}"
-          echo "PASS in ${elapsed}s (\`Prepared reused\` present)" >> "${GITHUB_STEP_SUMMARY}"
-          echo "" >> "${GITHUB_STEP_SUMMARY}"
-          echo "Cold preflight: ${{ needs.cold-preflight.outputs.seconds }}s (job \`cold-preflight\`)" >> "${GITHUB_STEP_SUMMARY}"
-          echo "Warm export: ${elapsed}s (this job)" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Warm export: **${elapsed}s** (\`Prepared reused\`)" >> "${GITHUB_STEP_SUMMARY}"
+          echo "Cold preflight: ${{ needs.cold-preflight.outputs.seconds }}s" >> "${GITHUB_STEP_SUMMARY}"

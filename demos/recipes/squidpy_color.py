@@ -13,9 +13,9 @@
 # runtimes = ["server", "zero-python"]
 #
 # [tool.marimo-studio.cells]
-# cell-1 = {ref = "cell:v1:b43fb1ce723e6ba8b0856f2881cdd133d48db94855bdb057e71e54775dc9b0cf:d7708ec00ead9434feb672ca4ade6025d725970c1aa27aca100ca4c6c1e2aadb:0"}
+# cell-1 = {ref = "cell:v1:19488357f2e4455fe22f9d5a2f1b2aa93fb0fcf286df57a1f96e15631e63e3f6:fbb665947e1c879d3efcffeea20783cda47007adee789e7f33075cc0a56811e8:0"}
 # ///
-"""Squidpy niche color recipe — marimo-studio spike for issue #242."""
+"""Squidpy niche colour recipe for docs (marimo-studio zero-python export)."""
 
 import marimo
 
@@ -33,7 +33,7 @@ def _(mo):
         geometry used in CI (not colon or Pyxa demo slices).
 
         **Open in molab:**
-        [squidpy_color_niche.py](https://molab.marimo.io/github/ckmah/milume/blob/main/website/recipes/squidpy_color_niche.py)
+        [squidpy_color.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py)
 
         > **Static docs view:** this page replays a **prepared** export state (fixed
         > selection and niche colouring). To draw new selections or re-run Squidpy
@@ -95,7 +95,27 @@ def _(adata, milume):
 
 @app.cell
 def landmark_map(adata, run_niche_recipe, w):
-    niche_col = run_niche_recipe(adata, w, "patch")
+    import contextlib
+    import io
+    import logging
+    import warnings
+
+    from scipy.sparse import SparseEfficiencyWarning
+
+    _loggers = [logging.getLogger(name) for name in ("scanpy", "squidpy", "leidenalg", "igraph")]
+    _levels = [lg.level for lg in _loggers]
+    for lg in _loggers:
+        lg.setLevel(logging.ERROR)
+    try:
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=FutureWarning)
+                warnings.simplefilter("ignore", category=SparseEfficiencyWarning)
+                niche_col = run_niche_recipe(adata, w, "patch")
+    finally:
+        for lg, level in zip(_loggers, _levels, strict=True):
+            lg.setLevel(level)
+
     w.color = niche_col
     w
     return (niche_col, w)

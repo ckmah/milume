@@ -58,6 +58,9 @@ rm -rf "${WEBSITE}/dist"
 mkdir -p "${OUT}/docs"
 cp -a "${WEBSITE}/dist/." "${OUT}/docs/"
 
+chmod +x "${WEBSITE}/scripts/export-recipes.sh"
+uv run --directory "${ROOT}" bash "${WEBSITE}/scripts/export-recipes.sh" "${OUT}"
+
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/agent-index.py"
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/check_molab_links.py" "${OUT}"
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/check-agent-md.py" "${OUT}"
