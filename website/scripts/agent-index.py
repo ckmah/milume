@@ -72,7 +72,18 @@ def write_llms(site_root: Path, landing_md: Path, mirrored: list[tuple[str, Path
 
     lines.extend(["", "## Public API (LandmarksWidget)", f"- Full reference: {DOCS}/api/landmarks.md"])
     lines.extend(f"- `{name}`: {doc}" for name, doc in _load_registry().items())
-    lines.extend(["", "## Landing (markdown)", f"- [index.md]({SITE_URL}/index.md)", ""])
+    skill_url = "https://github.com/ckmah/milume/blob/main/skills/use-milume/SKILL.md"
+    lines.extend(
+        [
+            "",
+            "## Agent skill",
+            f"- [use-milume]({skill_url}) — notebook workflows and LandmarksWidget API for coding agents",
+            "",
+            "## Landing (markdown)",
+            f"- [index.md]({SITE_URL}/index.md)",
+            "",
+        ]
+    )
     site_root.joinpath("llms.txt").write_text("\n".join(lines), encoding="utf-8")
 
     full_parts = [landing_text, "", "---", ""]
