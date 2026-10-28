@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import {
-  donutSliceAngles,
-  wobbleDonutSlicePath,
-} from "./info-donut-math.ts";
+import { donutSliceAngles, donutSlicePath } from "./info-donut-math.ts";
 
 test("donutSliceAngles partitions a full circle clockwise from the top", () => {
   const angles = donutSliceAngles(
@@ -18,17 +15,32 @@ test("donutSliceAngles partitions a full circle clockwise from the top", () => {
   assert.equal(angles[1].endDeg, -270);
 });
 
-test("wobbleDonutSlicePath returns a closed path", () => {
-  const d = wobbleDonutSlicePath({
+test("donutSlicePath uses SVG arc commands without polyline wobble", () => {
+  const d = donutSlicePath({
     cx: 100,
     cy: 100,
     innerR: 66,
     outerR: 82,
     startDeg: 90,
     endDeg: 45,
-    sliceKey: "c0",
   });
   assert.match(d, /^M /);
   assert.ok(d.endsWith(" Z"));
-  assert.ok(d.includes(" L "));
+  assert.match(d, /\bA 82 82 0 0 1 /);
+  assert.match(d, /\bA 66 66 0 0 0 /);
+  assert.equal((d.match(/\bL\b/g) ?? []).length, 1);
+});
+
+test("donutSlicePath handles a one-cell slice of two hundred", () => {
+  const [{ startDeg, endDeg }] = donutSliceAngles([{ key: "c0", value: 1 }], 200);
+  const d = donutSlicePath({
+    cx: 100,
+    cy: 100,
+    innerR: 66,
+    outerR: 82,
+    startDeg,
+    endDeg,
+  });
+  assert.ok(d.length > 0);
+  assert.match(d, /\bA 82 82/);
 });
