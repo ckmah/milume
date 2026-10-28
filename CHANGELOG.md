@@ -2,6 +2,10 @@
 
 ## 2.0.1 (unreleased)
 
+### Agent skill: one-line install ([#338](https://github.com/ckmah/milume/issues/338))
+
+- The `use-milume` skill lives at `skills/use-milume/SKILL.md` (not under vendored `.agents/`). `npx skills add ckmah/milume --skill use-milume` installs only that skill; `python -m milume.skill install` copies the version-matched file from the wheel into `.agents/skills/` as `use-milume/SKILL.md`.
+
 ### Genes load on demand, so whole-transcriptome panels open ([#241](https://github.com/ckmah/milume/issues/241))
 
 - `milume.peek(adata)` no longer packs every gene at construct. The widget opens with gene names only, and the browser fetches a gene's normalized sparse column from the kernel the first time it is coloured, then keeps it in an LRU cache (128 MiB). On a 170,057-cell × 18,028-gene matrix at 10% density (Atera WTA breast scale), the kernel's peak extra memory from construct through comm-open drops from about 9.6 GiB (2.0.0, extrapolated from 0.96 GiB and 1.88 GiB measured at 1/10 and 1/5 of the cells) to 77 MiB measured at full scale, and the gene part of the comm-open message drops from about 3.1 GiB to 0.3 MiB. The 2.0.0 path OOM-killed the Jupyter kernel on that dataset.
@@ -37,7 +41,7 @@
 ### Docs: Squidpy color recipes
 
 - [Integrations / Squidpy color](https://ckmah.github.io/milume/docs/integrations/squidpy-color/) documents `sq.gr.calculate_niche` → `w.color = nhood_niche_res=<resolution>` and Moran's I top gene → `w.color`, with harness screenshots.
-- The [use-milume](.agents/skills/use-milume/SKILL.md) skill lists the same recipes; optional pytest coverage lives in `tests/test_squidpy_color_recipes.py` when `squidpy` is installed.
+- The [use-milume](skills/use-milume/SKILL.md) skill lists the same recipes; optional pytest coverage lives in `tests/test_squidpy_color_recipes.py` when `squidpy` is installed.
 
 ### Install: polars is no longer a dependency
 

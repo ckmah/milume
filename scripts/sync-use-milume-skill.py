@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SKILL = ROOT / ".agents" / "skills" / "use-milume" / "SKILL.md"
+SKILL = ROOT / "skills" / "use-milume" / "SKILL.md"
 BLOCK = re.compile(
     r"(<!-- BEGIN GENERATED: _PUBLIC_TRAITS \(scripts/sync-use-milume-skill.py\) -->\n)(.*?)(<!-- END GENERATED -->)",
     re.DOTALL,

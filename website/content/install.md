@@ -51,6 +51,26 @@ w  # display in the notebook
 
 Full walkthrough: [Quickstart](quickstart.md).
 
+## Use with AI agents
+
+Install the [use-milume](https://github.com/ckmah/milume/blob/main/skills/use-milume/SKILL.md) skill so your agent knows LandmarksWidget workflows and the public API:
+
+```bash
+npx skills add ckmah/milume --skill use-milume -a cursor -y
+```
+
+After `pip install milume`, copy the skill that matches your installed version (stdlib only, no Node):
+
+```bash
+python -m milume.skill install
+```
+
+Optional target directory and overwrite:
+
+```bash
+python -m milume.skill install ./.agents/skills --force
+```
+
 ## Next
 
 - [Quickstart](quickstart.md)

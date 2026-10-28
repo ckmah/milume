@@ -56,6 +56,20 @@ uv pip install --compile-bytecode milume
 
 See the [changelog](https://ckmah.github.io/milume/docs/changelog/) for what changed in each release.
 
+### Use with AI agents
+
+```bash
+npx skills add ckmah/milume --skill use-milume -a cursor -y
+```
+
+With milume installed, copy the matching skill from the wheel:
+
+```bash
+python -m milume.skill install
+```
+
+Skill source: [skills/use-milume/SKILL.md](skills/use-milume/SKILL.md).
+
 Contributors: see [AGENTS.md](AGENTS.md) for dev setup.
 
 ### Migrate from spatial-rx
