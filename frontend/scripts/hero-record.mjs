@@ -25,7 +25,7 @@ async function main() {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   await page.goto(`${SITE}/`, { waitUntil: "networkidle" });
   await page.addStyleTag({
-    content: `.hero-veil,.hero-copy,.site-header,.promo-montage{display:none!important}`,
+    content: `.hero-veil,.hero-copy,.site-header,.hero-media{display:none!important}`,
   });
   await page.waitForFunction(() => window.__milumeHeroHandles?.[0]?.setTime);
   const canvas = page.locator(".milume-hero__canvas");
