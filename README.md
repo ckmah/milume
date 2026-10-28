@@ -62,6 +62,13 @@ See the [changelog](https://ckmah.github.io/milume/docs/changelog/) for what cha
 npx skills add ckmah/milume --skill use-milume -a cursor -y
 ```
 
+In Claude Code, add the marketplace once, then install the plugin (only the `use-milume` skill):
+
+```
+/plugin marketplace add ckmah/milume
+/plugin install use-milume@milume
+```
+
 With milume installed, copy the matching skill from the wheel:
 
 ```bash

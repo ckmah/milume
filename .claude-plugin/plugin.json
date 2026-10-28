@@ -1,0 +1,13 @@
+{
+  "name": "use-milume",
+  "version": "2.0.0",
+  "description": "LandmarksWidget notebook workflows and the public milume API for coding agents",
+  "author": {
+    "name": "ckmah",
+    "url": "https://github.com/ckmah"
+  },
+  "repository": "https://github.com/ckmah/milume",
+  "license": "MIT",
+  "keywords": ["milume", "spatial", "jupyter", "landmarks"],
+  "skills": ["./skills/use-milume/"]
+}
