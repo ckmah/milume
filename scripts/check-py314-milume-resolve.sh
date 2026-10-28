@@ -8,11 +8,11 @@ ROOT="$PWD"
 PREFIX="check-py314-milume-resolve"
 
 cleanup() {
-  [[ -n "${wheel_out:-}" && -d "${wheel_out:-}" ]] && rm -rf "$wheel_out"
-  [[ -n "${scratch:-}" && -d "${scratch:-}" ]] && rm -rf "$scratch"
-  [[ -n "${neg_repo:-}" && -d "${neg_repo:-}" ]] && rm -rf "$neg_repo"
-  [[ -n "${neg_wheel_out:-}" && -d "${neg_wheel_out:-}" ]] && rm -rf "$neg_wheel_out"
-  [[ -n "${neg_scratch:-}" && -d "${neg_scratch:-}" ]] && rm -rf "$neg_scratch"
+  if [[ -n "${wheel_out:-}" && -d "${wheel_out:-}" ]]; then rm -rf "$wheel_out"; fi
+  if [[ -n "${scratch:-}" && -d "${scratch:-}" ]]; then rm -rf "$scratch"; fi
+  if [[ -n "${neg_repo:-}" && -d "${neg_repo:-}" ]]; then rm -rf "$neg_repo"; fi
+  if [[ -n "${neg_wheel_out:-}" && -d "${neg_wheel_out:-}" ]]; then rm -rf "$neg_wheel_out"; fi
+  if [[ -n "${neg_scratch:-}" && -d "${neg_scratch:-}" ]]; then rm -rf "$neg_scratch"; fi
 }
 trap cleanup EXIT
 
@@ -58,13 +58,12 @@ EOF
 
 lock_s3fs_version() {
   local lockfile="$1"
-  python3.14 - <<'PY' "$lockfile"
+  python3 - "$lockfile" <<'PY'
 import re
 import sys
 from pathlib import Path
 
 text = Path(sys.argv[1]).read_text()
-# Package table entry for s3fs (not dependency specifiers on other packages).
 m = re.search(r'name = "s3fs"\nversion = "([^"]+)"', text)
 if not m:
     sys.exit("missing s3fs package entry in uv.lock")
@@ -72,19 +71,20 @@ print(m.group(1))
 PY
 }
 
+version_ge() {
+  local got="$1" min="$2"
+  [[ "$(printf '%s\n' "$got" "$min" | sort -V | tail -1)" == "$got" ]]
+}
+
 assert_s3fs_at_floor() {
   local lockfile="$1"
   local got
   got="$(lock_s3fs_version "$lockfile")"
-  python3.14 - <<PY "$got" "$floor"
-import sys
-from packaging.version import Version
-
-got, floor = sys.argv[1], sys.argv[2]
-if Version(got) < Version(floor):
-    sys.exit(f"s3fs {got} < floor {floor}")
-print(got)
-PY
+  if ! version_ge "$got" "$floor"; then
+    echo "$PREFIX: FAIL s3fs $got < floor $floor in $(basename "$lockfile")" >&2
+    exit 1
+  fi
+  printf '%s' "$got"
 }
 
 run_positive_lock() {
@@ -104,7 +104,8 @@ run_positive_lock() {
 run_negative_proof() {
   local whl="$1"
   neg_repo="$(mktemp -d)"
-  rsync -a --exclude .git "$ROOT/" "$neg_repo/"
+  cp -a "$ROOT/." "$neg_repo/"
+  rm -rf "$neg_repo/.git"
   sed -i '/s3fs>=/d' "$neg_repo/pyproject.toml"
   if grep -q 's3fs>=' "$neg_repo/pyproject.toml"; then
     echo "$PREFIX: NEGATIVE PROOF: FAIL could not strip s3fs>= from copied pyproject.toml" >&2
@@ -115,22 +116,18 @@ run_negative_proof() {
   neg_wheel="$(ls "$neg_wheel_out"/*.whl)"
   neg_scratch="$(mktemp -d)"
   write_scratch_pyproject "$neg_scratch" "$neg_wheel"
-  set +e
-  (
+  if (
     cd "$neg_scratch"
     UV_RESOLUTION=lowest uv lock --python 3.14 >&2
-  )
-  neg_status=$?
-  set -e
+  ); then
+    echo "$PREFIX: NEGATIVE PROOF: FAIL UV_RESOLUTION=lowest uv lock succeeded without s3fs floor (expected failure)" >&2
+    exit 1
+  fi
+  echo "$PREFIX: NEGATIVE PROOF: PASS lowest resolution failed without s3fs floor"
   rm -rf "$neg_scratch" "$neg_wheel_out" "$neg_repo"
   neg_scratch=""
   neg_wheel_out=""
   neg_repo=""
-  if [[ "$neg_status" -eq 0 ]]; then
-    echo "$PREFIX: NEGATIVE PROOF: FAIL UV_RESOLUTION=lowest uv lock succeeded without s3fs floor (expected failure)" >&2
-    exit 1
-  fi
-  echo "$PREFIX: NEGATIVE PROOF: PASS lowest resolution failed without s3fs floor (exit $neg_status)"
 }
 
 run_positive_lock "$wheel"
