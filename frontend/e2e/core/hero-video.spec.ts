@@ -105,6 +105,42 @@ test.describe("landing hero montage video (#337)", () => {
     expect(frameAfterVis).toBe(frameBefore);
   });
 
+  test("wide screens: 16px root rem at 1920; scaled cap at 2560 without overflow (#337)", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    await gotoLanding(page);
+    const rootPx1920 = await page.evaluate(() =>
+      parseFloat(getComputedStyle(document.documentElement).fontSize),
+    );
+    expect(rootPx1920).toBeCloseTo(16, 1);
+
+    await page.setViewportSize({ width: 2560, height: 1440 });
+    await gotoLanding(page);
+    const wide = await page.evaluate(() => {
+      const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
+      const header = document.querySelector(".site-header");
+      if (!header) {
+        return { rootPx, innerWidth: 0, scrollWidth: 0, clientWidth: 0 };
+      }
+      const style = getComputedStyle(header);
+      const padL = parseFloat(style.paddingLeft);
+      const padR = parseFloat(style.paddingRight);
+      const innerWidth = header.clientWidth - padL - padR;
+      return {
+        rootPx,
+        innerWidth,
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+      };
+    });
+    expect(wide.rootPx).toBeGreaterThan(rootPx1920);
+    expect(wide.rootPx).toBeCloseTo(2560 / 120, 1);
+    const contentMaxPx = 90.5 * wide.rootPx;
+    expect(wide.innerWidth).toBeCloseTo(contentMaxPx, 0);
+    expect(wide.scrollWidth).toBeLessThanOrEqual(wide.clientWidth + 1);
+  });
+
   test("desktop: hero row is vertically centred below the header (#337A)", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 });
     await gotoLanding(page);

@@ -11,6 +11,10 @@
   --body: "IBM Plex Sans", "Segoe UI", sans-serif;
   --code: "JetBrains Mono", ui-monospace, monospace;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  /* Page container: copy 34rem + max gap 4.5rem + video max 52rem = 90.5rem.
+     Header, hero and footer share these edges; the hero field stays full-bleed. */
+  --content-max: 90.5rem;
+  --page-inset: max(clamp(1.25rem, 4vw, 2.5rem), calc((100% - var(--content-max)) / 2));
   /* #337: local scrim behind the hero video + frame shadow */
   --hero-media-scrim: rgba(10, 14, 18, 0.86);
   --hero-media-scrim-mid: rgba(10, 14, 18, 0.6);
@@ -26,6 +30,10 @@
 
 html {
   scroll-behavior: smooth;
+  /* Large screens: scale every rem together so the 90.5rem container keeps the
+     ~75% share of the viewport it has at 1920px. 16px up to 1920px wide, then
+     viewport / 120 (2560 -> 21.33px, 3840 -> 32px), capped at 200%. */
+  font-size: clamp(100%, 100vw / 120, 200%);
 }
 
 body {
@@ -89,7 +97,7 @@ code {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1.25rem clamp(1.25rem, 4vw, 2.5rem);
+  padding: 1.25rem var(--page-inset);
 }
 
 .wordmark {
@@ -131,7 +139,7 @@ code {
   display: grid;
   align-items: end;
   align-content: end;
-  padding: clamp(5.5rem, 12vh, 7rem) clamp(1.25rem, 4vw, 2.5rem)
+  padding: clamp(5.5rem, 12vh, 7rem) var(--page-inset)
     clamp(2rem, 6vh, 3.5rem);
   overflow: clip;
 }
@@ -280,7 +288,7 @@ code {
 
 .site-footer {
   border-top: 1px solid var(--line);
-  padding: 1.5rem clamp(1.25rem, 4vw, 2.5rem) 2rem;
+  padding: 1.5rem var(--page-inset) 2rem;
   color: var(--fog);
   font-size: 0.95rem;
 }
