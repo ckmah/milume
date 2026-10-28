@@ -48,3 +48,6 @@ jobs:
 
       - if: needs.changes.outputs.ci_uv_build == 'true'
         run: scripts/check-wheel-bundle.sh
+
+      - if: needs.changes.outputs.ci_uv_build == 'true' || needs.changes.outputs.ci_pytest == 'true'
+        run: scripts/check-py314-milume-resolve.sh

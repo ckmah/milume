@@ -131,7 +131,8 @@
       "frontend/vite.config.*",
       "pyproject.toml",
       "uv.lock",
-      "scripts/check-wheel-bundle.sh"
+      "scripts/check-wheel-bundle.sh",
+      "scripts/check-py314-milume-resolve.sh"
     ]
   },
   "legs": {
@@ -212,6 +213,10 @@
         [
           ".",
           "scripts/check-wheel-bundle.sh"
+        ],
+        [
+          ".",
+          "scripts/check-py314-milume-resolve.sh"
         ]
       ]
     },
