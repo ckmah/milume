@@ -1,0 +1,16 @@
+{
+  "name": "milume",
+  "description": "Milume plugins for Claude Code",
+  "owner": {
+    "name": "ckmah",
+    "url": "https://github.com/ckmah"
+  },
+  "plugins": [
+    {
+      "name": "use-milume",
+      "source": ".",
+      "description": "LandmarksWidget notebook workflows and the public milume API for coding agents",
+      "skills": ["./skills/use-milume/"]
+    }
+  ]
+}

@@ -4,7 +4,7 @@
 
 ### Agent skill: one-line install ([#338](https://github.com/ckmah/milume/issues/338))
 
-- The `use-milume` skill lives at `skills/use-milume/SKILL.md` (not under vendored `.agents/`). `npx skills add ckmah/milume --skill use-milume` installs only that skill; `python -m milume.skill install` copies the version-matched file from the wheel into `.agents/skills/` as `use-milume/SKILL.md`.
+- The `use-milume` skill lives at `skills/use-milume/SKILL.md` (not under vendored `.agents/`). `npx skills add ckmah/milume --skill use-milume` installs only that skill; `python -m milume.skill install` copies the version-matched file from the wheel into `.agents/skills/` as `use-milume/SKILL.md`. Claude Code users can add the repo marketplace (`/plugin marketplace add ckmah/milume`) and install `use-milume@milume`; `.claude-plugin/plugin.json` exposes only that skill (not vendored `.agents/skills`). Keep `plugin.json` `version` in sync with `milume.__version__` when releasing.
 
 ### Genes load on demand, so whole-transcriptome panels open ([#241](https://github.com/ckmah/milume/issues/241))
 
