@@ -10,7 +10,7 @@ repo_name = "Star on GitHub"
 docs_dir = "content"
 site_dir = "dist"
 
-extra_css = ["stylesheets/bridge.css", "stylesheets/tools.css"]
+extra_css = ["stylesheets/bridge.css", "stylesheets/tools.css", "stylesheets/recipe-studio.css"]
 extra_javascript = ["javascripts/tools.js"]
 
 nav = [
@@ -19,6 +19,7 @@ nav = [
   { Quickstart = "quickstart.md" },
   { "How-to guides" = [
     "recipes/index.md",
+    { "Squidpy niche colour" = "recipes/squidpy_color/index.md" },
   ] },
   { "Tools & modes" = [
     "tools/index.md",

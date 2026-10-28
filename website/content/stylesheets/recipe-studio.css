@@ -1,0 +1,24 @@
+/* Bridge marimo-studio placed cells to Material / Zensical docs chrome. */
+.milume-recipe-studio-grid {
+  display: grid;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+}
+
+.milume-recipe-studio-grid marimo-cell {
+  --marimo-cell-font: var(--md-text-font, var(--md-default-fg-font, system-ui, sans-serif));
+  --marimo-cell-heading-font: var(--md-text-font, inherit);
+  --marimo-cell-font-size: 1em;
+  --marimo-cell-background: transparent;
+  --marimo-cell-foreground: var(--md-default-fg-color, CanvasText);
+  --marimo-cell-border-color: var(--md-default-fg-color--lighter, color-mix(in srgb, currentColor 18%, transparent));
+  --marimo-cell-accent: var(--md-primary-fg-color, LinkText);
+  --marimo-cell-radius: 0.25rem;
+  --marimo-cell-padding: 0;
+  --marimo-cell-content-width: min(100%, 48rem);
+}
+
+[data-md-color-scheme="slate"] .milume-recipe-studio-grid marimo-cell {
+  --marimo-cell-foreground: var(--md-default-fg-color, #e2e8f0);
+  --marimo-cell-accent: var(--md-primary-fg-color, #5ec4a8);
+}

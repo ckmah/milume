@@ -50,6 +50,9 @@ uv run --directory "${ROOT}" python -m pytest \
   -q
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/sync-api-docs.py"
 
+chmod +x "${WEBSITE}/scripts/export-recipes.sh"
+uv run --directory "${ROOT}" bash "${WEBSITE}/scripts/export-recipes.sh" prepare-for-zensical
+
 rm -rf "${WEBSITE}/dist"
 (
   cd "${WEBSITE}"
@@ -59,7 +62,6 @@ rm -rf "${WEBSITE}/dist"
 mkdir -p "${OUT}/docs"
 cp -a "${WEBSITE}/dist/." "${OUT}/docs/"
 
-chmod +x "${WEBSITE}/scripts/export-recipes.sh"
 uv run --directory "${ROOT}" bash "${WEBSITE}/scripts/export-recipes.sh" "${OUT}"
 
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/docs_redirects.py" "${OUT}"

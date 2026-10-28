@@ -10,5 +10,5 @@ Colour Landmarks from Squidpy neighborhood niches on a masked selection, then as
 
 | | Link |
 | --- | --- |
-| Docs (prepared studio view) | [Open recipe](squidpy_color/index.html) |
+| Docs (prepared studio view) | [Squidpy niche colour](squidpy_color/) |
 | molab (live kernel) | [squidpy_color.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py) |
