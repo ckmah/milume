@@ -1,11 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const SITE = process.env.E2E_SITE_URL ?? "http://127.0.0.1:8765";
 const SUBTITLE =
   "Layer images, cells, and transcripts in 3D, in one reactive widget.";
 
 async function gotoLanding(page: Page) {
-  await page.goto(`${SITE}/`, { waitUntil: "load" });
+  await page.goto("/", { waitUntil: "load" });
 }
 
 async function waitForHeroHandle(page: Page) {
