@@ -11,3 +11,9 @@
     {% include "partials/recipe-studio-" ~ page.meta.recipe_studio ~ "-body.html" %}
   {% endif %}
 {% endblock %}
+{% block scripts %}
+  {{ super() }}
+  {% if page.meta and page.meta.recipe_studio %}
+    <script src="{{ 'javascripts/recipe-studio.js' | url }}"></script>
+  {% endif %}
+{% endblock %}

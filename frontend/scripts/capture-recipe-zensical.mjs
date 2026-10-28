@@ -1,25 +1,20 @@
 #!/usr/bin/env node
-/** Capture integrated recipe page in light and dark (headless Chromium). */
+/** Capture integrated recipe page; optional runtime palette toggle check. */
 import { chromium } from "@playwright/test";
 import { writeFileSync, mkdirSync } from "node:fs";
-import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const outDir = "/opt/cursor/artifacts";
 const pageUrl =
+  process.argv[2] ??
   "http://127.0.0.1:8765/docs/recipes/squidpy_color/index.html";
+const outDir = "/opt/cursor/artifacts";
 
-const report = { url: pageUrl, modes: {} };
-
+const report = { url: pageUrl, modes: {}, toggle: null };
 mkdirSync(outDir, { recursive: true });
+
 const browser = await chromium.launch({ headless: true });
 
-for (const [scheme, label] of [
-  ["default", "light"],
-  ["slate", "dark"],
-]) {
-  const context = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+async function captureMode(scheme, label) {
+  const context = await browser.newContext({ viewport: { width: 1400, height: 960 } });
   const page = await context.newPage();
   const consoleErrors = [];
   page.on("console", (msg) => {
@@ -30,23 +25,46 @@ for (const [scheme, label] of [
     document.body.setAttribute("data-md-color-scheme", s);
     document.documentElement.setAttribute("data-md-color-scheme", s);
   }, scheme);
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(2500);
   await page.locator("canvas").first().waitFor({ state: "visible", timeout: 120_000 });
-  await page.waitForTimeout(2000);
+  await page.waitForTimeout(1500);
   const shot = `${outDir}/recipe-squidpy-zensical-${label}.png`;
   await page.screenshot({ path: shot, fullPage: true });
-  const perf = await page.evaluate(() =>
-    performance.getEntriesByType("resource").reduce((n, e) => n + (e.transferSize || 0), 0),
+  const bg = await page.locator(".milume-recipe-studio-wide marimo-cell").first().evaluate((el) =>
+    getComputedStyle(el).getPropertyValue("--marimo-cell-background").trim(),
   );
-  report.modes[label] = {
-    screenshot: shot,
-    console_errors: consoleErrors,
-    resource_transfer_bytes: perf,
-  };
+  report.modes[label] = { screenshot: shot, console_errors: consoleErrors, cell_background: bg };
+  await context.close();
+}
+
+await captureMode("default", "light");
+await captureMode("slate", "dark");
+
+{
+  const context = await browser.newContext({ viewport: { width: 1400, height: 960 } });
+  const page = await context.newPage();
+  await page.goto(pageUrl, { waitUntil: "networkidle", timeout: 120_000 });
+  await page.locator("canvas").first().waitFor({ state: "visible", timeout: 120_000 });
+  const before = await page.evaluate(
+    () => document.body.getAttribute("data-md-color-scheme") || "default",
+  );
+  await page.evaluate(() => {
+    document.body.setAttribute("data-md-color-scheme", "slate");
+    document.documentElement.setAttribute("data-md-color-scheme", "slate");
+  });
+  await page.waitForTimeout(500);
+  const after = await page.evaluate(
+    () => document.body.getAttribute("data-md-color-scheme") || "default",
+  );
+  const hostScheme = await page.evaluate(
+    () => document.querySelector(".milume-recipe-studio-host")?.dataset.mdColorScheme ?? "",
+  );
+  report.toggle = { before, after, hostScheme };
   await context.close();
 }
 
 await browser.close();
 writeFileSync(`${outDir}/recipe-zensical-capture.json`, JSON.stringify(report, null, 2));
 console.log(JSON.stringify(report, null, 2));
-if (Object.values(report.modes).some((m) => m.console_errors.length)) process.exit(1);
+const bad = Object.values(report.modes).some((m) => m.console_errors.length);
+if (bad) process.exit(1);

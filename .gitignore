@@ -22,6 +22,7 @@ frontend/dev/colon-a2-n*-fixture.json
 frontend/dev/landmarks-volume-fixture.colon.json
 frontend/dev/landmarks-volume/public/colon_a2.sdata.zarr/
 .cache/colon-a2-hf/
+.cache/marimo-export-recipes/
 frontend/dev/data/
 
 # GitHub Pages assemble output (landing + Zensical)
@@ -40,4 +41,5 @@ website/snippets/api-methods.md
 website/content/assets/logo/
 website/landing/assets/logo/
 website/content/recipes/*/_marimo-studio/
+website/content/assets/marimo-studio-zero-python/
 worktrees/
