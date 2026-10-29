@@ -179,6 +179,26 @@ jobs:
       - uses: ./.github/actions/node-modules
       - uses: ./.github/actions/playwright-browser
       - run: npm run test:unit
+      - name: Impeccable design detect (warn-only)
+        if: ${{ env.UPDATE != 'true' }}
+        continue-on-error: true
+        env:
+          IMPECCABLE_NO_TELEMETRY: "1"
+        run: |
+          IMPECCABLE="$GITHUB_WORKSPACE/.cursor/skills/impeccable/scripts/impeccable"
+          "$IMPECCABLE" engine-probe
+          echo "impeccable engine: $($IMPECCABLE engine-probe)"
+          "$IMPECCABLE" detect --github src/widgets || true
+          npm run dev:landmarks -- --host 127.0.0.1 --port 5173 &
+          VITE_PID=$!
+          for i in $(seq 1 90); do
+            curl -sf http://127.0.0.1:5173/ >/dev/null && break
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:5173/ >/dev/null || { echo "design-scan: vite did not start"; kill $VITE_PID 2>/dev/null || true; exit 0; }
+          DESIGN_SCAN_PORT=5173 node scripts/design-scan.mjs --ci || true
+          kill $VITE_PID 2>/dev/null || true
+          echo "Note: primary findings in this step will fail the job after ~2 quiet weeks (issue #376)."
       - name: Run landmarks e2e (default harness)
         if: ${{ env.UPDATE != 'true' }}
         run: npx playwright test e2e/landmarks
