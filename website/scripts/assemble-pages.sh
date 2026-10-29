@@ -48,6 +48,7 @@ uv run --directory "${ROOT}" python -m pytest \
   "${WEBSITE}/scripts/test_cf_beacon.py" \
   "${WEBSITE}/scripts/test_docs_redirects.py" \
   "${WEBSITE}/scripts/test_prepare_recipe_studio.py" \
+  "${WEBSITE}/scripts/test_recipe_widget_esm.py" \
   -q
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/sync-api-docs.py"
 
