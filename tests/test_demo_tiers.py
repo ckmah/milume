@@ -20,7 +20,7 @@ def test_load_tiny_synthetic_adata():
 def test_load_2d_ileum_adata_from_repo():
     adata = demo_tiers.load_2d_ileum_adata()
     assert adata.n_obs > 30_000
-    assert adata.n_vars == 16
+    assert adata.n_vars == 1815
     assert "cell_type" in adata.obs.columns
     assert adata.obsm["spatial"].shape[1] == 2
 
