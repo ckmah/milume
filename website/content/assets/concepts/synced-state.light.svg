@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 420" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="420" viewBox="0 0 880 420" role="img" aria-labelledby="title desc">
   <title id="title">Python, SpatialData on disk, and the widget share synced state</title>
   <desc id="desc">AnnData and SpatialData on the left connect to the map and Inspect cube on the right. Arrows label selections, landmarks, focus, Inspect window fields, gene columns on demand, and image chunks on demand.</desc>
   <defs>
