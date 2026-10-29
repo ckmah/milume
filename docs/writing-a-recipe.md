@@ -61,6 +61,8 @@ Add a **second** `@app.cell(hide_code=True)` / `def _(mo):` / `mo.md(...)` whose
 
 Keep this in its own cell, not folded into cell 1.
 
+molab runs notebooks in marimo **edit** mode. Marimo’s default `runtime.auto_instantiate` is `false`, so a connected kernel does not run cells until the user clicks **Run all**. The milume repo sets `[tool.marimo.runtime] auto_instantiate = true` in the root `pyproject.toml` (PEP 723 script metadata cannot set this; marimo strips it). GitHub-synced molab links pick up that project config.
+
 ### Imports and analysis cells
 
 Follow `squidpy_color.py`: a plain `@app.cell` for imports, then data load, then setup, then a **`landmark_map`** cell that ends with `w` as the last expression so the widget renders in the wide studio column (`prepare_recipe_studio.py` wraps `name="landmark_map"` in `.milume-recipe-studio-wide`).

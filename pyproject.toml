@@ -110,6 +110,13 @@ artifacts = ["milume/static/bundled/*"]
 [tool.hatch.version]
 path = "milume/__init__.py"
 
+# molab opens demos in marimo edit mode. Marimo defaults auto_instantiate to false,
+# so kernels connect without running cells until the user clicks Run all (#361).
+# Notebook PEP 723 metadata cannot set auto_instantiate (marimo strips it); project
+# pyproject.toml is the supported override for GitHub-synced molab notebooks.
+[tool.marimo.runtime]
+auto_instantiate = true
+
 [tool.uv.sources]
 spatialdata-io = { git = "https://github.com/ckmah/spatialdata-io", branch = "pyxa-reader" }
 
