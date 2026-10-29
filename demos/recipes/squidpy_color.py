@@ -30,7 +30,7 @@ def _(mo):
         # Squidpy niche labels
 
         Recolour Landmarks from Squidpy neighborhood niches on the Xu 2026 ileum
-        slice (`demos/data/ileum.h5ad`, 16-gene panel).
+        slice (`demos/data/ileum.h5ad`, 1,815-gene Xu 2026 ileum section).
 
         **Open in molab:**
         [squidpy_color.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py)

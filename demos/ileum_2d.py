@@ -81,7 +81,29 @@ def _(Path, sc, tempfile, urllib):
 
 @app.cell
 def _(adata, milume, mo):
-    w = mo.ui.anywidget(milume.peek(adata, color="cell_type"))
+    # Curated preload for marimo export payload; full catalog loads on demand.
+    demo_genes = [
+        "Apob",
+        "Slc5a1",
+        "Nos2",
+        "Cps1",
+        "Mki67",
+        "Lgr5",
+        "Erbb3",
+        "H2-Eb1",
+        "Acta2",
+        "Col1a1",
+        "Phox2b",
+        "Kit",
+        "Pecam1",
+        "Mzb1",
+        "Cd3e",
+        "Csf1r",
+        "Cxcl13",
+        "Cr2",
+        "Ccr7",
+    ]
+    w = mo.ui.anywidget(milume.peek(adata, color="cell_type", genes=demo_genes))
     return (w,)
 
 

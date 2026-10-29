@@ -22,14 +22,19 @@ with tempfile.NamedTemporaryFile(suffix=".h5ad", delete=False) as tmp:
     adata = sc.read_h5ad(tmp.name)
 ```
 
-**Result:** `adata` is 30,332 cells × 16 genes with `obsm["spatial"]` in micrometres. See the [Datasets](../reference/datasets.md#2d) reference for fields and citation.
+**Result:** `adata` is 30,332 cells × 1,815 genes with `obsm["spatial"]` in micrometres. The notebook preloads a small curated gene list in `milume.peek(..., genes=...)` so the widget export stays within the static payload budget. See the [Datasets](../reference/datasets.md#2d) reference for fields and citation.
 
 ## 2. Open the map on cell types
 
 ```python
 import milume
 
-w = milume.peek(adata, color="cell_type")
+DEMO_GENES = [
+    "Apob", "Slc5a1", "Nos2", "Cps1", "Mki67", "Lgr5", "Erbb3", "H2-Eb1",
+    "Acta2", "Col1a1", "Phox2b", "Kit", "Pecam1", "Mzb1", "Cd3e", "Csf1r",
+    "Cxcl13", "Cr2", "Ccr7",
+]
+w = milume.peek(adata, color="cell_type", genes=DEMO_GENES)
 w
 ```
 

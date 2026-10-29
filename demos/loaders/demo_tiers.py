@@ -108,7 +108,7 @@ def ileum_h5ad_path(*, force_remote: bool = False) -> Path:
 
 
 def load_2d_ileum_adata(*, force_remote: bool = False) -> ad.AnnData:
-    """2D tier Xu 2026 ileum slice (30k cells, 16-gene panel, ``obsm['spatial']``)."""
+    """2D tier Xu 2026 ileum slice (30,332 cells, 1,815 QC genes, ``obsm['spatial']``)."""
     import scanpy as sc
 
     path = ileum_h5ad_path(force_remote=force_remote)

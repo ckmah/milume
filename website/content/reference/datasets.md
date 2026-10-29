@@ -5,7 +5,7 @@ Demo and test datasets by size tier ([#343](https://github.com/ckmah/milume/issu
 | Tier | Dataset | Size | Cells × genes | Modality | Used by | Source / license |
 | --- | --- | --- | --- | --- | --- | --- |
 | tiny | `tests/data` fixtures + HF [`Stellaromics/demo`](https://huggingface.co/datasets/Stellaromics/demo) `xsmall/` | Xenium ovary subsample 1,487,071 B; CosMx synthetic 6,311 B; `xsmall/` 8,277,419 B | 187 × 241 (Pyxa cube) | 2D Xenium outs; synthetic CosMx flat files; 100 µm Pyxa crop | CI, unit/e2e, docs tool stills | 10x example [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); synthetic (repo); Pyxa demo [BSD-3-Clause](https://huggingface.co/datasets/Stellaromics/demo) |
-| 2D | `demos/data/ileum.h5ad` | 1,777,425 B | 30,332 × 16 | 2D MERFISH mouse ileum (one SPF section) | 2D tutorials, recipes, how-to examples | Xu et al. 2026 / Dryad [CC0-1.0](https://doi.org/10.5061/dryad.p5hqbzm0z); in git |
+| 2D | `demos/data/ileum.h5ad` | 5,014,135 B | 30,332 × 1,815 | 2D MERFISH mouse ileum (one SPF section) | 2D tutorials, recipes, how-to examples | Xu et al. 2026 / Dryad [CC0-1.0](https://doi.org/10.5061/dryad.p5hqbzm0z); in git |
 | 3D | HF `Stellaromics/demo` `small/` | 246,930,525 B (no transcript CSV) | 4,372 × 241 | 3D DAPI mosaic + per-z cell outlines (~1310 × 443 × 130 µm) | [Landmarks molab demo](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/landmarks.py), 3D tutorial, Inspect docs | Stellaromics Pyxa demo [BSD-3-Clause](https://huggingface.co/datasets/Stellaromics/demo); left untrimmed on purpose |
 | full | HF `Stellaromics/demo` `colon/` | ~30.2 GB | 492,155 × 1,020 | Human colon region + 3D mosaic | Showcase, perf, streaming work | Glasgow colon run + Stellaromics; [BSD-3-Clause](https://huggingface.co/datasets/Stellaromics/demo); see HF README [Colon attribution](https://huggingface.co/datasets/Stellaromics/demo#colon-attribution) |
 
@@ -19,9 +19,9 @@ Demo and test datasets by size tier ([#343](https://github.com/ckmah/milume/issu
 
 ## 2D
 
-**Fields:** AnnData with authors' log-normalized `X`, `obsm["spatial"]` (µm), `obs` columns `cell_type`, `cell_class`, `anatomical_layer`, `mucosal_pseudospace`, and `uns["cell_type_colors"]`. Sixteen genes from the Dryad 1,922-gene panel.
+**Fields:** AnnData with authors' log-normalized `X` (float32 CSR), `layers['raw_counts']` (int32 CSR), `obsm["spatial"]` (µm), `obs` columns `cell_type`, `cell_class`, `anatomical_layer`, `mucosal_pseudospace`, and `uns["cell_type_colors"]`. **1,815** QC-pass genes for the slice (nnz 920,437; median 26 genes/cell and 48 raw counts/cell over those genes). Source `obs['n_counts']` median 54 refers to the full panel, not this gene subset.
 
-**Load:** `sc.read_h5ad("demos/data/ileum.h5ad")` from a checkout, or fetch the raw file on `main` (molab tutorials use the GitHub raw URL until the tier loader lands). Then `milume.peek(adata, color="cell_type")`. Do not re-normalize: `X` is already log-normalized.
+**Load:** `sc.read_h5ad("demos/data/ileum.h5ad")` from a checkout, or fetch the raw file on `main` (molab tutorials use the GitHub raw URL until the tier loader lands). Then `milume.peek(adata, color="cell_type", genes=[...])` with a short preload list in notebooks so exports stay under the static payload budget; omit `genes` or pass `genes=None` to rely on on-demand loading for all 1,815 names. Do not re-normalize: `X` is already log-normalized.
 
 **Citation:**
 
