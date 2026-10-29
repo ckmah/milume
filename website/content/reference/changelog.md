@@ -31,7 +31,7 @@ traits changed, listed under **Changed**.
 - Pick up to 8 genes. Up to three blend one color channel each, as before.
   Four or more color by one combined value, with **Mean**, **Median**, or
   **Max** under the gene field. See [Color & layers](../reference/ui/color-layers.md#genes).
-- The [Squidpy colour recipe](recipes/) shows how to color
+- The [Squidpy colour recipe](../how-to/recipes/) shows how to color
   the widget by Squidpy niches and by the top Moran's I gene.
 
 **Changed**
