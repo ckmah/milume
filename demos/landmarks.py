@@ -71,9 +71,8 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _(Path):
     import importlib.util
-    from pathlib import Path
 
     _tier_path = Path(__file__).resolve().parent / "loaders" / "demo_tiers.py"
     _spec = importlib.util.spec_from_file_location("_milume_demo_tiers", _tier_path)
