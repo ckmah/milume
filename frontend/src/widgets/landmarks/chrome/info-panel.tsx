@@ -475,7 +475,7 @@ export function InfoPanel({
                   : "Length";
             return (
               <FieldDescription
-                className="m-0 px-1 pb-1 text-[0.6875rem] tabular-nums"
+                className="landmarks__landmark-measure m-0 px-1 pb-1 text-[0.6875rem] tabular-nums"
                 data-testid="landmark-measure"
               >
                 {label}: {formatParam(m.value, "0")}

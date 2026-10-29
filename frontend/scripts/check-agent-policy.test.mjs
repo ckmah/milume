@@ -453,6 +453,11 @@ test("verify wall-clock cap stops a hanging step and names it", async () => {
   assert.equal(verifyTimeoutMs({ MILUME_VERIFY_TIMEOUT_MIN: "0" }), Infinity);
 });
 
+test("check:widget-design-tokens rejects banned slate/cyan literals", () => {
+  const r = run("check-widget-design-tokens.mjs", []);
+  assert.equal(r.status, 0, r.stderr || r.stdout);
+});
+
 test("check:shot-spec: new or re-shot rows need a capture script or N/A: <reason>", () => {
   const row = (cells) =>
     `## Shots\n\n| id | dataset | setup | duration_s | caption | caption_kind | capture | status | owner |\n| --- | --- | --- | --- | --- | --- | --- | --- | --- |\n| ${cells} |\n`;
