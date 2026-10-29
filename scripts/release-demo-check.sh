@@ -24,8 +24,13 @@ WHL=$(ls dist/milume-*.whl)
 
 rm -rf "$VENV" && uv venv -q -p 3.12 "$VENV"
 REQ="$VENV/demo-requirements.txt"
-uv export -q --script "$NB" --no-hashes | grep -v -E '^milume([=@ ]|$)' > "$REQ"
-VIRTUAL_ENV="$VENV" uv pip install -q "$WHL" -r "$REQ"
+TMPNB="$(mktemp "${TMPDIR:-/tmp}/milume-demo-XXXX.py")"
+trap 'rm -f "$TMPNB"' EXIT
+# milume is not on PyPI until the release ships; resolve the notebook's other deps only.
+sed '/^[[:space:]]*#.*"milume/d' "$NB" > "$TMPNB"
+uv export -q --script "$TMPNB" --no-hashes | grep -v -E '^milume([=@ ]|$)' > "$REQ"
+VIRTUAL_ENV="$VENV" uv pip install -q "$WHL"
+VIRTUAL_ENV="$VENV" uv pip install -q -r "$REQ"
 # Run outside the checkout so `import milume` cannot pick up the source tree.
 cd "$VENV"
 "$VENV/bin/python" -c "import milume; print('milume', milume.__version__, 'from', milume.__file__); assert '/site-packages/' in milume.__file__"

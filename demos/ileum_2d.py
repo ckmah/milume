@@ -4,7 +4,7 @@
 #     "marimo>=0.25.1",
 #     "marimo-lens",
 #     "matplotlib>=3.8",
-#     "milume==2.0.0",
+#     "milume==2.1.0",
 #     "scanpy>=1.10",
 # ]
 # ///
@@ -18,7 +18,7 @@ app = marimo.App(width="medium")
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook.
+    > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook. After the server connects, click **Run all** (the ▶ button at the bottom right) to run the notebook.
     """)
     return
 

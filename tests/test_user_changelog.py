@@ -48,6 +48,14 @@ def _package_version() -> str:
 
 def test_package_version_has_a_page_heading():
     version = _package_version()
+    released, unreleased = _changelog_versions()
+    if version in unreleased:
+        assert _page_has_unreleased(), (
+            f"website/content/reference/changelog.md has no '## Unreleased' heading while "
+            f"milume.__version__ is {version!r} (still in CHANGELOG.md as unreleased). "
+            "Update the user changelog Unreleased section (see docs/publishing.md)."
+        )
+        return
     assert version in _page_versions(), (
         f"website/content/reference/changelog.md has no '## {version}' heading for "
         "milume.__version__. Release prep updates the user changelog (see docs/publishing.md)."

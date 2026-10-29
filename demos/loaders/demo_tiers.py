@@ -65,9 +65,13 @@ def load_tiny_synthetic_adata(*, n: int = 120, seed: int = 0) -> ad.AnnData:
 
 
 def _snapshot_pyxa_dir(profile: str) -> Path:
-    pytest = __import__("pytest")
-    pytest.importorskip("huggingface_hub")
-    from huggingface_hub import snapshot_download
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError as e:
+        raise ImportError(
+            "Pyxa demo loaders need huggingface_hub; install it via the notebook "
+            "script header or `uv sync --group demo`."
+        ) from e
 
     return Path(
         snapshot_download(

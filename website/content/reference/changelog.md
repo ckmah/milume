@@ -14,53 +14,45 @@ milume.__version__
 ## Unreleased { #unreleased }
 
 !!! note "Not on PyPI yet"
-    These changes are on the `main` branch. `pip install milume` still gives you
-    2.0.0 until the next release.
+    Version **2.1.0** is on the release branch. `pip install milume` still gives
+    **2.0.0** until the release is published.
 
-Genes load on demand, so whole-transcriptome datasets open, and the install
-is lighter. The public Python API is the same as 2.0.0. Two internal widget
-traits changed, listed under **Changed**.
+Genes load on demand, the install is lighter, and docs follow a Diátaxis layout.
+The public Python API matches 2.0.0. Internal widget traits changed as noted under
+**Changed** and **Removed**.
 
-**New**
+**Added**
 
-- Genes load on demand. `milume.peek(adata)` opens with gene names only and
-  fetches a gene from the kernel the first time you color by it. On a
-  170,057-cell by 18,028-gene matrix, the kernel's extra memory drops from
-  about 9.6 GiB to 77 MiB. 2.0.0 ran the Jupyter kernel out of memory on that
-  data.
-- Pick up to 8 genes. Up to three blend one color channel each, as before.
-  Four or more color by one combined value, with **Mean**, **Median**, or
-  **Max** under the gene field. See [Color & layers](ui/color-layers.md#genes).
-- The [Squidpy colour recipe](../how-to/recipes/) shows how to color
-  the widget by Squidpy niches and by the top Moran's I gene.
+- Genes load on demand with an 8-gene picker (**Mean**, **Median**, or **Max** when
+  four or more genes are active). See [Color & layers](ui/color-layers.md#genes).
+- The [`use-milume`](https://github.com/ckmah/milume/blob/main/skills/use-milume/SKILL.md)
+  skill installs with `npx skills add ckmah/milume --skill use-milume` or
+  `python -m milume.skill install`.
+
+**Fixed**
+
+- The Inspect (**I**) shortcut works when the pointer is over the map.
+- molab demos tell you to click **Run all**.
+- Vertex-only lasso selections show Measure category counts.
+- Escape in the gene picker only closes the popup.
+- Python 3.14 installs no longer fail on an ancient `s3fs` build.
 
 **Changed**
 
-- `genes=[...]` still limits which genes the widget offers, and preloads them
-  when they fit in 64 MiB. A larger list loads on demand and warns with a
-  `UserWarning`.
-- If your code reads `w.gene_columns`, read `w.gene_names` instead. The
-  `gene_format` and `gene_values` traits are gone. These traits are internal
-  and not in the API reference.
-- `pip install milume` no longer installs matplotlib or polars. On Linux with
-  Python 3.12 that is about 280 MB less on disk. If your own code uses either
-  one, install it yourself.
-- `pip install milume` no longer installs leidenalg. The demo notebook and the
-  [Squidpy niche recipe](../how-to/recipes/) call `sc.tl.leiden`,
-  so run `pip install leidenalg` if you follow them.
-- The `milume[demo]` extra is gone. Each demo notebook lists its own
-  dependencies in its script header, so
-  `uvx marimo edit --sandbox demos/landmarks.py` installs them for you. From a
-  checkout, run `uv sync --group demo`.
-- The minimum spatialdata version is 0.7.3, or 0.8.0 on Python 3.12 and later.
-  Older versions fail to import or to write the store that Inspect reads.
-- `import milume` is about 0.3 s faster.
-- The widget's JavaScript bundle is minified, from 5.17 MB to 3.99 MB
-  (1.24 MB gzipped).
-- Coloring a large dataset by a category column is about 3 times faster.
-- In Inspect, the default contrast now reaches the brightest value in the
-  image, so bright tissue no longer clips to white. Pass
-  `contrast_limits=(lo, hi)` to set it yourself, as before.
+- `pip install milume` no longer installs matplotlib, polars, or leidenalg. Install
+  them yourself when your notebooks or recipes need them.
+- Dependency floors for spatialdata, pyarrow, and s3fs; a smaller sdist; a minified
+  widget bundle; and a brighter default Inspect contrast limit.
+- If your code read `w.gene_columns`, use `w.gene_names` instead.
+
+**Removed**
+
+- The `milume[demo]` extra. Use each demo's script header or `uv sync --group demo`.
+- Internal traits `gene_format` and `gene_values` (not part of the public API).
+
+**Docs**
+
+- Recipes, tutorials, Datasets, and Concepts pages under the Diátaxis restructure.
 
 ## 2.0.0 (October 20, 2026) { #v2.0.0 }
 
