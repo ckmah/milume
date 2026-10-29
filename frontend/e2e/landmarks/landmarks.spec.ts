@@ -832,6 +832,15 @@ test.describe("LandmarksWidget", () => {
     expect(await target()).toEqual(t2);
   });
 
+  test("Inspect (I) works with pointer over the map, never clicked", async ({ page }) => {
+    const box = await canvasBox(page);
+    const cx = box.x + box.width * 0.5;
+    const cy = box.y + box.height * 0.5;
+    await page.mouse.move(cx, cy, { steps: 3 });
+    await page.keyboard.press("i");
+    await expect.poll(() => getModel(page, "mode")).toBe("inspect");
+  });
+
   test("landmark panel swatch matches map stroke (id hash, delete, reorder)", async ({
     page,
   }) => {

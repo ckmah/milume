@@ -21,6 +21,12 @@ Interaction modes (Select, Node, Move, Probe) and lasso selection entry update t
   host), not the whole widget: with an outside editor focused, a space typed
   with the pointer over a side panel or the open cube is typed, not swallowed
   (`landmarks.spec.ts` — `"Space pans on the first try: pointer over the map, never clicked"`)
+- Mode shortcuts (e.g. **I** for Inspect) use the same map-hover gate as Space
+  (`pointerArmsMap` in `milume/static/landmarks.js`): pointer over the map
+  without a prior click, and no stealing keys from an outside editor unless
+  the pointer has moved over the map since the last key typed there
+  (`landmarks.spec.ts` — `"Inspect (I) works with pointer over the map, never clicked"`;
+  `landmarks-molab-shadow.spec.ts` — `"Inspect (I) works with pointer over the map before any click"`)
 - Space and Enter press a chrome control that took focus from the keyboard
   (Tab, or a focus move made while the last input was a key), instead of
   panning or finishing a draft; a control focused by a click keeps Space for
