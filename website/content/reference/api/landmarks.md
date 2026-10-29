@@ -1,7 +1,7 @@
 # LandmarksWidget API
 
 Reference for `milume.peek` and the synced widget handle it returns. For a
-walkthrough, see [Quickstart](../quickstart.md).
+walkthrough, see [Quickstart](../../get-started/tutorial-explore-cells-2d.md).
 
 ## `milume.peek`
 

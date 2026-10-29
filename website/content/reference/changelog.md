@@ -30,7 +30,7 @@ traits changed, listed under **Changed**.
   data.
 - Pick up to 8 genes. Up to three blend one color channel each, as before.
   Four or more color by one combined value, with **Mean**, **Median**, or
-  **Max** under the gene field. See [Color & layers](tools/color-layers.md#genes).
+  **Max** under the gene field. See [Color & layers](../reference/ui/color-layers.md#genes).
 - The [Squidpy colour recipe](recipes/) shows how to color
   the widget by Squidpy niches and by the top Moran's I gene.
 
@@ -204,7 +204,7 @@ Xenium and CosMx support, a docs site, and a much richer Inspect cube.
 
 - Load Xenium and CosMx data through spatialdata-io. For CosMx, pass
   `spatial_key="global"`.
-- A [docs site](index.md) with an API reference and
+- A [docs site](../../index.md) with an API reference and
   [`llms.txt`](https://ckmah.github.io/milume/llms.txt) for coding agents.
 - Inspect shows cells as points, colors by gene expression, and cuts cross
   sections. It picks contrast limits from the image and shows labels by

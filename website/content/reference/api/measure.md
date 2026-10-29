@@ -3,8 +3,8 @@
 Quantify landmarks and selections in Python. Every function returns a tidy `pandas.DataFrame` with one row per cell (or per group).
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/measure/hero.dark.png" alt="Left: the widget with one spline landmark and a wide buffer. Right: a histogram of each cell's distance to that landmark." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/measure/hero.light.png" alt="Left: the widget with one spline landmark and a wide buffer. Right: a histogram of each cell's distance to that landmark." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/measure/hero.dark.png" alt="Left: the widget with one spline landmark and a wide buffer. Right: a histogram of each cell's distance to that landmark." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/measure/hero.light.png" alt="Left: the widget with one spline landmark and a wide buffer. Right: a histogram of each cell's distance to that landmark." loading="lazy">
 </figure>
 
 ## Setup
@@ -34,8 +34,8 @@ d[["obs_name", "landmark_id", "group", "distance"]]
 ```
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/measure/plot-distances.dark.png" alt="Histogram of cell counts against distance to the landmark." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/measure/plot-distances.light.png" alt="Histogram of cell counts against distance to the landmark." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/measure/plot-distances.dark.png" alt="Histogram of cell counts against distance to the landmark." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/measure/plot-distances.light.png" alt="Histogram of cell counts against distance to the landmark." loading="lazy">
 </figure>
 
 ## composition
@@ -51,8 +51,8 @@ c.groupby("group")["count"].sum()
 ```
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/measure/plot-composition.dark.png" alt="Horizontal bars of cell counts per group inside the landmark buffer." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/measure/plot-composition.light.png" alt="Horizontal bars of cell counts per group inside the landmark buffer." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/measure/plot-composition.dark.png" alt="Horizontal bars of cell counts per group inside the landmark buffer." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/measure/plot-composition.light.png" alt="Horizontal bars of cell counts per group inside the landmark buffer." loading="lazy">
 </figure>
 
 ## along_positions
@@ -68,8 +68,8 @@ s[["obs_name", "group", "s", "distance"]]
 ```
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/measure/plot-along_positions.dark.png" alt="Histogram of cell counts against position along the landmark, from 0 to 1." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/measure/plot-along_positions.light.png" alt="Histogram of cell counts against position along the landmark, from 0 to 1." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/measure/plot-along_positions.dark.png" alt="Histogram of cell counts against position along the landmark, from 0 to 1." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/measure/plot-along_positions.light.png" alt="Histogram of cell counts against position along the landmark, from 0 to 1." loading="lazy">
 </figure>
 
 ## enrichment
@@ -85,8 +85,8 @@ e[["group", "count", "proportion", "background_proportion", "log2_enrichment"]]
 ```
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/measure/plot-enrichment.dark.png" alt="Horizontal bars of log2 enrichment per group; groups above zero are amber, below zero teal." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/measure/plot-enrichment.light.png" alt="Horizontal bars of log2 enrichment per group; groups above zero are amber, below zero teal." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/measure/plot-enrichment.dark.png" alt="Horizontal bars of log2 enrichment per group; groups above zero are amber, below zero teal." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/measure/plot-enrichment.light.png" alt="Horizontal bars of log2 enrichment per group; groups above zero are amber, below zero teal." loading="lazy">
 </figure>
 
 ## nearest_distances
@@ -102,8 +102,8 @@ n[["obs_name", "group", "seed", "distance_xy", "distance_xyz"]]
 ```
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/measure/plot-nearest_distances.dark.png" alt="Histogram of cell counts against XY distance to the nearest selected cell." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/measure/plot-nearest_distances.light.png" alt="Histogram of cell counts against XY distance to the nearest selected cell." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/measure/plot-nearest_distances.dark.png" alt="Histogram of cell counts against XY distance to the nearest selected cell." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/measure/plot-nearest_distances.light.png" alt="Histogram of cell counts against XY distance to the nearest selected cell." loading="lazy">
 </figure>
 
 ## write_obs
@@ -123,7 +123,7 @@ The new column works like any other `obs` column, for example in `scanpy` plots 
 ## Related
 
 <div class="ml-cards" markdown="0">
-<a class="ml-card" href="landmarks.md"><span class="ml-card__title">Landmarks →</span><span class="ml-card__hint">Durable annotations</span></a>
-<a class="ml-card" href="select-regions.md"><span class="ml-card__title">Select regions →</span><span class="ml-card__hint">Lasso, square, circle</span></a>
+<a class="ml-card" href="../ui/landmarks.md"><span class="ml-card__title">Landmarks →</span><span class="ml-card__hint">Durable annotations</span></a>
+<a class="ml-card" href="../ui/select-regions.md"><span class="ml-card__title">Select regions →</span><span class="ml-card__hint">Lasso, square, circle</span></a>
 <a class="ml-card" href="../api/landmarks.md"><span class="ml-card__title">API reference →</span><span class="ml-card__hint">Traitlets and methods</span></a>
 </div>

@@ -123,7 +123,7 @@ v.inspect_open = False                     # closes the cube and exits Inspect; 
 ## Squidpy: niche and Moran's I
 
 Optional (`pip install squidpy scanpy leidenalg`). Full walkthrough with screenshots:
-[docs/recipes/](https://ckmah.github.io/milume/docs/recipes/).
+[docs/how-to/recipes/](https://ckmah.github.io/milume/docs/how-to/recipes/).
 
 Neighborhood niches on a selection mask, then recolour by the column Squidpy
 writes (`nhood_niche_res=<resolution>`, e.g. `nhood_niche_res=0.5` when

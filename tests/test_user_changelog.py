@@ -7,7 +7,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CHANGELOG = ROOT / "CHANGELOG.md"
-PAGE = ROOT / "website" / "content" / "changelog.md"
+PAGE = ROOT / "website" / "content" / "reference" / "changelog.md"
 INIT = ROOT / "milume" / "__init__.py"
 
 _VERSION_HEADING = re.compile(r"^## (\d+\.\d+\.\d+)\b(.*)$", re.MULTILINE)
@@ -34,7 +34,7 @@ def test_every_released_version_has_a_page_heading():
     released, _ = _changelog_versions()
     missing = sorted(released - _page_versions())
     assert not missing, (
-        f"website/content/changelog.md has no '## X.Y.Z' heading for {missing}. "
+        f"website/content/reference/changelog.md has no '## X.Y.Z' heading for {missing}. "
         "Add a user-facing section for each release (see docs/publishing.md)."
     )
 
@@ -49,7 +49,7 @@ def _package_version() -> str:
 def test_package_version_has_a_page_heading():
     version = _package_version()
     assert version in _page_versions(), (
-        f"website/content/changelog.md has no '## {version}' heading for "
+        f"website/content/reference/changelog.md has no '## {version}' heading for "
         "milume.__version__. Release prep updates the user changelog (see docs/publishing.md)."
     )
 
@@ -58,7 +58,7 @@ def test_unreleased_changes_have_an_unreleased_section():
     _, unreleased = _changelog_versions()
     if unreleased:
         assert _page_has_unreleased(), (
-            "CHANGELOG.md has an unreleased section but website/content/changelog.md "
+            "CHANGELOG.md has an unreleased section but website/content/reference/changelog.md "
             "has no '## Unreleased' heading."
         )
 
@@ -66,7 +66,7 @@ def test_unreleased_changes_have_an_unreleased_section():
 def test_unreleased_versions_are_not_listed_as_released():
     _, unreleased = _changelog_versions()
     early = sorted(unreleased & _page_versions())
-    assert not early, f"website/content/changelog.md lists unreleased {early} as released."
+    assert not early, f"website/content/reference/changelog.md lists unreleased {early} as released."
 
 
 def test_page_is_newest_first():

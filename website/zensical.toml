@@ -15,23 +15,37 @@ extra_javascript = ["javascripts/tools.js"]
 
 nav = [
   { Home = "index.md" },
-  { Install = "install.md" },
-  { Quickstart = "quickstart.md" },
+  { "Get started" = [
+    { Install = "get-started/install.md" },
+    { "Tutorial: explore cells in 2D" = "get-started/tutorial-explore-cells-2d.md" },
+    { "Tutorial: 3D with SpatialData" = "get-started/tutorial-spatialdata-3d.md" },
+  ] },
   { "How-to guides" = [
-    "recipes/index.md",
+    { "Recipes gallery" = "how-to/recipes/index.md" },
+    { "Load AnnData / SpatialData" = "how-to/load-anndata-spatialdata.md" },
+    { "Use selections downstream" = "how-to/use-selections-downstream.md" },
+    { "Draw and export landmarks" = "how-to/draw-export-landmarks.md" },
+    { "Match plot colors (squidpy)" = "how-to/match-plot-colors-squidpy.md" },
+    { "Use with AI agents" = "how-to/use-with-ai-agents.md" },
   ] },
-  { "Tools & modes" = [
-    "tools/index.md",
-    { Navigate = "tools/navigate.md" },
-    { "Select regions" = "tools/select-regions.md" },
-    { Landmarks = "tools/landmarks.md" },
-    { "Color & layers" = "tools/color-layers.md" },
-    { "Inspect in 3D" = "tools/inspect-3d.md" },
-    { Probe = "tools/probe.md" },
-    { Measure = "tools/measure.md" },
+  { Reference = [
+    { "Python API" = [
+      { peek = "reference/api/peek.md" },
+      { LandmarksWidget = "reference/api/landmarks.md" },
+      { Measure = "reference/api/measure.md" },
+    ] },
+    { "Widget UI" = [
+      "reference/ui/index.md",
+      { Navigate = "reference/ui/navigate.md" },
+      { "Select regions" = "reference/ui/select-regions.md" },
+      { Landmarks = "reference/ui/landmarks.md" },
+      { "Color & layers" = "reference/ui/color-layers.md" },
+      { "Inspect in 3D" = "reference/ui/inspect-3d.md" },
+      { Probe = "reference/ui/probe.md" },
+    ] },
+    { "Keyboard shortcuts" = "reference/keyboard-shortcuts.md" },
+    { Changelog = "reference/changelog.md" },
   ] },
-  { "API — LandmarksWidget" = "api/landmarks.md" },
-  { Changelog = "changelog.md" },
 ]
 
 [project.extra]

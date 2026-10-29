@@ -22,11 +22,11 @@ RECIPES=(
   npm run -s build
 )
 
-mkdir -p "${OUT}/docs/recipes"
+mkdir -p "${OUT}/docs/how-to/recipes"
 
 for slug in "${RECIPES[@]}"; do
   nb="${ROOT}/demos/recipes/${slug}.py"
-  dest="${OUT}/docs/recipes/${slug}"
+  dest="${OUT}/docs/how-to/recipes/${slug}"
   rm -rf "${dest}"
   echo "export-recipes: ${slug} -> ${dest}"
   uv run --directory "${ROOT}" marimo-studio view export docs \

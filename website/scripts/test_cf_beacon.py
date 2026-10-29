@@ -75,7 +75,7 @@ def test_zensical_build_beacon_absent_without_token(
         shutil.rmtree(WEBSITE / "dist")
     dist = _zensical_build()
     landing_html = (dist / "index.html").read_text(encoding="utf-8")
-    install_html = (dist / "install" / "index.html").read_text(encoding="utf-8")
+    install_html = (dist / "get-started" / "install" / "index.html").read_text(encoding="utf-8")
     assert BEACON_SRC not in landing_html
     assert BEACON_SRC not in install_html
 
@@ -91,7 +91,7 @@ def test_zensical_build_beacon_once_with_token(
         shutil.rmtree(WEBSITE / "dist")
     dist = _zensical_build()
     landing_html = (dist / "index.html").read_text(encoding="utf-8")
-    install_html = (dist / "install" / "index.html").read_text(encoding="utf-8")
+    install_html = (dist / "get-started" / "install" / "index.html").read_text(encoding="utf-8")
     assert landing_html.count(BEACON_SRC) == 1
     assert install_html.count(BEACON_SRC) == 1
     assert token in landing_html
