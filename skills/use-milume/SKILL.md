@@ -125,6 +125,8 @@ v.inspect_open = False                     # closes the cube and exits Inspect; 
 Optional (`pip install squidpy scanpy leidenalg`). Full walkthrough with screenshots:
 [docs/recipes/](https://ckmah.github.io/milume/docs/recipes/).
 
+Contributors adding a recipe: [Writing a recipe](https://github.com/ckmah/milume/blob/main/docs/writing-a-recipe.md) (dev doc, not in the public nav).
+
 Neighborhood niches on a selection mask, then recolour by the column Squidpy
 writes (`nhood_niche_res=<resolution>`, e.g. `nhood_niche_res=0.5` when
 `resolutions=0.5`):
