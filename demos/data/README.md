@@ -1,6 +1,7 @@
 # Demo data (ileum AnnData)
 
-2D demos and recipes load the SPF ileum panel from `demos/data/ileum.h5ad` in this
+2D demos and recipes load the SPF ileum panel via ``demos/loaders/demo_tiers.py`` (``load_2d_ileum_adata()``)
+from `demos/data/ileum.h5ad` in this
 repository (Xu et al. 2026, Dryad [10.5061/dryad.p5hqbzm0z](https://doi.org/10.5061/dryad.p5hqbzm0z),
 CC0-1.0).
 

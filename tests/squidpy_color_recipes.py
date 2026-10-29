@@ -86,12 +86,10 @@ def synthetic_recipe_adata(n: int = 120, seed: int = 0):
 
 
 def docs_recipe_adata():
-    """Xu 2026 ileum slice (``demos/data/ileum.h5ad``) for the docs recipe export."""
-    import scanpy as sc
+    """Xu 2026 ileum slice (2D tier) for the docs recipe export."""
+    from demos.loaders.demo_tiers import load_2d_ileum_adata
 
-    if not ILEUM_H5AD.is_file():
-        raise FileNotFoundError(f"missing docs recipe data: {ILEUM_H5AD}")
-    return sc.read_h5ad(ILEUM_H5AD)
+    return load_2d_ileum_adata()
 
 
 def docs_recipe_patch_selection(adata: ad.AnnData) -> dict[str, float | str]:

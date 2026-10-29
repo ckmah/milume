@@ -35,8 +35,6 @@ def _():
     import marimo as mo
     import scanpy as sc
     import spatialdata as sd
-    from huggingface_hub import snapshot_download
-    from spatialdata_io.experimental import pyxa
 
     from milume import landmarks_to_geodataframe, peek
 
@@ -45,10 +43,8 @@ def _():
         landmarks_to_geodataframe,
         mo,
         peek,
-        pyxa,
         sc,
         sd,
-        snapshot_download,
         tempfile,
     )
 
@@ -75,20 +71,17 @@ def _(mo):
 
 
 @app.cell
-def _(Path, pyxa, snapshot_download):
-    # Pyxa output: counts, cell metadata (µm) and the zipped OME-Zarr DAPI mosaic.
-    data_dir = (
-        Path(
-            snapshot_download(
-                "Stellaromics/demo",
-                repo_type="dataset",
-                allow_patterns="small/*",
-                ignore_patterns="*cell_assigned_gene*",  # transcripts: not needed here
-            )
-        )
-        / "small"
-    )
-    pyxa_sdata = pyxa(data_dir, cell_assigned_gene=False)
+def _():
+    import importlib.util
+    from pathlib import Path
+
+    _tier_path = Path(__file__).resolve().parent / "loaders" / "demo_tiers.py"
+    _spec = importlib.util.spec_from_file_location("_milume_demo_tiers", _tier_path)
+    _tiers = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_tiers)
+
+    # 3D tier: Stellaromics/demo small/ (counts, metadata µm, DAPI mosaic).
+    pyxa_sdata = _tiers.load_3d_small_pyxa()
     return (pyxa_sdata,)
 
 

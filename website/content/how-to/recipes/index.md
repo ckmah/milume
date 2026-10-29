@@ -2,7 +2,7 @@
 
 Each recipe is one [marimo](https://marimo.io) notebook under `demos/recipes/`. The docs site serves a **prepared** studio export (fixed widget state). Draw new selections or re-run analysis in **molab**.
 
-Needs the same optional packages as the demos (`squidpy`, `scanpy`, `leidenalg` where noted). Recipes use the synthetic harness geometry from CI until real demo data lands ([#343](https://github.com/ckmah/milume/issues/343)).
+Needs the same optional packages as the demos (`squidpy`, `scanpy`, `leidenalg` where noted). 2D recipes use the **ileum** tier (`load_2d_ileum_adata()` in `demos/loaders/demo_tiers.py`; see [#343](https://github.com/ckmah/milume/issues/343)).
 
 ## Squidpy niche colour
 
