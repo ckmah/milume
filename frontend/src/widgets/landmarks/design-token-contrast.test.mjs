@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { BANNED_WIDGET_COLOR_LITERALS } from "../../scripts/check-widget-design-tokens.mjs";
-import { contrastRatio } from "../../scripts/lib/wcag-contrast.mjs";
+import { BANNED_WIDGET_COLOR_LITERALS } from "../../../scripts/check-widget-design-tokens.mjs";
+import { contrastRatio } from "../../../scripts/lib/wcag-contrast.mjs";
 
 test("banned token list covers Tailwind slate and cyan fallback", () => {
   for (const hex of [
