@@ -78,7 +78,7 @@ Suppress noisy stdout/stderr in the export path when you call scanpy/squidpy (se
 | 2D recipes | Xu 2026 ileum slice | `demos/data/ileum.h5ad` |
 | 3D recipes | Trimmed mouse-brain **`small`** volume | HF `Stellaromics/demo` `small` (same identity as landmarks demo; do not attach colon IDs) |
 
-Shared helpers live in `tests/squidpy_color_recipes.py` (`docs_recipe_adata`, `docs_recipe_patch_selection`, …). Recipes may import them; they are not part of the public API.
+Shared helpers live in `tests/squidpy_color_recipes.py` and tier loaders in `demos/loaders/demo_tiers.py` (`load_2d_ileum_adata`, `load_3d_small_pyxa`, …). Recipes may import them; they are not part of the public API.
 
 **Never call `sc.pp.normalize_total`.** It inflates prepared state and breaks comparability with CI fixtures.
 
@@ -201,7 +201,14 @@ def _():
     import milume
     import scanpy as sc
 
-    from tests.squidpy_color_recipes import docs_recipe_adata
+    import importlib.util
+    from pathlib import Path
+
+    _helpers_path = Path(__file__).resolve().parent / "squidpy_color_helpers.py"
+    _spec = importlib.util.spec_from_file_location("_squidpy_color_helpers", _helpers_path)
+    _helpers = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_helpers)
+    docs_recipe_adata = _helpers.docs_recipe_adata
 
     return docs_recipe_adata, milume, mo, sc
 

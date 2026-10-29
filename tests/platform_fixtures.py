@@ -30,22 +30,11 @@ def read_cosmx():
 
 
 def read_pyxa(profile: str):
-    """Stellaromics/demo Pyxa slice (``xsmall`` or ``small``) via Hugging Face."""
-    pytest.importorskip("huggingface_hub")
-    from pathlib import Path
+    """Stellaromics/demo Pyxa slice (``xsmall`` or ``small``) via demo tier loader."""
+    from demos.loaders import demo_tiers
 
-    from huggingface_hub import snapshot_download
-    from spatialdata_io.experimental import pyxa
-
-    data_dir = (
-        Path(
-            snapshot_download(
-                "Stellaromics/demo",
-                repo_type="dataset",
-                allow_patterns=f"{profile}/*",
-                ignore_patterns="*cell_assigned_gene*",
-            )
-        )
-        / profile
-    )
-    return pyxa(data_dir, cell_assigned_gene=False)
+    if profile == "xsmall":
+        return demo_tiers.load_tiny_xsmall_pyxa(labels=False)
+    if profile == "small":
+        return demo_tiers.load_3d_small_pyxa(labels=False)
+    raise ValueError(f"unknown pyxa profile {profile!r}")

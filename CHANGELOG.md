@@ -43,6 +43,7 @@
 
 - [Recipes / Squidpy colour](https://ckmah.github.io/milume/docs/recipes/) documents `sq.gr.calculate_niche` → `w.color = nhood_niche_res=<resolution>` via the marimo studio export; Moran's I remains in the notebook for a follow-up recipe.
 - The static recipe export loads **`demos/data/ileum.h5ad`** (Xu et al. 2026, CC0-1.0 on Dryad; regen via `demos/data/export_from_raw.py` and notes under `demos/data/xu2026/`). Part of the demo-dataset tier work in ([#343](https://github.com/ckmah/milume/issues/343)).
+- **`demos/loaders/demo_tiers.py`** documents one loader call per demo tier (tiny synthetic / HF `xsmall`, 2D ileum, 3D HF `small`, local colon) for notebooks, recipes, and tests; molab loads ileum from the raw GitHub URL when the repo file is absent. Part of ([#343](https://github.com/ckmah/milume/issues/343)).
 - The [use-milume](skills/use-milume/SKILL.md) skill lists the same recipes; optional pytest coverage lives in `tests/test_squidpy_color_recipes.py` when `squidpy` is installed.
 
 ### Install: polars is no longer a dependency
