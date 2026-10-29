@@ -32,6 +32,7 @@ export_one() {
   uv run --directory "${ROOT}" marimo-studio view export docs \
     --target "${nb}" \
     --output "${out}" \
+    --prepare-timeout 600 \
     --force
 }
 
