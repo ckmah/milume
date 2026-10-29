@@ -124,9 +124,20 @@ def _save_distances(path: Path, theme: dict, df: pd.DataFrame) -> None:
     plt.close(fig)
 
 
+def _composition_bar_counts(df: pd.DataFrame, *, top_n: int = 15) -> pd.Series:
+    """Top groups by count; fold the rest into Other so y labels stay readable."""
+    totals = df.groupby("group")["count"].sum().sort_values(ascending=False)
+    if len(totals) <= top_n:
+        return totals.sort_values(ascending=True)
+    head = totals.iloc[:top_n]
+    other = totals.iloc[top_n:].sum()
+    merged = pd.concat([head, pd.Series({"Other": other})])
+    return merged.sort_values(ascending=True)
+
+
 def _save_composition(path: Path, theme: dict, df: pd.DataFrame) -> None:
     _style(theme)
-    counts = df.groupby("group")["count"].sum().sort_values(ascending=True)
+    counts = _composition_bar_counts(df)
     fig, ax = plt.subplots(figsize=(5.2, 4.2), dpi=160)
     ax.barh(counts.index.astype(str), counts.values, color=theme["bar"])
     ax.set_xlabel("Cell count")
