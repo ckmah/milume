@@ -32,7 +32,7 @@ function cellJsonBudgetSplit(text) {
   for (const [key, val] of Object.entries(json.resources?.files ?? {})) {
     if (typeof val !== "string") continue;
     const n = enc(val);
-    if (key.includes("anywidget") || val.startsWith("data:text/javascript")) {
+    if (val.startsWith("data:") && (key.includes("anywidget") || val.startsWith("data:text/javascript"))) {
       widgetJs += n;
     } else {
       data += n;
@@ -76,6 +76,7 @@ function entryBytes(entry) {
 
 function baseCategory(url) {
   if (url.startsWith("blob:")) return "widget_js";
+  if (url.includes("/assets/recipe-widgets/") && url.endsWith(".mjs")) return "widget_js";
   if (url.includes(".cell.json")) return "cell_json";
   if (
     url.includes("marimo-studio-zero-python") ||
