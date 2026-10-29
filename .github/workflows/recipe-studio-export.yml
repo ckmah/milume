@@ -66,7 +66,8 @@ jobs:
         run: |
           rm -rf demos/recipes/__marimo__ "${MARIMO_EXPORT_REPOSITORY}"
           start="${SECONDS}"
-          uv run marimo-studio view preflight "${RECIPE_VIEW}" --target "${RECIPE_NB}"
+          uv run marimo-studio view preflight "${RECIPE_VIEW}" --target "${RECIPE_NB}" \
+            --prepare-timeout 600
           elapsed=$((SECONDS - start))
           echo "seconds=${elapsed}" >> "${GITHUB_OUTPUT}"
           echo "## Recipe export CI" >> "${GITHUB_STEP_SUMMARY}"
@@ -78,7 +79,7 @@ jobs:
           path: |
             demos/recipes/__marimo__
             .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'website/scripts/export-recipes.sh', 'uv.lock') }}
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/data/ileum.h5ad', 'website/scripts/export-recipes.sh', 'uv.lock') }}
 
   warm-export:
     needs: cold-preflight
@@ -113,7 +114,7 @@ jobs:
           path: |
             demos/recipes/__marimo__
             .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'website/scripts/export-recipes.sh', 'uv.lock') }}
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/data/ileum.h5ad', 'website/scripts/export-recipes.sh', 'uv.lock') }}
           fail-on-cache-miss: true
 
       - name: Warm export
@@ -122,7 +123,7 @@ jobs:
           start="${SECONDS}"
           set -o pipefail
           uv run marimo-studio view export "${RECIPE_VIEW}" --target "${RECIPE_NB}" \
-            --output /tmp/recipe-export/docs --force 2>&1 | tee /tmp/recipe-export.log
+            --output /tmp/recipe-export/docs --prepare-timeout 600 --force 2>&1 | tee /tmp/recipe-export.log
           elapsed=$((SECONDS - start))
           if ! grep -qE "Prepared (reused|committed)" /tmp/recipe-export.log; then
             echo "Expected 'Prepared reused' or 'Prepared committed' in warm export log" >&2

@@ -10,6 +10,8 @@ build/
 .ruff_cache/
 demos/__marimo__/
 demos/*.lock
+# Accidental root dumps from local ileum exports (tracked file: demos/data/ileum.h5ad).
+/ileum.h5ad
 frontend/node_modules/
 website/node_modules/
 website/dist/
@@ -22,6 +24,7 @@ frontend/dev/colon-a2-n*-fixture.json
 frontend/dev/landmarks-volume-fixture.colon.json
 frontend/dev/landmarks-volume/public/colon_a2.sdata.zarr/
 .cache/colon-a2-hf/
+.cache/marimo-export-recipes/
 frontend/dev/data/
 
 # GitHub Pages assemble output (landing + Zensical)
@@ -39,4 +42,6 @@ website/snippets/api-geodataframe.md
 website/snippets/api-methods.md
 website/content/assets/logo/
 website/landing/assets/logo/
+website/content/how-to/recipes/*/_marimo-studio/
+website/content/assets/marimo-studio-zero-python/
 worktrees/
