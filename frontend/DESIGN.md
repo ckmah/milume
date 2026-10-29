@@ -38,6 +38,11 @@ colors:
   dark-muted-foreground: "#999999"
   dark-primary: "#ffffff"
   destructive: "oklch(0.577 0.245 27.325)"
+  plot-bg-dark: "#141414"
+  plot-bg-light: "#e8e8e8"
+  plot-bg-image: "#000000"
+  lajolla-low: "#191900"
+  lajolla-high: "#fffecb"
 typography:
   ui:
     fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
@@ -65,16 +70,29 @@ typography:
     fontSize: "0.6875rem"
     fontWeight: 500
     lineHeight: 1.3
+  control:
+    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    fontSize: "0.75rem"
+    fontWeight: 500
+    lineHeight: 1.3
+  ruler-tick:
+    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, sans-serif"
+    fontSize: "9px"
+    fontWeight: 400
+    lineHeight: 1
 rounded:
   widget: "0.75rem"
   panel: "0.875rem"
   control: "0.5rem"
   pill: "9999px"
   legend: "0.25rem"
+  legend-bar: "2px"
 spacing:
   panel: "0.5rem"
   panel-inset: "0.625rem"
-  chrome-gap: "0.625rem"
+  chrome-inset: "0.5rem"
+  chrome-gap: "0.25rem"
+  chrome-band: "3.75rem"
   toolbar: "0.25rem"
 components:
   button-default:
@@ -115,6 +133,8 @@ components:
 
 milume widgets keep the plot as the specimen and float shadcn chrome above it. Surfaces are Framer-style achromatic neutrals (no blue tint). Docks, sheets, and toolbars share one translucent glass float material (`landmarks-float` + `--lm-float-*` tokens) so the tissue stays visible underneath. A centered icon pill carries draw modes, zoom, and fullscreen. Chrome stays compact in notebook cells; below 640px the layers and info panels stack in one top-left dock (no side rail).
 
+The surface is Operate: the data and the tools lead, and visualization controls are secondary because the defaults are good. A control that only tunes the picture earns a place on screen only when the default cannot be right for most datasets.
+
 **Key Characteristics:**
 
 - Framer neutrals: white / `#111` light; `#000` / `#111` / `#171` / `#242` dark
@@ -123,6 +143,8 @@ milume widgets keep the plot as the specimen and float shadcn chrome above it. S
 - Merged right **Controls** dock (Style, Stats, Neighbors, Landmark)
 - Narrow ≤640px: one top-left stack (Layers + Info); no side rail or right dock; minimap hidden
 - Saturated color reserved for canvas data (landmarks, genes, categories)
+- Canvas ground follows the image: black while an image layer is visible, neutral grey otherwise
+- One section open per panel: each dock is an accordion with at most one expanded section; left and right panels can be open together when space allows; a minimise mode folds chrome without moving anything (minimise mode is **target**, not shipped yet)
 
 ## Colors
 
@@ -145,13 +167,21 @@ and embedding. Composition bins use majority cell-type colors from the point
 palette. Similarity scrubbing uses blue→light→magenta. Selections stay
 Framer-neutral greys.
 
+### Plot ground
+
+- No image visible: `--lm-bg` (`#141414` dark, `#e8e8e8` light).
+- An image layer visible and loaded: the plot clears to `--lm-plot-bg-image` (`#000000`, both themes), so the image rectangle has no seam against the canvas. Only the plot stack swaps (`--lm-plot-bg`); halos and chip fills keep `--lm-bg`.
+- On the black ground, dark-theme floats add a 1px light ring (white 9%) so they still separate; light-theme floats do not need it.
+
 ### Named Rules
+
+**The Image Sets the Ground Rule.** When an image is shown the canvas matches the image's black; chrome never draws a grey frame around tissue.
 
 **The Data Owns Saturation Rule.** Neon hues appear on canvas entities and layer swatches — not on panel fills.
 
 **The Scoped Widget Rule.** Never set `:root` theme tokens globally. Tokens live under `.milume-widget` / `.milume-widget.dark`.
 
-**The Framer Neutral Rule.** Chrome stays achromatic; no blue-tinted OKLCH greys in widget tokens.
+**The Framer Neutral Rule.** Chrome stays achromatic; no blue-tinted OKLCH greys in widget tokens. Known debt: the canvas-overlay tokens `--lm-border`, `--lm-text`, `--lm-text-muted` and `--lm-tooltip-*` still carry Tailwind slate values (`#e2e8f0`, `#1e293b`, `#64748b`, `#94a3b8`, `#0f172a`), and the frontmatter's `plot-border-light` / `plot-text-muted` record them. Migrate them to neutrals, then drop the slate entries here. Same for the WebGL-error overlay (`#fca5a5` on slate `rgba(15,23,42,.92)`), which should use `destructive` on `dark-popover`.
 
 ## Typography
 
@@ -164,18 +194,25 @@ Framer-neutral greys.
 - **Panel title** (600, 0.8125rem): Layers, Controls
 - **Section trigger** (600, 0.6875rem, muted → foreground when open): accordion headers
 - **Field label / slider value** (500, 0.6875rem): compact instrument rows
+- **Control text** (500, 0.75rem): toolbar text hits, Inspect pill labels, tabular counters in toolbars
 - **Canvas legend** (400, 0.625rem): in-plot only
+- **Ruler tick** (400, 9px, line-height 1): canvas rulers only. Below the UI floor on purpose: ticks are measurement marks, not readable UI text. The legend overflow badge (`+N`) uses `label`, not 9px
 
 ## Layout
 
 - Shell height default 550px (400–1400); plot fills figure under floating chrome
-- Shared chrome scale on `.landmarks`: `--lm-space-*` (4px base), `--lm-chrome-inset`, `--lm-chrome-gap`, `--lm-chrome-band` (3.25rem), `--lm-dock-width` (14rem / 15rem fullscreen)
+- Shared chrome scale on `.landmarks`: `--lm-space-*` (4px base), `--lm-chrome-inset` (0.5rem), `--lm-chrome-gap` (0.25rem), `--lm-chrome-band` (3.75rem), `--lm-dock-width` (14rem / 15rem fullscreen)
 - Tool pill (`landmarks__chrome-tools`): reserved top band, centered — docks start below band + gap
 - Wide: left Layers (Selections, Landmarks) + right Explore (View / Color by) and Info (`landmarks__chrome-dock--*`); max-height accounts for band
 - Narrow (`landmarks--narrow`, width < 640px): Info then Explore then Layers in one top-left stack; no side rail, right dock, or minimap
 - Wide left dock: Layers fills remaining height and scrolls inside the card (multi-open accordion; no nested list max-heights)
 - Narrow stack: Info capped (~45%), Layers flex-fills and scrolls
 - Zoom lives in the top tool pill (in / out / reset), not a separate bottom cluster
+- **Panel budget (wide).** Fixed-size chrome; panels do not grow with the viewport. Each dock's max height subtracts the tool band, the rulers band, and the minimap / depth rail in its corner, so no two chrome boxes ever overlap at 960×720, 1280×800 or 1440×900. A census of chrome boxes (tools, view cluster, docks, minimap, rail, popovers, Inspect preview) must report 0 overlaps and 0 offscreen (**target** for automated census in `design-scan`; warn-only in CI today)
+- **One section open per panel.** Each dock is an accordion with at most one expanded section: opening Layers in the left card folds Selections or Landmarks, and opening a legend in the right card folds any other right-card section. The left and right panels are independent, so both can be open at once when the panel budgets allow (both are at 960×720 and up). Opening a section never closes the other panel (**target** behaviour; accordions are not fully exclusive in code yet)
+- **Data card legend and summary bar (target).** While a category legend is open, the donut becomes a **summary bar**: the summary line ("358,173 cells · 21 categories ⌄") over a 24px stacked bar with the donut's slices in the same order, colours and proportions, separated by 1px gaps. Both are pinned above the legend; the chevron brings the full donut back. Fallback: keep the bar while the legend still shows at least min(8, categories) entries under the filter, with the rest scrolling inside the card. Otherwise drop the bar and keep only the summary line. Measured: the bar stays at 1280×800 (18 of 21 visible) and 960×720 (14 of 21), and falls back at 960×600 (6 < 8). Filter pinned at top. Short labels flow into two columns; long labels show top-N by cell count plus "Show all N". The card never grows past its budget
+- **Minimise mode (target)** (`⇧\`). Folds chrome in place: the left card keeps its width, inset and section order, Selections and Landmarks fold to header rows (name, count, caret), Layers stays the third section of the same card, the right card folds to a data chip. Nothing moves to another container. Depth rail and minimap stay. State persists per user
+- **Inspect preview placement.** Never over a dock, dock toggle, minimap, tool pill, view cluster, context bar or depth rail (8px margin), never within 24px of the cursor; nearest free spot to the cursor wins; shrink (480 → 360 → 280) before overlapping anything
 - Slider rows: single line — left caption + capsule track; fill encodes value; numeral overlays the left of the capsule; thumb nearly invisible until hover/focus. Range sliders (cuts, contrast) use the same capsule
 - Inspect collapses both side docks (peek tabs stay); leaving Inspect restores them
 - Inspect is a temporary mode with its own chrome (see **Inspect chrome** under Components): the Inspect pill takes the tool pill's slot, the Inspect bar sits bottom centre
@@ -241,6 +278,21 @@ Both capsule variants share `.landmarks-slider-control` CSS tokens (`--lm-slider
 
 `+` when closed, `−` when open (crossfade). No chevron rotation.
 
+### Panel controls
+
+- **Hide a dock:** plain caret pointing where the panel goes (`‹` left, `›` right), flipping on the edge tab once hidden. Replaces `PanelLeftClose/Open` / `PanelRightClose/Open`.
+- **Folded section rows in minimise mode:** `›` folded, `⌄` open; data chip `⌄`.
+- **Minimise toggle:** square-outlined minus / plus (lucide `SquareMinus` / `SquarePlus`, 16px, 2px stroke), last button of the top-right view cluster in both modes. The square keeps it distinct from the bare zoom `+`/`−` and from "add". Tooltip "Minimize panels ⇧\" / "Show panels ⇧\", opening left of the cluster.
+- No ellipsis/overflow icons in minimise mode.
+
+### Summary bar (target)
+
+One element painted with a hard-stop `linear-gradient` (one stop pair per slice, 1px separator in `card` at 70%), 24px tall, `legend` radius (0.25rem), `role="img"`, `aria-label="Cell type composition"`. Not one child per slice: narrow coloured children read as side-stripe accents to the detector (`side-tab`) and cost a node per category. The active category's slice should mark itself the way the donut's active slice does (the donut grows that slice's outer radius). **Planned, not shipped** (a CSS stub exists; no rendered bar yet). Segment order and colours come from the same slice list as the donut, never recomputed.
+
+### Inspect preview
+
+Shows the image window only. **Inspect never draws points.**
+
 ### Narrow stack
 
 Below 640px, Info (capped) then Layers (flex-fill + scroll) share one top-left dock.
@@ -271,6 +323,10 @@ One set for the main tool pill, View CTA, context L1/L2, Inspect pill, Inspect b
 - **Do** use the shared glass float tokens for every floating chrome surface.
 - **Do** prefer shadcn primitives with Soft Float surface classes.
 - **Do** stack Layers + Info in one top-left dock under 640px (no side rail).
+- **Do** clear the plot to black while an image layer is visible.
+- **Do** keep chrome box overlap at zero at 960×720 and 1280×800.
+- **Do** keep the summary bar above an open legend while at least 8 entries still fit; otherwise show the one-line summary.
+- **Do** set chrome text at 11px or larger (`label`); only canvas ruler ticks go below it (9px).
 
 ### Don't:
 
@@ -280,3 +336,7 @@ One set for the main tool pill, View CTA, context L1/L2, Inspect pill, Inspect b
 - **Don't** apply drop shadows to the plot canvas.
 - **Don't** hand-roll buttons/inputs when a shadcn component exists.
 - **Don't** invent a second float material for toolbars — use `landmarks-float`.
+- **Don't** move a control between containers when entering minimise mode.
+- **Don't** close one panel because a section opened in the other; the rule is per panel.
+- **Don't** draw points in the Inspect preview or cube.
+- **Don't** use Unicode glyphs as icons; carets and boxes come from lucide.

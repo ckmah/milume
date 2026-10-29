@@ -1,0 +1,35 @@
+{
+  "hook": {
+    "enabled": true,
+    "limits": {
+      "maxFindings": 5,
+      "maxChars": 8000
+    },
+    "quiet": true
+  },
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-color",
+        "value": "*",
+        "files": [
+          "src/widgets/landmarks/helpers.ts"
+        ],
+        "createdAt": "2026-10-29T21:36:48.607Z",
+        "reason": "Agent: Crameri lajolla scientific colormap stops (SIMILARITY_LEGEND_CSS), must match engine LAJOLLA_LUT; data palette, not chrome"
+      },
+      {
+        "rule": "design-system-font-size",
+        "value": "9px",
+        "files": [
+          "src/widgets/landmarks/landmarks.css"
+        ],
+        "createdAt": "2026-10-29T21:36:48.614Z",
+        "reason": "Agent: canvas ruler tick labels (.landmarks__ruler-*), measurement marks; Clarence approved 9px rulers only (issue #376, 2026-10-29)"
+      }
+    ]
+  },
+  "stalenessCheck": true
+}

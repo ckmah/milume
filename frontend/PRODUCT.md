@@ -71,6 +71,7 @@ Use domain language from `CONTEXT.md` (widget, synced state, traitlet, widget co
 | Landmarks screenshot | `assets/landmarks_widget_{light,dark}.png` |
 | Demo data | [Stellaromics/demo](https://huggingface.co/datasets/Stellaromics/demo) `xsmall/` (Landmarks demo) |
 | Domain vocabulary | `CONTEXT.md` |
+| Colon A2 (3D DAPI mosaic + 358,173 cells, 21 clusters) | `npm run dev:fixture:colon` subsample; full store is local-only |
 | Widget architecture docs | `docs/widget-packaging.md`, `docs/shadcn-frontend.md` |
 
 Do not fabricate testimonials, case studies, benchmarks, or customer logos. Screenshots and demos are the primary visual proof.
@@ -82,6 +83,7 @@ Do not fabricate testimonials, case studies, benchmarks, or customer logos. Scre
 3. **Zero consumer toolchain** — published bundles must work out of the box for `pip install milume` users.
 4. **Sync over re-run** — state crosses the Python/browser boundary through named traitlets, not opaque payloads or cell re-execution.
 5. **Accessible chrome** — widget UI targets WCAG 2.1 AA for controls, labels, and keyboard paths.
+6. **Data and tools first** — the tissue, cells, selections and landmarks are the content; drawing and analysis tools are the primary chrome. Visualization controls are secondary and stay folded because the defaults are good. (Confirmed by Clarence, 2026-10-29.)
 
 ## Accessibility & Inclusion
 
