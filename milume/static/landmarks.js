@@ -6068,14 +6068,19 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   }
 
   /**
-   * Whether a Space press arms the pan. Hovering the map is enough, with focus
+   * Whether map-hover should count as "in the widget" for keyboard shortcuts
+   * (Space pan, mode keys, zoom, etc.). Hovering the map is enough, with focus
    * anywhere: a notebook often keeps it in a cell editor. From an editor outside
-   * the widget it pans only once the pointer has moved over the map since the
-   * last key typed there, so typing with the mouse parked on the map keeps its spaces.
+   * the widget it arms only once the pointer has moved over the map since the
+   * last key typed there, so typing with the mouse parked on the map keeps its keys.
    */
-  function spaceArmsPan(typing, inWidget) {
+  function pointerArmsMap(typing, inWidget) {
     if (!typing) return inWidget || pointerOverMap();
     return pointerOverMap() && pointerMovedAt > typedOutsideAt;
+  }
+
+  function spaceArmsPan(typing, inWidget) {
+    return pointerArmsMap(typing, inWidget);
   }
 
   // The control that took focus from the keyboard (Tab, or a keyboard-driven
@@ -6103,14 +6108,15 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const typing = isTypingTarget(event);
     const inChrome = eventInWidget(event);
     if (typing && inChrome) return;
-    const inWidget = inChrome || widgetHasFocus() || pointerInWidget;
+    const inWidgetScoped = inChrome || widgetHasFocus() || pointerInWidget;
+    const inWidget = pointerArmsMap(typing, inWidgetScoped);
 
     const mod = event.metaKey || event.ctrlKey;
     const key = event.key;
     const lower = key.length === 1 ? key.toLowerCase() : key;
 
     // Hold Space to pan in any tool (never while typing inside our own chrome).
-    if (key === " " && !mod && !event.altKey && (spacePan || spaceArmsPan(typing, inWidget))) {
+    if (key === " " && !mod && !event.altKey && (spacePan || spaceArmsPan(typing, inWidgetScoped))) {
       event.preventDefault();
       event.stopPropagation();
       if (!event.repeat) setSpacePan(true);
