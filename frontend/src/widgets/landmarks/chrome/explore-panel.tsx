@@ -75,7 +75,7 @@ function SubcategoryAvatars({ col }: { col: CategoryColumn }) {
         />
       ))}
       {extra > 0 ? (
-        <span className="ml-0.5 text-[9px] font-medium text-foreground/75">
+        <span className="ml-0.5 font-medium text-foreground/75 landmarks__legend-overflow">
           +{extra}
         </span>
       ) : null}
