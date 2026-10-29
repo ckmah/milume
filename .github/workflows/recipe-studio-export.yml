@@ -78,7 +78,7 @@ jobs:
           path: |
             demos/recipes/__marimo__
             .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'uv.lock') }}
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'website/scripts/export-recipes.sh', 'uv.lock') }}
 
   warm-export:
     needs: cold-preflight
@@ -113,7 +113,7 @@ jobs:
           path: |
             demos/recipes/__marimo__
             .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'uv.lock') }}
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'website/scripts/export-recipes.sh', 'uv.lock') }}
           fail-on-cache-miss: true
 
       - name: Warm export
@@ -124,8 +124,8 @@ jobs:
           uv run marimo-studio view export "${RECIPE_VIEW}" --target "${RECIPE_NB}" \
             --output /tmp/recipe-export/docs --force 2>&1 | tee /tmp/recipe-export.log
           elapsed=$((SECONDS - start))
-          if ! grep -q "Prepared reused" /tmp/recipe-export.log; then
-            echo "Expected 'Prepared reused' in warm export log" >&2
+          if ! grep -qE "Prepared (reused|committed)" /tmp/recipe-export.log; then
+            echo "Expected 'Prepared reused' or 'Prepared committed' in warm export log" >&2
             exit 1
           fi
           python3 <<'PY'
