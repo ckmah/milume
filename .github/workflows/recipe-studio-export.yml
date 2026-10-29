@@ -6,6 +6,8 @@ on:
     paths:
       - "demos/recipes/**"
       - "website/scripts/export-recipes.sh"
+      - "website/scripts/prepare_recipe_studio.py"
+      - "website/scripts/recipe_widget_esm.py"
       - "website/scripts/assemble-pages.sh"
       - ".github/workflows/recipe-studio-export.yml"
       - "frontend/**"
@@ -144,6 +146,16 @@ jobs:
               if console:
                   raise SystemExit(f"landmark_map console not empty: {console!r}")
           print("active_category ok, console empty")
+          PY
+          python3 <<'PY'
+          from pathlib import Path
+          import sys
+          sys.path.insert(0, "${{ github.workspace }}/website/scripts")
+          from recipe_widget_esm import assert_no_embedded_widget_esm
+          views = Path("${{ github.workspace }}/website/content/recipes/squidpy_color/_marimo-studio/views")
+          if views.is_dir():
+              assert_no_embedded_widget_esm(views)
+          print("recipe widget ESM externalized")
           PY
           echo "seconds=${elapsed}" >> "${GITHUB_OUTPUT}"
           echo "Warm export: **${elapsed}s** (\`Prepared reused\`)" >> "${GITHUB_STEP_SUMMARY}"
