@@ -8,7 +8,7 @@
     "dev:fixture": "uv run --group demo --directory .. python frontend/dev/export-pyxa-harness-fixture.py --profile xsmall",
     "dev:fixture:ileum": "uv run --group demo --directory .. python scripts/export-ileum-harness-fixture.py --max-cells 8000",
     "dev:fixture:ileum-docs": "uv run --group demo --directory .. python scripts/export-ileum-docs-base.py",
-    "capture:docs-tools:ileum": "node scripts/capture-ileum-tool-docs.mjs",
+    "capture:docs-stills:ileum": "node scripts/capture-ileum-docs-stills.mjs",
     "dev:fixture:pyxa-small": "uv run --group demo --directory .. python frontend/dev/export-pyxa-harness-fixture.py --profile small",
     "dev:fixture:colon": "uv run --group demo --directory .. python frontend/dev/export-colon-a2-harness-fixture.py",
     "watch": "cross-env MILUME_BUILD_WIDGET=landmarks vite build --watch",

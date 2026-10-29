@@ -1,11 +1,11 @@
 {
- "dataset": "demos/data:ileum",
+ "dataset": "Stellaromics/demo:xsmall",
  "seed": 0,
- "milume": "9aa8475",
+ "milume": "95af50a",
  "dark": {
-  "frames": 135,
-  "seconds": 4.5,
-  "seamless_rmse": 0,
+  "frames": 160,
+  "seconds": 5.33,
+  "seamless_rmse": 0.0032,
   "render": "1920:1200",
   "crf": [
    36,
@@ -13,9 +13,9 @@
   ]
  },
  "light": {
-  "frames": 135,
-  "seconds": 4.5,
-  "seamless_rmse": 0,
+  "frames": 160,
+  "seconds": 5.33,
+  "seamless_rmse": 0.0035,
   "render": "1920:1200",
   "crf": [
    36,
