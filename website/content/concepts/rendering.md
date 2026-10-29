@@ -36,11 +36,12 @@ The hover preview uses a coarse level. The open cube picks the sharpest level wh
 
 ### Which data sizes this covers
 
-Demo data runs from tiny test fixtures to a 2D section, a 3D tier and a full colon run.
+Demo data runs from tiny test fixtures to a 2D section, a 3D tier and a full colon run. Tier paths, on-disk sizes, and citations are on [Datasets](../reference/datasets.md).
 
 ## Related
 
 - [Color & layers](../reference/ui/color-layers.md)
 - [Probe](../reference/ui/probe.md)
 - [Inspect in 3D](../reference/ui/inspect-3d.md)
+- [Datasets](../reference/datasets.md)
 - [Methods](../reference/api/landmarks.md#methods) (`set_render_mode`, `set_raster_basis`)

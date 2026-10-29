@@ -6,6 +6,7 @@
 #   "numpy>=1.26",
 #   "pandas>=2.0",
 #   "rapidgzip>=0.14",
+#   "scipy>=1.11",
 # ]
 # ///
 """Regenerate demos/data/ileum.h5ad from the Xu et al. 2026 Dryad zip.
@@ -15,10 +16,15 @@ sha256 541e4f69...f15ee, CC0-1.0). The pooled
 ``cell_by_gene/cell_by_gene_with_metadata.h5ad`` member is 62.9 GB once
 inflated, so this script never extracts it: it reads the deflate stream with
 random access (rapidgzip) and opens it with h5py, touching only the obs columns
-plus the rows of one slice and the columns of the chosen genes.
+plus the rows of one slice. Pass --member instead of --zip to read an already-inflated
+member file (e.g. the sparse reconstruction written by inflate_member.py from a
+partial download).
 
 Output matches the old ileum.h5ad layout (ckmah/milume 4deb533^):
-  X                float32, source adata.X (the authors' log-normalized values)
+  X                float32 CSR, source adata.X for ALL 1,815 genes (the authors'
+                   log-normalized values, bit-identical; source raw.X is identical to X)
+  layers['raw_counts']  int32 CSR, source layers/raw_counts (stored int64, max 282)
+  var              index = the 1,815 gene names, in source order
   obs              cell_type, cell_class, anatomical_layer (categoricals),
                    mucosal_pseudospace (float64); index c0..cN
   obsm['spatial']  float64 (x [um], y [um]) cell centroids
@@ -43,30 +49,10 @@ import anndata as ad
 import h5py
 import numpy as np
 import pandas as pd
+import scipy.sparse as sp
 
 MEMBER = "data_upload/cell_by_gene/cell_by_gene_with_metadata.h5ad"
 SLICE = "20211215_WT_ile1_slice_2"  # SPF ileum, complete cross-section with GALT follicles
-GENES = [
-    # epithelium and the crypt-villus axis
-    "Apob",    # villus-tip enterocytes (rho +0.59 with mucosal_pseudospace)
-    "Slc5a1",  # SGLT1, villus enterocytes (rho +0.55)
-    "Nos2",    # villus epithelium (rho +0.50)
-    "Cps1",    # crypt / lower-villus enterocytes (rho -0.59)
-    "Mki67",   # proliferating transit-amplifying crypt cells (rho -0.45)
-    "Lgr5",    # crypt-base stem cells (sparse, kept for docs continuity)
-    "Erbb3",   # pan-epithelial (81% of epithelial cells vs 3% elsewhere)
-    "H2-Eb1",  # MHC-II: epithelium and antigen-presenting cells
-    # wall layers
-    "Acta2",   # smooth muscle, Muscularis Propria (97% of SMC)
-    "Col1a1",  # fibroblasts, Submucosa
-    "Phox2b",  # enteric neurons, Myenteric Plexus
-    "Kit",     # interstitial cells of Cajal
-    "Pecam1",  # endothelium
-    # immune
-    "Mzb1",    # plasma cells (lamina propria)
-    "Cd3e",    # T cells
-    "Csf1r",   # macrophages
-]
 PALETTE60 = [
     "#1f77b4", "#aec7e8", "#ff7f0e", "#ffbb78", "#2ca02c", "#98df8a", "#d62728", "#ff9896",
     "#9467bd", "#c5b0d5", "#8c564b", "#c49c94", "#e377c2", "#f7b6d2", "#7f7f7f", "#c7c7c7",
@@ -152,11 +138,11 @@ def build(f: h5py.File) -> ad.AnnData:
     sl = slice(a, b)
 
     var = _strs(f["var/_index"][:])
-    gi = [var.index(g) for g in GENES]
-    order = np.argsort(gi)
-    X_sorted = f["X"][sl, sorted(gi)]
-    X = np.empty_like(X_sorted)
-    X[:, order] = X_sorted  # back to GENES order
+    X = sp.csr_matrix(np.asarray(f["X"][sl], dtype=np.float32))
+    R = f["layers/raw_counts"][sl]
+    assert R.max() < 2**31
+    R = sp.csr_matrix(R.astype(np.int32))
+    assert (X.indptr == R.indptr).all() and (X.indices == R.indices).all()
 
     df = pd.DataFrame(
         {
@@ -169,9 +155,10 @@ def build(f: h5py.File) -> ad.AnnData:
     xy = np.c_[obs["x [μm]"][sl], obs["y [μm]"][sl]].astype(np.float64)
     df.index = [f"c{i}" for i in range(len(df))]
     adata = ad.AnnData(
-        X=np.ascontiguousarray(X, dtype=np.float32),
+        X=X,
         obs=df,
-        var=pd.DataFrame(index=pd.Index(GENES, dtype=str)),
+        var=pd.DataFrame(index=pd.Index(var, dtype=str)),
+        layers={"raw_counts": R},
     )
     adata.obsm["spatial"] = xy
     n = len(adata.obs["cell_type"].cat.categories)
@@ -183,16 +170,19 @@ def build(f: h5py.File) -> ad.AnnData:
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--zip", type=Path, required=True, help="Path to Dryad data_upload.zip")
+    src = p.add_mutually_exclusive_group(required=True)
+    src.add_argument("--zip", type=Path, help="Path to Dryad data_upload.zip")
+    src.add_argument("--member", type=Path,
+                     help="Path to the inflated cell_by_gene_with_metadata.h5ad member")
     p.add_argument("--out", type=Path, default=Path("ileum.h5ad"))
     p.add_argument("--index", type=Path, default=None,
                    help="Optional rapidgzip seek-index cache (~390 MB); built if missing")
     args = p.parse_args()
 
-    f = open_h5ad_member(args.zip, args.index)
+    f = h5py.File(args.member, "r") if args.member else open_h5ad_member(args.zip, args.index)
     adata = build(f)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    adata.write_h5ad(args.out, compression="gzip")
+    adata.write_h5ad(args.out, compression="gzip", compression_opts=9)
     nbytes = args.out.stat().st_size
     print(f"Wrote {args.out} ({nbytes:,} B) n_obs={adata.n_obs} n_vars={adata.n_vars} "
           f"slice={SLICE}", flush=True)

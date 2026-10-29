@@ -13,7 +13,7 @@
 # runtimes = ["server", "zero-python"]
 #
 # [tool.marimo-studio.cells]
-# cell-1 = {ref = "cell:v1:ac9d65452a3ee9f1e66592ca0791a889cb86f6b51daf0b5ffdf712e6762740a5:9885a7dd0680394dfb142fdd21f39dd0bce5bf3e8e6f89c1111ec948a6df56f9:0"}
+# cell-1 = {ref = "cell:v1:aa87d2e9822936298d7e2f35bc1e8c2184ba1786eed083522298248311c3cf16:e4144bdbf4109bfc6800f508ebbb66b6412553693acf6e8d6e8fa73f06aac701:0"}
 # ///
 """Squidpy niche colour recipe for docs (marimo-studio zero-python export)."""
 
@@ -30,7 +30,7 @@ def _(mo):
         # Squidpy niche labels
 
         Recolour Landmarks from Squidpy neighborhood niches on the Xu 2026 ileum
-        slice (`demos/data/ileum.h5ad`, 16-gene panel).
+        slice (`demos/data/ileum.h5ad`, 1,815-gene Xu 2026 ileum section).
 
         **Open in molab:**
         [squidpy_color.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py)
