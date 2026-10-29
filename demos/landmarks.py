@@ -6,7 +6,7 @@
 #     "leidenalg>=0.10",
 #     "marimo>=0.25.1",
 #     "marimo-lens",
-#     "milume==2.0.0",
+#     "milume==2.1.0",
 #     "scanpy>=1.10",
 #     "spatialdata>=0.2",
 #     "spatialdata-io @ git+https://github.com/ckmah/spatialdata-io@pyxa-reader",

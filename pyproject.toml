@@ -1,6 +1,6 @@
 [project]
 name = "milume"
-version = "2.0.0"
+version = "2.1.0"
 description = "Milume: explore spatial biology in your notebook. A tactile, reactive Jupyter (anywidget) surface for forming intuition about spatial omics data."
 readme = "README.md"
 requires-python = ">=3.11"

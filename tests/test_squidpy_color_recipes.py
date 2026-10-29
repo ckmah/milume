@@ -56,7 +56,8 @@ def test_docs_recipe_ileum_panel():
     assert ILEUM_H5AD.is_file()
     adata = docs_recipe_adata()
     assert adata.n_obs == 30_332
-    assert list(adata.var_names) == [
+    assert adata.n_vars == 1815
+    recipe_panel_genes = (
         "Apob",
         "Slc5a1",
         "Nos2",
@@ -73,4 +74,6 @@ def test_docs_recipe_ileum_panel():
         "Mzb1",
         "Cd3e",
         "Csf1r",
-    ]
+    )
+    missing = [g for g in recipe_panel_genes if g not in adata.var_names]
+    assert not missing, f"recipe panel genes missing from ileum var_names: {missing}"
