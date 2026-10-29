@@ -47,8 +47,36 @@ uv run --directory "${ROOT}" python -m pytest \
   "${WEBSITE}/scripts/test_api_reference_codegen.py" \
   "${WEBSITE}/scripts/test_cf_beacon.py" \
   "${WEBSITE}/scripts/test_docs_redirects.py" \
+  "${WEBSITE}/scripts/test_prepare_recipe_studio.py" \
   -q
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/sync-api-docs.py"
+
+chmod +x "${WEBSITE}/scripts/export-recipes.sh"
+uv run --directory "${ROOT}" bash "${WEBSITE}/scripts/export-recipes.sh" prepare-for-zensical
+
+rm -rf "${WEBSITE}/dist"
+(
+  cd "${WEBSITE}"
+  zensical build --clean
+)
+
+loaded_urls="$(mktemp)"
+preview_pid=""
+cleanup_preview() {
+  if [[ -n "${preview_pid}" ]] && kill -0 "${preview_pid}" 2>/dev/null; then
+    kill "${preview_pid}" 2>/dev/null || true
+  fi
+  rm -f "${loaded_urls}"
+}
+trap cleanup_preview EXIT
+python3 -m http.server 8766 --bind 127.0.0.1 --directory "${WEBSITE}/dist" >/dev/null 2>&1 &
+preview_pid=$!
+sleep 1
+node "${ROOT}/frontend/scripts/record-recipe-network.mjs" \
+  "http://127.0.0.1:8766/recipes/squidpy_color/index.html" \
+  "${loaded_urls}"
+uv run --directory "${ROOT}" python "${WEBSITE}/scripts/prepare_recipe_studio.py" \
+  --prune-shared-only --loaded-urls "${loaded_urls}"
 
 rm -rf "${WEBSITE}/dist"
 (
@@ -59,8 +87,20 @@ rm -rf "${WEBSITE}/dist"
 mkdir -p "${OUT}/docs"
 cp -a "${WEBSITE}/dist/." "${OUT}/docs/"
 
-chmod +x "${WEBSITE}/scripts/export-recipes.sh"
 uv run --directory "${ROOT}" bash "${WEBSITE}/scripts/export-recipes.sh" "${OUT}"
+
+payload_pid=""
+cleanup_payload() {
+  cleanup_preview
+  if [[ -n "${payload_pid}" ]] && kill -0 "${payload_pid}" 2>/dev/null; then
+    kill "${payload_pid}" 2>/dev/null || true
+  fi
+}
+trap cleanup_payload EXIT
+python3 -m http.server 8765 --bind 127.0.0.1 --directory "${OUT}" >/dev/null 2>&1 &
+payload_pid=$!
+sleep 1
+uv run --directory "${ROOT}" python "${WEBSITE}/scripts/check_recipe_payload.py"
 
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/docs_redirects.py" "${OUT}"
 

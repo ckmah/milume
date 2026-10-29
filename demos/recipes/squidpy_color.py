@@ -13,7 +13,7 @@
 # runtimes = ["server", "zero-python"]
 #
 # [tool.marimo-studio.cells]
-# cell-1 = {ref = "cell:v1:19488357f2e4455fe22f9d5a2f1b2aa93fb0fcf286df57a1f96e15631e63e3f6:fbb665947e1c879d3efcffeea20783cda47007adee789e7f33075cc0a56811e8:0"}
+# cell-1 = {ref = "cell:v1:ac9d65452a3ee9f1e66592ca0791a889cb86f6b51daf0b5ffdf712e6762740a5:9885a7dd0680394dfb142fdd21f39dd0bce5bf3e8e6f89c1111ec948a6df56f9:0"}
 # ///
 """Squidpy niche colour recipe for docs (marimo-studio zero-python export)."""
 
@@ -29,8 +29,8 @@ def _(mo):
         r"""
         # Squidpy niche labels
 
-        Recolour Landmarks from Squidpy neighborhood niches on the synthetic harness
-        geometry used in CI (not colon or Pyxa demo slices).
+        Recolour Landmarks from Squidpy neighborhood niches on the Xu 2026 ileum
+        slice (`demos/data/ileum.h5ad`, 16-gene panel).
 
         **Open in molab:**
         [squidpy_color.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py)
@@ -53,12 +53,15 @@ def _():
     import squidpy as sq
 
     from tests.squidpy_color_recipes import (
+        docs_recipe_adata,
+        docs_recipe_patch_selection,
         niche_obs_key,
         run_niche_recipe,
-        synthetic_recipe_adata,
     )
 
     return (
+        docs_recipe_adata,
+        docs_recipe_patch_selection,
         milume,
         mo,
         niche_obs_key,
@@ -66,30 +69,19 @@ def _():
         run_niche_recipe,
         sc,
         sq,
-        synthetic_recipe_adata,
     )
 
 
 @app.cell
-def _(synthetic_recipe_adata):
-    adata = synthetic_recipe_adata(n=200, seed=2)
+def _(docs_recipe_adata):
+    adata = docs_recipe_adata()
     return (adata,)
 
 
 @app.cell
-def _(adata, milume):
+def _(adata, docs_recipe_patch_selection, milume):
     w = milume.peek(adata, color="cell_type")
-    w.selections = [
-        {
-            "id": "patch",
-            "type": "rectangle",
-            "cx": 50.0,
-            "cy": 50.0,
-            "width": 80.0,
-            "height": 80.0,
-            "angle": 0.0,
-        },
-    ]
+    w.selections = [docs_recipe_patch_selection(adata)]
     return (w,)
 
 

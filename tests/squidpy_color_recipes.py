@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -10,6 +11,10 @@ import pandas as pd
 if TYPE_CHECKING:
     import anndata as ad
     from milume.landmarks import LandmarksWidget
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+ILEUM_H5AD = REPO_ROOT / "demos" / "data" / "ileum.h5ad"
+DOCS_RECIPE_PATCH_SIZE_UM = 800.0
 
 NICHE_FLAVOR = "neighborhood"
 NICHE_RESOLUTION = 0.5
@@ -78,3 +83,28 @@ def synthetic_recipe_adata(n: int = 120, seed: int = 0):
     types = pd.Categorical(rng.choice(["enterocyte", "goblet", "stem"], n))
     genes = {g: rng.random(n) for g in ("APOB", "Lgr5", "Muc2")}
     return adata_xy(x, y, color=types, color_key="cell_type", genes=genes)
+
+
+def docs_recipe_adata():
+    """Xu 2026 ileum slice (``demos/data/ileum.h5ad``) for the docs recipe export."""
+    import scanpy as sc
+
+    if not ILEUM_H5AD.is_file():
+        raise FileNotFoundError(f"missing docs recipe data: {ILEUM_H5AD}")
+    return sc.read_h5ad(ILEUM_H5AD)
+
+
+def docs_recipe_patch_selection(adata: ad.AnnData) -> dict[str, float | str]:
+    """Rectangle selection centered on the slice median in spatial coordinates."""
+    xy = adata.obsm["spatial"]
+    cx, cy = (float(v) for v in np.median(xy, axis=0))
+    size = DOCS_RECIPE_PATCH_SIZE_UM
+    return {
+        "id": "patch",
+        "type": "rectangle",
+        "cx": cx,
+        "cy": cy,
+        "width": size,
+        "height": size,
+        "angle": 0.0,
+    }

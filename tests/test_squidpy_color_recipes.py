@@ -48,3 +48,29 @@ def test_moran_top_gene_recolors_widget():
     assert w.color_mode == "continuous"
     assert w.legend_title == top_gene
     assert w.active_genes == [top_gene]
+
+
+def test_docs_recipe_ileum_panel():
+    from tests.squidpy_color_recipes import ILEUM_H5AD, docs_recipe_adata
+
+    assert ILEUM_H5AD.is_file()
+    adata = docs_recipe_adata()
+    assert adata.n_obs == 30_332
+    assert list(adata.var_names) == [
+        "Apob",
+        "Slc5a1",
+        "Nos2",
+        "Cps1",
+        "Mki67",
+        "Lgr5",
+        "Erbb3",
+        "H2-Eb1",
+        "Acta2",
+        "Col1a1",
+        "Phox2b",
+        "Kit",
+        "Pecam1",
+        "Mzb1",
+        "Cd3e",
+        "Csf1r",
+    ]

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Build marimo-studio zero-python exports into the Pages site tree.
+# Build marimo-studio zero-python exports for Zensical recipe pages.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-OUT="${1:?usage: export-recipes.sh <site-root>}"
-export MARIMO_EXPORT_REPOSITORY="${MARIMO_EXPORT_REPOSITORY:-${ROOT}/.cache/marimo-export-recipes}"
+WEBSITE="${ROOT}/website"
+MODE="${1:?usage: export-recipes.sh prepare-for-zensical | export-recipes.sh <site-root>}"
 
 RECIPES=(
   squidpy_color
@@ -22,15 +22,55 @@ RECIPES=(
   npm run -s build
 )
 
-mkdir -p "${OUT}/docs/recipes"
+export MARIMO_EXPORT_REPOSITORY="${MARIMO_EXPORT_REPOSITORY:-${ROOT}/.cache/marimo-export-recipes}"
 
-for slug in "${RECIPES[@]}"; do
-  nb="${ROOT}/demos/recipes/${slug}.py"
-  dest="${OUT}/docs/recipes/${slug}"
-  rm -rf "${dest}"
-  echo "export-recipes: ${slug} -> ${dest}"
+export_one() {
+  local slug="$1"
+  local out="$2"
+  local nb="${ROOT}/demos/recipes/${slug}.py"
+  rm -rf "${out}"
   uv run --directory "${ROOT}" marimo-studio view export docs \
     --target "${nb}" \
-    --output "${dest}" \
+    --output "${out}" \
+    --prepare-timeout 600 \
     --force
-done
+}
+
+prepare_slug() {
+  local slug="$1"
+  local staging="$2"
+  local loaded="${3:-}"
+  local args=("${slug}" "${staging}/${slug}")
+  if [[ -n "${loaded}" ]]; then
+    args+=(--loaded-urls "${loaded}")
+  fi
+  uv run --directory "${ROOT}" python "${WEBSITE}/scripts/prepare_recipe_studio.py" "${args[@]}"
+}
+
+copy_to_site() {
+  local out="$1"
+  mkdir -p "${out}/docs/assets/marimo-studio-zero-python"
+  mkdir -p "${out}/docs/assets/recipes"
+  rm -rf "${out}/docs/assets/marimo-studio-zero-python"
+  cp -a "${WEBSITE}/content/assets/marimo-studio-zero-python" "${out}/docs/assets/"
+  for slug in "${RECIPES[@]}"; do
+    local dest="${out}/docs/recipes/${slug}/_marimo-studio"
+    mkdir -p "$(dirname "${dest}")"
+    rm -rf "${dest}"
+    cp -a "${WEBSITE}/content/recipes/${slug}/_marimo-studio" "${dest}"
+  done
+}
+
+if [[ "${MODE}" == "prepare-for-zensical" ]]; then
+  staging="$(mktemp -d)"
+  trap 'rm -rf "${staging}"' EXIT
+  for slug in "${RECIPES[@]}"; do
+    echo "export-recipes: ${slug} -> zensical content"
+    export_one "${slug}" "${staging}/${slug}"
+    prepare_slug "${slug}" "${staging}"
+  done
+  exit 0
+fi
+
+OUT="${MODE}"
+copy_to_site "${OUT}"
