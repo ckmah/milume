@@ -10,6 +10,8 @@ build/
 .ruff_cache/
 demos/__marimo__/
 demos/*.lock
+# Accidental root dumps from local ileum exports (demo data lives under demos/data/).
+/ileum.h5ad
 frontend/node_modules/
 website/node_modules/
 website/dist/

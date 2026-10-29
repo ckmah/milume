@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 176" width="176" height="118" role="img">
+    <rect x="0" y="0" width="280" height="176" rx="10" fill="#0b1220"/>
+    <rect x="8" y="8" width="264" height="36" rx="4" fill="#163044"/>
+    <text x="140" y="22" text-anchor="middle" fill="#94a3b8" font-size="11" font-family="system-ui,sans-serif">lumen</text>
+    <path d="M12,108 C12,108 22,108 32,108 C32,78 38,50 64,34 C90,50 96,78 96,108 C108,108 118,108 126,108 C126,68 132,38 148,22 C164,38 170,68 170,108 C180,108 190,108 200,108 C200,80 208,54 232,40 C256,54 264,80 264,108 L268,108 L268,128 L12,128 Z" fill="#8b4d57"/>
+    <path d="M126,108 C126,68 132,38 148,22 C164,38 170,68 170,108 Z" fill="#a85d68"/>
+    <path d="M44,108 C44,118 54,128 64,128 C74,128 84,118 84,108" fill="#5c3238"/>
+    <path d="M132,110 C132,122 140,132 148,132 C156,132 164,122 164,110" fill="#5c3238"/>
+    <path d="M216,108 C216,118 224,126 232,126 C240,126 248,118 248,108" fill="#5c3238"/>
+    <text x="148" y="86" text-anchor="middle" fill="#e2e8f0" font-size="10" font-family="system-ui,sans-serif" opacity="0.7">villus</text>
+    <text x="148" y="124" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="system-ui,sans-serif">crypt</text>
+    <ellipse cx="46" cy="114" rx="28" ry="20" fill="#be123c"/>
+    <circle cx="38" cy="110" r="5" fill="#fb7185" opacity="0.85"/>
+    <circle cx="50" cy="108" r="4.5" fill="#fb7185" opacity="0.75"/>
+    <circle cx="44" cy="120" r="4" fill="#fb7185" opacity="0.7"/>
+    <text x="46" y="116" text-anchor="middle" fill="#e2e8f0" font-size="10" font-family="system-ui,sans-serif">GALT</text>
+    <rect x="12" y="128" width="256" height="14" fill="#3d3a5c"/>
+    <rect x="12" y="148" width="256" height="16" fill="#2b2844"/>
+    <text x="140" y="168" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="system-ui,sans-serif">muscle</text>
+    
+        <ellipse cx="46" cy="114" rx="36" ry="28" fill="rgba(34, 211, 238, 0.22)" stroke="#22d3ee" stroke-width="3" stroke-dasharray="5 3"/>
+        </svg>
