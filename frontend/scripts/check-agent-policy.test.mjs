@@ -259,9 +259,23 @@ test("milume/landmarks.py alone builds the wheel (no Python-only shortcut)", () 
   assert.equal(legs.ci_pytest, true);
 });
 
-test("docs-only and demos-only diffs select no legs", () => {
+test("docs-only diffs select no legs", () => {
   assert.deepEqual(on(legsFor(["docs/publishing.md", "README.md", "website/index.md"])), []);
-  assert.deepEqual(on(legsFor(["demos/pyxa.py"])), []);
+});
+
+test("ci_python tier matches pytest inputs and ignores unrelated docs paths", () => {
+  const hit = (file) => tiersHit(config, [file]).has("ci_python");
+  assert.equal(hit("demos/data/ileum.h5ad"), true);
+  assert.equal(hit("demos/loaders/demo_tiers.py"), true);
+  assert.equal(hit("demos/recipes/squidpy_color.py"), true);
+  assert.equal(hit("demos/landmarks.py"), true);
+  assert.equal(hit("scripts/public_api.py"), true);
+  assert.equal(hit("milume/landmarks.py"), true);
+  assert.equal(hit("tests/test_demo_tiers.py"), true);
+  assert.equal(hit("website/content/x.md"), false);
+
+  assert.equal(legsFor(["demos/data/ileum.h5ad"]).ci_pytest, true);
+  assert.equal(legsFor(["milume/landmarks.py"]).ci_pytest, true);
 });
 
 test("infra_core runs core and keeps landmarks path-gated", () => {

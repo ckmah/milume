@@ -121,7 +121,14 @@
       "pyproject.toml",
       "uv.lock",
       "CHANGELOG.md",
-      "website/content/reference/changelog.md"
+      "website/content/reference/changelog.md",
+      "demos/data/**",
+      "demos/loaders/**",
+      "demos/recipes/**",
+      "demos/*.py",
+      "scripts/changelog_section.py",
+      "scripts/public_api.py",
+      "scripts/sync-use-milume-skill.py"
     ],
     "wheel": [
       "milume/**",
