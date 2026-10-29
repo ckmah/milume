@@ -25,6 +25,16 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
+    mo.md(
+        r"""
+        > **molab:** Cells do not run on load ([#361](https://github.com/ckmah/milume/issues/361)). Click **Run all** (or run cells top to bottom) before using the map.
+        """
+    )
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
     mo.md(r"""
     # Explore cells in 2D (ileum)
 
@@ -50,18 +60,21 @@ def _():
 
     import milume
 
-    ILEUM_RAW = (
-        "https://raw.githubusercontent.com/ckmah/milume/main/demos/data/ileum.h5ad"
-    )
-    return ILEUM_RAW, Path, milume, mo, sc, tempfile, urllib
+    return Path, milume, mo, sc, tempfile, urllib
 
 
 @app.cell
-def _(ILEUM_RAW, Path, sc, tempfile, urllib):
-    with tempfile.NamedTemporaryFile(suffix=".h5ad", delete=False) as tmp:
-        urllib.request.urlretrieve(ILEUM_RAW, tmp.name)
-        adata_path = Path(tmp.name)
-    adata = sc.read_h5ad(adata_path)
+def _(Path, sc, tempfile, urllib):
+    _local = Path("demos/data/ileum.h5ad")
+    if _local.is_file():
+        adata = sc.read_h5ad(_local)
+    else:
+        _f = str(Path(tempfile.gettempdir()) / "milume-demo-ileum.h5ad")
+        urllib.request.urlretrieve(
+            "https://raw.githubusercontent.com/ckmah/milume/main/demos/data/ileum.h5ad",
+            _f,
+        )
+        adata = sc.read_h5ad(_f)
     adata
     return (adata,)
 
