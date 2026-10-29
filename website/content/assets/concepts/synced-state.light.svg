@@ -1,40 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="880" height="420" viewBox="0 0 880 420" role="img" aria-labelledby="title desc">
-  <title id="title">Python, SpatialData on disk, and the widget share synced state</title>
-  <desc id="desc">AnnData and SpatialData on the left connect to the 2D map and Inspect cube on the right. Solid arrows carry synced selections and Inspect fields; dashed arrows show gene columns and image chunks fetched on demand.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="400" viewBox="0 0 880 400" role="img" aria-labelledby="title desc">
+  <title id="title">What crosses between Python and the browser</title>
+  <desc id="desc">AnnData and SpatialData in Python on the left; the 2D map and Inspect cube in the widget on the right. Solid arrows both ways carry the synced values: selections, landmarks, the focused selection, inspect_cx, inspect_cy, inspect_open and volume_cut. Dashed arrows show gene columns going from AnnData to the 2D map and image chunks going from SpatialData on disk to the Inspect cube, both fetched on demand. Camera, colors and layer toggles stay in the widget.</desc>
   <defs>
-    <marker id="arrow-teal" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-      <path d="M0,0 L8,4 L0,8 Z" fill="#0d9488"/>
-    </marker>
-    <marker id="arrow-gray" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
-      <path d="M0,0 L8,4 L0,8 Z" fill="#64748b"/>
-    </marker>
+    <marker id="at" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#0d9488"/></marker>
+    <marker id="ag" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#64748b"/></marker>
   </defs>
-  <rect width="880" height="420" fill="#f8fafc"/>
-  <text x="440" y="32" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="15" font-weight="600" fill="#0f172a">What crosses between Python and the browser</text>
-  <rect x="40" y="60" width="320" height="300" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
-  <text x="200" y="88" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="14" font-weight="600" fill="#0f172a">Python</text>
-  <rect x="64" y="108" width="272" height="56" rx="6" fill="#f1f5f9" stroke="#94a3b8"/>
-  <text x="200" y="132" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" fill="#334155">AnnData</text>
-  <text x="200" y="150" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">obsm, obs, X by reference</text>
-  <rect x="64" y="180" width="272" height="56" rx="6" fill="#f1f5f9" stroke="#94a3b8"/>
-  <text x="200" y="204" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" fill="#334155">SpatialData on disk</text>
-  <text x="200" y="222" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">Zarr image pyramid, shapes</text>
-  <rect x="520" y="60" width="320" height="300" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
-  <text x="680" y="88" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="14" font-weight="600" fill="#0f172a">Widget</text>
-  <rect x="544" y="108" width="120" height="72" rx="6" fill="#ecfdf5" stroke="#0d9488"/>
-  <text x="604" y="138" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="#115e59">2D map</text>
-  <text x="604" y="158" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#64748b">deck.gl</text>
-  <rect x="688" y="108" width="128" height="72" rx="6" fill="#ecfdf5" stroke="#0d9488"/>
-  <text x="752" y="138" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="#115e59">Inspect cube</text>
-  <text x="752" y="158" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#64748b">windowed volume</text>
-  <rect x="544" y="200" width="272" height="140" rx="6" fill="#f8fafc" stroke="#cbd5e1"/>
-  <text x="680" y="224" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#475569">Camera, colors, layer toggles stay here</text>
-  <text x="440" y="112" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0f766e">selections, landmarks, focused selection</text>
-  <text x="440" y="126" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0f766e">inspect_cx/cy, inspect_open, volume_cut</text>
-  <path d="M360 136 H520" stroke="#0d9488" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
-  <path d="M520 154 H360" stroke="#0d9488" stroke-width="1.5" marker-end="url(#arrow-teal)"/>
-  <path d="M336 136 C 408 136, 472 144, 544 144" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arrow-gray)"/>
-  <text x="418" y="168" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#475569">gene columns on demand</text>
-  <path d="M336 208 C 420 208, 560 168, 688 144" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arrow-gray)"/>
-  <text x="418" y="248" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="10" fill="#475569">image chunks on demand</text>
+  <rect width="880" height="400" fill="#f8fafc"/>
+  <text x="440" y="32" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="16" font-weight="600" fill="#0f172a">What crosses between Python and the browser</text>
+  <rect x="20" y="56" width="260" height="320" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="150" y="82" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="14" font-weight="600" fill="#0f172a">Python</text>
+  <rect x="40" y="110" width="220" height="64" rx="6" fill="#f1f5f9" stroke="#94a3b8"/>
+  <text x="150" y="136" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" fill="#334155">AnnData</text>
+  <text x="150" y="156" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">obsm, obs, X by reference</text>
+  <rect x="40" y="250" width="220" height="64" rx="6" fill="#f1f5f9" stroke="#94a3b8"/>
+  <text x="150" y="276" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" fill="#334155">SpatialData on disk</text>
+  <text x="150" y="296" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#64748b">Zarr image pyramid, shapes</text>
+  <rect x="600" y="56" width="260" height="320" rx="8" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="730" y="82" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="14" font-weight="600" fill="#0f172a">Widget</text>
+  <rect x="620" y="110" width="220" height="64" rx="6" fill="#ecfdf5" stroke="#0d9488"/>
+  <text x="730" y="136" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" fill="#115e59">2D map</text>
+  <text x="730" y="156" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#64748b">deck.gl</text>
+  <rect x="620" y="250" width="220" height="64" rx="6" fill="#ecfdf5" stroke="#0d9488"/>
+  <text x="730" y="276" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13" fill="#115e59">Inspect cube</text>
+  <text x="730" y="296" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#64748b">windowed volume</text>
+  <text x="730" y="352" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#64748b">Camera, colors, layer toggles stay here</text>
+  <text x="440" y="96" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0f766e">selections, landmarks, focused selection</text>
+  <text x="440" y="111" text-anchor="middle" font-family="JetBrains Mono, monospace" font-size="11" fill="#0f766e">inspect_cx/cy, inspect_open, volume_cut</text>
+  <path d="M262 124 H616" stroke="#0d9488" stroke-width="1.5" marker-end="url(#at)"/>
+  <path d="M618 140 H264" stroke="#0d9488" stroke-width="1.5" marker-end="url(#at)"/>
+  <path d="M262 160 H616" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#ag)"/>
+  <text x="440" y="180" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#475569">gene columns on demand</text>
+  <path d="M262 282 H616" fill="none" stroke="#64748b" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#ag)"/>
+  <text x="440" y="302" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="11" fill="#475569">image chunks on demand</text>
 </svg>

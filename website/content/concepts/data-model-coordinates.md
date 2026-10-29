@@ -3,8 +3,8 @@
 Why milume reads AnnData and SpatialData the way it does, which coordinate frame everything shares, and what crosses between Python and the widget.
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/concepts/synced-state.dark.svg" alt="Diagram: Python holds AnnData and SpatialData on disk; the widget shows a 2D map and Inspect cube. Bidirectional arrows carry selections, landmarks, focus, and Inspect window fields; dashed arrows show gene columns and image chunks fetched on demand." width="880" height="420" style="width:100%;height:auto" loading="lazy">
-<img class="ml-only-light" src="../assets/concepts/synced-state.light.svg" alt="Diagram: Python holds AnnData and SpatialData on disk; the widget shows a 2D map and Inspect cube. Bidirectional arrows carry selections, landmarks, focus, and Inspect window fields; dashed arrows show gene columns and image chunks fetched on demand." width="880" height="420" style="width:100%;height:auto" loading="lazy">
+<img class="ml-only-dark" src="../assets/concepts/synced-state.dark.svg" alt="Diagram: Python holds AnnData and SpatialData on disk; the widget shows a 2D map and Inspect cube. Bidirectional arrows carry selections, landmarks, focus, and Inspect window fields; dashed arrows show gene columns and image chunks fetched on demand." width="880" height="400" style="width:100%;height:auto" loading="lazy">
+<img class="ml-only-light" src="../assets/concepts/synced-state.light.svg" alt="Diagram: Python holds AnnData and SpatialData on disk; the widget shows a 2D map and Inspect cube. Bidirectional arrows carry selections, landmarks, focus, and Inspect window fields; dashed arrows show gene columns and image chunks fetched on demand." width="880" height="400" style="width:100%;height:auto" loading="lazy">
 </figure>
 
 ### AnnData is the analysis object
