@@ -56,12 +56,10 @@ Explain that the docs page replays **prepared** export state and that molab is w
 Add a **second** `@app.cell(hide_code=True)` / `def _(mo):` / `mo.md(...)` whose body is only the shared molab tip (same text as `demos/landmarks.py` and `tests/test_demo_molab_header.py`):
 
 ```markdown
-> **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook.
+> **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook. After the server connects, click **Run all** (the ▶ button at the bottom right) to run the notebook.
 ```
 
-Keep this in its own cell, not folded into cell 1.
-
-molab runs notebooks in marimo **edit** mode. Marimo’s default `runtime.auto_instantiate` is `false`, so a connected kernel does not run cells until the user clicks **Run all**. The milume repo sets `[tool.marimo.runtime] auto_instantiate = true` in the root `pyproject.toml` (PEP 723 script metadata cannot set this; marimo strips it). GitHub-synced molab links pick up that project config.
+Keep this in its own cell, not folded into cell 1. molab does not auto-run cells when the kernel connects; users must click **Run all** once after **Run on Server**.
 
 ### Imports and analysis cells
 
@@ -190,7 +188,7 @@ def _(mo):
 def _(mo):
     mo.md(
         r"""
-        > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook.
+        > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook. After the server connects, click **Run all** (the ▶ button at the bottom right) to run the notebook.
         """
     )
     return
