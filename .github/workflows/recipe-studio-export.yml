@@ -6,6 +6,8 @@ on:
     paths:
       - "demos/recipes/**"
       - "website/scripts/export-recipes.sh"
+      - "website/scripts/prepare_recipe_studio.py"
+      - "website/scripts/recipe_widget_esm.py"
       - "website/scripts/assemble-pages.sh"
       - ".github/workflows/recipe-studio-export.yml"
       - "frontend/**"
