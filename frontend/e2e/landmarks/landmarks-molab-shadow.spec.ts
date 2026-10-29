@@ -64,6 +64,39 @@ test.describe("molab anywidget stress (scrolled page, shadow-host leave, CSS sca
       .toBeGreaterThan(0);
   });
 
+  test("Inspect (I) works with pointer over the map before any click", async ({ page }) => {
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
+    const box = await molabPickingCanvasBox(page);
+    const cx = box.x + box.width * 0.5;
+    const cy = box.y + box.height * 0.5;
+    await page.mouse.move(cx, cy, { steps: 4 });
+    await page.keyboard.press("i");
+    await expect.poll(() => getModel(page, "mode")).toBe("inspect");
+
+    const textarea = await page.evaluateHandle(() => {
+      const el = document.createElement("textarea");
+      el.setAttribute("aria-label", "Outside editor");
+      el.style.cssText = "position:fixed;left:0;top:0;width:60px;height:24px;z-index:9999";
+      document.body.append(el);
+      el.focus();
+      return el;
+    });
+    await setModel(page, { mode: "select" });
+    await page.mouse.move(cx + 6, cy + 6, { steps: 3 });
+    await page.mouse.move(cx, cy);
+    await page.keyboard.press("i");
+    await expect.poll(() => getModel(page, "mode")).toBe("inspect");
+    expect(await textarea.evaluate((el) => (el as HTMLTextAreaElement).value)).toBe("");
+
+    await textarea.evaluate((el) => (el as HTMLTextAreaElement).focus());
+    await setModel(page, { mode: "select" });
+    await page.mouse.move(cx, cy);
+    await page.keyboard.type("x");
+    await page.keyboard.type("i");
+    expect(await textarea.evaluate((el) => (el as HTMLTextAreaElement).value)).toBe("xi");
+    await expect.poll(() => getModel(page, "mode")).toBe("select");
+  });
+
   test("square selection still commits in the shadow embed", async ({ page }) => {
     await page.locator("canvas.landmarks__webgl").first().scrollIntoViewIfNeeded();
     const before = ((await getModel(page, "selections")) as unknown[])?.length ?? 0;
