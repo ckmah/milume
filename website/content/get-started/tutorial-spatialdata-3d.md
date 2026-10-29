@@ -2,9 +2,6 @@
 
 Follow the [Landmarks molab demo](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/landmarks.py): Pyxa `small/` from Hugging Face, clustering for colour, then **image + cell outlines → Inspect cube** ([#339](https://github.com/ckmah/milume/issues/339), [#343](https://github.com/ckmah/milume/issues/343)).
 
-!!! note "Media placeholder"
-    Step screenshots and screen recordings for this tutorial are not yet captured. Placeholders remain until docs media is re-shot from `demos/landmarks.py` (Inspect must not show points; cursor visible when in use).
-
 ## 1. Load the 3D tier
 
 Download `Stellaromics/demo` `small/` (transcript CSV omitted in the demo — about 247 MB) and build SpatialData with the Pyxa reader:
@@ -66,11 +63,21 @@ w
 
 **Result:** Coloured cells on the 2D map over the Pyxa section.
 
+<figure class="ml-hero ml-hero--still" markdown="0">
+<img class="ml-only-dark" src="../assets/tutorials/spatialdata-3d/still-map-clusters.dark.png" alt="Pyxa small section on the map, coloured by Leiden cluster." loading="lazy">
+<img class="ml-only-light" src="../assets/tutorials/spatialdata-3d/still-map-clusters.light.png" alt="Pyxa small section on the map, coloured by Leiden cluster." loading="lazy">
+</figure>
+
 ## 4. Inspect: image and cell meshes
 
 Click an empty area of the widget so it has keyboard focus, then press <kbd>I</kbd> and click the tissue ([Inspect in 3D](../reference/ui/inspect-3d.md)). The DAPI cube opens with **cell outline meshes**, not points.
 
 Use the cross-section sliders in the Inspect toolbar to move the cut plane. Saved inspect selections appear in the Selections list like lasso regions.
+
+<figure class="ml-hero ml-hero--still" markdown="0">
+<img class="ml-only-dark" src="../assets/tutorials/spatialdata-3d/still-inspect-cube.dark.png" alt="Inspect cube on Pyxa small: DAPI image and cell outline meshes with the Points layer off." loading="lazy">
+<img class="ml-only-light" src="../assets/tutorials/spatialdata-3d/still-inspect-cube.light.png" alt="Inspect cube on Pyxa small: DAPI image and cell outline meshes with the Points layer off." loading="lazy">
+</figure>
 
 ## 5. Enrichment on an Inspect selection
 

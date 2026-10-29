@@ -2,9 +2,6 @@
 
 Walk through the [ileum molab notebook](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/ileum_2d.py) on Xu et al. 2026 ileum MERFISH ([#343](https://github.com/ckmah/milume/issues/343)). Each step below matches one section of the notebook and shows a visible result on the map or in a table.
 
-!!! note "Media placeholder"
-    Tutorial screenshots and screen recordings are not yet captured for this page. When added, they will follow the docs media rules (Inspect stills are N/A here; any map stills show the cursor when it is in use).
-
 ## 1. Load the ileum slice
 
 Fetch `ileum.h5ad` from the raw GitHub URL on `main` into a temp file, then read it with Scanpy. The matrix `X` is already the authors' log-normalized values — do not call `normalize_total` or `log1p`.
@@ -40,6 +37,11 @@ w
 
 **Result:** The full ileum ring appears, coloured by `cell_type`.
 
+<figure class="ml-hero ml-hero--still" markdown="0">
+<img class="ml-only-dark" src="../assets/tutorials/explore-cells-2d/still-cell-types.dark.png" alt="The ileum section coloured by cell type in the Landmarks map." loading="lazy">
+<img class="ml-only-light" src="../assets/tutorials/explore-cells-2d/still-cell-types.light.png" alt="The ileum section coloured by cell type in the Landmarks map." loading="lazy">
+</figure>
+
 ## 3. Layer and villus–crypt genes
 
 Recolour in place — no new figure objects:
@@ -51,6 +53,11 @@ w.color = "Cps1"              # crypt / lower villus
 ```
 
 **Result:** You see the crypt–villus axis and the GALT patch in anatomical layers before you select it.
+
+<figure class="ml-hero ml-hero--still" markdown="0">
+<img class="ml-only-dark" src="../assets/tutorials/explore-cells-2d/still-anatomical-layer.dark.png" alt="The same section coloured by anatomical layer, with the GALT patch visible." loading="lazy">
+<img class="ml-only-light" src="../assets/tutorials/explore-cells-2d/still-anatomical-layer.light.png" alt="The same section coloured by anatomical layer, with the GALT patch visible." loading="lazy">
+</figure>
 
 ## 4. Lasso a GALT follicle
 
@@ -64,6 +71,11 @@ galt_hits = w.get_obs_names(sel_id)
 ```
 
 **Result:** A few hundred cells, enriched for immune labels when you analyze them next.
+
+<figure class="ml-hero ml-hero--still" markdown="0">
+<img class="ml-only-dark" src="../assets/tutorials/explore-cells-2d/still-galt-selection.dark.png" alt="A lasso selection around the GALT follicle on the cell-type map." loading="lazy">
+<img class="ml-only-light" src="../assets/tutorials/explore-cells-2d/still-galt-selection.light.png" alt="A lasso selection around the GALT follicle on the cell-type map." loading="lazy">
+</figure>
 
 ## 5. Enrichment and violin plots
 
