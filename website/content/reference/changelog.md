@@ -31,7 +31,7 @@ traits changed, listed under **Changed**.
 - Pick up to 8 genes. Up to three blend one color channel each, as before.
   Four or more color by one combined value, with **Mean**, **Median**, or
   **Max** under the gene field. See [Color & layers](../reference/ui/color-layers.md#genes).
-- The [Squidpy colour recipe](../how-to/recipes/) shows how to color
+- The [Squidpy colour recipe](../../how-to/recipes/) shows how to color
   the widget by Squidpy niches and by the top Moran's I gene.
 
 **Changed**
@@ -46,7 +46,7 @@ traits changed, listed under **Changed**.
   Python 3.12 that is about 280 MB less on disk. If your own code uses either
   one, install it yourself.
 - `pip install milume` no longer installs leidenalg. The demo notebook and the
-  [Squidpy niche recipe](recipes/) call `sc.tl.leiden`,
+  [Squidpy niche recipe](../../how-to/recipes/) call `sc.tl.leiden`,
   so run `pip install leidenalg` if you follow them.
 - The `milume[demo]` extra is gone. Each demo notebook lists its own
   dependencies in its script header, so
