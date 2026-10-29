@@ -79,6 +79,33 @@ export async function installDocsCaptureChrome(page, theme) {
   });
 }
 
+/** Volume harness mounts under a fixed `.dark` shell; apply light/dark like issue-172 captures. */
+export async function applyDocsHarnessTheme(page, theme) {
+  const dark = theme === "dark";
+  await page.evaluate((isDark) => {
+    const root = document.documentElement;
+    root.classList.remove("light", "dark", "dark-theme", "light-theme");
+    if (isDark) root.classList.add("dark", "dark-theme");
+    else root.classList.add("light", "light-theme");
+    window.localStorage.setItem("milume-harness-theme", isDark ? "dark" : "light");
+    const shell = document.querySelector(".min-h-screen");
+    if (shell instanceof HTMLElement) {
+      shell.classList.toggle("dark", isDark);
+      shell.classList.toggle("bg-neutral-950", isDark);
+      shell.classList.toggle("text-neutral-100", isDark);
+      shell.classList.toggle("bg-white", !isDark);
+      shell.classList.toggle("text-neutral-950", !isDark);
+    }
+    const widget = document.querySelector(".landmarks");
+    if (widget instanceof HTMLElement) {
+      widget.classList.toggle("dark", isDark);
+      widget.classList.toggle("landmarks--dark", isDark);
+      widget.classList.toggle("landmarks--light", !isDark);
+    }
+  }, dark);
+  await page.waitForTimeout(300);
+}
+
 export async function waitForLandmarks(page) {
   await page.locator(".landmarks").first().waitFor({ state: "visible" });
   await page.locator("canvas.landmarks__webgl").first().waitFor({ state: "visible" });

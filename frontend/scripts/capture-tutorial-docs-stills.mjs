@@ -20,6 +20,7 @@ import { chromium } from "@playwright/test";
 
 import {
   VIEWPORT,
+  applyDocsHarnessTheme,
   hideDocsHarnessChrome,
   installDocsCaptureChrome,
   milumeSidecarSha,
@@ -64,6 +65,7 @@ async function captureVolumePair(browser, relDir, name, setup, { shot = "landmar
     await installDocsCaptureChrome(page, theme);
     await page.goto(`${volumeUrl}${volumeQuery}`, { waitUntil: "domcontentloaded", timeout: 300_000 });
     await waitForLandmarks(page);
+    await applyDocsHarnessTheme(page, theme);
     await setup(page, theme);
     if (shot === "cube") {
       await screenshotInspectCube(page, join(outDir, `${name}.${theme}.png`));
