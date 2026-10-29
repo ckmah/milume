@@ -7,7 +7,9 @@ from prepare_recipe_studio import (
     RecipeStudioExportError,
     extract_body_fragment,
     extract_runtime_head,
+    prepare,
 )
+from recipe_widget_esm import RecipeWidgetRuntimePatchError
 
 SAMPLE = """<!doctype html>
 <html><head>
@@ -41,3 +43,16 @@ def test_extract_body_fragment_includes_cells_and_footer() -> None:
 def test_extract_body_fragment_missing_cells_raises() -> None:
     with pytest.raises(RecipeStudioExportError, match="<marimo-cell>"):
         extract_body_fragment("<html><body></body></html>")
+
+
+def test_prepare_raises_when_runtime_patch_anchor_missing(tmp_path: Path) -> None:
+    export_dir = tmp_path / "export"
+    assets = export_dir / "_marimo-studio" / "assets" / "zero-python"
+    assets.mkdir(parents=True)
+    (assets / "zero-python.js").write_text("// patched runtime missing anchors\n", encoding="utf-8")
+    (export_dir / "index.html").write_text(SAMPLE, encoding="utf-8")
+    content_root = tmp_path / "recipes"
+    slug_dir = content_root / "demo"
+    slug_dir.mkdir(parents=True)
+    with pytest.raises(RecipeWidgetRuntimePatchError, match="anchor not found"):
+        prepare("demo", export_dir, content_root=content_root)

@@ -7,10 +7,10 @@ from pathlib import Path
 import pytest
 
 from recipe_widget_esm import (
-    _NBe_OLD,
-    _SIZE_CHECK_OLD,
-    _SIZE_CHECK_OLD_2,
-    _XXe_OLD,
+    FIXTURE_MARIMO_STUDIO_0_4_1_ANCHORS,
+    MARIMO_STUDIO_PATCH_VERSION,
+    ZERO_PYTHON_RUNTIME_PATCHES,
+    RecipeWidgetRuntimePatchError,
     decode_data_url,
     externalize_cell_json_files,
     inject_modulepreload,
@@ -18,7 +18,21 @@ from recipe_widget_esm import (
     patch_zero_python_runtime,
     widget_asset_filename,
 )
-from recipe_widget_esm import _IZe_OLD  # noqa: PLC2701
+
+
+def _concat_patch_anchors() -> str:
+    return "".join(p.anchor for p in ZERO_PYTHON_RUNTIME_PATCHES)
+
+
+def test_marimo_studio_0_4_1_fixture_pins_patch_anchors() -> None:
+    payload = json.loads(FIXTURE_MARIMO_STUDIO_0_4_1_ANCHORS.read_text(encoding="utf-8"))
+    assert payload["marimo_studio_version"] == MARIMO_STUDIO_PATCH_VERSION
+    fixture_anchors = payload["anchors"]
+    runtime_body = _concat_patch_anchors()
+    for patch in ZERO_PYTHON_RUNTIME_PATCHES:
+        assert patch.name in fixture_anchors
+        assert fixture_anchors[patch.name] == patch.anchor
+        assert patch.anchor in runtime_body
 
 
 def test_is_embedded_widget_esm_detects_anywidget_key() -> None:
@@ -71,11 +85,33 @@ def test_externalize_writes_shared_asset(tmp_path: Path) -> None:
 def test_patch_zero_python_runtime_applies(tmp_path: Path) -> None:
     js = tmp_path / "zero-python" / "chunks" / "mount.js"
     js.parent.mkdir(parents=True)
-    js.write_text(_IZe_OLD + _NBe_OLD + _SIZE_CHECK_OLD + _SIZE_CHECK_OLD_2 + _XXe_OLD, encoding="utf-8")
+    js.write_text(_concat_patch_anchors(), encoding="utf-8")
     patch_zero_python_runtime(tmp_path)
     text = js.read_text(encoding="utf-8")
     assert "shared widget asset URL" in text
     assert "document.baseURI" in text
+    assert "async function XXe(e,t){return}" in text
+
+
+def test_patch_raises_when_anchor_missing(tmp_path: Path) -> None:
+    js = tmp_path / "zero-python" / "chunks" / "mount.js"
+    js.parent.mkdir(parents=True)
+    js.write_text("// no anchors\n", encoding="utf-8")
+    with pytest.raises(RecipeWidgetRuntimePatchError) as exc:
+        patch_zero_python_runtime(tmp_path)
+    msg = str(exc.value)
+    assert MARIMO_STUDIO_PATCH_VERSION in msg
+    assert "anchor not found" in msg
+    assert "shared_esm_ize" in msg
+
+
+def test_patch_raises_when_anchor_duplicated(tmp_path: Path) -> None:
+    js = tmp_path / "zero-python" / "chunks" / "mount.js"
+    js.parent.mkdir(parents=True)
+    first = ZERO_PYTHON_RUNTIME_PATCHES[0].anchor
+    js.write_text(_concat_patch_anchors() + first, encoding="utf-8")
+    with pytest.raises(RecipeWidgetRuntimePatchError, match="appears 2 times"):
+        patch_zero_python_runtime(tmp_path)
 
 
 def test_inject_modulepreload_appends_once() -> None:

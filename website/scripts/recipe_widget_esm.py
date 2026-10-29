@@ -5,8 +5,8 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import re
 from dataclasses import dataclass
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +14,9 @@ WEBSITE = Path(__file__).resolve().parents[1]
 DEFAULT_WIDGET_ASSET_DIR = WEBSITE / "content" / "assets" / "recipe-widgets"
 # Resolved from recipe page base href (./ under .../recipes/<slug>/).
 WIDGET_ASSET_HREF = "../../assets/recipe-widgets/{filename}"
+
+# Pin matches dev dependency in pyproject.toml; patch anchors target this export runtime.
+MARIMO_STUDIO_PATCH_VERSION = "0.4.1"
 
 _DATA_JS_PREFIXES = (
     "data:text/javascript;base64,",
@@ -67,8 +70,34 @@ _XXe_OLD = (
 _XXe_NEW = "async function XXe(e,t){return}"
 
 
+@dataclass(frozen=True)
+class ZeroPythonRuntimePatch:
+    name: str
+    anchor: str
+    replacement: str
+
+
+ZERO_PYTHON_RUNTIME_PATCHES: tuple[ZeroPythonRuntimePatch, ...] = (
+    ZeroPythonRuntimePatch("shared_esm_ize", _IZe_OLD, _IZe_NEW),
+    ZeroPythonRuntimePatch("shared_esm_nbe", _NBe_OLD, _NBe_NEW),
+    ZeroPythonRuntimePatch("shared_esm_size_declared", _SIZE_CHECK_OLD, ""),
+    ZeroPythonRuntimePatch("shared_esm_size_body", _SIZE_CHECK_OLD_2, ""),
+    ZeroPythonRuntimePatch("shared_esm_xxe", _XXe_OLD, _XXe_NEW),
+)
+
+FIXTURE_MARIMO_STUDIO_0_4_1_ANCHORS = (
+    Path(__file__).resolve().parent
+    / "fixtures"
+    / "marimo_studio_0_4_1_zero_python_patch_anchors.json"
+)
+
+
 class RecipeWidgetEsmError(RuntimeError):
     """Raised when cell JSON or runtime assets cannot be externalized."""
+
+
+class RecipeWidgetRuntimePatchError(RecipeWidgetEsmError):
+    """Raised when the vendored zero-python runtime patch cannot be applied."""
 
 
 @dataclass(frozen=True)
@@ -76,6 +105,104 @@ class ExternalizeReport:
     asset_hashes: tuple[str, ...]
     cells_updated: int
     bytes_hoisted: int
+
+
+def installed_marimo_studio_version() -> str:
+    try:
+        return version("marimo-studio")
+    except PackageNotFoundError as exc:
+        raise RecipeWidgetRuntimePatchError(
+            "marimo-studio is not installed; recipe export requires "
+            f"marimo-studio=={MARIMO_STUDIO_PATCH_VERSION}"
+        ) from exc
+
+
+def require_marimo_studio_patch_version() -> None:
+    installed = installed_marimo_studio_version()
+    if installed != MARIMO_STUDIO_PATCH_VERSION:
+        raise RecipeWidgetRuntimePatchError(
+            "prepare-recipe-studio: marimo-studio version mismatch for zero-python "
+            f"runtime patch (installed {installed!r}, expected "
+            f"{MARIMO_STUDIO_PATCH_VERSION!r}). Update recipe_widget_esm.py anchors "
+            "or pin marimo-studio in pyproject.toml."
+        )
+
+
+def _anchor_excerpt(anchor: str, *, limit: int = 100) -> str:
+    flat = " ".join(anchor.split())
+    if len(flat) <= limit:
+        return flat
+    return f"{flat[:limit]}..."
+
+
+def _locate_patch_anchor(
+    js_files: list[Path],
+    patch: ZeroPythonRuntimePatch,
+    runtime_assets_dir: Path,
+) -> Path:
+    hits = [path for path in js_files if patch.anchor in path.read_text(encoding="utf-8")]
+    if not hits:
+        raise RecipeWidgetRuntimePatchError(
+            "prepare-recipe-studio: marimo zero-python runtime patch "
+            f"{patch.name!r} anchor not found under {runtime_assets_dir} "
+            f"(expected marimo-studio {MARIMO_STUDIO_PATCH_VERSION}). "
+            f"Anchor excerpt: {_anchor_excerpt(patch.anchor)!r}"
+        )
+    if len(hits) > 1:
+        rel = ", ".join(str(p.relative_to(runtime_assets_dir)) for p in hits)
+        raise RecipeWidgetRuntimePatchError(
+            "prepare-recipe-studio: marimo zero-python runtime patch "
+            f"{patch.name!r} anchor is ambiguous under {runtime_assets_dir} "
+            f"(expected marimo-studio {MARIMO_STUDIO_PATCH_VERSION}); "
+            f"matched files: {rel}"
+        )
+    return hits[0]
+
+
+def patch_zero_python_runtime(runtime_assets_dir: Path) -> None:
+    """Patch vendored marimo zero-python for shared widget ESM hrefs (#355)."""
+    require_marimo_studio_patch_version()
+    if not runtime_assets_dir.is_dir():
+        raise RecipeWidgetRuntimePatchError(
+            f"prepare-recipe-studio: missing zero-python runtime assets at "
+            f"{runtime_assets_dir} (expected marimo-studio "
+            f"{MARIMO_STUDIO_PATCH_VERSION})"
+        )
+
+    js_files = sorted(runtime_assets_dir.rglob("*.js"))
+    if not js_files:
+        raise RecipeWidgetRuntimePatchError(
+            f"prepare-recipe-studio: no JavaScript under {runtime_assets_dir} "
+            f"(expected marimo-studio {MARIMO_STUDIO_PATCH_VERSION} zero-python export)"
+        )
+
+    patches_by_file: dict[Path, list[ZeroPythonRuntimePatch]] = {}
+    for patch in ZERO_PYTHON_RUNTIME_PATCHES:
+        target = _locate_patch_anchor(js_files, patch, runtime_assets_dir)
+        patches_by_file.setdefault(target, []).append(patch)
+
+    for path, patches in patches_by_file.items():
+        text = path.read_text(encoding="utf-8")
+        updated = text
+        rel = path.relative_to(runtime_assets_dir)
+        for patch in patches:
+            count = updated.count(patch.anchor)
+            if count == 0:
+                raise RecipeWidgetRuntimePatchError(
+                    "prepare-recipe-studio: marimo zero-python runtime patch "
+                    f"{patch.name!r} anchor missing while patching {rel} "
+                    f"(expected marimo-studio {MARIMO_STUDIO_PATCH_VERSION}). "
+                    f"Anchor excerpt: {_anchor_excerpt(patch.anchor)!r}"
+                )
+            if count != 1:
+                raise RecipeWidgetRuntimePatchError(
+                    "prepare-recipe-studio: marimo zero-python runtime patch "
+                    f"{patch.name!r} anchor appears {count} times in {rel} "
+                    f"(expected marimo-studio {MARIMO_STUDIO_PATCH_VERSION})"
+                )
+            updated = updated.replace(patch.anchor, patch.replacement, 1)
+        if updated != text:
+            path.write_text(updated, encoding="utf-8")
 
 
 def is_embedded_widget_esm(key: str, value: Any) -> bool:
@@ -104,33 +231,6 @@ def decode_data_url(value: str) -> bytes:
 def widget_asset_filename(content: bytes) -> str:
     digest = hashlib.sha256(content).hexdigest()
     return f"landmarks-{digest}.mjs"
-
-
-def patch_zero_python_runtime(runtime_assets_dir: Path) -> None:
-    """Allow shared HTTP asset URLs in replay resources (marimo #355)."""
-    if not runtime_assets_dir.is_dir():
-        raise RecipeWidgetEsmError(f"missing runtime assets dir: {runtime_assets_dir}")
-    patched = 0
-    for path in runtime_assets_dir.rglob("*.js"):
-        text = path.read_text(encoding="utf-8")
-        updated = text
-        if _IZe_OLD in updated:
-            updated = updated.replace(_IZe_OLD, _IZe_NEW, 1)
-        if _NBe_OLD in updated:
-            updated = updated.replace(_NBe_OLD, _NBe_NEW, 1)
-        if _SIZE_CHECK_OLD in updated:
-            updated = updated.replace(_SIZE_CHECK_OLD, "", 1)
-        if _SIZE_CHECK_OLD_2 in updated:
-            updated = updated.replace(_SIZE_CHECK_OLD_2, "", 1)
-        if _XXe_OLD in updated:
-            updated = updated.replace(_XXe_OLD, _XXe_NEW, 1)
-        if updated != text:
-            path.write_text(updated, encoding="utf-8")
-            patched += 1
-    if patched == 0:
-        raise RecipeWidgetEsmError(
-            "zero-python runtime patch did not apply (marimo-studio upgrade?)"
-        )
 
 
 def externalize_cell_json_files(

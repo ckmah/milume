@@ -60,6 +60,7 @@ dev = [
     "geopandas>=1.1.4",
     "huggingface-hub>=0.30",
     "leidenalg>=0.12.0",
+    # Recipe export runtime patch anchors in website/scripts/recipe_widget_esm.py
     "marimo-studio==0.4.1",
     "mkdocstrings-python>=2.0.9",
     "pytest>=8.3.3",
