@@ -402,7 +402,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         # No checkout in this job: without --repo, gh looks for a git remote and fails.
         run: |
+          gh label create ci-failure \
+            --repo "${{ github.repository }}" \
+            --color B60205 \
+            --description "Auto-filed by nightly CI" \
+            --force
           gh issue create \
             --repo "${{ github.repository }}" \
             --title "Nightly landmarks e2e failed ($(date -u +%Y-%m-%d))" \
+            --label ci-failure \
             --body "Scheduled frontend-e2e run failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
