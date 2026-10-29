@@ -48,6 +48,11 @@ nav = [
     { Datasets = "reference/datasets.md" },
     { Changelog = "reference/changelog.md" },
   ] },
+  { Concepts = [
+    { "Data model and coordinates" = "concepts/data-model-coordinates.md" },
+    { "How rendering works" = "concepts/rendering.md" },
+    { "Design principles" = "concepts/design-principles.md" },
+  ] },
 ]
 
 [project.extra]
