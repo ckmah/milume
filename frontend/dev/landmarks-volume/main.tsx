@@ -21,9 +21,11 @@ import { loadFixtureModel } from "../mock-model";
 function optionsFrom(search: string) {
   const params = new URLSearchParams(search);
   const [preview, dock] = (params.get("budgets") ?? "").split(",").map(Number);
+  const meshOpacity = Number(params.get("meshOpacity"));
   return {
     cubeBudgets: preview && dock ? { preview, dock } : undefined,
     inspectWindowUm: Number(params.get("window")) || undefined,
+    meshOpacity: Number.isFinite(meshOpacity) && meshOpacity > 0 ? meshOpacity : undefined,
   };
 }
 
@@ -32,18 +34,18 @@ function optionsFrom(search: string) {
  * opens the immersive cube over the plot area on release. The engine exposes `window.__landmarksEngine` / `__landmarksModel`.
  */
 function LandmarksVolumeHarness() {
+  const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
+  const [model, setModel] = useState<AnyModel | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [options, setOptions] = useState(() => optionsFrom(location.search));
   // Live: every value is a uniform or layer prop, so a drag never rebuilds the meshes.
   const mesh = useDialKit("Mesh", {
-    opacity: [DEFAULT_RENDER.cellAlpha, 0, 1, 0.05],
+    opacity: [options.meshOpacity ?? DEFAULT_RENDER.cellAlpha, 0, 1, 0.05],
     fresnelMin: [DEFAULT_MESH_LOOK.fresnelMin, 0, 1, 0.01],
     shine: [DEFAULT_MESH_LOOK.shine, 0, 1, 0.05],
     flat: [DEFAULT_MESH_LOOK.flat, 0, 1, 0.05],
     imgBoost: [DEFAULT_MESH_LOOK.imgBoost, 0, 1, 0.05],
   });
-  const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
-  const [model, setModel] = useState<AnyModel | null>(null);
-  const [loadError, setLoadError] = useState("");
-  const [options, setOptions] = useState(() => optionsFrom(location.search));
 
   useEffect(() => {
     let cancelled = false;

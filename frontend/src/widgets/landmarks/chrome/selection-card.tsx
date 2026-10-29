@@ -74,8 +74,10 @@ export function SelectionCard({
         categoryCodesB64: category_codes || "",
         categoryColumns: category_columns || [],
         activeCategory: active_category || "",
+        xBounds: x_bounds || [],
+        yBounds: y_bounds || [],
       }),
-    [n, index, selections, points_data, category_codes, category_columns, active_category],
+    [n, index, selections, points_data, category_codes, category_columns, active_category, x_bounds, y_bounds],
   );
   const count = useMemo(() => mask.reduce((a, v) => a + v, 0), [mask]);
   const slices = useMemo(

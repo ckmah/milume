@@ -26,6 +26,7 @@ export async function installDocsCaptureChrome(page, theme) {
     style.id = "docs-tool-capture-chrome";
     style.textContent = `
       .harness-toolbar { display: none !important; }
+      .dialkit-root, [class*='dialkit'] { display: none !important; }
       .harness-cell-output { padding: 0 !important; }
       .harness-shell { min-height: 0 !important; }
       #docs-capture-cursor {
@@ -36,6 +37,17 @@ export async function installDocsCaptureChrome(page, theme) {
       }
     `;
     document.documentElement.appendChild(style);
+
+    const hideDialkit = () => {
+      document.querySelectorAll(".dialkit-root, [class*='dialkit']").forEach((el) => {
+        el.style.setProperty("display", "none", "important");
+      });
+    };
+    hideDialkit();
+    new MutationObserver(hideDialkit).observe(document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
 
     const attachCursor = () => {
       const lm = document.querySelector(".landmarks");
@@ -65,6 +77,33 @@ export async function installDocsCaptureChrome(page, theme) {
       true,
     );
   });
+}
+
+/** Volume harness mounts under a fixed `.dark` shell; apply light/dark like issue-172 captures. */
+export async function applyDocsHarnessTheme(page, theme) {
+  const dark = theme === "dark";
+  await page.evaluate((isDark) => {
+    const root = document.documentElement;
+    root.classList.remove("light", "dark", "dark-theme", "light-theme");
+    if (isDark) root.classList.add("dark", "dark-theme");
+    else root.classList.add("light", "light-theme");
+    window.localStorage.setItem("milume-harness-theme", isDark ? "dark" : "light");
+    const shell = document.querySelector(".min-h-screen");
+    if (shell instanceof HTMLElement) {
+      shell.classList.toggle("dark", isDark);
+      shell.classList.toggle("bg-neutral-950", isDark);
+      shell.classList.toggle("text-neutral-100", isDark);
+      shell.classList.toggle("bg-white", !isDark);
+      shell.classList.toggle("text-neutral-950", !isDark);
+    }
+    const widget = document.querySelector(".landmarks");
+    if (widget instanceof HTMLElement) {
+      widget.classList.toggle("dark", isDark);
+      widget.classList.toggle("landmarks--dark", isDark);
+      widget.classList.toggle("landmarks--light", !isDark);
+    }
+  }, dark);
+  await page.waitForTimeout(300);
 }
 
 export async function waitForLandmarks(page) {
@@ -131,6 +170,15 @@ export async function fitDenseTissueView(page) {
   await page.waitForTimeout(450);
 }
 
+export async function hideDocsHarnessChrome(page) {
+  await page.evaluate(() => {
+    document.querySelectorAll(".dialkit-root, [class*='dialkit']").forEach((el) => {
+      el.style.setProperty("display", "none", "important");
+    });
+  });
+}
+
 export async function screenshotLandmarks(page, path) {
+  await hideDocsHarnessChrome(page);
   await page.locator(".landmarks").first().screenshot({ path });
 }
