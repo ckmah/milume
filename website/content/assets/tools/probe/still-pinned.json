@@ -1,1 +1,5 @@
-{"dataset": "Stellaromics/demo:small", "seed": 0, "milume": "b9bc963"}
+{
+ "dataset": "demos/data:ileum",
+ "seed": 0,
+ "milume": "d5e6a0d"
+}

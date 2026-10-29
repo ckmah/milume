@@ -1,27 +1,25 @@
 {
- "dataset": "Stellaromics/demo:small",
+ "dataset": "demos/data:ileum",
  "seed": 0,
- "milume": "95af50a",
+ "milume": "d5e6a0d",
  "dark": {
-  "frames": 180,
-  "seconds": 6.0,
-  "seamless_rmse": 0.0171,
+  "frames": 168,
+  "seconds": 5.6,
+  "seamless_rmse": 0,
   "render": "1920:1200",
   "crf": [
    36,
    24
-  ],
-  "seam_check": "cyclic path: seam RMSE 0.0171 vs median adjacent-frame RMSE 0.0172"
+  ]
  },
  "light": {
-  "frames": 180,
-  "seconds": 6.0,
-  "seamless_rmse": 0.0119,
+  "frames": 172,
+  "seconds": 5.7,
+  "seamless_rmse": 0,
   "render": "1920:1200",
   "crf": [
    36,
    24
-  ],
-  "seam_check": "cyclic path: seam RMSE 0.0119 vs median adjacent-frame RMSE 0.0131"
+  ]
  }
 }
