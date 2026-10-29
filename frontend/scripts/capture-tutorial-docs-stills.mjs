@@ -204,28 +204,9 @@ async function main() {
       await setObsColor(page, "anatomical_layer");
     });
 
-    const galtPage = await browser.newPage({ viewport: VIEWPORT });
-    await installDocsCaptureChrome(galtPage, "dark");
-    await gotoDocsFixture(galtPage, ileumUrl, ileumFixture);
-    await fitDenseTissueView(galtPage);
-    const galtOk = await galtLassoSelection(galtPage);
-    await galtPage.close();
-    if (galtOk) {
-      await captureIleumPair(browser, "explore-cells-2d", "still-galt-selection", async (page) => {
-        await setObsColor(page, "cell_type");
-        await galtLassoSelection(page);
-      });
-    } else {
-      console.warn("skip still-galt-selection: GALT bounds not found");
-    }
-
-    await captureVolumePair(browser, "spatialdata-3d", "still-map-clusters", async (page) => {
-      await waitForLandmarks(page);
-    });
-
-    await captureVolumePair(browser, "spatialdata-3d", "still-inspect-cube", async (page) => {
-      await openInspectCube(page);
-    }, { shot: "cube" });
+    // GALT lasso, 3D map and Inspect stills were dropped from #365: the lasso
+    // never registered, the 3D map was uncolored, and the Mesh panel (opacity 0.9)
+    // covered both 3D shots. Re-add them only once they capture cleanly.
   } finally {
     await browser.close();
   }
