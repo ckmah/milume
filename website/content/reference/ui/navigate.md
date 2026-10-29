@@ -1,8 +1,8 @@
 # Navigate
 
 <figure class="ml-hero" markdown="0">
-<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../assets/tools/navigate/hero" data-theme="dark" poster="../../assets/tools/navigate/hero.dark.poster.webp" aria-label="The map zooms in on the cells, pans across them, then returns to the full view." width="960" height="600"><source src="../assets/tools/navigate/hero.dark.webm" type="video/webm"><source src="../assets/tools/navigate/hero.dark.mp4" type="video/mp4"></video>
-<img class="ml-loop-poster" src="../assets/tools/navigate/hero.dark.poster.webp" alt="The map zooms in on the cells, pans across them, then returns to the full view." width="960" height="600" loading="lazy">
+<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../../assets/tools/navigate/hero" data-theme="dark" poster="../../../assets/tools/navigate/hero.dark.poster.webp" aria-label="The map zooms in on the cells, pans across them, then returns to the full view." width="960" height="600"><source src="../../assets/tools/navigate/hero.dark.webm" type="video/webm"><source src="../../assets/tools/navigate/hero.dark.mp4" type="video/mp4"></video>
+<img class="ml-loop-poster" src="../../assets/tools/navigate/hero.dark.poster.webp" alt="The map zooms in on the cells, pans across them, then returns to the full view." width="960" height="600" loading="lazy">
 </figure>
 
 Scroll to zoom, drag to pan, and press 0 to fit the whole tissue back in view.
@@ -34,40 +34,18 @@ w = milume.peek(sdata)  # press H to pan, = / - to zoom, 0 to reset
 ### Minimap
 
 <figure class="ml-hero" markdown="0">
-<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../assets/tools/navigate/loop-minimap" data-theme="dark" poster="../../assets/tools/navigate/loop-minimap.dark.poster.webp" aria-label="The minimap viewport box is dragged up and to the left, and the map pans with it." width="960" height="600"><source src="../assets/tools/navigate/loop-minimap.dark.webm" type="video/webm"><source src="../assets/tools/navigate/loop-minimap.dark.mp4" type="video/mp4"></video>
-<img class="ml-loop-poster" src="../assets/tools/navigate/loop-minimap.dark.poster.webp" alt="The minimap viewport box is dragged up and to the left, and the map pans with it." width="960" height="600" loading="lazy">
+<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../../assets/tools/navigate/loop-minimap" data-theme="dark" poster="../../../assets/tools/navigate/loop-minimap.dark.poster.webp" aria-label="The minimap viewport box is dragged up and to the left, and the map pans with it." width="960" height="600"><source src="../../assets/tools/navigate/loop-minimap.dark.webm" type="video/webm"><source src="../../assets/tools/navigate/loop-minimap.dark.mp4" type="video/mp4"></video>
+<img class="ml-loop-poster" src="../../assets/tools/navigate/loop-minimap.dark.poster.webp" alt="The minimap viewport box is dragged up and to the left, and the map pans with it." width="960" height="600" loading="lazy">
 </figure>
 
 ### Canvas rulers
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/navigate/still-rulers.dark.png" alt="Canvas rulers switched on: coordinate ticks along the top and left edges of the map, with the rulers toggle highlighted in the top-right toolbar." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/navigate/still-rulers.light.png" alt="Canvas rulers switched on: coordinate ticks along the top and left edges of the map, with the rulers toggle highlighted in the top-right toolbar." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/navigate/still-rulers.dark.png" alt="Canvas rulers switched on: coordinate ticks along the top and left edges of the map, with the rulers toggle highlighted in the top-right toolbar." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/navigate/still-rulers.light.png" alt="Canvas rulers switched on: coordinate ticks along the top and left edges of the map, with the rulers toggle highlighted in the top-right toolbar." loading="lazy">
 </figure>
 
-## Keyboard shortcuts
-
-| Action | Keys |
-|---|---|
-| Select | <kbd>V</kbd> |
-| Move | <kbd>H</kbd> |
-| Pan while held (any tool) | <kbd>Space</kbd> |
-| Zoom in / out | <kbd>=</kbd> / <kbd>-</kbd> |
-| Reset view | <kbd>0</kbd> |
-| Full screen | <kbd>F</kbd> |
-| Collapse left / right panel | <kbd>[</kbd> / <kbd>]</kbd> |
-| Deselect, cancel a draft | <kbd>Esc</kbd> |
-
-## Python
-
-The active tool and the rulers are synced traitlets, so you can set them from a cell:
-
-```python
-w.mode = "move"        # same as pressing H
-w.show_rulers = True
-```
-
-See [Synced traitlets](../api/landmarks.md#synced-traitlets) for the full list.
+For keyboard shortcuts see [Keyboard shortcuts](../keyboard-shortcuts.md). To drive the active tool from Python, see [Synced traitlets](../api/landmarks.md#synced-traitlets).
 
 ## Related
 

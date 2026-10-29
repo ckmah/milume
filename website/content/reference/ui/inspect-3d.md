@@ -1,8 +1,8 @@
 # Inspect in 3D
 
 <figure class="ml-hero" markdown="0">
-<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../assets/tools/inspect-3d/hero" data-theme="dark" data-only-theme="dark" poster="../../assets/tools/inspect-3d/hero.dark.poster.webp" aria-label="A 3D cube of the tissue volume, with the image and cell labels layered on, swings about 112° and back as the pointer drags the camera." width="960" height="600"><source src="../assets/tools/inspect-3d/hero.dark.webm" type="video/webm"><source src="../assets/tools/inspect-3d/hero.dark.mp4" type="video/mp4"></video>
-<img class="ml-loop-poster" src="../assets/tools/inspect-3d/hero.dark.poster.webp" alt="A 3D cube of the tissue volume, with the image and cell labels layered on, swings about 112° and back as the pointer drags the camera." width="960" height="600" loading="lazy">
+<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../../assets/tools/inspect-3d/hero" data-theme="dark" data-only-theme="dark" poster="../../../assets/tools/inspect-3d/hero.dark.poster.webp" aria-label="A 3D cube of the tissue volume, with the image and cell labels layered on, swings about 112° and back as the pointer drags the camera." width="960" height="600"><source src="../../assets/tools/inspect-3d/hero.dark.webm" type="video/webm"><source src="../../assets/tools/inspect-3d/hero.dark.mp4" type="video/mp4"></video>
+<img class="ml-loop-poster" src="../../assets/tools/inspect-3d/hero.dark.poster.webp" alt="A 3D cube of the tissue volume, with the image and cell labels layered on, swings about 112° and back as the pointer drags the camera." width="960" height="600" loading="lazy">
 </figure>
 
 Place a cube window on the map, then orbit and slice image, labels and transcripts together.
@@ -19,15 +19,15 @@ w.volume_cut  # cut-plane state after you slide the cross-section
 Press <kbd>I</kbd> or click <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-icon" aria-hidden="true"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path></svg> Inspect, then click the tissue to place a cube window. The top pill shows the window size, <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-icon" aria-hidden="true"><path d="M12 7v6"></path><path d="M15 10H9"></path><path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z"></path></svg> Save window and <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-icon" aria-hidden="true"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg> Exit Inspect (<kbd>Esc</kbd>).
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/inspect-3d/still-pill.dark.png" alt="The Inspect cube open: the top pill shows Exit, Inspect with the window size in µm, Save window, and full screen; the bottom toolbar has camera presets and layer toggles." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/inspect-3d/still-pill.light.png" alt="The Inspect cube open: the top pill shows Exit, Inspect with the window size in µm, Save window, and full screen; the bottom toolbar has camera presets and layer toggles." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/inspect-3d/still-pill.dark.png" alt="The Inspect cube open: the top pill shows Exit, Inspect with the window size in µm, Save window, and full screen; the bottom toolbar has camera presets and layer toggles." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/inspect-3d/still-pill.light.png" alt="The Inspect cube open: the top pill shows Exit, Inspect with the window size in µm, Save window, and full screen; the bottom toolbar has camera presets and layer toggles." loading="lazy">
 </figure>
 
 ## Inspect toolbar
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/inspect-3d/still-toolbar.dark.png" alt="The Inspect toolbar under the cube. Amber callouts: 1 camera Top / Iso / Side, 2 Move and Reset view, 3 Image, 4 Labels, 5 Points (Cross-section sits to their right)." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/inspect-3d/still-toolbar.light.png" alt="The Inspect toolbar under the cube. Amber callouts: 1 camera Top / Iso / Side, 2 Move and Reset view, 3 Image, 4 Labels, 5 Points (Cross-section sits to their right)." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/inspect-3d/still-toolbar.dark.png" alt="The Inspect toolbar under the cube. Amber callouts: 1 camera Top / Iso / Side, 2 Move and Reset view, 3 Image, 4 Labels, 5 Points (Cross-section sits to their right)." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/inspect-3d/still-toolbar.light.png" alt="The Inspect toolbar under the cube. Amber callouts: 1 camera Top / Iso / Side, 2 Move and Reset view, 3 Image, 4 Labels, 5 Points (Cross-section sits to their right)." loading="lazy">
 </figure>
 
 <div class="ml-controls" markdown>
@@ -47,23 +47,11 @@ Press <kbd>I</kbd> or click <svg xmlns="http://www.w3.org/2000/svg" width="16" h
 ## Cross-section
 
 <figure class="ml-hero" markdown="0">
-<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../assets/tools/inspect-3d/loop-cross-section" data-theme="dark" data-only-theme="dark" poster="../../assets/tools/inspect-3d/loop-cross-section.dark.poster.webp" aria-label="The pointer drags the cut slider: a cross-section plane sweeps through the cube and back; cell outlines stay visible on the cut." width="960" height="600"><source src="../assets/tools/inspect-3d/loop-cross-section.dark.webm" type="video/webm"><source src="../assets/tools/inspect-3d/loop-cross-section.dark.mp4" type="video/mp4"></video>
-<img class="ml-loop-poster" src="../assets/tools/inspect-3d/loop-cross-section.dark.poster.webp" alt="The pointer drags the cut slider: a cross-section plane sweeps through the cube and back; cell outlines stay visible on the cut." width="960" height="600" loading="lazy">
+<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../../assets/tools/inspect-3d/loop-cross-section" data-theme="dark" data-only-theme="dark" poster="../../../assets/tools/inspect-3d/loop-cross-section.dark.poster.webp" aria-label="The pointer drags the cut slider: a cross-section plane sweeps through the cube and back; cell outlines stay visible on the cut." width="960" height="600"><source src="../../assets/tools/inspect-3d/loop-cross-section.dark.webm" type="video/webm"><source src="../../assets/tools/inspect-3d/loop-cross-section.dark.mp4" type="video/mp4"></video>
+<img class="ml-loop-poster" src="../../assets/tools/inspect-3d/loop-cross-section.dark.poster.webp" alt="The pointer drags the cut slider: a cross-section plane sweeps through the cube and back; cell outlines stay visible on the cut." width="960" height="600" loading="lazy">
 </figure>
 
-## Python
-
-```python
-w.inspect_cx, w.inspect_cy = 120.0, 140.0  # window center (µm)
-w.inspect_open = True                      # open the cube there, no click
-w.inspect_cx = 150.0                       # move the window and the open cube
-w.volume_cut                               # cut-plane state: x0, x1, y0, y1, z0, z1 (µm)
-w.inspect_open = False                     # close the cube and exit Inspect
-```
-
-The default position is the volume's center: `w.inspect_open = True` with no window placed opens the cube there. `w.inspect_open = False` closes the cube and exits Inspect, like Exit. It follows the browser too: opening the cube there reads `True`, and <kbd>Esc</kbd> (one press closes the cube and exits Inspect) or Exit reads `False`.
-
-See [Synced traitlets](../api/landmarks.md#synced-traitlets) for the volume fields, and pass `image=` / `shapes=` to `milume.peek` in [Constructor parameters](../api/landmarks.md#constructor-parameters). With several 3D images, pass `image=` to pick one. Stores without per-slice cell polygons (e.g. Xenium / CosMx) open Inspect image-only, with no cells; 2D image plus polygon rendering is tracked in [#122](https://github.com/ckmah/milume/issues/122).
+See [Synced traitlets](../api/landmarks.md#synced-traitlets) for Inspect fields, and [Constructor parameters](../api/landmarks.md#constructor-parameters) for `image=` / `shapes=` on `milume.peek`. With several 3D images, pass `image=` to pick one. Stores without per-slice cell polygons (e.g. Xenium / CosMx) open Inspect image-only, with no cells; 2D image plus polygon rendering is tracked in [#122](https://github.com/ckmah/milume/issues/122).
 
 Cell meshes run in an inline Web Worker. Strict notebook Content-Security-Policies must allow `worker-src blob:` (the defaults in JupyterLab and VS Code already do).
 

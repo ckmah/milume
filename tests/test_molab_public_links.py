@@ -16,7 +16,7 @@ _SCAN_PATHS = [
     ROOT / "README.md",
     ROOT / "website" / "landing" / "index.md",
     ROOT / "website" / "landing" / "index.html",
-    ROOT / "website" / "content" / "install.md",
+    ROOT / "website" / "content" / "get-started" / "install.md",
 ]
 
 

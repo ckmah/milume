@@ -9,7 +9,7 @@ from pathlib import Path
 
 SITE_URL = "https://ckmah.github.io/milume"
 DOCS = f"{SITE_URL}/docs"
-API_REL = Path("api/landmarks.md")
+API_REL = Path("reference/api/landmarks.md")
 
 
 def _load_render_api():
@@ -70,7 +70,9 @@ def write_llms(site_root: Path, landing_md: Path, mirrored: list[tuple[str, Path
         title = url.rsplit("/", 1)[-1].removesuffix(".md").replace("-", " ").title()
         lines.append(f"- [{title}]({url})")
 
-    lines.extend(["", "## Public API (LandmarksWidget)", f"- Full reference: {DOCS}/api/landmarks.md"])
+    lines.extend(
+        ["", "## Public API (LandmarksWidget)", f"- Full reference: {DOCS}/reference/api/landmarks.md"]
+    )
     lines.extend(f"- `{name}`: {doc}" for name, doc in _load_registry().items())
     skill_url = "https://github.com/ckmah/milume/blob/main/skills/use-milume/SKILL.md"
     lines.extend(

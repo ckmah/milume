@@ -82,7 +82,7 @@ def render_landmarks_widget_api() -> str:
     parts = [
         "# LandmarksWidget API",
         "",
-        "Generated from `milume` sources. For narrative guides, see [Quickstart](../quickstart.md).",
+        "Generated from `milume` sources. For narrative guides, see [Tutorial: explore cells in 2D](../../get-started/tutorial-explore-cells-2d.md).",
         "",
         "## Constructor parameters",
         "",
@@ -112,7 +112,7 @@ def render_landmarks_widget_api() -> str:
         parts = [
             "# LandmarksWidget API",
             "",
-            "Generated from `milume` sources. For narrative guides, see [Quickstart](../quickstart.md).",
+            "Generated from `milume` sources. For narrative guides, see [Tutorial: explore cells in 2D](../../get-started/tutorial-explore-cells-2d.md).",
             "",
             "## `peek()`",
             *_signature_fence(peek_sig, is_method=False),

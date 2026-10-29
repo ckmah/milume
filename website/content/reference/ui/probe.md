@@ -1,8 +1,8 @@
 # Probe
 
 <figure class="ml-hero" markdown="0">
-<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../assets/tools/probe/hero" data-theme="dark" poster="../../assets/tools/probe/hero.dark.poster.webp" aria-label="The probe ring moves in a figure-eight over the raster bins, and the bins recolor by similarity to the bin under the ring." width="960" height="600"><source src="../assets/tools/probe/hero.dark.webm" type="video/webm"><source src="../assets/tools/probe/hero.dark.mp4" type="video/mp4"></video>
-<img class="ml-loop-poster" src="../assets/tools/probe/hero.dark.poster.webp" alt="The probe ring moves in a figure-eight over the raster bins, and the bins recolor by similarity to the bin under the ring." width="960" height="600" loading="lazy">
+<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../../assets/tools/probe/hero" data-theme="dark" poster="../../../assets/tools/probe/hero.dark.poster.webp" aria-label="The probe ring moves in a figure-eight over the raster bins, and the bins recolor by similarity to the bin under the ring." width="960" height="600"><source src="../../assets/tools/probe/hero.dark.webm" type="video/webm"><source src="../../assets/tools/probe/hero.dark.mp4" type="video/mp4"></video>
+<img class="ml-loop-poster" src="../../assets/tools/probe/hero.dark.poster.webp" alt="The probe ring moves in a figure-eight over the raster bins, and the bins recolor by similarity to the bin under the ring." width="960" height="600" loading="lazy">
 </figure>
 
 Hover a bin with Probe on; similar bins light up. Click to pin the query.
@@ -33,18 +33,9 @@ With the genes tab active, similarity uses the picked genes; pick at least one g
 ## Pinned query
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/probe/still-pinned.dark.png" alt="A pinned probe ring on the raster, with the Similarity legend from 0 to 1 in the right panel under the gene densities." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/probe/still-pinned.light.png" alt="A pinned probe ring on the raster, with the Similarity legend from 0 to 1 in the right panel under the gene densities." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/probe/still-pinned.dark.png" alt="A pinned probe ring on the raster, with the Similarity legend from 0 to 1 in the right panel under the gene densities." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/probe/still-pinned.light.png" alt="A pinned probe ring on the raster, with the Similarity legend from 0 to 1 in the right panel under the gene densities." loading="lazy">
 </figure>
-
-## Python
-
-```python
-w.raster_similarity_enabled = True  # similarity coloring without the Probe tool
-w.raster_threshold = 0.5            # similarity cutoff for the map
-w.raster_query_bin                  # pinned bin index, -1 when none
-w.clear_raster_query()
-```
 
 See [Synced traitlets](../api/landmarks.md#synced-traitlets) and [Methods](../api/landmarks.md#methods).
 

@@ -30,8 +30,8 @@ traits changed, listed under **Changed**.
   data.
 - Pick up to 8 genes. Up to three blend one color channel each, as before.
   Four or more color by one combined value, with **Mean**, **Median**, or
-  **Max** under the gene field. See [Color & layers](tools/color-layers.md#genes).
-- The [Squidpy colour recipe](recipes/) shows how to color
+  **Max** under the gene field. See [Color & layers](ui/color-layers.md#genes).
+- The [Squidpy colour recipe](../how-to/recipes/) shows how to color
   the widget by Squidpy niches and by the top Moran's I gene.
 
 **Changed**
@@ -46,7 +46,7 @@ traits changed, listed under **Changed**.
   Python 3.12 that is about 280 MB less on disk. If your own code uses either
   one, install it yourself.
 - `pip install milume` no longer installs leidenalg. The demo notebook and the
-  [Squidpy niche recipe](recipes/) call `sc.tl.leiden`,
+  [Squidpy niche recipe](../how-to/recipes/) call `sc.tl.leiden`,
   so run `pip install leidenalg` if you follow them.
 - The `milume[demo]` extra is gone. Each demo notebook lists its own
   dependencies in its script header, so
@@ -204,7 +204,7 @@ Xenium and CosMx support, a docs site, and a much richer Inspect cube.
 
 - Load Xenium and CosMx data through spatialdata-io. For CosMx, pass
   `spatial_key="global"`.
-- A [docs site](index.md) with an API reference and
+- A [docs site](../../index.md) with an API reference and
   [`llms.txt`](https://ckmah.github.io/milume/llms.txt) for coding agents.
 - Inspect shows cells as points, colors by gene expression, and cuts cross
   sections. It picks contrast limits from the image and shows labels by

@@ -1,8 +1,8 @@
 # Landmarks
 
 <figure class="ml-hero" markdown="0">
-<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../assets/tools/landmarks/hero" data-theme="dark" poster="../../assets/tools/landmarks/hero.dark.poster.webp" aria-label="A spline landmark is drawn point by point, a buffer is widened around it, then the landmark is deleted." width="960" height="600"><source src="../assets/tools/landmarks/hero.dark.webm" type="video/webm"><source src="../assets/tools/landmarks/hero.dark.mp4" type="video/mp4"></video>
-<img class="ml-loop-poster" src="../assets/tools/landmarks/hero.dark.poster.webp" alt="A spline landmark is drawn point by point, a buffer is widened around it, then the landmark is deleted." width="960" height="600" loading="lazy">
+<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../../assets/tools/landmarks/hero" data-theme="dark" poster="../../../assets/tools/landmarks/hero.dark.poster.webp" aria-label="A spline landmark is drawn point by point, a buffer is widened around it, then the landmark is deleted." width="960" height="600"><source src="../../assets/tools/landmarks/hero.dark.webm" type="video/webm"><source src="../../assets/tools/landmarks/hero.dark.mp4" type="video/mp4"></video>
+<img class="ml-loop-poster" src="../../assets/tools/landmarks/hero.dark.poster.webp" alt="A spline landmark is drawn point by point, a buffer is widened around it, then the landmark is deleted." width="960" height="600" loading="lazy">
 </figure>
 
 Click to place landmark vertices, press Enter to finish, then widen a buffer around the line.
@@ -37,8 +37,8 @@ The four landmark tools share one toolbar button. Click it to arm the last-used 
 Click a landmark with Select (V) to open its toolbar at the bottom of the map.
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/landmarks/still-toolbar.dark.png" alt="A spline landmark with a wide buffer and its context toolbar. Amber callouts: 1 Color, 2 Tension, 3 the Buffer width slider, 4 Make selection from buffer, 5 Convert type." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/landmarks/still-toolbar.light.png" alt="A spline landmark with a wide buffer and its context toolbar. Amber callouts: 1 Color, 2 Tension, 3 the Buffer width slider, 4 Make selection from buffer, 5 Convert type." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/landmarks/still-toolbar.dark.png" alt="A spline landmark with a wide buffer and its context toolbar. Amber callouts: 1 Color, 2 Tension, 3 the Buffer width slider, 4 Make selection from buffer, 5 Convert type." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/landmarks/still-toolbar.light.png" alt="A spline landmark with a wide buffer and its context toolbar. Amber callouts: 1 Color, 2 Tension, 3 the Buffer width slider, 4 Make selection from buffer, 5 Convert type." loading="lazy">
 </figure>
 
 <div class="ml-controls" markdown>
@@ -58,8 +58,8 @@ Click a landmark with Select (V) to open its toolbar at the bottom of the map.
 ## Right-click menu
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/landmarks/still-menu.dark.png" alt="Right-click menu on a spline landmark with Hide, Rename, Duplicate and Delete." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/landmarks/still-menu.light.png" alt="Right-click menu on a spline landmark with Hide, Rename, Duplicate and Delete." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/landmarks/still-menu.dark.png" alt="Right-click menu on a spline landmark with Hide, Rename, Duplicate and Delete." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/landmarks/still-menu.light.png" alt="Right-click menu on a spline landmark with Hide, Rename, Duplicate and Delete." loading="lazy">
 </figure>
 
 <div class="ml-controls" markdown>
@@ -75,22 +75,12 @@ Click a landmark with Select (V) to open its toolbar at the bottom of the map.
 
 </div>
 
-## Python
-
-`w.landmarks` updates on every edit. Convert to and from a GeoDataFrame (needs `geopandas`):
-
-```python
-from milume import landmarks_to_geodataframe, geodataframe_to_landmarks
-gdf = landmarks_to_geodataframe(w.landmarks)
-w.landmarks = geodataframe_to_landmarks(gdf)
-```
-
-See [GeoDataFrame interchange](../api/landmarks.md#geodataframe-interchange) in the API reference.
+Export landmarks from Python with [Draw and export landmarks](../../how-to/draw-export-landmarks.md). See [GeoDataFrame interchange](../api/landmarks.md#geodataframe-interchange) in the API reference.
 
 ## Related
 
 <div class="ml-cards" markdown="0">
 <a class="ml-card" href="select-regions.md"><span class="ml-card__title">Select regions →</span><span class="ml-card__hint">Lasso, square, circle</span></a>
 <a class="ml-card" href="navigate.md"><span class="ml-card__title">Navigate →</span><span class="ml-card__hint">Pan, zoom, minimap</span></a>
-<a class="ml-card" href="measure.md"><span class="ml-card__title">Measure →</span><span class="ml-card__hint">Distances and composition</span></a>
+<a class="ml-card" href="../api/measure.md"><span class="ml-card__title">Measure →</span><span class="ml-card__hint">Distances and composition</span></a>
 </div>

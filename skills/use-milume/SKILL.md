@@ -123,7 +123,7 @@ v.inspect_open = False                     # closes the cube and exits Inspect; 
 ## Squidpy: niche and Moran's I
 
 Optional (`pip install squidpy scanpy leidenalg`). Full walkthrough with screenshots:
-[docs/recipes/](https://ckmah.github.io/milume/docs/recipes/).
+[docs/how-to/recipes/](https://ckmah.github.io/milume/docs/how-to/recipes/).
 
 Contributors adding a recipe: [Writing a recipe](https://github.com/ckmah/milume/blob/main/docs/writing-a-recipe.md) (dev doc, not in the public nav).
 

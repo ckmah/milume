@@ -29,7 +29,8 @@ HEAD_MARKERS = (
     "./_marimo-studio/assets/",
 )
 
-RUNTIME_PATH_FROM_RECIPE = "../../assets/marimo-studio-zero-python"
+RUNTIME_PATH_FROM_RECIPE = "../../../assets/marimo-studio-zero-python"
+WIDGET_ASSET_HREF_FROM_RECIPE = "../../../assets/recipe-widgets/{filename}"
 
 
 class RecipeStudioExportError(RuntimeError):
@@ -148,11 +149,20 @@ def prepare(
 
     recipe_dir = content_root / slug
     install_view_state(export_dir, recipe_dir)
-    esm_report = externalize_cell_json_files(recipe_dir / "_marimo-studio" / "views")
+    esm_report = externalize_cell_json_files(
+        recipe_dir / "_marimo-studio" / "views",
+        widget_href_template=WIDGET_ASSET_HREF_FROM_RECIPE,
+    )
 
     html = index.read_text(encoding="utf-8")
     head = extract_runtime_head(html, runtime_href=RUNTIME_PATH_FROM_RECIPE)
-    head = inject_modulepreload(head, modulepreload_tags(esm_report.asset_hashes))
+    head = inject_modulepreload(
+        head,
+        modulepreload_tags(
+            esm_report.asset_hashes,
+            href_template=WIDGET_ASSET_HREF_FROM_RECIPE,
+        ),
+    )
     body = extract_body_fragment(html)
 
     OVERRIDES.mkdir(parents=True, exist_ok=True)
@@ -176,7 +186,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--content-root",
         type=Path,
-        default=WEBSITE / "content" / "recipes",
+        default=WEBSITE / "content" / "how-to" / "recipes",
     )
     parser.add_argument(
         "--loaded-urls",

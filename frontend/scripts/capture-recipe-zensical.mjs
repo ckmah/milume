@@ -5,7 +5,7 @@ import { writeFileSync, mkdirSync } from "node:fs";
 
 const pageUrl =
   process.argv[2] ??
-  "http://127.0.0.1:8765/docs/recipes/squidpy_color/index.html";
+  "http://127.0.0.1:8765/docs/how-to/recipes/squidpy_color/index.html";
 const labelPrefix = process.argv[3] ?? "";
 const outDir = "/opt/cursor/artifacts";
 

@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WEBSITE="${ROOT}/website"
+CONTENT_RECIPES="${WEBSITE}/content/how-to/recipes"
 MODE="${1:?usage: export-recipes.sh prepare-for-zensical | export-recipes.sh <site-root>}"
 
 RECIPES=(
@@ -40,7 +41,12 @@ prepare_slug() {
   local slug="$1"
   local staging="$2"
   local loaded="${3:-}"
-  local args=("${slug}" "${staging}/${slug}")
+  local args=(
+    "${slug}"
+    "${staging}/${slug}"
+    --content-root
+    "${CONTENT_RECIPES}"
+  )
   if [[ -n "${loaded}" ]]; then
     args+=(--loaded-urls "${loaded}")
   fi
@@ -58,10 +64,10 @@ copy_to_site() {
     cp -a "${WEBSITE}/content/assets/recipe-widgets" "${out}/docs/assets/"
   fi
   for slug in "${RECIPES[@]}"; do
-    local dest="${out}/docs/recipes/${slug}/_marimo-studio"
+    local dest="${out}/docs/how-to/recipes/${slug}/_marimo-studio"
     mkdir -p "$(dirname "${dest}")"
     rm -rf "${dest}"
-    cp -a "${WEBSITE}/content/recipes/${slug}/_marimo-studio" "${dest}"
+    cp -a "${CONTENT_RECIPES}/${slug}/_marimo-studio" "${dest}"
   done
 }
 

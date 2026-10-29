@@ -42,7 +42,8 @@ website/snippets/api-geodataframe.md
 website/snippets/api-methods.md
 website/content/assets/logo/
 website/landing/assets/logo/
-website/content/recipes/*/_marimo-studio/
+website/content/how-to/recipes/*/_marimo-studio/
 website/content/assets/marimo-studio-zero-python/
 website/content/assets/recipe-widgets/
 worktrees/
+_linkcheck/

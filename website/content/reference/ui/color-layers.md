@@ -1,8 +1,8 @@
 # Color & layers
 
 <figure class="ml-hero" markdown="0">
-<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../assets/tools/color-layers/hero" data-theme="dark" poster="../../assets/tools/color-layers/hero.dark.poster.webp" aria-label="The color panel switches from category to genes to embed, and the map recolors each time." width="960" height="600"><source src="../assets/tools/color-layers/hero.dark.webm" type="video/webm"><source src="../assets/tools/color-layers/hero.dark.mp4" type="video/mp4"></video>
-<img class="ml-loop-poster" src="../assets/tools/color-layers/hero.dark.poster.webp" alt="The color panel switches from category to genes to embed, and the map recolors each time." width="960" height="600" loading="lazy">
+<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../../assets/tools/color-layers/hero" data-theme="dark" poster="../../../assets/tools/color-layers/hero.dark.poster.webp" aria-label="The color panel switches from category to genes to embed, and the map recolors each time." width="960" height="600"><source src="../../assets/tools/color-layers/hero.dark.webm" type="video/webm"><source src="../../assets/tools/color-layers/hero.dark.mp4" type="video/mp4"></video>
+<img class="ml-loop-poster" src="../../assets/tools/color-layers/hero.dark.poster.webp" alt="The color panel switches from category to genes to embed, and the map recolors each time." width="960" height="600" loading="lazy">
 </figure>
 
 Switch the color panel between category, genes and embed; the map recolors to match.
@@ -40,22 +40,22 @@ opens fast on whole-transcriptome panels (an 18k-gene Atera breast section inclu
 A list that would pack over 64 MiB loads on demand too, with a warning.
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/color-layers/still-genes.dark.png" alt="The genes tab with three genes picked: ridgeline densities per gene, a blend legend, the gene chips, and Shared scale and log scale switches." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/color-layers/still-genes.light.png" alt="The genes tab with three genes picked: ridgeline densities per gene, a blend legend, the gene chips, and Shared scale and log scale switches." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/color-layers/still-genes.dark.png" alt="The genes tab with three genes picked: ridgeline densities per gene, a blend legend, the gene chips, and Shared scale and log scale switches." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/color-layers/still-genes.light.png" alt="The genes tab with three genes picked: ridgeline densities per gene, a blend legend, the gene chips, and Shared scale and log scale switches." loading="lazy">
 </figure>
 
 ### embed
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/color-layers/still-embed.dark.png" alt="The embed tab showing an RGB-cube legend and the embedding dropdown, with cells colored by their embedding." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/color-layers/still-embed.light.png" alt="The embed tab showing an RGB-cube legend and the embedding dropdown, with cells colored by their embedding." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/color-layers/still-embed.dark.png" alt="The embed tab showing an RGB-cube legend and the embedding dropdown, with cells colored by their embedding." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/color-layers/still-embed.light.png" alt="The embed tab showing an RGB-cube legend and the embedding dropdown, with cells colored by their embedding." loading="lazy">
 </figure>
 
 ## Points ⇄ Raster
 
 <figure class="ml-hero" markdown="0">
-<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../assets/tools/color-layers/loop-raster" data-theme="dark" poster="../../assets/tools/color-layers/loop-raster.dark.poster.webp" aria-label="The map flips from individual points to square raster bins and back." width="960" height="600"><source src="../assets/tools/color-layers/loop-raster.dark.webm" type="video/webm"><source src="../assets/tools/color-layers/loop-raster.dark.mp4" type="video/mp4"></video>
-<img class="ml-loop-poster" src="../assets/tools/color-layers/loop-raster.dark.poster.webp" alt="The map flips from individual points to square raster bins and back." width="960" height="600" loading="lazy">
+<video class="ml-loop" autoplay muted loop playsinline preload="none" data-src="../../assets/tools/color-layers/loop-raster" data-theme="dark" poster="../../../assets/tools/color-layers/loop-raster.dark.poster.webp" aria-label="The map flips from individual points to square raster bins and back." width="960" height="600"><source src="../../assets/tools/color-layers/loop-raster.dark.webm" type="video/webm"><source src="../../assets/tools/color-layers/loop-raster.dark.mp4" type="video/mp4"></video>
+<img class="ml-loop-poster" src="../../assets/tools/color-layers/loop-raster.dark.poster.webp" alt="The map flips from individual points to square raster bins and back." width="960" height="600" loading="lazy">
 </figure>
 
 <div class="ml-controls" markdown>
@@ -71,8 +71,8 @@ A list that would pack over 64 MiB loads on demand too, with a warning.
 The left panel lists every selection and landmark.
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tools/color-layers/still-layers.dark.png" alt="The layers list with one selection row and one landmark row; amber callouts mark the two rows and their Layer actions buttons." loading="lazy">
-<img class="ml-only-light" src="../assets/tools/color-layers/still-layers.light.png" alt="The layers list with one selection row and one landmark row; amber callouts mark the two rows and their Layer actions buttons." loading="lazy">
+<img class="ml-only-dark" src="../../assets/tools/color-layers/still-layers.dark.png" alt="The layers list with one selection row and one landmark row; amber callouts mark the two rows and their Layer actions buttons." loading="lazy">
+<img class="ml-only-light" src="../../assets/tools/color-layers/still-layers.light.png" alt="The layers list with one selection row and one landmark row; amber callouts mark the two rows and their Layer actions buttons." loading="lazy">
 </figure>
 
 <div class="ml-controls" markdown>
@@ -85,13 +85,6 @@ The left panel lists every selection and landmark.
 | <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="ml-icon" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"></rect><path d="M9 3v18"></path><path d="m16 15-3-3 3-3"></path></svg> | Collapse left panel ([) | Hide the list; see [Navigate](navigate.md). |
 
 </div>
-
-## Python
-
-```python
-w.set_render_mode("raster")       # or "points"
-w.category_colors("cell_type")    # {label: hex}, as the map draws it
-```
 
 See [Methods](../api/landmarks.md#methods) for `set_color`, `set_raster_basis` and the rest.
 

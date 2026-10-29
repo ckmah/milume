@@ -6,6 +6,14 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WEBSITE="${ROOT}/website"
 OUT="${ROOT}/site"
 
+free_preview_port() {
+  local port="$1"
+  if command -v fuser >/dev/null 2>&1; then
+    fuser -k "${port}/tcp" 2>/dev/null || true
+  fi
+  sleep 0.3
+}
+
 (
   cd "${WEBSITE}"
   if [[ "${MILUME_DEPS_READY_WEBSITE:-}" == "1" ]]; then
@@ -70,11 +78,12 @@ cleanup_preview() {
   rm -f "${loaded_urls}"
 }
 trap cleanup_preview EXIT
+free_preview_port 8766
 python3 -m http.server 8766 --bind 127.0.0.1 --directory "${WEBSITE}/dist" >/dev/null 2>&1 &
 preview_pid=$!
 sleep 1
 node "${ROOT}/frontend/scripts/record-recipe-network.mjs" \
-  "http://127.0.0.1:8766/recipes/squidpy_color/index.html" \
+  "http://127.0.0.1:8766/how-to/recipes/squidpy_color/index.html" \
   "${loaded_urls}"
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/prepare_recipe_studio.py" \
   --prune-shared-only --loaded-urls "${loaded_urls}"
@@ -98,6 +107,7 @@ cleanup_payload() {
   fi
 }
 trap cleanup_payload EXIT
+free_preview_port 8765
 python3 -m http.server 8765 --bind 127.0.0.1 --directory "${OUT}" >/dev/null 2>&1 &
 payload_pid=$!
 sleep 1

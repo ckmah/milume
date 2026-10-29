@@ -37,7 +37,7 @@ def _wait_for_server(path: str, timeout_s: float = 30.0) -> None:
 
 
 def measure_recipe(slug: str) -> dict[str, Any]:
-    page_path = f"/docs/recipes/{slug}/index.html"
+    page_path = f"/docs/how-to/recipes/{slug}/index.html"
     url = f"{BASE_URL}{page_path}"
     proc = subprocess.run(
         ["node", str(MEASURE), url],
@@ -95,7 +95,7 @@ def main() -> int:
     if not SITE_ROOT.is_dir():
         raise SystemExit(f"check-recipe-payload: missing assembled site at {SITE_ROOT}")
 
-    _wait_for_server("/docs/recipes/squidpy_color/index.html")
+    _wait_for_server("/docs/how-to/recipes/squidpy_color/index.html")
 
     failures: list[str] = []
     for slug in RECIPES:

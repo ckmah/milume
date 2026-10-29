@@ -3,4 +3,18 @@
 # Keys are paths under docs/ (no leading slash). Values are directory URLs under docs/.
 
 [redirects]
-"integrations/squidpy-color" = "recipes/squidpy_color/"
+"integrations/squidpy-color" = "how-to/recipes/squidpy_color/"
+"install" = "get-started/install/"
+"quickstart" = "get-started/tutorial-explore-cells-2d/"
+"changelog" = "reference/changelog/"
+"api/landmarks" = "reference/api/landmarks/"
+"recipes" = "how-to/recipes/"
+"recipes/squidpy_color" = "how-to/recipes/squidpy_color/"
+"tools" = "reference/ui/"
+"tools/navigate" = "reference/ui/navigate/"
+"tools/select-regions" = "reference/ui/select-regions/"
+"tools/landmarks" = "reference/ui/landmarks/"
+"tools/color-layers" = "reference/ui/color-layers/"
+"tools/inspect-3d" = "reference/ui/inspect-3d/"
+"tools/probe" = "reference/ui/probe/"
+"tools/measure" = "reference/api/measure/"

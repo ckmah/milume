@@ -237,6 +237,7 @@ def externalize_cell_json_files(
     views_root: Path,
     *,
     asset_dir: Path = DEFAULT_WIDGET_ASSET_DIR,
+    widget_href_template: str = WIDGET_ASSET_HREF,
 ) -> ExternalizeReport:
     """Replace embedded anywidget ESM in *.cell.json with shared asset hrefs."""
     if not views_root.is_dir():
@@ -266,7 +267,7 @@ def externalize_cell_json_files(
                 raise RecipeWidgetEsmError(
                     f"hash collision with differing bytes for {filename}"
                 )
-            href = WIDGET_ASSET_HREF.format(filename=filename)
+            href = widget_href_template.format(filename=filename)
             files[key] = href
             hashes.append(digest)
             bytes_hoisted += len(raw)
@@ -282,13 +283,17 @@ def externalize_cell_json_files(
     )
 
 
-def modulepreload_tags(hashes: tuple[str, ...]) -> str:
+def modulepreload_tags(
+    hashes: tuple[str, ...],
+    *,
+    href_template: str = WIDGET_ASSET_HREF,
+) -> str:
     if not hashes:
         return ""
     lines: list[str] = []
     for digest in hashes:
         filename = f"landmarks-{digest}.mjs"
-        href = WIDGET_ASSET_HREF.format(filename=filename)
+        href = href_template.format(filename=filename)
         lines.append(
             f'<link data-milume-recipe-widget rel="modulepreload" '
             f'href="{href}" crossorigin="anonymous">'
