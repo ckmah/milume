@@ -4,7 +4,7 @@ import { test } from "../fixtures";
 
 import { setModel, waitForEngine } from "../helpers";
 
-const ILEUM_FIXTURE = "/ileum-docs-base.json";
+const ILEUM_FIXTURE = "/e2e-galt-lasso-fixture.json";
 
 async function galtLassoViaModel(page: import("@playwright/test").Page) {
   const bounds = await page.evaluate(() => {
