@@ -1,10 +1,10 @@
 {
  "dataset": "demos/data:ileum",
  "seed": 0,
- "milume": "d5e6a0d",
+ "milume": "9aa8475",
  "dark": {
-  "frames": 151,
-  "seconds": 5,
+  "frames": 135,
+  "seconds": 4.5,
   "seamless_rmse": 0,
   "render": "1920:1200",
   "crf": [
@@ -13,8 +13,8 @@
   ]
  },
  "light": {
-  "frames": 154,
-  "seconds": 5.1,
+  "frames": 135,
+  "seconds": 4.5,
   "seamless_rmse": 0,
   "render": "1920:1200",
   "crf": [

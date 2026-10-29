@@ -17,15 +17,20 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 
 import {
+  CAPTURE_FPS,
   DATASET_ID,
   VIEWPORT,
+  encodeFramesToMp4,
+  fitDenseTissueView,
   installDocsCaptureChrome,
   gotoDocsFixture,
   milumeSidecarSha,
   probeVideoMeta,
+  recordLandmarksLoop,
   screenshotLandmarks,
-  transcodeThemeVideo,
+  transcodeThemeVideoFromMp4,
   waitForLandmarks,
+  worldToCanvasPixel,
   writeSidecar,
 } from "./lib/docs-tool-media.mjs";
 
@@ -60,38 +65,76 @@ async function clickLandmarkTool(page, name) {
   await page.getByRole("menuitem", { name: new RegExp(`^${name}\\b`) }).click();
 }
 
-async function drawLasso(page, box, { durationMs = 2800, steps = 72, inset = 0.14 } = {}) {
+async function drawLasso(page, box, { durationMs = 2800, steps = 72, inset = 0.14, rec } = {}) {
   const cx = box.x + box.width * 0.5;
   const cy = box.y + box.height * 0.5;
   const rx = box.width * (0.5 - inset);
   const ry = box.height * (0.5 - inset);
   const delayMs = Math.max(1, Math.floor(durationMs / steps));
+  await rec?.snap();
   await page.mouse.move(cx + rx, cy);
   await page.mouse.down();
   for (let i = 0; i <= steps; i++) {
     const a = (i / steps) * Math.PI * 2;
     await page.mouse.move(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry);
-    if (i < steps) await page.waitForTimeout(delayMs);
+    if (i < steps) await rec.wait(delayMs);
   }
   await page.mouse.up();
 }
 
+async function denseFocalUm(page) {
+  return page.evaluate(() => {
+    const eng = window.__landmarksEngine;
+    const pts = eng.getPoints();
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const [x, y] of pts) {
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+    const cols = 24;
+    const rows = 24;
+    const dx = (maxX - minX) / cols || 1;
+    const dy = (maxY - minY) / rows || 1;
+    const bins = new Int32Array(cols * rows);
+    for (const [x, y] of pts) {
+      const ix = Math.min(cols - 1, Math.max(0, Math.floor((x - minX) / dx)));
+      const iy = Math.min(rows - 1, Math.max(0, Math.floor((y - minY) / dy)));
+      bins[iy * cols + ix] += 1;
+    }
+    let best = 0;
+    let bestI = 0;
+    for (let i = 0; i < bins.length; i++) {
+      if (bins[i] > best) {
+        best = bins[i];
+        bestI = i;
+      }
+    }
+    return {
+      x: minX + (bestI % cols + 0.5) * dx,
+      y: minY + (Math.floor(bestI / cols) + 0.5) * dy,
+    };
+  });
+}
+
 async function recordLoop(browser, theme, outDir, name, run) {
   const tmp = mkdtempSync(join(tmpdir(), "ileum-docs-"));
-  const context = await browser.newContext({
-    viewport: VIEWPORT,
-    recordVideo: { dir: tmp, size: { width: 960, height: 600 } },
-  });
+  const framesDir = join(tmp, "frames");
+  const context = await browser.newContext({ viewport: VIEWPORT });
   const page = await context.newPage();
   await installDocsCaptureChrome(page, theme);
   await gotoDocsFixture(page, baseUrl, fixture);
-  await run(page);
-  await page.waitForTimeout(500);
-  const video = page.video();
+  await fitDenseTissueView(page);
+  await recordLandmarksLoop(page, framesDir, run, { minSeconds: 4.5 });
   await context.close();
-  const raw = await video.path();
   const base = join(outDir, name);
-  const { mp4 } = transcodeThemeVideo(raw, base, theme);
+  const mp4 = `${base}.${theme}.mp4`;
+  encodeFramesToMp4(framesDir, mp4, { fps: CAPTURE_FPS });
+  transcodeThemeVideoFromMp4(mp4, base, theme);
   rmSync(tmp, { recursive: true, force: true });
   return probeVideoMeta(mp4);
 }
@@ -130,6 +173,7 @@ async function captureStillPair(browser, relDir, name, setup) {
     const page = await browser.newPage({ viewport: VIEWPORT });
     await installDocsCaptureChrome(page, theme);
     await gotoDocsFixture(page, baseUrl, fixture);
+    await fitDenseTissueView(page);
     await setup(page, theme);
     await screenshotLandmarks(page, join(outDir, `${name}.${theme}.png`));
     await page.close();
@@ -144,7 +188,7 @@ async function captureStillPair(browser, relDir, name, setup) {
 
 const shots = {
   async "landmarks/hero"(browser) {
-    await captureLoopPair(browser, "landmarks", "hero", async (page) => {
+    await captureLoopPair(browser, "landmarks", "hero", async (page, rec) => {
       await clickLandmarkTool(page, "Spline");
       const box = await canvasBox(page);
       const pts = [
@@ -154,8 +198,9 @@ const shots = {
         [0.55, 0.68],
       ];
       for (const [px, py] of pts) {
+        await rec.snap();
         await page.mouse.click(box.x + box.width * px, box.y + box.height * py);
-        await page.waitForTimeout(280);
+        await rec.wait(280);
       }
       await page.keyboard.press("Enter");
       await page.waitForFunction(
@@ -176,119 +221,128 @@ const shots = {
         });
         const bb = await bar.boundingBox();
         if (bb) {
+          await rec.snap();
           await page.mouse.move(bb.x + bb.width * 0.55, bb.y + bb.height * 0.55);
         }
-        await page.waitForTimeout(420);
+        await rec.wait(420);
       }
       await page.keyboard.press("Delete");
-      await page.waitForTimeout(600);
+      await rec.wait(600);
     });
   },
 
   async "navigate/hero"(browser) {
-    await captureLoopPair(browser, "navigate", "hero", async (page) => {
-      const box = await canvasBox(page);
-      const cx = box.x + box.width * 0.5;
-      const cy = box.y + box.height * 0.5;
-      await page.mouse.move(cx, cy);
-      for (let i = 0; i < 4; i++) {
-        await page.mouse.wheel(0, -120);
-        await page.waitForTimeout(120);
+    await captureLoopPair(browser, "navigate", "hero", async (page, rec) => {
+      const focal = await denseFocalUm(page);
+      const pixel = await worldToCanvasPixel(page, focal.x, focal.y);
+      if (!pixel) throw new Error("focal pixel missing");
+      await rec.snap();
+      await page.mouse.move(pixel.x, pixel.y);
+      for (let i = 0; i < 5; i++) {
+        await page.mouse.wheel(0, -140);
+        await rec.wait(140);
       }
+      await rec.snap();
       await page.mouse.down();
-      await page.mouse.move(cx - box.width * 0.18, cy - box.height * 0.12, { steps: 16 });
+      await page.mouse.move(pixel.x - 90, pixel.y - 60, { steps: 18 });
       await page.mouse.up();
-      await page.waitForTimeout(400);
+      await rec.wait(400);
       await page.keyboard.press("0");
-      await page.waitForTimeout(700);
+      await rec.wait(700);
     });
   },
 
   async "navigate/loop-minimap"(browser) {
-    await captureLoopPair(browser, "navigate", "loop-minimap", async (page) => {
+    await captureLoopPair(browser, "navigate", "loop-minimap", async (page, rec) => {
       const mini = page.getByTestId("landmarks-minimap");
       await mini.waitFor({ state: "visible" });
       const box = await mini.boundingBox();
       if (!box) throw new Error("minimap missing");
+      await rec.snap();
       await page.mouse.move(box.x + box.width * 0.72, box.y + box.height * 0.35);
       await page.mouse.down();
       await page.mouse.move(box.x + box.width * 0.28, box.y + box.height * 0.72, { steps: 22 });
       await page.mouse.up();
-      await page.waitForTimeout(600);
+      await rec.wait(600);
     });
   },
 
   async "select-regions/hero"(browser) {
-    await captureLoopPair(browser, "select-regions", "hero", async (page) => {
+    await captureLoopPair(browser, "select-regions", "hero", async (page, rec) => {
       await page.getByRole("button", { name: /Lasso/i }).click();
-      await drawLasso(page, await canvasBox(page), { durationMs: 3200 });
-      await page.waitForTimeout(900);
+      await drawLasso(page, await canvasBox(page), { durationMs: 3200, rec });
+      await rec.wait(900);
       await page.keyboard.press("Delete");
-      await page.waitForTimeout(600);
+      await rec.wait(600);
     });
   },
 
   async "select-regions/loop-square"(browser) {
-    await captureLoopPair(browser, "select-regions", "loop-square", async (page) => {
+    await captureLoopPair(browser, "select-regions", "loop-square", async (page, rec) => {
       await page.getByRole("button", { name: /Lasso/i }).click({ button: "right" });
       await page.getByRole("menuitem", { name: /^Square\b/ }).click();
       const box = await canvasBox(page);
+      await rec.snap();
       await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.35);
       await page.mouse.down();
       await page.mouse.move(box.x + box.width * 0.62, box.y + box.height * 0.58, { steps: 14 });
       await page.mouse.up();
-      await page.waitForTimeout(800);
+      await rec.wait(800);
       await page.keyboard.press("Delete");
-      await page.waitForTimeout(500);
+      await rec.wait(500);
     });
   },
 
   async "select-regions/loop-circle"(browser) {
-    await captureLoopPair(browser, "select-regions", "loop-circle", async (page) => {
+    await captureLoopPair(browser, "select-regions", "loop-circle", async (page, rec) => {
       await page.getByRole("button", { name: /Lasso/i }).click({ button: "right" });
       await page.getByRole("menuitem", { name: /^Circle\b/ }).click();
       const box = await canvasBox(page);
+      await rec.snap();
       await page.mouse.move(box.x + box.width * 0.38, box.y + box.height * 0.38);
       await page.mouse.down();
       await page.mouse.move(box.x + box.width * 0.64, box.y + box.height * 0.6, { steps: 14 });
       await page.mouse.up();
-      await page.waitForTimeout(800);
+      await rec.wait(800);
       await page.keyboard.press("Delete");
-      await page.waitForTimeout(500);
+      await rec.wait(500);
     });
   },
 
   async "select-regions/loop-knn"(browser) {
-    await captureLoopPair(browser, "select-regions", "loop-knn", async (page) => {
+    await captureLoopPair(browser, "select-regions", "loop-knn", async (page, rec) => {
       await page.getByRole("button", { name: /Lasso/i }).click({ button: "right" });
       await page.getByRole("menuitem", { name: /^Square\b/ }).click();
       const box = await canvasBox(page);
+      await rec.snap();
       await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.42);
       await page.mouse.down();
       await page.mouse.move(box.x + box.width * 0.58, box.y + box.height * 0.58, { steps: 10 });
       await page.mouse.up();
-      await page.waitForTimeout(600);
+      await rec.wait(600);
       await setModel(page, { selected_kind: "selection", selected_index: 0 });
       await page.getByTestId("context-hood-knn-mode").click();
       const slider = page.getByTestId("context-hood-k").getByRole("slider");
       const sb = await slider.boundingBox();
       if (sb) {
+        await rec.snap();
         await page.mouse.move(sb.x + sb.width * 0.25, sb.y + sb.height * 0.5);
         await page.mouse.down();
         await page.mouse.move(sb.x + sb.width * 0.85, sb.y + sb.height * 0.5, { steps: 16 });
         await page.mouse.up();
-        await page.waitForTimeout(400);
+        await rec.wait(400);
+        await rec.snap();
         await page.mouse.move(sb.x + sb.width * 0.35, sb.y + sb.height * 0.5);
         await page.mouse.down();
         await page.mouse.move(sb.x + sb.width * 0.55, sb.y + sb.height * 0.5, { steps: 12 });
         await page.mouse.up();
       }
-      await page.waitForTimeout(700);
+      await rec.wait(700);
     });
   },
 
   async "probe/hero"(browser) {
-    await captureLoopPair(browser, "probe", "hero", async (page) => {
+    await captureLoopPair(browser, "probe", "hero", async (page, rec) => {
       await setModel(page, {
         render_mode: "raster",
         active_genes: ["Apob", "Slc5a1", "Nos2"],
@@ -306,8 +360,9 @@ const shots = {
         [0.42, 0.45],
       ];
       for (const [px, py] of path) {
+        await rec.snap();
         await page.mouse.move(box.x + box.width * px, box.y + box.height * py, { steps: 8 });
-        await page.waitForTimeout(220);
+        await rec.wait(220);
       }
     });
   },
@@ -322,28 +377,29 @@ const shots = {
       await page.getByRole("radio", { name: "Probe", exact: true }).click();
       await waitForLandmarks(page);
       const box = await canvasBox(page);
+      await page.mouse.move(box.x + box.width * 0.52, box.y + box.height * 0.46);
       await page.mouse.click(box.x + box.width * 0.52, box.y + box.height * 0.46);
       await page.waitForTimeout(500);
     });
   },
 
   async "color-layers/hero"(browser) {
-    await captureLoopPair(browser, "color-layers", "hero", async (page) => {
+    await captureLoopPair(browser, "color-layers", "hero", async (page, rec) => {
       await page.getByRole("tab", { name: "genes" }).click();
-      await page.waitForTimeout(700);
+      await rec.wait(700);
       await page.getByRole("tab", { name: "embed" }).click();
-      await page.waitForTimeout(700);
+      await rec.wait(700);
       await page.getByRole("tab", { name: "category" }).click();
-      await page.waitForTimeout(700);
+      await rec.wait(700);
     });
   },
 
   async "color-layers/loop-raster"(browser) {
-    await captureLoopPair(browser, "color-layers", "loop-raster", async (page) => {
+    await captureLoopPair(browser, "color-layers", "loop-raster", async (page, rec) => {
       await page.getByTestId("view-cta").getByRole("switch", { name: /points\/raster/i }).click();
-      await page.waitForTimeout(900);
+      await rec.wait(900);
       await page.getByTestId("view-cta").getByRole("switch", { name: /points\/raster/i }).click();
-      await page.waitForTimeout(900);
+      await rec.wait(900);
     });
   },
 
@@ -369,6 +425,7 @@ const shots = {
     const page = await browser.newPage({ viewport: VIEWPORT });
     await installDocsCaptureChrome(page, "dark");
     await gotoDocsFixture(page, baseUrl, fixture);
+    await fitDenseTissueView(page);
     const bounds = await page.evaluate(() => {
       const m = window.__landmarksModel;
       const xb = m.get("x_bounds");
