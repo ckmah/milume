@@ -173,6 +173,8 @@ export function InfoPanel({
     gene_log1p,
     gene_expression_logged,
     mode,
+    x_bounds,
+    y_bounds,
   } = lm;
 
   const [hoverTypeIndex, setHoverTypeIndex] = useState<number | null>(null);
@@ -227,6 +229,8 @@ export function InfoPanel({
     categoryCodesB64: category_codes || "",
     categoryColumns: category_columns || [],
     activeCategory: active_category || "",
+    xBounds: x_bounds || [],
+    yBounds: y_bounds || [],
   };
 
   // Donut: selection scope or all cells; type focus only highlights a slice.
@@ -243,6 +247,8 @@ export function InfoPanel({
       category_codes,
       category_columns,
       active_category,
+      x_bounds,
+      y_bounds,
     ],
   );
 
@@ -260,6 +266,8 @@ export function InfoPanel({
       category_codes,
       category_columns,
       active_category,
+      x_bounds,
+      y_bounds,
     ],
   );
 

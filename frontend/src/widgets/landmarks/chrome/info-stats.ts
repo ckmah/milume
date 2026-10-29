@@ -21,6 +21,18 @@ export type DensityRow = {
   x: number;
 } & Record<string, number>;
 
+/** Map normalized `points_data` x/y in [-1, 1] to tissue µm (same frame as selection vertices). */
+function pointUmFromPack(
+  nx: number,
+  ny: number,
+  xBounds: number[],
+  yBounds: number[],
+): [number, number] {
+  const [xMin, xMax] = xBounds;
+  const [yMin, yMax] = yBounds;
+  return [xMin + ((nx + 1) / 2) * (xMax - xMin), yMin + ((ny + 1) / 2) * (yMax - yMin)];
+}
+
 function pointInRing(
   x: number,
   y: number,
@@ -54,6 +66,9 @@ export function resolvePointMask(opts: {
   categoryCodesB64: string;
   categoryColumns: CategoryColumn[];
   activeCategory: string;
+  /** Spatial extent (µm); required to test lasso vertices against packed points. */
+  xBounds?: number[];
+  yBounds?: number[];
   /** When false, type focus does not narrow the mask (for full donut + slice highlight). */
   filterByType?: boolean;
 }): Uint8Array {
@@ -67,6 +82,8 @@ export function resolvePointMask(opts: {
     categoryCodesB64,
     categoryColumns,
     activeCategory,
+    xBounds = [],
+    yBounds = [],
     filterByType = true,
   } = opts;
   const mask = new Uint8Array(n);
@@ -109,10 +126,14 @@ export function resolvePointMask(opts: {
       return mask;
     }
     const pts = decodeF32Base64(pointsDataB64);
-    // points_data: Nx4 float32 [x, y, …]
+    const boundsOk = xBounds.length >= 2 && yBounds.length >= 2;
+    // points_data: Nx4 float32, x/y normalized across x_bounds/y_bounds (µm).
     for (let i = 0; i < n; i++) {
-      const x = pts[i * 4];
-      const y = pts[i * 4 + 1];
+      const nx = pts[i * 4]!;
+      const ny = pts[i * 4 + 1]!;
+      const [x, y] = boundsOk
+        ? pointUmFromPack(nx, ny, xBounds, yBounds)
+        : [nx, ny];
       mask[i] = pointInRing(x, y, verts) ? 1 : 0;
     }
     return mask;
