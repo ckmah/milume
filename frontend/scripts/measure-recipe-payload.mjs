@@ -23,40 +23,127 @@ const entries = await page.evaluate(() =>
   })),
 );
 
+/** Split prepared cell JSON into widget JS vs widget state/data bytes (decoded). */
+function cellJsonBudgetSplit(text) {
+  const json = JSON.parse(text);
+  const enc = (s) => new TextEncoder().encode(s).length;
+  let widgetJs = 0;
+  let data = 0;
+  for (const [key, val] of Object.entries(json.resources?.files ?? {})) {
+    if (typeof val !== "string") continue;
+    const n = enc(val);
+    if (key.includes("anywidget") || val.startsWith("data:text/javascript")) {
+      widgetJs += n;
+    } else {
+      data += n;
+    }
+  }
+  for (const val of Object.values(json.resources?.functions ?? {})) {
+    if (typeof val === "string") data += enc(val);
+  }
+  data += enc(JSON.stringify(json.resources?.modelNotifications ?? []));
+  data += enc(JSON.stringify(json.resources?.uiValues ?? {}));
+  data += enc(
+    JSON.stringify({
+      cell: json.cell,
+      console: json.console,
+      outcome: json.outcome,
+      output: json.output,
+    }),
+  );
+  return { widgetJs, data, decoded: enc(text) };
+}
+
+const cellJsonSplits = await page.evaluate(async () => {
+  const urls = performance
+    .getEntriesByType("resource")
+    .map((e) => e.name)
+    .filter((u) => u.includes(".cell.json"));
+  const out = {};
+  for (const url of urls) {
+    const resp = await fetch(url);
+    const text = await resp.text();
+    out[url] = { decodedBytes: new TextEncoder().encode(text).length, text };
+  }
+  return out;
+});
+
 await browser.close();
 
-function bucket(url) {
-  if (url.startsWith("blob:")) return "milume_widget_bundle";
-  if (url.includes(".cell.json")) return "prepared_state_data";
+function entryBytes(entry) {
+  return entry.transferSize || entry.encodedBodySize || entry.decodedBodySize;
+}
+
+function baseCategory(url) {
+  if (url.startsWith("blob:")) return "widget_js";
+  if (url.includes(".cell.json")) return "cell_json";
   if (
     url.includes("marimo-studio-zero-python") ||
     url.includes("zero-python.js") ||
     url.includes("/zero-python/")
-  )
-    return "marimo_runtime_js_css";
+  ) {
+    return "marimo_runtime";
+  }
   if (url.includes("fonts.googleapis") || url.includes("fonts.gstatic")) return "fonts";
-  if (url.includes("/assets/stylesheets/") || url.includes("/assets/javascripts/"))
-    return "zensical_site";
+  if (url.includes("/assets/stylesheets/") || url.includes("/assets/javascripts/")) return "zensical_site";
+  if (url.includes(".cell.json")) return "cell_json";
   return "other";
 }
 
-const byBucket = {};
+const byCategory = {
+  widget_js: 0,
+  marimo_runtime: 0,
+  widget_state_and_data: 0,
+  zensical_site: 0,
+  fonts: 0,
+  other: 0,
+};
+
 let total = 0;
+let dataTransfer = 0;
+
 for (const entry of entries) {
-  const size = entry.transferSize || entry.encodedBodySize || entry.decodedBodySize;
+  const size = entryBytes(entry);
   total += size;
-  const b = bucket(entry.name);
-  byBucket[b] = (byBucket[b] ?? 0) + size;
+  const url = entry.name;
+  let category = baseCategory(url);
+
+  if (category === "cell_json") {
+    const split = cellJsonSplits[url];
+    let widgetJs = 0;
+    let dataPart = 0;
+    if (split?.text) {
+      try {
+        ({ widgetJs, data: dataPart } = cellJsonBudgetSplit(split.text));
+      } catch {
+        widgetJs = 0;
+        dataPart = size;
+      }
+    }
+    const decoded = split?.decodedBytes || size;
+    const jsTransfer = decoded > 0 ? Math.round((size * widgetJs) / decoded) : 0;
+    const dataTransferPart =
+      decoded > 0 ? Math.round((size * dataPart) / decoded) : Math.max(0, size - jsTransfer);
+    byCategory.widget_js += jsTransfer;
+    byCategory.widget_state_and_data += dataTransferPart;
+    continue;
+  }
+
+  byCategory[category] = (byCategory[category] ?? 0) + size;
 }
+
+dataTransfer = byCategory.widget_state_and_data;
 
 const report = {
   pageUrl,
   total_transfer_bytes: total,
-  by_bucket: byBucket,
+  data_transfer_bytes: dataTransfer,
+  by_category: byCategory,
   top_requests: entries
     .map((e) => ({
-      size: e.transferSize || e.encodedBodySize || e.decodedBodySize,
+      size: entryBytes(e),
       url: e.name,
+      category: baseCategory(e.name),
     }))
     .sort((a, b) => b.size - a.size)
     .slice(0, 20),
