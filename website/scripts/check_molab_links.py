@@ -18,6 +18,9 @@ _SHA_BLOB = re.compile(r"/blob/[0-9a-f]{40}/", re.IGNORECASE)
 _RECIPE_MOLAB = re.compile(
     r"^https://molab\.marimo\.io/github/ckmah/milume/blob/main/demos/recipes/[a-z0-9_]+\.py$"
 )
+_DEMO_MOLAB = re.compile(
+    r"^https://molab\.marimo\.io/github/ckmah/milume/blob/main/demos/[a-z0-9_]+\.py$"
+)
 
 SOURCE_PATHS = [
     ROOT / "README.md",
@@ -47,11 +50,13 @@ def lint_molab_urls(text: str, canonical: str) -> list[str]:
             issues.append(f"milume molab URL must use blob/main: {url}")
         if url == canonical or "demos/landmarks.py" in url:
             continue
+        if _DEMO_MOLAB.fullmatch(url):
+            continue
         if _RECIPE_MOLAB.fullmatch(url):
             continue
         if "github/ckmah/milume/" in url:
             issues.append(
-                "unexpected milume molab URL (expected landmarks demo or demos/recipes/*.py): "
+                "unexpected milume molab URL (expected demos/*.py or demos/recipes/*.py): "
                 f"{url}"
             )
     return issues

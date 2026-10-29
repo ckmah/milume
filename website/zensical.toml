@@ -45,6 +45,7 @@ nav = [
       { Probe = "reference/ui/probe.md" },
     ] },
     { "Keyboard shortcuts" = "reference/keyboard-shortcuts.md" },
+    { Datasets = "reference/datasets.md" },
     { Changelog = "reference/changelog.md" },
   ] },
 ]

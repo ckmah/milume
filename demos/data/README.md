@@ -39,6 +39,21 @@ uv run --script demos/data/export_from_raw.py \
 
 The committed file should match md5 `dbb646e8304a7a9b69603992ed8974fe` (anndata 0.13.4, h5py 3.16.0).
 
+## Citation
+
+If you use `ileum.h5ad`, cite the original study and dataset:
+
+- Xu RJ, Zhang H, Cadinu P, Nicol PB, Herrmann US, Lee T, Geistlinger L, Irizarry RA, Moffitt JR.
+  An image-based transcriptomics atlas reveals the regional and microbiota-dependent molecular,
+  cellular, and spatial structure of the murine gut. *Cell Host & Microbe* 34(3):509–525.e13 (2026).
+  doi:[10.1016/j.chom.2026.01.018](https://doi.org/10.1016/j.chom.2026.01.018)
+- Moffitt J, Xu R. MERFISH measurements of the mouse gastrointestinal tract in the presence and
+  absence of the microbiome. Dryad (2025), version 5.
+  doi:[10.5061/dryad.p5hqbzm0z](https://doi.org/10.5061/dryad.p5hqbzm0z). License: CC0-1.0.
+
+`ileum.h5ad` is one section (`20211215_WT_ile1_slice_2`) with 16 of the 1,922 genes, extracted by
+`export_from_raw.py`. Values and labels are the authors'.
+
 ## Other assets
 
 - **Volume cube demo** (`demos/volume-cube.py`) uses a separate 3D source; it is not stored here.

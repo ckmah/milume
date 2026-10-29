@@ -13,10 +13,11 @@ square crop of `20211215_WT_ile1_slice_4`, which was cut off on one side.
 
 ## Source and credit
 
-- **Paper:** Xu RJ, ..., Moffitt JR. *Cell Host & Microbe* 34(3):509–525.e13 (2026).
+- **Paper:** Xu RJ, Zhang H, Cadinu P, Nicol PB, Herrmann US, Lee T, Geistlinger L, Irizarry RA,
+  Moffitt JR. *Cell Host & Microbe* 34(3):509–525.e13 (2026).
   doi:[10.1016/j.chom.2026.01.018](https://doi.org/10.1016/j.chom.2026.01.018)
-- **Data:** Xu RJ, Moffitt JR. *MERFISH measurements of the mouse gastrointestinal tract in the
-  presence and absence of the microbiome.* Dryad,
+- **Data:** Moffitt J, Xu R. MERFISH measurements of the mouse gastrointestinal tract in the
+  presence and absence of the microbiome. Dryad (2025), version 5,
   doi:[10.5061/dryad.p5hqbzm0z](https://doi.org/10.5061/dryad.p5hqbzm0z). License: **CC0-1.0**.
   File: `data_upload.zip` (26,407,604,947 B, sha256
   `541e4f6992214ccc3634a656352ccf0ac3e06c2b01006e7e6fe804a7387f15ee`), member
