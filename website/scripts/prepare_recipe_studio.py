@@ -15,6 +15,13 @@ WEBSITE = ROOT / "website"
 OVERRIDES = WEBSITE / "overrides" / "partials"
 SHARED_RUNTIME = WEBSITE / "content" / "assets" / "marimo-studio-zero-python"
 
+from recipe_widget_esm import (  # noqa: E402
+    externalize_cell_json_files,
+    inject_modulepreload,
+    modulepreload_tags,
+    patch_zero_python_runtime,
+)
+
 HEAD_MARKERS = (
     "<base href=",
     "data-marimo-studio-runtime",
@@ -23,6 +30,7 @@ HEAD_MARKERS = (
 )
 
 RUNTIME_PATH_FROM_RECIPE = "../../../assets/marimo-studio-zero-python"
+WIDGET_ASSET_HREF_FROM_RECIPE = "../../../assets/recipe-widgets/{filename}"
 
 
 class RecipeStudioExportError(RuntimeError):
@@ -135,14 +143,26 @@ def prepare(
         raise RecipeStudioExportError(f"prepare-recipe-studio: missing {index}")
 
     install_shared_runtime(export_dir)
+    patch_zero_python_runtime(SHARED_RUNTIME / "assets")
     if loaded_urls:
         prune_shared_runtime_chunks(loaded_urls)
 
     recipe_dir = content_root / slug
     install_view_state(export_dir, recipe_dir)
+    esm_report = externalize_cell_json_files(
+        recipe_dir / "_marimo-studio" / "views",
+        widget_href_template=WIDGET_ASSET_HREF_FROM_RECIPE,
+    )
 
     html = index.read_text(encoding="utf-8")
     head = extract_runtime_head(html, runtime_href=RUNTIME_PATH_FROM_RECIPE)
+    head = inject_modulepreload(
+        head,
+        modulepreload_tags(
+            esm_report.asset_hashes,
+            href_template=WIDGET_ASSET_HREF_FROM_RECIPE,
+        ),
+    )
     body = extract_body_fragment(html)
 
     OVERRIDES.mkdir(parents=True, exist_ok=True)
@@ -152,7 +172,10 @@ def prepare(
     recipe_bytes = sum(f.stat().st_size for f in recipe_dir.rglob("*") if f.is_file())
     shared_bytes = sum(f.stat().st_size for f in SHARED_RUNTIME.rglob("*") if f.is_file())
     print(
-        f"prepare-recipe-studio: {slug} view={recipe_bytes:,} B shared_runtime={shared_bytes:,} B"
+        f"prepare-recipe-studio: {slug} view={recipe_bytes:,} B "
+        f"shared_runtime={shared_bytes:,} B "
+        f"hoisted_esm={esm_report.bytes_hoisted:,} B "
+        f"widget_assets={len(esm_report.asset_hashes)}"
     )
 
 

@@ -59,6 +59,10 @@ copy_to_site() {
   mkdir -p "${out}/docs/assets/recipes"
   rm -rf "${out}/docs/assets/marimo-studio-zero-python"
   cp -a "${WEBSITE}/content/assets/marimo-studio-zero-python" "${out}/docs/assets/"
+  if [[ -d "${WEBSITE}/content/assets/recipe-widgets" ]]; then
+    rm -rf "${out}/docs/assets/recipe-widgets"
+    cp -a "${WEBSITE}/content/assets/recipe-widgets" "${out}/docs/assets/"
+  fi
   for slug in "${RECIPES[@]}"; do
     local dest="${out}/docs/how-to/recipes/${slug}/_marimo-studio"
     mkdir -p "$(dirname "${dest}")"

@@ -1,0 +1,11 @@
+{
+  "marimo_studio_version": "0.4.1",
+  "source": "marimo-studio view export docs zero-python mount chunk (mount-D3FhjBTY.js) from marimo-studio==0.4.1",
+  "anchors": {
+    "shared_esm_ize": "function IZe(e,t){let n=z7(e,t);if(!n.startsWith(`data:`))throw TypeError(`${t} must contain a data URL.`);return n}",
+    "shared_esm_nbe": "function NBe(e,t=Pte()){let n=PBe(e,t);if(!n)return e;let r=K1(n);return URL.createObjectURL(r)}",
+    "shared_esm_size_declared": "if(r.expectedBytes!==void 0&&a!==r.expectedBytes)throw x7(i,Error(`Response size differs from descriptor`)),new m5(`integrity_failed`,`Export file ${C7(n)} has an unexpected declared size.`,{details:{path:S7(n),expectedSize:r.expectedBytes,observedSize:a}})",
+    "shared_esm_size_body": "if(r.expectedBytes!==void 0&&e.byteLength!==r.expectedBytes)throw new m5(`integrity_failed`,`Export file ${C7(n)} has an unexpected size.`,{details:{path:S7(n),expectedSize:r.expectedBytes,observedSize:e.byteLength}})",
+    "shared_esm_xxe": "async function XXe(e,t){if(e.byteLength!==t.size)throw new m5(`integrity_failed`,`Export asset size does not match.`,{details:{expectedSize:t.size,observedSize:e.byteLength}});let n=await p7(e);if(n!==t.sha256)throw new m5(`integrity_failed`,`Export asset SHA-256 does not match.`,{details:{expectedSha256:t.sha256,observedSha256:n}})}"
+  }
+}
