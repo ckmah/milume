@@ -13,9 +13,14 @@ Stack: marimo-studio **zero-python** export, `website/scripts/export-recipes.sh`
 | `website/scripts/export-recipes.sh` | `RECIPES=(…)` list drives export + copy into `site/` |
 | `website/scripts/check_recipe_payload.py` | `RECIPES` tuple must include your slug for CI payload gate |
 | Generated under `website/overrides/partials/` | `recipe-studio-<slug>-head.html` and `-body.html` from `prepare_recipe_studio.py` (commit after export) |
+| `website/content/assets/recipe-widgets/` | Shared, content-addressed Landmarks ESM hoisted from prepared views (commit after export) |
 | Optional `website/zensical.toml` nav | Add under **How-to guides** when the recipe is user-facing |
 
-Issue [#355](https://github.com/ckmah/milume/issues/355) will dedupe Landmarks widget ESM into one hashed asset under `website/content/assets/`. Until then, each export still embeds anywidget JS in prepared `.cell.json`; payload math in `measure-recipe-payload.mjs` already treats that as **widget JS**, not **data**.
+Shared Landmarks widget ESM ([#355](https://github.com/ckmah/milume/issues/355), on `main` via #358): `prepare_recipe_studio.py` calls `recipe_widget_esm.py` to pull embedded anywidget JavaScript out of each prepared `.cell.json` and write it under `website/content/assets/recipe-widgets/` as `landmarks-<sha256>.mjs`. The same bytes reuse one file across recipes. Head partials gain `<link data-milume-recipe-widget rel="modulepreload" href="../../assets/recipe-widgets/…">`. `export-recipes.sh` copies that tree into the Pages artifact at `site/docs/assets/recipe-widgets/`.
+
+The zero-python marimo runtime must match **`marimo-studio==0.4.1`**. `patch_zero_python_runtime` applies pinned edits so the export loader accepts those shared URLs; if studio changes and an anchor is missing or duplicated, prepare **errors** instead of shipping a broken page.
+
+Payload budgets are unchanged: `check_recipe_payload.py` plus `frontend/scripts/measure-recipe-payload.mjs`. Hoisted `.mjs` requests count as **widget JS**; prepared cell state and non-JS payloads count as **data**. Both still enforce **data** ≤ 10 MiB and **total** ≤ 16 MiB on the assembled site.
 
 ## Notebook layout
 
@@ -84,7 +89,7 @@ Keep prepared payload within CI budgets (measured on the assembled Pages site):
 | **Data** | ≤ 10 MiB | Widget state plus non-JS file payloads in prepared `.cell.json` |
 | **Total transfer** | ≤ 16 MiB | Everything the browser loads for the recipe page, including marimo runtime and Landmarks widget JS |
 
-Enforced by `website/scripts/check_recipe_payload.py` using `frontend/scripts/measure-recipe-payload.mjs`. Marimo runtime and embedded anywidget JS count toward **total** only, not **data**.
+Enforced by `website/scripts/check_recipe_payload.py` using `frontend/scripts/measure-recipe-payload.mjs`. Marimo runtime and hoisted widget ESM under `docs/assets/recipe-widgets/` count toward **total** only, not **data**. Embedded widget ESM left in `.cell.json` after prepare should not happen; `recipe_widget_esm.assert_no_embedded_widget_esm` guards exports in tests.
 
 ## Media rules (stills and capture loops)
 
@@ -131,7 +136,7 @@ cd frontend && npm ci && npm run build && cd ..
 uv run bash website/scripts/export-recipes.sh prepare-for-zensical
 ```
 
-Commit `website/overrides/partials/recipe-studio-<slug>-head.html` and `recipe-studio-<slug>-body.html`. View state under `website/content/recipes/<slug>/_marimo-studio/` is gitignored and rebuilt in CI.
+Commit `website/overrides/partials/recipe-studio-<slug>-head.html` and `recipe-studio-<slug>-body.html`, and any new files under `website/content/assets/recipe-widgets/` from the hoister. View state under `website/content/recipes/<slug>/_marimo-studio/` is gitignored and rebuilt in CI.
 
 8. If the notebook is heavy enough to need export CI coverage, extend `.github/workflows/recipe-studio-export.yml` (`RECIPE_NB` / cache `hashFiles`) like `squidpy_color.py`.
 
