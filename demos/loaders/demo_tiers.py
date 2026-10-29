@@ -10,6 +10,15 @@ Tier map (issue #343):
 | tiny (synthetic) | ``load_tiny_synthetic_adata()`` | ``AnnData`` | In-memory fixture, no I/O |
 | tiny (HF xsmall) | ``load_tiny_xsmall_pyxa()`` | ``SpatialData`` | Stellaromics/demo ``xsmall/``; needs network |
 | 2D | ``load_2d_ileum_adata()`` | ``AnnData`` | ``demos/data/ileum.h5ad`` or raw GitHub on molab |
+
+**2D tier one-liner (molab and local).** After ``import scanpy as sc``, ``from pathlib import Path``,
+``import tempfile``, and ``import urllib.request``:
+
+```python
+adata = sc.read_h5ad(_f) if (_f := "demos/data/ileum.h5ad") and Path(_f).is_file() else sc.read_h5ad(urllib.request.urlretrieve("https://raw.githubusercontent.com/ckmah/milume/main/demos/data/ileum.h5ad", _f := str(Path(tempfile.gettempdir()) / "milume-demo-ileum.h5ad"))[0])
+```
+
+``load_2d_ileum_adata()`` implements the same resolution order (cwd-relative repo file, then cached download).
 | 3D | ``load_3d_small_pyxa()`` | ``SpatialData`` | Stellaromics/demo ``small/``; needs network |
 | full | ``load_full_colon_sdata()`` | ``SpatialData`` | Local zarr only; see #134 for streaming |
 
@@ -86,8 +95,12 @@ def load_3d_small_pyxa(*, labels: bool = True) -> sd.SpatialData:
 
 def ileum_h5ad_path(*, force_remote: bool = False) -> Path:
     """Resolved path to the ileum ``.h5ad`` (repo file or cached raw download)."""
-    if not force_remote and _ILEUM_H5AD.is_file():
-        return _ILEUM_H5AD
+    if not force_remote:
+        cwd_local = Path("demos/data/ileum.h5ad")
+        if cwd_local.is_file():
+            return cwd_local
+        if _ILEUM_H5AD.is_file():
+            return _ILEUM_H5AD
     cache = Path(tempfile.gettempdir()) / "milume-demo-ileum.h5ad"
     if not cache.is_file() or cache.stat().st_size == 0:
         urllib.request.urlretrieve(_ILEUM_RAW_URL, cache)

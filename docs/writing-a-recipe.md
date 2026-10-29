@@ -201,7 +201,14 @@ def _():
     import milume
     import scanpy as sc
 
-    from tests.squidpy_color_recipes import docs_recipe_adata
+    import importlib.util
+    from pathlib import Path
+
+    _helpers_path = Path(__file__).resolve().parent / "squidpy_color_helpers.py"
+    _spec = importlib.util.spec_from_file_location("_squidpy_color_helpers", _helpers_path)
+    _helpers = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_helpers)
+    docs_recipe_adata = _helpers.docs_recipe_adata
 
     return docs_recipe_adata, milume, mo, sc
 

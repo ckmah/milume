@@ -26,11 +26,12 @@ def test_load_2d_ileum_adata_from_repo():
 
 
 def test_ileum_h5ad_path_prefers_repo_file(tmp_path, monkeypatch):
-    monkeypatch.setattr(demo_tiers, "_ILEUM_H5AD", tmp_path / "missing.h5ad")
-    repo_copy = tmp_path / "ileum.h5ad"
+    monkeypatch.chdir(tmp_path)
+    repo_copy = tmp_path / "demos" / "data" / "ileum.h5ad"
+    repo_copy.parent.mkdir(parents=True)
     repo_copy.write_bytes(b"fake")
-    monkeypatch.setattr(demo_tiers, "_ILEUM_H5AD", repo_copy)
-    assert demo_tiers.ileum_h5ad_path() == repo_copy
+    monkeypatch.setattr(demo_tiers, "_ILEUM_H5AD", tmp_path / "other" / "ileum.h5ad")
+    assert demo_tiers.ileum_h5ad_path().resolve() == repo_copy.resolve()
 
 
 def test_ileum_h5ad_path_downloads_when_repo_missing(tmp_path, monkeypatch):

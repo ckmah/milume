@@ -45,19 +45,24 @@ def _(mo):
 
 @app.cell
 def _():
+    import importlib.util
     import marimo as mo
+    from pathlib import Path
 
     import milume
     import pandas as pd
     import scanpy as sc
     import squidpy as sq
 
-    from tests.squidpy_color_recipes import (
-        docs_recipe_adata,
-        docs_recipe_patch_selection,
-        niche_obs_key,
-        run_niche_recipe,
-    )
+    _helpers_path = Path(__file__).resolve().parent / "squidpy_color_helpers.py"
+    _spec = importlib.util.spec_from_file_location("_squidpy_color_helpers", _helpers_path)
+    _helpers = importlib.util.module_from_spec(_spec)
+    assert _spec.loader is not None
+    _spec.loader.exec_module(_helpers)
+    docs_recipe_adata = _helpers.docs_recipe_adata
+    docs_recipe_patch_selection = _helpers.docs_recipe_patch_selection
+    niche_obs_key = _helpers.niche_obs_key
+    run_niche_recipe = _helpers.run_niche_recipe
 
     return (
         docs_recipe_adata,
