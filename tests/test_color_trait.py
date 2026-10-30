@@ -51,11 +51,6 @@ def test_numeric_obs_columns_synced_on_init():
     assert w.numeric_obs_columns == ["area"]
 
 
-def test_numeric_obs_columns_syncs_on_init():
-    w = LandmarksWidget(_adata(), color="cell_class")
-    assert w.numeric_obs_columns == ["area"]
-
-
 def test_numeric_obs_column_shows_a_sequential_ramp():
     w = LandmarksWidget(_adata())
     w.color = "area"
