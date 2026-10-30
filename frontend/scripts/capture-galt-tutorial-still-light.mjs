@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Capture light still-galt-selection for the 2D tutorial (issue #372).
+ * Applies the 551-cell selection, uses the same wide map framing as sibling ileum
+ * docs stills (`fitDenseTissueView`), opens category counts, and captures light PNG.
  *
  * Prereq:
  *   uv run --group demo python scripts/export-ileum-docs-base.py --max-cells 0
@@ -20,11 +21,13 @@ import {
   DATASET_ID,
   VIEWPORT,
   applyDocsHarnessTheme,
+  fitDenseTissueView,
   installDocsCaptureChrome,
   gotoDocsFixture,
   milumeSidecarSha,
   screenshotLandmarks,
   waitForLandmarks,
+  writeSidecar,
 } from "./lib/docs-tool-media.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -47,40 +50,6 @@ async function setModel(page, patch) {
   }, patch);
 }
 
-async function fitViewToSelection(page, indices) {
-  await page.evaluate((idx) => {
-    const eng = window.__landmarksEngine;
-    const pts = eng.getPoints();
-    let minX = Infinity;
-    let minY = Infinity;
-    let maxX = -Infinity;
-    let maxY = -Infinity;
-    for (const i of idx) {
-      const [x, y] = pts[i];
-      if (x < minX) minX = x;
-      if (y < minY) minY = y;
-      if (x > maxX) maxX = x;
-      if (y > maxY) maxY = y;
-    }
-    const pad = Math.max(maxX - minX, maxY - minY) * 0.55 + 80;
-    const cx = (minX + maxX) / 2;
-    const cy = (minY + maxY) / 2;
-    const wantW = maxX - minX + pad * 2;
-    const wantH = maxY - minY + pad * 2;
-    eng.resetZoom();
-    eng.panTo(cx, cy, { animate: false });
-    for (let step = 0; step < 48; step++) {
-      const b = eng.getViewportWorldBounds();
-      if (!b) break;
-      const w = b[2] - b[0];
-      const h = b[3] - b[1];
-      if (w <= wantW && h <= wantH) break;
-      eng.zoomBy(0.12, { animate: false });
-    }
-  }, indices);
-  await page.waitForTimeout(450);
-}
-
 async function prepareGaltView(page) {
   await setModel(page, {
     mode: "select",
@@ -99,7 +68,7 @@ async function prepareGaltView(page) {
     landmarks: [],
   });
   await waitForLandmarks(page);
-  await fitViewToSelection(page, pointIndices);
+  await fitDenseTissueView(page);
 
   const right = page.locator(".landmarks__chrome-dock--right");
   if ((await right.getAttribute("data-collapsed")) === "true") {
@@ -127,6 +96,11 @@ async function main() {
     await prepareGaltView(page);
     const out = join(assets, "still-galt-selection.light.png");
     await screenshotLandmarks(page, out);
+    writeSidecar(join(assets, "still-galt-selection.json"), {
+      dataset: DATASET_ID,
+      seed: 0,
+      milume: milumeSidecarSha(root),
+    });
     await page.close();
     console.log("wrote", out, "milume", milumeSidecarSha(root), "dataset", DATASET_ID);
   } finally {
