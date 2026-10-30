@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef } from "react";
+import { Suspense, lazy, memo, useCallback, useEffect, useMemo, useRef } from "react";
 
 import type { CellColoring } from "@/widgets/volume-cube/cell-lut-extension";
 import type { MeshLook } from "@/widgets/volume-cube/cell-mesh";
@@ -32,7 +32,7 @@ const VOXEL_ZYX: [number, number, number] = [1, 1, 1];
  * Esc in Inspect returns to the map. It also snapshots the window it shows for
  * the inspect entries' thumbnails in the Selections panel.
  */
-export function CubeImmersive({
+export const CubeImmersive = memo(function CubeImmersive({
   lm,
   engine,
   settings,
@@ -176,6 +176,13 @@ export function CubeImmersive({
   const size = lm.inspect_size_um || INSPECT_WINDOW_UM;
   const scatterPoints = useCubeScatterPoints(engine, lm, lm.inspect_cx, lm.inspect_cy, size);
   const drawPoints = settings.showPoints && scatterPoints.length > 0;
+  const renderSettings = useMemo(
+    () => (labelAlpha == null ? settings.render : { ...settings.render, cellAlpha: labelAlpha }),
+    [settings.render, labelAlpha],
+  );
+  const renderCountOverlay =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("cubeRenderOverlay") === "1";
 
   return (
     <section
@@ -216,9 +223,7 @@ export function CubeImmersive({
           showImage={settings.showImage}
           showLabels={settings.showLabels}
           coloring={coloring}
-          render={
-            labelAlpha == null ? settings.render : { ...settings.render, cellAlpha: labelAlpha }
-          }
+          render={renderSettings}
           meshLook={meshLook}
           dark={dark}
           height="100%"
@@ -233,6 +238,7 @@ export function CubeImmersive({
           pausesPrefetch
           onLoadState={onLoadState}
           onRendered={onRendered}
+          renderCountOverlay={renderCountOverlay}
           onBounds={(bounds) => patch({ bounds })}
           onPreset={(preset) => patch({ preset })}
           panMode={settings.move}
@@ -245,4 +251,4 @@ export function CubeImmersive({
       </Suspense>
     </section>
   );
-}
+});

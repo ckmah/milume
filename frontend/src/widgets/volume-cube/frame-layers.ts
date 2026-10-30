@@ -171,6 +171,7 @@ export function cutFrameLayers(box: PreBox | null | undefined, modelMatrix: Matr
 export class FramedVolumeView extends VolumeView {
   private readonly controller: boolean;
   private readonly meshTarget = new MeshTarget();
+  private deckGlView: OrbitView | null = null;
 
   /** Viv's VolumeView always makes a controller; `controller: false` fixes the camera. */
   constructor({ controller = true, ...args }: { controller?: boolean } & ConstructorParameters<typeof VolumeView>[0]) {
@@ -179,9 +180,12 @@ export class FramedVolumeView extends VolumeView {
   }
 
   getDeckGlView() {
+    if (this.deckGlView) return this.deckGlView;
     const view = super.getDeckGlView() as unknown as OrbitView;
-    if (this.controller) return view;
-    return new OrbitView({ ...(view.props as ConstructorParameters<typeof OrbitView>[0]), controller: false });
+    this.deckGlView = this.controller
+      ? view
+      : new OrbitView({ ...(view.props as ConstructorParameters<typeof OrbitView>[0]), controller: false });
+    return this.deckGlView;
   }
 
   getLayers({ props }: { props: Record<string, unknown> }) {

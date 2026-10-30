@@ -13,7 +13,8 @@ inside the cube. Esc closes the cube and stays in Inspect; a second Esc, or
 **Exit Inspect** on the pill, leaves Inspect for the tool used before.
 
 **Spec:** `frontend/e2e/landmarks/landmarks-volume.spec.ts` — `"Landmarks inspect cube"` describe block
-(`E2E_HARNESS=landmarks-volume`, run via `npm run test:e2e:landmarks`).
+(`E2E_HARNESS=landmarks-volume`, run via `npm run test:e2e:landmarks`). Issue #383 idle regressions:
+`frontend/e2e/landmarks/landmarks-cube-idle.spec.ts` — `"Landmarks cube idle renders (#383)"`.
 
 **Kernel comm (Python side only):** `frontend/e2e/marimo/landmarks-inspect.spec.ts` loads `demos/landmarks.py` on a real kernel and checks the comm image store and DataView decode; no UI gestures. Inspect UI is verified in the harness spec above.
 
@@ -205,6 +206,8 @@ Placing, the cube and Save:
 - Functional: `"a release over the chrome ends the press; Esc, a lost release or blur end it too"` — a release over the Inspect pill saves the last position, adds no selection and opens the cube; after Esc between press and release (mode stays `inspect`, pill armed), a buttonless move, or a window `blur`, later moves drag nothing and the cube stays closed.
 - Functional: `"the dock shows the coarse level first, then refines"` (`@isolated`; an init script records every `data-level` the cube view is given from its first render) — a coarser level is shown before a finer one, and `data-refining` returns to `"false"`.
 - Functional: `"reopening the same window reads every chunk from the cache"` — closing and reopening the same window fires no `/s\d+/c/` chunk requests.
+- Functional (#383, `landmarks-cube-idle.spec.ts`): `"settled cube stays idle for 2000ms with zero deck renders"` — after `waitForCubeSettled`, `window.__volumeCubeRenderCount` stays 0 for 2 s.
+- Functional (#383): `"Image layer menu opens within 1000ms with at most one deck render"` — right-click `layer-toggle-image` until `adjust-image` is visible: ≤1 render and <1 s wall time.
 - Functional: `"leaving Inspect closes the cube and frees the map; Esc from its chrome closes it"` — Exit closes the cube and the bar, `mode` is `select`, and the map is the top hit at the canvas centre; back in Inspect the cube stays closed; Esc with focus in the bar closes the cube (pill armed) and a second Esc exits; Esc after clicking into the cube closes it; Python setting `mode` closes it too.
 
 Pan:
