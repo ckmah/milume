@@ -103,6 +103,7 @@ export function LandmarksView({
   const [shellHeight, setShellHeight] = useState(defaultHeight);
   const [narrow, setNarrow] = useState(false);
   const [collapsed, setCollapsed] = useState({ left: false, right: false });
+  const [minimise, setMinimise] = useState(false);
   const savedHeightRef = useRef<number | null>(null);
   const wasFullscreenRef = useRef(false);
 
@@ -293,7 +294,6 @@ export function LandmarksView({
     const el = rootRef.current;
     if (!el) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "[" && e.key !== "]") return;
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
       const editable =
@@ -302,6 +302,14 @@ export function LandmarksView({
         target?.isContentEditable ||
         Boolean(target?.closest?.("[contenteditable]"));
       if (editable) return;
+
+      if ((e.key === "\\" || e.code === "Backslash") && e.shiftKey) {
+        e.preventDefault();
+        setMinimise((m) => !m);
+        return;
+      }
+
+      if (e.key !== "[" && e.key !== "]") return;
       e.preventDefault();
       const side = e.key === "[" ? "left" : "right";
       setCollapsed((c) => ({ ...c, [side]: !c[side] }));
@@ -386,6 +394,7 @@ export function LandmarksView({
         lm.show_rulers && "landmarks--rulers",
         // Docks and peek tabs float over the open cube (landmarks.css).
         cubeOpen && "landmarks--cube-open",
+        minimise && "landmarks--minimise",
       )}
       data-rulers={lm.show_rulers ? "on" : "off"}
       onKeyDown={inspectCube.onKeyDown}
@@ -519,7 +528,11 @@ export function LandmarksView({
           onMouseDown={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}
         >
-          <ViewCta lm={lm} />
+          <ViewCta
+            lm={lm}
+            minimise={minimise}
+            onToggleMinimise={() => setMinimise((m) => !m)}
+          />
         </div>
 
         {narrow ? (
@@ -553,6 +566,7 @@ export function LandmarksView({
                 snapshotVersion={snapshotVersion}
                 stackZ={inspectCube.stackZ}
                 onFocusEntry={inspectCube.focusEntry}
+                minimise={minimise}
               />
             </div>
             {collapsed.left ? (
@@ -584,6 +598,7 @@ export function LandmarksView({
                 snapshotVersion={snapshotVersion}
                 stackZ={inspectCube.stackZ}
                 onFocusEntry={inspectCube.focusEntry}
+                minimise={minimise}
               />
             </div>
             {collapsed.left ? (

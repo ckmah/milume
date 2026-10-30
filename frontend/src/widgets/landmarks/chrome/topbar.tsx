@@ -83,8 +83,9 @@ export function Topbar({
             modes={landmarkModes}
             mode={mode}
             onMode={onMode}
-            fallbackLabel="Point"
+            fallbackLabel="Spline"
             menuNoun="landmark"
+            defaultMode="spline"
           />
         ) : null}
         <ToolbarDivider />

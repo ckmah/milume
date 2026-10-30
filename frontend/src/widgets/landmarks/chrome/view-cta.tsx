@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Morph } from "cube-motion/react";
-import { CircleDot, Grid2x2, Ruler } from "lucide-react";
+import { CircleDot, Grid2x2, MinusIcon, PlusIcon, Ruler } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,9 +15,17 @@ import {
 } from "./primitives";
 
 /**
- * Soft Float View CTA — top-right. Points↔Raster toggle + rulers toggle.
+ * Soft Float View CTA — top-right. Points↔Raster toggle, rulers, minimise panels.
  */
-export function ViewCta({ lm }: { lm: LandmarksModel }) {
+export function ViewCta({
+  lm,
+  minimise,
+  onToggleMinimise,
+}: {
+  lm: LandmarksModel;
+  minimise: boolean;
+  onToggleMinimise: () => void;
+}) {
   const rasterOn = (lm.render_mode || "points") === "raster";
   const rulersOn = !!lm.show_rulers;
   const [popNonce, setPopNonce] = useState(0);
@@ -26,6 +34,8 @@ export function ViewCta({ lm }: { lm: LandmarksModel }) {
     lm.setRenderMode(rasterOn ? "points" : "raster");
     setPopNonce((n) => n + 1);
   };
+
+  const minimiseLabel = minimise ? "Show panels" : "Minimize panels";
 
   return (
     <TooltipProvider delayDuration={80} skipDelayDuration={0}>
@@ -57,7 +67,6 @@ export function ViewCta({ lm }: { lm: LandmarksModel }) {
             aria-checked={rasterOn}
             aria-label="points/raster"
             onClick={onToggle}
-            // A flip, not a latch: the icon shows the mode, so no on state.
             className={cn(chromeHitClass, "landmarks-view-cta")}
           >
             <Morph
@@ -67,6 +76,26 @@ export function ViewCta({ lm }: { lm: LandmarksModel }) {
               off={<CircleDot className="size-4" data-testid="view-cta-icon-points" />}
               on={<Grid2x2 className="size-4" data-testid="view-cta-icon" />}
             />
+          </Button>
+        </ChromeTooltip>
+        <ChromeTooltip label={minimiseLabel} shortcut="Shift+\\">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={minimiseLabel}
+            aria-pressed={minimise}
+            data-testid="toggle-minimise-panels"
+            onClick={onToggleMinimise}
+            className={cn(chromeHitClass, minimise && chromeHitOnClass)}
+          >
+            <span className="landmarks-view-minimise-box" aria-hidden>
+              {minimise ? (
+                <PlusIcon className="size-3" />
+              ) : (
+                <MinusIcon className="size-3" />
+              )}
+            </span>
           </Button>
         </ChromeTooltip>
       </div>

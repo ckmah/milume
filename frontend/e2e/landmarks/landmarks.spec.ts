@@ -483,14 +483,28 @@ test.describe("LandmarksWidget", () => {
     const names = await radios.evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
     expect(names).toEqual(["Select", "Move", "Inspect", "Probe", "Node"]);
     await expect(bar.locator('[aria-label="Inspect"] svg.lucide-box')).toHaveCount(1);
-    const landmark = bar.getByRole("button", { name: /Point\. Right-click for landmark menu/ });
+    const landmark = bar.getByRole("button", { name: /Spline\. Right-click for landmark menu/ });
     await landmark.click();
-    await expect.poll(() => getModel(page, "mode")).toBe("point");
-    await landmark.click({ button: "right" });
-    await page.getByRole("menuitem", { name: /Spline/ }).click();
     await expect.poll(() => getModel(page, "mode")).toBe("spline");
+    await landmark.click({ button: "right" });
+    await page.getByRole("menuitem", { name: /Point/ }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("point");
     await bar.getByRole("radio", { name: "Select" }).click();
     await bar.getByRole("button", { name: /Spline\. Right-click for landmark menu/ }).click(); // remembers last used
+    await expect.poll(() => getModel(page, "mode")).toBe("spline");
+  });
+
+  test("toolbar: landmark dropdown defaults to spline on a fresh widget", async ({
+    page,
+  }) => {
+    await page.reload();
+    await waitForEngine(page);
+    const bar = page.getByRole("toolbar", { name: "Drawing tools" });
+    await expect(
+      bar.getByRole("button", { name: /Spline\. Right-click for landmark menu/ }),
+    ).toBeVisible();
+    await bar.getByRole("radio", { name: "Select" }).click();
+    await bar.getByRole("button", { name: /Spline\. Right-click for landmark menu/ }).click();
     await expect.poll(() => getModel(page, "mode")).toBe("spline");
   });
 
