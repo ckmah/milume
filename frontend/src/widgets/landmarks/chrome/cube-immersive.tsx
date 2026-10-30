@@ -180,6 +180,9 @@ export const CubeImmersive = memo(function CubeImmersive({
     () => (labelAlpha == null ? settings.render : { ...settings.render, cellAlpha: labelAlpha }),
     [settings.render, labelAlpha],
   );
+  const renderCountOverlay =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("cubeRenderOverlay") === "1";
 
   return (
     <section
@@ -235,6 +238,7 @@ export const CubeImmersive = memo(function CubeImmersive({
           pausesPrefetch
           onLoadState={onLoadState}
           onRendered={onRendered}
+          renderCountOverlay={renderCountOverlay}
           onBounds={(bounds) => patch({ bounds })}
           onPreset={(preset) => patch({ preset })}
           panMode={settings.move}

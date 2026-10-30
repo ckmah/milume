@@ -170,6 +170,8 @@ export type VolumeCubeProps = {
   pausesPrefetch?: boolean;
   /** Called after each deck render. */
   onRendered?: (canvas: HTMLCanvasElement) => void;
+  /** Harness evidence: live `__volumeCubeRenderCount` readout (immersive cube only). */
+  renderCountOverlay?: boolean;
   /** Called when the image pyramid opens. */
   onLevels?: (image: ZarrSource[]) => void;
   /** Called when the shown window changes: its level index and voxel box. */
@@ -399,6 +401,7 @@ export function VolumeCube({
   volumeComm = null,
   pausesPrefetch = false,
   onRendered,
+  renderCountOverlay = false,
   onLevels,
   onShown,
   panMode = false,
@@ -1035,11 +1038,7 @@ export function VolumeCube({
   // point or the volume stays on the origin while the plates sit on the box.
   if (orbitViewRef.current) orbitViewRef.current.target = aimTarget;
   const onRenderedRef = useLatest(onRendered);
-  const renderOverlayOn = useMemo(
-    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("cubeRenderOverlay") === "1",
-    [],
-  );
-  const [renderOverlayCount, setRenderOverlayCount] = useState(0);
+  const renderOverlayRef = useRef<HTMLDivElement>(null);
   const deckProps = useMemo(
     () => ({
       effects: [CELL_MESH_LIGHTING],
@@ -1047,12 +1046,13 @@ export function VolumeCube({
         if (typeof window !== "undefined") {
           const w = window as unknown as { __volumeCubeRenderCount?: number };
           w.__volumeCubeRenderCount = (w.__volumeCubeRenderCount ?? 0) + 1;
-          if (renderOverlayOn) setRenderOverlayCount(w.__volumeCubeRenderCount);
+          const node = renderOverlayRef.current;
+          if (node) node.textContent = `renders: ${w.__volumeCubeRenderCount ?? 0}`;
         }
         onRenderedRef.current?.(gl.canvas as HTMLCanvasElement);
       },
     }),
-    [onRenderedRef, renderOverlayOn],
+    [onRenderedRef],
   );
   // Raw slices stay in voxel indices for the cut plates. Viv needs them scaled.
   const voxelX = levelVoxel?.[2] ?? 1;
@@ -1443,12 +1443,13 @@ export function VolumeCube({
           message={status}
         />
       ) : null}
-      {renderOverlayOn ? (
+      {renderCountOverlay ? (
         <div
+          ref={renderOverlayRef}
           className="pointer-events-none absolute right-2 bottom-2 z-10 rounded bg-black/75 px-2 py-1 font-mono text-xs text-white tabular-nums"
           data-testid="cube-render-overlay"
         >
-          renders: {renderOverlayCount}
+          renders: 0
         </div>
       ) : null}
       <VolumeCubeCutChrome

@@ -22,10 +22,12 @@ function optionsFrom(search: string) {
   const params = new URLSearchParams(search);
   const [preview, dock] = (params.get("budgets") ?? "").split(",").map(Number);
   const meshOpacity = Number(params.get("meshOpacity"));
+  const noDialkit = params.get("noDialkit") === "1";
   return {
     cubeBudgets: preview && dock ? { preview, dock } : undefined,
     inspectWindowUm: Number(params.get("window")) || undefined,
     meshOpacity: Number.isFinite(meshOpacity) && meshOpacity > 0 ? meshOpacity : undefined,
+    noDialkit,
   };
 }
 
@@ -38,6 +40,7 @@ function LandmarksVolumeHarness() {
   const [model, setModel] = useState<AnyModel | null>(null);
   const [loadError, setLoadError] = useState("");
   const [options, setOptions] = useState(() => optionsFrom(location.search));
+  const hideDialkit = options.noDialkit;
   // Live: every value is a uniform or layer prop, so a drag never rebuilds the meshes.
   const mesh = useDialKit("Mesh", {
     opacity: [options.meshOpacity ?? DEFAULT_RENDER.cellAlpha, 0, 1, 0.05],
@@ -96,14 +99,14 @@ function LandmarksVolumeHarness() {
             defaultHeight={820}
             cubeBudgets={options.cubeBudgets}
             inspectWindowUm={options.inspectWindowUm}
-            labelAlpha={mesh.opacity}
-            meshLook={mesh}
+            labelAlpha={hideDialkit ? undefined : mesh.opacity}
+            meshLook={hideDialkit ? undefined : mesh}
           />
         ) : (
           <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>
         )}
       </div>
-      <DialRoot position="bottom-left" theme="dark" />
+      {hideDialkit ? null : <DialRoot position="bottom-left" theme="dark" />}
     </div>
   );
 }
