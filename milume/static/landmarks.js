@@ -336,8 +336,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   function tooltipStyle() {
     const styles = getComputedStyle(container);
     return {
-      background: styles.getPropertyValue("--lm-tooltip-bg").trim() || "#0f172a",
-      color: styles.getPropertyValue("--lm-tooltip-text").trim() || "#f8fafc",
+      background: styles.getPropertyValue("--lm-tooltip-bg").trim() || "#171717",
+      color: styles.getPropertyValue("--lm-tooltip-text").trim() || "#ffffff",
       fontSize: "11px",
       fontWeight: "500",
       padding: "4px 8px",

@@ -108,7 +108,7 @@ function categoryGroups(input: CubeHighlightInput): CellColoring {
     .sort((a, b) => a[0] - b[0])
     .map(([code, ids]) => ({
       name: labels[code] ?? String(code),
-      color: palette[code % palette.length] ?? "#22d3ee",
+      color: palette[code % palette.length] ?? "#737373",
       labels: ids,
     }));
   return { kind: "groups", groups };

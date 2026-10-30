@@ -193,7 +193,7 @@ export function InfoDonut({
           <tspan
             x={CX}
             y={CY + 12}
-            className="fill-muted-foreground text-[0.65rem]"
+            className="landmarks__info-donut-caption tabular-nums"
           >
             cells
           </tspan>

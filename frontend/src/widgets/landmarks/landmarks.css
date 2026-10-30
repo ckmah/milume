@@ -19,11 +19,11 @@
     transparent;
 
   --lm-bg: var(--background);
-  --lm-border: #e2e8f0;
-  --lm-text: #1e293b;
-  --lm-text-muted: #64748b;
-  --lm-tooltip-bg: #0f172a;
-  --lm-tooltip-text: #f8fafc;
+  --lm-border: #e5e5e5;
+  --lm-text: #111111;
+  --lm-text-muted: #666666;
+  --lm-tooltip-bg: #171717;
+  --lm-tooltip-text: #ffffff;
   --lm-halo: #ffffff;
   /* Opaque radius-neighborhood wash (~30% #00e5cc on white). */
   --lm-neigh-fill: #b3f2e8;
@@ -137,10 +137,10 @@
     color-scheme: dark;
     --lm-bg: var(--background);
     --lm-border: #3a3a3a;
-    --lm-text: #f1f5f9;
-    --lm-text-muted: #94a3b8;
-    --lm-tooltip-bg: #f8fafc;
-    --lm-tooltip-text: #0f172a;
+    --lm-text: #ffffff;
+    --lm-text-muted: #999999;
+    --lm-tooltip-bg: #f5f5f5;
+    --lm-tooltip-text: #111111;
     --lm-halo: #ffffff;
     /* Opaque radius-neighborhood wash (~30% #00e5cc on black). */
     --lm-neigh-fill: #00453d;
@@ -159,10 +159,10 @@
   color-scheme: dark;
   --lm-bg: var(--background);
   --lm-border: #3a3a3a;
-  --lm-text: #f1f5f9;
-  --lm-text-muted: #94a3b8;
-  --lm-tooltip-bg: #f8fafc;
-  --lm-tooltip-text: #0f172a;
+  --lm-text: #ffffff;
+  --lm-text-muted: #999999;
+  --lm-tooltip-bg: #f5f5f5;
+  --lm-tooltip-text: #111111;
   --lm-halo: #ffffff;
   --lm-neigh-fill: #00453d;
   --lm-float-border: transparent;
@@ -174,11 +174,11 @@
 .landmarks.landmarks--light {
   color-scheme: light;
   --lm-bg: var(--background);
-  --lm-border: #e2e8f0;
-  --lm-text: #1e293b;
-  --lm-text-muted: #64748b;
-  --lm-tooltip-bg: #0f172a;
-  --lm-tooltip-text: #f8fafc;
+  --lm-border: #e5e5e5;
+  --lm-text: #111111;
+  --lm-text-muted: #666666;
+  --lm-tooltip-bg: #171717;
+  --lm-tooltip-text: #ffffff;
   --lm-halo: #ffffff;
   --lm-neigh-fill: #b3f2e8;
   --lm-float-border: transparent;
@@ -313,10 +313,23 @@
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  color: #fca5a5;
-  background: rgba(15, 23, 42, 0.92);
+  color: var(--destructive);
+  background: color-mix(in oklab, var(--popover) 92%, transparent);
   font-size: 0.875rem;
   text-align: center;
+}
+
+.landmarks__info-donut-caption {
+  fill: var(--lm-caption);
+  font-size: 0.6875rem;
+}
+
+.landmarks__landmark-measure {
+  color: var(--lm-caption);
+}
+
+.landmarks__legend-overflow {
+  font-size: 0.6875rem;
 }
 
 .landmarks__legend {
