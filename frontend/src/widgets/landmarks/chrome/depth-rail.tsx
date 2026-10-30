@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { formatLegendValue } from "../helpers";
@@ -147,8 +148,9 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
               height: `${Math.max(0, bandTop - bandBottom)}%`,
             }}
           />
-          <button
+          <Button
             type="button"
+            variant="ghost"
             className="landmarks-depth-rail__thumb landmarks-depth-rail__thumb--lo"
             style={{ bottom: `calc(${bandBottom}% - 2px)` }}
             aria-label="Lower z bound"
@@ -157,8 +159,9 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
               setDrag("lo");
             }}
           />
-          <button
+          <Button
             type="button"
+            variant="ghost"
             className="landmarks-depth-rail__thumb landmarks-depth-rail__thumb--hi"
             style={{ bottom: `calc(${bandTop}% - 2px)` }}
             aria-label="Upper z bound"
@@ -167,8 +170,9 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
               setDrag("hi");
             }}
           />
-          <button
+          <Button
             type="button"
+            variant="ghost"
             className="landmarks-depth-rail__focus"
             style={{ bottom: `calc(${focusPct}% - 2px)` }}
             aria-label="Focus z"

@@ -166,13 +166,15 @@ export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
           {selected.length} gene{selected.length === 1 ? "" : "s"} · max {MAX_ACTIVE_GENES}
         </span>
         {selected.length ? (
-          <button
+          <Button
             type="button"
-            className="text-xs font-medium text-foreground/75 hover:text-foreground"
+            variant="ghost"
+            size="sm"
+            className="h-auto px-1 text-xs font-medium text-foreground/75 hover:text-foreground"
             onClick={() => lm.setActiveGenes([])}
           >
             Clear
-          </button>
+          </Button>
         ) : null}
       </div>
       <Combobox

@@ -10,6 +10,7 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { FieldDescription } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import type { CategoryColumn } from "../helpers";
@@ -118,10 +119,11 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
 
       {hasImage ? (
         <div className="landmarks-layers-stack__row">
-          <button
+          <Button
             type="button"
+            variant="ghost"
             className={cn(
-              "landmarks-layer-row w-full text-xs text-foreground",
+              "landmarks-layer-row h-auto w-full justify-start text-xs text-foreground",
               imageOpen && "landmarks-layer-row--active",
             )}
             aria-expanded={imageOpen}
@@ -138,7 +140,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
               Image · DAPI
             </span>
             <EyeIcon className="landmarks-layer-icon size-[0.875rem] shrink-0 opacity-70" aria-hidden />
-          </button>
+          </Button>
           {imageOpen ? (
             <div className="flex flex-col gap-1.5 px-2.5 pt-1.5 pb-1">
               <p className={META_LINE}>

@@ -40,9 +40,10 @@ export function PanelSectionHeader({
       )}
       data-testid={testId}
     >
-      <button
+      <Button
         type="button"
-        className="landmarks-panel-section-header__main"
+        variant="ghost"
+        className="landmarks-panel-section-header__main h-auto w-full justify-start rounded-none px-1 py-0 font-normal"
         aria-expanded={open}
         onClick={onToggle}
       >
@@ -78,7 +79,7 @@ export function PanelSectionHeader({
           <span className="landmarks-panel-section-header__count">{count}</span>
           <Chevron className="landmarks-panel-section-header__chevron" aria-hidden />
         </span>
-      </button>
+      </Button>
     </div>
   );
 }
