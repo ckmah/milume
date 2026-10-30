@@ -415,6 +415,12 @@ export function LandmarksView({
         )}
       </div>
       <div className="landmarks__chrome">
+        <span
+          data-ci-prove="design-scan"
+          style={{ fontSize: 10, position: "absolute", top: 4, left: 4, zIndex: 99999 }}
+        >
+          ci prove
+        </span>
         <div
           className="landmarks__chrome-tools"
           onMouseDown={(e) => e.stopPropagation()}
