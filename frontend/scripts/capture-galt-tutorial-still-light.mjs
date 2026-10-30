@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 /**
+ * Capture light still-galt-selection for the 2D tutorial (issue #372).
+ *
  * Applies the 551-cell selection, uses the same wide map framing as sibling ileum
  * docs stills (`fitDenseTissueView`), opens category counts, and captures light PNG.
  *
