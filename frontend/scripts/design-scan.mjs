@@ -46,10 +46,6 @@ export function ciJobs(ctx, argv = process.argv, env = process.env) {
 }
 
 export function reportCi(totalPrimary, env = process.env) {
-  if (env.CI_DESIGN_SCAN_PROVE === "1") {
-    console.log("design-scan primary: deliberate ci prove violation");
-    totalPrimary = Math.max(totalPrimary, 1);
-  }
   console.log(`design-scan --ci: total primary findings=${totalPrimary} (warn-only)`);
   if (env.DESIGN_SCAN_STRICT === "1" && totalPrimary > 0) {
     process.exitCode = 1;
@@ -210,7 +206,9 @@ async function runOneScan(o) {
     console.log(JSON.stringify(summary));
     if (summary.primary > 0) {
       for (const f of d.filter((x) => !x.advisory).slice(0, 8)) {
-        console.log(`design-scan primary: ${f.rule ?? f.id ?? "?"} ${f.message ?? ""}`.trim());
+        console.log(
+          `design-scan primary: ${f.rule ?? f.id ?? f.antipattern ?? "?"} ${f.message ?? f.name ?? ""}`.trim(),
+        );
       }
     }
     return summary;
@@ -247,6 +245,44 @@ export async function runCiScans(parallel, scans, run, launch) {
   }
 }
 
+export function mainLegacyJobs(ctx) {
+  return CI_CASES.map((c) => {
+    const job = {
+      out: path.join(ctx.outDir, `${c.tag}-1280.png`),
+      bin: ctx.bin,
+      cwd: ctx.cwd,
+      port: ctx.port,
+      size: [1280, 800],
+      scheme: c.scheme,
+      boot: 12000,
+      cdp: 9333,
+    };
+    if (c.populate) job.populate = c.populate;
+    return job;
+  });
+}
+
+export function findingSummary(jsonPath) {
+  const d = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+  const primary = d.filter((x) => !x.advisory);
+  return {
+    count: primary.length,
+    names: primary.map((f) => String(f.rule ?? f.id ?? "?")).sort(),
+  };
+}
+
+export async function runMainLegacyCi(env = process.env) {
+  const bin = path.join(repoRoot, ".cursor/skills/impeccable/scripts/impeccable");
+  const cwd = path.join(repoRoot, "frontend");
+  const port = Number(env.DESIGN_SCAN_PORT || 5173);
+  const outDir = path.join(cwd, "test-results", "design-scan-legacy");
+  fs.mkdirSync(outDir, { recursive: true });
+  const jobs = mainLegacyJobs({ bin, cwd, port, outDir });
+  const summaries = [];
+  for (const job of jobs) summaries.push(await runOneScan(job));
+  return summaries;
+}
+
 export async function runCi(argv = process.argv, env = process.env) {
   const bin = path.join(repoRoot, ".cursor/skills/impeccable/scripts/impeccable");
   const cwd = path.join(repoRoot, "frontend");
@@ -262,6 +298,7 @@ export async function runCi(argv = process.argv, env = process.env) {
 const invokedDirectly =
   process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 if (invokedDirectly) {
-  if (process.argv.includes("--ci") || process.argv.includes("--ci-parallel")) await runCi();
+  if (process.argv.includes("--ci-legacy")) await runMainLegacyCi();
+  else if (process.argv.includes("--ci") || process.argv.includes("--ci-parallel")) await runCi();
   else await runOneScan(JSON.parse(process.argv[2]));
 }
