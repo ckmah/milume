@@ -67,6 +67,7 @@
       "mode": "trait Unicode",
       "neighbor_k_max": "trait Int",
       "neighbor_radius_max": "trait Float",
+      "numeric_obs_columns": "trait List",
       "point_palette": "trait List",
       "point_size": "trait Float",
       "points_data": "trait Unicode",
@@ -100,7 +101,10 @@
       "type_neighborhoods": "trait List",
       "volume_cell_rows": "trait Unicode",
       "x_bounds": "trait Tuple",
-      "y_bounds": "trait Tuple"
+      "y_bounds": "trait Tuple",
+      "z_band_hi_um": "trait Float",
+      "z_band_lo_um": "trait Float",
+      "z_focus_um": "trait Float"
     }
   }
 }
