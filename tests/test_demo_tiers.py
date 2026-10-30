@@ -37,17 +37,18 @@ def test_ileum_h5ad_path_prefers_repo_file(tmp_path, monkeypatch):
 def test_ileum_h5ad_path_downloads_when_repo_missing(tmp_path, monkeypatch):
     missing = tmp_path / "repo" / "ileum.h5ad"
     monkeypatch.setattr(demo_tiers, "_ILEUM_H5AD", missing)
-    cache = tmp_path / "cache.h5ad"
-    monkeypatch.setattr(demo_tiers.tempfile, "gettempdir", lambda: str(tmp_path))
+    cache = tmp_path / "cache" / "ileum_merfish_xu2026.h5ad"
+    cache.parent.mkdir(parents=True)
+    cache.write_bytes(b"from-fetch")
 
-    def fake_retrieve(url, dest):
-        assert demo_tiers._ILEUM_RAW_URL in url
-        Path(dest).write_bytes(b"from-url")
+    def fake_fetch(name, *, force_download=False):
+        assert name == "ileum_merfish_xu2026"
+        assert force_download is True
+        return cache
 
-    monkeypatch.setattr(demo_tiers.urllib.request, "urlretrieve", fake_retrieve)
+    monkeypatch.setattr("milume.datasets.fetch", fake_fetch)
     path = demo_tiers.ileum_h5ad_path(force_remote=True)
-    assert path.name == "milume-demo-ileum.h5ad"
-    assert path.is_file()
+    assert path == cache
 
 
 def test_load_full_colon_sdata_missing_store(tmp_path, monkeypatch):

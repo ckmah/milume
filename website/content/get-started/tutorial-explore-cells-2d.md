@@ -4,19 +4,12 @@ Walk through the [ileum molab notebook](https://molab.marimo.io/github/ckmah/mil
 
 ## 1. Load the ileum slice
 
-Fetch `ileum.h5ad` from the raw GitHub URL on `main` into a temp file, then read it with Scanpy. The matrix `X` is already the authors' log-normalized values — do not call `normalize_total` or `log1p`.
+Download the slice with ``milume.datasets`` (pinned URL, user cache). The matrix ``X`` is already the authors' log-normalized values — do not call ``normalize_total`` or ``log1p``.
 
 ```python
-import tempfile
-import urllib.request
-from pathlib import Path
+import milume.datasets as mds
 
-import scanpy as sc
-
-ILEUM_RAW = "https://raw.githubusercontent.com/ckmah/milume/main/demos/data/ileum.h5ad"
-with tempfile.NamedTemporaryFile(suffix=".h5ad", delete=False) as tmp:
-    urllib.request.urlretrieve(ILEUM_RAW, tmp.name)
-    adata = sc.read_h5ad(tmp.name)
+adata = mds.ileum_merfish_xu2026()
 ```
 
 **Result:** `adata` is 30,332 cells × 1,815 genes with `obsm["spatial"]` in micrometres. The notebook preloads a small curated gene list in `milume.peek(..., genes=...)` so the widget export stays within the static payload budget. See the [Datasets](../reference/datasets.md#2d) reference for fields and citation.

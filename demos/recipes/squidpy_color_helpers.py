@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import tempfile
-import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -14,35 +12,21 @@ if TYPE_CHECKING:
     import anndata as ad
     from milume.landmarks import LandmarksWidget
 
-_ILEUM_RAW_URL = (
-    "https://raw.githubusercontent.com/ckmah/milume/main/demos/data/ileum.h5ad"
-)
 DOCS_RECIPE_PATCH_SIZE_UM = 800.0
 
 NICHE_FLAVOR = "neighborhood"
 NICHE_RESOLUTION = 0.5
 NICHE_N_NEIGHBORS = 6
 
-# Molab-safe 2D tier load (same semantics as ``demos/loaders/demo_tiers.load_2d_ileum_adata``).
-ILEUM_2D_TIER_ONE_LINER = (
-    "sc.read_h5ad(_f) if (_f := 'demos/data/ileum.h5ad') and Path(_f).is_file() "
-    "else sc.read_h5ad(urllib.request.urlretrieve("
-    f"'{_ILEUM_RAW_URL}', "
-    "_f := str(Path(tempfile.gettempdir()) / 'milume-demo-ileum.h5ad'))[0])"
-)
-
 
 def docs_recipe_adata() -> ad.AnnData:
     """Xu 2026 ileum slice (2D tier) for the docs recipe and molab."""
-    import scanpy as sc
+    import milume.datasets as mds
 
     local = Path("demos/data/ileum.h5ad")
     if local.is_file():
-        return sc.read_h5ad(local)
-    cache = Path(tempfile.gettempdir()) / "milume-demo-ileum.h5ad"
-    if not cache.is_file() or cache.stat().st_size == 0:
-        urllib.request.urlretrieve(_ILEUM_RAW_URL, cache)
-    return sc.read_h5ad(cache)
+        return mds.ileum_merfish_xu2026(path=local)
+    return mds.ileum_merfish_xu2026()
 
 
 def niche_obs_key(resolution: float = NICHE_RESOLUTION) -> str:

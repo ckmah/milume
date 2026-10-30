@@ -11,10 +11,10 @@ Turn the cells inside a map selection into an observation subset or a boolean co
 1. Open milume on AnnData with spatial coordinates (ileum demo):
 
 ```python
-import scanpy as sc
 import milume
+import milume.datasets as mds
 
-adata = sc.read_h5ad("demos/data/ileum.h5ad")
+adata = mds.ileum_merfish_xu2026()
 w = milume.peek(adata, color="cell_type")
 w
 ```

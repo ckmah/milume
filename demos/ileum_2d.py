@@ -51,30 +51,18 @@ def _(mo):
 
 @app.cell
 def _():
-    import tempfile
-    import urllib.request
-    from pathlib import Path
-
     import marimo as mo
     import scanpy as sc
 
     import milume
+    import milume.datasets as mds
 
-    return Path, milume, mo, sc, tempfile, urllib
+    return mds, milume, mo, sc
 
 
 @app.cell
-def _(Path, sc, tempfile, urllib):
-    _local = Path("demos/data/ileum.h5ad")
-    if _local.is_file():
-        adata = sc.read_h5ad(_local)
-    else:
-        _f = str(Path(tempfile.gettempdir()) / "milume-demo-ileum.h5ad")
-        urllib.request.urlretrieve(
-            "https://raw.githubusercontent.com/ckmah/milume/main/demos/data/ileum.h5ad",
-            _f,
-        )
-        adata = sc.read_h5ad(_f)
+def _(mds):
+    adata = mds.ileum_merfish_xu2026()
     adata
     return (adata,)
 
