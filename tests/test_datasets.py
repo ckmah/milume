@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-import milume.datasets as mds
+import milume as ml
 from milume.datasets._fetch import DatasetChecksumError, cache_dir, fetch_file
 from milume.datasets._registry import _ILEUM_SHA256
 
@@ -16,12 +18,38 @@ ROOT = Path(__file__).resolve().parents[1]
 ILEUM_REPO = ROOT / "demos" / "data" / "ileum.h5ad"
 
 
+def test_ds_is_datasets_module():
+    assert ml.ds is ml.datasets
+
+
+def test_top_level_datasets_list_and_loader():
+    assert ml.datasets.list_datasets() == ["ileum_merfish_xu2026"]
+    adata = ml.ds.ileum_merfish_xu2026(path=ILEUM_REPO)
+    assert adata.shape == (30_332, 1_815)
+
+
+def test_import_milume_does_not_eagerly_import_datasets():
+    code = """
+import sys
+import milume as ml
+assert "milume.datasets" not in sys.modules
+"""
+    res = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    assert res.returncode == 0, res.stderr or res.stdout
+
+
 def test_list_datasets_includes_ileum():
-    assert mds.list_datasets() == ["ileum_merfish_xu2026"]
+    assert ml.datasets.list_datasets() == ["ileum_merfish_xu2026"]
 
 
 def test_info_matches_registry_and_docs():
-    meta = mds.info("ileum_merfish_xu2026")
+    meta = ml.datasets.info("ileum_merfish_xu2026")
     assert meta.name == "ileum_merfish_xu2026"
     assert meta.size_bytes == 5_014_135
     assert meta.n_obs == 30_332
@@ -33,7 +61,7 @@ def test_info_matches_registry_and_docs():
 
 
 def test_ileum_merfish_xu2026_from_repo_path():
-    adata = mds.ileum_merfish_xu2026(path=ILEUM_REPO)
+    adata = ml.ds.ileum_merfish_xu2026(path=ILEUM_REPO)
     assert adata.shape == (30_332, 1_815)
     assert "spatial" in adata.obsm
 
@@ -42,7 +70,7 @@ def test_fetch_uses_milume_data_dir(tmp_path, monkeypatch):
     monkeypatch.setenv("MILUME_DATA_DIR", str(tmp_path))
     dest = tmp_path / "ileum_merfish_xu2026.h5ad"
     dest.write_bytes(ILEUM_REPO.read_bytes())
-    got = mds.fetch("ileum_merfish_xu2026")
+    got = ml.datasets.fetch("ileum_merfish_xu2026")
     assert got.resolve() == dest.resolve()
 
 
@@ -125,8 +153,8 @@ def test_force_download_overwrites(tmp_path, monkeypatch):
     reason="set MILUME_DATASET_NETWORK=1 to verify the pinned download URL",
 )
 def test_pinned_ileum_url_matches_checksum():
-    meta = mds.info("ileum_merfish_xu2026")
-    path = mds.fetch("ileum_merfish_xu2026", force_download=True)
+    meta = ml.datasets.info("ileum_merfish_xu2026")
+    path = ml.datasets.fetch("ileum_merfish_xu2026", force_download=True)
     assert path.stat().st_size == meta.size_bytes
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     assert digest == meta.sha256

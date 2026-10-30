@@ -7,12 +7,14 @@
       "__version__": "str",
       "along_positions": "(adata: 'AnnData', landmarks: 'GeoDataFrame', *, obs_key: 'str', spatial_key: 'str' = 'spatial', obs_names: 'Sequence[str] | None' = None, radius: 'float | None' = None, z_bin_size: 'float | None' = 1.0) -> 'pd.DataFrame'",
       "composition": "(adata: 'AnnData', landmarks: 'GeoDataFrame', *, obs_key: 'str', spatial_key: 'str' = 'spatial', obs_names: 'Sequence[str] | None' = None, z_bin_size: 'float | None' = 1.0) -> 'pd.DataFrame'",
+      "datasets": "module",
       "distances": "(adata: 'AnnData', landmarks: 'GeoDataFrame', *, obs_key: 'str', spatial_key: 'str' = 'spatial', obs_names: 'Sequence[str] | None' = None, z_bin_size: 'float | None' = 1.0) -> 'pd.DataFrame'",
+      "ds": "module",
       "enrichment": "(adata: 'AnnData', obs_names: 'Sequence[str]', *, obs_key: 'str', background: 'Sequence[str] | None' = None) -> 'pd.DataFrame'",
       "geodataframe_to_landmarks": "(gdf) -> 'list[dict]'",
       "landmarks_to_geodataframe": "(landmarks: 'list[dict] | None')",
       "nearest_distances": "(adata: 'AnnData', seeds: 'Sequence[str]', *, obs_key: 'str', spatial_key: 'str' = 'spatial', obs_names: 'Sequence[str] | None' = None) -> 'pd.DataFrame'",
-      "peek": "(data, **kwargs) -> milume.landmarks.LandmarksWidget",
+      "peek": "(data, **kwargs) -> 'LandmarksWidget'",
       "write_obs": "(adata: 'AnnData', df: 'pd.DataFrame', column: 'str', value_col: 'str', *, obs_name_col: 'str' = 'obs_name') -> 'None'"
     },
     "traits": {

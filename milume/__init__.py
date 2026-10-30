@@ -1,5 +1,10 @@
 """Milume: explore spatial biology in your notebook."""
 
+from __future__ import annotations
+
+import importlib
+from typing import TYPE_CHECKING
+
 from .landmarks import _LANDMARKS_API_DOC, ColorKeyError, ColorValueError, LandmarksWidget
 from .measure import (
     along_positions,
@@ -55,7 +60,9 @@ __all__ = [
     "__version__",
     "along_positions",
     "composition",
+    "datasets",
     "distances",
+    "ds",
     "enrichment",
     "geodataframe_to_landmarks",
     "landmarks_to_geodataframe",
@@ -63,3 +70,20 @@ __all__ = [
     "peek",
     "write_obs",
 ]
+
+if TYPE_CHECKING:
+    from . import datasets
+    ds = datasets
+
+
+def __getattr__(name: str):
+    if name in ("datasets", "ds"):
+        mod = importlib.import_module("milume.datasets")
+        globals()["datasets"] = mod
+        globals()["ds"] = mod
+        return mod
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))
