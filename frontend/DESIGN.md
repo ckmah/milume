@@ -5,13 +5,13 @@ colors:
   canvas-dark: "#1e1e1e"
   canvas-light: "#ffffff"
   plot-border: "#3a3a3a"
-  plot-border-light: "#e2e8f0"
-  plot-text: "#f1f5f9"
-  plot-text-muted: "#94a3b8"
+  plot-border-light: "#e5e5e5"
+  plot-text: "#111111"
+  plot-text-muted: "#666666"
   landmark-cyan: "#00e5ff"
   landmark-magenta: "#ff2d95"
   landmark-lime: "#b8ff00"
-  selection-slate: "#a3a3a3"
+  selection-neutral: "#a3a3a3"
   neighborhood-teal: "#b3f2e8"
   gene-magenta: "#ff0099"
   gene-lime: "#5cbf00"
@@ -181,7 +181,7 @@ Framer-neutral greys.
 
 **The Scoped Widget Rule.** Never set `:root` theme tokens globally. Tokens live under `.milume-widget` / `.milume-widget.dark`.
 
-**The Framer Neutral Rule.** Chrome stays achromatic; no blue-tinted OKLCH greys in widget tokens. Known debt: the canvas-overlay tokens `--lm-border`, `--lm-text`, `--lm-text-muted` and `--lm-tooltip-*` still carry Tailwind slate values (`#e2e8f0`, `#1e293b`, `#64748b`, `#94a3b8`, `#0f172a`), and the frontmatter's `plot-border-light` / `plot-text-muted` record them. Migrate them to neutrals, then drop the slate entries here. Same for the WebGL-error overlay (`#fca5a5` on slate `rgba(15,23,42,.92)`), which should use `destructive` on `dark-popover`.
+**The Framer Neutral Rule.** Chrome stays achromatic; no blue-tinted OKLCH greys in widget tokens. Canvas-overlay tokens `--lm-border`, `--lm-text`, `--lm-text-muted`, and `--lm-tooltip-*` use the same Framer neutrals as `.milume-widget` (light `#e5e5e5` / `#111111` / `#666666`; dark `#3a3a3a` / `#ffffff` / `#999999`). Remaining debt: the WebGL-error overlay (`#fca5a5` on slate `rgba(15,23,42,.92)`) should use `destructive` on `dark-popover`.
 
 ## Typography
 

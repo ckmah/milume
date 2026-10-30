@@ -189,15 +189,17 @@ jobs:
           "$IMPECCABLE" engine-probe
           echo "impeccable engine: $($IMPECCABLE engine-probe)"
           "$IMPECCABLE" detect --github src/widgets || true
-          npm run dev:landmarks -- --host 127.0.0.1 --port 5173 &
+          DESIGN_SCAN_PORT=5174
+          npm run dev:landmarks -- --host 127.0.0.1 --port "$DESIGN_SCAN_PORT" &
           VITE_PID=$!
           for i in $(seq 1 90); do
-            curl -sf http://127.0.0.1:5173/ >/dev/null && break
+            curl -sf "http://127.0.0.1:${DESIGN_SCAN_PORT}/" >/dev/null && break
             sleep 2
           done
-          curl -sf http://127.0.0.1:5173/ >/dev/null || { echo "design-scan: vite did not start"; kill $VITE_PID 2>/dev/null || true; exit 0; }
-          DESIGN_SCAN_PORT=5173 node scripts/design-scan.mjs --ci || true
+          curl -sf "http://127.0.0.1:${DESIGN_SCAN_PORT}/" >/dev/null || { echo "design-scan: vite did not start"; kill $VITE_PID 2>/dev/null || true; exit 0; }
+          DESIGN_SCAN_PORT="$DESIGN_SCAN_PORT" node scripts/design-scan.mjs --ci || true
           kill $VITE_PID 2>/dev/null || true
+          wait $VITE_PID 2>/dev/null || true
           echo "Note: primary findings in this step will fail the job after ~2 quiet weeks (issue #376)."
       - name: Run landmarks e2e (default harness)
         if: ${{ env.UPDATE != 'true' }}
