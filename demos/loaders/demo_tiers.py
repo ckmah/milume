@@ -9,30 +9,17 @@ Tier map (issue #343):
 | --- | --- | --- | --- |
 | tiny (synthetic) | ``load_tiny_synthetic_adata()`` | ``AnnData`` | In-memory fixture, no I/O |
 | tiny (HF xsmall) | ``load_tiny_xsmall_pyxa()`` | ``SpatialData`` | Stellaromics/demo ``xsmall/``; needs network |
-| 2D | ``load_2d_ileum_adata()`` | ``AnnData`` | ``demos/data/ileum.h5ad`` or raw GitHub on molab |
-
-**2D tier one-liner (molab and local).** After ``import scanpy as sc``, ``from pathlib import Path``,
-``import tempfile``, and ``import urllib.request``:
-
-```python
-adata = sc.read_h5ad(_f) if (_f := "demos/data/ileum.h5ad") and Path(_f).is_file() else sc.read_h5ad(urllib.request.urlretrieve("https://raw.githubusercontent.com/ckmah/milume/main/demos/data/ileum.h5ad", _f := str(Path(tempfile.gettempdir()) / "milume-demo-ileum.h5ad"))[0])
-```
-
-``load_2d_ileum_adata()`` implements the same resolution order (cwd-relative repo file, then cached download).
+| 2D | ``load_2d_ileum_adata()`` | ``AnnData`` | ``milume.datasets.ileum_merfish_xu2026()`` |
 | 3D | ``load_3d_small_pyxa()`` | ``SpatialData`` | Stellaromics/demo ``small/``; needs network |
 | full | ``load_full_colon_sdata()`` | ``SpatialData`` | Local zarr only; see #134 for streaming |
 
-**Ileum on molab.** When the committed ``demos/data/ileum.h5ad`` is absent (GitHub blob
-notebooks), the 2D loader downloads once from
-``https://raw.githubusercontent.com/ckmah/milume/main/demos/data/ileum.h5ad``.
-Local checkouts and CI use the in-repo file with no network.
+**Ileum on molab.** ``load_2d_ileum_adata()`` delegates to ``milume.datasets`` (pinned URL, user cache).
+Local checkouts prefer ``demos/data/ileum.h5ad`` when present.
 """
 
 from __future__ import annotations
 
 import os
-import tempfile
-import urllib.request
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -42,9 +29,6 @@ if TYPE_CHECKING:
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _ILEUM_H5AD = _REPO_ROOT / "demos" / "data" / "ileum.h5ad"
-_ILEUM_RAW_URL = (
-    "https://raw.githubusercontent.com/ckmah/milume/main/demos/data/ileum.h5ad"
-)
 _DEFAULT_COLON_STORE = _REPO_ROOT / "frontend" / "dev" / "data" / "colon_a2.sdata.zarr"
 _HF_DEMO = "Stellaromics/demo"
 
@@ -98,27 +82,29 @@ def load_3d_small_pyxa(*, labels: bool = True) -> sd.SpatialData:
 
 
 def ileum_h5ad_path(*, force_remote: bool = False) -> Path:
-    """Resolved path to the ileum ``.h5ad`` (repo file or cached raw download)."""
+    """Resolved path to the ileum ``.h5ad`` (repo file or ``ml.datasets`` cache)."""
+    import milume as ml
+
     if not force_remote:
         cwd_local = Path("demos/data/ileum.h5ad")
         if cwd_local.is_file():
             return cwd_local
         if _ILEUM_H5AD.is_file():
             return _ILEUM_H5AD
-    cache = Path(tempfile.gettempdir()) / "milume-demo-ileum.h5ad"
-    if not cache.is_file() or cache.stat().st_size == 0:
-        urllib.request.urlretrieve(_ILEUM_RAW_URL, cache)
-    return cache
+    return ml.datasets.fetch("ileum_merfish_xu2026", force_download=force_remote)
 
 
 def load_2d_ileum_adata(*, force_remote: bool = False) -> ad.AnnData:
     """2D tier Xu 2026 ileum slice (30,332 cells, 1,815 QC genes, ``obsm['spatial']``)."""
-    import scanpy as sc
+    import milume as ml
 
-    path = ileum_h5ad_path(force_remote=force_remote)
-    if not path.is_file():
-        raise FileNotFoundError(f"missing ileum demo data: {path}")
-    return sc.read_h5ad(path)
+    if not force_remote:
+        cwd_local = Path("demos/data/ileum.h5ad")
+        if cwd_local.is_file():
+            return ml.ds.ileum_merfish_xu2026(path=cwd_local)
+        if _ILEUM_H5AD.is_file():
+            return ml.ds.ileum_merfish_xu2026(path=_ILEUM_H5AD)
+    return ml.ds.ileum_merfish_xu2026(force_download=force_remote)
 
 
 def _colon_store_path() -> Path:

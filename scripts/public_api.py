@@ -47,6 +47,8 @@ def live() -> dict:
             bases = ", ".join(b.__name__ for b in obj.__bases__)
             init = _sig(obj.__init__, drop_self=True) if "__init__" in vars(obj) else ""
             exports[name] = f"class({bases}){init}"
+        elif inspect.ismodule(obj):
+            exports[name] = "module"
         else:
             exports[name] = _sig(obj)
 

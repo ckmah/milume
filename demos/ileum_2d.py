@@ -51,36 +51,23 @@ def _(mo):
 
 @app.cell
 def _():
-    import tempfile
-    import urllib.request
-    from pathlib import Path
-
     import marimo as mo
     import scanpy as sc
 
-    import milume
+    import milume as ml
 
-    return Path, milume, mo, sc, tempfile, urllib
+    return ml, mo, sc
 
 
 @app.cell
-def _(Path, sc, tempfile, urllib):
-    _local = Path("demos/data/ileum.h5ad")
-    if _local.is_file():
-        adata = sc.read_h5ad(_local)
-    else:
-        _f = str(Path(tempfile.gettempdir()) / "milume-demo-ileum.h5ad")
-        urllib.request.urlretrieve(
-            "https://raw.githubusercontent.com/ckmah/milume/main/demos/data/ileum.h5ad",
-            _f,
-        )
-        adata = sc.read_h5ad(_f)
+def _(ml):
+    adata = ml.ds.ileum_merfish_xu2026()
     adata
     return (adata,)
 
 
 @app.cell
-def _(adata, milume, mo):
+def _(adata, ml, mo):
     # Curated preload for marimo export payload; full catalog loads on demand.
     demo_genes = [
         "Apob",
@@ -103,7 +90,7 @@ def _(adata, milume, mo):
         "Cr2",
         "Ccr7",
     ]
-    w = mo.ui.anywidget(milume.peek(adata, color="cell_type", genes=demo_genes))
+    w = mo.ui.anywidget(ml.peek(adata, color="cell_type", genes=demo_genes))
     return (w,)
 
 
@@ -177,9 +164,9 @@ def _(w):
 
 
 @app.cell
-def _(adata, milume, w):
+def _(adata, ml, w):
     galt_hits = w.get_obs_names("galt-follicle")
-    enrich = milume.enrichment(adata, galt_hits, obs_key="cell_type")
+    enrich = ml.enrichment(adata, galt_hits, obs_key="cell_type")
     enrich
     return enrich, galt_hits
 

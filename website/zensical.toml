@@ -34,6 +34,7 @@ nav = [
       { peek = "reference/api/peek.md" },
       { LandmarksWidget = "reference/api/landmarks.md" },
       { Measure = "reference/api/measure.md" },
+      { Datasets = "reference/api/datasets.md" },
     ] },
     { "Widget UI" = [
       "reference/ui/index.md",

@@ -1,5 +1,8 @@
 """Milume: explore spatial biology in your notebook."""
 
+from __future__ import annotations
+
+from . import datasets
 from .landmarks import _LANDMARKS_API_DOC, ColorKeyError, ColorValueError, LandmarksWidget
 from .measure import (
     along_positions,
@@ -13,6 +16,8 @@ from .spatialdata_landmarks import (
     geodataframe_to_landmarks,
     landmarks_to_geodataframe,
 )
+
+ds = datasets
 
 __version__ = "2.1.0"
 
@@ -55,7 +60,9 @@ __all__ = [
     "__version__",
     "along_positions",
     "composition",
+    "datasets",
     "distances",
+    "ds",
     "enrichment",
     "geodataframe_to_landmarks",
     "landmarks_to_geodataframe",

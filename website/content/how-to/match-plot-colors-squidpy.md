@@ -17,12 +17,11 @@ pip install scanpy squidpy leidenalg
 2. Open the ileum slice and draw a region to analyze (or use the whole tissue):
 
 ```python
-import scanpy as sc
+import milume as ml
 import squidpy as sq
-import milume
 
-adata = sc.read_h5ad("demos/data/ileum.h5ad")
-w = milume.peek(adata, color="cell_type")
+adata = ml.ds.ileum_merfish_xu2026()
+w = ml.peek(adata, color="cell_type")
 w  # draw a selection in the browser, then continue
 ```
 

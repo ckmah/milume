@@ -11,11 +11,10 @@ Move landmarks between milume and GeoPandas (or any tool that reads GeoJSON/Shap
 1. Open milume on spatial data (ileum demo):
 
 ```python
-import scanpy as sc
-import milume
+import milume as ml
 
-adata = sc.read_h5ad("demos/data/ileum.h5ad")
-w = milume.peek(adata, color="cell_type")
+adata = ml.ds.ileum_merfish_xu2026()
+w = ml.peek(adata, color="cell_type")
 w
 ```
 

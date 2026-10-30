@@ -4,34 +4,25 @@ Walk through the [ileum molab notebook](https://molab.marimo.io/github/ckmah/mil
 
 ## 1. Load the ileum slice
 
-Fetch `ileum.h5ad` from the raw GitHub URL on `main` into a temp file, then read it with Scanpy. The matrix `X` is already the authors' log-normalized values — do not call `normalize_total` or `log1p`.
+Download the slice with ``ml.datasets`` or the short alias ``ml.ds`` (pinned URL, user cache). The matrix ``X`` is already the authors' log-normalized values — do not call ``normalize_total`` or ``log1p``.
 
 ```python
-import tempfile
-import urllib.request
-from pathlib import Path
+import milume as ml
 
-import scanpy as sc
-
-ILEUM_RAW = "https://raw.githubusercontent.com/ckmah/milume/main/demos/data/ileum.h5ad"
-with tempfile.NamedTemporaryFile(suffix=".h5ad", delete=False) as tmp:
-    urllib.request.urlretrieve(ILEUM_RAW, tmp.name)
-    adata = sc.read_h5ad(tmp.name)
+adata = ml.ds.ileum_merfish_xu2026()
 ```
 
-**Result:** `adata` is 30,332 cells × 1,815 genes with `obsm["spatial"]` in micrometres. The notebook preloads a small curated gene list in `milume.peek(..., genes=...)` so the widget export stays within the static payload budget. See the [Datasets](../reference/datasets.md#2d) reference for fields and citation.
+**Result:** `adata` is 30,332 cells × 1,815 genes with `obsm["spatial"]` in micrometres. The notebook preloads a small curated gene list in `ml.peek(..., genes=...)` so the widget export stays within the static payload budget. See the [Datasets](../reference/datasets.md#2d) reference for fields and citation.
 
 ## 2. Open the map on cell types
 
 ```python
-import milume
-
 DEMO_GENES = [
     "Apob", "Slc5a1", "Nos2", "Cps1", "Mki67", "Lgr5", "Erbb3", "H2-Eb1",
     "Acta2", "Col1a1", "Phox2b", "Kit", "Pecam1", "Mzb1", "Cd3e", "Csf1r",
     "Cxcl13", "Cr2", "Ccr7",
 ]
-w = milume.peek(adata, color="cell_type", genes=DEMO_GENES)
+w = ml.peek(adata, color="cell_type", genes=DEMO_GENES)
 w
 ```
 
@@ -80,7 +71,7 @@ galt_hits = w.get_obs_names(sel_id)
 ## 5. Enrichment and violin plots
 
 ```python
-enrich = milume.enrichment(adata, galt_hits, obs_key="cell_type")
+enrich = ml.enrichment(adata, galt_hits, obs_key="cell_type")
 enrich
 ```
 
