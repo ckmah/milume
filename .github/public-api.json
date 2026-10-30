@@ -45,6 +45,7 @@
   },
   "internal": {
     "traits": {
+      "_numeric_obs_columns": "trait List",
       "category_codes": "trait Unicode",
       "category_columns": "trait List",
       "color_mode": "trait Unicode",
@@ -67,7 +68,6 @@
       "mode": "trait Unicode",
       "neighbor_k_max": "trait Int",
       "neighbor_radius_max": "trait Float",
-      "_numeric_obs_columns": "trait List",
       "point_palette": "trait List",
       "point_size": "trait Float",
       "points_data": "trait Unicode",
