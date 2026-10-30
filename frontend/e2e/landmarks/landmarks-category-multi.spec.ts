@@ -33,7 +33,7 @@ async function openCategorySubrows(page: Page) {
   if ((await right.getAttribute("data-collapsed")) === "true") {
     await page.getByRole("button", { name: "Show right panel" }).click();
   }
-  await page.getByTestId("explore-color-by").getByRole("tab", { name: "category" }).click();
+  await page.getByTestId("explore-color-by").getByRole("tab", { name: "cat" }).click();
   await page.getByRole("button", { name: /Expand harness_twin/i }).click();
 }
 

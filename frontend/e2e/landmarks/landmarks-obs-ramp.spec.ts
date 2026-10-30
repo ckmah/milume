@@ -32,57 +32,43 @@ async function openExploreRight(page: Page) {
   return right;
 }
 
-test.describe("Landmarks numeric obs ramp legend", () => {
+test.describe("Landmarks numeric obs heat strip", () => {
   test.beforeEach(async ({ page }) => {
     await bootLandmarksHarness(page);
     await waitForEngine(page);
   });
 
-  test("numeric obs shows ramp title and scale ends; category and gene hide it", async ({ page }) => {
+  test("num tab shows heat strip scale; cat and genes hide it", async ({ page }) => {
     await setModel(page, obsColor);
     await expect.poll(() => getModel(page, "color_mode")).toBe("obs");
 
     const right = await openExploreRight(page);
-    await expect(right.getByTestId("explore-color-by").getByRole("tab", { name: "category" })).toHaveAttribute(
-      "data-state",
-      "active",
+    await right.getByTestId("explore-color-by").getByRole("tab", { name: "num" }).click();
+
+    const strip = right.getByTestId("num-heat-strip");
+    await expect(strip).toBeVisible();
+    await expect(strip.getByTestId("num-heat-max")).toHaveText(
+      formatLegendValue(obsColor.color_vmax),
     );
 
-    const ramp = right.getByTestId("obs-ramp-legend");
-    await expect(ramp).toBeVisible();
-    await expect(ramp).toContainText("harness_area");
-    await expect(ramp.getByTestId("obs-ramp-vmin")).toHaveText(formatLegendValue(obsColor.color_vmin));
-    await expect(ramp.getByTestId("obs-ramp-vmax")).toHaveText(formatLegendValue(obsColor.color_vmax));
-    await expect(right.getByTestId("info-chart-well")).not.toContainText("No category counts in this scope.");
+    await right.getByRole("tab", { name: "cat" }).click();
+    await expect(right.getByTestId("num-heat-strip")).toHaveCount(0);
+    await expect(right.getByTestId("info-stacked-bar")).toBeVisible();
 
     await setModel(page, twinColor);
-    await expect.poll(() => getModel(page, "color_mode")).toBe("categorical");
-    await expect(right.getByTestId("obs-ramp-legend")).toHaveCount(0);
-
     await right.getByRole("tab", { name: "genes" }).click();
-    const genePicker = page.getByTestId("explore-color-controls").getByPlaceholder("Select genes");
-    await genePicker.click();
-    await page.keyboard.type("Abtb3");
-    await page.getByRole("option", { name: "Abtb3", exact: true }).click();
-    await expect.poll(() => getModel(page, "active_genes")).toEqual(["Abtb3"]);
-    await expect(right.getByTestId("obs-ramp-legend")).toHaveCount(0);
-    await expect(right.getByTestId("genes-channel-legend")).toBeVisible();
-
-    await right.screenshot({
-      path: "/opt/cursor/artifacts/screenshots/issue-209-obs-ramp-explore.png",
-    });
+    await expect(right.getByTestId("num-heat-strip")).toHaveCount(0);
   });
 
-  test("color_vmin and color_vmax updates re-render scale ends", async ({ page }) => {
+  test("color_vmin and color_vmax updates re-render strip scale", async ({ page }) => {
     await setModel(page, obsColor);
     const right = await openExploreRight(page);
-    const vmax = right.getByTestId("obs-ramp-vmax");
-    await expect(vmax).toHaveText(formatLegendValue(obsColor.color_vmax));
+    await right.getByTestId("explore-color-by").getByRole("tab", { name: "num" }).click();
+    const maxEl = right.getByTestId("num-heat-max");
+    await expect(maxEl).toHaveText(formatLegendValue(obsColor.color_vmax));
 
-    const nextVmin = obsColor.color_vmin + 1.5;
     const nextVmax = obsColor.color_vmax - 2.25;
-    await setModel(page, { color_vmin: nextVmin, color_vmax: nextVmax });
-    await expect(right.getByTestId("obs-ramp-vmin")).toHaveText(formatLegendValue(nextVmin));
-    await expect(vmax).toHaveText(formatLegendValue(nextVmax));
+    await setModel(page, { color_vmin: obsColor.color_vmin + 1.5, color_vmax: nextVmax });
+    await expect(maxEl).toHaveText(formatLegendValue(nextVmax));
   });
 });

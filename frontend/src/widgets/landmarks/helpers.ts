@@ -67,7 +67,7 @@ export function geneColor(index: number, count: number): string {
   return GENE_COLORS[count > GENE_COLORS.length ? 0 : index % GENE_COLORS.length]!;
 }
 /** 1–3 genes get one RGB channel each; 4 up to this many colour by one aggregate. */
-export const MAX_ACTIVE_GENES = 8;
+export const MAX_ACTIVE_GENES = 20;
 /** Probe similarity legend — Crameri lajolla (matches engine LAJOLLA_LUT). */
 export const SIMILARITY_LEGEND_CSS =
   "linear-gradient(to right, #191900 0%, #372411 12%, #67342a 25%, #a64644 38%, #d9604e 50%, #e58751 62%, #ecac54 75%, #f7d971 88%, #fffecb 100%)";

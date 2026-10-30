@@ -25,12 +25,13 @@ import {
 import { cn } from "@/lib/utils";
 import { ChevronRightIcon } from "lucide-react";
 
-import type { CategoryColumn } from "../helpers";
+import type { AnyModel, CategoryColumn } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
 import {
   activateCategories,
   activateEmbedding,
   activateGenes,
+  activateNumeric,
   colorSignal,
   colorSignalDetail,
   type ColorSignal,
@@ -42,6 +43,7 @@ import {
   FLOAT_PANEL,
   FLOAT_PANEL_CLIP,
   PANEL_INSET,
+  PANEL_INSET_Y,
   PANEL_SCROLL,
   PILL_TABS_TRIGGER,
   COMBO_INPUT,
@@ -53,7 +55,7 @@ import { isTypeRowActive } from "../type-focus";
 
 const AVATAR_MAX = 5;
 
-function SubcategoryAvatars({ col }: { col: CategoryColumn }) {
+export function SubcategoryAvatars({ col }: { col: CategoryColumn }) {
   const labels = col.labels || [];
   const palette = col.palette || [];
   const shown = labels.slice(0, AVATAR_MAX);
@@ -121,6 +123,70 @@ export function EmbeddingCombobox({ lm }: { lm: LandmarksModel }) {
               const name = String(item);
               return (
                 <ComboboxItem key={name} value={name} className="py-1 text-[11px]">
+                  {name}
+                </ComboboxItem>
+              );
+            }}
+          </ComboboxList>
+        </ComboboxContent>
+      </Combobox>
+    </div>
+  );
+}
+
+
+export function NumericObsCombobox({
+  model,
+  lm,
+}: {
+  model: AnyModel;
+  lm: LandmarksModel;
+}) {
+  const listed = (model.get("_numeric_obs_columns") as string[] | undefined) || [];
+  const fallback =
+    lm.color_mode === "obs" && (lm.color || lm.legend_title)
+      ? [lm.color || lm.legend_title]
+      : [];
+  const keys = listed.length ? listed : fallback;
+  const value = lm.color || lm.legend_title || keys[0] || "";
+  const [wrapRef, portalEl] = useWidgetPortalContainer();
+
+  if (!keys.length) {
+    return (
+      <FieldDescription className="text-xs">
+        No numeric <code className="text-xs">obs</code> columns synced yet. Assign{" "}
+        <code className="text-xs">w.color</code> to a numeric column in the notebook.
+      </FieldDescription>
+    );
+  }
+
+  return (
+    <div ref={wrapRef} className={STACK_GAP_SM} data-testid="numeric-obs-combobox">
+      <p className="m-0 text-xs font-medium text-foreground/80">
+        obs column{" "}
+        <span className="font-normal text-foreground/65">
+          {listed.length ? `${listed.length} available` : "1 active"}
+        </span>
+      </p>
+      <Combobox
+        items={keys}
+        value={value || null}
+        onValueChange={(next) => {
+          if (typeof next === "string" && next) lm.setColor(next);
+        }}
+      >
+        <ComboboxInput
+          placeholder="Select numeric column"
+          className={COMBO_INPUT}
+          aria-label="Numeric obs column"
+        />
+        <ComboboxContent container={portalEl} className="text-xs">
+          <ComboboxEmpty className="text-xs">No columns</ComboboxEmpty>
+          <ComboboxList>
+            {(item) => {
+              const name = String(item);
+              return (
+                <ComboboxItem key={name} value={name} className="py-1 text-xs">
                   {name}
                 </ComboboxItem>
               );
@@ -336,9 +402,11 @@ export function CategoriesControls({
  * active signal's options. Info is a sibling card above this panel.
  */
 export function ExplorePanel({
+  model,
   lm,
   embedded = false,
 }: {
+  model: AnyModel;
   lm: LandmarksModel;
   embedded?: boolean;
 }) {
@@ -350,11 +418,17 @@ export function ExplorePanel({
   }, [modelSignal]);
 
   const onColorBy = (next: string) => {
-    if (next !== "categories" && next !== "genes" && next !== "embedding") {
+    if (
+      next !== "categories" &&
+      next !== "numeric" &&
+      next !== "genes" &&
+      next !== "embedding"
+    ) {
       return;
     }
-    setColorBy(next);
+    setColorBy(next as ColorSignal);
     if (next === "categories") activateCategories(lm);
+    else if (next === "numeric") activateNumeric(model, lm);
     else if (next === "genes") activateGenes(lm);
     else activateEmbedding(lm);
   };
@@ -372,9 +446,12 @@ export function ExplorePanel({
         <SoftFloatSlidingTabsList value={colorBy} aria-label="Color">
           {(lm.category_columns?.length ?? 0) > 0 ? (
             <TabsTrigger value="categories" className={PILL_TABS_TRIGGER}>
-              category
+              cat
             </TabsTrigger>
           ) : null}
+          <TabsTrigger value="numeric" className={PILL_TABS_TRIGGER}>
+            num
+          </TabsTrigger>
           <TabsTrigger value="genes" className={PILL_TABS_TRIGGER}>
             genes
           </TabsTrigger>
@@ -389,6 +466,9 @@ export function ExplorePanel({
         <div className="pt-0.5" data-testid="explore-color-controls">
           <TabsContent value="categories" className="m-0">
             <CategoriesControls lm={lm} signal={colorBy} />
+          </TabsContent>
+          <TabsContent value="numeric" className="m-0">
+            <NumericObsCombobox model={model} lm={lm} />
           </TabsContent>
           <TabsContent value="genes" className="m-0">
             {lm.gene_names.length ? (
@@ -422,6 +502,7 @@ export function ExplorePanel({
               PANEL_SCROLL,
               "min-w-0 overflow-x-hidden",
               PANEL_INSET,
+              PANEL_INSET_Y,
             )}
         >
           {body}
@@ -439,6 +520,7 @@ export function ExplorePanel({
               PANEL_SCROLL,
               "min-w-0 overflow-x-hidden",
               PANEL_INSET,
+              PANEL_INSET_Y,
             )}
           >
             {body}

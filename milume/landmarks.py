@@ -136,6 +136,18 @@ def _encode_colors(
     return seq, norm, [], vmin, vmax
 
 
+def _numeric_obs_column_names(obs: Any) -> list[str]:
+    """Obs column names colourable as sequential ramps (same rule as ``_color_source``)."""
+    import pandas as pd
+
+    out: list[str] = []
+    for col in obs.columns:
+        series = obs[col]
+        if pd.api.types.is_numeric_dtype(series) and not pd.api.types.is_bool_dtype(series):
+            out.append(str(col))
+    return out
+
+
 def _color_maps_from_uns(adata: Any) -> dict[str, dict[str, str]]:
     """scanpy ``uns['<key>_colors']`` lists aligned to ``obs[key].cat.categories``."""
     maps: dict[str, dict[str, str]] = {}
@@ -402,6 +414,8 @@ class LandmarksWidget(AnyWidget):
     # Slider caps for client-side neighborhood queries (no CSR sync).
     neighbor_radius_max = traitlets.Float(0.0).tag(sync=True)
     neighbor_k_max = traitlets.Int(DEFAULT_K_MAX).tag(sync=True)
+    # Numeric ``adata.obs`` columns the UI may colour (excludes bool); synced on init / obs refresh.
+    _numeric_obs_columns = traitlets.List(traitlets.Unicode(), default_value=[]).tag(sync=True)
 
     # Chrome bumps this; engine promotes neighborhood → selection client-side.
     promote_tick = traitlets.Int(0).tag(sync=True)
@@ -606,6 +620,14 @@ class LandmarksWidget(AnyWidget):
         self._volume_centre_xy: tuple[float, float] | None = None
         if volume_source is not None:
             self._attach_volume(volume_source, contrast_limits)
+        self._sync_numeric_obs_columns()
+
+    def _sync_numeric_obs_columns(self) -> None:
+        obs = getattr(self, "_adata", None)
+        if obs is None:
+            self._numeric_obs_columns = []
+            return
+        self._numeric_obs_columns = _numeric_obs_column_names(obs.obs)
 
     def _attach_volume(self, src: Any, contrast_limits: tuple[float, float]) -> None:
         from .volume_comm import normalize_allow_prefixes
@@ -992,6 +1014,7 @@ class LandmarksWidget(AnyWidget):
     @traitlets.observe("color")
     def _on_color(self, change: dict) -> None:
         key = str(change["new"] or "")
+        self._sync_numeric_obs_columns()
         if not key:
             return
         source = self._color_source(key)

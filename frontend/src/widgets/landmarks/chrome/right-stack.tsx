@@ -4,12 +4,14 @@ import { FieldDescription } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
+import type { AnyModel } from "../helpers";
 import type { EngineHandle } from "../engine";
 import type { LandmarksModel } from "../use-landmarks-model";
 import {
   activateCategories,
   activateEmbedding,
   activateGenes,
+  activateNumeric,
   colorSignal,
   colorSignalDetail,
   type ColorSignal,
@@ -17,11 +19,13 @@ import {
 import {
   CategoriesControls,
   EmbeddingCombobox,
+  NumericObsCombobox,
 } from "./explore-panel";
 import { GenesCombobox } from "./genes-legend";
 import { InfoPanel } from "./info-panel";
+import { MinimiseColorChip } from "./minimise-color-chip";
 import { RasterSection } from "./raster-section";
-import { EMBEDDED_PANEL, PILL_TABS_TRIGGER, STACK_GAP_SM } from "./sections";
+import { EMBEDDED_PANEL, PANEL_INSET, PILL_TABS_TRIGGER, STACK_GAP_SM } from "./sections";
 import { SoftFloatSlidingTabsList } from "./sliding-tabs";
 
 /**
@@ -29,11 +33,20 @@ import { SoftFloatSlidingTabsList } from "./sliding-tabs";
  * color controls underneath. One Tabs root keeps the switcher wired.
  */
 export function RightChromeStack({
+  model,
   lm,
   engine = null,
+  minimise = false,
+  rightCardExpanded = true,
+  onExpandRightCard,
 }: {
+  model: AnyModel;
   lm: LandmarksModel;
   engine?: EngineHandle | null;
+  minimise?: boolean;
+  /** When minimise is on, false shows the single color chip row only. */
+  rightCardExpanded?: boolean;
+  onExpandRightCard?: () => void;
 }) {
   const modelSignal = colorSignal(lm);
   const [colorBy, setColorBy] = useState<ColorSignal>(modelSignal);
@@ -43,16 +56,23 @@ export function RightChromeStack({
   }, [modelSignal]);
 
   const onColorBy = (next: string) => {
-    if (next !== "categories" && next !== "genes" && next !== "embedding") {
+    if (
+      next !== "categories" &&
+      next !== "numeric" &&
+      next !== "genes" &&
+      next !== "embedding"
+    ) {
       return;
     }
-    setColorBy(next);
+    setColorBy(next as ColorSignal);
     if (next === "categories") activateCategories(lm);
+    else if (next === "numeric") activateNumeric(model, lm);
     else if (next === "genes") activateGenes(lm);
     else activateEmbedding(lm);
   };
 
   const detail = colorSignalDetail(lm, colorBy);
+  const chipMode = minimise && !rightCardExpanded;
 
   return (
     <div
@@ -70,19 +90,31 @@ export function RightChromeStack({
           "pt-1.5",
         )}
       >
+        {chipMode ? (
+          <MinimiseColorChip lm={lm} onExpand={() => onExpandRightCard?.()} />
+        ) : null}
+        <div
+          className={cn(
+            "landmarks__chrome-stack-body flex min-h-0 flex-1 flex-col",
+            chipMode && "hidden",
+          )}
+        >
         <Tabs
           value={colorBy}
           onValueChange={onColorBy}
           className="flex min-h-0 flex-1 flex-col gap-2"
           data-testid="explore-color-by"
         >
-          <div className="shrink-0 px-2.5">
+          <div className={cn("shrink-0", PANEL_INSET)}>
             <SoftFloatSlidingTabsList value={colorBy} aria-label="Color">
               {(lm.category_columns?.length ?? 0) > 0 ? (
                 <TabsTrigger value="categories" className={PILL_TABS_TRIGGER}>
-                  category
+                  cat
                 </TabsTrigger>
               ) : null}
+              <TabsTrigger value="numeric" className={PILL_TABS_TRIGGER}>
+                num
+              </TabsTrigger>
               <TabsTrigger value="genes" className={PILL_TABS_TRIGGER}>
                 genes
               </TabsTrigger>
@@ -95,11 +127,11 @@ export function RightChromeStack({
             {detail}
           </span>
 
-          <div className="shrink-0 px-2.5">
+          <div className={cn("shrink-0", PANEL_INSET)}>
             <InfoPanel lm={lm} engine={engine} embedded bare />
           </div>
 
-          <div className="shrink-0 px-2.5">
+          <div className={cn("shrink-0", PANEL_INSET)}>
             <RasterSection lm={lm} />
           </div>
 
@@ -111,6 +143,9 @@ export function RightChromeStack({
             <div data-testid="explore-color-controls">
               <TabsContent value="categories" className="m-0 flex-none">
                 <CategoriesControls lm={lm} signal={colorBy} />
+              </TabsContent>
+              <TabsContent value="numeric" className="m-0 flex-none">
+                <NumericObsCombobox model={model} lm={lm} />
               </TabsContent>
               <TabsContent value="genes" className="m-0 flex-none">
                 {lm.gene_names.length ? (
@@ -132,6 +167,7 @@ export function RightChromeStack({
         </Tabs>
         {/* Matches pt-1.5; shrink-0 so it stays when the dock hits max-height. */}
         <div className="h-1.5 shrink-0" aria-hidden />
+        </div>
       </div>
     </div>
   );

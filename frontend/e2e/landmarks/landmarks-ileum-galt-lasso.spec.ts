@@ -70,6 +70,6 @@ test.describe("ileum GALT lasso composition", { tag: "@isolated" }, () => {
     }
     const well = right.getByTestId("info-chart-well");
     await expect(well).not.toContainText("No category counts in this scope.");
-    await expect(well.locator("svg[aria-label='Cell type composition']")).toBeVisible();
+    await expect(well.getByTestId("info-stacked-bar")).toBeVisible();
   });
 });

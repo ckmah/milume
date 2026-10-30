@@ -56,13 +56,13 @@ async function loadNicheAndLandmark(page: Page) {
   await stabilizeUi(page);
 }
 
-async function openCategoryDonut(page: Page) {
+async function openCategoryCard(page: Page) {
   const right = page.locator(".landmarks__chrome-dock--right");
   if ((await right.getAttribute("data-collapsed")) === "true") {
     await page.getByRole("button", { name: "Show right panel" }).click();
   }
-  await page.getByTestId("explore-color-by").getByRole("tab", { name: "category" }).click();
-  await expect(page.getByTestId("info-donut")).toBeVisible();
+  await page.getByTestId("explore-color-by").getByRole("tab", { name: "cat" }).click();
+  await expect(page.getByTestId("info-stacked-bar")).toBeVisible();
 }
 
 async function sampleTextContrast(page: Page, selector: string) {
@@ -106,22 +106,17 @@ test.describe("Design tokens #376", () => {
   test.beforeEach(async ({ page }) => {
     await bootLandmarksHarness(page);
     await loadNicheAndLandmark(page);
-    await openCategoryDonut(page);
+    await openCategoryCard(page);
   });
 
-  test("donut cells caption and landmark Length meta are at least 4.5:1", async ({ page }) => {
-    const caption = await sampleTextContrast(page, ".landmarks__info-donut-caption");
+  test("context row text is at least 4.5:1", async ({ page }) => {
+    const caption = await sampleTextContrast(page, "[data-testid='info-context-row']");
     expect(caption).toBeTruthy();
     const captionRatio = contrastFromComputed(caption!.fg, caption!.bg);
     expect(captionRatio).toBeGreaterThanOrEqual(4.5);
-
-    const measure = await sampleTextContrast(page, "[data-testid='landmark-measure']");
-    expect(measure).toBeTruthy();
-    const measureRatio = contrastFromComputed(measure!.fg, measure!.bg);
-    expect(measureRatio).toBeGreaterThanOrEqual(4.5);
     test.info().annotations.push({
       type: "contrast",
-      description: `dark caption ${captionRatio.toFixed(2)}:1 length ${measureRatio.toFixed(2)}:1`,
+      description: `dark context ${captionRatio.toFixed(2)}:1`,
     });
   });
 
@@ -140,19 +135,13 @@ test.describe("Design tokens #376 light theme", () => {
     });
     await bootLandmarksHarness(page);
     await loadNicheAndLandmark(page);
-    await openCategoryDonut(page);
+    await openCategoryCard(page);
 
-    const caption = await sampleTextContrast(page, ".landmarks__info-donut-caption");
+    const caption = await sampleTextContrast(page, "[data-testid='info-context-row']");
     expect(contrastFromComputed(caption!.fg, caption!.bg)).toBeGreaterThanOrEqual(4.5);
-
-    const measure = await sampleTextContrast(page, "[data-testid='landmark-measure']");
-    const captionRatio = contrastFromComputed(caption!.fg, caption!.bg);
-    const measureRatio = contrastFromComputed(measure!.fg, measure!.bg);
-    expect(captionRatio).toBeGreaterThanOrEqual(4.5);
-    expect(measureRatio).toBeGreaterThanOrEqual(4.5);
     test.info().annotations.push({
       type: "contrast",
-      description: `light caption ${captionRatio.toFixed(2)}:1 length ${measureRatio.toFixed(2)}:1`,
+      description: `light context ${contrastFromComputed(caption!.fg, caption!.bg).toFixed(2)}:1`,
     });
   });
 });

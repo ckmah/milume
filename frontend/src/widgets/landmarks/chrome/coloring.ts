@@ -1,11 +1,12 @@
+import type { AnyModel } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
 
 /** Exclusive tissue coloring family (geometry is Points/Raster separately). */
-export type ColorSignal = "categories" | "genes" | "embedding";
+export type ColorSignal = "categories" | "numeric" | "genes" | "embedding";
 
 /** Resolve the active coloring family from model traits. */
 export function colorSignal(lm: LandmarksModel): ColorSignal {
-  if (lm.color_mode === "obs") return "categories";
+  if (lm.color_mode === "obs") return "numeric";
   if (lm.render_mode === "raster") {
     if (lm.raster_basis === "embedding") return "embedding";
     if (lm.raster_basis === "genes") return "genes";
@@ -27,6 +28,9 @@ export function colorSignalDetail(
   lm: LandmarksModel,
   signal: ColorSignal = colorSignal(lm),
 ): string {
+  if (signal === "numeric") {
+    return lm.legend_title || lm.color || "None selected";
+  }
   if (signal === "genes") {
     const genes = lm.active_genes || [];
     return genes.length ? genes.join(", ") : "None selected";
@@ -40,10 +44,18 @@ export function colorSignalDetail(
     if (labels.length) return `${key} · ${labels.join(", ")}`;
     return key;
   }
-  if (lm.color_mode === "obs") {
-    return lm.legend_title || "None selected";
-  }
   return lm.active_category || "None selected";
+}
+
+export function activateNumeric(model: AnyModel, lm: LandmarksModel) {
+  const cols = (model.get("_numeric_obs_columns") as string[] | undefined) || [];
+  const current = lm.color || lm.legend_title || "";
+  if (current && (cols.includes(current) || lm.color_mode === "obs")) {
+    lm.setColor(current);
+    return;
+  }
+  const key = cols[0];
+  if (key) lm.setColor(key);
 }
 
 export function activateCategories(lm: LandmarksModel) {

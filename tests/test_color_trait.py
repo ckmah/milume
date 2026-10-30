@@ -46,6 +46,11 @@ def test_categorical_obs_column_recolours_in_one_sync(monkeypatch):
     assert list(w.category_colors("region").values()) == w.point_palette
 
 
+def test_numeric_obs_columns_synced_on_init():
+    w = LandmarksWidget(_adata())
+    assert w._numeric_obs_columns == ["area"]
+
+
 def test_numeric_obs_column_shows_a_sequential_ramp():
     w = LandmarksWidget(_adata())
     w.color = "area"

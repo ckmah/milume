@@ -39,12 +39,15 @@ export function ModeDropdown({
   onMode,
   fallbackLabel,
   menuNoun,
+  defaultMode: defaultModeProp,
 }: {
   modes: string[];
   mode: string;
   onMode: (mode: string) => void;
   fallbackLabel: string;
   menuNoun: string;
+  /** When set and in `modes`, used instead of `modes[0]` until the user picks a mode in this group. */
+  defaultMode?: string;
 }) {
   const menuContainer = useWidgetPortal();
   const [open, setOpen] = useState(false);
@@ -52,7 +55,11 @@ export function ModeDropdown({
   if (!modes.length) return null;
   const key = modes.join(",");
   const active = modes.includes(mode);
-  const defaultMode = lastUsedByGroup.get(key) ?? modes[0];
+  const groupDefault =
+    defaultModeProp && modes.includes(defaultModeProp)
+      ? defaultModeProp
+      : modes[0];
+  const defaultMode = lastUsedByGroup.get(key) ?? groupDefault;
   const current = active ? mode : defaultMode;
   const Icon = modeIcon(current);
   const label = MODE_LABELS[current] ?? fallbackLabel;

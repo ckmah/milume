@@ -16,4 +16,5 @@ export { InspectPreview } from "./inspect-preview";
 export { InspectToolbar, InspectNoVolumePill } from "./inspect-toolbar";
 export { PanelCollapseButton, PanelPeekTab } from "./panel-peek";
 export { PlotLoadIndicator } from "./plot-load-indicator";
+export { DepthRail } from "./depth-rail";
 export { ChromeLoadIndicator } from "./load-indicator";

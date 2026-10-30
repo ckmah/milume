@@ -24,7 +24,18 @@ function cssColorToHex(css: string): string {
   return `#${hex(m[1]!)}${hex(m[2]!)}${hex(m[3]!)}`;
 }
 
+async function ensureLandmarksSectionOpen(page: Page) {
+  const section = page.getByTestId("panel-section-landmarks");
+  const isOpen = await section.evaluate((el) =>
+    el.classList.contains("landmarks-panel-section--open"),
+  );
+  if (!isOpen) {
+    await section.locator(".landmarks-panel-section-header__main").click();
+  }
+}
+
 async function panelSwatchHex(page: Page, label: string) {
+  await ensureLandmarksSectionOpen(page);
   const row = page.locator(".landmarks-layer-row").filter({
     has: page.getByText(label, { exact: true }),
   });
@@ -483,14 +494,28 @@ test.describe("LandmarksWidget", () => {
     const names = await radios.evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")));
     expect(names).toEqual(["Select", "Move", "Inspect", "Probe", "Node"]);
     await expect(bar.locator('[aria-label="Inspect"] svg.lucide-box')).toHaveCount(1);
-    const landmark = bar.getByRole("button", { name: /Point\. Right-click for landmark menu/ });
+    const landmark = bar.getByRole("button", { name: /Spline\. Right-click for landmark menu/ });
     await landmark.click();
-    await expect.poll(() => getModel(page, "mode")).toBe("point");
-    await landmark.click({ button: "right" });
-    await page.getByRole("menuitem", { name: /Spline/ }).click();
     await expect.poll(() => getModel(page, "mode")).toBe("spline");
+    await landmark.click({ button: "right" });
+    await page.getByRole("menuitem", { name: /Point/ }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("point");
     await bar.getByRole("radio", { name: "Select" }).click();
-    await bar.getByRole("button", { name: /Spline\. Right-click for landmark menu/ }).click(); // remembers last used
+    await bar.getByRole("button", { name: /Point\. Right-click for landmark menu/ }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("point");
+  });
+
+  test("toolbar: landmark dropdown defaults to spline on a fresh widget", async ({
+    page,
+  }) => {
+    await page.reload();
+    await waitForEngine(page);
+    const bar = page.getByRole("toolbar", { name: "Drawing tools" });
+    await expect(
+      bar.getByRole("button", { name: /Spline\. Right-click for landmark menu/ }),
+    ).toBeVisible();
+    await bar.getByRole("radio", { name: "Select" }).click();
+    await bar.getByRole("button", { name: /Spline\. Right-click for landmark menu/ }).click();
     await expect.poll(() => getModel(page, "mode")).toBe("spline");
   });
 

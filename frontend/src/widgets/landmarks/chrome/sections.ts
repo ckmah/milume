@@ -5,8 +5,15 @@ export type PanelSectionId =
   | "landmarks"
   | "info";
 
-/** Horizontal + vertical inset on float panel bodies. */
-export const PANEL_INSET = "px-2.5 py-1.5";
+/** Horizontal inset on float panel bodies (10px). */
+export const PANEL_INSET = "px-2.5";
+/** Vertical padding paired with panel bodies when needed. */
+export const PANEL_INSET_Y = "py-1.5";
+/** 12px / 16px body copy on data card rows. */
+export const DATA_CARD_BODY = "text-xs leading-4 font-medium text-foreground";
+/** 11px / 14px chart ticks and axis captions. */
+export const CHART_CAPTION =
+  "text-[11px] leading-[14px] font-medium text-foreground/70";
 /** Scrollable float panel body (pair with PANEL_INSET). */
 export const PANEL_SCROLL = "min-h-0 flex-1 overflow-y-auto overscroll-contain";
 /** Tight Soft Float control stack. */
@@ -37,7 +44,7 @@ export const COMBO_INPUT =
 export const PILL_TABS_LIST =
   "landmarks-sliding-tabs relative h-8 w-full gap-0 rounded-[var(--lm-float-radius)] p-0.5";
 export const PILL_TABS_TRIGGER =
-  "landmarks-sliding-tab relative z-10 h-full flex-1 rounded-[calc(var(--lm-float-radius)-2px)] border-0 bg-transparent px-2 text-[11px] font-medium lowercase tracking-wide text-foreground/72 shadow-none transition-colors duration-[var(--lm-tab-pill-dur)] hover:bg-transparent hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-background data-[state=active]:shadow-none dark:text-foreground/72 dark:hover:text-foreground dark:data-[state=active]:bg-transparent dark:data-[state=active]:text-background";
+  "landmarks-sliding-tab relative z-10 h-full flex-1 rounded-[calc(var(--lm-float-radius)-2px)] border-0 bg-transparent px-2 text-xs font-medium lowercase tracking-wide text-foreground/72 shadow-none transition-colors duration-[var(--lm-tab-pill-dur)] hover:bg-transparent hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-background data-[state=active]:shadow-none dark:text-foreground/72 dark:hover:text-foreground dark:data-[state=active]:bg-transparent dark:data-[state=active]:text-background";
 /** @deprecated Use PILL_TABS_LIST. */
 export const SEGMENT_TRAY = PILL_TABS_LIST;
 /** @deprecated Use PILL_TABS_TRIGGER. */

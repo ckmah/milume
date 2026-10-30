@@ -30,6 +30,7 @@ import {
   PanelCollapseButton,
   PanelPeekTab,
   PlotLoadIndicator,
+  DepthRail,
 } from "./chrome";
 import type { ChipSnapshot } from "./chrome/cube-snapshots";
 import { FLOAT_PANEL } from "./chrome/sections";
@@ -103,6 +104,8 @@ export function LandmarksView({
   const [shellHeight, setShellHeight] = useState(defaultHeight);
   const [narrow, setNarrow] = useState(false);
   const [collapsed, setCollapsed] = useState({ left: false, right: false });
+  const [minimise, setMinimise] = useState(false);
+  const [rightCardExpanded, setRightCardExpanded] = useState(false);
   const savedHeightRef = useRef<number | null>(null);
   const wasFullscreenRef = useRef(false);
 
@@ -220,6 +223,10 @@ export function LandmarksView({
     }
   }, [inspecting]);
 
+  useEffect(() => {
+    if (minimise) setRightCardExpanded(false);
+  }, [minimise]);
+
   // The top slot swaps the tool pill and the Inspect pill (`<Rise>` each).
   const toolPillRef = useRef<HTMLDivElement>(null);
   const inspectPillRef = useRef<HTMLDivElement>(null);
@@ -293,7 +300,6 @@ export function LandmarksView({
     const el = rootRef.current;
     if (!el) return;
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key !== "[" && e.key !== "]") return;
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName;
       const editable =
@@ -302,6 +308,14 @@ export function LandmarksView({
         target?.isContentEditable ||
         Boolean(target?.closest?.("[contenteditable]"));
       if (editable) return;
+
+      if ((e.key === "\\" || e.code === "Backslash") && e.shiftKey) {
+        e.preventDefault();
+        setMinimise((m) => !m);
+        return;
+      }
+
+      if (e.key !== "[" && e.key !== "]") return;
       e.preventDefault();
       const side = e.key === "[" ? "left" : "right";
       setCollapsed((c) => ({ ...c, [side]: !c[side] }));
@@ -386,6 +400,7 @@ export function LandmarksView({
         lm.show_rulers && "landmarks--rulers",
         // Docks and peek tabs float over the open cube (landmarks.css).
         cubeOpen && "landmarks--cube-open",
+        minimise && "landmarks--minimise",
       )}
       data-rulers={lm.show_rulers ? "on" : "off"}
       onKeyDown={inspectCube.onKeyDown}
@@ -519,7 +534,11 @@ export function LandmarksView({
           onMouseDown={(e) => e.stopPropagation()}
           onWheel={(e) => e.stopPropagation()}
         >
-          <ViewCta lm={lm} />
+          <ViewCta
+            lm={lm}
+            minimise={minimise}
+            onToggleMinimise={() => setMinimise((m) => !m)}
+          />
         </div>
 
         {narrow ? (
@@ -545,7 +564,14 @@ export function LandmarksView({
                 )}
                 data-testid="info-explore-stack"
               >
-                <RightChromeStack lm={lm} engine={engine} />
+                <RightChromeStack
+                  model={model}
+                  lm={lm}
+                  engine={engine}
+                  minimise={minimise}
+                  rightCardExpanded={rightCardExpanded}
+                  onExpandRightCard={() => setRightCardExpanded(true)}
+                />
               </div>
               <LayersPanel
                 lm={lm}
@@ -553,6 +579,7 @@ export function LandmarksView({
                 snapshotVersion={snapshotVersion}
                 stackZ={inspectCube.stackZ}
                 onFocusEntry={inspectCube.focusEntry}
+                minimise={minimise}
               />
             </div>
             {collapsed.left ? (
@@ -584,6 +611,7 @@ export function LandmarksView({
                 snapshotVersion={snapshotVersion}
                 stackZ={inspectCube.stackZ}
                 onFocusEntry={inspectCube.focusEntry}
+                minimise={minimise}
               />
             </div>
             {collapsed.left ? (
@@ -596,6 +624,7 @@ export function LandmarksView({
               className={cn(
                 "landmarks__chrome-dock landmarks__chrome-dock--right",
                 collapsed.right && "landmarks__chrome-dock--collapsed",
+                minimise && !rightCardExpanded && "landmarks__chrome-dock--right-chip",
               )}
               data-collapsed={collapsed.right ? "true" : "false"}
               inert={collapsed.right}
@@ -613,7 +642,14 @@ export function LandmarksView({
                 )}
                 data-testid="info-explore-stack"
               >
-                <RightChromeStack lm={lm} engine={engine} />
+                <RightChromeStack
+                  model={model}
+                  lm={lm}
+                  engine={engine}
+                  minimise={minimise}
+                  rightCardExpanded={rightCardExpanded}
+                  onExpandRightCard={() => setRightCardExpanded(true)}
+                />
               </div>
             </div>
             {collapsed.right ? (
@@ -629,6 +665,15 @@ export function LandmarksView({
                 onWheel={(e) => e.stopPropagation()}
               >
                 <MinimapPanel lm={lm} engine={engine} dark={dark} />
+              </div>
+            ) : null}
+            {!inspecting ? (
+              <div
+                className="landmarks__chrome-depth-rail"
+                onMouseDown={(e) => e.stopPropagation()}
+                onWheel={(e) => e.stopPropagation()}
+              >
+                <DepthRail />
               </div>
             ) : null}
             {cubeOpen ? (

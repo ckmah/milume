@@ -122,6 +122,7 @@ const SELECTED_SIZE_SCALE = 1.28;
 const OTHER_SIZE_SCALE = 0.55;
 /** Unselected point alpha multiplier while focused. */
 const OTHER_ALPHA_SCALE = 0.28;
+/** Outside the depth band, scatter alpha approaches this (absolute, not relative to POINT_OPACITY). */
 /**
  * Single-gene / observation high stop (DESIGN sequential-high).
  * Low stop is the plot background (theme-aware).
@@ -489,6 +490,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   let pointPositionBufferSource = null;
   let hoodHighlightData = [];
   let hoodHighlightKey = "";
+  /** Cached: any point carries finite z (µm); when false, depth-band fade is skipped (2D). */
   let deckLayersPublishSeq = 0;
   let pointFillColorsBuildHandle = 0;
   let scatterDisplayColors = null;
@@ -2818,13 +2820,15 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const opacity = POINT_OPACITY;
     const sim = similarityRgbaForPoint(d.i, opacity, probeField);
     if (sim) {
-      if (!pointRoleMode || !pointRoles) return sim;
+      if (!pointRoleMode || !pointRoles) {
+        return sim;
+      }
       const role = pointRoles[d.i] || 0;
       if (role === SEED_ROLE || role === NEIGH_ROLE) {
         sim[3] = 255;
-        return sim;
+      } else {
+        sim[3] = Math.round((sim[3] || 255) * OTHER_ALPHA_SCALE);
       }
-      sim[3] = Math.round((sim[3] || 255) * OTHER_ALPHA_SCALE);
       return sim;
     }
     const mode = model.get("color_mode") || "categorical";
@@ -2853,13 +2857,15 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       const code = col ? categoryCodeAt(d.i) : Math.round(d.valueA);
       rgba = hexToRgbaBytes(palette[((code % palette.length) + palette.length) % palette.length], opacity);
     }
-    if (!pointRoleMode || !pointRoles) return rgba;
+    if (!pointRoleMode || !pointRoles) {
+      return rgba;
+    }
     const role = pointRoles[d.i] || 0;
     if (role === SEED_ROLE || role === NEIGH_ROLE) {
       rgba[3] = 255;
-      return rgba;
+    } else {
+      rgba[3] = Math.round((rgba[3] || 255) * OTHER_ALPHA_SCALE);
     }
-    rgba[3] = Math.round((rgba[3] || 255) * OTHER_ALPHA_SCALE);
     return rgba;
   }
 

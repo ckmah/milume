@@ -1,32 +1,14 @@
-import {
-  PanelLeftCloseIcon,
-  PanelLeftOpenIcon,
-  PanelRightCloseIcon,
-  PanelRightOpenIcon,
-} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 import { ChromeTooltip, chromeHitClass } from "./primitives";
 
 type DockSide = "left" | "right";
 
-const COLLAPSE_ICON = {
-  left: PanelLeftCloseIcon,
-  right: PanelRightCloseIcon,
-} as const;
-
-const EXPAND_ICON = {
-  left: PanelLeftOpenIcon,
-  right: PanelRightOpenIcon,
-} as const;
-
 /**
- * Collapse affordance beside a dock's inner top corner. Clicking it hides
- * the dock (see `.landmarks__chrome-dock--collapsed`) and hands control to
- * the sibling `PanelPeekTab`.
+ * Caret outside the dock's inner top corner (option 1). Stays visible in minimise mode.
  */
 export function PanelCollapseButton({
   side,
@@ -35,7 +17,7 @@ export function PanelCollapseButton({
   side: DockSide;
   onCollapse: () => void;
 }) {
-  const Icon = COLLAPSE_ICON[side];
+  const glyph = side === "left" ? "‹" : "›";
   const label = side === "left" ? "Collapse left panel" : "Collapse right panel";
   return (
     <TooltipProvider delayDuration={80} skipDelayDuration={0}>
@@ -45,16 +27,17 @@ export function PanelCollapseButton({
           variant="ghost"
           size="icon-sm"
           aria-label={label}
+          data-testid={`panel-collapse-caret-${side}`}
           onClick={onCollapse}
           className={cn(
-            // Just outside the dock's inner top corner, so it never covers the
-            // panel's own header text or tabs.
-            "landmarks-float pointer-events-auto absolute top-0 z-[17]",
+            "landmarks-panel-collapse-caret landmarks-float pointer-events-auto absolute top-0 z-[17] tabular-nums",
             chromeHitClass,
             side === "left" ? "left-[calc(100%+0.375rem)]" : "right-[calc(100%+0.375rem)]",
           )}
         >
-          <Icon className="size-4" />
+          <span className="landmarks-panel-collapse-caret__glyph" aria-hidden>
+            {glyph}
+          </span>
         </Button>
       </ChromeTooltip>
     </TooltipProvider>
@@ -62,8 +45,7 @@ export function PanelCollapseButton({
 }
 
 /**
- * Edge tab shown in place of a collapsed dock — click to bring the panel
- * back. Sits above the minimap slot so the left tab never covers it.
+ * Flipped edge tab when a dock is fully collapsed off-screen.
  */
 export function PanelPeekTab({
   side,
@@ -72,7 +54,7 @@ export function PanelPeekTab({
   side: DockSide;
   onExpand: () => void;
 }) {
-  const Icon = EXPAND_ICON[side];
+  const glyph = side === "left" ? "›" : "‹";
   const label = side === "left" ? "Show left panel" : "Show right panel";
   return (
     <TooltipProvider delayDuration={80} skipDelayDuration={0}>
@@ -82,14 +64,17 @@ export function PanelPeekTab({
           variant="ghost"
           size="icon-sm"
           aria-label={label}
+          data-testid={`panel-peek-tab-${side}`}
           onClick={onExpand}
           className={cn(
-            "landmarks-float landmarks__peek-tab pointer-events-auto",
+            "landmarks-float landmarks__peek-tab pointer-events-auto tabular-nums",
             chromeHitClass,
             side === "left" ? "landmarks__peek-tab--left" : "landmarks__peek-tab--right",
           )}
         >
-          <Icon className="size-4" />
+          <span className="landmarks__peek-tab-glyph" aria-hidden>
+            {glyph}
+          </span>
         </Button>
       </ChromeTooltip>
     </TooltipProvider>

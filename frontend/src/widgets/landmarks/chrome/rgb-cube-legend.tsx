@@ -59,14 +59,14 @@ export function RgbCubeLegend({
             preserveAspectRatio="none"
           />
         ) : null}
-        <g className="landmarks-rgb-cube__labels" aria-hidden>
+        <g className="landmarks-rgb-cube__labels opacity-0 transition-opacity group-hover/cube:opacity-100 group-focus-visible/cube:opacity-100" aria-hidden>
           {/* Channel0 down-left, channel1 down-right, channel2 up. */}
           <text
             x={c.c0.x - 5}
             y={c.c0.y + 4}
             textAnchor="end"
             className="fill-foreground"
-            style={{ fontSize: 8, fontWeight: 600 }}
+            style={{ fontSize: 11, fontWeight: 600 }}
           >
             {text[0]}
           </text>
@@ -74,7 +74,7 @@ export function RgbCubeLegend({
             x={c.c1.x + 5}
             y={c.c1.y + 4}
             className="fill-foreground"
-            style={{ fontSize: 8, fontWeight: 600 }}
+            style={{ fontSize: 11, fontWeight: 600 }}
           >
             {text[1]}
           </text>
@@ -83,7 +83,7 @@ export function RgbCubeLegend({
             y={c.c2.y - 5}
             textAnchor="middle"
             className="fill-foreground"
-            style={{ fontSize: 8, fontWeight: 600 }}
+            style={{ fontSize: 11, fontWeight: 600 }}
           >
             {text[2]}
           </text>
