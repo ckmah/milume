@@ -22,6 +22,7 @@
 - **Smaller sdist.** The source distribution no longer ships `website/`, README screenshots, Playwright snapshots, or vendored `.agents/` / `.cursor/` config (~60 MB to ~4.3 MB). Wheel contents unchanged.
 - **Minified widget bundle.** `milume/static/bundled/landmarks.mjs` ships minified (5.17 → 3.99 MB raw; 1.41 → 1.24 MB gzip) ([#318](https://github.com/ckmah/milume/issues/318)).
 - **Inspect contrast default.** When `contrast_limits` is omitted, the upper limit is the max of the coarsest pyramid level instead of the 99.5th percentile (colon A2 default goes from `(0, 171)` to `(0, 249)`).
+- Inspect segmentation meshes default to **0.6** peak opacity (was 0.9).
 
 ### Removed
 
