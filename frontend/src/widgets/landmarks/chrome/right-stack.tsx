@@ -10,6 +10,7 @@ import {
   activateCategories,
   activateEmbedding,
   activateGenes,
+  activateNumeric,
   colorSignal,
   colorSignalDetail,
   type ColorSignal,
@@ -17,11 +18,12 @@ import {
 import {
   CategoriesControls,
   EmbeddingCombobox,
+  NumericObsCombobox,
 } from "./explore-panel";
 import { GenesCombobox } from "./genes-legend";
 import { InfoPanel } from "./info-panel";
 import { RasterSection } from "./raster-section";
-import { EMBEDDED_PANEL, PILL_TABS_TRIGGER, STACK_GAP_SM } from "./sections";
+import { EMBEDDED_PANEL, PANEL_INSET, PILL_TABS_TRIGGER, STACK_GAP_SM } from "./sections";
 import { SoftFloatSlidingTabsList } from "./sliding-tabs";
 
 /**
@@ -43,11 +45,17 @@ export function RightChromeStack({
   }, [modelSignal]);
 
   const onColorBy = (next: string) => {
-    if (next !== "categories" && next !== "genes" && next !== "embedding") {
+    if (
+      next !== "categories" &&
+      next !== "numeric" &&
+      next !== "genes" &&
+      next !== "embedding"
+    ) {
       return;
     }
-    setColorBy(next);
+    setColorBy(next as ColorSignal);
     if (next === "categories") activateCategories(lm);
+    else if (next === "numeric") activateNumeric(lm);
     else if (next === "genes") activateGenes(lm);
     else activateEmbedding(lm);
   };
@@ -76,13 +84,16 @@ export function RightChromeStack({
           className="flex min-h-0 flex-1 flex-col gap-2"
           data-testid="explore-color-by"
         >
-          <div className="shrink-0 px-2.5">
+          <div className={cn("shrink-0", PANEL_INSET)}>
             <SoftFloatSlidingTabsList value={colorBy} aria-label="Color">
               {(lm.category_columns?.length ?? 0) > 0 ? (
                 <TabsTrigger value="categories" className={PILL_TABS_TRIGGER}>
-                  category
+                  cat
                 </TabsTrigger>
               ) : null}
+              <TabsTrigger value="numeric" className={PILL_TABS_TRIGGER}>
+                num
+              </TabsTrigger>
               <TabsTrigger value="genes" className={PILL_TABS_TRIGGER}>
                 genes
               </TabsTrigger>
@@ -95,11 +106,11 @@ export function RightChromeStack({
             {detail}
           </span>
 
-          <div className="shrink-0 px-2.5">
+          <div className={cn("shrink-0", PANEL_INSET)}>
             <InfoPanel lm={lm} engine={engine} embedded bare />
           </div>
 
-          <div className="shrink-0 px-2.5">
+          <div className={cn("shrink-0", PANEL_INSET)}>
             <RasterSection lm={lm} />
           </div>
 
@@ -111,6 +122,9 @@ export function RightChromeStack({
             <div data-testid="explore-color-controls">
               <TabsContent value="categories" className="m-0 flex-none">
                 <CategoriesControls lm={lm} signal={colorBy} />
+              </TabsContent>
+              <TabsContent value="numeric" className="m-0 flex-none">
+                <NumericObsCombobox lm={lm} />
               </TabsContent>
               <TabsContent value="genes" className="m-0 flex-none">
                 {lm.gene_names.length ? (

@@ -72,6 +72,8 @@ export type LandmarksState = {
   gene_log1p: boolean;
   gene_expression_logged: boolean;
   color_mode: string;
+  color: string;
+  numeric_obs_columns: string[];
   legend_labels: string[];
   legend_title: string;
   color_vmin: number;
@@ -131,6 +133,8 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
   "gene_log1p",
   "gene_expression_logged",
   "color_mode",
+  "color",
+  "numeric_obs_columns",
   "legend_labels",
   "legend_title",
   "color_vmin",
@@ -181,6 +185,7 @@ export type LandmarksModel = LandmarksState & {
   setMode(mode: string): void;
   select(kind: string, index: number): void;
   setActiveCategory(col: CategoryColumn): void;
+  setColor(key: string): void;
   setActiveGenes(names: string[]): void;
   setGeneScaleMode(mode: GeneScaleMode): void;
   setGeneLog1p(enabled: boolean): void;
@@ -221,9 +226,16 @@ export function useLandmarksModel(model: AnyModel): LandmarksModel {
   const state = useModel<LandmarksState>(model, MODEL_KEYS);
   const genes = geneStoreFor(model);
   const gene_version = useSyncExternalStore(genes.subscribe, () => genes.version);
+  const numeric_obs_columns =
+    state.numeric_obs_columns ??
+    (Array.isArray(model.get("numeric_obs_columns"))
+      ? (model.get("numeric_obs_columns") as string[])
+      : []);
 
   return {
     ...state,
+    numeric_obs_columns,
+    color: state.color ?? String(model.get("color") ?? ""),
     genes,
     gene_version,
     setGeneAggregate(mode) {
@@ -237,6 +249,10 @@ export function useLandmarksModel(model: AnyModel): LandmarksModel {
     },
     setActiveCategory(col) {
       applyActiveCategory(model, col);
+    },
+    setColor(key) {
+      model.set("color", key);
+      model.save_changes();
     },
     setActiveGenes(names) {
       setActiveGenesTrait(model, names);

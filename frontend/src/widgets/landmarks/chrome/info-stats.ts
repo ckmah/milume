@@ -369,3 +369,152 @@ export function embeddingRgbCloud(opts: {
   if (hasFocus) out.sort((a, b) => Number(a.selected) - Number(b.selected));
   return out;
 }
+
+export const INFO_HEAT_BINS = 24;
+/** Minimum strip fill for non-empty bins (brightness floor). */
+export const HEAT_BIN_COUNT_FLOOR = 0.22;
+
+function valueFromPointsAlpha(t: number, vmin: number, vmax: number): number {
+  if (!Number.isFinite(t)) return NaN;
+  const u = Math.max(0, Math.min(1, t));
+  return vmin + u * (vmax - vmin);
+}
+
+export type NumericHeatStripData = {
+  /** Per-bin cell counts (length INFO_HEAT_BINS). */
+  counts: number[];
+  /** Palette index 0..1 per bin for hue. */
+  hues: number[];
+  lo: number;
+  hi: number;
+  /** Scale high used for ticks (p99 / color_vmax). */
+  scaleMax: number;
+  /** Raw max in scope (may exceed scaleMax). */
+  obsMax: number;
+  capped: boolean;
+};
+
+/** Binned numeric obs values in scope for the num-tab heat strip. */
+export function numericHeatStripData(opts: {
+  n: number;
+  mask: Uint8Array;
+  pointsDataB64: string;
+  vmin: number;
+  vmax: number;
+  bins?: number;
+}): NumericHeatStripData | null {
+  const { n, mask, pointsDataB64, vmin, vmax, bins = INFO_HEAT_BINS } = opts;
+  if (!pointsDataB64 || n <= 0 || !(vmax > vmin)) return null;
+  let pts: Float32Array;
+  try {
+    pts = decodeF32Base64(pointsDataB64);
+  } catch {
+    return null;
+  }
+  if (pts.length < n * 4) return null;
+
+  const values: number[] = [];
+  for (let i = 0; i < n; i++) {
+    if (!mask[i]) continue;
+    const v = valueFromPointsAlpha(pts[i * 4 + 2], vmin, vmax);
+    if (Number.isFinite(v)) values.push(v);
+  }
+  if (!values.length) return null;
+
+  values.sort((a, b) => a - b);
+  const lo = values[0];
+  const obsMax = values[values.length - 1];
+  const p99Idx = Math.min(values.length - 1, Math.floor(values.length * 0.99));
+  const p99 = values[p99Idx];
+  const scaleMax = Math.min(vmax, Math.max(p99, lo + 1e-9));
+  const hi = scaleMax;
+  const capped = obsMax > scaleMax + (hi - lo) * 1e-6;
+  const span = hi - lo || 1;
+
+  const counts = new Array<number>(bins).fill(0);
+  for (const v of values) {
+    const t = Math.max(0, Math.min(1, (Math.min(v, hi) - lo) / span));
+    const bi = Math.min(bins - 1, Math.floor(t * bins));
+    counts[bi] += 1;
+  }
+  const hues = counts.map((_, bi) => {
+    const mid = lo + ((bi + 0.5) / bins) * span;
+    return (mid - vmin) / (vmax - vmin || 1);
+  });
+  return { counts, hues, lo, hi, scaleMax, obsMax, capped };
+}
+
+export type GeneHeatRow = {
+  name: string;
+  color: string;
+  /** Normalized bin fill 0..1 for strip brightness. */
+  bins: number[];
+  pct: number;
+};
+
+export function geneHeatRows(opts: {
+  n: number;
+  mask: Uint8Array;
+  activeGenes: string[];
+  geneLog1p: boolean;
+  columnAt: (name: string) => Float32Array | null;
+  bins?: number;
+  maxGenes?: number;
+}): GeneHeatRow[] {
+  const {
+    n,
+    mask,
+    activeGenes,
+    geneLog1p,
+    columnAt,
+    bins = INFO_HEAT_BINS,
+    maxGenes = 20,
+  } = opts;
+  const genes = activeGenes.slice(0, maxGenes);
+  if (!genes.length || n <= 0) return [];
+
+  let scoped = 0;
+  for (let i = 0; i < n; i++) if (mask[i]) scoped += 1;
+  if (!scoped) return [];
+
+  return genes.map((name, gi) => {
+    const col = columnAt(name);
+    const samples: number[] = [];
+    let expressing = 0;
+    for (let i = 0; i < n; i++) {
+      if (!mask[i] || !col) continue;
+      let v = col[i];
+      if (!Number.isFinite(v)) continue;
+      if (geneLog1p) v = Math.log1p(v);
+      if (v > 0) expressing += 1;
+      samples.push(v);
+    }
+    const pct = scoped ? Math.round((expressing / scoped) * 100) : 0;
+    const color = geneColor(gi, genes.length);
+    if (!samples.length) {
+      return { name, color, bins: new Array(bins).fill(0), pct };
+    }
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (const v of samples) {
+      if (v < lo) lo = v;
+      if (v > hi) hi = v;
+    }
+    if (!(hi > lo)) {
+      lo = 0;
+      hi = 1;
+    }
+    const span = hi - lo || 1;
+    const counts = new Array<number>(bins).fill(0);
+    for (const v of samples) {
+      const t = Math.max(0, Math.min(1, (v - lo) / span));
+      const bi = Math.min(bins - 1, Math.floor(t * bins));
+      counts[bi] += 1;
+    }
+    const peak = Math.max(...counts, 1);
+    const binFill = counts.map((c) =>
+      c > 0 ? HEAT_BIN_COUNT_FLOOR + (1 - HEAT_BIN_COUNT_FLOOR) * (c / peak) : 0,
+    );
+    return { name, color, bins: binFill, pct };
+  });
+}

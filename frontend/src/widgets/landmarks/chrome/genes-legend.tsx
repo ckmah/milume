@@ -130,7 +130,7 @@ function GenesScaleToggles({ lm }: { lm: LandmarksModel }) {
         </div>
         <div className="landmarks-layer-row justify-between text-xs text-foreground">
           <span className="inline-flex min-w-0 items-center gap-0.5">
-            log scale
+            Log scale
             <ScaleInfoTip label="Compress high expression" />
           </span>
           <Switch
@@ -161,6 +161,20 @@ export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
 
   return (
     <div ref={wrapRef} className="flex min-w-0 flex-col gap-2">
+      <div className="flex items-center justify-between gap-2 text-xs font-medium text-foreground">
+        <span data-testid="genes-selection-meta">
+          {selected.length} gene{selected.length === 1 ? "" : "s"} · max {MAX_ACTIVE_GENES}
+        </span>
+        {selected.length ? (
+          <button
+            type="button"
+            className="text-xs font-medium text-foreground/75 hover:text-foreground"
+            onClick={() => lm.setActiveGenes([])}
+          >
+            Clear
+          </button>
+        ) : null}
+      </div>
       <Combobox
         items={names}
         inputValue={inputValue}
@@ -197,7 +211,7 @@ export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
           >
             <ComboboxValue>
               {selected.map((name, i) => (
-                <ComboboxChip key={name} className={cn(CHIP_CLASS, "max-w-full gap-1 truncate rounded-md text-[10px]")}>
+                <ComboboxChip key={name} className={cn(CHIP_CLASS, "max-w-full gap-1 truncate rounded-md text-[11px]")}>
                   <ColorSwatch color={geneSwatch(i, selected.length)} />
                   {name}
                 </ComboboxChip>

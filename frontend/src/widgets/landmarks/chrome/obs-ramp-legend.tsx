@@ -33,13 +33,13 @@ export function ObsRampLegend({
       data-testid="obs-ramp-legend"
     >
       {title ? (
-        <p className="m-0 max-w-full truncate text-[10px] font-semibold text-foreground">
+        <p className="m-0 max-w-full truncate text-[11px] font-semibold text-foreground">
           {title}
         </p>
       ) : null}
       <div className="flex items-stretch gap-1.5">
         <div
-          className="flex flex-col justify-between py-0.5 text-[10px] font-medium tabular-nums text-foreground/70"
+          className="flex flex-col justify-between py-0.5 text-[11px] font-medium tabular-nums text-foreground/70"
           data-testid="obs-ramp-scale"
         >
           <span data-testid="obs-ramp-vmax">{formatLegendValue(vmax)}</span>
