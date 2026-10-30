@@ -490,8 +490,8 @@ test.describe("LandmarksWidget", () => {
     await page.getByRole("menuitem", { name: /Point/ }).click();
     await expect.poll(() => getModel(page, "mode")).toBe("point");
     await bar.getByRole("radio", { name: "Select" }).click();
-    await bar.getByRole("button", { name: /Spline\. Right-click for landmark menu/ }).click(); // remembers last used
-    await expect.poll(() => getModel(page, "mode")).toBe("spline");
+    await bar.getByRole("button", { name: /Point\. Right-click for landmark menu/ }).click();
+    await expect.poll(() => getModel(page, "mode")).toBe("point");
   });
 
   test("toolbar: landmark dropdown defaults to spline on a fresh widget", async ({

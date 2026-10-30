@@ -1,7 +1,7 @@
 /**
  * Full-widget harness captures for panel layout PR (#393).
  * Usage: node scripts/capture-panel-layout.mjs
- * Requires: dev server at CAPTURE_URL (default http://127.0.0.1:5173).
+ * Requires: `npm run dev:landmarks -- --host 127.0.0.1 --port 5173` or Playwright webServer.
  */
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";

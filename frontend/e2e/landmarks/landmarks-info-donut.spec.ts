@@ -17,106 +17,46 @@ async function loadNicheDonutFixture(page: Page) {
   await stabilizeUi(page);
 }
 
-async function openCategoryDonut(page: Page) {
+async function openCategoryStackedBar(page: Page) {
   const right = page.locator(".landmarks__chrome-dock--right");
   if ((await right.getAttribute("data-collapsed")) === "true") {
     await page.getByRole("button", { name: "Show right panel" }).click();
   }
-  await page.getByTestId("explore-color-by").getByRole("tab", { name: "category" }).click();
+  await page.getByTestId("explore-color-by").getByRole("tab", { name: "cat" }).click();
   await expect(page.getByTestId("explore-coloring-by")).toContainText(
     "nhood_niche_res=0.5",
   );
-  const donut = page.getByTestId("info-donut");
-  await expect(donut).toBeVisible();
-  return donut;
+  const bar = page.getByTestId("info-stacked-bar");
+  await expect(bar).toBeVisible();
+  return bar;
 }
 
-function expectBoxInside(
-  inner: { x: number; y: number; width: number; height: number },
-  outer: { x: number; y: number; width: number; height: number },
-  margin = 1,
-) {
-  expect(inner.x).toBeGreaterThanOrEqual(outer.x - margin);
-  expect(inner.y).toBeGreaterThanOrEqual(outer.y - margin);
-  expect(inner.x + inner.width).toBeLessThanOrEqual(outer.x + outer.width + margin);
-  expect(inner.y + inner.height).toBeLessThanOrEqual(outer.y + outer.height + margin);
-}
-
-test.describe("Info donut", () => {
+test.describe("Info stacked bar", () => {
   test.beforeEach(async ({ page }) => {
     await bootLandmarksHarness(page);
     await loadNicheDonutFixture(page);
   });
 
-  test("slice paths use SVG arcs without polyline wobble", async ({ page }) => {
-    const donut = await openCategoryDonut(page);
-    const paths = await donut.getByTestId("info-donut-segment").evaluateAll((nodes) =>
-      nodes.map((node) => node.getAttribute("d") ?? ""),
-    );
-    expect(paths.length).toBeGreaterThan(0);
-    for (const d of paths) {
-      expect(d).toMatch(/\bA\b/);
-      expect((d.match(/\bL\b/g) ?? []).length).toBeLessThanOrEqual(1);
-      expect(d.split(/\bL\b/).length - 1).toBeLessThanOrEqual(1);
-    }
-  });
-
-  test("category coloring shows donut segments and hover tooltip", async ({
+  test("category coloring shows stacked segments with non-zero width", async ({
     page,
   }) => {
-    const donut = await openCategoryDonut(page);
-    const segments = donut.getByTestId("info-donut-segment");
+    const bar = await openCategoryStackedBar(page);
+    const segments = bar.locator("> div");
     expect(await segments.count()).toBeGreaterThan(0);
-
-    await stabilizeUi(page);
-    const box = await donut.boundingBox();
-    expect(box).toBeTruthy();
-    await page.mouse.move(
-      box!.x + box!.width * 0.88,
-      box!.y + box!.height * 0.42,
+    const widths = await segments.evaluateAll((nodes) =>
+      nodes.map((n) => n.getBoundingClientRect().width),
     );
-    const tooltip = page.getByTestId("info-donut-tooltip");
-    await expect(tooltip).toBeVisible();
-    await expect(tooltip).toContainText("cells ·");
+    expect(widths.some((w) => w > 2)).toBe(true);
   });
 
-  test("edge slice tooltips stay inside the widget root", async ({ page }) => {
-    const donut = await openCategoryDonut(page);
-    const widget = page.locator(".milume-widget.landmarks").first();
-    const widgetBox = (await widget.boundingBox())!;
-
-    const segmentCenters = await donut.getByTestId("info-donut-segment").evaluateAll((nodes) =>
-      nodes.map((node) => {
-        const box = node.getBoundingClientRect();
-        return {
-          x: box.x + box.width / 2,
-          y: box.y + box.height / 2,
-        };
-      }),
-    );
-    expect(segmentCenters.length).toBeGreaterThan(0);
-
-    const pickExtreme = (key: "x" | "y", min: boolean) => {
-      let best = segmentCenters[0]!;
-      for (const center of segmentCenters) {
-        if (min ? center[key] < best[key] : center[key] > best[key]) best = center;
-      }
-      return best;
-    };
-
-    const hoverPoints = [
-      pickExtreme("y", false),
-      pickExtreme("y", true),
-      pickExtreme("x", true),
-      pickExtreme("x", false),
-    ];
-
-    for (const point of hoverPoints) {
-      await page.mouse.move(point.x, point.y);
-      const tooltip = page.getByTestId("info-donut-tooltip");
-      await expect(tooltip).toBeVisible({ timeout: 5000 });
-      const tooltipBox = (await tooltip.boundingBox())!;
-      expectBoxInside(tooltipBox, widgetBox);
-    }
+  test("stacked bar stays inside the chart well", async ({ page }) => {
+    const bar = await openCategoryStackedBar(page);
+    const well = page.getByTestId("info-chart-well");
+    const barBox = (await bar.boundingBox())!;
+    const wellBox = (await well.boundingBox())!;
+    expect(barBox.x).toBeGreaterThanOrEqual(wellBox.x - 1);
+    expect(barBox.y).toBeGreaterThanOrEqual(wellBox.y - 1);
+    expect(barBox.x + barBox.width).toBeLessThanOrEqual(wellBox.x + wellBox.width + 1);
+    expect(barBox.y + barBox.height).toBeLessThanOrEqual(wellBox.y + wellBox.height + 1);
   });
 });
