@@ -56,9 +56,7 @@ async function galtLassoViaModel(page: import("@playwright/test").Page) {
   });
 }
 
-test.describe("ileum GALT lasso composition", () => {
-  test.describe.configure({ tag: "@isolated" });
-
+test.describe("ileum GALT lasso composition", { tag: "@isolated" }, () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(`/?fixture=${encodeURIComponent(ILEUM_FIXTURE)}`, { waitUntil: "networkidle" });
     await waitForEngine(page);
