@@ -31,6 +31,7 @@ export default defineConfig({
         : ["**/hero-webgl.spec.ts", "**/hero-video.spec.ts", smokeSpec, "**/marimo/**"]
       : [
           "**/landmarks-volume.spec.ts",
+          "**/landmarks-cube-idle.spec.ts",
           "**/landmarks-inspect-minimap.spec.ts",
           smokeSpec,
           "**/hero-webgl.spec.ts",
