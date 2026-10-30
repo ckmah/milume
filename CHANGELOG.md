@@ -19,6 +19,7 @@
 ### Changed
 
 - **Map panel layout (option 1).** Left dock accordion (Selections · Landmarks · Layers), right data card tabs (cat · num · genes · embed), a reserved depth-rail chrome slot (behaviour in [#122](https://github.com/ckmah/milume/issues/122)), minimise mode (Shift+\\), and Spline as the default landmark tool ([#393](https://github.com/ckmah/milume/issues/393)).
+- **`channels=` on `LandmarksWidget` / `milume.peek`.** Pass channel names to show on open for the SpatialData tissue image; unknown names raise before render ([#122](https://github.com/ckmah/milume/issues/122)).
 
 - **Lighter core install.** `matplotlib`, `polars`, and `leidenalg` (and `igraph` with it) are no longer installed by `pip install milume`. Category columns use pandas categorical codes (same labels, order, and colours); lasso hit-testing uses a numpy port of matplotlib's point-in-path test. Tab10/tab20 palettes are hardcoded with the same hex values. Demo notebooks and the Squidpy niche recipe still need `leidenalg` where they call `sc.tl.leiden`.
 - **Dependency floors.** `spatialdata>=0.7.3` (>=0.8.0 on Python 3.12+ so anndata 0.13 cannot pair with broken 0.7.3). `pyarrow>=16` is declared for cell-polygon parquet. `s3fs>=2024.1` on Python 3.14.

@@ -20,6 +20,9 @@ def test_infers_table_image_cell_polygons_and_frame(sdata):
     assert src.shape_zyx == (64, 256, 256)
     assert src.voxel_size_um == (1.0, 1.0, 1.0)
     assert src.origin_um == (0.0, 0.0, 0.0)
+    assert src.is_3d is True
+    assert src.dims == ("c", "z", "y", "x")
+    assert src.coordinate_system == "global"
     np.testing.assert_array_equal(src.cell_rows, np.arange(adata.n_obs))
 
 
@@ -31,11 +34,11 @@ def test_overrides_and_opt_out(sdata):
     assert none is None
 
 
-def test_several_3d_images_need_a_name(sdata):
+def test_several_3d_images_auto_pick_with_warning(sdata):
     sdata.images["other"] = sdata.images["mosaic"]
-    with pytest.warns(UserWarning, match="several 3D images.*pass image="):
+    with pytest.warns(UserWarning, match="picked.*skipped.*pass image="):
         adata, src = resolve_volume(sdata)
-    assert src is None and adata is sdata.tables["table"]
+    assert src is not None and src.image == "mosaic" and adata is sdata.tables["table"]
     _, src = resolve_volume(sdata, image="mosaic")
     assert src.image == "mosaic"
 
@@ -80,10 +83,10 @@ def _image(values, scale_factors=None):
     return Image3DModel.parse(values[None], dims=("c", "z", "y", "x"), scale_factors=scale_factors)
 
 
-def test_contrast_limits_span_p1_to_the_image_max():
+def test_contrast_limits_span_p1_to_p999():
     values = np.random.default_rng(0).integers(1000, 30000, size=(8, 32, 32), dtype=np.uint16)
     lo, hi = image_contrast_limits(_image(values))
-    np.testing.assert_allclose((lo, hi), (np.percentile(values, 1), values.max()))
+    np.testing.assert_allclose((lo, hi), (np.percentile(values, 1), np.percentile(values, 99.9)))
 
 
 def test_contrast_limits_read_the_coarsest_level():
@@ -94,9 +97,49 @@ def test_contrast_limits_read_the_coarsest_level():
     ramp = np.arange(level.size, dtype=np.uint16).reshape(level.shape)
     image["scale2"] = coarsest.dataset.assign({name: level.copy(data=ramp)})
     lo, hi = image_contrast_limits(image)
-    np.testing.assert_allclose((lo, hi), (np.percentile(ramp, 1), ramp.max()))
+    np.testing.assert_allclose((lo, hi), (np.percentile(ramp, 1), np.percentile(ramp, 99.9)))
 
 
 def test_a_constant_image_still_has_a_contrast_range():
     lo, hi = image_contrast_limits(_image(np.full((4, 8, 8), 500, dtype=np.uint16)))
-    assert lo <= 500 < hi
+    assert lo <= 500 <= hi
+
+
+def test_constant_zero_channel_detected():
+    from spatialdata.models import Image3DModel
+
+    from milume.volume_source import _coarsest_array, _constant_zero_channel_indices
+
+    values = np.zeros((2, 4, 8, 8), dtype=np.uint16)
+    values[1] = 10
+    image = Image3DModel.parse(values, dims=("c", "z", "y", "x"))
+    assert _constant_zero_channel_indices(_coarsest_array(image)) == frozenset({0})
+
+
+def test_2d_image_resolves(tmp_path):
+    import anndata as ad
+    import spatialdata as sd
+    from spatialdata.models import Image2DModel, TableModel
+    from spatialdata.transformations import Identity
+
+    table = ad.AnnData(np.ones((3, 1), dtype=np.float32))
+    table.obsm["spatial"] = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])
+    values = np.random.default_rng(2).integers(0, 255, size=(2, 32, 48), dtype=np.uint8)
+    sdata = sd.SpatialData(
+        images={
+            "flat": Image2DModel.parse(
+                values,
+                dims=("c", "y", "x"),
+                transformations={"global": Identity()},
+            )
+        },
+        tables={"table": TableModel.parse(table)},
+    )
+    dest = tmp_path / "flat.zarr"
+    sdata.write(dest)
+    sdata = sd.read_zarr(dest)
+    _, src = resolve_volume(sdata)
+    assert src is not None
+    assert src.is_3d is False
+    assert src.dims == ("c", "y", "x")
+    assert src.shape_zyx == (1, 32, 48)

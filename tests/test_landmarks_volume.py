@@ -21,7 +21,18 @@ def sdata(tmp_path):
 def test_widget_from_sdata_exposes_comm_volume_urls(sdata):
     with patch("http.server.ThreadingHTTPServer", side_effect=AssertionError("no HTTP server")):
         w = LandmarksWidget(sdata, color="cell_type")
-    assert set(w.volume) == {"image_url", "cells", "voxel_size_um", "origin_um", "contrast_limits"}
+    assert set(w.volume) >= {
+        "image_url",
+        "cells",
+        "voxel_size_um",
+        "origin_um",
+        "contrast_limits",
+        "dims",
+        "is_3d",
+        "coordinate_system",
+        "image_transform",
+        "channels",
+    }
     assert w.volume["voxel_size_um"] == [1.0, 1.0, 1.0]
     assert w.volume["image_url"] == "images/mosaic/"
     cells = w.volume["cells"]
