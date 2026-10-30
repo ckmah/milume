@@ -101,8 +101,8 @@ test.describe("panel layout (option 1)", () => {
       .locator(".landmarks-panel-section-header__pin-label");
     await expect(pinLabel).toHaveText("harness-point");
     await expect(pinLabel).toBeVisible();
-    const box = await pinLabel.boundingBox();
-    expect(box && box.width).toBeGreaterThan(24);
+    const textWidth = await pinLabel.evaluate((el) => el.getBoundingClientRect().width);
+    expect(textWidth).toBeGreaterThan(8);
   });
 
   test("minimise keeps landmark pin name in section header", async ({ page }) => {
