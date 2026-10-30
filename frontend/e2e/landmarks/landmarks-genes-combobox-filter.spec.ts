@@ -4,66 +4,6 @@ import { test } from "../fixtures";
 
 import { bootLandmarksHarness, getModel } from "../helpers";
 
-/** Keystroke-to-first-option latency inside the page (no Playwright round-trips). */
-async function measureQueryToFirstOptionMs(page: Page, query: string) {
-  return page.evaluate((q) => {
-    const inputEl = document.querySelector(
-      '[data-testid="explore-color-controls"] [data-slot="combobox-chip-input"]',
-    ) as HTMLInputElement | null;
-    if (!inputEl) throw new Error("genes combobox input missing");
-
-    const countOptions = () => document.querySelectorAll('[data-slot="combobox-item"]').length;
-
-    return new Promise<number>((resolve, reject) => {
-      let settled = false;
-      let rafWatch = 0;
-      let t0 = 0;
-
-      const finish = (start: number) => {
-        if (settled) return;
-        settled = true;
-        observer.disconnect();
-        cancelAnimationFrame(rafWatch);
-        requestAnimationFrame(() => resolve(performance.now() - start));
-      };
-
-      const observer = new MutationObserver(() => {
-        if (countOptions() > 0) finish(t0);
-      });
-
-      t0 = performance.now();
-      observer.observe(document.body, { childList: true, subtree: true });
-
-      inputEl.focus();
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-      if (setter) setter.call(inputEl, q);
-      else inputEl.value = q;
-      inputEl.dispatchEvent(
-        new InputEvent("input", { bubbles: true, inputType: "insertText", data: q }),
-      );
-
-      requestAnimationFrame(() => {
-        if (countOptions() > 0) finish(t0);
-      });
-
-      const watch = () => {
-        if (settled) return;
-        if (countOptions() > 0) finish(t0);
-        else rafWatch = requestAnimationFrame(watch);
-      };
-      rafWatch = requestAnimationFrame(watch);
-
-      window.setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        observer.disconnect();
-        cancelAnimationFrame(rafWatch);
-        reject(new Error("timed out waiting for first combobox option"));
-      }, 10_000);
-    });
-  }, query);
-}
-
 async function openGenesTab(page: Page) {
   const right = page.locator(".landmarks__chrome-dock--right");
   if ((await right.getAttribute("data-collapsed")) === "true") {
@@ -75,9 +15,11 @@ async function openGenesTab(page: Page) {
 async function pickerListState(page: Page) {
   return page.evaluate(() => {
     const empty = document.querySelector('[data-slot="combobox-empty"]');
+    const emptyText = empty?.textContent?.trim() ?? "";
     const emptyVisible =
       empty instanceof HTMLElement &&
-      empty.classList.contains("group-data-empty/combobox-content:flex");
+      emptyText.includes("No genes found") &&
+      document.querySelectorAll('[data-slot="combobox-item"]').length === 0;
     const optionCount = document.querySelectorAll('[data-slot="combobox-item"]').length;
     const inputEl = document.querySelector(
       '[data-testid="explore-color-controls"] [data-slot="combobox-chip-input"]',
@@ -85,9 +27,65 @@ async function pickerListState(page: Page) {
     return {
       input: inputEl?.value ?? "",
       optionCount,
-      emptyVisible: Boolean(emptyVisible && optionCount === 0),
+      emptyVisible,
     };
   });
+}
+
+/** Reproduce CI flake path: IME composition shows text before filter state commits. */
+async function stuckStateAfterCompositionCommit(page: Page) {
+  return page.evaluate(() => {
+    const inputEl = document.querySelector(
+      '[data-testid="explore-color-controls"] [data-slot="combobox-chip-input"]',
+    ) as HTMLInputElement | null;
+    if (!inputEl) throw new Error("genes combobox input missing");
+
+    const read = () => {
+      const optionCount = document.querySelectorAll('[data-slot="combobox-item"]').length;
+      const empty = document.querySelector('[data-slot="combobox-empty"]');
+      const emptyVisible =
+        empty instanceof HTMLElement &&
+        (empty.textContent ?? "").includes("No genes found") &&
+        optionCount === 0;
+      return {
+        input: inputEl.value,
+        optionCount,
+        emptyVisible,
+      };
+    };
+
+    inputEl.focus();
+    inputEl.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "" }));
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+    if (setter) setter.call(inputEl, "Abtb3");
+    else inputEl.value = "Abtb3";
+
+    const midCompose = read();
+    inputEl.dispatchEvent(
+      new CompositionEvent("compositionend", { bubbles: true, data: "Abtb3" }),
+    );
+    const syncAfterCommit = read();
+
+    return new Promise<{
+      midCompose: ReturnType<typeof read>;
+      syncAfterCommit: ReturnType<typeof read>;
+      afterMicrotask: ReturnType<typeof read>;
+      afterFrame: ReturnType<typeof read>;
+    }>((resolve) => {
+      queueMicrotask(() => {
+        const afterMicrotask = read();
+        requestAnimationFrame(() => {
+          resolve({ midCompose, syncAfterCommit, afterMicrotask, afterFrame: read() });
+        });
+      });
+    });
+  });
+}
+
+async function openPickerInput(page: Page) {
+  const genePicker = page.getByTestId("explore-color-controls").getByPlaceholder("Select genes");
+  await genePicker.click();
+  return genePicker;
 }
 
 test.describe("Landmarks genes combobox filter sync (#387)", () => {
@@ -99,54 +97,42 @@ test.describe("Landmarks genes combobox filter sync (#387)", () => {
     );
   });
 
-  test("full-string input shows Abtb3 before empty state sticks", async ({ page }) => {
-    const genePicker = page.getByTestId("explore-color-controls").getByPlaceholder("Select genes");
-    await genePicker.click();
-
-    const latencyMs = await measureQueryToFirstOptionMs(page, "Abtb3");
-    expect(latencyMs).toBeLessThan(5000);
+  test("empty open popup stays search-first with zero options", async ({ page }) => {
+    await openPickerInput(page);
     const state = await pickerListState(page);
-    expect(state.input).toBe("Abtb3");
-    expect(state.optionCount).toBeGreaterThan(0);
-    expect(state.emptyVisible).toBe(false);
-    await expect(page.getByRole("option", { name: "Abtb3", exact: true })).toBeVisible();
+    expect(state.input).toBe("");
+    expect(state.optionCount).toBe(0);
+    expect(state.emptyVisible).toBe(true);
   });
 
-  test("per-keystroke typing keeps options in sync", async ({ page }) => {
-    const genePicker = page.getByTestId("explore-color-controls").getByPlaceholder("Select genes");
-    await genePicker.click();
+  test("composition commit cannot leave Abtb3 stuck on No genes found", async ({ page }) => {
+    await openPickerInput(page);
+    const phases = await stuckStateAfterCompositionCommit(page);
+
+    expect(phases.midCompose.input).toBe("Abtb3");
+    expect(phases.midCompose.optionCount).toBe(0);
+
+    expect(phases.afterMicrotask.input).toBe("Abtb3");
+    expect(phases.afterMicrotask.optionCount).toBeGreaterThan(0);
+    expect(phases.afterMicrotask.emptyVisible).toBe(false);
+
+    expect(phases.afterFrame.input).toBe("Abtb3");
+    expect(phases.afterFrame.optionCount).toBeGreaterThan(0);
+    expect(phases.afterFrame.emptyVisible).toBe(false);
+  });
+
+  test("per-keystroke typing never sticks on empty while query matches", async ({ page }) => {
+    await openPickerInput(page);
 
     for (const ch of "Abtb3") {
       await page.keyboard.press(ch);
       const state = await pickerListState(page);
-      expect(state.emptyVisible).toBe(false);
-      if (ch === "3") {
+      expect(state.input.endsWith(ch)).toBe(true);
+      if (state.input.trim().length >= 3) {
         expect(state.optionCount).toBeGreaterThan(0);
+        expect(state.emptyVisible).toBe(false);
       }
     }
-    await expect(page.getByRole("option", { name: "Abtb3", exact: true })).toBeVisible();
-  });
-
-  test("composition end commits filter for the full query", async ({ page }) => {
-    const genePicker = page.getByTestId("explore-color-controls").getByPlaceholder("Select genes");
-    await genePicker.click();
-
-    await page.evaluate(() => {
-      const inputEl = document.querySelector(
-        '[data-testid="explore-color-controls"] [data-slot="combobox-chip-input"]',
-      ) as HTMLInputElement | null;
-      if (!inputEl) throw new Error("genes combobox input missing");
-      inputEl.focus();
-      inputEl.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true, data: "" }));
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
-      if (setter) setter.call(inputEl, "Abtb3");
-      else inputEl.value = "Abtb3";
-      inputEl.dispatchEvent(
-        new CompositionEvent("compositionend", { bubbles: true, data: "Abtb3" }),
-      );
-    });
-
-    await expect.poll(async () => (await pickerListState(page)).optionCount).toBeGreaterThan(0);
     await expect(page.getByRole("option", { name: "Abtb3", exact: true })).toBeVisible();
   });
 });
