@@ -77,37 +77,43 @@ test.describe("panel layout (option 1)", () => {
     );
   });
 
-  test("Shift+\\ toggles minimise and hides outer carets", async ({ page }) => {
+  test("Shift+\\ toggles minimise, keeps left caret, and shows color chip", async ({ page }) => {
     await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
     await waitForEngine(page);
     const box = await canvasBox(page);
     await page.mouse.click(box.x + 5, box.y + box.height - 5);
     await page.keyboard.press("Shift+\\");
     await expect(page.locator(".milume-widget.landmarks")).toHaveClass(/landmarks--minimise/);
-    await expect(page.getByTestId("panel-collapse-caret-left")).toHaveCount(0);
-    await page.getByTestId("toggle-minimise-panels").click();
-    await expect(page.locator(".milume-widget.landmarks")).not.toHaveClass(/landmarks--minimise/);
+    await expect(page.getByTestId("panel-collapse-caret-left")).toBeVisible();
+    await expect(page.getByTestId("minimise-color-chip")).toBeVisible();
+    await expect(page.getByTestId("info-explore-stack").locator("[data-testid='explore-color-by']")).toBeHidden();
+    await page.getByTestId("minimise-color-chip-expand").click();
+    await expect(page.getByTestId("info-explore-stack").locator("[data-testid='explore-color-by']")).toBeVisible();
   });
 
-  test("pinned landmark shows inline in collapsed header", async ({ page }) => {
+  test("pinned landmark shows visible name in collapsed header", async ({ page }) => {
     await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
     await waitForEngine(page);
     await setModel(page, { selected_kind: "landmark", selected_index: 0 });
     await page.getByTestId("panel-section-selections").click();
-    const header = page.getByTestId("panel-section-landmarks");
-    await expect(header.locator(".landmarks-panel-section-header__pin-label")).toHaveText(
-      "harness-point",
-    );
+    const pinLabel = page
+      .getByTestId("panel-section-landmarks")
+      .locator(".landmarks-panel-section-header__pin-label");
+    await expect(pinLabel).toHaveText("harness-point");
+    await expect(pinLabel).toBeVisible();
+    const box = await pinLabel.boundingBox();
+    expect(box && box.width).toBeGreaterThan(24);
   });
 
-  test("minimise keeps landmark pin in section header", async ({ page }) => {
+  test("minimise keeps landmark pin name in section header", async ({ page }) => {
     await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
     await waitForEngine(page);
     await setModel(page, { selected_kind: "landmark", selected_index: 0 });
     await page.getByTestId("toggle-minimise-panels").click();
-    const header = page.getByTestId("panel-section-landmarks");
-    await expect(header.locator(".landmarks-panel-section-header__pin-label")).toHaveText(
-      "harness-point",
-    );
+    const pinLabel = page
+      .getByTestId("panel-section-landmarks")
+      .locator(".landmarks-panel-section-header__pin-label");
+    await expect(pinLabel).toHaveText("harness-point");
+    await expect(pinLabel).toBeVisible();
   });
 });

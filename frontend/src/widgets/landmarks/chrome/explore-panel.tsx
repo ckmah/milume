@@ -55,7 +55,7 @@ import { isTypeRowActive } from "../type-focus";
 
 const AVATAR_MAX = 5;
 
-function SubcategoryAvatars({ col }: { col: CategoryColumn }) {
+export function SubcategoryAvatars({ col }: { col: CategoryColumn }) {
   const labels = col.labels || [];
   const palette = col.palette || [];
   const shown = labels.slice(0, AVATAR_MAX);

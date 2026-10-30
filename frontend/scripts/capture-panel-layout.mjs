@@ -92,6 +92,11 @@ async function main() {
   await page.getByTestId("toggle-minimise-panels").click();
   await capture(page, "panel-layout-minimise-landmark");
 
+  await loadFixture(page, "/fixture.json");
+  await setModel(page, { selected_kind: "selection", selected_index: 0 });
+  await page.getByTestId("toggle-minimise-panels").click();
+  await capture(page, "panel-layout-minimise-selection");
+
   await browser.close();
   console.log(`Wrote captures under ${outDir}`);
 }

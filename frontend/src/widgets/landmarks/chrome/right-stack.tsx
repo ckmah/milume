@@ -23,6 +23,7 @@ import {
 } from "./explore-panel";
 import { GenesCombobox } from "./genes-legend";
 import { InfoPanel } from "./info-panel";
+import { MinimiseColorChip } from "./minimise-color-chip";
 import { RasterSection } from "./raster-section";
 import { EMBEDDED_PANEL, PANEL_INSET, PILL_TABS_TRIGGER, STACK_GAP_SM } from "./sections";
 import { SoftFloatSlidingTabsList } from "./sliding-tabs";
@@ -35,10 +36,17 @@ export function RightChromeStack({
   model,
   lm,
   engine = null,
+  minimise = false,
+  rightCardExpanded = true,
+  onExpandRightCard,
 }: {
   model: AnyModel;
   lm: LandmarksModel;
   engine?: EngineHandle | null;
+  minimise?: boolean;
+  /** When minimise is on, false shows the single color chip row only. */
+  rightCardExpanded?: boolean;
+  onExpandRightCard?: () => void;
 }) {
   const modelSignal = colorSignal(lm);
   const [colorBy, setColorBy] = useState<ColorSignal>(modelSignal);
@@ -64,6 +72,7 @@ export function RightChromeStack({
   };
 
   const detail = colorSignalDetail(lm, colorBy);
+  const chipMode = minimise && !rightCardExpanded;
 
   return (
     <div
@@ -81,6 +90,15 @@ export function RightChromeStack({
           "pt-1.5",
         )}
       >
+        {chipMode ? (
+          <MinimiseColorChip lm={lm} onExpand={() => onExpandRightCard?.()} />
+        ) : null}
+        <div
+          className={cn(
+            "landmarks__chrome-stack-body flex min-h-0 flex-1 flex-col",
+            chipMode && "hidden",
+          )}
+        >
         <Tabs
           value={colorBy}
           onValueChange={onColorBy}
@@ -149,6 +167,7 @@ export function RightChromeStack({
         </Tabs>
         {/* Matches pt-1.5; shrink-0 so it stays when the dock hits max-height. */}
         <div className="h-1.5 shrink-0" aria-hidden />
+        </div>
       </div>
     </div>
   );

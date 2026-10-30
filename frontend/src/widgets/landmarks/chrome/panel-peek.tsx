@@ -8,18 +8,15 @@ import { ChromeTooltip, chromeHitClass } from "./primitives";
 type DockSide = "left" | "right";
 
 /**
- * Caret outside the dock's inner top corner (option 1). Hides in minimise mode.
+ * Caret outside the dock's inner top corner (option 1). Stays visible in minimise mode.
  */
 export function PanelCollapseButton({
   side,
   onCollapse,
-  hidden,
 }: {
   side: DockSide;
   onCollapse: () => void;
-  hidden?: boolean;
 }) {
-  if (hidden) return null;
   const glyph = side === "left" ? "‹" : "›";
   const label = side === "left" ? "Collapse left panel" : "Collapse right panel";
   return (

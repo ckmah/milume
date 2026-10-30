@@ -105,6 +105,7 @@ export function LandmarksView({
   const [narrow, setNarrow] = useState(false);
   const [collapsed, setCollapsed] = useState({ left: false, right: false });
   const [minimise, setMinimise] = useState(false);
+  const [rightCardExpanded, setRightCardExpanded] = useState(false);
   const savedHeightRef = useRef<number | null>(null);
   const wasFullscreenRef = useRef(false);
 
@@ -221,6 +222,10 @@ export function LandmarksView({
       preInspectRef.current = null;
     }
   }, [inspecting]);
+
+  useEffect(() => {
+    if (minimise) setRightCardExpanded(false);
+  }, [minimise]);
 
   // The top slot swaps the tool pill and the Inspect pill (`<Rise>` each).
   const toolPillRef = useRef<HTMLDivElement>(null);
@@ -550,7 +555,6 @@ export function LandmarksView({
             >
               <PanelCollapseButton
                 side="left"
-                hidden={minimise}
                 onCollapse={() => setCollapsed((c) => ({ ...c, left: true }))}
               />
               <div
@@ -560,7 +564,14 @@ export function LandmarksView({
                 )}
                 data-testid="info-explore-stack"
               >
-                <RightChromeStack model={model} lm={lm} engine={engine} />
+                <RightChromeStack
+                  model={model}
+                  lm={lm}
+                  engine={engine}
+                  minimise={minimise}
+                  rightCardExpanded={rightCardExpanded}
+                  onExpandRightCard={() => setRightCardExpanded(true)}
+                />
               </div>
               <LayersPanel
                 lm={lm}
@@ -592,7 +603,6 @@ export function LandmarksView({
             >
               <PanelCollapseButton
                 side="left"
-                hidden={minimise}
                 onCollapse={() => setCollapsed((c) => ({ ...c, left: true }))}
               />
               <LayersPanel
@@ -614,6 +624,7 @@ export function LandmarksView({
               className={cn(
                 "landmarks__chrome-dock landmarks__chrome-dock--right",
                 collapsed.right && "landmarks__chrome-dock--collapsed",
+                minimise && !rightCardExpanded && "landmarks__chrome-dock--right-chip",
               )}
               data-collapsed={collapsed.right ? "true" : "false"}
               inert={collapsed.right}
@@ -622,7 +633,6 @@ export function LandmarksView({
             >
               <PanelCollapseButton
                 side="right"
-                hidden={minimise}
                 onCollapse={() => setCollapsed((c) => ({ ...c, right: true }))}
               />
               <div
@@ -632,7 +642,14 @@ export function LandmarksView({
                 )}
                 data-testid="info-explore-stack"
               >
-                <RightChromeStack model={model} lm={lm} engine={engine} />
+                <RightChromeStack
+                  model={model}
+                  lm={lm}
+                  engine={engine}
+                  minimise={minimise}
+                  rightCardExpanded={rightCardExpanded}
+                  onExpandRightCard={() => setRightCardExpanded(true)}
+                />
               </div>
             </div>
             {collapsed.right ? (

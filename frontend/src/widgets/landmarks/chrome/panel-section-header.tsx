@@ -45,10 +45,11 @@ export function PanelSectionHeader({
       <Button
         type="button"
         variant="ghost"
-        className="landmarks-panel-section-header__main h-auto w-full justify-start rounded-none px-1 py-0 font-normal"
+        className="landmarks-panel-section-header__wrap h-auto w-full justify-start rounded-none px-0 py-0 font-normal"
         aria-expanded={open}
         onClick={onToggle}
       >
+        <span className="landmarks-panel-section-header__main">
         <Icon className="landmarks-panel-section-header__icon" aria-hidden />
         <span className="landmarks-panel-section-header__label">{label}</span>
         {pin && (!open || minimise) ? (
@@ -80,6 +81,7 @@ export function PanelSectionHeader({
         <span className="landmarks-panel-section-header__trail">
           <span className="landmarks-panel-section-header__count">{count}</span>
           <Chevron className="landmarks-panel-section-header__chevron" aria-hidden />
+        </span>
         </span>
       </Button>
     </div>
