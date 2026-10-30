@@ -72,6 +72,11 @@ galt_hits = w.get_obs_names(sel_id)
 
 **Result:** A few hundred cells, enriched for immune labels when you analyze them next.
 
+<figure class="ml-hero ml-hero--still" markdown="0">
+<img class="ml-only-dark" src="../assets/tutorials/explore-cells-2d/still-galt-selection.dark.png" alt="A GALT follicle lasso on the ileum map with cell-type counts for the selection." loading="lazy">
+<img class="ml-only-light" src="../assets/tutorials/explore-cells-2d/still-galt-selection.light.png" alt="A GALT follicle lasso on the ileum map with cell-type counts for the selection." loading="lazy">
+</figure>
+
 ## 5. Enrichment and violin plots
 
 ```python
