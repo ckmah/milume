@@ -4,6 +4,8 @@ import { writeFileSync } from "node:fs";
 export const DATASET_ID = "demos/data:ileum";
 /** Wide enough for the widget; height matches dev harness shell (~820px at this width). */
 export const VIEWPORT = { width: 960, height: 900 };
+/** Clarence hand capture @2× scaled to 1× for GALT tutorial stills (2136×1456 → 1068×728). */
+export const GALT_TUTORIAL_STILL_SIZE = { width: 1068, height: 728 };
 
 export function milumeSidecarSha(repoRoot) {
   const r = spawnSync("git", ["-C", repoRoot, "rev-parse", "--short", "HEAD"], {
