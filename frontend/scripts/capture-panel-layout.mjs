@@ -58,8 +58,8 @@ async function main() {
   await capture(page, "panel-layout-ileum-2d");
 
   await loadFixture(page, "/fixture.json");
-  await setModel(page, { selected_kind: "landmark", selected_index: 0 });
-  await page.getByTestId("panel-section-selections").click();
+  await setModel(page, { selected_kind: "selection", selected_index: 0 });
+  await page.getByTestId("panel-section-landmarks").click();
   await capture(page, "panel-layout-left-collapsed-pin");
 
   await loadFixture(page, "/fixture.json");
