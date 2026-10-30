@@ -24,7 +24,18 @@ function cssColorToHex(css: string): string {
   return `#${hex(m[1]!)}${hex(m[2]!)}${hex(m[3]!)}`;
 }
 
+async function ensureLandmarksSectionOpen(page: Page) {
+  const section = page.getByTestId("panel-section-landmarks");
+  const isOpen = await section.evaluate((el) =>
+    el.classList.contains("landmarks-panel-section--open"),
+  );
+  if (!isOpen) {
+    await section.locator(".landmarks-panel-section-header__main").click();
+  }
+}
+
 async function panelSwatchHex(page: Page, label: string) {
+  await ensureLandmarksSectionOpen(page);
   const row = page.locator(".landmarks-layer-row").filter({
     has: page.getByText(label, { exact: true }),
   });
