@@ -62,7 +62,7 @@ def live() -> dict:
     internal = {
         n: f"trait {type(traits[n]).__name__}"
         for n in sorted(LandmarksWidget.class_trait_names(sync=True))
-        if n not in base and n not in _PUBLIC_TRAITS and (not n.startswith("_") or n == "_numeric_obs_columns")
+        if n not in base and n not in _PUBLIC_TRAITS and not n.startswith("_")
     }
     return {"public": {"exports": exports, "traits": public}, "internal": {"traits": internal}}
 

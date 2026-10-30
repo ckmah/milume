@@ -126,6 +126,7 @@ export function LayersPanel({
                 onToggle={() => toggleSection("selections")}
                 pin={selectionPin}
                 testId="panel-section-selections"
+                minimise={minimise}
               />
               {sectionOpen("selections") ? (
                 <div className="landmarks-panel-section__body px-0 pb-1.5">
@@ -184,6 +185,7 @@ export function LayersPanel({
                 onToggle={() => toggleSection("landmarks")}
                 pin={landmarkPin}
                 testId="panel-section-landmarks"
+                minimise={minimise}
               />
               {sectionOpen("landmarks") ? (
                 <div className="landmarks-panel-section__body px-0 pb-1.5">
@@ -230,6 +232,7 @@ export function LayersPanel({
                 open={sectionOpen("layers")}
                 onToggle={() => toggleSection("layers")}
                 testId="panel-section-layers"
+                minimise={minimise}
               />
               {sectionOpen("layers") ? (
                 <div className="landmarks-panel-section__body">

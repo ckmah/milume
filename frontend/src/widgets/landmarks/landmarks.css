@@ -1098,6 +1098,14 @@
   border-top: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
 }
 
+.landmarks-panel-collapse-caret__glyph,
+.landmarks__peek-tab-glyph {
+  display: block;
+  font-size: 1rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
 .landmarks-view-minimise-box {
   box-sizing: border-box;
   display: inline-flex;
@@ -1107,6 +1115,10 @@
   justify-content: center;
   border: 1px solid color-mix(in oklab, var(--foreground) 35%, transparent);
   border-radius: 2px;
+}
+
+.landmarks--minimise .landmarks__chrome-dock--right {
+  width: min(var(--lm-dock-width), 14.5rem);
 }
 
 .landmarks--minimise .landmarks__chrome-dock--left {

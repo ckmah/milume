@@ -45,7 +45,6 @@
   },
   "internal": {
     "traits": {
-      "_numeric_obs_columns": "trait List",
       "category_codes": "trait Unicode",
       "category_columns": "trait List",
       "color_mode": "trait Unicode",

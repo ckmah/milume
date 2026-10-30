@@ -21,6 +21,7 @@ export function PanelSectionHeader({
   onToggle,
   pin,
   testId,
+  minimise = false,
 }: {
   icon: LucideIcon;
   label: string;
@@ -29,6 +30,7 @@ export function PanelSectionHeader({
   onToggle: () => void;
   pin?: PanelSectionPin | null;
   testId?: string;
+  minimise?: boolean;
 }) {
   const Chevron = open ? ChevronDownIcon : ChevronRightIcon;
 
@@ -49,7 +51,7 @@ export function PanelSectionHeader({
       >
         <Icon className="landmarks-panel-section-header__icon" aria-hidden />
         <span className="landmarks-panel-section-header__label">{label}</span>
-        {pin && !open ? (
+        {pin && (!open || minimise) ? (
           <span
             className="landmarks-panel-section-header__pin"
             onClick={(e) => e.stopPropagation()}

@@ -550,6 +550,7 @@ export function LandmarksView({
             >
               <PanelCollapseButton
                 side="left"
+                hidden={minimise}
                 onCollapse={() => setCollapsed((c) => ({ ...c, left: true }))}
               />
               <div
@@ -591,6 +592,7 @@ export function LandmarksView({
             >
               <PanelCollapseButton
                 side="left"
+                hidden={minimise}
                 onCollapse={() => setCollapsed((c) => ({ ...c, left: true }))}
               />
               <LayersPanel
@@ -620,6 +622,7 @@ export function LandmarksView({
             >
               <PanelCollapseButton
                 side="right"
+                hidden={minimise}
                 onCollapse={() => setCollapsed((c) => ({ ...c, right: true }))}
               />
               <div

@@ -147,8 +147,8 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                 Contrast {Math.round(contrast[0])}–{Math.round(contrast[1])}
               </p>
               <p className={META_LINE}>Alpha 0.55</p>
-              <p className="m-0 text-[10px] text-foreground/65">
-                More: palette, gamma… (Inspect toolbar)
+              <p className="m-0 text-[11px] text-foreground/65">
+                Adjust contrast and alpha in Inspect.
               </p>
             </div>
           ) : null}
