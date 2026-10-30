@@ -2,6 +2,7 @@ import type React from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Matrix4 } from "@math.gl/core";
 import { VivViewer, loadOmeZarr, loadOmeZarrFromStore } from "@hms-dbmi/viv";
+import equal from "fast-deep-equal";
 
 import { ChromeLoadIndicator } from "@/widgets/landmarks/chrome/load-indicator";
 
@@ -49,6 +50,7 @@ import {
 import { cellMeshClipBox } from "./cell-mesh-clip";
 import { type CellPolygons, cellMeshBuilder } from "./cell-mesh-source";
 import { type CubeOverlay, placeOverlays } from "./overlay-layers";
+import { CUBE_LABEL_CELLS_SETTLE_MS } from "./cube-settled";
 import { paletteLut } from "./palettes";
 import { dragToWindowDelta } from "./pan";
 import { type WindowTarget, levelVoxelSize, useShownWindow } from "./use-shown-window";
@@ -574,15 +576,14 @@ export function VolumeCube({
               const zAxis = shownImage.labels.indexOf("z");
               const depth = zAxis >= 0 ? shownImage.shape[zAxis]! : 1;
               contentZSpanImage.current = shownImage;
-              setContentZSpan(
-                contentZIndexSpan(
-                  raw as ArrayLike<number>,
-                  shownImage.width,
-                  shownImage.height,
-                  depth,
-                  imageSignalMin,
-                ),
+              const span = contentZIndexSpan(
+                raw as ArrayLike<number>,
+                shownImage.width,
+                shownImage.height,
+                depth,
+                imageSignalMin,
               );
+              setContentZSpan((prev) => (prev && prev[0] === span[0] && prev[1] === span[1] ? prev : span));
             }
             shownImage.release();
           }
@@ -1034,6 +1035,11 @@ export function VolumeCube({
   // point or the volume stays on the origin while the plates sit on the box.
   if (orbitViewRef.current) orbitViewRef.current.target = aimTarget;
   const onRenderedRef = useLatest(onRendered);
+  const renderOverlayOn = useMemo(
+    () => typeof window !== "undefined" && new URLSearchParams(window.location.search).get("cubeRenderOverlay") === "1",
+    [],
+  );
+  const [renderOverlayCount, setRenderOverlayCount] = useState(0);
   const deckProps = useMemo(
     () => ({
       effects: [CELL_MESH_LIGHTING],
@@ -1041,11 +1047,12 @@ export function VolumeCube({
         if (typeof window !== "undefined") {
           const w = window as unknown as { __volumeCubeRenderCount?: number };
           w.__volumeCubeRenderCount = (w.__volumeCubeRenderCount ?? 0) + 1;
+          if (renderOverlayOn) setRenderOverlayCount(w.__volumeCubeRenderCount);
         }
         onRenderedRef.current?.(gl.canvas as HTMLCanvasElement);
       },
     }),
-    [onRenderedRef],
+    [onRenderedRef, renderOverlayOn],
   );
   // Raw slices stay in voxel indices for the cut plates. Viv needs them scaled.
   const voxelX = levelVoxel?.[2] ?? 1;
@@ -1196,6 +1203,19 @@ export function VolumeCube({
   const onPanRef = useLatest(onPan);
   const onPanEndRef = useLatest(onPanEnd);
   const [panning, setPanning] = useState(false);
+  const labelCellCount = mesh?.ids.length ?? 0;
+  const [labelCellsStable, setLabelCellsStable] = useState(!meshesOn);
+  useEffect(() => {
+    if (!meshesOn) {
+      setLabelCellsStable(true);
+      return;
+    }
+    setLabelCellsStable(false);
+    const t = window.setTimeout(() => setLabelCellsStable(true), CUBE_LABEL_CELLS_SETTLE_MS);
+    return () => window.clearTimeout(t);
+  }, [meshesOn, labelCellCount]);
+  const cubeSettled =
+    !refining && !panning && (!meshesOn || (labelsState === "on" && labelCellsStable));
   /** Stop a pan still in progress; its end is reported, so its last moves are saved. */
   const stopPan = useCallback(() => {
     const abort = panAbort.current;
@@ -1398,6 +1418,7 @@ export function VolumeCube({
       data-image-gamma={render.imageGamma}
       data-level={shown?.level.index ?? -1}
       data-refining={String(refining)}
+      data-settled={String(cubeSettled)}
       data-overlays={placedOverlays?.count ?? 0}
       data-points={showPoints ? (placedScatterPoints?.length ?? 0) : 0}
       data-zoom={viewState ? viewState.zoom.toFixed(2) : ""}
@@ -1421,6 +1442,14 @@ export function VolumeCube({
           phase={status.startsWith("Loading") ? "loading" : "error"}
           message={status}
         />
+      ) : null}
+      {renderOverlayOn ? (
+        <div
+          className="pointer-events-none absolute right-2 bottom-2 z-10 rounded bg-black/75 px-2 py-1 font-mono text-xs text-white tabular-nums"
+          data-testid="cube-render-overlay"
+        >
+          renders: {renderOverlayCount}
+        </div>
       ) : null}
       <VolumeCubeCutChrome
         ref={cutChromeRef}
@@ -1462,6 +1491,29 @@ type VolumeCubeDeckProps = {
 };
 
 /** Viv deck only: cut-face hover updates skip this subtree so deck does not redraw. */
+function deckLayerPropsEqual(a: Record<string, unknown>[], b: Record<string, unknown>[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const left = a[i]!;
+    const right = b[i]!;
+    for (const key of new Set([...Object.keys(left), ...Object.keys(right)])) {
+      const lv = left[key];
+      const rv = right[key];
+      if (typeof lv === "function" && typeof rv === "function") continue;
+      if (!equal(lv, rv)) return false;
+    }
+  }
+  return true;
+}
+
+function volumeCubeDeckPropsEqual(prev: VolumeCubeDeckProps, next: VolumeCubeDeckProps): boolean {
+  if (prev.views !== next.views) return false;
+  if (!equal(prev.viewStates, next.viewStates)) return false;
+  if (!deckLayerPropsEqual(prev.layerProps, next.layerProps)) return false;
+  if (prev.deckProps.effects !== next.deckProps.effects) return false;
+  return true;
+}
+
 const VolumeCubeDeck = memo(function VolumeCubeDeck({
   layerProps,
   views,
@@ -1481,7 +1533,7 @@ const VolumeCubeDeck = memo(function VolumeCubeDeck({
       } as unknown as React.ComponentProps<typeof VivViewer>)}
     />
   );
-});
+}, volumeCubeDeckPropsEqual);
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
