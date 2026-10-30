@@ -370,3 +370,62 @@ export async function toyInspectBox(page: Page) {
   expect(box).toBeTruthy();
   return { panel, box: box! };
 }
+
+/** `.volume-cube__view` inside the immersive Cube dialog (Inspect). */
+export function cubeViewInDialog(page: Page) {
+  return page.getByRole("dialog", { name: "Cube" }).locator(".volume-cube__view");
+}
+
+export async function resetCubeRenderCount(page: Page) {
+  await page.evaluate(() => {
+    (window as { __volumeCubeRenderCount?: number }).__volumeCubeRenderCount = 0;
+  });
+}
+
+export async function readCubeRenderCount(page: Page) {
+  return page.evaluate(() => (window as { __volumeCubeRenderCount?: number }).__volumeCubeRenderCount ?? 0);
+}
+
+/**
+ * Cube has finished refining and label geometry is stable — `data-settled="true"` when
+ * VolumeCube exposes it; otherwise refining off, labels on, and stable `data-label-cells`.
+ */
+export async function waitForCubeSettled(page: Page, { timeout = 120_000 } = {}) {
+  const view = cubeViewInDialog(page);
+  await expect(view).toHaveAttribute("data-refining", "false", { timeout });
+
+  const usesSettledAttr = await view.evaluate((el) => el.hasAttribute("data-settled"));
+  if (usesSettledAttr) {
+    await expect(view).toHaveAttribute("data-settled", "true", { timeout });
+    return;
+  }
+
+  await expect(view).toHaveAttribute("data-labels", "on", { timeout });
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view');
+      if (!el) return false;
+      return Number(el.getAttribute("data-label-cells") ?? 0) > 0;
+    },
+    null,
+    { timeout },
+  );
+  let last = -1;
+  let stable = 0;
+  while (stable < 3) {
+    await page.waitForTimeout(200);
+    const cells = await page.evaluate(
+      () =>
+        Number(
+          document.querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view')?.getAttribute(
+            "data-label-cells",
+          ) ?? 0,
+        ),
+    );
+    if (cells === last) stable += 1;
+    else {
+      last = cells;
+      stable = 0;
+    }
+  }
+}
