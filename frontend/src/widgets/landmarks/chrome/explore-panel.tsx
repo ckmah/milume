@@ -25,7 +25,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ChevronRightIcon } from "lucide-react";
 
-import type { CategoryColumn } from "../helpers";
+import type { AnyModel, CategoryColumn } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
 import {
   activateCategories,
@@ -135,8 +135,14 @@ export function EmbeddingCombobox({ lm }: { lm: LandmarksModel }) {
 }
 
 
-export function NumericObsCombobox({ lm }: { lm: LandmarksModel }) {
-  const listed = lm.numeric_obs_columns || [];
+export function NumericObsCombobox({
+  model,
+  lm,
+}: {
+  model: AnyModel;
+  lm: LandmarksModel;
+}) {
+  const listed = (model.get("_numeric_obs_columns") as string[] | undefined) || [];
   const fallback =
     lm.color_mode === "obs" && (lm.color || lm.legend_title)
       ? [lm.color || lm.legend_title]
@@ -396,9 +402,11 @@ export function CategoriesControls({
  * active signal's options. Info is a sibling card above this panel.
  */
 export function ExplorePanel({
+  model,
   lm,
   embedded = false,
 }: {
+  model: AnyModel;
   lm: LandmarksModel;
   embedded?: boolean;
 }) {
@@ -420,7 +428,7 @@ export function ExplorePanel({
     }
     setColorBy(next as ColorSignal);
     if (next === "categories") activateCategories(lm);
-    else if (next === "numeric") activateNumeric(lm);
+    else if (next === "numeric") activateNumeric(model, lm);
     else if (next === "genes") activateGenes(lm);
     else activateEmbedding(lm);
   };
@@ -460,7 +468,7 @@ export function ExplorePanel({
             <CategoriesControls lm={lm} signal={colorBy} />
           </TabsContent>
           <TabsContent value="numeric" className="m-0">
-            <NumericObsCombobox lm={lm} />
+            <NumericObsCombobox model={model} lm={lm} />
           </TabsContent>
           <TabsContent value="genes" className="m-0">
             {lm.gene_names.length ? (

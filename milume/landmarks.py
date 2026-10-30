@@ -415,7 +415,7 @@ class LandmarksWidget(AnyWidget):
     neighbor_radius_max = traitlets.Float(0.0).tag(sync=True)
     neighbor_k_max = traitlets.Int(DEFAULT_K_MAX).tag(sync=True)
     # Numeric ``adata.obs`` columns the UI may colour (excludes bool); synced on init / obs refresh.
-    numeric_obs_columns = traitlets.List(traitlets.Unicode(), default_value=[]).tag(sync=True)
+    _numeric_obs_columns = traitlets.List(traitlets.Unicode(), default_value=[]).tag(sync=True)
 
     # Chrome bumps this; engine promotes neighborhood → selection client-side.
     promote_tick = traitlets.Int(0).tag(sync=True)
@@ -625,9 +625,9 @@ class LandmarksWidget(AnyWidget):
     def _sync_numeric_obs_columns(self) -> None:
         obs = getattr(self, "_adata", None)
         if obs is None:
-            self.numeric_obs_columns = []
+            self._numeric_obs_columns = []
             return
-        self.numeric_obs_columns = _numeric_obs_column_names(obs.obs)
+        self._numeric_obs_columns = _numeric_obs_column_names(obs.obs)
 
     def _attach_volume(self, src: Any, contrast_limits: tuple[float, float]) -> None:
         from .volume_comm import normalize_allow_prefixes

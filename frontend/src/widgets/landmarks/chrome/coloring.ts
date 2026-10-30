@@ -1,3 +1,4 @@
+import type { AnyModel } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
 
 /** Exclusive tissue coloring family (geometry is Points/Raster separately). */
@@ -46,8 +47,8 @@ export function colorSignalDetail(
   return lm.active_category || "None selected";
 }
 
-export function activateNumeric(lm: LandmarksModel) {
-  const cols = lm.numeric_obs_columns || [];
+export function activateNumeric(model: AnyModel, lm: LandmarksModel) {
+  const cols = (model.get("_numeric_obs_columns") as string[] | undefined) || [];
   const current = lm.color || lm.legend_title || "";
   if (current && (cols.includes(current) || lm.color_mode === "obs")) {
     lm.setColor(current);

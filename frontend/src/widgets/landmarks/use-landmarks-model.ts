@@ -73,7 +73,7 @@ export type LandmarksState = {
   gene_expression_logged: boolean;
   color_mode: string;
   color: string;
-  numeric_obs_columns: string[];
+  _numeric_obs_columns: string[];
   legend_labels: string[];
   legend_title: string;
   color_vmin: number;
@@ -134,7 +134,7 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
   "gene_expression_logged",
   "color_mode",
   "color",
-  "numeric_obs_columns",
+  "_numeric_obs_columns",
   "legend_labels",
   "legend_title",
   "color_vmin",
@@ -226,15 +226,9 @@ export function useLandmarksModel(model: AnyModel): LandmarksModel {
   const state = useModel<LandmarksState>(model, MODEL_KEYS);
   const genes = geneStoreFor(model);
   const gene_version = useSyncExternalStore(genes.subscribe, () => genes.version);
-  const numeric_obs_columns =
-    state.numeric_obs_columns ??
-    (Array.isArray(model.get("numeric_obs_columns"))
-      ? (model.get("numeric_obs_columns") as string[])
-      : []);
 
   return {
     ...state,
-    numeric_obs_columns,
     color: state.color ?? String(model.get("color") ?? ""),
     genes,
     gene_version,

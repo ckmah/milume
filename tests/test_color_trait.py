@@ -48,7 +48,7 @@ def test_categorical_obs_column_recolours_in_one_sync(monkeypatch):
 
 def test_numeric_obs_columns_synced_on_init():
     w = LandmarksWidget(_adata())
-    assert w.numeric_obs_columns == ["area"]
+    assert w._numeric_obs_columns == ["area"]
 
 
 def test_numeric_obs_column_shows_a_sequential_ramp():

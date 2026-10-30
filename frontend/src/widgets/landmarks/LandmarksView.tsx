@@ -559,7 +559,7 @@ export function LandmarksView({
                 )}
                 data-testid="info-explore-stack"
               >
-                <RightChromeStack lm={lm} engine={engine} />
+                <RightChromeStack model={model} lm={lm} engine={engine} />
               </div>
               <LayersPanel
                 lm={lm}
@@ -629,7 +629,7 @@ export function LandmarksView({
                 )}
                 data-testid="info-explore-stack"
               >
-                <RightChromeStack lm={lm} engine={engine} />
+                <RightChromeStack model={model} lm={lm} engine={engine} />
               </div>
             </div>
             {collapsed.right ? (

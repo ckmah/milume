@@ -4,6 +4,7 @@ import { FieldDescription } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
+import type { AnyModel } from "../helpers";
 import type { EngineHandle } from "../engine";
 import type { LandmarksModel } from "../use-landmarks-model";
 import {
@@ -31,9 +32,11 @@ import { SoftFloatSlidingTabsList } from "./sliding-tabs";
  * color controls underneath. One Tabs root keeps the switcher wired.
  */
 export function RightChromeStack({
+  model,
   lm,
   engine = null,
 }: {
+  model: AnyModel;
   lm: LandmarksModel;
   engine?: EngineHandle | null;
 }) {
@@ -55,7 +58,7 @@ export function RightChromeStack({
     }
     setColorBy(next as ColorSignal);
     if (next === "categories") activateCategories(lm);
-    else if (next === "numeric") activateNumeric(lm);
+    else if (next === "numeric") activateNumeric(model, lm);
     else if (next === "genes") activateGenes(lm);
     else activateEmbedding(lm);
   };
@@ -124,7 +127,7 @@ export function RightChromeStack({
                 <CategoriesControls lm={lm} signal={colorBy} />
               </TabsContent>
               <TabsContent value="numeric" className="m-0 flex-none">
-                <NumericObsCombobox lm={lm} />
+                <NumericObsCombobox model={model} lm={lm} />
               </TabsContent>
               <TabsContent value="genes" className="m-0 flex-none">
                 {lm.gene_names.length ? (

@@ -67,7 +67,7 @@
       "mode": "trait Unicode",
       "neighbor_k_max": "trait Int",
       "neighbor_radius_max": "trait Float",
-      "numeric_obs_columns": "trait List",
+      "_numeric_obs_columns": "trait List",
       "point_palette": "trait List",
       "point_size": "trait Float",
       "points_data": "trait Unicode",
