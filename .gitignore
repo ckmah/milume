@@ -6,6 +6,7 @@ dist/
 build/
 *.egg-info/
 .DS_Store
+.claude/settings.local.json
 .mypy_cache/
 .ruff_cache/
 demos/__marimo__/
@@ -49,3 +50,6 @@ website/content/assets/marimo-studio-zero-python/
 website/content/assets/recipe-widgets/
 worktrees/
 _linkcheck/
+
+# Impeccable engine binaries download on first use (see scripts/impeccable launcher).
+.cursor/skills/impeccable/scripts/bin/

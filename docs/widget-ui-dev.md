@@ -18,22 +18,31 @@ Refresh mock data after Python traitlet changes:
 cd frontend && npm run dev:fixture
 ```
 
-## Impeccable live (visual variants)
+## Widget UI design loop (impeccable)
 
-Requires the dev server above.
+Authority: `frontend/PRODUCT.md`, `frontend/DESIGN.md`, and `frontend/.impeccable/surfaces/landmarks-chrome.md`.
 
 ```bash
-# terminal 1
 cd frontend && npm run dev:landmarks
-
-# terminal 2 — repo root
-node .agents/skills/impeccable/scripts/live.mjs --target frontend/dev/index.html
-
-# terminal 3 — repo root (poll loop; or ask the agent for $impeccable live)
-node .agents/skills/impeccable/scripts/live-poll.mjs
 ```
 
-Select elements in the browser, generate variants, accept to write source. Live config: `frontend/.impeccable/live/config.json`.
+Edit under `frontend/src/widgets/landmarks/`. After each edit batch, the project hook runs `impeccable` on UI files (Cursor: `.cursor/hooks.json` on Write; Claude Code: `.claude/settings.json`). It warns only and never blocks. Config and scoped ignores live in `frontend/.impeccable/config.json`.
+
+Box agents and one-off checks:
+
+```bash
+IMPECCABLE_NO_TELEMETRY=1 .cursor/skills/impeccable/scripts/impeccable detect --json frontend/src/widgets/landmarks
+```
+
+Rendered scan (same rules as CI, needs the dev server above on port 5173):
+
+```bash
+cd frontend && DESIGN_SCAN_PORT=5173 node scripts/design-scan.mjs --ci
+```
+
+Triage every finding: fix it, or `impeccable hooks ignore-value … --reason "Agent: …"` for a narrow false positive. Do not use `ignore-rule` / `ignore-file` without Clarence.
+
+CI runs warn-only `impeccable detect --github` plus `design-scan --ci` in the `e2e-landmarks (default)` job. Primary findings are logged but do not fail the job. The step becomes strict on primary findings after about two quiet weeks.
 
 ## Notebook integration check
 
@@ -59,7 +68,8 @@ CI runs the same build; consumers never need Node.
 | ---- | ------- |
 | Fast UI edits | `npm run dev:landmarks` |
 | Refresh mock state | `npm run dev:fixture` |
-| Live variant mode | dev server + `live.mjs` + `live-poll.mjs` |
+| Design detect (source) | `.cursor/skills/impeccable/scripts/impeccable detect --json src/widgets/landmarks` |
+| Rendered design scan | dev server + `node scripts/design-scan.mjs --ci` |
 | Real data / traitlets | `watch:landmarks` + marimo demo |
 | Inspect cube, real xsmall | `dev:fixture:volume-xsmall-if-missing` then `dev:landmarks-volume-xsmall` |
 | Inspect cube, Pyxa small | `dev:fixture:volume-small-if-missing` then `dev:landmarks-volume-small` |
