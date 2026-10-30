@@ -82,8 +82,8 @@ def load_3d_small_pyxa(*, labels: bool = True) -> sd.SpatialData:
 
 
 def ileum_h5ad_path(*, force_remote: bool = False) -> Path:
-    """Resolved path to the ileum ``.h5ad`` (repo file or ``milume.datasets`` cache)."""
-    import milume.datasets as mds
+    """Resolved path to the ileum ``.h5ad`` (repo file or ``ml.datasets`` cache)."""
+    import milume as ml
 
     if not force_remote:
         cwd_local = Path("demos/data/ileum.h5ad")
@@ -91,20 +91,20 @@ def ileum_h5ad_path(*, force_remote: bool = False) -> Path:
             return cwd_local
         if _ILEUM_H5AD.is_file():
             return _ILEUM_H5AD
-    return mds.fetch("ileum_merfish_xu2026", force_download=force_remote)
+    return ml.datasets.fetch("ileum_merfish_xu2026", force_download=force_remote)
 
 
 def load_2d_ileum_adata(*, force_remote: bool = False) -> ad.AnnData:
     """2D tier Xu 2026 ileum slice (30,332 cells, 1,815 QC genes, ``obsm['spatial']``)."""
-    import milume.datasets as mds
+    import milume as ml
 
     if not force_remote:
         cwd_local = Path("demos/data/ileum.h5ad")
         if cwd_local.is_file():
-            return mds.ileum_merfish_xu2026(path=cwd_local)
+            return ml.ds.ileum_merfish_xu2026(path=cwd_local)
         if _ILEUM_H5AD.is_file():
-            return mds.ileum_merfish_xu2026(path=_ILEUM_H5AD)
-    return mds.ileum_merfish_xu2026(force_download=force_remote)
+            return ml.ds.ileum_merfish_xu2026(path=_ILEUM_H5AD)
+    return ml.ds.ileum_merfish_xu2026(force_download=force_remote)
 
 
 def _colon_store_path() -> Path:

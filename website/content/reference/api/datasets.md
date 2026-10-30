@@ -3,13 +3,15 @@
 Load milume demo AnnData from pip or molab without a git checkout ([#380](https://github.com/ckmah/milume/issues/380)).
 
 ```python
-import milume.datasets as mds
+import milume as ml
 
-adata = mds.ileum_merfish_xu2026()
-names = mds.list_datasets()
-meta = mds.info("ileum_merfish_xu2026")
-path = mds.fetch("ileum_merfish_xu2026")
+adata = ml.ds.ileum_merfish_xu2026()
+names = ml.datasets.list_datasets()
+meta = ml.datasets.info("ileum_merfish_xu2026")
+path = ml.datasets.fetch("ileum_merfish_xu2026")
 ```
+
+``ml.ds`` is an alias for the same module object as ``ml.datasets`` (``ml.ds is ml.datasets``). Use either name after ``import milume as ml``.
 
 Downloads use stdlib ``urllib``, stream to a ``.part`` file, verify a pinned sha256, then rename into place. The cache root is ``$MILUME_DATA_DIR``, then ``$XDG_CACHE_HOME/milume``, then ``~/.cache/milume``. URLs are pinned to an immutable git ref (never ``main``).
 

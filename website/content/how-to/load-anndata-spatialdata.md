@@ -11,11 +11,10 @@ Show spatial cells (and, for SpatialData, the Inspect cube when a 3D image is av
 1. Load AnnData with coordinates in `obsm["spatial"]` (for example the ileum demo slice):
 
 ```python
-import milume
-import milume.datasets as mds
+import milume as ml
 
-adata = mds.ileum_merfish_xu2026()
-w = milume.peek(adata, color="cell_type")
+adata = ml.ds.ileum_merfish_xu2026()
+w = ml.peek(adata, color="cell_type")
 w
 ```
 

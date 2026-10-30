@@ -21,12 +21,12 @@ NICHE_N_NEIGHBORS = 6
 
 def docs_recipe_adata() -> ad.AnnData:
     """Xu 2026 ileum slice (2D tier) for the docs recipe and molab."""
-    import milume.datasets as mds
+    import milume as ml
 
     local = Path("demos/data/ileum.h5ad")
     if local.is_file():
-        return mds.ileum_merfish_xu2026(path=local)
-    return mds.ileum_merfish_xu2026()
+        return ml.ds.ileum_merfish_xu2026(path=local)
+    return ml.ds.ileum_merfish_xu2026()
 
 
 def niche_obs_key(resolution: float = NICHE_RESOLUTION) -> str:

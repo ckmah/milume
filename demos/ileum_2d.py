@@ -54,21 +54,20 @@ def _():
     import marimo as mo
     import scanpy as sc
 
-    import milume
-    import milume.datasets as mds
+    import milume as ml
 
-    return mds, milume, mo, sc
+    return ml, mo, sc
 
 
 @app.cell
-def _(mds):
-    adata = mds.ileum_merfish_xu2026()
+def _(ml):
+    adata = ml.ds.ileum_merfish_xu2026()
     adata
     return (adata,)
 
 
 @app.cell
-def _(adata, milume, mo):
+def _(adata, ml, mo):
     # Curated preload for marimo export payload; full catalog loads on demand.
     demo_genes = [
         "Apob",
@@ -91,7 +90,7 @@ def _(adata, milume, mo):
         "Cr2",
         "Ccr7",
     ]
-    w = mo.ui.anywidget(milume.peek(adata, color="cell_type", genes=demo_genes))
+    w = mo.ui.anywidget(ml.peek(adata, color="cell_type", genes=demo_genes))
     return (w,)
 
 
@@ -165,9 +164,9 @@ def _(w):
 
 
 @app.cell
-def _(adata, milume, w):
+def _(adata, ml, w):
     galt_hits = w.get_obs_names("galt-follicle")
-    enrich = milume.enrichment(adata, galt_hits, obs_key="cell_type")
+    enrich = ml.enrichment(adata, galt_hits, obs_key="cell_type")
     enrich
     return enrich, galt_hits
 
