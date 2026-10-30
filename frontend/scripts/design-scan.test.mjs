@@ -179,12 +179,16 @@ test("strict mode exits 1 only when primary findings remain", () => {
     assert.equal(process.exitCode, 0);
     assert.equal(reportCi(2, { DESIGN_SCAN_STRICT: "1" }), 1);
     assert.equal(process.exitCode, 1);
+    assert.equal(reportCi(0, { CI_DESIGN_SCAN_PROVE: "1", DESIGN_SCAN_STRICT: "1" }), 1);
+    assert.equal(process.exitCode, 1);
     assert.deepEqual(logs, [
       "design-scan --ci: total primary findings=0 (warn-only)",
       "design-scan --ci: total primary findings=3 (warn-only)",
       "design-scan --ci: total primary findings=3 (warn-only)",
       "design-scan --ci: total primary findings=0 (warn-only)",
       "design-scan --ci: total primary findings=2 (warn-only)",
+      "design-scan primary: deliberate ci prove violation",
+      "design-scan --ci: total primary findings=1 (warn-only)",
     ]);
   } finally {
     console.log = orig;

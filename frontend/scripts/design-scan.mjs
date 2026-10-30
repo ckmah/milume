@@ -46,6 +46,10 @@ export function ciJobs(ctx, argv = process.argv, env = process.env) {
 }
 
 export function reportCi(totalPrimary, env = process.env) {
+  if (env.CI_DESIGN_SCAN_PROVE === "1") {
+    console.log("design-scan primary: deliberate ci prove violation");
+    totalPrimary = Math.max(totalPrimary, 1);
+  }
   console.log(`design-scan --ci: total primary findings=${totalPrimary} (warn-only)`);
   if (env.DESIGN_SCAN_STRICT === "1" && totalPrimary > 0) {
     process.exitCode = 1;
