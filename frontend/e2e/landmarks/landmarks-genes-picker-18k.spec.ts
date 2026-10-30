@@ -53,6 +53,66 @@ async function measureOpenPickerMs(page: Page) {
   });
 }
 
+/** Keystroke-to-first-option latency inside the page (no Playwright round-trips). */
+async function measureQueryToFirstOptionMs(page: Page, query: string) {
+  return page.evaluate((q) => {
+    const inputEl = document.querySelector(
+      '[data-testid="explore-color-controls"] [data-slot="combobox-chip-input"]',
+    ) as HTMLInputElement | null;
+    if (!inputEl) throw new Error("genes combobox input missing");
+
+    const countOptions = () => document.querySelectorAll('[data-slot="combobox-item"]').length;
+
+    return new Promise<number>((resolve, reject) => {
+      let settled = false;
+      let rafWatch = 0;
+      let t0 = 0;
+
+      const finish = (start: number) => {
+        if (settled) return;
+        settled = true;
+        observer.disconnect();
+        cancelAnimationFrame(rafWatch);
+        requestAnimationFrame(() => resolve(performance.now() - start));
+      };
+
+      const observer = new MutationObserver(() => {
+        if (countOptions() > 0) finish(t0);
+      });
+
+      t0 = performance.now();
+      observer.observe(document.body, { childList: true, subtree: true });
+
+      inputEl.focus();
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      if (setter) setter.call(inputEl, q);
+      else inputEl.value = q;
+      inputEl.dispatchEvent(
+        new InputEvent("input", { bubbles: true, inputType: "insertText", data: q }),
+      );
+
+      requestAnimationFrame(() => {
+        if (countOptions() > 0) finish(t0);
+      });
+
+      const watch = () => {
+        if (settled) return;
+        if (countOptions() > 0) finish(t0);
+        else rafWatch = requestAnimationFrame(watch);
+      };
+      rafWatch = requestAnimationFrame(watch);
+
+      window.setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        observer.disconnect();
+        cancelAnimationFrame(rafWatch);
+        reject(new Error("timed out waiting for first combobox option"));
+      }, 10_000);
+    });
+  }, query);
+}
+
 test.describe("Landmarks genes picker 18k catalog (#254)", () => {
   test.beforeEach(async ({ page }) => {
     await bootLandmarksHarness(page);
@@ -61,17 +121,20 @@ test.describe("Landmarks genes picker 18k catalog (#254)", () => {
     expect(await catalogSize(page)).toBe(CATALOG_SIZE);
   });
 
-  test("search-first popup keeps a bounded option count", async ({ page }) => {
+  test("search-first popup keeps a bounded option count", async ({ page }, testInfo) => {
     const openMs = await measureOpenPickerMs(page);
     expect(openMs).toBeLessThan(OPEN_LATENCY_MS);
     await expect(options(page)).toHaveCount(0);
 
-    const typeStart = await page.evaluate(() => performance.now());
-    await input(page).fill("syn");
+    const queryMs = await measureQueryToFirstOptionMs(page, "syn");
+    expect(queryMs).toBeLessThan(QUERY_UI_LATENCY_MS);
+    testInfo.annotations.push(
+      { type: "picker-open-ms", description: openMs.toFixed(2) },
+      { type: "picker-query-ms", description: queryMs.toFixed(2) },
+    );
+
     await expect(page.getByRole("listbox")).toBeVisible();
-    await expect.poll(() => options(page).count()).toBeGreaterThan(0);
-    const typeMs = await page.evaluate((t0) => performance.now() - t0, typeStart);
-    expect(typeMs).toBeLessThan(QUERY_UI_LATENCY_MS);
+    expect(await options(page).count()).toBeGreaterThan(0);
     expect(await options(page).count()).toBeLessThanOrEqual(MAX_DOM_OPTIONS);
   });
 
