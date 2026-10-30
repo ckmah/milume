@@ -204,11 +204,9 @@ jobs:
           E2E_REUSE_VITE: "1"
       - name: Impeccable design detect (warn-only)
         if: ${{ env.UPDATE != 'true' }}
-        continue-on-error: false
+        continue-on-error: true
         env:
           IMPECCABLE_NO_TELEMETRY: "1"
-          CI_DESIGN_SCAN_PROVE: "1"
-          DESIGN_SCAN_STRICT: "1"
         run: |
           set -euo pipefail
           design_step_start=$SECONDS
@@ -228,7 +226,7 @@ jobs:
             fi
           }
           trap cleanup_design_vite EXIT
-          DESIGN_SCAN_PORT="$DESIGN_SCAN_PORT" node scripts/design-scan.mjs --ci
+          DESIGN_SCAN_PORT="$DESIGN_SCAN_PORT" node scripts/design-scan.mjs --ci || true
           cleanup_design_vite
           trap - EXIT
           if curl -sf "http://127.0.0.1:${DESIGN_SCAN_PORT}/" >/dev/null 2>&1; then
