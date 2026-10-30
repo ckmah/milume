@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import importlib
-from typing import TYPE_CHECKING
-
+from . import datasets
 from .landmarks import _LANDMARKS_API_DOC, ColorKeyError, ColorValueError, LandmarksWidget
 from .measure import (
     along_positions,
@@ -18,6 +16,8 @@ from .spatialdata_landmarks import (
     geodataframe_to_landmarks,
     landmarks_to_geodataframe,
 )
+
+ds = datasets
 
 __version__ = "2.1.0"
 
@@ -70,20 +70,3 @@ __all__ = [
     "peek",
     "write_obs",
 ]
-
-if TYPE_CHECKING:
-    from . import datasets
-    ds = datasets
-
-
-def __getattr__(name: str):
-    if name in ("datasets", "ds"):
-        mod = importlib.import_module("milume.datasets")
-        globals()["datasets"] = mod
-        globals()["ds"] = mod
-        return mod
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
-
-def __dir__() -> list[str]:
-    return sorted(set(globals()) | set(__all__))

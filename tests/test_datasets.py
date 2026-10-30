@@ -28,11 +28,12 @@ def test_top_level_datasets_list_and_loader():
     assert adata.shape == (30_332, 1_815)
 
 
-def test_import_milume_does_not_eagerly_import_datasets():
+def test_import_milume_eagerly_loads_datasets():
     code = """
 import sys
 import milume as ml
-assert "milume.datasets" not in sys.modules
+assert "milume.datasets" in sys.modules
+assert ml.ds is ml.datasets
 """
     res = subprocess.run(
         [sys.executable, "-c", code],
