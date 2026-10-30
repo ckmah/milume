@@ -51,7 +51,7 @@
     "check:widget-issue": "node scripts/check-widget-issue.mjs",
     "check:widget-design-tokens": "node scripts/check-widget-design-tokens.mjs",
     "test:agent-policy": "node --test scripts/check-agent-policy.test.mjs",
-    "test:unit": "node --test src/widgets/landmarks/neighbor-golden.test.mjs src/widgets/landmarks/neighborhood-perf.test.mjs src/widgets/landmarks/gene-expression-blend.test.mjs src/widgets/landmarks/gene-store.test.mjs src/widgets/landmarks/gene-picker-list.test.mjs src/widgets/landmarks/landmark-stable-color.test.mjs src/widgets/landmarks/chrome/info-donut-math.test.mjs src/widgets/landmarks/chrome/obs-ramp-legend.test.mjs src/widgets/landmarks/design-token-contrast.test.mjs && node scripts/check-widget-design-tokens.mjs && npx tsx --test src/widgets/volume-cube/comm-buffer.test.mjs src/widgets/volume-cube/palettes.test.ts src/hooks/use-notebook-theme.test.ts",
+    "test:unit": "node --test scripts/design-scan.test.mjs src/widgets/landmarks/neighbor-golden.test.mjs src/widgets/landmarks/neighborhood-perf.test.mjs src/widgets/landmarks/gene-expression-blend.test.mjs src/widgets/landmarks/gene-store.test.mjs src/widgets/landmarks/gene-picker-list.test.mjs src/widgets/landmarks/landmark-stable-color.test.mjs src/widgets/landmarks/chrome/info-donut-math.test.mjs src/widgets/landmarks/chrome/obs-ramp-legend.test.mjs src/widgets/landmarks/design-token-contrast.test.mjs && node scripts/check-widget-design-tokens.mjs && npx tsx --test src/widgets/volume-cube/comm-buffer.test.mjs src/widgets/volume-cube/palettes.test.ts src/hooks/use-notebook-theme.test.ts",
     "verify": "node scripts/verify.mjs"
   },
   "overrides": {

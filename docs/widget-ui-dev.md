@@ -42,7 +42,7 @@ cd frontend && DESIGN_SCAN_PORT=5173 node scripts/design-scan.mjs --ci
 
 Triage every finding: fix it, or `impeccable hooks ignore-value … --reason "Agent: …"` for a narrow false positive. Do not use `ignore-rule` / `ignore-file` without Clarence.
 
-CI runs warn-only `impeccable detect --github` plus `design-scan --ci` in the `e2e-landmarks (default)` job. Primary findings are logged but do not fail the job. The step becomes strict on primary findings after about two quiet weeks.
+CI runs warn-only `impeccable detect --github` plus `design-scan --ci` in the `e2e-landmarks (default)` job. One shared `dev:landmarks` Vite on port 5173 serves Playwright e2e (`E2E_REUSE_VITE=1`) and the rendered scan; the step tears down that process and asserts the port is free. Primary findings are logged but do not fail the job. The step becomes strict on primary findings after about two quiet weeks.
 
 ## Notebook integration check
 

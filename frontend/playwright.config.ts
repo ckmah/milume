@@ -84,7 +84,7 @@ export default defineConfig({
       harness === "landmarks-volume"
         ? "http://127.0.0.1:5173/fixture.json"
         : "http://127.0.0.1:5173",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !process.env.CI || process.env.E2E_REUSE_VITE === "1",
     timeout: 120_000,
   },
 });
