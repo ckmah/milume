@@ -1,5 +1,6 @@
 import { InfoIcon } from "lucide-react";
 import { useMemo, useState } from "react";
+import { flushSync } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +22,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
-import { filterGeneNamesForPicker } from "../gene-picker-list.js";
+import { GENE_PICKER_MAX_VISIBLE } from "../gene-picker-list.js";
 import { GENE_AGGREGATES, type GeneAggregate } from "../gene-store.js";
 import { GENE_COLORS, MAX_ACTIVE_GENES, geneColor } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
@@ -52,6 +53,15 @@ function geneSwatch(index: number, count: number): string | undefined {
 }
 
 const AGGREGATE_LABEL: Record<GeneAggregate, string> = { mean: "Mean", median: "Median", max: "Max" };
+
+/** Forces Base UI to run `filter` instead of showing the first `limit` items on an empty query. */
+const GENE_PICKER_EMPTY_QUERY_SENTINEL = "\u0000";
+
+function geneMatchesPickerQuery(item: string, query: string): boolean {
+  const q = query.trim();
+  if (!q) return false;
+  return item.toLocaleLowerCase().includes(q.toLocaleLowerCase());
+}
 
 /** 4+ genes: pick how the selected genes' normalized values combine per cell. */
 function GenesAggregateControl({ lm }: { lm: LandmarksModel }) {
@@ -144,18 +154,24 @@ export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
   const atMax = selected.length >= MAX_ACTIVE_GENES;
   const [wrapRef, portalEl] = useWidgetPortalContainer();
   const anchor = useComboboxAnchor();
-  const [filterQuery, setFilterQuery] = useState("");
-  const visibleNames = useMemo(
-    () => filterGeneNamesForPicker(names, filterQuery),
-    [names, filterQuery],
-  );
+  const [inputValue, setInputValue] = useState("");
+  const trimmedInput = inputValue.trim();
+  const searchFirstFilterQuery =
+    trimmedInput === "" ? GENE_PICKER_EMPTY_QUERY_SENTINEL : undefined;
 
   return (
     <div ref={wrapRef} className="flex min-w-0 flex-col gap-2">
       <Combobox
         items={names}
-        filteredItems={visibleNames}
-        onInputValueChange={(value) => setFilterQuery(String(value ?? ""))}
+        inputValue={inputValue}
+        filter={geneMatchesPickerQuery}
+        limit={GENE_PICKER_MAX_VISIBLE}
+        {...(searchFirstFilterQuery !== undefined
+          ? { filterQuery: searchFirstFilterQuery }
+          : {})}
+        onInputValueChange={(value) => {
+          flushSync(() => setInputValue(String(value ?? "")));
+        }}
         autoHighlight
         multiple
         value={selected}
