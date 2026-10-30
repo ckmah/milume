@@ -116,9 +116,6 @@ export type LandmarksState = {
   inspect_size_um: number;
   /** Whether the Inspect cube is open; Python opens and closes it, the widget writes it back. */
   inspect_open: boolean;
-  z_focus_um: number;
-  z_band_lo_um: number;
-  z_band_hi_um: number;
 };
 
 const MODEL_KEYS: (keyof LandmarksState)[] = [
@@ -177,9 +174,6 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
   "inspect_cy",
   "inspect_size_um",
   "inspect_open",
-  "z_focus_um",
-  "z_band_lo_um",
-  "z_band_hi_um",
 ];
 
 export type LandmarksModel = LandmarksState & {
@@ -223,7 +217,6 @@ export type LandmarksModel = LandmarksState & {
   setRasterEmbeddingDims(dims: number[]): void;
   setRasterThreshold(value: number): void;
   clearRasterQuery(): void;
-  setZBand(patch: { focus?: number; lo?: number; hi?: number }): void;
   activeNeighborhood(): ReturnType<typeof neighborhoodFor>;
   selectedLandmark(): LandmarkItem | null;
 };
@@ -385,12 +378,6 @@ export function useLandmarksModel(model: AnyModel): LandmarksModel {
     },
     clearRasterQuery() {
       clearRasterQueryTrait(model);
-    },
-    setZBand(patch) {
-      if (patch.focus != null) model.set("z_focus_um", patch.focus);
-      if (patch.lo != null) model.set("z_band_lo_um", patch.lo);
-      if (patch.hi != null) model.set("z_band_hi_um", patch.hi);
-      model.save_changes();
     },
     activeNeighborhood() {
       return neighborhoodFor(

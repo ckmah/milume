@@ -4,7 +4,6 @@ import { test } from "../fixtures";
 import { waitForEngine } from "../helpers";
 
 const ILEUM_FIXTURE = "/e2e-galt-lasso-fixture.json";
-const VOLUME_FIXTURE = "/landmarks-volume-fixture.json";
 
 async function openRightPanel(page: import("@playwright/test").Page) {
   const right = page.locator(".landmarks__chrome-dock--right");
@@ -45,25 +44,17 @@ test.describe("panel layout (option 1)", () => {
     await expect(root).toHaveClass(/landmarks--minimise/);
   });
 
-  test("ileum 2D hides depth rail and uses no-z layout", async ({ page }) => {
+  test("ileum 2D layout keeps depth rail placeholder slot", async ({ page }) => {
     await page.goto(`/?fixture=${encodeURIComponent(ILEUM_FIXTURE)}`, {
       waitUntil: "networkidle",
     });
     await waitForEngine(page);
-    const root = page.locator(".milume-widget.landmarks");
-    await expect(root).toHaveClass(/landmarks--no-z/);
-    await expect(page.getByTestId("depth-rail")).toHaveCount(0);
+    await expect(page.getByTestId("depth-rail-placeholder")).toBeVisible();
   });
-});
 
-test.describe("panel layout depth rail (3D)", () => {
-  test("volume fixture shows depth rail", async ({ page }) => {
-    test.setTimeout(180_000);
-    await page.goto(`/?fixture=${encodeURIComponent(VOLUME_FIXTURE)}`, {
-      waitUntil: "networkidle",
-    });
+  test("default layout reserves depth rail chrome slot", async ({ page }) => {
+    await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
     await waitForEngine(page);
-    await expect(page.locator(".milume-widget.landmarks")).not.toHaveClass(/landmarks--no-z/);
-    await expect(page.getByTestId("depth-rail")).toBeVisible();
+    await expect(page.getByTestId("depth-rail-placeholder")).toBeVisible();
   });
 });

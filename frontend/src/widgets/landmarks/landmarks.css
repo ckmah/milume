@@ -107,7 +107,7 @@
   color: var(--foreground);
 }
 
-.landmarks:not(.landmarks--no-z) {
+.landmarks {
   --lm-depth-rail-active: var(--lm-depth-rail-slot);
 }
 
@@ -1892,6 +1892,12 @@
   height: 13.75rem;
   padding: 0.375rem 0.25rem;
   box-sizing: border-box;
+}
+
+.landmarks-depth-rail--placeholder {
+  pointer-events: none;
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
 }
 
 .landmarks-depth-rail__readout {

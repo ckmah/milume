@@ -123,7 +123,6 @@ const OTHER_SIZE_SCALE = 0.55;
 /** Unselected point alpha multiplier while focused. */
 const OTHER_ALPHA_SCALE = 0.28;
 /** Outside the depth band, scatter alpha approaches this (absolute, not relative to POINT_OPACITY). */
-const Z_BAND_ALPHA_FLOOR = 0.12;
 /**
  * Single-gene / observation high stop (DESIGN sequential-high).
  * Low stop is the plot background (theme-aware).
@@ -492,7 +491,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   let hoodHighlightData = [];
   let hoodHighlightKey = "";
   /** Cached: any point carries finite z (µm); when false, depth-band fade is skipped (2D). */
-  let pointsHaveFiniteZ = false;
   let deckLayersPublishSeq = 0;
   let pointFillColorsBuildHandle = 0;
   let scatterDisplayColors = null;
@@ -535,25 +533,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     embeddingMatrixDim = model.get("embedding_matrix_dim") | 0;
   }
   refreshEmbeddingMatrix();
-
-  function refreshPointsHaveFiniteZ(data) {
-    const pts = data || getPointsData();
-    pointsHaveFiniteZ = pts.some((d) => d.z !== undefined);
-    return pointsHaveFiniteZ;
-  }
-
-  function zBandFadeActive() {
-    return !isRasterMode() && pointsHaveFiniteZ;
-  }
-
-  function applyZBandAlpha(alphaByte, z) {
-    if (!zBandFadeActive() || z === undefined) return alphaByte;
-    const lo = Number(model.get("z_band_lo_um"));
-    const hi = Number(model.get("z_band_hi_um"));
-    if (!Number.isFinite(lo) || !Number.isFinite(hi) || hi <= lo) return alphaByte;
-    if (z >= lo && z <= hi) return alphaByte;
-    return Math.round(Z_BAND_ALPHA_FLOOR * 255);
-  }
 
   function invalidatePointColorBuffers() {
     pointFillColors = null;
@@ -605,7 +584,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         colors[o] = rgba[0];
         colors[o + 1] = rgba[1];
         colors[o + 2] = rgba[2];
-        colors[o + 3] = applyZBandAlpha(rgba[3], data[i].z);
+        colors[o + 3] = rgba[3];
       }
       pointFillColors = colors;
       pointFillColorsKey = pointColorCacheKey(probeField);
@@ -658,14 +637,11 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       scatterDisplayColors[o + 1] = base[o + 1];
       scatterDisplayColors[o + 2] = base[o + 2];
       if (role === SEED_ROLE || role === NEIGH_ROLE) {
-        scatterDisplayColors[o + 3] = applyZBandAlpha(255, data[i].z);
+        scatterDisplayColors[o + 3] = 255;
         scatterDisplayRadii[i] =
           role === SEED_ROLE ? size * SELECTED_SIZE_SCALE : size;
       } else {
-        scatterDisplayColors[o + 3] = applyZBandAlpha(
-          Math.round((base[o + 3] || 255) * OTHER_ALPHA_SCALE),
-          data[i].z,
-        );
+        scatterDisplayColors[o + 3] = Math.round((base[o + 3] || 255) * OTHER_ALPHA_SCALE);
         scatterDisplayRadii[i] = size * OTHER_SIZE_SCALE;
       }
     }
@@ -719,10 +695,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       model.get("category_columns"),
       model.get("active_category"),
       probeField ? 1 : 0,
-      model.get("z_band_lo_um"),
-      model.get("z_band_hi_um"),
-      model.get("z_focus_um"),
-      pointsHaveFiniteZ ? 1 : 0,
     ].join("|");
   }
 
@@ -733,7 +705,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       out[offset] = sim[0];
       out[offset + 1] = sim[1];
       out[offset + 2] = sim[2];
-      out[offset + 3] = applyZBandAlpha(sim[3], d.z);
+      out[offset + 3] = sim[3];
       return;
     }
     const mode = model.get("color_mode") || "categorical";
@@ -764,7 +736,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     out[offset] = rgba[0];
     out[offset + 1] = rgba[1];
     out[offset + 2] = rgba[2];
-    out[offset + 3] = applyZBandAlpha(rgba[3], d.z);
+    out[offset + 3] = rgba[3];
   }
 
   function ensurePointFillColors(probeField) {
@@ -2849,7 +2821,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const sim = similarityRgbaForPoint(d.i, opacity, probeField);
     if (sim) {
       if (!pointRoleMode || !pointRoles) {
-        sim[3] = applyZBandAlpha(sim[3], d.z);
         return sim;
       }
       const role = pointRoles[d.i] || 0;
@@ -2858,7 +2829,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       } else {
         sim[3] = Math.round((sim[3] || 255) * OTHER_ALPHA_SCALE);
       }
-      sim[3] = applyZBandAlpha(sim[3], d.z);
       return sim;
     }
     const mode = model.get("color_mode") || "categorical";
@@ -2888,7 +2858,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       rgba = hexToRgbaBytes(palette[((code % palette.length) + palette.length) % palette.length], opacity);
     }
     if (!pointRoleMode || !pointRoles) {
-      rgba[3] = applyZBandAlpha(rgba[3], d.z);
       return rgba;
     }
     const role = pointRoles[d.i] || 0;
@@ -2897,7 +2866,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     } else {
       rgba[3] = Math.round((rgba[3] || 255) * OTHER_ALPHA_SCALE);
     }
-    rgba[3] = applyZBandAlpha(rgba[3], d.z);
     return rgba;
   }
 
@@ -3020,7 +2988,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       };
     }
     pointsCache = { key, data, b64, xBounds, yBounds };
-    refreshPointsHaveFiniteZ(data);
     invalidatePointGeometryBuffers();
     spatialIndex = null;
     spatialIndexPointCount = 0;
@@ -3045,7 +3012,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         ? activePointProbeScores()
         : null;
     const fillKey = pointColorCacheKey(probeField);
-    const colorTriggers = [fillKey, pointRoleMode ? "hood-dim" : "rest", model.get("z_band_lo_um"), model.get("z_band_hi_um")];
+    const colorTriggers = [fillKey, pointRoleMode ? "hood-dim" : "rest"];
     const layers = [];
     const scatterData = {
       length: data.length,
@@ -6639,7 +6606,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   });
   onChange("points_data", () => {
     pointsCache = { key: "", data: [] };
-    pointsHaveFiniteZ = false;
     focusGeomCache = { key: "", pointRoles: null, hoodEdges: [], knnEdgeLinesDrawn: false };
     hoodHighlightData = [];
     hoodHighlightKey = "";
@@ -6664,13 +6630,6 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       }
       if (deckgl) setDeckLayers();
       updatePointLegend();
-    });
-  });
-  ["z_band_lo_um", "z_band_hi_um", "z_focus_um"].forEach((k) => {
-    onChange(k, () => {
-      invalidatePointColorBuffers();
-      schedulePointFillColorsBuild();
-      if (deckgl) setDeckLayers();
     });
   });
   onChange("category_codes", () => {

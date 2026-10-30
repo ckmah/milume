@@ -48,7 +48,6 @@ import { isWindowSaved, useInspectCube } from "./use-inspect-cube";
 import { useLandmarksModel } from "./use-landmarks-model";
 import { useWidgetFullscreen } from "./use-widget-fullscreen";
 import { usePlotBootstrap } from "./use-plot-bootstrap";
-import { usePointZExtent } from "./use-point-z-extent";
 
 const SHELL_HEIGHT = 720;
 const MIN_HEIGHT = 400;
@@ -136,7 +135,6 @@ export function LandmarksView({
     [cubeBudgets, volumeComm],
   );
   const { hasVolume, cube, patchCube } = inspectCube;
-  const { hasZ: pointsHaveZ } = usePointZExtent(lm.points_data);
 
   // Decode each packed buffer once per string, and only when there is a cube.
   const points = useMemo(
@@ -395,7 +393,6 @@ export function LandmarksView({
         isFullscreen && "landmarks--fs",
         overlay && "landmarks--overlay-fs",
         lm.show_rulers && "landmarks--rulers",
-        !pointsHaveZ && "landmarks--no-z",
         // Docks and peek tabs float over the open cube (landmarks.css).
         cubeOpen && "landmarks--cube-open",
         minimise && "landmarks--minimise",
@@ -650,13 +647,13 @@ export function LandmarksView({
                 <MinimapPanel lm={lm} engine={engine} dark={dark} />
               </div>
             ) : null}
-            {!inspecting && pointsHaveZ ? (
+            {!inspecting ? (
               <div
                 className="landmarks__chrome-depth-rail"
                 onMouseDown={(e) => e.stopPropagation()}
                 onWheel={(e) => e.stopPropagation()}
               >
-                <DepthRail lm={lm} />
+                <DepthRail />
               </div>
             ) : null}
             {cubeOpen ? (

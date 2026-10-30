@@ -101,10 +101,7 @@
       "type_neighborhoods": "trait List",
       "volume_cell_rows": "trait Unicode",
       "x_bounds": "trait Tuple",
-      "y_bounds": "trait Tuple",
-      "z_band_hi_um": "trait Float",
-      "z_band_lo_um": "trait Float",
-      "z_focus_um": "trait Float"
+      "y_bounds": "trait Tuple"
     }
   }
 }

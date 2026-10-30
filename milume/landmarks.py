@@ -416,10 +416,6 @@ class LandmarksWidget(AnyWidget):
     neighbor_k_max = traitlets.Int(DEFAULT_K_MAX).tag(sync=True)
     # Numeric ``adata.obs`` columns the UI may colour (excludes bool); synced on init / obs refresh.
     numeric_obs_columns = traitlets.List(traitlets.Unicode(), default_value=[]).tag(sync=True)
-    # Depth band (µm) for 3D scatter fade; browser may write; Python seeds from spatial z extent.
-    z_focus_um = traitlets.Float(0.0).tag(sync=True)
-    z_band_lo_um = traitlets.Float(0.0).tag(sync=True)
-    z_band_hi_um = traitlets.Float(0.0).tag(sync=True)
 
     # Chrome bumps this; engine promotes neighborhood → selection client-side.
     promote_tick = traitlets.Int(0).tag(sync=True)
@@ -625,7 +621,6 @@ class LandmarksWidget(AnyWidget):
         if volume_source is not None:
             self._attach_volume(volume_source, contrast_limits)
         self._sync_numeric_obs_columns()
-        self._init_z_band_defaults(z_arr)
 
     def _sync_numeric_obs_columns(self) -> None:
         obs = getattr(self, "_adata", None)
@@ -633,20 +628,6 @@ class LandmarksWidget(AnyWidget):
             self.numeric_obs_columns = []
             return
         self.numeric_obs_columns = _numeric_obs_column_names(obs.obs)
-
-    def _init_z_band_defaults(self, z_arr: "np.ndarray") -> None:
-        import numpy as np
-
-        finite = np.asarray(z_arr, dtype=np.float64)
-        finite = finite[np.isfinite(finite)]
-        if finite.size == 0:
-            return
-        zmin = float(finite.min())
-        zmax = float(finite.max())
-        mid = (zmin + zmax) / 2.0
-        self.z_focus_um = mid
-        self.z_band_lo_um = max(zmin, mid - 5.0)
-        self.z_band_hi_um = min(zmax, mid + 5.0)
 
     def _attach_volume(self, src: Any, contrast_limits: tuple[float, float]) -> None:
         from .volume_comm import normalize_allow_prefixes
