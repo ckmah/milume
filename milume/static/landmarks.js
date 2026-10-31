@@ -13,6 +13,27 @@ import {
 import { PathStyleExtension } from "@deck.gl/extensions";
 import { ZoomWidget, ResetViewWidget } from "@deck.gl/widgets";
 import {
+  colorMode,
+  lookState,
+  colorState,
+  categoryColumns,
+  categoryCodes as readCategoryCodesB64,
+  pointPalette,
+  legendTitle,
+  legendLabels,
+  rasterBasis,
+  rasterEmbeddingKey,
+  embeddingKeys,
+  geneCatalog,
+  colorVmin,
+  colorVmax,
+  geneScaleMode,
+  geneLog1p,
+  rasterEmbeddingDims,
+  COLOR_DERIVED_WATCH_KEYS,
+  COLOR_BULK_WATCH_KEYS,
+} from "./landmarks_color_access.js";
+import {
   neighborhoodFor as neighborhoodForArgs,
   patchLandmark,
   patchNeighborhood,
@@ -547,22 +568,22 @@ export function mountEngine({
   let hoverPointIndex = -1;
 
   function refreshCategoryCodes() {
-    const b64 = model.get("category_codes") || "";
+    const b64 = readCategoryCodesB64(model) || "";
     categoryCodes = b64 ? decodeI32Base64(b64) : null;
   }
   refreshCategoryCodes();
 
 
   function refreshEmbeddingValues() {
-    const b64 = model.get("embedding_values") || "";
+    const b64 = model.get("_embedding_values") || "";
     embeddingValues = b64 ? decodeF32Base64(b64) : null;
   }
   refreshEmbeddingValues();
 
   function refreshEmbeddingMatrix() {
-    const b64 = model.get("embedding_matrix") || "";
+    const b64 = model.get("_embedding_matrix") || "";
     embeddingMatrix = b64 ? decodeF32Base64(b64) : null;
-    embeddingMatrixDim = model.get("embedding_matrix_dim") | 0;
+    embeddingMatrixDim = model.get("_embedding_matrix_dim") | 0;
   }
   refreshEmbeddingMatrix();
 
@@ -620,12 +641,12 @@ export function mountEngine({
     const data = getPointsData();
     const n = data.length;
     const colors = new Uint8ClampedArray(n * 4);
-    const mode = model.get("color_mode") || "categorical";
+    const mode = colorMode(model) || "categorical";
     if (!probeField && mode === "categorical" && categoryCodes) {
-      const cols = model.get("category_columns") || [];
+      const cols = categoryColumns(model) || [];
       const ci = activeCategoryIndex();
       const col = ci >= 0 ? cols[ci] : null;
-      const palette = (col && col.palette) || model.get("point_palette") || [FALLBACK_POINT];
+      const palette = (col && col.palette) || pointPalette(model) || [FALLBACK_POINT];
       const row = ci >= 0 ? ci * n : 0;
       for (let i = 0; i < n; i++) {
         const code = col ? categoryCodes[row + i] | 0 : Math.round(data[i].valueA);
@@ -727,28 +748,28 @@ export function mountEngine({
     return [
       pointsCache.key,
       POINT_OPACITY,
-      model.get("point_palette"),
-      model.get("color_mode"),
+      pointPalette(model),
+      colorMode(model),
       model.get("active_genes"),
       geneStore.version,
-      model.get("gene_scale_mode"),
-      model.get("gene_log1p"),
-      model.get("embedding_values"),
-      model.get("embedding_channel_labels"),
-      model.get("embedding_matrix"),
+      geneScaleMode(model),
+      geneLog1p(model),
+      model.get("_embedding_values"),
+      model.get("_embedding_channel_labels"),
+      model.get("_embedding_matrix"),
       clientRasterKey,
       model.get("raster_n_bins"),
       model.get("raster_feature_dim"),
       model.get("raster_query_bin"),
       model.get("raster_similarity_enabled"),
-      model.get("raster_embedding_dims"),
+      rasterEmbeddingDims(model),
       hoverBinIndex,
       hoverPointIndex,
       pinnedPointIndex,
       probeScrubSeq,
       pinnedProbeWorld,
       currentMode,
-      model.get("category_columns"),
+      categoryColumns(model),
       model.get("active_category"),
       probeField ? 1 : 0,
       model.get("z_band_lo_um"),
@@ -768,7 +789,7 @@ export function mountEngine({
       out[offset + 3] = applyZBandAlpha(sim[3], d.z);
       return;
     }
-    const mode = model.get("color_mode") || "categorical";
+    const mode = colorMode(model) || "categorical";
     let rgba;
     if (mode === "embedding") {
       rgba =
@@ -786,10 +807,10 @@ export function mountEngine({
         rgba = hexToRgbaBytes("#6b7280", opacity);
       }
     } else {
-      const cols = model.get("category_columns") || [];
+      const cols = categoryColumns(model) || [];
       const ci = activeCategoryIndex();
       const col = ci >= 0 ? cols[ci] : null;
-      const palette = (col && col.palette) || model.get("point_palette") || [FALLBACK_POINT];
+      const palette = (col && col.palette) || pointPalette(model) || [FALLBACK_POINT];
       const code = col ? categoryCodeAt(d.i) : Math.round(d.valueA);
       rgba = hexToRgbaBytes(palette[((code % palette.length) + palette.length) % palette.length], opacity);
     }
@@ -901,8 +922,8 @@ export function mountEngine({
    * Gene coloring (points continuous or raster genes basis).
    */
   function genesColoringOn() {
-    if (isRasterMode()) return model.get("raster_basis") === "genes";
-    return model.get("color_mode") === "continuous";
+    if (isRasterMode()) return rasterBasis(model) === "genes";
+    return colorMode(model) === "continuous";
   }
 
   /**
@@ -941,7 +962,7 @@ export function mountEngine({
 
   /** Active-category codes as Int32Array length n (sequential 0..n-1). */
   function compositionCodeVector(n) {
-    const cols = model.get("category_columns") || [];
+    const cols = categoryColumns(model) || [];
     const ci = activeCategoryIndex();
     const col = ci >= 0 ? cols[ci] : null;
     const labels = col?.labels || [];
@@ -957,7 +978,7 @@ export function mountEngine({
   }
 
   function compositionCodesForPoints(pts) {
-    const cols = model.get("category_columns") || [];
+    const cols = categoryColumns(model) || [];
     const ci = activeCategoryIndex();
     const col = ci >= 0 ? cols[ci] : null;
     const labels = col?.labels || [];
@@ -1027,9 +1048,9 @@ export function mountEngine({
       windowRadius = defaultWindowRadius(binSize);
       model.set("raster_window_radius", windowRadius);
     }
-    const basis = model.get("raster_basis") || "composition";
+    const basis = rasterBasis(model) || "composition";
     const genes = (model.get("active_genes") || []).join(",");
-    const embKey = model.get("raster_embedding_key") || "";
+    const embKey = rasterEmbeddingKey(model) || "";
     const cat = model.get("active_category") || "";
     const key = [
       pointsCache.key,
@@ -1257,13 +1278,13 @@ export function mountEngine({
 
   /** Empty trait = all dims. Non-embedding bases ignore the mask. */
   function embeddingDimMask(dim) {
-    const basis = model.get("raster_basis") || "composition";
+    const basis = rasterBasis(model) || "composition";
     if (basis !== "embedding") {
       const all = new Array(dim);
       for (let i = 0; i < dim; i++) all[i] = i;
       return all;
     }
-    const raw = model.get("raster_embedding_dims") || [];
+    const raw = rasterEmbeddingDims(model) || [];
     const picked = [];
     const seen = new Set();
     for (const d of raw) {
@@ -1306,7 +1327,7 @@ export function mountEngine({
    * magenta/lime/azure over background. Embedding: additive RGB channels.
    */
   function observationColorForBin(i, cache, colStats) {
-    const basis = model.get("raster_basis") || "composition";
+    const basis = rasterBasis(model) || "composition";
     const dim = cache.dim | 0;
     const feats = cache.features;
     const n = cache.nBins | 0;
@@ -1363,7 +1384,7 @@ export function mountEngine({
         }
       }
       if (!(bestV > 0)) return low;
-      const palette = model.get("point_palette") || [];
+      const palette = pointPalette(model) || [];
       const hex =
         palette.length > 0
           ? palette[((best % palette.length) + palette.length) % palette.length]
@@ -1587,15 +1608,15 @@ export function mountEngine({
 
   /** Per-cell observation matrix for the active raster_basis / color signal. */
   function rawPointFeatureMatrix(n) {
-    const basis = model.get("raster_basis") || "composition";
-    const colorMode = model.get("color_mode") || "categorical";
+    const basis = rasterBasis(model) || "composition";
+    const mode = colorMode(model) || "categorical";
     const key = [
       pointsCache.key,
       n,
       basis,
-      colorMode,
+      mode,
       (model.get("active_genes") || []).join(","),
-      model.get("raster_embedding_key") || "",
+      rasterEmbeddingKey(model) || "",
       model.get("active_category") || "",
       geneStore.version,
       embeddingValues ? embeddingValues.length : 0,
@@ -1604,13 +1625,13 @@ export function mountEngine({
     if (rawPointFeatCache.key === key && rawPointFeatCache.n === n) {
       return rawPointFeatCache;
     }
-    if (basis === "genes" || colorMode === "continuous") {
+    if (basis === "genes" || mode === "continuous") {
       const gm = geneFeatureMatrix(n);
       rawPointFeatCache = { key, features: gm.features, dim: gm.dim, n };
       return rawPointFeatCache;
     }
-    if (basis === "embedding" || colorMode === "embedding") {
-      const labels = model.get("embedding_channel_labels") || [];
+    if (basis === "embedding" || mode === "embedding") {
+      const labels = model.get("_embedding_channel_labels") || [];
       const dim = labels.length | 0;
       if (!dim || !embeddingValues || embeddingValues.length < n * dim) {
         rawPointFeatCache = { key, features: null, dim: 0, n };
@@ -1627,7 +1648,7 @@ export function mountEngine({
       return rawPointFeatCache;
     }
     // Composition: one-hot of active category codes.
-    const cols = model.get("category_columns") || [];
+    const cols = categoryColumns(model) || [];
     const ci = activeCategoryIndex();
     const col = ci >= 0 ? cols[ci] : null;
     const nLabels = (col?.labels || []).length | 0;
@@ -1649,17 +1670,17 @@ export function mountEngine({
     const pts = getPointsData();
     const n = pts.length;
     const radius = probeWindowRadius();
-    const basis = model.get("raster_basis") || "";
-    const colorMode = model.get("color_mode") || "";
+    const basis = rasterBasis(model) || "";
+    const mode = colorMode(model) || "";
     const genes = (model.get("active_genes") || []).join(",");
-    const embKey = model.get("raster_embedding_key") || "";
+    const embKey = rasterEmbeddingKey(model) || "";
     const cat = model.get("active_category") || "";
     const key = [
       pointsCache.key,
       n,
       radius,
       basis,
-      colorMode,
+      mode,
       genes,
       embKey,
       cat,
@@ -1833,10 +1854,10 @@ export function mountEngine({
       pointsCache.key,
       n,
       raw.dim,
-      model.get("raster_basis") || "",
-      model.get("color_mode") || "",
+      rasterBasis(model) || "",
+      colorMode(model) || "",
       (model.get("active_genes") || []).join(","),
-      model.get("raster_embedding_key") || "",
+      rasterEmbeddingKey(model) || "",
       model.get("active_category") || "",
       geneStore.version,
       embeddingValues ? embeddingValues.length : 0,
@@ -2321,8 +2342,8 @@ export function mountEngine({
     const scores =
       queryIdx >= 0 && (cache.dim | 0) > 0 ? cosineScoresForQuery(queryIdx) : null;
     const threshold = Number(model.get("raster_threshold")) || 0;
-    const basis = model.get("raster_basis") || "composition";
-    const dimsKey = (model.get("raster_embedding_dims") || []).join(",");
+    const basis = rasterBasis(model) || "composition";
+    const dimsKey = (rasterEmbeddingDims(model) || []).join(",");
     const texKey = [
       cache.key,
       queryIdx,
@@ -2331,7 +2352,7 @@ export function mountEngine({
       model.get("raster_query_bin"),
       basis,
       dimsKey,
-      (model.get("point_palette") || []).join(","),
+      (pointPalette(model) || []).join(","),
       (model.get("active_genes") || []).join(","),
       // Low stop tracks plot background (dark/light).
       resolvePlotBackground(),
@@ -2464,13 +2485,13 @@ export function mountEngine({
   }
 
   function activeCategoryIndex() {
-    const cols = model.get("category_columns") || [];
+    const cols = categoryColumns(model) || [];
     const active = model.get("active_category") || "";
     return cols.findIndex((c) => c.name === active);
   }
 
   function categoryCodeAt(i) {
-    const cols = model.get("category_columns") || [];
+    const cols = categoryColumns(model) || [];
     const ci = activeCategoryIndex();
     const pts = getPointsData();
     if (ci < 0 || !categoryCodes || !pts.length) {
@@ -2504,7 +2525,7 @@ export function mountEngine({
   }
 
   function geneUsesLog1p() {
-    return !!model.get("gene_log1p") && !model.get("gene_expression_logged");
+    return !!geneLog1p(model) && !model.get("gene_expression_logged");
   }
 
   function blendGeneColors(i, opacity) {
@@ -2514,7 +2535,7 @@ export function mountEngine({
     const rgb = blendGeneSrgb({
       activeGenes: active,
       pointIndex: i,
-      scaleMode: model.get("gene_scale_mode") || "independent",
+      scaleMode: geneScaleMode(model) || "independent",
       log1p: geneUsesLog1p(),
       valueAt: (pi, name) => geneValueAt(pi, name),
       metaAt: (name) => geneMeta(name),
@@ -2537,7 +2558,7 @@ export function mountEngine({
 
   function blendEmbeddingColors(i, opacity) {
     const pts = getPointsData();
-    const labels = model.get("embedding_channel_labels") || [];
+    const labels = model.get("_embedding_channel_labels") || [];
     const nChan = labels.length | 0;
     if (!nChan || !embeddingValues || !pts.length) return null;
     const n = pts.length;
@@ -2631,7 +2652,7 @@ export function mountEngine({
   }
   /** A selection's default name: its top category and size, e.g. "Epithelial · 214"; else "<prefix> <n>". */
   function selectionName(indices, prefix, items) {
-    const cols = model.get("category_columns") || [];
+    const cols = categoryColumns(model) || [];
     const active = model.get("active_category");
     const colIdx = cols.findIndex((c) => c.name === active);
     const labels = colIdx >= 0 ? cols[colIdx].labels || [] : [];
@@ -2785,8 +2806,8 @@ export function mountEngine({
       legend.hidden = true;
       return;
     }
-    const mode = model.get("color_mode") || "categorical";
-    const title = model.get("legend_title") || "";
+    const mode = colorMode(model) || "categorical";
+    const title = legendTitle(model) || "";
 
     legend.innerHTML = "";
     if (title) {
@@ -2811,7 +2832,7 @@ export function mountEngine({
   }
 
   function obsColumnRgba(value, opacity) {
-    const palette = model.get("point_palette") || [FALLBACK_POINT];
+    const palette = pointPalette(model) || [FALLBACK_POINT];
     const t = Math.max(0, Math.min(1, Number(value) || 0));
     return hexToRgbaBytes(palette[Math.round(t * (palette.length - 1))], opacity);
   }
@@ -2944,7 +2965,7 @@ export function mountEngine({
       }
       return sim;
     }
-    const mode = model.get("color_mode") || "categorical";
+    const mode = colorMode(model) || "categorical";
     let rgba;
     if (mode === "embedding") {
       rgba =
@@ -2963,10 +2984,10 @@ export function mountEngine({
         rgba = hexToRgbaBytes("#6b7280", opacity);
       }
     } else {
-      const cols = model.get("category_columns") || [];
+      const cols = categoryColumns(model) || [];
       const ci = activeCategoryIndex();
       const col = ci >= 0 ? cols[ci] : null;
-      const palette = (col && col.palette) || model.get("point_palette") || [FALLBACK_POINT];
+      const palette = (col && col.palette) || pointPalette(model) || [FALLBACK_POINT];
       const code = col ? categoryCodeAt(d.i) : Math.round(d.valueA);
       rgba = hexToRgbaBytes(palette[((code % palette.length) + palette.length) % palette.length], opacity);
     }
@@ -4788,7 +4809,7 @@ export function mountEngine({
       focus.index,
       model.get("selections") || [],
       model.get("type_neighborhoods") || [],
-      model.get("legend_labels") || [],
+      legendLabels(model) || [],
       model.get("active_category") || "",
     );
   }
@@ -4814,7 +4835,7 @@ export function mountEngine({
       patch,
       model.get("selections") || [],
       model.get("type_neighborhoods") || [],
-      model.get("legend_labels") || [],
+      legendLabels(model) || [],
       model.get("active_category") || "",
     );
     setDeckLayers();
@@ -4913,7 +4934,7 @@ export function mountEngine({
     const selections = [...(model.get("selections") || [])];
     let label;
     if (focus.kind === "type") {
-      const labels = model.get("legend_labels") || [];
+      const labels = legendLabels(model) || [];
       const typeIx = typeFocusIndices(model);
       const names = (typeIx.length ? typeIx : [focus.index])
         .map((ti) => String(labels[ti] || ""))
@@ -6753,9 +6774,9 @@ export function mountEngine({
     }
     updatePointLegend();
   });
-  ["point_palette", "point_size", "color_mode", "legend_labels", "legend_title", "color_vmin", "color_vmax"].forEach((k) => {
+  ["point_size", ...COLOR_DERIVED_WATCH_KEYS].forEach((k) => {
     onChange(k, () => {
-      if (k === "color_mode") {
+      if (k === "_color_state") {
         pendingViewPulse = true;
         if (genesProbeHoverInert()) clearProbeHover();
       }
@@ -6763,7 +6784,7 @@ export function mountEngine({
       updatePointLegend();
     });
   });
-  onChange("category_codes", () => {
+  onChange("_category_codes", () => {
     refreshCategoryCodes();
     clientRasterKey = "";
     invalidatePointColorBuffers();
@@ -6778,21 +6799,21 @@ export function mountEngine({
       setDeckLayers();
     }),
   );
-  onChange("embedding_values", () => {
+  onChange("_embedding_values", () => {
     refreshEmbeddingValues();
     setDeckLayers();
     updatePointLegend();
   });
-  onChange("embedding_channel_labels", () => {
+  onChange("_embedding_channel_labels", () => {
     setDeckLayers();
     updatePointLegend();
   });
-  onChange("embedding_matrix", () => {
+  onChange("_embedding_matrix", () => {
     refreshEmbeddingMatrix();
     clientRasterKey = "";
     setDeckLayers();
   });
-  onChange("embedding_matrix_dim", () => {
+  onChange("_embedding_matrix_dim", () => {
     refreshEmbeddingMatrix();
     clientRasterKey = "";
     setDeckLayers();
@@ -6803,14 +6824,14 @@ export function mountEngine({
   onChange("promote_buffer_tick", () => {
     promoteBufferClient();
   });
-  ["category_columns", "active_category"].forEach((k) => {
+  ["_category_columns", "active_category", "_color_options"].forEach((k) => {
     onChange(k, () => {
       clientRasterKey = "";
       updateUI();
       setDeckLayers();
     });
   });
-  ["gene_names", "active_genes", "gene_scale_mode", "gene_log1p", "gene_expression_logged"].forEach((k) => {
+  ["active_genes", "gene_expression_logged", ...COLOR_DERIVED_WATCH_KEYS].forEach((k) => {
     onChange(k, () => {
       if (k === "active_genes") {
         clientRasterKey = "";
@@ -6852,9 +6873,8 @@ export function mountEngine({
     "raster_query_bin",
     "raster_threshold",
     "raster_similarity_enabled",
-    "raster_basis",
-    "raster_embedding_dims",
-    "raster_embedding_key",
+    "_color_state",
+    "_look",
     "raster_feature_labels",
   ].forEach((k) => {
     onChange(k, () => {
@@ -6865,8 +6885,7 @@ export function mountEngine({
         (k === "render_mode" ||
           k === "raster_bin_size" ||
           k === "raster_window_radius" ||
-          k === "raster_basis" ||
-          k === "raster_embedding_key" ||
+          k === "_color_state" ||
           k === "raster_similarity_enabled")
       ) {
         clientRasterKey = "";
@@ -6877,7 +6896,7 @@ export function mountEngine({
       if (k === "render_mode" && !isRasterMode()) {
         hoverBinIndex = -1;
       }
-      if (k === "render_mode" || k === "raster_basis") {
+      if (k === "render_mode" || k === "_color_state") {
         pendingViewPulse = true;
         if (genesProbeHoverInert()) clearProbeHover();
       }

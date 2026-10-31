@@ -51,7 +51,12 @@ export function NumHeatStrip({
       data-testid="num-heat-strip"
     >
       {title ? (
-        <p className="m-0 truncate text-xs font-medium text-foreground" title={title}>
+        <p
+          className="m-0 truncate text-xs font-medium text-foreground"
+          data-legend-tick=""
+          data-testid="num-heat-title"
+          title={title}
+        >
           {title}
         </p>
       ) : null}
@@ -70,14 +75,56 @@ export function NumHeatStrip({
           />
         ))}
       </div>
-      <div className="flex items-center justify-between gap-2">
-        <span className={CHART_CAPTION}>value</span>
-        <span className={cn(CHART_CAPTION, "tabular-nums")}>
-          {formatLegendValue(data.lo)}
-        </span>
-        <span className={cn(CHART_CAPTION, "tabular-nums")} data-testid="num-heat-max">
-          {maxTick}
-        </span>
+      <div
+        className={cn(
+          "flex items-center gap-2",
+          data.diverging ? "" : "justify-between",
+        )}
+        data-testid="num-heat-value-axis"
+      >
+        <span className={cn(CHART_CAPTION, "shrink-0")}>value</span>
+        {data.diverging ? (
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-1">
+            <span
+              className={cn(CHART_CAPTION, "tabular-nums")}
+              data-legend-tick=""
+              data-testid="num-heat-lo"
+            >
+              {formatLegendValue(data.lo)}
+            </span>
+            <span
+              className={cn(CHART_CAPTION, "tabular-nums text-foreground")}
+              data-legend-tick=""
+              data-testid="num-heat-zero"
+            >
+              {formatLegendValue(0)}
+            </span>
+            <span
+              className={cn(CHART_CAPTION, "tabular-nums")}
+              data-legend-tick=""
+              data-testid="num-heat-max"
+            >
+              {maxTick}
+            </span>
+          </div>
+        ) : (
+          <>
+            <span
+              className={cn(CHART_CAPTION, "tabular-nums")}
+              data-legend-tick=""
+              data-testid="num-heat-lo"
+            >
+              {formatLegendValue(data.lo)}
+            </span>
+            <span
+              className={cn(CHART_CAPTION, "tabular-nums")}
+              data-legend-tick=""
+              data-testid="num-heat-max"
+            >
+              {maxTick}
+            </span>
+          </>
+        )}
       </div>
       <div className="flex items-center gap-2">
         <span className={cn(CHART_CAPTION, "shrink-0")}>cells at level</span>

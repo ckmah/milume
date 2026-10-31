@@ -30,8 +30,8 @@ def _sends(w, monkeypatch):
 
 def _codes(w):
     n = len(w._data_x)
-    raw = np.frombuffer(base64.b64decode(w.category_codes), dtype=np.int32)
-    return raw.reshape(len(w.category_columns), n)
+    raw = np.frombuffer(base64.b64decode(w._category_codes), dtype=np.int32)
+    return raw.reshape(len(w._category_columns), n)
 
 
 def test_categorical_obs_column_recolours_in_one_sync(monkeypatch):
@@ -40,27 +40,61 @@ def test_categorical_obs_column_recolours_in_one_sync(monkeypatch):
     w.color = "region"
     assert len(calls) == 1
     assert w.active_category == "region"
-    assert w.color_mode == "categorical"
-    assert w.legend_title == "region"
-    assert w.legend_labels == ["top", "bottom"]
-    assert list(w.category_colors("region").values()) == w.point_palette
+    assert w._color_state["color_mode"] == "categorical"
+    assert w._color_state["legend_title"] == "region"
+    assert w._color_state["legend_labels"] == ["top", "bottom"]
+    assert list(w.category_colors("region").values()) == w._look["point_palette"]
 
 
 def test_numeric_obs_columns_synced_on_init():
     w = LandmarksWidget(_adata())
-    assert w._numeric_obs_columns == ["area"]
+    numeric = [
+        name
+        for name, meta in (w._color_options.get("obs") or {}).items()
+        if meta.get("kind") == "numeric"
+    ]
+    assert numeric == ["area"]
 
 
 def test_numeric_obs_column_shows_a_sequential_ramp():
     w = LandmarksWidget(_adata())
     w.color = "area"
-    assert w.color_mode == "obs"
-    assert w.legend_title == "area"
+    assert w._color_state["color_mode"] == "obs"
+    assert w._color_state["legend_title"] == "area"
     assert w.active_category == ""
-    assert len(w.point_palette) == 256
+    assert len(w._look["point_palette"]) == 256
+    assert w._look["color_diverging"] is False
     points = np.frombuffer(base64.b64decode(w.points_data), dtype=np.float32).reshape(4, 4)
     assert points[0, 2] == 0.0 and points[-1, 2] == 1.0
     assert np.all(np.diff(points[:, 2]) > 0)
+
+
+def test_signed_numeric_obs_column_uses_diverging_symmetric_range():
+    adata = _adata()
+    adata.obs["ulm_score"] = [-2.0, -0.5, 0.0, 3.0]
+    w = LandmarksWidget(adata)
+    w.color = "ulm_score"
+    assert w._look["color_diverging"] is True
+    assert w._look["color_vmin"] == -3.0
+    assert w._look["color_vmax"] == 3.0
+    meta = (w._color_options.get("obs") or {}).get("ulm_score") or {}
+    assert meta.get("signed") is True
+    assert meta.get("range") == [-3.0, 3.0]
+    points = np.frombuffer(base64.b64decode(w.points_data), dtype=np.float32).reshape(4, 4)
+    assert abs(float(points[2, 2]) - 0.5) < 0.02
+    from milume.landmarks_color import diverging_palette
+
+    assert w._look["point_palette"][127] == diverging_palette(256)[127]
+
+
+def test_signed_override_can_force_sequential():
+    adata = _adata()
+    adata.obs["ulm_score"] = [-1.0, 0.0, 1.0, 2.0]
+    w = LandmarksWidget(adata)
+    w._look = {**w._look, "color_diverging_override": False}
+    w.color = "ulm_score"
+    assert w._look["color_diverging"] is False
+    assert w._look["point_palette"][0].lower() == "#f3e6d4"
 
 
 def test_gene_recolours_in_one_sync(monkeypatch):
@@ -69,14 +103,14 @@ def test_gene_recolours_in_one_sync(monkeypatch):
     w.color = "Apob"
     assert len(calls) == 1
     assert w.active_genes == ["Apob"]
-    assert w.color_mode == "continuous"
-    assert w.legend_title == "Apob"
+    assert w._color_state["color_mode"] == "continuous"
+    assert w._color_state["legend_title"] == "Apob"
     assert w.active_category == ""
 
 
 def test_constructor_color_goes_through_the_trait():
     assert LandmarksWidget(_adata(), color="Lgr5").active_genes == ["Lgr5"]
-    assert LandmarksWidget(_adata(), color="area").color_mode == "obs"
+    assert LandmarksWidget(_adata(), color="area")._color_state["color_mode"] == "obs"
     w = LandmarksWidget(_adata(), color="region")
     assert (w.color, w.active_category) == ("region", "region")
 
@@ -103,9 +137,9 @@ def test_column_added_after_construct_can_be_shown():
     adata.obs["leiden"] = ["0", "1", "1", "0"]
     w.color = "leiden"
     assert w.active_category == "leiden"
-    assert w.legend_labels == ["0", "1"]
+    assert w._color_state["legend_labels"] == ["0", "1"]
     codes = _codes(w)
-    assert [c["name"] for c in w.category_columns][-1] == "leiden"
+    assert [c["name"] for c in w._category_columns][-1] == "leiden"
     assert codes[-1].tolist() == [0, 1, 1, 0]
 
 
@@ -115,8 +149,8 @@ def test_rewritten_column_is_repacked():
     adata.obs["region"] = ["a", "b", "c", "a"]
     w.color = "cell_class"
     w.color = "region"
-    assert w.legend_labels == ["a", "b", "c"]
-    idx = [c["name"] for c in w.category_columns].index("region")
+    assert w._color_state["legend_labels"] == ["a", "b", "c"]
+    idx = [c["name"] for c in w._category_columns].index("region")
     assert _codes(w)[idx].tolist() == [0, 1, 2, 0]
 
 
@@ -159,8 +193,43 @@ def test_set_points_moves_points_and_keeps_colour():
     after = np.frombuffer(base64.b64decode(w.points_data), dtype=np.float32).reshape(4, 4)
     assert np.array_equal(before[:, 2], after[:, 2])
     assert not np.array_equal(before[:, :2], after[:, :2])
-    assert w.color_mode == "obs"
+    assert w._color_state["color_mode"] == "obs"
     with pytest.raises(TypeError):
         w.set_points([0.0] * 4, [0.0] * 4, color=[1, 2, 3, 4])
     with pytest.raises(ValueError, match="rebuild"):
         w.set_points([0.0], [0.0])
+
+
+def test_gene_blend_list_colors_in_one_sync():
+    w = LandmarksWidget(_adata(), color="cell_class")
+    w.color = ["Apob", "Lgr5"]
+    assert w.color == ["Apob", "Lgr5"]
+    assert w.active_genes == ["Apob", "Lgr5"]
+    assert w._color_state["color_mode"] == "continuous"
+    assert w._color_state["legend_title"] == "Apob, Lgr5"
+
+
+def test_obsm_embedding_key_colors():
+    adata = _adata()
+    adata.obsm["X_pca"] = np.random.randn(4, 3).astype(np.float32)
+    w = LandmarksWidget(adata)
+    w.color = "X_pca"
+    assert w._color_state["color_mode"] == "embedding"
+    assert w._color_state["raster_embedding_key"] == "X_pca"
+    assert w._embedding_matrix_dim == 3
+
+
+def test_active_category_assignment_warns_and_routes():
+    w = LandmarksWidget(_adata(), color="cell_class")
+    with pytest.warns(DeprecationWarning, match="active_category"):
+        w.active_category = "region"
+    assert w.color == "region"
+    assert w.active_category == "region"
+
+
+def test_active_genes_assignment_warns_and_routes():
+    w = LandmarksWidget(_adata(), color="cell_class")
+    with pytest.warns(DeprecationWarning, match="active_genes"):
+        w.active_genes = ["Apob"]
+    assert w.color == "Apob"
+    assert w.active_genes == ["Apob"]

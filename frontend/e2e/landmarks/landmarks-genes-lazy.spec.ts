@@ -45,7 +45,10 @@ async function pickGene(page: Page, name: string) {
 
 async function catalog(page: Page) {
   return page.evaluate(() =>
-    ((window as any).__landmarksModel.get("gene_names") as { name: string }[]).map((g) => g.name),
+    (
+      ((window as any).__landmarksModel.get("_color_options") as { genes?: { name: string }[] }).genes ??
+      []
+    ).map((g) => g.name),
   );
 }
 
@@ -55,10 +58,10 @@ test.describe("Landmarks lazy genes", () => {
   });
 
   test("opens with a names-only catalog and fetches nothing until a gene is coloured", async ({ page }) => {
-    const cols = await getModel(page, "gene_names");
+    const cols = ((await getModel(page, "_color_options")) as { genes: object[] }).genes;
     expect(cols.length).toBeGreaterThan(100);
     expect(cols.every((g: object) => Object.keys(g).join() === "name")).toBe(true);
-    expect(await getModel(page, "gene_csc_data")).toBe("");
+    expect(await getModel(page, "_gene_csc_data")).toBe("");
     expect(await requests(page)).toEqual([]);
     const s = await stats(page);
     expect(s.lruGenes + s.pinnedGenes + s.denseColumns).toBe(0);
@@ -86,7 +89,10 @@ test.describe("Landmarks lazy genes", () => {
 
   test("three genes keep one RGB channel each; Python-set active_genes fetch too", async ({ page }) => {
     const genes = (await catalog(page)).slice(0, 3);
-    await setModel(page, { active_genes: genes, color_mode: "continuous" });
+    await setModel(page, {
+      active_genes: genes,
+      _color_state: { color_mode: "continuous", raster_basis: "genes", legend_labels: [], legend_title: "", raster_embedding_key: "" },
+    });
     await expect.poll(async () => (await stats(page)).fetchedGenes).toBe(3);
     expect(await requests(page)).toEqual([genes]);
     await openGenesTab(page);
@@ -99,7 +105,10 @@ test.describe("Landmarks lazy genes", () => {
 
   test("five genes colour by one aggregate with mean / median / max", async ({ page }) => {
     const genes = (await catalog(page)).slice(10, 15);
-    await setModel(page, { active_genes: genes, color_mode: "continuous" });
+    await setModel(page, {
+      active_genes: genes,
+      _color_state: { color_mode: "continuous", raster_basis: "genes", legend_labels: [], legend_title: "", raster_embedding_key: "" },
+    });
     await openGenesTab(page);
     const control = page.getByTestId("genes-aggregate");
     await expect(control).toBeVisible();
@@ -128,7 +137,10 @@ test.describe("Landmarks lazy genes", () => {
   test("no whole-matrix densify: dense columns track on-screen genes only", async ({ page }) => {
     const all = await catalog(page);
     for (let k = 0; k < 6; k++) {
-      await setModel(page, { active_genes: all.slice(k * 3, k * 3 + 3), color_mode: "continuous" });
+      await setModel(page, {
+        active_genes: all.slice(k * 3, k * 3 + 3),
+        _color_state: { color_mode: "continuous", raster_basis: "genes", legend_labels: [], legend_title: "", raster_embedding_key: "" },
+      });
       await expect.poll(async () => (await stats(page)).pending).toBe(0);
       await pointColors(page);
     }
@@ -143,7 +155,10 @@ test.describe("Landmarks lazy genes", () => {
   test("a failed fetch says so in the legend", async ({ page }) => {
     await page.evaluate(() => ((window as any).__geneCommHook = { fail: true }));
     const [gene] = (await catalog(page)).slice(30, 31);
-    await setModel(page, { active_genes: [gene], color_mode: "continuous" });
+    await setModel(page, {
+      active_genes: [gene],
+      _color_state: { color_mode: "continuous", raster_basis: "genes", legend_labels: [], legend_title: "", raster_embedding_key: "" },
+    });
     await openGenesTab(page);
     await expect(page.getByTestId("genes-load-status")).toContainText(`Couldn't load ${gene}`);
     await page.evaluate(() => delete (window as any).__geneCommHook);
@@ -154,9 +169,12 @@ test.describe("Landmarks eager genes", () => {
   test("the genes= pack is pinned: colouring never calls the kernel", { tag: "@isolated" }, async ({ page }) => {
     await page.goto("/?eagerGenes=1", { waitUntil: "networkidle" });
     await page.waitForFunction(() => Boolean((window as any).__landmarksEngine));
-    expect((await getModel(page, "gene_csc_data")).length).toBeGreaterThan(0);
+    expect(((await getModel(page, "_gene_csc_data")) as string).length).toBeGreaterThan(0);
     const genes = (await catalog(page)).slice(0, 5);
-    await setModel(page, { active_genes: genes, color_mode: "continuous" });
+    await setModel(page, {
+      active_genes: genes,
+      _color_state: { color_mode: "continuous", raster_basis: "genes", legend_labels: [], legend_title: "", raster_embedding_key: "" },
+    });
     await expect.poll(async () => (await stats(page)).denseColumns).toBe(5);
     expect(await requests(page)).toEqual([]);
     expect((await stats(page)).pinnedGenes).toBe((await catalog(page)).length);

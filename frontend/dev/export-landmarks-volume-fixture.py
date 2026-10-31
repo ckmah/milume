@@ -23,7 +23,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from milume import LandmarksWidget  # noqa: E402
+from milume import LandmarksWidget
+from milume.fixture_export import FIXTURE_SYNC_KEYS, widget_fixture_snapshot  # noqa: E402
 from milume.volume_cube import TOY_CONTRAST_LIMITS  # noqa: E402
 from milume.volume_source import image_contrast_limits  # noqa: E402
 from tests.helpers import toy_spatialdata  # noqa: E402
@@ -31,57 +32,7 @@ from tests.helpers import toy_spatialdata  # noqa: E402
 DEV = Path(__file__).resolve().parent
 PUBLIC = DEV / "landmarks-volume" / "public"
 
-FIXTURE_KEYS = [
-    "mode",
-    "selections",
-    "landmarks",
-    "selected_kind",
-    "selected_index",
-    "category_columns",
-    "active_category",
-    "gene_names",
-    "active_genes",
-    "gene_scale_mode",
-    "gene_log1p",
-    "gene_expression_logged",
-    "color_mode",
-    "legend_labels",
-    "legend_title",
-    "type_neighborhoods",
-    "default_buffer_width",
-    "neighbor_radius_max",
-    "neighbor_k_max",
-    "gene_csc_indptr",
-    "gene_csc_indices",
-    "gene_csc_data",
-    "x_bounds",
-    "y_bounds",
-    "point_size",
-    "points_data",
-    "point_palette",
-    "category_codes",
-    "color_vmin",
-    "color_vmax",
-    "render_mode",
-    "raster_bin_size",
-    "raster_window_radius",
-    "raster_basis",
-    "raster_embedding_key",
-    "raster_embedding_keys",
-    "raster_embedding_dims",
-    "embedding_values",
-    "embedding_channel_labels",
-    "embedding_matrix",
-    "embedding_matrix_dim",
-    "raster_obs_key",
-    "raster_gene_mode",
-    "raster_origin_x",
-    "raster_origin_y",
-    "raster_similarity_enabled",
-    "raster_query_bin",
-    "inspect_cx",
-    "inspect_cy",
-]
+FIXTURE_KEYS = list(FIXTURE_SYNC_KEYS)
 
 VOLUME_KEYS = ["volume", "volume_cell_rows", "volume_cut", "inspect_size_um"]
 
