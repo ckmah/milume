@@ -323,7 +323,6 @@ export function createMockModel(
   const state: Record<string, unknown> = { ...initial };
   const eagerGenes =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("eagerGenes") === "1";
-  const genesKernel = kernelGenes(state);
   adoptLegacyColor(state);
   const geneRequests: string[][] = [];
   const colorOptions = ensureOptions(state);
@@ -332,9 +331,10 @@ export function createMockModel(
     state._gene_csc_indptr = "";
     state._gene_csc_indices = "";
     state._gene_csc_data = "";
-  } else if (!state._gene_csc_indptr && genesKernel.size) {
+  } else if (!state._gene_csc_indptr && kernelGenes(state).size) {
+    const bootKernel = kernelGenes(state);
     const meta = colorOptions.genes ?? [];
-    const slices = meta.map((m) => genesKernel.get(m.name));
+    const slices = meta.map((m) => bootKernel.get(m.name));
     const indptr = new Int32Array(meta.length + 1);
     slices.forEach((g, j) => (indptr[j + 1] = indptr[j]! + (g?.rows.length ?? 0)));
     const toB64 = (a: ArrayBufferView) =>
@@ -423,7 +423,8 @@ export function createMockModel(
     if (unknown.length) return [{ ok: false, status: 404, error: `not in the gene catalog: ${unknown}` }, []];
     geneRequests.push(names.map(String));
     const empty = { rows: new Int32Array(0), values: new Float32Array(0), vmin: 0, vmax: 1 };
-    const slices = names.map((n) => ({ name: String(n), ...(genesKernel.get(String(n)) ?? empty) }));
+    const kernel = kernelGenes(state);
+    const slices = names.map((n) => ({ name: String(n), ...(kernel.get(String(n)) ?? empty) }));
     const total = slices.reduce((a, g) => a + g.rows.length, 0);
     const rows = new Int32Array(total);
     const values = new Float32Array(total);
@@ -444,6 +445,24 @@ export function createMockModel(
     set(key: string, value: unknown) {
       if (key === "color") {
         applyMockColor(state, value, dirty);
+        return;
+      }
+      if (COLOR_STATE_FIELDS.includes(key as (typeof COLOR_STATE_FIELDS)[number])) {
+        const colorState = ensureColorState(state);
+        colorState[key] = value;
+        dirty.add("_color_state");
+        return;
+      }
+      if (LOOK_FIELDS.includes(key as (typeof LOOK_FIELDS)[number])) {
+        const look = ensureLook(state);
+        look[key] = value;
+        dirty.add("_look");
+        return;
+      }
+      const renamed = RENAMED_COLOR_KEYS[key];
+      if (renamed) {
+        state[renamed] = value;
+        dirty.add(renamed);
         return;
       }
       state[key] = value;
