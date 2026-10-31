@@ -95,7 +95,7 @@ def _(docs_recipe_adata):
 
 @app.cell
 def _(adata, docs_recipe_patch_selection, milume):
-    w = milume.peek(adata, color="cell_type")
+    w = milume.peek(adata, color="cell_type", genes=list(adata.var_names))
     w.selections = [docs_recipe_patch_selection(adata)]
     return (w,)
 
