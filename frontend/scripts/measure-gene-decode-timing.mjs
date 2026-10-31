@@ -13,25 +13,28 @@ await page.waitForFunction(() => Boolean(window.__landmarksEngine));
 
 const timing = await page.evaluate(async () => {
   const model = window.__landmarksModel;
-  const genes = (model.get("gene_names") as { name: string }[]).map((g) => g.name);
-  const gene = genes.find((n) => n === "Lgr5") ?? genes[0]!;
+  const genes = model.get("gene_names").map((g) => g.name);
+  const gene = genes.find((n) => n === "Lgr5") ?? genes[0];
   const t0 = performance.now();
-  await new Promise<void>((resolve) => {
+  await new Promise((resolve) => {
     const engine = window.__landmarksEngine;
-    const unsub = engine.subscribe?.(() => {
-      if (engine.getGeneStats().pinnedGenes === genes.length) {
+    const done = () => {
+      if (engine.getGeneStats().pinnedGenes === genes.length) resolve(undefined);
+    };
+    if (engine.getGeneStats().pinnedGenes === genes.length) resolve(undefined);
+    else {
+      const unsub = engine.subscribe?.(() => {
+        done();
         unsub?.();
-        resolve();
-      }
-    });
-    if (engine.getGeneStats().pinnedGenes === genes.length) resolve();
+      });
+    }
   });
   const decodedMs = performance.now() - t0;
   model.set({ active_genes: [gene], color_mode: "continuous" });
-  await new Promise<void>((resolve) => {
+  await new Promise((resolve) => {
     const engine = window.__landmarksEngine;
     const tick = () => {
-      if (engine.getGeneStats().denseColumns >= 1) resolve();
+      if (engine.getGeneStats().denseColumns >= 1) resolve(undefined);
       else requestAnimationFrame(tick);
     };
     tick();
