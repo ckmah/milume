@@ -1903,7 +1903,7 @@ test.describe("Landmarks inspect cube", () => {
     expect(parity.coloring).toBe("expression");
     expect(parity.spread).toBeGreaterThan(40);
 
-    await right.getByRole("tab", { name: "category" }).click();
+    await right.getByRole("tab", { name: "cat" }).click();
     await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-coloring", "groups");
     await expect(right.getByTestId("genes-channel-legend")).toHaveCount(0);
   });
