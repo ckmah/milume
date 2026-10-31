@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Browser timing: harness load through first gene colour (gzip vs raw CSC).
- * Generates ileum fixtures on demand under /tmp (not committed).
+ * Generates ileum fixtures on demand under frontend/dev/.ileum-gene-fixtures-cache (not committed).
  */
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
