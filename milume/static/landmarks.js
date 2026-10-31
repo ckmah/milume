@@ -345,6 +345,7 @@ export function mountEngine({
       model.get("_image_visible") !== false &&
       Boolean(vol.image_url);
     container.classList.toggle("landmarks--image", on);
+    applyPlotBackground();
   }
   let applyPlotBackground = () => { };
   /** Cached CSS bg + deck clearColor — invalidated on theme class changes. */
@@ -4334,6 +4335,10 @@ export function mountEngine({
 
   function resolvePlotBackground() {
     if (cachedPlotBackground != null) return cachedPlotBackground;
+    if (container.classList.contains("landmarks--image")) {
+      cachedPlotBackground = "#000000";
+      return cachedPlotBackground;
+    }
     // Prefer a resolved used color (custom props may still be `var(...)`).
     for (const el of [plotStack, body, container]) {
       if (!el) continue;

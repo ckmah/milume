@@ -287,7 +287,7 @@
   border-radius: 0;
   outline: none;
   z-index: 1;
-  background: var(--lm-bg);
+  background: var(--lm-plot-bg);
 }
 
 /* Points ↔ raster / color-mode continuity — blur via overlay, not the

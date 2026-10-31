@@ -24,6 +24,130 @@ async function openImagePanel(page: import("@playwright/test").Page) {
   await page.getByTestId("layers-image-row").click();
 }
 
+async function panSeamEdgeIntoView(page: import("@playwright/test").Page) {
+  await waitForEngine(page);
+  await expect
+    .poll(async () =>
+      page.evaluate(
+        () =>
+          (window as unknown as { __landmarksEngine?: { getBackdropPick?: () => { level?: number } } })
+            .__landmarksEngine?.getBackdropPick?.()?.level,
+      ),
+    )
+    .not.toBeNull();
+  await page.evaluate(async () => {
+    const eng = (window as unknown as {
+      __landmarksEngine: {
+        getBackdropBounds?: () => number[];
+        getViewState: () => { zoom?: number; target?: number[] };
+        setViewState: (v: unknown) => void;
+        getCanvasSize?: () => { width: number; height: number };
+      };
+    }).__landmarksEngine;
+    const lm = (window as unknown as { __landmarksModel: { get: (k: string) => number[] } })
+      .__landmarksModel;
+    const xb = lm.get("x_bounds");
+    const yb = lm.get("y_bounds");
+    const cx = (xb[0]! + xb[1]!) / 2;
+    const cy0 = (yb[0]! + yb[1]!) / 2;
+    const span0 = Math.max(xb[1]! - xb[0]!, yb[1]! - yb[0]!, 1);
+    const vs0 = eng.getViewState();
+    const { width, height } = eng.getCanvasSize?.() ?? { width: 1280, height: 800 };
+    const fitZoom = Math.log2(Math.min(width, height) / (span0 * 1.15));
+    eng.setViewState({ ...vs0, target: [cx, cy0, vs0.target?.[2] ?? 0], zoom: fitZoom });
+    await new Promise((r) => setTimeout(r, 700));
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    let bounds = eng.getBackdropBounds?.();
+    for (let i = 0; i < 20 && !bounds; i++) {
+      await sleep(200);
+      bounds = eng.getBackdropBounds?.();
+    }
+    if (!bounds) {
+      bounds = [xb[0]!, yb[0]!, xb[1]!, yb[1]!];
+    }
+    const [left, bottom, right, top] = bounds;
+    const cy = (bottom + top) / 2;
+    const span = Math.max(right - left, top - bottom, 1);
+    const vs = eng.getViewState();
+    const zoom = Math.log2(Math.min(width, height) / (span * 0.38));
+    eng.setViewState({
+      ...vs,
+      target: [right - span * 0.035, cy, vs.target?.[2] ?? 0],
+      zoom,
+    });
+  });
+  await page.waitForTimeout(1600);
+}
+
+async function sampleSeamCanvasPixels(page: import("@playwright/test").Page) {
+  return page.evaluate(() => {
+    const eng = (window as unknown as {
+      __landmarksEngine: {
+        getBackdropBounds?: () => number[];
+        getViewState: () => { zoom?: number; target?: number[] };
+      };
+    }).__landmarksEngine;
+    const lm = (window as unknown as { __landmarksModel: { get: (k: string) => number[] } }).__landmarksModel;
+    const cached = eng.getBackdropBounds?.();
+    let left: number;
+    let bottom: number;
+    let right: number;
+    let top: number;
+    if (cached && cached.length === 4) {
+      [left, bottom, right, top] = cached;
+    } else {
+      const cut = lm.get("volume_cut");
+      if (!cut || cut.length < 4) return { ok: false as const };
+      left = cut[0]!;
+      right = cut[1]!;
+      bottom = cut[2]!;
+      top = cut[3]!;
+    }
+    const cy = (bottom + top) / 2;
+    const span = Math.max(right - left, top - bottom, 1);
+    const canvas = document.querySelector("canvas.landmarks__webgl") as HTMLCanvasElement | null;
+    const gl = canvas?.getContext("webgl2") ?? canvas?.getContext("webgl");
+    if (!canvas || !gl) return { ok: false as const };
+    const vs = eng.getViewState();
+    const cRect = canvas.getBoundingClientRect();
+    const scale = 2 ** (vs.zoom ?? 0);
+    const tx = vs.target?.[0] ?? 0;
+    const ty = vs.target?.[1] ?? 0;
+    const project = (wx: number, wy: number) => ({
+      x: (wx - tx) * scale + cRect.width / 2 + cRect.left,
+      y: cRect.height / 2 - (wy - ty) * scale + cRect.top,
+    });
+    const inside = project(right - span * 0.04, cy);
+    const outside = project(right + span * 0.06, cy);
+    const readAtClient = (clientX: number, clientY: number) => {
+      const x = Math.floor(((clientX - cRect.left) * canvas.width) / cRect.width);
+      const y = Math.floor(
+        (1 - (clientY - cRect.top) / cRect.height) * canvas.height,
+      );
+      const px = new Uint8Array(4);
+      gl.readPixels(
+        Math.max(0, Math.min(canvas.width - 1, x)),
+        Math.max(0, Math.min(canvas.height - 1, y)),
+        1,
+        1,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        px,
+      );
+      return [px[0]!, px[1]!, px[2]!] as [number, number, number];
+    };
+    return {
+      ok: true as const,
+      inside: readAtClient(inside.x, inside.y),
+      outside: readAtClient(outside.x, outside.y),
+    };
+  });
+}
+
+function nearBlack([r, g, b]: [number, number, number], tolerance = 1) {
+  return r <= tolerance && g <= tolerance && b <= tolerance;
+}
+
 function makeManyChannels(n: number) {
   const base = ["DAPI", "PanCK", "CD45", "Ki67"];
   const names = [...base];
@@ -179,6 +303,29 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
     await openImagePanel(page);
     await page.getByTestId("layer-channel-row-CD45").focus();
     await expect(page.locator(".landmarks-slider-caption").filter({ hasText: "DAPI contrast" })).toBeVisible();
+  });
+
+  test("empty backdrop pixels match canvas black at the image edge", async ({ page }) => {
+    await page.goto("/?noDialkit=1", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await expect
+      .poll(
+        async () =>
+          page.evaluate(
+            () =>
+              (window as unknown as { __landmarksEngine?: { getBackdropPick?: () => { level?: number } } })
+                .__landmarksEngine?.getBackdropPick?.()?.level,
+          ),
+        { timeout: 90_000 },
+      )
+      .not.toBeNull();
+    await panSeamEdgeIntoView(page);
+    await page.waitForTimeout(2000);
+    const pixels = await sampleSeamCanvasPixels(page);
+    expect(pixels.ok, JSON.stringify(pixels)).toBe(true);
+    if (!pixels.ok) return;
+    expect(nearBlack(pixels.inside), `inside=${pixels.inside.join(",")}`).toBe(true);
+    expect(nearBlack(pixels.outside), `outside=${pixels.outside.join(",")}`).toBe(true);
   });
 
   test("visual acceptance captures", async ({ page }) => {

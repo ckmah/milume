@@ -249,6 +249,53 @@ async function seamCrop(page, name) {
   await panSeamView(page);
   const clip = await seamClipOnWidget(page);
   await captureWidget(page, name, clip);
+  const measure = await page.evaluate(() => {
+    const eng = window.__landmarksEngine;
+    const bounds = eng.getBackdropBounds?.();
+    const canvas = document.querySelector("canvas.landmarks__webgl");
+    const gl = canvas?.getContext("webgl2") ?? canvas?.getContext("webgl");
+    if (!bounds || !canvas || !gl) return null;
+    const [left, bottom, right, top] = bounds;
+    const cy = (bottom + top) / 2;
+    const span = Math.max(right - left, top - bottom, 1);
+    const vs = eng.getViewState();
+    const cRect = canvas.getBoundingClientRect();
+    const scale = 2 ** (vs.zoom ?? 0);
+    const tx = vs.target?.[0] ?? 0;
+    const ty = vs.target?.[1] ?? 0;
+    const project = (wx, wy) => ({
+      x: (wx - tx) * scale + cRect.width / 2 + cRect.left,
+      y: cRect.height / 2 - (wy - ty) * scale + cRect.top,
+    });
+    const inside = project(right - span * 0.04, cy);
+    const insidePad = project(left + span * 0.93, cy);
+    const outside = project(right + span * 0.06, cy);
+    const readAtClient = (clientX, clientY) => {
+      const x = Math.floor(((clientX - cRect.left) * canvas.width) / cRect.width);
+      const y = Math.floor((1 - (clientY - cRect.top) / cRect.height) * canvas.height);
+      const px = new Uint8Array(4);
+      gl.readPixels(
+        Math.max(0, Math.min(canvas.width - 1, x)),
+        Math.max(0, Math.min(canvas.height - 1, y)),
+        1,
+        1,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        px,
+      );
+      return [px[0], px[1], px[2]];
+    };
+    return {
+      inside: readAtClient(inside.x, inside.y),
+      insidePad: readAtClient(insidePad.x, insidePad.y),
+      outside: readAtClient(outside.x, outside.y),
+    };
+  });
+  if (measure) {
+    console.log(
+      `${name} seam pixels inside=${measure.inside.join(",")} insidePad=${measure.insidePad.join(",")} outside=${measure.outside.join(",")}`,
+    );
+  }
 }
 
 async function placeCaptureCursorOnThumb(page, ariaLabel) {
