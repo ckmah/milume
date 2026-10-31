@@ -10,7 +10,9 @@ import { installDocsCaptureChrome } from "./lib/docs-tool-media.mjs";
 const outDir = process.env.CAPTURE_OUT ?? "/opt/cursor/artifacts/depth-backdrop-122";
 const base = process.env.CAPTURE_URL ?? "http://127.0.0.1:5173";
 const mode =
-  ["--issue122-2d", "--colon", "--ileum", "--toy"].find((f) => process.argv.includes(f)) ?? "--toy";
+  ["--issue122-2d", "--colon", "--colon-rail-drag", "--ileum", "--toy"].find((f) =>
+    process.argv.includes(f),
+  ) ?? "--toy";
 const ILEUM = "/e2e-galt-lasso-fixture.json";
 
 mkdirSync(outDir, { recursive: true });
@@ -83,6 +85,38 @@ async function openLayers(page) {
     const expanded = await imageRow.getAttribute("aria-expanded");
     if (expanded !== "true") await imageRow.click();
   }
+}
+
+async function placeCaptureCursorOnThumb(page, ariaLabel) {
+  const track = page.locator(".landmarks-depth-rail__track").first();
+  const thumb = page.getByRole("slider", { name: ariaLabel });
+  const trbox = await track.boundingBox();
+  const tbox = await thumb.boundingBox();
+  if (!trbox || !tbox) return;
+  const x = tbox.x - trbox.x + tbox.width / 2;
+  const y = tbox.y - trbox.y + tbox.height / 2;
+  await track.evaluate(
+    ({ left, top }) => {
+      document.getElementById("docs-capture-cursor-inline")?.remove();
+      const el = document.createElement("div");
+      el.id = "docs-capture-cursor-inline";
+      el.style.position = "absolute";
+      el.style.width = "22px";
+      el.style.height = "22px";
+      el.style.margin = "-6px 0 0 -6px";
+      el.style.left = `${left}px`;
+      el.style.top = `${top}px`;
+      el.style.zIndex = "40";
+      el.style.border = "2.5px solid #ffffff";
+      el.style.borderRadius = "50%";
+      el.style.boxShadow = "0 0 0 1.5px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.5)";
+      el.style.background = "rgba(251, 146, 60, 0.9)";
+      el.style.pointerEvents = "none";
+      const host = document.querySelector(".landmarks-depth-rail__track");
+      host?.appendChild(el);
+    },
+    { left: x, top: y },
+  );
 }
 
 async function placeCaptureCursor(page, clientX, clientY) {
@@ -168,6 +202,33 @@ async function captureIssue122d(page) {
   await captureWidget(page, "122-2d-dapi-zoomed");
 }
 
+async function captureColonRailDragOnly(page) {
+  await load(page);
+  await fitViewToData(page);
+  await zoomIn(page, 3);
+  await page.evaluate(() => {
+    const lm = window.__landmarksModel;
+    const focus = Math.round(lm.get("z_focus_um"));
+    lm.set("z_focus_um", focus);
+    lm.set("z_band_lo_um", focus - 5);
+    lm.set("z_band_hi_um", focus + 5);
+    lm.save_changes();
+  });
+  await waitBackdropRefined(page, 5);
+  const loThumb = page.getByRole("slider", { name: "Lower z bound" });
+  const box = await loThumb.boundingBox();
+  if (!box) throw new Error("lower thumb bounding box missing");
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await page.mouse.move(cx, cy);
+  await page.mouse.down();
+  await page.mouse.move(cx, cy + 18, { steps: 4 });
+  await page.waitForTimeout(250);
+  await placeCaptureCursorOnThumb(page, "Lower z bound");
+  await captureWidget(page, "122-colon-rail-drag-lower");
+  await page.mouse.up();
+}
+
 async function captureColon(page) {
   await load(page);
   await fitViewToData(page);
@@ -205,7 +266,7 @@ async function captureColon(page) {
     const dragY = cy + 18;
     await page.mouse.move(cx, dragY, { steps: 4 });
     await page.waitForTimeout(200);
-    await placeCaptureCursor(page, cx, dragY);
+    await placeCaptureCursorOnThumb(page, "Lower z bound");
     await captureWidget(page, "122-colon-rail-drag-lower");
     await page.mouse.up();
     await page.evaluate(() => window.__landmarksEngine?.noteBackdropZBandEnd?.());
@@ -228,6 +289,7 @@ async function main() {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await installDocsCaptureChrome(page, "dark");
   if (mode === "--issue122-2d") await captureIssue122d(page);
+  else if (mode === "--colon-rail-drag") await captureColonRailDragOnly(page);
   else if (mode === "--colon") await captureColon(page);
   else if (mode === "--ileum") await captureIleum(page);
   else await captureToy(page);

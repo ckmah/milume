@@ -272,6 +272,35 @@ test.describe("depth backdrop (#122) — colon 3D volume", () => {
     await page.mouse.up();
   });
 
+  test("lower bound drag readout uses whole µm and fits without horizontal scroll", async ({
+    page,
+  }) => {
+    await expect(page.getByTestId("depth-rail")).toBeVisible();
+    const loThumb = page.getByRole("slider", { name: "Lower z bound" });
+    const box = await loThumb.boundingBox();
+    expect(box).toBeTruthy();
+    const cx = box!.x + box!.width / 2;
+    const cy = box!.y + box!.height / 2;
+    await page.mouse.move(cx, cy);
+    await page.mouse.down();
+    await page.mouse.move(cx, cy + 22, { steps: 6 });
+    await expect(loThumb).toHaveClass(/dragging/);
+
+    const readout = page.getByTestId("depth-rail").locator(".landmarks-depth-rail__readout");
+    await expect(readout).toHaveClass(/readout--dragging/);
+
+    const main = readout.locator(".landmarks-depth-rail__readout-main");
+    await expect.poll(async () => main.textContent()).toMatch(/^\d+ ± \d+$/);
+
+    const subText = await readout.locator(".landmarks-depth-rail__readout-sub").textContent();
+    expect(subText).toMatch(/^\d+–\d+ µm$/);
+
+    const overflow = await readout.evaluate((el) => el.scrollWidth <= el.clientWidth + 1);
+    expect(overflow).toBe(true);
+
+    await page.mouse.up();
+  });
+
   test("symmetric band readout uses whole numbers on one line", async ({ page }) => {
     await expect(page.getByTestId("depth-rail")).toBeVisible();
     const focus = Math.round((await getModel(page, "z_focus_um")) as number);

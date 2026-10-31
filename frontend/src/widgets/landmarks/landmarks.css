@@ -1956,9 +1956,26 @@
   text-overflow: clip;
 }
 
+.landmarks-depth-rail__readout--dragging {
+  font-size: 0.625rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  overflow: visible;
+}
+
+.landmarks-depth-rail__readout--dragging .landmarks-depth-rail__readout-sub {
+  overflow: visible;
+}
+
+.landmarks-depth-rail__readout--dragging .landmarks-depth-rail__readout-main,
+.landmarks-depth-rail__readout--dragging .landmarks-depth-rail__readout-muted {
+  font-size: 0.625rem;
+}
+
 .landmarks-depth-rail__readout-muted {
   font-size: 0.6875rem;
   color: color-mix(in oklab, var(--foreground) 55%, transparent);
+  flex-shrink: 0;
 }
 
 .landmarks-depth-rail__readout-bound--active {

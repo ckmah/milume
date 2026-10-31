@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { formatLegendValue } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { applyBandSnapshot, type BandSnapshot } from "./depth-rail-snapshot";
+import { formatDepthRailDragReadout, formatRangeLine } from "./depth-rail-format";
 import { usePointZExtent } from "../use-point-z-extent";
 
 import { FLOAT_PANEL } from "./sections";
@@ -40,24 +41,6 @@ function zToPct(z: number, lo: number, hi: number): number {
   return ((z - lo) / span) * 100;
 }
 
-function formatDepthRailUm(value: number, preferWhole: boolean): string {
-  if (!Number.isFinite(value)) return "";
-  const rounded = Math.round(value);
-  if (preferWhole && Math.abs(value - rounded) < 0.06) {
-    return String(rounded);
-  }
-  const raw = formatLegendValue(value);
-  const asNum = Number(raw);
-  if (Number.isFinite(asNum)) {
-    if (Math.abs(asNum - rounded) < 0.05) return String(rounded);
-    const oneDec = Math.round(asNum * 10) / 10;
-    if (Math.abs(asNum - oneDec) < 1e-6) {
-      return Number.isInteger(oneDec) ? String(oneDec) : String(oneDec);
-    }
-  }
-  return raw.replace(/\.0+$/, "");
-}
-
 function railTickValues(extLo: number, extHi: number): number[] {
   const span = extHi - extLo;
   if (!Number.isFinite(span) || span <= 0) return [Math.round(extLo)];
@@ -69,32 +52,6 @@ function railTickValues(extLo: number, extHi: number): number[] {
   const roundTick = (v: number) => Math.round(v / step) * step;
   const ticks = [extLo, extLo + span / 3, extLo + (2 * span) / 3, extHi].map(roundTick);
   return [...new Set(ticks.map((t) => Math.round(t * 1000) / 1000))].sort((a, b) => a - b);
-}
-
-function formatRangeLine(
-  focus: number,
-  lo: number,
-  hi: number,
-): { main: string; subLo: string; subHi: string; symmetric: boolean } {
-  const half = (hi - lo) / 2;
-  const mid = (lo + hi) / 2;
-  const symmetric =
-    Math.abs(focus - mid) < 0.05 &&
-    Math.abs(half * 2 - (hi - lo)) < 0.05 &&
-    half > 0;
-  const subLo = formatDepthRailUm(lo, symmetric);
-  const subHi = formatDepthRailUm(hi, symmetric);
-  if (symmetric) {
-    const focusLabel = formatDepthRailUm(focus, true);
-    const halfLabel = formatDepthRailUm(half, true);
-    return {
-      main: `${focusLabel} ± ${halfLabel}`,
-      subLo,
-      subHi,
-      symmetric: true,
-    };
-  }
-  return { main: formatDepthRailUm(focus, false), subLo, subHi, symmetric: false };
 }
 
 function nudgeZ(
@@ -137,12 +94,7 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
     if (!hasZ) return null;
     const line = formatRangeLine(focus, bandLo, bandHi);
     if (drag) {
-      return {
-        ...line,
-        main: `${formatDepthRailUm(focus, true)} ± ${formatDepthRailUm((bandHi - bandLo) / 2, true)}`,
-        subLo: formatDepthRailUm(bandLo, true),
-        subHi: formatDepthRailUm(bandHi, true),
-      };
+      return formatDepthRailDragReadout(focus, bandLo, bandHi);
     }
     return line;
   }, [hasZ, focus, bandLo, bandHi, drag]);
@@ -273,7 +225,12 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
       role="group"
       aria-label="Focus depth"
     >
-      <div className="landmarks-depth-rail__readout">
+      <div
+        className={cn(
+          "landmarks-depth-rail__readout",
+          drag && "landmarks-depth-rail__readout--dragging",
+        )}
+      >
         <div className="landmarks-depth-rail__readout-line">
           <span className="landmarks-depth-rail__readout-muted">z </span>
           <span
