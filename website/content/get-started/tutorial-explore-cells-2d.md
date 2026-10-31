@@ -62,7 +62,7 @@ galt_hits = w.get_obs_names("galt-aggregates-west").union(
 )
 ```
 
-**Result:** The seeded headless lassos select **294 cells** in total, **260** with `anatomical_layer` GALT (**88.4%** of the selection). That covers the annotated GALT cells in the two cryptopatch aggregates on this slice (western polygon **90.2%** GALT, 164 cells; eastern **86.2%** GALT, 130 cells). Your own lassos may differ.
+**Result:** The seeded headless lassos select **278 cells** in total, **261** with `anatomical_layer` GALT (**93.9%** of the selection), covering **all 260** annotated GALT cells in the two cryptopatch aggregates on this slice. The western polygon is **90.2%** GALT (164 cells, 148 GALT); the tightened eastern polygon is **99.1%** GALT (114 cells, 113 GALT). Your own lassos may differ.
 
 <figure class="ml-hero ml-hero--still" markdown="0">
 <img class="ml-only-dark" src="../assets/tutorials/explore-cells-2d/still-galt-selection.dark.png" alt="Two GALT cryptopatch lassos on the ileum map with cell-type counts for the selection." loading="lazy">
@@ -76,7 +76,7 @@ enrich = ml.enrichment(adata, galt_hits, obs_key="cell_type")
 enrich
 ```
 
-**Result:** Stromal and innate immune types rank highest by `log2_enrichment` relative to the whole section (seeded union: FRC 6.12, cDC (Il22ra2+) 5.99, ILC3 5.58, FDC 5.27, B (follicular) 4.44).
+**Result:** Stromal and innate immune types rank highest by `log2_enrichment` relative to the whole section (seeded union: FRC 6.20, cDC (Il22ra2+) 6.04, ILC3 5.66, FDC 5.35, B (follicular) 4.52).
 
 Flag the selection and plot immune markers:
 

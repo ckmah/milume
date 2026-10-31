@@ -3,7 +3,7 @@
  * Capture light still-galt-selection for the 2D tutorial (issue #372).
  *
  * Matches Clarence's hand-capture framing (1068×728): default fit-to-data zoom,
- * galt-aggregates-west/east polygons + active GALT · 294 selection, category tab
+ * galt-aggregates-west/east polygons, category tab
  * expanded and cell_type / cell_class collapsed.
  *
  * Prereq:
@@ -42,7 +42,7 @@ const indicesPath =
 const polygonsPath = join(root, "frontend", "dev", "galt-aggregate-polygons.json");
 const pointIndices = JSON.parse(readFileSync(indicesPath, "utf8"));
 const polygons = JSON.parse(readFileSync(polygonsPath, "utf8"));
-const expectedCount = Number(process.env.GALT_EXPECTED_COUNT ?? "294");
+const expectedCount = Number(process.env.GALT_EXPECTED_COUNT ?? "278");
 if (!Array.isArray(pointIndices) || pointIndices.length !== expectedCount) {
   throw new Error(`expected ${expectedCount} point indices, got ${pointIndices?.length}`);
 }
@@ -128,7 +128,7 @@ async function fitGaltAggregatesView(page) {
     const cy = (minY + maxY) / 2;
     eng.panTo(cx, cy, { animate: false });
     const span = Math.max(maxX - minX, maxY - minY);
-    const targetSpan = 650;
+    const targetSpan = 520;
     const steps = Math.max(0, Math.min(8, Math.round(Math.log2(span / targetSpan))));
     for (let i = 0; i < steps; i++) {
       eng.zoomBy(1, { animate: false });
@@ -147,10 +147,9 @@ async function prepareGaltView(page) {
     selections: [
       { id: "galt-aggregates-west", type: "polygon", vertices: polygons.west },
       { id: "galt-aggregates-east", type: "polygon", vertices: polygons.east },
-      { id: `GALT · ${expectedCount}`, point_indices: pointIndices },
     ],
     selected_kind: "selection",
-    selected_index: 2,
+    selected_index: 0,
     landmarks: [],
   });
   await waitForLandmarks(page);
