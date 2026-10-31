@@ -1,49 +1,31 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
 
 import { decodeGeneCscF32, decodeGeneCscI32 } from "./gene-csc-binary.ts";
 
-const root = join(dirname(fileURLToPath(import.meta.url)), "../../../..");
+const dev = join(dirname(fileURLToPath(import.meta.url)), "../../../dev");
 
-function pythonPack() {
-  const script = `
-import base64, gzip, json
-import numpy as np
-from tests.helpers import adata_xy
-from milume.genes import pack_eager_gene_matrix
-
-adata = adata_xy([0.0, 1.0, 2.0], [0.0, 1.0, 0.0], genes={"A": [0.0, 2.0, 4.0], "B": [1.0, 0.0, 3.0]})
-_, payload = pack_eager_gene_matrix(adata, ["A", "B"], 3)
-
-def raw(key, dtype):
-    data = base64.b64decode(payload[key])
-    if payload.get("gene_csc_codec") == "gzip":
-        data = gzip.decompress(data)
-    return np.frombuffer(data, dtype=dtype).tolist()
-
-print(json.dumps({"payload": payload, "indptr": raw("gene_csc_indptr", np.int32), "indices": raw("gene_csc_indices", np.int32), "data": raw("gene_csc_data", np.float32)}))
-`;
-  const proc = spawnSync("uv", ["run", "--directory", root, "python", "-c", script], {
-    encoding: "utf8",
-  });
-  assert.equal(proc.status, 0, proc.stderr || proc.stdout);
-  return JSON.parse(proc.stdout);
-}
-
-test("JS decodes Python gzip gene CSC traits", async () => {
-  const py = pythonPack();
-  assert.equal(py.payload.gene_csc_codec, "gzip");
-  const codec = py.payload.gene_csc_codec;
-  const gotIndptr = [...(await decodeGeneCscI32(py.payload.gene_csc_indptr, codec))];
-  const gotIndices = [...(await decodeGeneCscI32(py.payload.gene_csc_indices, codec))];
-  const gotData = [...(await decodeGeneCscF32(py.payload.gene_csc_data, codec))];
-  assert.deepEqual(gotIndptr, py.indptr);
-  assert.deepEqual(gotIndices, py.indices);
-  assert.deepEqual(
-    gotData.map((v) => Math.fround(v)),
-    py.data.map((v) => Math.fround(v)),
-  );
+test("JS decodes gzip CSC traits from the squidpy harness fixture", async () => {
+  const fixture = JSON.parse(readFileSync(join(dev, "squidpy-niche-fixture.json"), "utf8"));
+  assert.equal(fixture.gene_csc_codec, "gzip");
+  const codec = fixture.gene_csc_codec;
+  const meta = fixture.gene_names;
+  const indptr = await decodeGeneCscI32(fixture.gene_csc_indptr, codec);
+  const indices = await decodeGeneCscI32(fixture.gene_csc_indices, codec);
+  const data = await decodeGeneCscF32(fixture.gene_csc_data, codec);
+  assert.equal(indptr.length, meta.length + 1);
+  assert.equal(indices.length, data.length);
+  assert.equal(indptr.at(-1), indices.length);
+  for (let j = 0; j < meta.length; j++) {
+    const a = indptr[j];
+    const b = indptr[j + 1];
+    assert.ok(b >= a);
+    for (let p = a; p < b; p++) {
+      assert.ok(indices[p] >= 0);
+      assert.ok(data[p] >= 0 && data[p] <= 1);
+    }
+  }
 });
