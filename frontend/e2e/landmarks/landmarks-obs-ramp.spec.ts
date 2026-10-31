@@ -62,6 +62,33 @@ test.describe("Landmarks numeric obs heat strip", () => {
     await expect(right.getByTestId("num-heat-strip")).toHaveCount(0);
   });
 
+  test("signed obs column uses diverging symmetric limits", async ({ page }) => {
+    const signed = JSON.parse(
+      readFileSync(
+        fileURLToPath(new URL("../../dev/harness-twin-obs-signed.json", import.meta.url)),
+        "utf8",
+      ),
+    );
+    await setModel(page, signed);
+    await expect
+      .poll(async () => ((await getModel(page, "_color_state")) as { color_mode?: string }).color_mode)
+      .toBe("obs");
+    const right = await openExploreRight(page);
+    await right.getByTestId("explore-color-by").getByRole("tab", { name: "num" }).click();
+    const look = (await getModel(page, "_look")) as {
+      color_vmin?: number;
+      color_vmax?: number;
+      color_diverging?: boolean;
+    };
+    expect(look.color_diverging).toBe(true);
+    expect(look.color_vmin).toBeLessThan(0);
+    expect(look.color_vmax).toBeGreaterThan(0);
+    expect(Math.abs(look.color_vmin! + look.color_vmax!)).toBeLessThan(1e-6);
+    await expect(right.getByTestId("num-heat-max")).toHaveText(
+      formatLegendValue(look.color_vmax!),
+    );
+  });
+
   test("color_vmin and color_vmax updates re-render strip scale", async ({ page }) => {
     await setModel(page, obsColor);
     const right = await openExploreRight(page);

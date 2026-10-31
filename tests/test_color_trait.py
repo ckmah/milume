@@ -63,9 +63,38 @@ def test_numeric_obs_column_shows_a_sequential_ramp():
     assert w._color_state["legend_title"] == "area"
     assert w.active_category == ""
     assert len(w._look["point_palette"]) == 256
+    assert w._look["color_diverging"] is False
     points = np.frombuffer(base64.b64decode(w.points_data), dtype=np.float32).reshape(4, 4)
     assert points[0, 2] == 0.0 and points[-1, 2] == 1.0
     assert np.all(np.diff(points[:, 2]) > 0)
+
+
+def test_signed_numeric_obs_column_uses_diverging_symmetric_range():
+    adata = _adata()
+    adata.obs["ulm_score"] = [-2.0, -0.5, 0.0, 3.0]
+    w = LandmarksWidget(adata)
+    w.color = "ulm_score"
+    assert w._look["color_diverging"] is True
+    assert w._look["color_vmin"] == -3.0
+    assert w._look["color_vmax"] == 3.0
+    meta = (w._color_options.get("obs") or {}).get("ulm_score") or {}
+    assert meta.get("signed") is True
+    assert meta.get("range") == [-3.0, 3.0]
+    points = np.frombuffer(base64.b64decode(w.points_data), dtype=np.float32).reshape(4, 4)
+    assert abs(float(points[2, 2]) - 0.5) < 0.02
+    from milume.landmarks_color import diverging_palette
+
+    assert w._look["point_palette"][127] == diverging_palette(256)[127]
+
+
+def test_signed_override_can_force_sequential():
+    adata = _adata()
+    adata.obs["ulm_score"] = [-1.0, 0.0, 1.0, 2.0]
+    w = LandmarksWidget(adata)
+    w._look = {**w._look, "color_diverging_override": False}
+    w.color = "ulm_score"
+    assert w._look["color_diverging"] is False
+    assert w._look["point_palette"][0].lower() == "#f3e6d4"
 
 
 def test_gene_recolours_in_one_sync(monkeypatch):

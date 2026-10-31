@@ -156,6 +156,7 @@ export function InfoPanel({
     y_bounds,
     color_vmin,
     color_vmax,
+    color_diverging,
     point_palette,
     legend_title,
   } = lm;
@@ -354,8 +355,9 @@ export function InfoPanel({
       pointsDataB64: points_data || "",
       vmin: color_vmin,
       vmax: color_vmax,
+      diverging: color_diverging,
     });
-  }, [showNumeric, n, compositionMask, points_data, color_vmin, color_vmax]);
+  }, [showNumeric, n, compositionMask, points_data, color_vmin, color_vmax, color_diverging]);
 
   const activeTypeIndex = useMemo(() => {
     if (hoverTypeIndex != null) return hoverTypeIndex;

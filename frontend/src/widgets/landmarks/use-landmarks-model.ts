@@ -76,6 +76,8 @@ export type LookDict = {
   point_palette?: string[];
   color_vmin?: number;
   color_vmax?: number;
+  color_diverging?: boolean;
+  color_diverging_override?: boolean;
   gene_scale_mode?: GeneScaleMode;
   gene_log1p?: boolean;
   raster_embedding_dims?: number[];
@@ -230,6 +232,7 @@ export type LandmarksModel = Omit<LandmarksState, "color"> & {
   legend_title: string;
   color_vmin: number;
   color_vmax: number;
+  color_diverging: boolean;
   point_palette: string[];
   embedding_values: string;
   embedding_channel_labels: string[];
@@ -312,6 +315,7 @@ export function useLandmarksModel(model: AnyModel): LandmarksModel {
   const point_palette = look.point_palette ?? [];
   const color_vmin = look.color_vmin ?? 0;
   const color_vmax = look.color_vmax ?? 1;
+  const color_diverging = !!look.color_diverging;
   const gene_scale_mode: GeneScaleMode = look.gene_scale_mode === "shared" ? "shared" : "independent";
   const gene_log1p = !!look.gene_log1p;
   const gene_names = options.genes ?? [];
@@ -334,6 +338,7 @@ export function useLandmarksModel(model: AnyModel): LandmarksModel {
     legend_title,
     color_vmin,
     color_vmax,
+    color_diverging,
     point_palette,
     embedding_values,
     embedding_channel_labels,

@@ -70,6 +70,7 @@ function ensureLook(state: Record<string, unknown>): Record<string, unknown> {
       point_palette: [],
       color_vmin: 0,
       color_vmax: 1,
+      color_diverging: false,
       gene_scale_mode: "independent",
       gene_log1p: false,
       raster_embedding_dims: [],

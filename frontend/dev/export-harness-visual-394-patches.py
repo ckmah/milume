@@ -160,6 +160,15 @@ def main() -> None:
     w_emb._pack_embedding_matrix()
     _write("embedding", w_emb)
 
+    rng2 = np.random.default_rng(3941)
+    score = rng2.uniform(-2.5, 2.5, n)
+    score[n // 2] = 0.0
+    adata_signed = adata_xy(x, y)
+    adata_signed.obs["harness_ulm_score"] = score.astype(np.float64)
+    w_signed = LandmarksWidget(adata_signed)
+    w_signed.color = "harness_ulm_score"
+    _write("signed", w_signed)
+
     print(f"wrote legacy + colorApi patches under {OUT}")
 
 

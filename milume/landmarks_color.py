@@ -45,10 +45,17 @@ DEFAULT_LOOK: dict[str, Any] = {
     "point_palette": [],
     "color_vmin": 0.0,
     "color_vmax": 1.0,
+    "color_diverging": False,
     "gene_scale_mode": "independent",
     "gene_log1p": False,
     "raster_embedding_dims": [],
 }
+
+_SEQUENTIAL_LOW = "#f3e6d4"
+_SEQUENTIAL_HIGH = "#ff0099"
+_DIVERGING_LOW = "#2166ac"
+_DIVERGING_MID = "#f7f7f7"
+_DIVERGING_HIGH = "#b2182b"
 
 
 def normalize_color_value(value: Any) -> str | list[str]:
@@ -68,6 +75,102 @@ def color_key_from_value(value: Any) -> str:
     return norm
 
 
+def _sample_colormap(n: int, stops: list[tuple[float, str]]) -> list[str]:
+    """Piecewise-linear RGB stops → hex (matplotlib-style rounding)."""
+    if n <= 0:
+        return []
+    if len(stops) == 1:
+        return [stops[0][1]] * n
+
+    def hex_rgb(h: str) -> np.ndarray:
+        h = str(h).lstrip("#")
+        return np.array([int(h[i : i + 2], 16) / 255 for i in (0, 2, 4)], dtype=np.float64)
+
+    pts = sorted(stops, key=lambda x: x[0])
+    ts = np.array([t for t, _ in pts], dtype=np.float64)
+    rgbs = np.stack([hex_rgb(h) for _, h in pts])
+    if n == 1:
+        row = rgbs[-1]
+    else:
+        t_query = np.linspace(0.0, 1.0, n)
+        row = np.empty((n, 3), dtype=np.float64)
+        for i, t in enumerate(t_query):
+            j = int(np.searchsorted(ts, t, side="right") - 1)
+            j = max(0, min(j, len(ts) - 2))
+            t0, t1 = ts[j], ts[j + 1]
+            w = 0.0 if t1 <= t0 else (t - t0) / (t1 - t0)
+            row[i] = (1.0 - w) * rgbs[j] + w * rgbs[j + 1]
+    return [
+        "#" + "".join(format(round(float(c) * 255), "02x") for c in rgb) for rgb in row
+    ]
+
+
+def sequential_palette(
+    n: int = 256,
+    low: str = _SEQUENTIAL_LOW,
+    high: str = _SEQUENTIAL_HIGH,
+) -> list[str]:
+    """Lazy import avoids circular import with ``milume.landmarks``."""
+    from milume.landmarks import _sequential_palette
+
+    return _sequential_palette(n, low=low, high=high)
+
+
+def diverging_palette(
+    n: int = 256,
+    low: str = _DIVERGING_LOW,
+    mid: str = _DIVERGING_MID,
+    high: str = _DIVERGING_HIGH,
+) -> list[str]:
+    return _sample_colormap(n, [(0.0, low), (0.5, mid), (1.0, high)])
+
+
+def numeric_spans_zero(finite: np.ndarray) -> bool:
+    if finite.size == 0:
+        return False
+    return float(finite.min()) < 0.0 < float(finite.max())
+
+
+def symmetric_diverging_limits(finite: np.ndarray) -> tuple[float, float]:
+    lim = float(np.max(np.abs(finite)))
+    if not np.isfinite(lim) or lim <= 0.0:
+        lim = 1.0
+    return -lim, lim
+
+
+def encode_numeric_obs_colors(
+    vals: np.ndarray,
+    *,
+    diverging: bool | None = None,
+) -> tuple[list[str], np.ndarray, float, float, bool]:
+    """Palette, normalized valueA in [0, 1], vmin, vmax, and diverging flag."""
+    raw = np.asarray(vals, dtype=np.float64)
+    finite = raw[np.isfinite(raw)]
+    if finite.size == 0:
+        pal = sequential_palette(256)
+        return pal, np.zeros(raw.shape[0], dtype=np.float32), 0.0, 1.0, False
+
+    use_diverging = numeric_spans_zero(finite) if diverging is None else bool(diverging)
+    if use_diverging:
+        vmin, vmax = symmetric_diverging_limits(finite)
+        pal = diverging_palette(256)
+    else:
+        from milume.landmarks import _sequential_palette
+
+        vmin = float(np.nanmin(finite))
+        vmax = float(np.nanpercentile(finite, 99))
+        if not np.isfinite(vmax) or vmax <= vmin:
+            vmax = float(np.nanmax(finite))
+        if not np.isfinite(vmax) or vmax <= vmin:
+            vmax = vmin + 1.0
+        pal = _sequential_palette(256)
+
+    span = vmax - vmin
+    norm = ((raw - vmin) / span).astype(np.float32)
+    norm = np.clip(np.nan_to_num(norm, nan=0.0), 0.0, 1.0)
+    return pal, norm, float(vmin), float(vmax), use_diverging
+
+
 def obs_numeric_meta(obs: Any) -> dict[str, dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     for name in obs.columns:
@@ -76,12 +179,22 @@ def obs_numeric_meta(obs: Any) -> dict[str, dict[str, Any]]:
             vals = np.asarray(series, dtype=np.float64)
             finite = vals[np.isfinite(vals)]
             if finite.size:
-                out[str(name)] = {
-                    "kind": "numeric",
-                    "range": [float(finite.min()), float(finite.max())],
-                }
+                signed = numeric_spans_zero(finite)
+                if signed:
+                    lo, hi = symmetric_diverging_limits(finite)
+                    out[str(name)] = {
+                        "kind": "numeric",
+                        "signed": True,
+                        "range": [lo, hi],
+                    }
+                else:
+                    out[str(name)] = {
+                        "kind": "numeric",
+                        "signed": False,
+                        "range": [float(finite.min()), float(finite.max())],
+                    }
             else:
-                out[str(name)] = {"kind": "numeric", "range": [0.0, 1.0]}
+                out[str(name)] = {"kind": "numeric", "signed": False, "range": [0.0, 1.0]}
     return out
 
 

@@ -26,6 +26,7 @@ export function ObsRampLegend({
   const title = lm.legend_title || "";
   const vmin = lm.color_vmin;
   const vmax = lm.color_vmax;
+  const diverging = lm.color_diverging || (vmin < 0 && vmax > 0);
 
   return (
     <div
@@ -43,6 +44,9 @@ export function ObsRampLegend({
           data-testid="obs-ramp-scale"
         >
           <span data-testid="obs-ramp-vmax">{formatLegendValue(vmax)}</span>
+          {diverging ? (
+            <span data-testid="obs-ramp-vzero">{formatLegendValue(0)}</span>
+          ) : null}
           <span data-testid="obs-ramp-vmin">{formatLegendValue(vmin)}</span>
         </div>
         <div

@@ -70,6 +70,8 @@ Replace `<name>` with `active_category` or `active_genes`.
 
 **Shim choice.** Only `active_category` and `active_genes` stay as deprecated public traits because they were documented notebook setters and reads; they still mirror `color` without warnings when the widget updates them internally. We did not add deprecated properties for `color_mode` or `gene_names` because observers on those names would keep code on the old surface; migrating to `color` plus `_color_state` / `_color_options` is the supported path.
 
+**Signed numeric obs (decoupler / LIANA-style scores).** When a column’s finite values span zero (`min < 0 < max`), the widget auto-selects a diverging palette (ColorBrewer-style blue → neutral → red, neutral at 0), symmetric limits `±max(|v|)`, and sets `_look["color_diverging"]`. Sequential columns keep the cream→magenta ramp and p99 cap. Override without a public API via `_look["color_diverging_override"]` (`true` / `false`) before re-assigning `color`; future chrome may expose this in the UI.
+
 ### Deprecated
 
 - `LandmarksWidget.active_category` and `active_genes` are derived from `color` and will be removed in 3.0. Assign `color` instead. Warning text: ``LandmarksWidget.<name> is deprecated and will be removed in 3.0; assign ``color`` instead (scanpy-style obs column, gene, gene list, or obsm key).`` ([#394](https://github.com/ckmah/milume/issues/394)).

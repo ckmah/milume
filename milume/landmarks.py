@@ -35,6 +35,7 @@ from .landmarks_color import (
     ColorSpec,
     build_color_options,
     color_key_from_value,
+    encode_numeric_obs_colors,
     normalize_color_value,
     warn_deprecated_trait,
 )
@@ -70,10 +71,8 @@ def _sequential_palette(
     lo = np.array([int(low[i : i + 2], 16) / 255 for i in (1, 3, 5)])
     hi = np.array([int(high[i : i + 2], 16) / 255 for i in (1, 3, 5)])
     if n <= 1:
-        # matplotlib maps 0.5 on an N=2 table to the top entry.
         rgb = hi[None, :]
     else:
-        # Same float steps as matplotlib's ``_create_lookup_table``.
         t = ((n - 1) * np.linspace(0.0, 1.0, n))[1:-1, None] / (n - 1)
         rgb = np.vstack([lo, t * (hi - lo) + lo, hi])
     return [
@@ -134,15 +133,8 @@ def _encode_colors(
     finite = vals[np.isfinite(vals)]
     if finite.size == 0:
         return seq, np.zeros(n, dtype=np.float32), [], 0.0, 1.0
-    vmin = float(np.nanmin(finite))
-    vmax = float(np.nanpercentile(finite, 99))
-    if not math.isfinite(vmax) or vmax <= vmin:
-        vmax = float(np.nanmax(finite))
-    if not math.isfinite(vmax) or vmax <= vmin:
-        vmax = vmin + 1.0
-    norm = ((vals - vmin) / (vmax - vmin)).astype(np.float32)
-    norm = np.clip(np.nan_to_num(norm, nan=0.0), 0.0, 1.0)
-    return seq, norm, [], vmin, vmax
+    pal, norm, vmin, vmax, _ = encode_numeric_obs_colors(vals)
+    return pal, norm, [], vmin, vmax
 
 
 def _numeric_obs_column_names(obs: Any) -> list[str]:
@@ -1264,7 +1256,14 @@ class LandmarksWidget(AnyWidget):
     def _show_numeric_column(self, key: str) -> None:
         n = int(self._data_x.shape[0])
         vals = np.asarray(self._adata.obs[key], dtype=np.float64)
-        palette, value_a, _, vmin, vmax = _encode_colors(vals, None, n)
+        look = self._look_state()
+        if "color_diverging_override" in look:
+            diverging = bool(look["color_diverging_override"])
+        else:
+            diverging = None
+        palette, value_a, vmin, vmax, is_div = encode_numeric_obs_colors(
+            vals, diverging=diverging
+        )
         points = np.frombuffer(base64.b64decode(self.points_data), dtype=np.float32).reshape(n, 4).copy()
         points[:, 2] = value_a
         self.points_data = _encode_f32(points)
@@ -1278,6 +1277,7 @@ class LandmarksWidget(AnyWidget):
             point_palette=list(palette),
             color_vmin=float(vmin),
             color_vmax=float(vmax),
+            color_diverging=is_div,
         )
         self._data_labels = None
 
