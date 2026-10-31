@@ -152,23 +152,12 @@ await page.waitForFunction(
   { timeout: 30_000 },
 );
 await page.evaluate(() => {
-  const link = document.querySelector('a[href*="molab.marimo.io"]');
-  if (!link) throw new Error("Open in molab link missing on recipe page");
-  const chart = document.querySelector('marimo-cell[name="niche_composition"]');
-  chart?.scrollIntoView({ block: "center", inline: "nearest" });
-  const wrap = document.createElement("div");
-  wrap.id = "milume-capture-molab-banner";
-  wrap.style.cssText =
-    "position:fixed;top:64px;left:248px;right:20px;z-index:100000;padding:10px 14px;background:#fff;border:1px solid #d0d7de;font:14px/1.4 system-ui,sans-serif;box-shadow:0 2px 8px rgba(0,0,0,.08);";
-  wrap.innerHTML = "<strong>Open in molab:</strong> ";
-  wrap.appendChild(link.cloneNode(true));
-  document.body.appendChild(wrap);
+  document
+    .querySelector('marimo-cell[name="niche_composition"]')
+    ?.scrollIntoView({ block: "center", inline: "nearest" });
 });
 await page.waitForTimeout(400);
 await viewportShot(page, outputs[5]);
-await page.evaluate(() =>
-  document.getElementById("milume-capture-molab-banner")?.remove(),
-);
 
 await page.evaluate(() => {
   const style = document.createElement("style");
