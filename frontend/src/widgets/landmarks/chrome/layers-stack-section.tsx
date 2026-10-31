@@ -241,9 +241,6 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                   ) : null}
                 </div>
               ) : null}
-              <p className="m-0 text-[11px] text-foreground/65">
-                More: palette, gamma… (Designer review pending for channel-row layout)
-              </p>
             </div>
           ) : null}
         </div>
