@@ -392,6 +392,7 @@ export type NumericHeatStripData = {
   /** Raw max in scope (may exceed scaleMax). */
   obsMax: number;
   capped: boolean;
+  diverging: boolean;
 };
 
 /** Binned numeric obs values in scope for the num-tab heat strip. */
@@ -451,7 +452,7 @@ export function numericHeatStripData(opts: {
     const mid = lo + ((bi + 0.5) / bins) * span;
     return (mid - vmin) / (vmax - vmin || 1);
   });
-  return { counts, hues, lo, hi, scaleMax, obsMax, capped };
+  return { counts, hues, lo, hi, scaleMax, obsMax, capped, diverging };
 }
 
 export type GeneHeatRow = {
