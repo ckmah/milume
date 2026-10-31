@@ -45,12 +45,14 @@
                         "scale": [
                           1.0,
                           1.0,
+                          1.0,
                           1.0
                         ]
                       },
                       {
                         "type": "translation",
                         "translation": [
+                          0.0,
                           0.0,
                           0.0,
                           0.0
@@ -65,16 +67,18 @@
                         "type": "scale",
                         "scale": [
                           1.0,
-                          2.0,
-                          2.0
+                          1.0,
+                          1.0,
+                          1.0
                         ]
                       },
                       {
                         "type": "translation",
                         "translation": [
                           0.0,
-                          0.5,
-                          0.5
+                          0.0,
+                          0.0,
+                          0.0
                         ]
                       }
                     ]
@@ -85,6 +89,10 @@
                   {
                     "name": "c",
                     "type": "channel"
+                  },
+                  {
+                    "name": "z",
+                    "type": "space"
                   },
                   {
                     "name": "y",
@@ -100,15 +108,21 @@
                     "type": "scale",
                     "scale": [
                       1.0,
+                      1.0,
                       0.5,
                       0.5
                     ],
                     "input": {
-                      "name": "cyx",
+                      "name": "czyx",
                       "axes": [
                         {
                           "name": "c",
                           "type": "channel"
+                        },
+                        {
+                          "name": "z",
+                          "type": "space",
+                          "unit": "unit"
                         },
                         {
                           "name": "y",
@@ -128,6 +142,11 @@
                         {
                           "name": "c",
                           "type": "channel"
+                        },
+                        {
+                          "name": "z",
+                          "type": "space",
+                          "unit": "unit"
                         },
                         {
                           "name": "y",
@@ -152,6 +171,12 @@
                 },
                 {
                   "label": "PanCK"
+                },
+                {
+                  "label": "CD45"
+                },
+                {
+                  "label": "Ki67"
                 },
                 {
                   "label": "dummy"
@@ -191,7 +216,8 @@
       },
       "images/mosaic/s0": {
         "shape": [
-          3,
+          5,
+          1,
           64,
           96
         ],
@@ -200,9 +226,10 @@
           "name": "regular",
           "configuration": {
             "chunk_shape": [
-              3,
+              5,
+              1,
               64,
-              96
+              64
             ]
           }
         },
@@ -228,6 +255,7 @@
         "attributes": {},
         "dimension_names": [
           "c",
+          "z",
           "y",
           "x"
         ],
@@ -237,18 +265,20 @@
       },
       "images/mosaic/s1": {
         "shape": [
-          3,
-          32,
-          48
+          5,
+          1,
+          64,
+          96
         ],
         "data_type": "uint8",
         "chunk_grid": {
           "name": "regular",
           "configuration": {
             "chunk_shape": [
-              3,
-              32,
-              48
+              5,
+              1,
+              64,
+              64
             ]
           }
         },
@@ -274,6 +304,7 @@
         "attributes": {},
         "dimension_names": [
           "c",
+          "z",
           "y",
           "x"
         ],

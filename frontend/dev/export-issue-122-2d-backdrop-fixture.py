@@ -75,19 +75,6 @@ FIXTURE_KEYS = [
 VOLUME_KEYS = ["volume", "volume_cell_rows", "volume_cut", "inspect_size_um"]
 
 
-def _static_volume_urls(volume: dict[str, object]) -> dict[str, object]:
-    from urllib.parse import urlparse
-
-    out = dict(volume)
-    for key in ("image_url", "labels_url"):
-        url = str(out.get(key) or "")
-        if not url:
-            continue
-        path = urlparse(url).path
-        out[key] = f"/{STORE_NAME}{path}"
-    return out
-
-
 def main() -> None:
     store = PUBLIC / STORE_NAME
     if store.exists():
@@ -99,7 +86,7 @@ def main() -> None:
     widget = LandmarksWidget(sdata, color="cell_type", contrast_limits=contrast)
     widget.set_render_mode("points")
     payload = {key: getattr(widget, key) for key in FIXTURE_KEYS + VOLUME_KEYS}
-    payload["volume"] = _static_volume_urls(payload["volume"])
+    payload["volume"]["is_3d"] = False
     OUT.write_text(json.dumps(payload, indent=2) + "\n")
     mib = sum(f.stat().st_size for f in store.rglob("*") if f.is_file()) / (1024 * 1024)
     print(f"wrote {store} and {OUT} (zarr ~{mib:.2f} MiB, fixture {OUT.stat().st_size // 1024} KiB)")

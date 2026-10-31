@@ -7,7 +7,7 @@ def test_issue122_2d_fixture_exports(tmp_path):
     sdata = issue122_2d_multichannel_spatialdata(dest)
     _, src = resolve_volume(sdata)
     assert src is not None
-    assert src.is_3d is False
+    assert src.is_3d is True
     assert "dummy" in src.channel_names
     w = LandmarksWidget(sdata, color="cell_type")
     assert w.volume.get("channels")

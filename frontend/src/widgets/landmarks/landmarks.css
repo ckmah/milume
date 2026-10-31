@@ -1927,14 +1927,22 @@
   color: color-mix(in oklab, var(--foreground) 72%, transparent);
 }
 
+.landmarks-depth-rail__readout-line {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
 .landmarks-depth-rail__readout-main {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 500;
   color: var(--foreground);
 }
 
 .landmarks-depth-rail__readout-sub {
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .landmarks-depth-rail__readout-muted {

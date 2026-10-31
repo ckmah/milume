@@ -113,7 +113,7 @@ def issue122_2d_multichannel_spatialdata(dest):
     import numpy as np
     import pandas as pd
     import spatialdata as sd
-    from spatialdata.models import Image2DModel, TableModel
+    from spatialdata.models import Image3DModel, TableModel
     from spatialdata.transformations import Scale
 
     pixel_um = 0.5
@@ -125,8 +125,11 @@ def issue122_2d_multichannel_spatialdata(dest):
 
     ch_dapi = np.clip(blob(22, 28, 7, 220) + blob(48, 62, 6, 200), 0, 255).astype(np.uint8)
     ch_panck = np.clip(blob(48, 28, 6, 230) + blob(20, 58, 5, 180), 0, 255).astype(np.uint8)
+    ch_cd45 = np.clip(blob(30, 70, 5, 200) + blob(60, 40, 4, 160), 0, 255).astype(np.uint8)
+    ch_ki67 = np.clip(blob(70, 20, 4, 210) + blob(15, 40, 5, 170), 0, 255).astype(np.uint8)
     ch_dummy = np.zeros((h, w), dtype=np.uint8)
-    values = np.stack([ch_dapi, ch_panck, ch_dummy], axis=0)
+    values = np.stack([ch_dapi, ch_panck, ch_cd45, ch_ki67, ch_dummy], axis=0)
+    values = values[:, np.newaxis, :, :]
 
     peaks_px = [(22, 28), (48, 62), (48, 28), (20, 58)]
     extra = [(12 + i * 7, 10 + (i % 5) * 9) for i in range(20)]
@@ -144,12 +147,12 @@ def issue122_2d_multichannel_spatialdata(dest):
     table = ad.AnnData(np.ones((n, 1), dtype=np.float32), obs=obs)
     table.obsm["spatial"] = centers_um
 
-    image = Image2DModel.parse(
+    image = Image3DModel.parse(
         values,
-        dims=("c", "y", "x"),
-        c_coords=pd.Index(["DAPI", "PanCK", "dummy"]),
-        transformations={"global": Scale([pixel_um, pixel_um], axes=("y", "x"))},
-        scale_factors=[2],
+        dims=("c", "z", "y", "x"),
+        c_coords=pd.Index(["DAPI", "PanCK", "CD45", "Ki67", "dummy"]),
+        transformations={"global": Scale([1.0, pixel_um, pixel_um], axes=("z", "y", "x"))},
+        scale_factors=[1],
     )
     sdata = sd.SpatialData(
         images={"mosaic": image},

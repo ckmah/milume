@@ -147,6 +147,8 @@ test.describe("depth backdrop (#122) — 2D multichannel fixture", () => {
     await expect(page.getByTestId("layer-channel-dummy")).toHaveCount(0);
     await expect(page.getByTestId("layer-channel-DAPI")).toBeVisible();
     await expect(page.getByTestId("layer-channel-PanCK")).toBeVisible();
+    await expect(page.getByTestId("layer-channel-CD45")).toBeVisible();
+    await expect(page.getByTestId("layer-channel-Ki67")).toBeVisible();
   });
 
   test("two visible channels blend on black canvas", async ({ page }) => {
@@ -162,12 +164,15 @@ test.describe("depth backdrop (#122) — 2D multichannel fixture", () => {
     const widget = page.locator(".milume-widget.landmarks").first();
     await shot(page, "122-2d-two-channel-blend", widget);
   });
+
 });
 
 test.describe("depth backdrop (#122) — default harness", () => {
   test.skip(volumeHarness, "requires default dev:landmarks harness");
 
-  test("ileum fixture: no depth rail, no layers image row, landmarks--no-z", async ({ page }) => {
+  test("ileum fixture: no depth rail, no layers image row, landmarks--no-z", { tag: "@isolated" }, async ({
+    page,
+  }) => {
     await page.goto(`/?fixture=${encodeURIComponent(ILEUM_FIXTURE)}`, { waitUntil: "networkidle" });
     await waitForEngine(page);
 
@@ -179,7 +184,7 @@ test.describe("depth backdrop (#122) — default harness", () => {
     await expect(page.getByTestId("layers-image-row")).toHaveCount(0);
   });
 
-  test("default fixture.json uses landmarks--no-z", async ({ page }) => {
+  test("default fixture.json uses landmarks--no-z", { tag: "@isolated" }, async ({ page }) => {
     await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
     await waitForEngine(page);
 

@@ -5,7 +5,9 @@ import { cn } from "@/lib/utils";
 
 import { formatLegendValue } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
+import { applyBandSnapshot, type BandSnapshot } from "./depth-rail-snapshot";
 import { usePointZExtent } from "../use-point-z-extent";
+
 import { FLOAT_PANEL } from "./sections";
 
 const MIN_BAND_UM = 5;
@@ -15,8 +17,6 @@ const KEY_SHIFT_STEP_UM = 5;
 const KEY_PAGE_UM = 10;
 
 type DragKind = "lo" | "hi" | "focus";
-
-type BandSnapshot = { focus: number; lo: number; hi: number };
 
 function clampBand(
   lo: number,
@@ -40,17 +40,24 @@ function zToPct(z: number, lo: number, hi: number): number {
   return ((z - lo) / span) * 100;
 }
 
+function formatDepthRailUm(value: number, preferWhole: boolean): string {
+  if (!Number.isFinite(value)) return "";
+  if (preferWhole && Math.abs(value - Math.round(value)) < 0.06) {
+    return String(Math.round(value));
+  }
+  return formatLegendValue(value);
+}
+
 function railTickValues(extLo: number, extHi: number): number[] {
   const span = extHi - extLo;
-  if (!Number.isFinite(span) || span <= 0) return [extLo];
-  if (span < 2) return [extLo, extHi];
-  const round = (v: number) => {
-    const step = span > 80 ? 5 : span > 20 ? 2 : 1;
-    return Math.round(v / step) * step;
-  };
-  const mid1 = extLo + span / 3;
-  const mid2 = extLo + (2 * span) / 3;
-  const ticks = [extLo, round(mid1), round(mid2), extHi];
+  if (!Number.isFinite(span) || span <= 0) return [Math.round(extLo)];
+  if (span < 2) return [Math.round(extLo), Math.round(extHi)];
+  let step = 1;
+  if (span > 80) step = 10;
+  else if (span > 40) step = 5;
+  else if (span > 12) step = 2;
+  const roundTick = (v: number) => Math.round(v / step) * step;
+  const ticks = [extLo, extLo + span / 3, extLo + (2 * span) / 3, extHi].map(roundTick);
   return [...new Set(ticks.map((t) => Math.round(t * 1000) / 1000))].sort((a, b) => a - b);
 }
 
@@ -65,17 +72,17 @@ function formatRangeLine(
     Math.abs(focus - mid) < 0.05 &&
     Math.abs(half * 2 - (hi - lo)) < 0.05 &&
     half > 0;
-  const subLo = formatLegendValue(lo);
-  const subHi = formatLegendValue(hi);
+  const subLo = formatDepthRailUm(lo, symmetric);
+  const subHi = formatDepthRailUm(hi, symmetric);
   if (symmetric) {
     return {
-      main: `${formatLegendValue(focus)} ± ${formatLegendValue(half)}`,
+      main: `${formatDepthRailUm(focus, true)} ± ${formatDepthRailUm(half, true)}`,
       subLo,
       subHi,
       symmetric: true,
     };
   }
-  return { main: formatLegendValue(focus), subLo, subHi, symmetric: false };
+  return { main: formatDepthRailUm(focus, false), subLo, subHi, symmetric: false };
 }
 
 function nudgeZ(
@@ -157,7 +164,7 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
 
   const cancelDrag = useCallback(() => {
     const snap = dragSnapshot.current;
-    if (snap) lm.setZBand(snap);
+    if (snap) applyBandSnapshot(snap, (next) => lm.setZBand(next));
     dragSnapshot.current = null;
     setDrag(null);
   }, [lm]);
@@ -236,21 +243,23 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
       aria-label="Focus depth"
     >
       <div className="landmarks-depth-rail__readout">
-        <span className="landmarks-depth-rail__readout-muted">z</span>
-        <span
-          className={cn(
-            "landmarks-depth-rail__readout-main",
-            drag === "focus" && boundActive,
-          )}
-        >
-          {readout?.main}
-        </span>
-        <span className="landmarks-depth-rail__readout-sub">
+        <div className="landmarks-depth-rail__readout-line">
+          <span className="landmarks-depth-rail__readout-muted">z </span>
+          <span
+            className={cn(
+              "landmarks-depth-rail__readout-main",
+              drag === "focus" && boundActive,
+            )}
+          >
+            {readout?.main}
+          </span>
+        </div>
+        <div className="landmarks-depth-rail__readout-sub">
           <span className={cn(drag === "lo" && boundActive)}>{readout?.subLo}</span>
           {"–"}
           <span className={cn(drag === "hi" && boundActive)}>{readout?.subHi}</span>
           {" µm"}
-        </span>
+        </div>
       </div>
       <div className="landmarks-depth-rail__track-wrap">
         <div ref={railRef} className="landmarks-depth-rail__track">

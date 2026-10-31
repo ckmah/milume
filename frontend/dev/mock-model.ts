@@ -107,7 +107,8 @@ export function createMockModel(
     const name = viteFixture || fixtureUrl.split("/").pop() || "";
     if (name.includes("xsmall")) return "/xsmall.sdata.zarr/";
     if (name.includes("small")) return "/small.sdata.zarr/";
-    if (name.includes("colon")) return "/colon.sdata.zarr/";
+    if (name.includes("issue122")) return "/issue122-2d.sdata.zarr/";
+    if (name.includes("colon")) return "/colon_a2.sdata.zarr/";
     return "/toy.sdata.zarr/";
   }
 
@@ -127,7 +128,10 @@ export function createMockModel(
       await new Promise((resolve) => setTimeout(resolve, hook.delayMs));
     }
     const body = msg as { path?: string; range?: { offset?: number; length?: number; suffixLength?: number } };
-    const rel = String(body.path ?? "");
+    let rel = String(body.path ?? "");
+    if (rel.endsWith("/.zattrs") || rel.endsWith("/.zgroup") || rel.endsWith("/.zarray")) {
+      rel = `${rel.slice(0, rel.lastIndexOf("/"))}/zarr.json`;
+    }
     if (!volumeStaticRoot || !rel) return [{ ok: false, status: 404 }, []];
     const url = `${volumeStaticRoot}${rel}`.replace(/([^:]\/)\/+/g, "$1");
     const headers: Record<string, string> = {};

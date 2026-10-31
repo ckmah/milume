@@ -52,13 +52,40 @@ async function measureScenario(page, name, action) {
   return { name, frames: frames.length, p50Ms: p50, p95Ms: p95, ...gpu };
 }
 
-async function runBench(revTag) {
+async function runBench(revTag, channelMode = "default") {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  await page.goto(`http://127.0.0.1:${port}/?_bench=${revTag}`, { waitUntil: "networkidle" });
+  await page.goto(`http://127.0.0.1:${port}/?noDialkit=1&_bench=${revTag}`, {
+    waitUntil: "networkidle",
+  });
   await page.waitForFunction(() => Boolean(window.__landmarksEngine?.getViewState?.()));
+  await page.waitForFunction(
+    () => window.__landmarksEngine?.getBackdropPick?.()?.level != null,
+    null,
+    { timeout: 120_000 },
+  );
 
-  const pan = await measureScenario(page, "pan", async (p) => {
+  if (channelMode !== "default" && profile === "issue122-2d") {
+    await page.evaluate((mode) => {
+      const lm = window.__landmarksModel;
+      const vol = lm.get("volume") || {};
+      const all = vol.channels || [];
+      const pick =
+        mode === "1"
+          ? ["DAPI"]
+          : mode === "4"
+            ? ["DAPI", "PanCK", "CD45", "Ki67"]
+            : ["DAPI", "PanCK"];
+      lm.set(
+        "_image_channels",
+        all.map((c) => ({ ...c, visible: pick.includes(c.name) })),
+      );
+      lm.save_changes();
+    }, channelMode);
+    await page.waitForTimeout(800);
+  }
+
+  const pan = await measureScenario(page, `pan-${channelMode}`, async (p) => {
     const canvas = p.locator("canvas.landmarks__webgl").first();
     const box = await canvas.boundingBox();
     if (!box) return;
@@ -70,7 +97,7 @@ async function runBench(revTag) {
     await p.mouse.up();
   });
 
-  const rail = await measureScenario(page, "rail-drag", async (p) => {
+  const rail = await measureScenario(page, `rail-drag-${channelMode}`, async (p) => {
     const lo = p.getByRole("slider", { name: "Lower z bound" });
     if ((await lo.count()) === 0) return;
     const box = await lo.boundingBox();
@@ -82,7 +109,7 @@ async function runBench(revTag) {
   });
 
   await browser.close();
-  return { revTag, profile, pan, rail };
+  return { revTag, profile, channelMode, pan, rail };
 }
 
 function gitRev(label) {
@@ -93,7 +120,10 @@ function gitRev(label) {
 async function main() {
   const rows = [];
   const head = gitRev("HEAD");
-  rows.push(await runBench(`pr-${head.slice(0, 8)}`));
+  const channelModes = profile === "issue122-2d" ? ["1", "2", "4"] : ["default"];
+  for (const channelMode of channelModes) {
+    rows.push(await runBench(`pr-${head.slice(0, 8)}`, channelMode));
+  }
   if (compareMain) {
     const main = gitRev("origin/main");
     spawnSync("git", ["stash", "push", "-m", "bench-depth-backdrop", "--", ":!frontend/dev/landmarks-volume/public"], {
@@ -102,7 +132,7 @@ async function main() {
     spawnSync("git", ["checkout", "origin/main", "--", "frontend/src/widgets/landmarks", "milume/static/landmarks.js"], {
       stdio: "inherit",
     });
-    rows.push(await runBench(`main-${main.slice(0, 8)}`));
+    rows.push(await runBench(`main-${main.slice(0, 8)}`, "default"));
     spawnSync("git", ["checkout", "HEAD", "--", "frontend/src/widgets/landmarks", "milume/static/landmarks.js"], {
       stdio: "inherit",
     });
