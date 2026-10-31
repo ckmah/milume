@@ -11,7 +11,7 @@ Switch the color panel between category, genes and embed; the map recolors to ma
 ```python
 import milume
 w = milume.peek(adata, color="cell_type", genes=["GeneA", "GeneB", "GeneC"])
-w.active_category, w.active_genes
+w.color  # obs column, gene, gene list, or obsm key (e.g. "X_pca")
 ```
 
 ## Color tabs

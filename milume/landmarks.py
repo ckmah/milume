@@ -565,7 +565,7 @@ class LandmarksWidget(AnyWidget):
         adata: AnnData | Any,
         *,
         spatial_key: str = "spatial",
-        color: str | None = None,
+        color: str | list[str] | None = None,
         genes: str | list[str] | None = None,
         table: str | None = None,
         image: str | bool | None = None,

@@ -3,7 +3,7 @@
     "exports": {
       "ColorKeyError": "class(TraitError, KeyError)",
       "ColorValueError": "class(TraitError, ValueError)",
-      "LandmarksWidget": "class(AnyWidget)(adata: 'AnnData | Any', *, spatial_key: 'str' = 'spatial', color: 'str | None' = None, genes: 'str | list[str] | None' = None, table: 'str | None' = None, image: 'str | bool | None' = None, shapes: 'str | bool | None' = None, channels: 'list[str] | None' = None, contrast_limits: 'tuple[float, float] | None' = None) -> 'None'",
+      "LandmarksWidget": "class(AnyWidget)(adata: 'AnnData | Any', *, spatial_key: 'str' = 'spatial', color: 'str | list[str] | None' = None, genes: 'str | list[str] | None' = None, table: 'str | None' = None, image: 'str | bool | None' = None, shapes: 'str | bool | None' = None, channels: 'list[str] | None' = None, contrast_limits: 'tuple[float, float] | None' = None) -> 'None'",
       "__version__": "str",
       "along_positions": "(adata: 'AnnData', landmarks: 'GeoDataFrame', *, obs_key: 'str', spatial_key: 'str' = 'spatial', obs_names: 'Sequence[str] | None' = None, radius: 'float | None' = None, z_bin_size: 'float | None' = 1.0) -> 'pd.DataFrame'",
       "composition": "(adata: 'AnnData', landmarks: 'GeoDataFrame', *, obs_key: 'str', spatial_key: 'str' = 'spatial', obs_names: 'Sequence[str] | None' = None, z_bin_size: 'float | None' = 1.0) -> 'pd.DataFrame'",

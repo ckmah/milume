@@ -169,3 +169,38 @@ def test_set_points_moves_points_and_keeps_colour():
         w.set_points([0.0] * 4, [0.0] * 4, color=[1, 2, 3, 4])
     with pytest.raises(ValueError, match="rebuild"):
         w.set_points([0.0], [0.0])
+
+
+def test_gene_blend_list_colors_in_one_sync():
+    w = LandmarksWidget(_adata(), color="cell_class")
+    w.color = ["Apob", "Lgr5"]
+    assert w.color == ["Apob", "Lgr5"]
+    assert w.active_genes == ["Apob", "Lgr5"]
+    assert w._color_state["color_mode"] == "continuous"
+    assert w._color_state["legend_title"] == "Apob, Lgr5"
+
+
+def test_obsm_embedding_key_colors():
+    adata = _adata()
+    adata.obsm["X_pca"] = np.random.randn(4, 3).astype(np.float32)
+    w = LandmarksWidget(adata)
+    w.color = "X_pca"
+    assert w._color_state["color_mode"] == "embedding"
+    assert w._color_state["raster_embedding_key"] == "X_pca"
+    assert w._embedding_matrix_dim == 3
+
+
+def test_active_category_assignment_warns_and_routes():
+    w = LandmarksWidget(_adata(), color="cell_class")
+    with pytest.warns(DeprecationWarning, match="active_category"):
+        w.active_category = "region"
+    assert w.color == "region"
+    assert w.active_category == "region"
+
+
+def test_active_genes_assignment_warns_and_routes():
+    w = LandmarksWidget(_adata(), color="cell_class")
+    with pytest.warns(DeprecationWarning, match="active_genes"):
+        w.active_genes = ["Apob"]
+    assert w.color == "Apob"
+    assert w.active_genes == ["Apob"]

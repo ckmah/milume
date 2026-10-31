@@ -10,7 +10,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from milume import LandmarksWidget  # noqa: E402
+from milume import LandmarksWidget
+from milume.fixture_export import FIXTURE_SYNC_KEYS, widget_fixture_snapshot  # noqa: E402
 from tests.squidpy_color_recipes import (  # noqa: E402
     run_moran_top_gene,
     run_niche_recipe,
@@ -19,28 +20,7 @@ from tests.squidpy_color_recipes import (  # noqa: E402
 
 DEV = Path(__file__).resolve().parent
 
-FIXTURE_KEYS = [
-    "mode",
-    "selections",
-    "landmarks",
-    "category_columns",
-    "active_category",
-    "gene_names",
-    "gene_csc_indptr",
-    "gene_csc_indices",
-    "gene_csc_data",
-    "active_genes",
-    "color_mode",
-    "legend_labels",
-    "legend_title",
-    "x_bounds",
-    "y_bounds",
-    "point_size",
-    "points_data",
-    "point_palette",
-    "category_codes",
-    "render_mode",
-]
+FIXTURE_KEYS = list(FIXTURE_SYNC_KEYS)
 
 
 def _export(widget: LandmarksWidget, dest: Path) -> None:
