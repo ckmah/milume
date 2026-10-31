@@ -106,3 +106,55 @@ def toy_spatialdata(dest):
     sdata.write(dest)
     return sd.read_zarr(dest)
 
+
+def issue122_2d_multichannel_spatialdata(dest):
+    """Small 2D multichannel SpatialData for #122: DAPI + PanCK + constant-zero dummy, µm alignment."""
+    import anndata as ad
+    import numpy as np
+    import pandas as pd
+    import spatialdata as sd
+    from spatialdata.models import Image2DModel, TableModel
+    from spatialdata.transformations import Scale
+
+    pixel_um = 0.5
+    h, w = 64, 96
+    yy, xx = np.mgrid[0:h, 0:w]
+
+    def blob(cx, cy, sigma, amp):
+        return amp * np.exp(-((xx - cx) ** 2 + (yy - cy) ** 2) / (2 * sigma**2))
+
+    ch_dapi = np.clip(blob(22, 28, 7, 220) + blob(48, 62, 6, 200), 0, 255).astype(np.uint8)
+    ch_panck = np.clip(blob(48, 28, 6, 230) + blob(20, 58, 5, 180), 0, 255).astype(np.uint8)
+    ch_dummy = np.zeros((h, w), dtype=np.uint8)
+    values = np.stack([ch_dapi, ch_panck, ch_dummy], axis=0)
+
+    peaks_px = [(22, 28), (48, 62), (48, 28), (20, 58)]
+    extra = [(12 + i * 7, 10 + (i % 5) * 9) for i in range(20)]
+    centers_px = peaks_px + extra
+    centers_um = np.array([[x * pixel_um, y * pixel_um] for y, x in centers_px], dtype=np.float64)
+
+    n = len(centers_um)
+    obs = pd.DataFrame(
+        {
+            "cell_type": pd.Categorical([f"type{i % 2}" for i in range(n)]),
+            "cell_id": np.arange(1, n + 1, dtype=int),
+        },
+        index=[f"cell{i}" for i in range(n)],
+    )
+    table = ad.AnnData(np.ones((n, 1), dtype=np.float32), obs=obs)
+    table.obsm["spatial"] = centers_um
+
+    image = Image2DModel.parse(
+        values,
+        dims=("c", "y", "x"),
+        c_coords=pd.Index(["DAPI", "PanCK", "dummy"]),
+        transformations={"global": Scale([pixel_um, pixel_um], axes=("y", "x"))},
+        scale_factors=[2],
+    )
+    sdata = sd.SpatialData(
+        images={"mosaic": image},
+        tables={"table": TableModel.parse(table)},
+    )
+    sdata.write(dest)
+    return sd.read_zarr(dest)
+

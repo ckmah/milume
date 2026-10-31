@@ -87,7 +87,7 @@ FIXTURE_KEYS = [
     "inspect_cy",
 ]
 
-VOLUME_KEYS = ["volume", "volume_label_ids", "volume_cut", "inspect_size_um"]
+VOLUME_KEYS = ["volume", "volume_cell_rows", "volume_cut", "inspect_size_um"]
 
 
 def _static_volume_urls(volume: dict[str, object]) -> dict[str, object]:
