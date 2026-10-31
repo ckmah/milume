@@ -48,25 +48,60 @@ async function applyPatch(page, patch, sharedCatalog) {
   );
 }
 
+async function captureWidget(page, name) {
+  const widget = page.locator(".milume-widget.landmarks").first();
+  await widget.waitFor({ state: "visible", timeout: 120_000 });
+  await hideHarnessBanner(page);
+  await page.waitForTimeout(400);
+  const path = join(outDir, `${name}.png`);
+  await widget.screenshot({ path });
+  return path;
+}
+
 const doc = JSON.parse(readFileSync(join(patchDir, "signed.json"), "utf8"));
 
-const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
-await page.goto(`${base}/?fixture=default`);
-await hideHarnessBanner(page);
-await waitEngine(page);
+async function main() {
+  const browser = await chromium.launch();
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 800 },
+    deviceScaleFactor: 2,
+  });
+  await page.emulateMedia({ reducedMotion: "reduce" });
 
-// Before: sequential 0..max (pre-diverging behaviour).
-const beforeLook = { ...doc.colorApi._look, color_diverging: false, color_diverging_override: false };
-beforeLook.color_vmin = 0;
-beforeLook.color_vmax = Math.abs(beforeLook.color_vmax);
-await applyPatch(page, { ...doc.colorApi, _look: beforeLook }, doc.shared?._color_options);
-await page.waitForTimeout(800);
-await page.screenshot({ path: join(outDir, "before-sequential-wrong.png"), fullPage: false });
+  await page.goto(`${base}/?fixture=${encodeURIComponent("/fixture.json")}`, {
+    waitUntil: "networkidle",
+  });
+  await waitEngine(page);
 
-await applyPatch(page, doc.colorApi, doc.shared?._color_options);
-await page.waitForTimeout(800);
-await page.screenshot({ path: join(outDir, "after-diverging.png"), fullPage: false });
+  const beforeLook = { ...doc.colorApi._look, color_diverging: false, color_diverging_override: false };
+  beforeLook.color_vmin = 0;
+  beforeLook.color_vmax = Math.abs(beforeLook.color_vmax);
+  await applyPatch(page, { ...doc.colorApi, _look: beforeLook }, doc.shared?._color_options);
+  await page.getByRole("tab", { name: "num" }).click();
+  await page.waitForTimeout(800);
+  await captureWidget(page, "before-sequential-wrong");
 
-writeFileSync(join(outDir, "manifest.json"), JSON.stringify({ before: "before-sequential-wrong.png", after: "after-diverging.png" }, null, 2) + "\n");
-await browser.close();
+  await page.goto(`${base}/?fixture=${encodeURIComponent("/fixture.json")}`, {
+    waitUntil: "networkidle",
+  });
+  await waitEngine(page);
+  await applyPatch(page, doc.colorApi, doc.shared?._color_options);
+  await page.getByRole("tab", { name: "num" }).click();
+  await page.waitForTimeout(800);
+  await captureWidget(page, "after-diverging");
+
+  writeFileSync(
+    join(outDir, "manifest.json"),
+    JSON.stringify(
+      { before: "before-sequential-wrong.png", after: "after-diverging.png" },
+      null,
+      2,
+    ) + "\n",
+  );
+  await browser.close();
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
