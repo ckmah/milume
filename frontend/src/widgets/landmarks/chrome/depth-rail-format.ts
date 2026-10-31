@@ -6,7 +6,6 @@ export function formatDepthRailUm(value: number, preferWhole: boolean): string {
   if (preferWhole && Math.abs(value - rounded) < 0.06) {
     return String(rounded);
   }
-  const raw = String(value);
   if (preferWhole) return String(rounded);
   const oneDec = Math.round(value * 10) / 10;
   if (Number.isInteger(oneDec)) return String(oneDec);
