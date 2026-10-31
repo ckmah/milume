@@ -84,10 +84,9 @@ export function ViewCta({
             variant="ghost"
             size="icon-sm"
             aria-label={minimiseLabel}
-            aria-pressed={minimise}
             data-testid="toggle-minimise-panels"
             onClick={onToggleMinimise}
-            className={cn(chromeHitClass, minimise && chromeHitOnClass)}
+            className={cn(chromeHitClass, "landmarks-view-minimise-toggle")}
           >
             {minimise ? (
               <SquarePlus className="size-4" strokeWidth={2} aria-hidden />

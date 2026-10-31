@@ -128,6 +128,50 @@ test.describe("panel layout (option 1)", () => {
     await expect(toggle.locator("svg.lucide-square-minus")).toHaveCount(1);
   });
 
+  test("minimise toggle keeps the same background as neighbouring view cluster buttons", async ({
+    page,
+  }) => {
+    await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    const cluster = page.getByTestId("view-cta");
+    const neighbour = page.getByTestId("toggle-rulers");
+    const toggle = page.getByTestId("toggle-minimise-panels");
+
+    const readBg = async (loc: typeof toggle) =>
+      loc.evaluate((el) => getComputedStyle(el).backgroundColor);
+
+    const neighbourBg = await readBg(neighbour);
+    expect(await readBg(toggle)).toBe(neighbourBg);
+
+    await toggle.click();
+    expect(await readBg(toggle)).toBe(neighbourBg);
+    expect(await readBg(neighbour)).toBe(neighbourBg);
+
+    await toggle.click();
+    expect(await readBg(toggle)).toBe(neighbourBg);
+  });
+
+  test("minimised left header keeps full section label and pin name", async ({ page }) => {
+    await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await setModel(page, { selected_kind: "landmark", selected_index: 0 });
+    await page.getByTestId("toggle-minimise-panels").click();
+
+    const header = page.getByTestId("panel-section-landmarks");
+    const sectionLabel = header.locator(".landmarks-panel-section-header__label");
+    await expect(sectionLabel).toHaveText("Landmarks");
+    const labelFits = await sectionLabel.evaluate(
+      (el) => el.scrollWidth <= el.clientWidth + 1,
+    );
+    expect(labelFits).toBe(true);
+
+    const pinLabel = header.locator(".landmarks-panel-section-header__pin-label");
+    await expect(pinLabel).toHaveText("harness-point");
+    await expect(pinLabel).toBeVisible();
+    const pinText = await pinLabel.evaluate((el) => el.textContent?.trim());
+    expect(pinText).toBe("harness-point");
+  });
+
   test("pinned header chip is borderless and shows full landmark name", async ({ page }) => {
     await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
     await waitForEngine(page);

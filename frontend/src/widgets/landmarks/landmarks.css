@@ -642,6 +642,15 @@
   color: var(--lm-hit-on-fg);
 }
 
+/* Minimise toggle: outlined square icon only — no pressed fill (spec d). */
+.landmarks-view-minimise-toggle.landmarks-hit,
+.landmarks-view-minimise-toggle.landmarks-hit:hover,
+.landmarks-view-minimise-toggle.landmarks-hit[aria-pressed="true"],
+.landmarks-view-minimise-toggle.landmarks-hit[aria-pressed="true"]:hover {
+  background: var(--lm-hit-bg);
+  color: var(--foreground);
+}
+
 .landmarks-hit:disabled,
 .landmarks-hit[data-disabled] {
   opacity: var(--lm-hit-disabled-opacity);
@@ -1150,7 +1159,30 @@
 }
 
 .landmarks--minimise .landmarks__chrome-dock--left {
-  width: var(--lm-dock-width);
+  width: max-content;
+  min-width: var(--lm-dock-width);
+  max-width: min(20rem, calc(100% - 2 * var(--lm-chrome-inset) - 14rem));
+}
+
+.landmarks--minimise .landmarks-panel-section-header__main:has(.landmarks-panel-section-header__pin) {
+  grid-template-columns: auto auto max-content auto auto;
+}
+
+.landmarks--minimise
+  .landmarks-panel-section-header__main:has(.landmarks-panel-section-header__pin)
+  .landmarks-panel-section-header__label {
+  overflow: visible;
+  text-overflow: clip;
+  max-width: none;
+}
+
+.landmarks--minimise .landmarks-panel-section-header__pin {
+  max-width: min(12rem, 100%);
+}
+
+.landmarks--minimise .landmarks-panel-section-header__pin-label {
+  flex: none;
+  max-width: min(10rem, 100%);
 }
 
 .landmarks--minimise .landmarks__layers-panel--minimise .landmarks-panel-section:not(.landmarks-panel-section--open) .landmarks-panel-section__body {
