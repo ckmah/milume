@@ -447,6 +447,9 @@ export function mountEngine({
   let plotH = 0;
   let currentViewState = null;
   let viewStateListeners = [];
+  viewStateListeners.push(() => {
+    mapImageBackdrop.noteViewChange?.();
+  });
   /** `loading` until deck's first fit; `error` on init failure or timeout. */
   let plotBootstrap = { state: "loading" };
   let plotBootstrapListeners = [];
@@ -4625,8 +4628,11 @@ export function mountEngine({
     applyDeckProps({ width: w, height: h });
     if (!fittedOnce && w > 1 && h > 1) {
       fitDeckToBounds();
-    } else if (typeof deckgl.redraw === "function") {
-      deckgl.redraw(true);
+    } else {
+      mapImageBackdrop.syncFromModel?.(currentViewState);
+      if (typeof deckgl.redraw === "function") {
+        deckgl.redraw(true);
+      }
     }
   }
 
@@ -6894,6 +6900,7 @@ export function mountEngine({
         return;
       }
       setDeckLayers();
+      mapImageBackdrop.syncFromModel(currentViewState);
       scheduleSpatialIndexBuild();
       schedulePointFillColorsBuild();
       resizeObserver = new ResizeObserver(() => resizeDeck());

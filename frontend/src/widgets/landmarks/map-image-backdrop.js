@@ -140,14 +140,19 @@ function additiveRgbFromPlane(gray, rgb, plane, tint) {
   }
 }
 
-function rgbaFromRgb(rgb, plane) {
+function rgbaFromRgb(rgb, width, height) {
+  const plane = width * height;
   const out = new Uint8ClampedArray(plane * 4);
-  for (let i = 0; i < plane; i++) {
-    const j = i * 4;
-    out[j] = Math.round(rgb[i * 3] * 255);
-    out[j + 1] = Math.round(rgb[i * 3 + 1] * 255);
-    out[j + 2] = Math.round(rgb[i * 3 + 2] * 255);
-    out[j + 3] = 255;
+  for (let row = 0; row < height; row++) {
+    const srcRow = height - 1 - row;
+    for (let col = 0; col < width; col++) {
+      const si = srcRow * width + col;
+      const di = (row * width + col) * 4;
+      out[di] = Math.round(rgb[si * 3] * 255);
+      out[di + 1] = Math.round(rgb[si * 3 + 1] * 255);
+      out[di + 2] = Math.round(rgb[si * 3 + 2] * 255);
+      out[di + 3] = 255;
+    }
   }
   return out;
 }
@@ -185,11 +190,33 @@ export function createMapImageBackdrop({
   let lastViewState = null;
   let zBandTouchedAt = 0;
   let zBandRefineTimer = null;
+  let viewMovingAt = 0;
+  let viewSettleTimer = null;
   let lastPick = null;
 
-  function scheduleFetch(viewState) {
+  function noteViewChange() {
+    viewMovingAt = performance.now();
+    if (viewSettleTimer) clearTimeout(viewSettleTimer);
+    viewSettleTimer = setTimeout(() => {
+      viewMovingAt = 0;
+      viewSettleTimer = null;
+      scheduleFetch(lastViewState, { force: true });
+    }, 280);
+  }
+
+  function noteViewInteractionEnd() {
+    viewMovingAt = 0;
+    if (viewSettleTimer) {
+      clearTimeout(viewSettleTimer);
+      viewSettleTimer = null;
+    }
+    scheduleFetch(lastViewState, { force: true });
+  }
+
+  function scheduleFetch(viewState, { force = false } = {}) {
     if (disposed) return;
     lastViewState = viewState ?? lastViewState;
+    if (!force && viewMovingAt > 0 && cache.image) return;
     const key = fetchKey(lastViewState);
     if (key === cache.key && cache.image) return;
     fetchGen++;
@@ -210,7 +237,7 @@ export function createMapImageBackdrop({
   }
 
   function preferCoarseLevel() {
-    return performance.now() - zBandTouchedAt < 280;
+    return performance.now() - zBandTouchedAt < 280 || performance.now() - viewMovingAt < 280;
   }
 
   function noteZBandChange() {
@@ -335,8 +362,10 @@ export function createMapImageBackdrop({
       additiveRgbFromPlane(gray, rgb, plane, tint);
     }
 
-    const pixels = rgbaFromRgb(rgb, plane);
-    const imageData = new ImageData(pixels, box.x1 - box.x0, box.y1 - box.y0);
+    const wPx = box.x1 - box.x0;
+    const hPx = box.y1 - box.y0;
+    const pixels = rgbaFromRgb(rgb, wPx, hPx);
+    const imageData = new ImageData(pixels, wPx, hPx);
     const bitmap = await createImageBitmap(imageData);
     if (gen !== fetchGen || disposed) {
       bitmap.close();
@@ -362,13 +391,12 @@ export function createMapImageBackdrop({
       imageUrl = "";
       return;
     }
-    if (!getDeckModules?.()) return;
     scheduleFetch(viewState ?? lastViewState);
   }
 
   function buildLayers(viewState) {
     if (!getDeckModules?.() || !imageVisible()) return [];
-    scheduleFetch(viewState);
+    lastViewState = viewState ?? lastViewState;
     if (!cache.image || !cache.bounds) return [];
     const { BitmapLayer } = getDeckModules();
     const alpha = Number(model.get("_image_alpha"));
@@ -407,6 +435,8 @@ export function createMapImageBackdrop({
     dispose,
     noteZBandChange,
     noteZBandInteractionEnd,
+    noteViewChange,
+    noteViewInteractionEnd,
     getLastPick: () => lastPick,
   };
 }

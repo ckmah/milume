@@ -42,10 +42,20 @@ function zToPct(z: number, lo: number, hi: number): number {
 
 function formatDepthRailUm(value: number, preferWhole: boolean): string {
   if (!Number.isFinite(value)) return "";
-  if (preferWhole && Math.abs(value - Math.round(value)) < 0.06) {
-    return String(Math.round(value));
+  const rounded = Math.round(value);
+  if (preferWhole && Math.abs(value - rounded) < 0.06) {
+    return String(rounded);
   }
-  return formatLegendValue(value);
+  const raw = formatLegendValue(value);
+  const asNum = Number(raw);
+  if (Number.isFinite(asNum)) {
+    if (Math.abs(asNum - rounded) < 0.05) return String(rounded);
+    const oneDec = Math.round(asNum * 10) / 10;
+    if (Math.abs(asNum - oneDec) < 1e-6) {
+      return Number.isInteger(oneDec) ? String(oneDec) : String(oneDec);
+    }
+  }
+  return raw.replace(/\.0+$/, "");
 }
 
 function railTickValues(extLo: number, extHi: number): number[] {
@@ -125,8 +135,17 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
 
   const readout = useMemo(() => {
     if (!hasZ) return null;
-    return formatRangeLine(focus, bandLo, bandHi);
-  }, [hasZ, focus, bandLo, bandHi]);
+    const line = formatRangeLine(focus, bandLo, bandHi);
+    if (drag) {
+      return {
+        ...line,
+        main: `${formatDepthRailUm(focus, true)} ± ${formatDepthRailUm((bandHi - bandLo) / 2, true)}`,
+        subLo: formatDepthRailUm(bandLo, true),
+        subHi: formatDepthRailUm(bandHi, true),
+      };
+    }
+    return line;
+  }, [hasZ, focus, bandLo, bandHi, drag]);
 
   const pushBand = useCallback(
     (next: { lo?: number; hi?: number; focus?: number; moveBand?: boolean }) => {

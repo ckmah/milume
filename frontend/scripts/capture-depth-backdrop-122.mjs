@@ -85,6 +85,25 @@ async function openLayers(page) {
   }
 }
 
+async function placeCaptureCursor(page, clientX, clientY) {
+  await page.evaluate(
+    ({ x, y }) => {
+      const lm = document.querySelector(".landmarks");
+      const el = document.getElementById("docs-capture-cursor");
+      if (!lm || !el) return;
+      const r = lm.getBoundingClientRect();
+      el.style.display = "block";
+      el.style.width = "16px";
+      el.style.height = "16px";
+      el.style.margin = "-3px 0 0 -3px";
+      el.style.zIndex = "100000";
+      el.style.left = `${x - r.left}px`;
+      el.style.top = `${y - r.top}px`;
+    },
+    { x: clientX, y: clientY },
+  );
+}
+
 async function captureWidget(page, name) {
   const widget = page.locator(".milume-widget.landmarks").first();
   await widget.waitFor({ state: "visible", timeout: 120_000 });
@@ -186,6 +205,7 @@ async function captureColon(page) {
     const dragY = cy + 18;
     await page.mouse.move(cx, dragY, { steps: 4 });
     await page.waitForTimeout(200);
+    await placeCaptureCursor(page, cx, dragY);
     await captureWidget(page, "122-colon-rail-drag-lower");
     await page.mouse.up();
     await page.evaluate(() => window.__landmarksEngine?.noteBackdropZBandEnd?.());

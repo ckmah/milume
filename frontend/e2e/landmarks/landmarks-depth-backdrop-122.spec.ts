@@ -199,34 +199,48 @@ test.describe("depth backdrop (#122) — 2D multichannel fixture", () => {
     expect(ok).toBe(true);
   });
 
-  test("issue122 cell centers land on bright DAPI in the fixture zarr", () => {
+  test("issue122 cell centers align with DAPI blobs within one cell radius", () => {
     const out = execSync(
       `uv run python -c "
 import json
+import base64
 import numpy as np
 import spatialdata as sd
 from pathlib import Path
+from milume import LandmarksWidget
+
 root = Path('frontend/dev/landmarks-volume/public/issue122-2d.sdata.zarr')
 sdata = sd.read_zarr(root)
-table = sdata.tables['table']
-mosaic = sdata.images['mosaic']
-scale0 = mosaic['scale0'].image if hasattr(mosaic, '__getitem__') else mosaic
-dapi = np.asarray(scale0.values[0, 0] if hasattr(scale0, 'values') else scale0[0, 0])
-_, sy, sx = 1.0, 0.5, 0.5
-ox, oy = 0.0, 0.0
-hits = []
-for row in table.obsm['spatial'][:8]:
-    x_um, y_um = row
-    xi = int(round((x_um - ox) / sx))
-    yi = int(round((y_um - oy) / sy))
-    hits.append(int(dapi[yi, xi]))
-print(json.dumps({'min': min(hits), 'hits': hits}))
+w = LandmarksWidget(sdata, color='cell_type')
+pts = np.frombuffer(base64.b64decode(w.points_data), dtype=np.float32).reshape(-1, 4)
+xb, yb = w.x_bounds, w.y_bounds
+xs = xb[0] + ((pts[:, 0] + 1) / 2) * (xb[1] - xb[0])
+ys = yb[0] + ((pts[:, 1] + 1) / 2) * (yb[1] - yb[0])
+dapi = np.asarray(sdata.images['mosaic']['scale0'].image.values[0, 0])
+_, sy, sx = w.volume['voxel_size_um']
+h, wid = dapi.shape
+radius = float(w.point_size)
+bad = []
+for x, y in zip(xs, ys):
+    xi = int(round(x / sx))
+    yi = int(round(y / sy))
+    best = 1e9
+    for dy in range(-20, 21):
+        for dx in range(-20, 21):
+            yy, xx = yi + dy, xi + dx
+            if 0 <= yy < h and 0 <= xx < wid and dapi[yy, xx] >= 80:
+                d = ((dx * sx) ** 2 + (dy * sy) ** 2) ** 0.5
+                if d < best:
+                    best = d
+    if best > radius:
+        bad.append({'x': float(x), 'y': float(y), 'dist_um': float(best), 'radius_um': radius})
+print(json.dumps({'bad': bad, 'n': len(xs), 'radius_um': radius}))
 "`,
       { cwd: `${process.cwd()}/..`, encoding: "utf8" },
     );
-    const parsed = JSON.parse(out.trim()) as { min: number; hits: number[] };
-    expect(parsed.min).toBeGreaterThanOrEqual(80);
-    expect(parsed.hits.every((v) => v >= 80)).toBe(true);
+    const parsed = JSON.parse(out.trim()) as { bad: unknown[]; n: number; radius_um: number };
+    expect(parsed.bad).toEqual([]);
+    expect(parsed.n).toBeGreaterThan(0);
   });
 
 });
