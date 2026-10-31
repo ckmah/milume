@@ -43,29 +43,30 @@ w.color = "Apob"              # villus-tip enterocytes
 w.color = "Cps1"              # crypt / lower villus
 ```
 
-**Result:** You see the crypt–villus axis and the GALT patch in anatomical layers before you select it.
+**Result:** You see the crypt–villus axis and the GALT patches in anatomical layers before you select them.
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tutorials/explore-cells-2d/still-anatomical-layer.dark.png" alt="The same section coloured by anatomical layer, with the GALT patch visible." loading="lazy">
-<img class="ml-only-light" src="../assets/tutorials/explore-cells-2d/still-anatomical-layer.light.png" alt="The same section coloured by anatomical layer, with the GALT patch visible." loading="lazy">
+<img class="ml-only-dark" src="../assets/tutorials/explore-cells-2d/still-anatomical-layer.dark.png" alt="The same section coloured by anatomical layer, with GALT patches visible." loading="lazy">
+<img class="ml-only-light" src="../assets/tutorials/explore-cells-2d/still-anatomical-layer.light.png" alt="The same section coloured by anatomical layer, with GALT patches visible." loading="lazy">
 </figure>
 
-## 4. Lasso a GALT cryptopatch
+## 4. Lasso GALT cryptopatch aggregates
 
-Use the Select tool and lasso the western GALT cryptopatch on the map ([Select regions](../reference/ui/select-regions.md)). Xu et al. annotate these as small ILF-like aggregates (rich in cDC, ILC3, and FRC), not classical B/T follicles. Each edit updates `w.selections`.
+Use the Select tool and lasso each GALT cryptopatch on the map ([Select regions](../reference/ui/select-regions.md)). Xu et al. annotate these as small ILF-like aggregates (rich in cDC, ILC3, and FRC), not classical B/T follicles. Each edit updates `w.selections`.
 
-Read the cells in that selection:
+The notebook seeds two tight polygons (`galt-aggregates-west` and `galt-aggregates-east`). Join them for downstream analysis:
 
 ```python
-sel_id = w.selections[-1]["id"]
-galt_hits = w.get_obs_names(sel_id)
+galt_hits = w.get_obs_names("galt-aggregates-west").union(
+    w.get_obs_names("galt-aggregates-east")
+)
 ```
 
-**Result:** The seeded headless lasso in the notebook selects 164 cells, 148 with `anatomical_layer` GALT (about 90% of the selection). Your own lasso may differ.
+**Result:** The seeded headless lassos select **294 cells** in total, **260** with `anatomical_layer` GALT (**88.4%** of the selection). That covers the annotated GALT cells in the two cryptopatch aggregates on this slice (western polygon **90.2%** GALT, 164 cells; eastern **86.2%** GALT, 130 cells). Your own lassos may differ.
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tutorials/explore-cells-2d/still-galt-selection.dark.png" alt="A GALT cryptopatch lasso on the ileum map with cell-type counts for the selection." loading="lazy">
-<img class="ml-only-light" src="../assets/tutorials/explore-cells-2d/still-galt-selection.light.png" alt="A GALT cryptopatch lasso on the ileum map with cell-type counts for the selection." loading="lazy">
+<img class="ml-only-dark" src="../assets/tutorials/explore-cells-2d/still-galt-selection.dark.png" alt="Two GALT cryptopatch lassos on the ileum map with cell-type counts for the selection." loading="lazy">
+<img class="ml-only-light" src="../assets/tutorials/explore-cells-2d/still-galt-selection.light.png" alt="Two GALT cryptopatch lassos on the ileum map with cell-type counts for the selection." loading="lazy">
 </figure>
 
 ## 5. Enrichment and violin plots
@@ -75,7 +76,7 @@ enrich = ml.enrichment(adata, galt_hits, obs_key="cell_type")
 enrich
 ```
 
-**Result:** Stromal and innate immune types rank highest by `log2_enrichment` relative to the whole section (for the seeded lasso: FRC 6.25, cDC (Il22ra2+) 5.68, ILC3 5.40, B (follicular) 5.30).
+**Result:** Stromal and innate immune types rank highest by `log2_enrichment` relative to the whole section (seeded union: FRC 6.12, cDC (Il22ra2+) 5.99, ILC3 5.58, FDC 5.27, B (follicular) 4.44).
 
 Flag the selection and plot immune markers:
 

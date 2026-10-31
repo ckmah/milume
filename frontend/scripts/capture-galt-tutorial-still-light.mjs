@@ -3,7 +3,7 @@
  * Capture light still-galt-selection for the 2D tutorial (issue #372).
  *
  * Matches Clarence's hand-capture framing (1068×728): default fit-to-data zoom,
- * galt-follicle + active GALT · 164 selection, category tab with anatomical_layer
+ * galt-aggregates-west/east polygons + active GALT · 294 selection, category tab
  * expanded and cell_type / cell_class collapsed.
  *
  * Prereq:
@@ -39,9 +39,12 @@ const ileumFixture = "/ileum-docs-base.json";
 const indicesPath =
   process.env.GALT_INDICES_JSON ??
   join(root, "frontend", "dev", "galt-point-indices.json");
+const polygonsPath = join(root, "frontend", "dev", "galt-aggregate-polygons.json");
 const pointIndices = JSON.parse(readFileSync(indicesPath, "utf8"));
-if (!Array.isArray(pointIndices) || pointIndices.length !== 164) {
-  throw new Error(`expected 164 point indices, got ${pointIndices?.length}`);
+const polygons = JSON.parse(readFileSync(polygonsPath, "utf8"));
+const expectedCount = Number(process.env.GALT_EXPECTED_COUNT ?? "294");
+if (!Array.isArray(pointIndices) || pointIndices.length !== expectedCount) {
+  throw new Error(`expected ${expectedCount} point indices, got ${pointIndices?.length}`);
 }
 
 const theme = process.env.GALT_STILL_THEME ?? "light";
@@ -82,7 +85,6 @@ async function lockStillDimensions(page) {
       el.style.setProperty("width", `${w}px`, "important");
     }
     window.__landmarksEngine?.resize?.();
-    window.__landmarksEngine?.resetZoom?.();
   }, { w: stillW, h: stillH });
   await page.waitForTimeout(600);
 }
@@ -102,6 +104,39 @@ async function fitClarenceMapView(page) {
   await page.waitForTimeout(500);
 }
 
+async function fitGaltAggregatesView(page) {
+  const verts = [...polygons.west, ...polygons.east];
+  await page.evaluate((allVerts) => {
+    const eng = window.__landmarksEngine;
+    eng.resetZoom();
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const [x, y] of allVerts) {
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+    const pad = 180;
+    minX -= pad;
+    minY -= pad;
+    maxX += pad;
+    maxY += pad;
+    const cx = (minX + maxX) / 2;
+    const cy = (minY + maxY) / 2;
+    eng.panTo(cx, cy, { animate: false });
+    const span = Math.max(maxX - minX, maxY - minY);
+    const targetSpan = 650;
+    const steps = Math.max(0, Math.min(8, Math.round(Math.log2(span / targetSpan))));
+    for (let i = 0; i < steps; i++) {
+      eng.zoomBy(1, { animate: false });
+    }
+  }, verts);
+  await page.waitForTimeout(500);
+}
+
 async function prepareGaltView(page) {
   await setModel(page, {
     mode: "select",
@@ -110,15 +145,16 @@ async function prepareGaltView(page) {
     color_mode: "categorical",
     active_genes: [],
     selections: [
-      { id: "galt-follicle", point_indices: pointIndices },
-      { id: "GALT · 164", point_indices: pointIndices },
+      { id: "galt-aggregates-west", type: "polygon", vertices: polygons.west },
+      { id: "galt-aggregates-east", type: "polygon", vertices: polygons.east },
+      { id: `GALT · ${expectedCount}`, point_indices: pointIndices },
     ],
     selected_kind: "selection",
-    selected_index: 1,
+    selected_index: 2,
     landmarks: [],
   });
   await waitForLandmarks(page);
-  await fitClarenceMapView(page);
+  await fitGaltAggregatesView(page);
 
   const right = page.locator(".landmarks__chrome-dock--right");
   if ((await right.getAttribute("data-collapsed")) === "true") {
