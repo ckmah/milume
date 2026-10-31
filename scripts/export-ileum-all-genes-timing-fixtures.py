@@ -65,17 +65,24 @@ def main() -> None:
     parser.add_argument(
         "--max-cells",
         type=int,
-        default=0,
-        help="Optional subsample (0 = full ileum slice)",
+        default=8000,
+        help="Subsample ileum cells (default: 8000 for harness-sized fixtures)",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEV / ".ileum-gene-fixtures-cache",
+        help="Directory for JSON fixtures (not committed)",
     )
     args = parser.parse_args()
+    args.output_dir.mkdir(parents=True, exist_ok=True)
     widget = _build_widget(args.max_cells)
     _apply_harness_chrome(widget, _payload(widget, raw_csc=False))
     for name, raw in (("ileum-all-genes-gzip-fixture.json", False), ("ileum-all-genes-raw-fixture.json", True)):
         body = _payload(widget, raw_csc=raw)
-        dest = DEV / name
+        dest = args.output_dir / name
         dest.write_text(json.dumps(body) + "\n")
-        print(f"wrote {dest}")
+        print(f"wrote {dest} ({dest.stat().st_size:,} B)")
 
 
 if __name__ == "__main__":

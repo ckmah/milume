@@ -40,3 +40,5 @@ src/plugins/impeccable-live.client.ts
 /blob-report/
 /playwright/.cache/
 frontend/dev/landmarks-volume-fixture.small.json
+/dev/ileum-all-genes-*-fixture.json
+/dev/.ileum-gene-fixtures-cache/

@@ -1,9 +1,8 @@
 import { decodeF32Base64 } from "@/widgets/landmarks/binary";
 import {
-  decodeGeneCscF32,
-  decodeGeneCscI32,
   decodeGeneCscF32Sync,
   decodeGeneCscI32Sync,
+  decodeGeneCscPack,
 } from "@/widgets/landmarks/gene-csc-binary";
 import type { AnyModel } from "@/widgets/landmarks/helpers";
 import { isCommVolumeUrl } from "@/widgets/volume-cube/volume-url";
@@ -38,20 +37,27 @@ async function kernelGenes(state: Record<string, unknown>): Promise<Map<string, 
   const codec = String(state.gene_csc_codec ?? "");
   const indptrB64 = String(state.gene_csc_indptr ?? "");
   if (indptrB64) {
-    const indptr =
-      codec === "gzip"
-        ? await decodeGeneCscI32(indptrB64, codec)
-        : decodeGeneCscI32Sync(indptrB64, codec);
-    if (indptr.length === meta.length + 1 && meta.length) {
-      const indices =
-        codec === "gzip"
-          ? await decodeGeneCscI32(String(state.gene_csc_indices ?? ""), codec)
-          : decodeGeneCscI32Sync(String(state.gene_csc_indices ?? ""), codec);
-      const data =
-        codec === "gzip"
-          ? await decodeGeneCscF32(String(state.gene_csc_data ?? ""), codec)
-          : decodeGeneCscF32Sync(String(state.gene_csc_data ?? ""), codec);
-      meta.forEach((_, j) => put(j, indices.slice(indptr[j], indptr[j + 1]), data.slice(indptr[j], indptr[j + 1])));
+    if (codec === "gzip") {
+      const { indptr, indices, data } = await decodeGeneCscPack(
+        indptrB64,
+        String(state.gene_csc_indices ?? ""),
+        String(state.gene_csc_data ?? ""),
+        codec,
+      );
+      if (indptr.length === meta.length + 1 && meta.length) {
+        meta.forEach((_, j) =>
+          put(j, indices.subarray(indptr[j], indptr[j + 1]), data.subarray(indptr[j], indptr[j + 1])),
+        );
+      }
+    } else {
+      const indptr = decodeGeneCscI32Sync(indptrB64, codec);
+      if (indptr.length === meta.length + 1 && meta.length) {
+        const indices = decodeGeneCscI32Sync(String(state.gene_csc_indices ?? ""), codec);
+        const data = decodeGeneCscF32Sync(String(state.gene_csc_data ?? ""), codec);
+        meta.forEach((_, j) =>
+          put(j, indices.subarray(indptr[j], indptr[j + 1]), data.subarray(indptr[j], indptr[j + 1])),
+        );
+      }
     }
   } else {
     const dense = decodeF32Base64(String(state.gene_values ?? ""));

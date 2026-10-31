@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[2]
 FRONTEND = ROOT / "frontend"
 MEASURE = FRONTEND / "scripts" / "measure-recipe-payload.mjs"
 
-RECIPES = ("squidpy_color", "ileum_all_genes_payload")
+RECIPES = ("squidpy_color",)
 MAX_DATA_BYTES = 10_000_000
 MAX_TOTAL_BYTES = 16_000_000
 SITE_ROOT = ROOT / "site"

@@ -1,4 +1,4 @@
-import { decodeGeneCscF32, decodeGeneCscI32 } from "./gene-csc-binary";
+import { decodeGeneCscPack } from "./gene-csc-binary";
 import { invokeCommand, type CommandModel } from "./comm-command.js";
 import { createGeneStore, type GeneSlice, type GeneStore } from "./gene-store.js";
 
@@ -72,9 +72,12 @@ export function geneStoreFor(model: GeneModel): GeneStore {
     const meta =
       (model.get("gene_names") as Array<{ name: string; vmin?: number; vmax?: number }>) ?? [];
     void (async () => {
-      const indptr = await decodeGeneCscI32(String(model.get("gene_csc_indptr") || ""), codec);
-      const indices = await decodeGeneCscI32(String(model.get("gene_csc_indices") || ""), codec);
-      const data = await decodeGeneCscF32(String(model.get("gene_csc_data") || ""), codec);
+      const { indptr, indices, data } = await decodeGeneCscPack(
+        String(model.get("gene_csc_indptr") || ""),
+        String(model.get("gene_csc_indices") || ""),
+        String(model.get("gene_csc_data") || ""),
+        codec,
+      );
       store.setEager(meta, indptr.length ? indptr : null, indices, data);
       await store.ensure(active().filter((n) => !store.error(n)));
     })();
