@@ -81,7 +81,7 @@ jobs:
           path: |
             demos/recipes/__marimo__
             .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/data/ileum.h5ad', 'website/scripts/export-recipes.sh', 'uv.lock') }}
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/data/ileum.h5ad', 'demos/data/ileum_niche_recipe_niches.parquet', 'website/scripts/export-recipes.sh', 'uv.lock') }}
 
   warm-export:
     needs: cold-preflight
@@ -116,7 +116,7 @@ jobs:
           path: |
             demos/recipes/__marimo__
             .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/data/ileum.h5ad', 'website/scripts/export-recipes.sh', 'uv.lock') }}
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/data/ileum.h5ad', 'demos/data/ileum_niche_recipe_niches.parquet', 'website/scripts/export-recipes.sh', 'uv.lock') }}
           fail-on-cache-miss: true
 
       - name: Warm export
