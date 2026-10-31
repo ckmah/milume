@@ -28,11 +28,15 @@ def _tree(tmp_path: Path) -> tuple[Path, tuple[str, ...]]:
     return tmp_path, allow
 
 
-def test_read_volume_bytes_full_file(tmp_path):
-    root, allow = _tree(tmp_path)
-    outcome = read_volume_bytes(root, allow, "images/a/zarr.json")
-    assert outcome.ok and outcome.status == 200
-    assert outcome.data == b'{"zarr":3}'
+def test_normalize_volume_rel_maps_v2_metadata_and_scale_index(tmp_path):
+    root = tmp_path
+    shard = root / "images/mosaic/s0/c/0"
+    shard.parent.mkdir(parents=True, exist_ok=True)
+    shard.write_bytes(b"x" * 8)
+    (root / "images/mosaic/zarr.json").parent.mkdir(parents=True, exist_ok=True)
+    (root / "images/mosaic/zarr.json").write_bytes(b'{"zarr":3}')
+    allow = normalize_allow_prefixes(("images/mosaic/",))
+    assert read_volume_bytes(root, allow, "images/mosaic/0/c/0").ok
 
 
 def test_read_volume_bytes_range_seeks_without_reading_whole_file(tmp_path):

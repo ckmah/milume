@@ -1,6 +1,7 @@
 import { decodeF32Base64, decodeI32Base64 } from "@/widgets/landmarks/binary";
 import type { AnyModel } from "@/widgets/landmarks/helpers";
 import { isCommVolumeUrl } from "@/widgets/volume-cube/volume-url";
+import { normalizeVolumeStoreKey } from "@/widgets/volume-cube/volume-comm";
 
 declare const __MILUME_VOLUME_FIXTURE_FILE__: string | undefined;
 
@@ -128,10 +129,7 @@ export function createMockModel(
       await new Promise((resolve) => setTimeout(resolve, hook.delayMs));
     }
     const body = msg as { path?: string; range?: { offset?: number; length?: number; suffixLength?: number } };
-    let rel = String(body.path ?? "");
-    if (rel.endsWith("/.zattrs") || rel.endsWith("/.zgroup") || rel.endsWith("/.zarray")) {
-      rel = `${rel.slice(0, rel.lastIndexOf("/"))}/zarr.json`;
-    }
+    let rel = normalizeVolumeStoreKey(String(body.path ?? ""));
     if (!volumeStaticRoot || !rel) return [{ ok: false, status: 404 }, []];
     const url = `${volumeStaticRoot}${rel}`.replace(/([^:]\/)\/+/g, "$1");
     const headers: Record<string, string> = {};
@@ -230,6 +228,7 @@ export function createMockModel(
   }
 
   if (typeof window !== "undefined" && volumeStaticRoot) {
+    (window as unknown as { __volumeCommStaticRoot?: string }).__volumeCommStaticRoot = volumeStaticRoot;
     (window as unknown as { __volumeCommReads?: () => number }).__volumeCommReads = () => commReads;
     (window as unknown as { __volumeCommPaths?: () => string[] }).__volumeCommPaths = () => [...commPaths];
   }

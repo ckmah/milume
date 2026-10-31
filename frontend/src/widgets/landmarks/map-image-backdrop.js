@@ -1,35 +1,13 @@
-import { isCommVolumeUrl } from "@/widgets/volume-cube/volume-url";
 import {
   axisSize,
   fetchBox,
   pyramidLevels,
   MAX_TEXTURE_AXIS,
 } from "@/widgets/volume-cube/window-source.ts";
+import { loadVolumePyramid } from "@/widgets/volume-cube/load-volume-pyramid.ts";
 
 /** Voxels loaded for one map backdrop refresh (2D multichannel). */
 const MAP_BACKDROP_BUDGET = 8 * 1024 * 1024;
-
-let vivModule;
-function loadViv() {
-  vivModule ??= import("@hms-dbmi/viv");
-  return vivModule;
-}
-
-function absoluteUrl(url) {
-  if (!url) return url;
-  return new URL(url, window.location.href).href;
-}
-
-async function loadVolumePyramid(url, volumeComm) {
-  const { loadOmeZarr, loadOmeZarrFromStore } = await loadViv();
-  if (isCommVolumeUrl(url)) {
-    if (!volumeComm) throw new Error("Volume comm is not available");
-    const loaded = await loadOmeZarrFromStore(volumeComm.createStore(url));
-    return loaded.data;
-  }
-  const loaded = await loadOmeZarr(absoluteUrl(url), { type: "multiscales" });
-  return loaded.data;
-}
 
 function frameFromVolume(volume) {
   const voxel = volume?.voxel_size_um ?? [1, 1, 1];

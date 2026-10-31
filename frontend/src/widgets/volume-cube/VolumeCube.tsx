@@ -1,7 +1,7 @@
 import type React from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Matrix4 } from "@math.gl/core";
-import { VivViewer, loadOmeZarr, loadOmeZarrFromStore } from "@hms-dbmi/viv";
+import { loadVolumePyramid } from "./load-volume-pyramid";
 import equal from "fast-deep-equal";
 
 import { ChromeLoadIndicator } from "@/widgets/landmarks/chrome/load-indicator";
@@ -242,21 +242,6 @@ const ONE_CHANNEL_VISIBLE = [true];
  * cut horizontal slabs: (x, y, z) -> (x, z, -y).
  */
 const Z_UP = new Matrix4().rotateX(-Math.PI / 2);
-
-function absoluteUrl(url: string): string {
-  if (!url) return url;
-  return new URL(url, window.location.href).href;
-}
-
-async function loadVolumePyramid(url: string, volumeComm: VolumeCommClient | null | undefined) {
-  if (isCommVolumeUrl(url)) {
-    if (!volumeComm) throw new Error("Volume comm is not available");
-    const loaded = await loadOmeZarrFromStore(volumeComm.createStore(url));
-    return loaded.data as unknown as ZarrSource[];
-  }
-  const loaded = await loadOmeZarr(absoluteUrl(url), { type: "multiscales" });
-  return loaded.data as unknown as ZarrSource[];
-}
 
 export function clampRange(lo: number, hi: number, min: number, max: number): [number, number] {
   const a = Math.max(min, Math.min(lo, hi));

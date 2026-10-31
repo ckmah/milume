@@ -47,9 +47,35 @@ def _resolved_allow_roots(root: Path, allow_prefixes: tuple[str, ...]) -> tuple[
     return tuple(roots)
 
 
+def _alias_scale_dataset_segment(parts: list[str], i: int) -> bool:
+    if i <= 0 or not parts[i].isdigit():
+        return False
+    parent = parts[i - 1]
+    if parent not in ("mosaic", "cells") and not parent.endswith("_image"):
+        return False
+    nxt = parts[i + 1] if i + 1 < len(parts) else ""
+    return nxt in ("zarr.json", "c", ".zarray")
+
+
+def normalize_volume_rel(rel: str) -> str:
+    """Map OME default scale ids (0, 1, …) to SpatialData ``s0``, ``s1``, … on disk."""
+    rel = rel.lstrip("/").replace("\\", "/")
+    parts = rel.split("/")
+    if len(parts) >= 2 and parts[0].isdigit() and parts[1] in ("zarr.json", "c", ".zarray"):
+        parts[0] = f"s{parts[0]}"
+    out: list[str] = []
+    for i, part in enumerate(parts):
+        if _alias_scale_dataset_segment(parts, i):
+            out.append(f"s{part}")
+            continue
+        out.append(part)
+    rel = "/".join(out)
+    return rel
+
+
 def resolve_volume_path(root: Path, rel: str, allow_prefixes: tuple[str, ...]) -> Path | None:
     """Map a store-relative path to a file under ``root``, or None if disallowed."""
-    rel = rel.lstrip("/").replace("/", os.sep)
+    rel = normalize_volume_rel(rel).lstrip("/").replace("/", os.sep)
     if not rel or ".." in rel.split(os.sep):
         return None
     if not _allowed(rel.replace(os.sep, "/"), allow_prefixes):
