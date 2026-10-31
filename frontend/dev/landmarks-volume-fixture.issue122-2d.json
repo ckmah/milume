@@ -90,7 +90,7 @@
     ],
     "contrast_limits": [
       0.0,
-      215.0
+      255.0
     ],
     "dims": [
       "c",
@@ -124,7 +124,7 @@
         "visible": true,
         "contrast_limits": [
           0.0,
-          215.0
+          255.0
         ],
         "constant_zero": false
       },
@@ -133,7 +133,7 @@
         "visible": false,
         "contrast_limits": [
           0.0,
-          223.0
+          255.0
         ],
         "constant_zero": false
       },
@@ -142,7 +142,7 @@
         "visible": false,
         "contrast_limits": [
           0.0,
-          150.0
+          165.0
         ],
         "constant_zero": false
       },
@@ -151,7 +151,7 @@
         "visible": false,
         "contrast_limits": [
           0.0,
-          197.0
+          152.0
         ],
         "constant_zero": false
       },
@@ -169,9 +169,9 @@
   "volume_cell_rows": "",
   "volume_cut": [
     0.0,
-    48.0,
+    38.0,
     0.0,
-    32.0,
+    79.5,
     0.0,
     1.0
   ],

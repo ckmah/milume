@@ -122,12 +122,21 @@ function maxProjectSlice(data, box, lo, hi) {
   return gray;
 }
 
-function additiveRgbFromPlane(gray, rgb, plane) {
+function parseChannelTint(hex) {
+  if (typeof hex !== "string") return [1, 1, 1];
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return [1, 1, 1];
+  const n = parseInt(m[1], 16);
+  return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+
+function additiveRgbFromPlane(gray, rgb, plane, tint) {
+  const [tr, tg, tb] = tint;
   for (let i = 0; i < plane; i++) {
     const n = gray[i] / 255;
-    rgb[i * 3] = Math.min(1, rgb[i * 3] + n);
-    rgb[i * 3 + 1] = Math.min(1, rgb[i * 3 + 1] + n);
-    rgb[i * 3 + 2] = Math.min(1, rgb[i * 3 + 2] + n);
+    rgb[i * 3] = Math.min(1, rgb[i * 3] + n * tr);
+    rgb[i * 3 + 1] = Math.min(1, rgb[i * 3 + 1] + n * tg);
+    rgb[i * 3 + 2] = Math.min(1, rgb[i * 3 + 2] + n * tb);
   }
 }
 
@@ -175,6 +184,7 @@ export function createMapImageBackdrop({
   let cache = { key: "", image: null, bounds: null };
   let lastViewState = null;
   let zBandTouchedAt = 0;
+  let zBandRefineTimer = null;
   let lastPick = null;
 
   function scheduleFetch(viewState) {
@@ -205,6 +215,21 @@ export function createMapImageBackdrop({
 
   function noteZBandChange() {
     zBandTouchedAt = performance.now();
+    if (zBandRefineTimer) clearTimeout(zBandRefineTimer);
+    zBandRefineTimer = setTimeout(() => {
+      zBandTouchedAt = 0;
+      zBandRefineTimer = null;
+      scheduleFetch(lastViewState);
+    }, 300);
+  }
+
+  function noteZBandInteractionEnd() {
+    zBandTouchedAt = 0;
+    if (zBandRefineTimer) {
+      clearTimeout(zBandRefineTimer);
+      zBandRefineTimer = null;
+    }
+    scheduleFetch(lastViewState);
   }
 
   function fetchKey(viewState) {
@@ -256,6 +281,7 @@ export function createMapImageBackdrop({
       cache = { key: "", image: null, bounds: null };
       return;
     }
+    const t0 = performance.now();
     await ensurePyramid(url);
     if (gen !== fetchGen || disposed || !levels?.length) return;
 
@@ -305,7 +331,8 @@ export function createMapImageBackdrop({
       const lo = ch.contrast_limits?.[0] ?? vol.contrast_limits?.[0] ?? 0;
       const hi = ch.contrast_limits?.[1] ?? vol.contrast_limits?.[1] ?? 255;
       const gray = maxProjectSlice(chunk.data, box, lo, hi);
-      additiveRgbFromPlane(gray, rgb, plane);
+      const tint = parseChannelTint(ch.color);
+      additiveRgbFromPlane(gray, rgb, plane, tint);
     }
 
     const pixels = rgbaFromRgb(rgb, plane);
@@ -321,6 +348,8 @@ export function createMapImageBackdrop({
       image: bitmap,
       bounds: [wb.left, wb.bottom, wb.right, wb.top],
     };
+    const t1 = performance.now();
+    performance.measure?.("backdrop-raster", { start: t0, end: t1 });
   }
 
   function syncFromModel(viewState) {
@@ -366,6 +395,7 @@ export function createMapImageBackdrop({
   function dispose() {
     disposed = true;
     fetchGen++;
+    if (zBandRefineTimer) clearTimeout(zBandRefineTimer);
     if (cache.image?.close) cache.image.close();
     cache = { key: "", image: null, bounds: null };
     pyramid = null;
@@ -376,6 +406,7 @@ export function createMapImageBackdrop({
     buildLayers,
     dispose,
     noteZBandChange,
+    noteZBandInteractionEnd,
     getLastPick: () => lastPick,
   };
 }

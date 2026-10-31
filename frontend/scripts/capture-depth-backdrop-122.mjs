@@ -1,18 +1,11 @@
 /**
  * Visual acceptance captures for depth backdrop (#122).
- *
- * Servers (separate ports):
- *   MILUME_VOLUME_PROFILE=issue122-2d npm run dev:landmarks-volume -- --port 5175
- *   MILUME_VOLUME_PROFILE=colon npm run dev:landmarks-volume -- --port 5176
- *   npm run dev:landmarks -- --port 5174
- *
- *   CAPTURE_URL=http://127.0.0.1:5175 node scripts/capture-depth-backdrop-122.mjs --issue122-2d
- *   CAPTURE_URL=http://127.0.0.1:5176 node scripts/capture-depth-backdrop-122.mjs --colon
- *   CAPTURE_URL=http://127.0.0.1:5174 node scripts/capture-depth-backdrop-122.mjs --ileum
  */
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { chromium } from "@playwright/test";
+
+import { installDocsCaptureChrome } from "./lib/docs-tool-media.mjs";
 
 const outDir = process.env.CAPTURE_OUT ?? "/opt/cursor/artifacts/depth-backdrop-122";
 const base = process.env.CAPTURE_URL ?? "http://127.0.0.1:5173";
@@ -35,30 +28,6 @@ async function hideHarnessBanner(page) {
   });
 }
 
-async function installCaptureCursor(page) {
-  await page.evaluate(() => {
-    if (document.getElementById("capture-cursor")) return;
-    const el = document.createElement("div");
-    el.id = "capture-cursor";
-    el.style.cssText =
-      "position:fixed;width:12px;height:12px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 1px #000;pointer-events:none;z-index:99999;transform:translate(-50%,-50%)";
-    document.body.appendChild(el);
-    window.__captureCursorMove = (x, y) => {
-      el.style.left = `${x}px`;
-      el.style.top = `${y}px`;
-    };
-  });
-}
-
-async function moveCaptureCursor(page, x, y) {
-  await page.evaluate(
-    ([px, py]) => {
-      window.__captureCursorMove?.(px, py);
-    },
-    [x, y],
-  );
-}
-
 async function waitEngine(page, requireBackdrop = true) {
   await page.waitForFunction(() => Boolean(window.__landmarksEngine?.getViewState?.()), null, {
     timeout: 120_000,
@@ -70,7 +39,37 @@ async function waitEngine(page, requireBackdrop = true) {
       { timeout: 120_000 },
     );
   }
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(400);
+}
+
+async function waitBackdropRefined(page, maxLevel = 2) {
+  await page.waitForFunction(
+    (maxL) => {
+      const p = window.__landmarksEngine?.getBackdropPick?.();
+      return p != null && p.level <= maxL;
+    },
+    maxLevel,
+    { timeout: 90_000 },
+  );
+  await page.waitForTimeout(500);
+}
+
+async function fitViewToData(page) {
+  await page.evaluate(() => {
+    const m = window.__landmarksModel;
+    const xb = m.get("x_bounds");
+    const yb = m.get("y_bounds");
+    if (!xb || !yb) return;
+    const cx = (xb[0] + xb[1]) / 2;
+    const cy = (yb[0] + yb[1]) / 2;
+    const span = Math.max(xb[1] - xb[0], yb[1] - yb[0], 1);
+    const eng = window.__landmarksEngine;
+    const vs = eng.getViewState();
+    const { width, height } = eng.getCanvasSize?.() ?? { width: 1280, height: 800 };
+    const zoom = Math.log2(Math.min(width, height) / (span * 1.15));
+    eng.setViewState({ ...vs, target: [cx, cy, vs.target?.[2] ?? 0], zoom });
+  });
+  await page.waitForTimeout(700);
 }
 
 async function openLayers(page) {
@@ -81,7 +80,8 @@ async function openLayers(page) {
   await page.getByTestId("panel-section-layers").click();
   const imageRow = page.getByTestId("layers-image-row");
   if (await imageRow.count()) {
-    await imageRow.click();
+    const expanded = await imageRow.getAttribute("aria-expanded");
+    if (expanded !== "true") await imageRow.click();
   }
 }
 
@@ -104,12 +104,13 @@ async function zoomIn(page, steps = 1) {
       const vs = eng.getViewState();
       eng.setViewState({ ...vs, zoom: vs.zoom + 1.2 });
     });
-    await page.waitForTimeout(350);
+    await page.waitForTimeout(400);
   }
 }
 
 async function captureIssue122d(page) {
   await load(page);
+  await fitViewToData(page);
   await page.evaluate(() => {
     const lm = window.__landmarksModel;
     const vol = lm.get("volume") || {};
@@ -118,64 +119,77 @@ async function captureIssue122d(page) {
       (vol.channels || []).map((c) => ({
         ...c,
         visible: c.name === "DAPI" || c.name === "PanCK",
+        color: c.name === "DAPI" ? "#9a9a9a" : c.name === "PanCK" ? "#ff8844" : c.color,
+        contrast_limits: c.contrast_limits ?? [0, 255],
       })),
     );
     lm.save_changes();
   });
-  await page.waitForTimeout(400);
+  await waitBackdropRefined(page, 1);
   await openLayers(page);
+  await page.waitForTimeout(300);
   await captureWidget(page, "122-2d-two-channel-blend-layers");
   await page.evaluate(() => {
     const lm = window.__landmarksModel;
     const vol = lm.get("volume") || {};
     lm.set(
       "_image_channels",
-      (vol.channels || []).map((c) => ({ ...c, visible: c.name === "DAPI" })),
+      (vol.channels || []).map((c) => ({
+        ...c,
+        visible: c.name === "DAPI",
+        color: "#9a9a9a",
+      })),
     );
     lm.save_changes();
   });
-  await page.waitForTimeout(600);
+  await waitBackdropRefined(page, 1);
   await captureWidget(page, "122-2d-default-dapi-gray");
   await zoomIn(page, 2);
+  await waitBackdropRefined(page, 1);
   await captureWidget(page, "122-2d-dapi-zoomed");
 }
 
 async function captureColon(page) {
   await load(page);
+  await fitViewToData(page);
+  await page.waitForTimeout(600);
   await captureWidget(page, "122-colon-backdrop-on-fit");
   await zoomIn(page, 2);
+  await waitBackdropRefined(page, 4);
   await captureWidget(page, "122-colon-backdrop-on-zoomed");
   await openLayers(page);
   await page.getByTestId("layer-toggle-image").click();
   await page.waitForTimeout(400);
   await captureWidget(page, "122-colon-backdrop-off-fit");
   await load(page);
+  await fitViewToData(page);
   await zoomIn(page, 3);
   await page.evaluate(() => {
     const lm = window.__landmarksModel;
-    const lo = lm.get("z_band_lo_um");
-    const hi = lm.get("z_band_hi_um");
-    const mid = (lo + hi) / 2;
-    lm.set("z_band_lo_um", mid - 2.5);
-    lm.set("z_band_hi_um", mid + 2.5);
+    const focus = Math.round(lm.get("z_focus_um"));
+    lm.set("z_focus_um", focus);
+    lm.set("z_band_lo_um", focus - 5);
+    lm.set("z_band_hi_um", focus + 5);
     lm.save_changes();
   });
-  await page.waitForTimeout(800);
+  await waitBackdropRefined(page, 5);
+  const pickBand = await page.evaluate(() => window.__landmarksEngine?.getBackdropPick?.());
+  console.log("colon band at rest pick", pickBand);
   await captureWidget(page, "122-colon-band-rail-faded-points");
-  await installCaptureCursor(page);
   const loThumb = page.getByRole("slider", { name: "Lower z bound" });
   const box = await loThumb.boundingBox();
   if (box) {
     const cx = box.x + box.width / 2;
     const cy = box.y + box.height / 2;
     await page.mouse.move(cx, cy);
-    await moveCaptureCursor(page, cx, cy);
     await page.mouse.down();
     const dragY = cy + 18;
     await page.mouse.move(cx, dragY, { steps: 4 });
-    await moveCaptureCursor(page, cx, dragY);
+    await page.waitForTimeout(200);
     await captureWidget(page, "122-colon-rail-drag-lower");
     await page.mouse.up();
+    await page.evaluate(() => window.__landmarksEngine?.noteBackdropZBandEnd?.());
+    await waitBackdropRefined(page, 3);
   }
 }
 
@@ -192,6 +206,7 @@ async function captureToy(page) {
 async function main() {
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await installDocsCaptureChrome(page, "dark");
   if (mode === "--issue122-2d") await captureIssue122d(page);
   else if (mode === "--colon") await captureColon(page);
   else if (mode === "--ileum") await captureIleum(page);

@@ -1,3 +1,4 @@
+import { execSync } from "node:child_process";
 import { expect } from "@playwright/test";
 
 import { test } from "../fixtures";
@@ -32,7 +33,10 @@ async function rasterBandKey(page: import("@playwright/test").Page) {
 }
 
 test.describe("depth backdrop (#122) — landmarks-volume harness", () => {
-  test.skip(!volumeHarness, "requires E2E_HARNESS=landmarks-volume");
+  test.skip(
+    !volumeHarness || issue122d || colonProfile,
+    "toy landmarks-volume harness only",
+  );
 
   test.beforeEach(async ({ page }) => {
     await bootLandmarksVolumeHarness(page);
@@ -164,14 +168,65 @@ test.describe("depth backdrop (#122) — 2D multichannel fixture", () => {
     await openLayersSection(page);
     await setModel(page, {
       _image_channels: [
-        { name: "DAPI", visible: true, color: "#4488ff" },
-        { name: "PanCK", visible: true, color: "#ff8844" },
+        { name: "DAPI", visible: true, color: "#8a8a8a", contrast_limits: [0, 255] },
+        { name: "PanCK", visible: true, color: "#ff8844", contrast_limits: [0, 255] },
       ],
     });
     await expect(page.locator(".milume-widget.landmarks")).toHaveClass(/landmarks--image/);
     await stabilizeUi(page);
     const widget = page.locator(".milume-widget.landmarks").first();
     await shot(page, "122-2d-two-channel-blend", widget);
+  });
+
+  test("issue122 image bounds cover scatter extent", async ({ page }) => {
+    await bootLandmarksVolumeHarness(page, "noDialkit=1");
+    await expect
+      .poll(async () => page.evaluate(() => (window as any).__landmarksEngine?.getBackdropPick?.()?.level))
+      .not.toBeNull();
+    const ok = await page.evaluate(() => {
+      const model = (window as any).__landmarksModel;
+      const cut = model.get("volume_cut") as number[] | undefined;
+      const xb = model.get("x_bounds") as [number, number];
+      const yb = model.get("y_bounds") as [number, number];
+      if (!cut || cut.length < 4 || !xb || !yb) return false;
+      const [x0, x1, y0, y1] = cut;
+      const margin = 0.5;
+      if (xb[0] < x0 - margin || xb[1] > x1 + margin) return false;
+      if (yb[0] < y0 - margin || yb[1] > y1 + margin) return false;
+      const pick = (window as any).__landmarksEngine?.getBackdropPick?.();
+      return pick != null && pick.level <= 1;
+    });
+    expect(ok).toBe(true);
+  });
+
+  test("issue122 cell centers land on bright DAPI in the fixture zarr", () => {
+    const out = execSync(
+      `uv run python -c "
+import json
+import numpy as np
+import spatialdata as sd
+from pathlib import Path
+root = Path('frontend/dev/landmarks-volume/public/issue122-2d.sdata.zarr')
+sdata = sd.read_zarr(root)
+table = sdata.tables['table']
+mosaic = sdata.images['mosaic']
+scale0 = mosaic['scale0'].image if hasattr(mosaic, '__getitem__') else mosaic
+dapi = np.asarray(scale0.values[0, 0] if hasattr(scale0, 'values') else scale0[0, 0])
+_, sy, sx = 1.0, 0.5, 0.5
+ox, oy = 0.0, 0.0
+hits = []
+for row in table.obsm['spatial'][:8]:
+    x_um, y_um = row
+    xi = int(round((x_um - ox) / sx))
+    yi = int(round((y_um - oy) / sy))
+    hits.append(int(dapi[yi, xi]))
+print(json.dumps({'min': min(hits), 'hits': hits}))
+"`,
+      { cwd: `${process.cwd()}/..`, encoding: "utf8" },
+    );
+    const parsed = JSON.parse(out.trim()) as { min: number; hits: number[] };
+    expect(parsed.min).toBeGreaterThanOrEqual(80);
+    expect(parsed.hits.every((v) => v >= 80)).toBe(true);
   });
 
 });
@@ -215,11 +270,15 @@ test.describe("depth backdrop (#122) — colon 3D volume", () => {
       `${focus} ± ${half}`,
     );
     await expect(rail.locator(".landmarks-depth-rail__readout-sub")).toHaveText(`${lo}–${hi} µm`);
-    const line = await rail.locator(".landmarks-depth-rail__readout-line").boundingBox();
-    const sub = await rail.locator(".landmarks-depth-rail__readout-sub").boundingBox();
-    expect(line).toBeTruthy();
-    expect(sub).toBeTruthy();
-    expect(line!.width).toBeLessThanOrEqual(58 + 4);
+    const readout = rail.locator(".landmarks-depth-rail__readout");
+    const railBox = await rail.boundingBox();
+    const readoutBox = await readout.boundingBox();
+    expect(railBox).toBeTruthy();
+    expect(readoutBox).toBeTruthy();
+    expect(readoutBox!.width).toBeLessThanOrEqual(58 + 2);
+    const readoutRight = readoutBox!.x + readoutBox!.width;
+    const railRight = railBox!.x + railBox!.width;
+    expect(readoutRight).toBeLessThanOrEqual(railRight + 1);
   });
 });
 

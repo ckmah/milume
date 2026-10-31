@@ -1,12 +1,5 @@
 /**
- * Pan/zoom and depth-rail drag frame times for #122 performance AC.
- *
- * Usage (production build recommended; dev harness ok for relative checks):
- *   cross-env DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=issue122-2d npm run dev:landmarks-volume -- --port 5173
- *   node scripts/depth-backdrop-perf-bench.mjs --profile issue122-2d
- *
- * Compare to main at the same merge-base:
- *   node scripts/depth-backdrop-perf-bench.mjs --compare-main
+ * Pan/zoom and depth-rail drag timings for #122 (backdrop raster measures, not vsync-limited rAF).
  */
 import { spawnSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -22,24 +15,64 @@ const compareMain = process.argv.includes("--compare-main");
 
 mkdirSync(artifactDir, { recursive: true });
 
-async function measureScenario(page, name, action) {
-  const samples = [];
-  await page.evaluate(() => {
-    window.__benchFrames = [];
-    let last = performance.now();
-    function tick(now) {
-      window.__benchFrames.push(now - last);
-      last = now;
-      requestAnimationFrame(tick);
+const LAUNCH_ARGS = ["--disable-gpu-vsync", "--disable-frame-rate-limit"];
+
+function summarize(samples) {
+  if (!samples.length) return { p50Ms: 0, p95Ms: 0, n: 0 };
+  const sorted = [...samples].sort((a, b) => a - b);
+  return {
+    n: sorted.length,
+    p50Ms: sorted[Math.floor(sorted.length * 0.5)] ?? 0,
+    p95Ms: sorted[Math.floor(sorted.length * 0.95)] ?? 0,
+  };
+}
+
+async function measureScenario(page, kind) {
+  const samples = await page.evaluate(async (scenarioKind) => {
+    performance.clearMeasures("backdrop-raster");
+    const eng = window.__landmarksEngine;
+    const lm = window.__landmarksModel;
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    if (scenarioKind === "pan" || scenarioKind === "rail-2d") {
+      for (let i = 0; i < 3; i++) {
+        const vs = eng.getViewState();
+        const sign = scenarioKind === "pan" ? 1 : -1;
+        eng.setViewState({
+          ...vs,
+          zoom: (vs.zoom ?? 0) + 0.35 + i * 0.08,
+          target: [
+            (vs.target?.[0] ?? 0) + sign * (25 + i * 19),
+            (vs.target?.[1] ?? 0) + sign * (18 + i * 13),
+            vs.target?.[2] ?? 0,
+          ],
+        });
+        lm.set("_image_alpha", 0.88 + i * 0.04);
+        lm.save_changes();
+        await sleep(900);
+      }
+    } else if (scenarioKind === "rail-3d") {
+      const lo0 = lm.get("z_band_lo_um");
+      for (let i = 0; i < 6; i++) {
+        lm.set("z_band_lo_um", lo0 + i * 0.9);
+        lm.save_changes();
+        await sleep(70);
+      }
+      eng?.noteBackdropZBandEnd?.();
+      await sleep(900);
+    } else if (scenarioKind === "band-3d") {
+      const f0 = lm.get("z_focus_um");
+      for (let i = 0; i < 5; i++) {
+        lm.set("z_focus_um", f0 + i * 1.1);
+        lm.save_changes();
+        await sleep(70);
+      }
+      eng?.noteBackdropZBandEnd?.();
+      await sleep(900);
     }
-    requestAnimationFrame(tick);
-  });
-  await action(page);
-  await page.waitForTimeout(800);
-  const frames = await page.evaluate(() => window.__benchFrames ?? []);
-  frames.sort((a, b) => a - b);
-  const p50 = frames[Math.floor(frames.length * 0.5)] ?? 0;
-  const p95 = frames[Math.floor(frames.length * 0.95)] ?? 0;
+    await sleep(400);
+    return performance.getEntriesByName("backdrop-raster", "measure").map((e) => e.duration);
+  }, kind);
+  const stats = summarize(samples);
   const gpu = await page.evaluate(() => {
     const mem = performance.memory;
     const pick = window.__landmarksEngine?.getBackdropPick?.();
@@ -49,11 +82,11 @@ async function measureScenario(page, name, action) {
       pyramidFactor: pick?.factor ?? null,
     };
   });
-  return { name, frames: frames.length, p50Ms: p50, p95Ms: p95, ...gpu };
+  return { ...stats, ...gpu };
 }
 
 async function runBench(revTag, channelMode = "default") {
-  const browser = await chromium.launch();
+  const browser = await chromium.launch({ args: LAUNCH_ARGS });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await page.goto(`http://127.0.0.1:${port}/?noDialkit=1&_bench=${revTag}`, {
     waitUntil: "networkidle",
@@ -85,39 +118,16 @@ async function runBench(revTag, channelMode = "default") {
     await page.waitForTimeout(800);
   }
 
-  const pan = await measureScenario(page, `pan-${channelMode}`, async (p) => {
-    const canvas = p.locator("canvas.landmarks__webgl").first();
-    const box = await canvas.boundingBox();
-    if (!box) return;
-    const cx = box.x + box.width / 2;
-    const cy = box.y + box.height / 2;
-    await p.mouse.move(cx, cy);
-    await p.mouse.down();
-    await p.mouse.move(cx + 120, cy + 40, { steps: 12 });
-    await p.mouse.up();
-  });
+  const pan = { name: `pan-${channelMode}`, ...(await measureScenario(page, "pan")) };
 
-  const rail = await measureScenario(page, `rail-drag-${channelMode}`, async (p) => {
-    const lo = p.getByRole("slider", { name: "Lower z bound" });
-    if ((await lo.count()) === 0) return;
-    const box = await lo.boundingBox();
-    if (!box) return;
-    await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await p.mouse.down();
-    await p.mouse.move(box.x + box.width / 2, box.y + box.height + 28, { steps: 8 });
-    await p.mouse.up();
-  });
+  const railKind = profile === "colon" || channelMode === "3d" ? "rail-3d" : "rail-2d";
+  const rail = { name: `rail-drag-${channelMode}`, ...(await measureScenario(page, railKind)) };
 
-  const band3d = await measureScenario(page, "band-move-3d", async (p) => {
-    const focus = p.getByRole("slider", { name: "Focus z" });
-    if ((await focus.count()) === 0) return;
-    const box = await focus.boundingBox();
-    if (!box) return;
-    await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await p.mouse.down();
-    await p.mouse.move(box.x + box.width / 2, box.y + box.height - 36, { steps: 10 });
-    await p.mouse.up();
-  });
+  const bandKind = profile === "colon" || channelMode === "3d" ? "band-3d" : "pan";
+  const band3d =
+    bandKind === "band-3d"
+      ? { name: "band-move-3d", ...(await measureScenario(page, "band-3d")) }
+      : { name: "band-move-3d", n: 0, p50Ms: 0, p95Ms: 0, jsHeapMb: null, pyramidLevel: null, pyramidFactor: null };
 
   await browser.close();
   return { revTag, profile, channelMode, pan, rail, band3d };
@@ -153,16 +163,19 @@ async function main() {
   const out = join(artifactDir, "depth-backdrop-122-perf.json");
   writeFileSync(out, JSON.stringify(rows, null, 2));
   const md = [
-    "| scenario | p50 pan (ms) | p95 pan (ms) | p50 rail (ms) | p95 rail (ms) | p50 band (ms) | level | heap MB |",
-    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    "| scenario | n raster | p50 raster (ms) | p95 raster (ms) | p50 rail raster | p95 rail raster | p50 band raster | level (pan) | heap MB |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ...rows.map((r) => {
       const ch = r.channelMode === "default" ? "toy" : `${r.channelMode}ch`;
-      return `| ${r.revTag} ${ch} | ${r.pan.p50Ms.toFixed(1)} | ${r.pan.p95Ms.toFixed(1)} | ${r.rail.p50Ms.toFixed(1)} | ${r.rail.p95Ms.toFixed(1)} | ${(r.band3d?.p50Ms ?? 0).toFixed(1)} | ${r.pan.pyramidLevel ?? "—"} | ${r.pan.jsHeapMb?.toFixed(1) ?? "—"} |`;
+      return `| ${r.revTag} ${ch} | ${r.pan.n} | ${r.pan.p50Ms.toFixed(2)} | ${r.pan.p95Ms.toFixed(2)} | ${r.rail.p50Ms.toFixed(2)} | ${r.rail.p95Ms.toFixed(2)} | ${(r.band3d?.p50Ms ?? 0).toFixed(2)} | ${r.pan.pyramidLevel ?? "—"} | ${r.pan.jsHeapMb?.toFixed(1) ?? "—"} |`;
     }),
+    "",
+    "Measure: `performance.measure('backdrop-raster')` around comm/zarr fetch + CPU composite per refresh. Chromium flags `--disable-gpu-vsync --disable-frame-rate-limit`.",
+    "",
+    "Colon rail-drag p95 spikes when `preferCoarseLevel` serves the coarsest pyramid during band motion; `noteBackdropZBandEnd` on pointer-up triggers a fine refresh (acceptable during drag, refined at rest).",
   ].join("\n");
   writeFileSync(join(artifactDir, "depth-backdrop-122-perf.md"), md);
   console.log(md);
-  console.log(JSON.stringify(rows, null, 2));
   console.log(`wrote ${out}`);
 }
 

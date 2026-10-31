@@ -75,8 +75,10 @@ function formatRangeLine(
   const subLo = formatDepthRailUm(lo, symmetric);
   const subHi = formatDepthRailUm(hi, symmetric);
   if (symmetric) {
+    const focusLabel = formatDepthRailUm(focus, true);
+    const halfLabel = formatDepthRailUm(half, true);
     return {
-      main: `${formatDepthRailUm(focus, true)} ± ${formatDepthRailUm(half, true)}`,
+      main: `${focusLabel} ± ${halfLabel}`,
       subLo,
       subHi,
       symmetric: true,
@@ -114,9 +116,9 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
   useEffect(() => {
     if (!hasZ) return;
     if (bandHi > bandLo && Number.isFinite(bandLo) && Number.isFinite(bandHi)) return;
-    const mid = (extLo + extHi) / 2;
-    const [lo, hi] = clampBand(mid - 5, mid + 5, extLo, extHi);
-    lm.setZBand({ lo, hi, focus: mid });
+    const midUm = Math.round((extLo + extHi) / 2);
+    const [lo, hi] = clampBand(midUm - 5, midUm + 5, extLo, extHi);
+    lm.setZBand({ lo, hi, focus: midUm });
   }, [hasZ, extLo, extHi, bandLo, bandHi, lm]);
 
   const [drag, setDrag] = useState<DragKind | null>(null);
@@ -170,6 +172,7 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
     dragSnapshot.current = null;
     if (snap) applyBandSnapshot(snap, (next) => lm.setZBand(next));
     setDrag(null);
+    (window as unknown as { __landmarksEngine?: { noteBackdropZBandEnd?: () => void } }).__landmarksEngine?.noteBackdropZBandEnd?.();
   }, [lm]);
 
   useEffect(() => {
@@ -196,6 +199,7 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
       dragSnapshot.current = null;
       dragActiveRef.current = null;
       setDrag(null);
+      (window as unknown as { __landmarksEngine?: { noteBackdropZBandEnd?: () => void } }).__landmarksEngine?.noteBackdropZBandEnd?.();
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);

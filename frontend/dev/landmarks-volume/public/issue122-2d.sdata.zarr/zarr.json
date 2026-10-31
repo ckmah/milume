@@ -218,8 +218,8 @@
         "shape": [
           5,
           1,
-          64,
-          96
+          159,
+          76
         ],
         "data_type": "uint8",
         "chunk_grid": {
@@ -267,8 +267,8 @@
         "shape": [
           5,
           1,
-          64,
-          96
+          159,
+          76
         ],
         "data_type": "uint8",
         "chunk_grid": {
