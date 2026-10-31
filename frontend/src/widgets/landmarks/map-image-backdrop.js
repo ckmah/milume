@@ -4,7 +4,6 @@ import {
   pyramidLevels,
   MAX_TEXTURE_AXIS,
 } from "@/widgets/volume-cube/window-source.ts";
-import { loadVolumePyramid } from "@/widgets/volume-cube/load-volume-pyramid.ts";
 
 /** Voxels loaded for one map backdrop refresh (2D multichannel). */
 const MAP_BACKDROP_BUDGET = 8 * 1024 * 1024;
@@ -176,8 +175,23 @@ export function createMapImageBackdrop({
   let cache = { key: "", image: null, bounds: null };
   let lastViewState = null;
   let zBandTouchedAt = 0;
-  let loadPromise = null;
   let lastPick = null;
+
+  function scheduleFetch(viewState) {
+    if (disposed) return;
+    lastViewState = viewState ?? lastViewState;
+    const key = fetchKey(lastViewState);
+    if (key === cache.key && cache.image) return;
+    fetchGen++;
+    const gen = fetchGen;
+    void rasterize(lastViewState, gen)
+      .catch((err) => {
+        if (!disposed) console.warn("map image backdrop:", err);
+      })
+      .finally(() => {
+        if (!disposed && gen === fetchGen) onLayersDirty?.();
+      });
+  }
 
   function imageVisible() {
     if (model.get("_image_visible") === false) return false;
@@ -228,6 +242,7 @@ export function createMapImageBackdrop({
     pyramid = null;
     levels = null;
     if (!url) return;
+    const { loadVolumePyramid } = await import("@/widgets/volume-cube/load-volume-pyramid.ts");
     const data = await loadVolumePyramid(url, volumeComm);
     pyramid = data;
     levels = pyramidLevels(data);
@@ -308,24 +323,6 @@ export function createMapImageBackdrop({
     };
   }
 
-  function scheduleFetch(viewState) {
-    if (disposed) return;
-    lastViewState = viewState ?? lastViewState;
-    const key = fetchKey(lastViewState);
-    if (key === cache.key && cache.image) return;
-    fetchGen++;
-    const gen = fetchGen;
-    if (loadPromise) return;
-    loadPromise = rasterize(lastViewState, gen)
-      .catch((err) => {
-        if (!disposed) console.warn("map image backdrop:", err);
-      })
-      .finally(() => {
-        loadPromise = null;
-        if (!disposed && gen === fetchGen) onLayersDirty?.();
-      });
-  }
-
   function syncFromModel(viewState) {
     if (disposed) return;
     const vol = model.get("volume") || {};
@@ -336,6 +333,7 @@ export function createMapImageBackdrop({
       imageUrl = "";
       return;
     }
+    if (!getDeckModules?.()) return;
     scheduleFetch(viewState ?? lastViewState);
   }
 

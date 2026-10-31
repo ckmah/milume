@@ -144,11 +144,19 @@ test.describe("depth backdrop (#122) — 2D multichannel fixture", () => {
 
   test("hides constant-zero dummy channel in Layers", async ({ page }) => {
     await openLayersSection(page);
+    await page.getByTestId("layers-image-row").click();
     await expect(page.getByTestId("layer-channel-dummy")).toHaveCount(0);
     await expect(page.getByTestId("layer-channel-DAPI")).toBeVisible();
     await expect(page.getByTestId("layer-channel-PanCK")).toBeVisible();
     await expect(page.getByTestId("layer-channel-CD45")).toBeVisible();
     await expect(page.getByTestId("layer-channel-Ki67")).toBeVisible();
+  });
+
+  test("map backdrop pick reports a pyramid level", async ({ page }) => {
+    await bootLandmarksVolumeHarness(page, "noDialkit=1");
+    await expect
+      .poll(async () => page.evaluate(() => (window as any).__landmarksEngine?.getBackdropPick?.()?.level))
+      .not.toBeNull();
   });
 
   test("two visible channels blend on black canvas", async ({ page }) => {

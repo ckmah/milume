@@ -1,6 +1,7 @@
 import type React from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Matrix4 } from "@math.gl/core";
+import { VivViewer } from "@hms-dbmi/viv";
 import { loadVolumePyramid } from "./load-volume-pyramid";
 import equal from "fast-deep-equal";
 
@@ -11,7 +12,6 @@ import { cn } from "@/lib/utils";
 
 import type { ChunkCache } from "./chunk-cache";
 import type { VolumeCommClient } from "./volume-comm";
-import { isCommVolumeUrl } from "./volume-url";
 import { contentZIndexSpan, type ContentZSpan } from "./content-z-span";
 import {
   CUBE_EXTENSIONS,

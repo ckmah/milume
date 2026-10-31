@@ -1,5 +1,6 @@
 """Comm-backed volume reads for the Inspect cube."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -28,15 +29,69 @@ def _tree(tmp_path: Path) -> tuple[Path, tuple[str, ...]]:
     return tmp_path, allow
 
 
-def test_normalize_volume_rel_maps_v2_metadata_and_scale_index(tmp_path):
-    root = tmp_path
-    shard = root / "images/mosaic/s0/c/0"
-    shard.parent.mkdir(parents=True, exist_ok=True)
-    shard.write_bytes(b"x" * 8)
-    (root / "images/mosaic/zarr.json").parent.mkdir(parents=True, exist_ok=True)
-    (root / "images/mosaic/zarr.json").write_bytes(b'{"zarr":3}')
+def _write_ome_multiscale_group(root: Path, scale_path: str) -> None:
+    meta = {
+        "attributes": {
+            "ome": {
+                "version": "0.5",
+                "multiscales": [
+                    {
+                        "datasets": [{"path": scale_path}],
+                        "axes": [
+                            {"name": "c", "type": "channel"},
+                            {"name": "z", "type": "space"},
+                            {"name": "y", "type": "space"},
+                            {"name": "x", "type": "space"},
+                        ],
+                    }
+                ],
+            }
+        },
+        "zarr_format": 3,
+        "node_type": "group",
+    }
+    group = root / "images/mosaic"
+    group.mkdir(parents=True, exist_ok=True)
+    (group / "zarr.json").write_text(json.dumps(meta), encoding="utf-8")
+    scale = group / scale_path
+    scale.mkdir(parents=True, exist_ok=True)
+    (scale / "zarr.json").write_text(
+        json.dumps(
+            {
+                "shape": [1, 1, 2, 2],
+                "data_type": "uint8",
+                "chunk_grid": {
+                    "name": "regular",
+                    "configuration": {"chunk_shape": [1, 1, 2, 2]},
+                },
+                "chunk_key_encoding": {"name": "default", "configuration": {"separator": "/"}},
+                "fill_value": 0,
+                "codecs": [{"name": "bytes"}],
+                "dimension_names": ["c", "z", "y", "x"],
+                "zarr_format": 3,
+                "node_type": "array",
+            }
+        ),
+        encoding="utf-8",
+    )
+    chunk = scale / "c" / "0" / "0" / "0" / "0"
+    chunk.parent.mkdir(parents=True, exist_ok=True)
+    chunk.write_bytes(bytes([1, 2, 3, 4]))
+
+
+@pytest.mark.parametrize("scale_path", ["0", "s0"])
+def test_read_volume_bytes_honors_multiscales_dataset_path(tmp_path, scale_path):
+    _write_ome_multiscale_group(tmp_path, scale_path)
     allow = normalize_allow_prefixes(("images/mosaic/",))
-    assert read_volume_bytes(root, allow, "images/mosaic/0/c/0").ok
+    rel = f"images/mosaic/{scale_path}/c/0/0/0/0"
+    outcome = read_volume_bytes(tmp_path, allow, rel)
+    assert outcome.ok
+    assert outcome.data == bytes([1, 2, 3, 4])
+    wrong = read_volume_bytes(tmp_path, allow, "images/mosaic/0/c/0/0/0/0")
+    if scale_path == "0":
+        assert wrong.ok
+    else:
+        assert not wrong.ok
 
 
 def test_read_volume_bytes_range_seeks_without_reading_whole_file(tmp_path):

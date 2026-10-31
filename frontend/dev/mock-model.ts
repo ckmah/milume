@@ -1,7 +1,6 @@
 import { decodeF32Base64, decodeI32Base64 } from "@/widgets/landmarks/binary";
 import type { AnyModel } from "@/widgets/landmarks/helpers";
 import { isCommVolumeUrl } from "@/widgets/volume-cube/volume-url";
-import { normalizeVolumeStoreKey } from "@/widgets/volume-cube/volume-comm";
 
 declare const __MILUME_VOLUME_FIXTURE_FILE__: string | undefined;
 
@@ -129,7 +128,7 @@ export function createMockModel(
       await new Promise((resolve) => setTimeout(resolve, hook.delayMs));
     }
     const body = msg as { path?: string; range?: { offset?: number; length?: number; suffixLength?: number } };
-    let rel = normalizeVolumeStoreKey(String(body.path ?? ""));
+    let rel = String(body.path ?? "").replace(/^\//, "");
     if (!volumeStaticRoot || !rel) return [{ ok: false, status: 404 }, []];
     const url = `${volumeStaticRoot}${rel}`.replace(/([^:]\/)\/+/g, "$1");
     const headers: Record<string, string> = {};

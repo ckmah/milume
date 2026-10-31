@@ -1,5 +1,5 @@
 import type { AbsolutePath, AsyncReadable, RangeQuery } from "@zarrita/storage";
-import { FetchStore } from "@zarrita/storage";
+import FetchStore from "@zarrita/storage/fetch";
 
 import { invokeCommand } from "../landmarks/comm-command.js";
 
@@ -24,38 +24,8 @@ const METADATA_CACHE_BYTES = 4 * 1024 * 1024;
 
 function joinStorePath(base: string, key: AbsolutePath): string {
   const root = base.endsWith("/") ? base : `${base}/`;
-  return `${root}${normalizeVolumeStoreKey(key)}`;
-}
-
-function aliasScaleDatasetSegment(parts: string[], i: number): boolean {
-  if (i <= 0 || !/^\d+$/.test(parts[i]!)) return false;
-  const parent = parts[i - 1]!;
-  if (parent !== "mosaic" && parent !== "cells" && !parent.endsWith("_image")) return false;
-  const nxt = parts[i + 1] ?? "";
-  return nxt === "zarr.json" || nxt === "c" || nxt === ".zarray";
-}
-
-function aliasLeadingScaleDataset(parts: string[]): void {
-  if (parts.length >= 2 && /^\d+$/.test(parts[0]!) && aliasScaleDatasetSegment(["_", parts[0]!, parts[1]!], 1)) {
-    parts[0] = `s${parts[0]}`;
-  }
-}
-
-/** Zarr v2 metadata names and OME default scale ids → SpatialData on-disk layout. */
-export function normalizeVolumeStoreKey(key: string): string {
-  let rel = key.replace(/^\//, "");
-  const parts = rel.split("/");
-  aliasLeadingScaleDataset(parts);
-  const out: string[] = [];
-  for (let i = 0; i < parts.length; i++) {
-    if (aliasScaleDatasetSegment(parts, i)) {
-      out.push(`s${parts[i]}`);
-      continue;
-    }
-    out.push(parts[i]!);
-  }
-  rel = out.join("/");
-  return rel;
+  const rel = key.replace(/^\//, "");
+  return `${root}${rel}`;
 }
 
 /** Batched comm reads for one widget; shared by every CommStore root. */
