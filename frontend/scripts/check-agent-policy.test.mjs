@@ -155,6 +155,18 @@ test("linked CI tracking issue #128 skips widget-issue template", () => {
   assert.deepEqual(errors, []);
 });
 
+test("linked nightly failure issue #402 skips widget-issue template", () => {
+  const errors = validateUiPullRequest({
+    body: "Closes #402\n\n![shard pass](https://example.com/shard.png)\n",
+    changedPaths: ["frontend/e2e/landmarks/landmarks-volume.spec.ts"],
+    isDraft: false,
+    issueBodies: {
+      402: "Scheduled frontend-e2e run failed: https://github.com/ckmah/milume/actions/runs/41205714726",
+    },
+  });
+  assert.deepEqual(errors, []);
+});
+
 test("linked thin issue fails when PR closes it", () => {
   const errors = validateUiPullRequest({
     body: "Closes #77\n\n![x](https://example.com/x.png)\n",
