@@ -440,6 +440,7 @@ class LandmarksWidget(AnyWidget):
     gene_csc_indptr = traitlets.Unicode("").tag(sync=True)
     gene_csc_indices = traitlets.Unicode("").tag(sync=True)
     gene_csc_data = traitlets.Unicode("").tag(sync=True)
+    gene_csc_codec = traitlets.Unicode("").tag(sync=True)
     # independent: each gene uses its own vmax; shared: all use max vmax among selected.
     gene_scale_mode = traitlets.Enum(
         ["independent", "shared"], default_value="independent"
