@@ -5,7 +5,9 @@ const viewportHeight = Number(process.env.E2E_VIEWPORT_H ?? 900);
 const webServerCommands: Record<string, string> = {
   landmarks: "npm run dev:landmarks -- --host 127.0.0.1 --port 5173 --strictPort",
   "landmarks-volume":
-    "npm run dev:landmarks-volume -- --host 127.0.0.1 --port 5173 --strictPort",
+    process.env.E2E_VOLUME_PROFILE
+      ? `cross-env DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=${process.env.E2E_VOLUME_PROFILE} npm run dev:landmarks-volume -- --host 127.0.0.1 --port 5173 --strictPort`
+      : "npm run dev:landmarks-volume -- --host 127.0.0.1 --port 5173 --strictPort",
 };
 // The inspect cube redraws a ray-marched volume (image and labels) per frame; on
 // SwiftShader one frame of an orbit or cut drag can take over a second.

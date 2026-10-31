@@ -7325,6 +7325,7 @@ export function mountEngine({
       }
       return out;
     },
+    getBackdropPick: () => mapImageBackdrop.getLastPick?.(),
     destroy,
   };
   if (typeof window !== "undefined") {

@@ -199,6 +199,7 @@ export function createMapImageBackdrop({
   let lastViewState = null;
   let zBandTouchedAt = 0;
   let loadPromise = null;
+  let lastPick = null;
 
   function imageVisible() {
     if (model.get("_image_visible") === false) return false;
@@ -290,6 +291,7 @@ export function createMapImageBackdrop({
       loUm,
       hiUm,
     );
+    lastPick = { level: levels.indexOf(level), factor: [...level.factor] };
     const zSpan = is3d ? zBandVoxelSpan(level, frame, loUm, hiUm) : null;
     const box = voxelBoxForWorld(level, frame, world, zSpan);
     if (box.x1 <= box.x0 || box.y1 <= box.y0 || box.z1 <= box.z0) {
@@ -398,5 +400,6 @@ export function createMapImageBackdrop({
     buildLayers,
     dispose,
     noteZBandChange,
+    getLastPick: () => lastPick,
   };
 }

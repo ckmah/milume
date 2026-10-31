@@ -5,10 +5,14 @@ import {
   bootLandmarksVolumeHarness,
   getModel,
   setModel,
+  shot,
+  stabilizeUi,
   waitForEngine,
 } from "../helpers";
 
 const volumeHarness = process.env.E2E_HARNESS === "landmarks-volume";
+const volumeProfile = process.env.E2E_VOLUME_PROFILE ?? "toy";
+const issue122d = volumeProfile === "issue122-2d";
 const ILEUM_FIXTURE = "/e2e-galt-lasso-fixture.json";
 
 async function openLayersSection(page: import("@playwright/test").Page) {
@@ -19,7 +23,6 @@ async function openLayersSection(page: import("@playwright/test").Page) {
   await page.getByTestId("panel-section-layers").click();
 }
 
-/** Mirrors the z-band segment of the client raster rebuild key in `landmarks.js`. */
 async function rasterBandKey(page: import("@playwright/test").Page) {
   return page.evaluate(() => {
     const model = (window as any).__landmarksModel;
@@ -59,6 +62,42 @@ test.describe("depth backdrop (#122) — landmarks-volume harness", () => {
     expect(loAfter).toBeLessThan(hi - 5 + 1e-3);
   });
 
+  test("rail keyboard §(l): Shift+Arrow on focus moves band; aria-valuetext on thumbs", async ({
+    page,
+  }) => {
+    const loThumb = page.getByRole("slider", { name: "Lower z bound" });
+    await expect(loThumb).toHaveAttribute("aria-valuetext", /.µm$/);
+    const focus = page.getByRole("slider", { name: "Focus z" });
+    await focus.focus();
+    const f0 = (await getModel(page, "z_focus_um")) as number;
+    const w0 =
+      ((await getModel(page, "z_band_hi_um")) as number) - ((await getModel(page, "z_band_lo_um")) as number);
+    await page.keyboard.press("Shift+ArrowUp");
+    await expect.poll(async () => (await getModel(page, "z_focus_um")) as number).toBeCloseTo(f0 + 5, 0);
+    const w1 =
+      ((await getModel(page, "z_band_hi_um")) as number) - ((await getModel(page, "z_band_lo_um")) as number);
+    expect(Math.abs(w1 - w0)).toBeLessThan(0.01);
+
+    await loThumb.focus();
+    const lo0 = (await getModel(page, "z_band_lo_um")) as number;
+    await page.keyboard.press("ArrowDown");
+    await expect.poll(async () => (await getModel(page, "z_band_lo_um")) as number).toBeCloseTo(lo0 - 1, 0);
+    await page.keyboard.press("PageDown");
+    await expect.poll(async () => (await getModel(page, "z_band_lo_um")) as number).toBeLessThan(lo0 - 1);
+  });
+
+  test("rail enforces 5 µm minimum band width", async ({ page }) => {
+    const lo = page.getByRole("slider", { name: "Lower z bound" });
+    const hi = page.getByRole("slider", { name: "Upper z bound" });
+    await lo.focus();
+    await page.keyboard.press("End");
+    await hi.focus();
+    await page.keyboard.press("Home");
+    const band =
+      ((await getModel(page, "z_band_hi_um")) as number) - ((await getModel(page, "z_band_lo_um")) as number);
+    expect(band).toBeGreaterThanOrEqual(5 - 1e-3);
+  });
+
   test("raster mode rebuild key includes depth band", async ({ page }) => {
     await setModel(page, { render_mode: "raster" });
     await expect.poll(async () => (await getModel(page, "raster_n_bins")) as number).toBeGreaterThan(0);
@@ -87,6 +126,41 @@ test.describe("depth backdrop (#122) — landmarks-volume harness", () => {
     await expect(root).not.toHaveClass(/landmarks--image/);
     await setModel(page, { _image_visible: true });
     await expect(root).toHaveClass(/landmarks--image/);
+  });
+
+  test("committed toy fixture screenshot regression (depth rail + backdrop)", async ({ page }) => {
+    test.skip(volumeProfile !== "toy", "toy harness fixture only");
+    const widget = page.locator(".milume-widget.landmarks").first();
+    await shot(page, "122-toy-depth-backdrop", widget);
+  });
+});
+
+test.describe("depth backdrop (#122) — 2D multichannel fixture", () => {
+  test.skip(!volumeHarness || !issue122d, "requires E2E_HARNESS=landmarks-volume and E2E_VOLUME_PROFILE=issue122-2d");
+
+  test.beforeEach(async ({ page }) => {
+    await bootLandmarksVolumeHarness(page);
+  });
+
+  test("hides constant-zero dummy channel in Layers", async ({ page }) => {
+    await openLayersSection(page);
+    await expect(page.getByTestId("layer-channel-dummy")).toHaveCount(0);
+    await expect(page.getByTestId("layer-channel-DAPI")).toBeVisible();
+    await expect(page.getByTestId("layer-channel-PanCK")).toBeVisible();
+  });
+
+  test("two visible channels blend on black canvas", async ({ page }) => {
+    await openLayersSection(page);
+    await setModel(page, {
+      _image_channels: [
+        { name: "DAPI", visible: true, color: "#4488ff" },
+        { name: "PanCK", visible: true, color: "#ff8844" },
+      ],
+    });
+    await expect(page.locator(".milume-widget.landmarks")).toHaveClass(/landmarks--image/);
+    await stabilizeUi(page);
+    const widget = page.locator(".milume-widget.landmarks").first();
+    await shot(page, "122-2d-two-channel-blend", widget);
   });
 });
 

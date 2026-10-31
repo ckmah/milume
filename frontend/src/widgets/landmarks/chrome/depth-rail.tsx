@@ -9,8 +9,10 @@ import { usePointZExtent } from "../use-point-z-extent";
 import { FLOAT_PANEL } from "./sections";
 
 const MIN_BAND_UM = 5;
+/** Spec §(l): arrow 1 µm, Shift+arrow 5 µm, Page Up/Down 10 µm. */
 const KEY_STEP_UM = 1;
-const KEY_PAGE_UM = 5;
+const KEY_SHIFT_STEP_UM = 5;
+const KEY_PAGE_UM = 10;
 
 type DragKind = "lo" | "hi" | "focus";
 
@@ -192,8 +194,8 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
     (kind: DragKind) =>
     (e: KeyboardEvent<HTMLButtonElement>) => {
       let delta = 0;
-      if (e.key === "ArrowUp") delta = KEY_STEP_UM;
-      else if (e.key === "ArrowDown") delta = -KEY_STEP_UM;
+      if (e.key === "ArrowUp") delta = e.shiftKey ? KEY_SHIFT_STEP_UM : KEY_STEP_UM;
+      else if (e.key === "ArrowDown") delta = e.shiftKey ? -KEY_SHIFT_STEP_UM : -KEY_STEP_UM;
       else if (e.key === "PageUp") delta = KEY_PAGE_UM;
       else if (e.key === "PageDown") delta = -KEY_PAGE_UM;
       else if (e.key === "Home") {
