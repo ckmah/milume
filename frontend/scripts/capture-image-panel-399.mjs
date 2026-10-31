@@ -1,6 +1,7 @@
 /**
- * Visual acceptance captures for #399 (1280×800, harness banner hidden).
- * Run with landmarks-volume harness: issue122-2d and colon profiles.
+ * Visual acceptance captures for #399 (1280×800, 2× DPR, harness banner hidden, no DialKit).
+ * After shots: current branch with landmarks-volume harness (issue122-2d + colon).
+ * Before shots: run against main @ 71ef685 on CAPTURE_BEFORE_URL (separate worktree + dev server).
  */
 import { mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -9,8 +10,12 @@ import { chromium } from "@playwright/test";
 import { installDocsCaptureChrome } from "./lib/docs-tool-media.mjs";
 
 const outDir = process.env.CAPTURE_OUT ?? "/opt/cursor/artifacts/panel-polish-399";
-const base = process.env.CAPTURE_URL ?? "http://127.0.0.1:5173";
+const afterBase = process.env.CAPTURE_URL ?? "http://127.0.0.1:5173";
+const beforeBase = process.env.CAPTURE_BEFORE_URL ?? "http://127.0.0.1:5174";
 const viewport = { width: 1280, height: 800 };
+const beforeOnly = process.argv.includes("--before-only");
+const afterOnly = process.argv.includes("--after-only");
+const railOnly = process.argv.includes("--rail-only");
 
 mkdirSync(outDir, { recursive: true });
 
@@ -23,7 +28,7 @@ function withNoDialkit(pathQuery) {
 
 async function hideHarnessBanner(page) {
   await page.addStyleTag({
-    content: `[data-testid="harness-banner"], .harness-banner { display: none !important; }`,
+    content: `[data-testid="harness-banner"], .harness-banner, [data-dialkit-panel] { display: none !important; }`,
   });
 }
 
@@ -39,10 +44,40 @@ async function waitEngine(page, requireBackdrop = true) {
         { timeout: 90_000 },
       );
     } catch {
-      /* volume harness may still be warming the pyramid */
+      /* warming */
     }
   }
   await page.waitForTimeout(600);
+}
+
+async function waitBackdropRefined(page, maxLevel = 2) {
+  await page.waitForFunction(
+    (maxL) => {
+      const p = window.__landmarksEngine?.getBackdropPick?.();
+      return p != null && p.level <= maxL;
+    },
+    maxLevel,
+    { timeout: 90_000 },
+  );
+  await page.waitForTimeout(400);
+}
+
+async function fitViewToData(page) {
+  await page.evaluate(() => {
+    const m = window.__landmarksModel;
+    const xb = m.get("x_bounds");
+    const yb = m.get("y_bounds");
+    if (!xb || !yb) return;
+    const cx = (xb[0] + xb[1]) / 2;
+    const cy = (yb[0] + yb[1]) / 2;
+    const span = Math.max(xb[1] - xb[0], yb[1] - yb[0], 1);
+    const eng = window.__landmarksEngine;
+    const vs = eng.getViewState();
+    const { width, height } = eng.getCanvasSize?.() ?? { width: 1280, height: 800 };
+    const zoom = Math.log2(Math.min(width, height) / (span * 1.15));
+    eng.setViewState({ ...vs, target: [cx, cy, vs.target?.[2] ?? 0], zoom });
+  });
+  await page.waitForTimeout(700);
 }
 
 async function openLayers(page) {
@@ -53,32 +88,28 @@ async function openLayers(page) {
   await page.getByTestId("panel-section-layers").click();
 }
 
-async function captureWidget(page, name, clip) {
-  const widget = page.locator(".milume-widget.landmarks").first();
+async function captureLeftDock(page, name) {
   await hideHarnessBanner(page);
-  await widget.screenshot({
+  await page.locator(".landmarks__chrome-dock--left").screenshot({
+    path: join(outDir, `${name}.png`),
+  });
+}
+
+async function captureWidget(page, name, clip) {
+  await hideHarnessBanner(page);
+  await page.locator(".milume-widget.landmarks").first().screenshot({
     path: join(outDir, `${name}.png`),
     ...(clip ? { clip } : {}),
   });
 }
 
-async function captureLeftDock(page, name) {
-  const dock = page.locator(".landmarks__chrome-dock--left");
-  await hideHarnessBanner(page);
-  await dock.screenshot({ path: join(outDir, `${name}.png`) });
-}
-
-async function loadIssue122(page) {
-  process.env.E2E_HARNESS = "landmarks-volume";
-  process.env.MILUME_VOLUME_PROFILE = "issue122-2d";
+async function loadIssue122(page, base) {
   await page.goto(`${base}${withNoDialkit("/")}`, { waitUntil: "networkidle" });
   await waitEngine(page);
 }
 
-async function loadColon(page) {
-  process.env.E2E_HARNESS = "landmarks-volume";
-  process.env.MILUME_VOLUME_PROFILE = "colon";
-  await page.goto(`${base}${withNoDialkit("/")}`, { waitUntil: "networkidle" });
+async function loadColon(page, base) {
+  await page.goto(`${base}${withNoDialkit("/")}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
   await waitEngine(page);
 }
 
@@ -98,7 +129,7 @@ async function twoChannelPanel(page) {
   await page.getByTestId("layers-image-row").click();
 }
 
-async function manyChannels(page) {
+async function manyChannels(page, { rowTestId, listTestId }) {
   const names = ["DAPI", "PanCK", "CD45", "Ki67"];
   for (let i = 4; i < 18; i++) names.push(i < 14 ? `CH${i - 3}` : `Pan-cytokeratin_AE1AE3_lo_${i}`);
   await page.evaluate((channelNames) => {
@@ -115,28 +146,106 @@ async function manyChannels(page) {
     lm.set("volume", { ...vol, channels: rows });
     lm.save_changes();
   }, names);
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(500);
   await openLayers(page);
   await page.getByTestId("layers-image-row").click();
-  await page.getByTestId("layer-channel-list").evaluate((el) => {
-    el.scrollTop = 48;
+  const row = page.getByTestId(rowTestId("DAPI"));
+  if (await row.count()) await row.focus();
+  const list = listTestId ? page.getByTestId(listTestId) : page.locator(".landmarks-image-channel-list");
+  if (await list.count()) {
+    await list.evaluate((el) => {
+      el.scrollTop = 48;
+    });
+  } else {
+    await page.locator(".landmarks-layers-stack").evaluate((el) => {
+      el.scrollTop = 80;
+    });
+  }
+}
+
+async function panToImageSeamEdge(page) {
+  await fitViewToData(page);
+  await page.evaluate(() => {
+    const eng = window.__landmarksEngine;
+    const lm = window.__landmarksModel;
+    const [xMin, xMax] = lm.get("x_bounds");
+    const [yMin, yMax] = lm.get("y_bounds");
+    const cy = (yMin + yMax) / 2;
+    const spanX = Math.max(xMax - xMin, 1);
+    const vs = eng.getViewState();
+    const { width, height } = eng.getCanvasSize?.() ?? { width: 900, height: 700 };
+    const zoom = Math.log2(Math.min(width, height) / (spanX * 0.12));
+    eng.setViewState({
+      ...vs,
+      target: [xMin + spanX * 0.06, cy, vs.target?.[2] ?? 0],
+      zoom,
+    });
   });
+  await waitBackdropRefined(page, 2);
 }
 
 async function seamCrop(page) {
+  await panToImageSeamEdge(page);
   const canvas = page.locator("canvas.landmarks__webgl").first();
   const box = await canvas.boundingBox();
   if (!box) throw new Error("canvas missing");
   const clip = {
-    x: Math.max(0, box.x - 4),
-    y: box.y + box.height * 0.2,
-    width: Math.min(420, box.width * 0.55),
-    height: Math.min(280, box.height * 0.45),
+    x: box.x + box.width * 0.22,
+    y: box.y + box.height * 0.12,
+    width: Math.min(140, box.width * 0.18),
+    height: Math.min(box.height * 0.76, 520),
   };
   await captureWidget(page, "399-after-seam-crop", clip);
 }
 
+async function placeCaptureCursorOnThumb(page, ariaLabel) {
+  const thumb = page.getByRole("slider", { name: ariaLabel });
+  await thumb.waitFor({ state: "visible" });
+  const placed = await thumb.evaluate((thumbEl) => {
+    const track = thumbEl.closest(".landmarks-depth-rail__track");
+    if (!track) return { ok: false };
+    const tr = thumbEl.getBoundingClientRect();
+    const trackR = track.getBoundingClientRect();
+    const centerX = tr.left + tr.width / 2;
+    const centerY = tr.top + tr.height / 2;
+    document.getElementById("docs-capture-cursor-inline")?.remove();
+    const el = document.createElement("div");
+    el.id = "docs-capture-cursor-inline";
+    el.style.position = "absolute";
+    el.style.width = "22px";
+    el.style.height = "22px";
+    el.style.left = `${centerX - trackR.left}px`;
+    el.style.top = `${centerY - trackR.top}px`;
+    el.style.transform = "translate(-50%, -50%)";
+    el.style.zIndex = "40";
+    el.style.border = "2.5px solid #ffffff";
+    el.style.borderRadius = "50%";
+    el.style.boxShadow = "0 0 0 1.5px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.5)";
+    el.style.background = "rgba(251, 146, 60, 0.9)";
+    el.style.pointerEvents = "none";
+    track.appendChild(el);
+    return { ok: true };
+  });
+  if (!placed?.ok) throw new Error("capture cursor placement failed");
+}
+
 async function railDrag(page) {
+  await fitViewToData(page);
+  await page.evaluate(() => {
+    const eng = window.__landmarksEngine;
+    const vs = eng.getViewState();
+    eng.setViewState({ ...vs, zoom: vs.zoom + 2.5 });
+  });
+  await page.waitForTimeout(500);
+  await page.evaluate(() => {
+    const lm = window.__landmarksModel;
+    const focus = Math.round(lm.get("z_focus_um"));
+    lm.set("z_focus_um", focus);
+    lm.set("z_band_lo_um", focus - 5);
+    lm.set("z_band_hi_um", focus + 5);
+    lm.save_changes();
+  });
+  await page.waitForTimeout(1200);
   const lo = page.getByRole("slider", { name: "Lower z bound" });
   const box = await lo.boundingBox();
   if (!box) throw new Error("thumb missing");
@@ -145,43 +254,86 @@ async function railDrag(page) {
   await page.mouse.move(cx, cy);
   await page.mouse.down();
   await page.mouse.move(cx, cy + 22, { steps: 6 });
-  await page.waitForTimeout(200);
-  const rail = page.getByTestId("depth-rail");
-  await hideHarnessBanner(page);
-  await rail.screenshot({ path: join(outDir, "399-after-rail-drag.png") });
+  await page.waitForTimeout(250);
+  await placeCaptureCursorOnThumb(page, "Lower z bound");
+  await captureWidget(page, "399-after-rail-drag");
   await page.mouse.up();
 }
 
+async function captureBefore(page, base) {
+  await loadIssue122(page, base);
+  await twoChannelPanel(page);
+  await captureLeftDock(page, "399-before-2ch-panel");
+  await page.getByTestId("layer-channel-CD45").focus();
+  await captureLeftDock(page, "399-before-channel-focus");
+  await manyChannels(page, {
+    rowTestId: (name) => `layer-channel-${name}`,
+    listTestId: null,
+  });
+  await captureLeftDock(page, "399-before-18ch-scroll");
+  await panToImageSeamEdge(page);
+  const canvas = page.locator("canvas.landmarks__webgl").first();
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error("canvas missing");
+  await captureWidget(page, "399-before-seam-crop", {
+    x: box.x + box.width * 0.18,
+    y: box.y + box.height * 0.12,
+    width: Math.min(160, box.width * 0.28),
+    height: Math.min(box.height * 0.76, 520),
+  });
+}
+
+async function captureAfter(page, base) {
+  await loadIssue122(page, base);
+  await twoChannelPanel(page);
+  await captureLeftDock(page, "399-after-2ch-panel");
+  await page.getByTestId("layer-channel-row-CD45").focus();
+  await captureLeftDock(page, "399-after-channel-focus");
+  await manyChannels(page, {
+    rowTestId: (name) => `layer-channel-row-${name}`,
+    listTestId: "layer-channel-list",
+  });
+  await captureLeftDock(page, "399-after-18ch-scroll");
+  await seamCrop(page);
+  try {
+    await loadColon(page, process.env.CAPTURE_COLON_URL ?? base);
+    await railDrag(page);
+  } catch (err) {
+    console.warn("Skipped colon rail capture:", err?.message ?? err);
+  }
+}
+
 const browser = await chromium.launch();
-const context = await browser.newContext({
-  viewport,
-  deviceScaleFactor: 2,
-});
+const context = await browser.newContext({ viewport, deviceScaleFactor: 2 });
 await installDocsCaptureChrome(context);
-const page = await context.newPage();
 
-await loadIssue122(page);
-await twoChannelPanel(page);
-await captureLeftDock(page, "399-after-2ch-panel");
-await page.getByTestId("layer-channel-row-CD45").focus();
-await captureLeftDock(page, "399-after-channel-focus");
+if (railOnly) {
+  const railPage = await context.newPage();
+  try {
+    await loadIssue122(railPage, process.env.CAPTURE_COLON_URL ?? afterBase);
+    await railDrag(railPage);
+  } finally {
+    await railPage.close();
+  }
+} else if (!afterOnly) {
+  const beforePage = await context.newPage();
+  try {
+    await captureBefore(beforePage, beforeBase);
+  } catch (err) {
+    console.warn("Before captures failed:", err?.message ?? err);
+    throw err;
+  } finally {
+    await beforePage.close();
+  }
+}
 
-await manyChannels(page);
-await captureLeftDock(page, "399-after-18ch-scroll");
-
-await page.evaluate(() => {
-  const eng = window.__landmarksEngine;
-  const vs = eng.getViewState();
-  eng.setViewState({ ...vs, zoom: vs.zoom + 2 });
-});
-await page.waitForTimeout(800);
-await seamCrop(page);
-
-try {
-  await loadColon(page);
-  await railDrag(page);
-} catch (err) {
-  console.warn("Skipped colon rail capture (colon harness not on this server):", err?.message ?? err);
+if (!beforeOnly && !railOnly) {
+  const afterPage = await context.newPage();
+  try {
+    await captureAfter(afterPage, afterBase);
+  } finally {
+    await afterPage.close();
+  }
 }
 
 await browser.close();

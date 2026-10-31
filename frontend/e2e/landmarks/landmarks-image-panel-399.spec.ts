@@ -110,9 +110,21 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
 
     await page.getByTestId("layer-channel-row-CD45").click();
     await expect(page.locator(".landmarks-slider-caption").filter({ hasText: "CD45 contrast" })).toBeVisible();
+
+    const panckCaption = page.locator(".landmarks-slider-caption").filter({ hasText: "PanCK contrast" });
+    await page.getByTestId("layer-channel-row-PanCK").focus();
+    await expect(panckCaption).toBeVisible();
+    const notTruncated = await panckCaption.evaluate((el) => el.scrollWidth <= el.clientWidth + 0.5);
+    expect(notTruncated).toBe(true);
   });
 
   test("whole-row click toggles channel visibility", async ({ page }) => {
+    await setModel(page, {
+      _image_channels: [
+        { name: "DAPI", visible: true, contrast_limits: [0, 255] },
+        { name: "PanCK", visible: false, contrast_limits: [0, 255] },
+      ],
+    });
     await openImagePanel(page);
     const row = page.getByTestId("layer-channel-row-PanCK");
     const sw = page.getByTestId("layer-channel-PanCK");
@@ -140,9 +152,33 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
   });
 
   test("channel row shows keyboard focus ring", async ({ page }) => {
+    await setModel(page, {
+      _image_channels: [
+        { name: "DAPI", visible: true, contrast_limits: [0, 255] },
+        { name: "PanCK", visible: false, contrast_limits: [0, 255] },
+        { name: "CD45", visible: false, contrast_limits: [0, 165] },
+      ],
+    });
+    await openImagePanel(page);
+    const row = page.getByTestId("layer-channel-row-CD45");
+    await row.focus();
+    await expect(row).toBeFocused();
+    const ring = await row.evaluate((el) => {
+      const s = getComputedStyle(el);
+      return {
+        boxShadow: s.boxShadow,
+        outline: s.outlineWidth,
+      };
+    });
+    expect(ring.boxShadow).not.toBe("none");
+    expect(ring.boxShadow).toMatch(/3px/);
+  });
+
+  test("contrast follows first visible channel when focus is on a hidden row", async ({ page }) => {
+    await setModel(page, { _image_channels: makeManyChannels(18) });
     await openImagePanel(page);
     await page.getByTestId("layer-channel-row-CD45").focus();
-    await expect(page.getByTestId("layer-channel-row-CD45")).toBeFocused();
+    await expect(page.locator(".landmarks-slider-caption").filter({ hasText: "DAPI contrast" })).toBeVisible();
   });
 
   test("visual acceptance captures", async ({ page }) => {

@@ -175,7 +175,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
   const contrastChannel = useMemo(() => {
     if (focusedChannel) {
       const focused = displayChannels.find((c) => c.name === focusedChannel);
-      if (focused) return focused;
+      if (focused?.visible) return focused;
     }
     return visibleChannels[0] ?? displayChannels[0] ?? null;
   }, [displayChannels, focusedChannel, visibleChannels]);
@@ -200,9 +200,17 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
       }
       setChannelCapHint(false);
       lm.patchImageChannel(name, { visible: next });
-      if (next) setFocusedChannel(name);
+      if (next) {
+        setFocusedChannel(name);
+      } else if (name === focusedChannel) {
+        const fallback =
+          displayChannels.find((c) => c.visible && c.name !== name)?.name ??
+          visibleChannels.find((c) => c.name !== name)?.name ??
+          null;
+        setFocusedChannel(fallback);
+      }
     },
-    [displayChannels, lm],
+    [displayChannels, focusedChannel, lm, visibleChannels],
   );
 
   if (!category_columns.length && !hasImage) {
@@ -290,6 +298,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
             <div className="flex flex-col gap-2 px-2.5 pt-1.5 pb-1">
               <div className="landmarks-slider-stack landmarks-image-controls">
                 <SoftFloatSliderRow
+                  className="landmarks-slider-row--contrast"
                   caption={
                     contrastChannel ? `${contrastChannel.name} contrast` : "Contrast"
                   }
@@ -315,6 +324,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                   }}
                 />
                 <SoftFloatSliderRow
+                  className="landmarks-slider-row--alpha"
                   caption="Alpha"
                   aria-label="Image alpha"
                   min={0}

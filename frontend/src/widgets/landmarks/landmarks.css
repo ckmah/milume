@@ -1399,11 +1399,29 @@
   --lm-slider-caption-w: 3.5rem;
 }
 
-.landmarks-image-controls .landmarks-slider-caption {
+.landmarks-image-controls .landmarks-slider-row--contrast {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.landmarks-image-controls .landmarks-slider-row--contrast .landmarks-slider-caption {
+  width: auto;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.landmarks-image-controls .landmarks-slider-row--alpha .landmarks-slider-caption {
   width: var(--lm-slider-caption-w);
   max-width: var(--lm-slider-caption-w);
-  overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.landmarks-image-controls .landmarks-slider-row--contrast .landmarks-slider-control {
+  margin-left: calc(var(--lm-slider-caption-w) + 0.5rem);
+  width: calc(100% - var(--lm-slider-caption-w) - 0.5rem);
+  align-self: stretch;
 }
 
 .landmarks-image-channel-list {
@@ -1433,6 +1451,7 @@
   background-color: var(--lm-layer-hover-bg);
 }
 
+.landmarks-image-channel-row:focus,
 .landmarks-image-channel-row:focus-visible {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 45%, transparent);
