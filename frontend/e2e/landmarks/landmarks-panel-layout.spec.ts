@@ -116,4 +116,125 @@ test.describe("panel layout (option 1)", () => {
     await expect(pinLabel).toHaveText("harness-point");
     await expect(pinLabel).toBeVisible();
   });
+
+  test("minimise toggle uses square minus and plus icons", async ({ page }) => {
+    await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    const toggle = page.getByTestId("toggle-minimise-panels");
+    await expect(toggle.locator("svg.lucide-square-minus")).toHaveCount(1);
+    await toggle.click();
+    await expect(toggle.locator("svg.lucide-square-plus")).toHaveCount(1);
+    await toggle.click();
+    await expect(toggle.locator("svg.lucide-square-minus")).toHaveCount(1);
+  });
+
+  test("minimise toggle keeps the same background as neighbouring view cluster buttons", async ({
+    page,
+  }) => {
+    await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    const cluster = page.getByTestId("view-cta");
+    const neighbour = page.getByTestId("toggle-rulers");
+    const toggle = page.getByTestId("toggle-minimise-panels");
+
+    const readBg = async (loc: typeof toggle) =>
+      loc.evaluate((el) => getComputedStyle(el).backgroundColor);
+
+    const neighbourBg = await readBg(neighbour);
+    expect(await readBg(toggle)).toBe(neighbourBg);
+
+    await toggle.click();
+    expect(await readBg(toggle)).toBe(neighbourBg);
+    expect(await readBg(neighbour)).toBe(neighbourBg);
+
+    await toggle.click();
+    expect(await readBg(toggle)).toBe(neighbourBg);
+  });
+
+  test("minimised left header keeps full section label and pin name", async ({ page }) => {
+    await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await setModel(page, { selected_kind: "landmark", selected_index: 0 });
+    await page.getByTestId("toggle-minimise-panels").click();
+
+    const header = page.getByTestId("panel-section-landmarks");
+    const sectionLabel = header.locator(".landmarks-panel-section-header__label");
+    await expect(sectionLabel).toHaveText("Landmarks");
+    const labelFits = await sectionLabel.evaluate(
+      (el) => el.scrollWidth <= el.clientWidth + 1,
+    );
+    expect(labelFits).toBe(true);
+
+    const pinLabel = header.locator(".landmarks-panel-section-header__pin-label");
+    await expect(pinLabel).toHaveText("harness-point");
+    await expect(pinLabel).toBeVisible();
+    const pinText = await pinLabel.evaluate((el) => el.textContent?.trim());
+    expect(pinText).toBe("harness-point");
+  });
+
+  test("pinned header chip is borderless and shows full landmark name", async ({ page }) => {
+    await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await setModel(page, { selected_kind: "landmark", selected_index: 0 });
+    await page.getByTestId("panel-section-selections").click();
+    const pin = page
+      .getByTestId("panel-section-landmarks")
+      .locator(".landmarks-panel-section-header__pin");
+    await expect(pin).toBeVisible();
+    const borderWidth = await pin.evaluate((el) =>
+      parseFloat(getComputedStyle(el).borderTopWidth),
+    );
+    expect(borderWidth).toBe(0);
+    const label = pin.locator(".landmarks-panel-section-header__pin-label");
+    await expect(label).toHaveText("harness-point");
+  });
+
+  test("minimised right card is one borderless pill with a single chevron", async ({
+    page,
+  }) => {
+    await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await page.getByTestId("toggle-minimise-panels").click();
+    const right = page.locator(".landmarks__chrome-dock--right");
+    await expect(right).toHaveClass(/landmarks__chrome-dock--right-chip/);
+    await expect(page.getByTestId("panel-collapse-caret-right")).toBeHidden();
+    const chipBtn = page.getByTestId("minimise-color-chip-expand");
+    const borderWidth = await chipBtn.evaluate((el) =>
+      parseFloat(getComputedStyle(el).borderTopWidth),
+    );
+    expect(borderWidth).toBe(0);
+    const chevrons = right.locator("svg.lucide-chevron-down");
+    await expect(chevrons).toHaveCount(1);
+  });
+
+  test("cat tab selection copy and dual composition bars", async ({ page }) => {
+    await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await setModel(page, { selected_kind: "selection", selected_index: 0 });
+    await page.getByRole("tab", { name: "cat" }).click();
+    const context = page.getByTestId("info-context-row");
+    await expect(context).toContainText(/^Selection:/);
+    await expect(context).toContainText(/ of .* cells$/);
+    const selectionBar = page.getByTestId("info-selection-bar");
+    const allCellsBar = page.getByTestId("info-allcells-bar");
+    await expect(selectionBar).toBeVisible();
+    await expect(allCellsBar).toBeVisible();
+    await expect(page.getByTestId("info-allcells-bar-row")).toContainText("All cells");
+    const selectionHeight = await selectionBar.evaluate((el) => el.getBoundingClientRect().height);
+    const allHeight = await allCellsBar.evaluate((el) => el.getBoundingClientRect().height);
+    expect(selectionHeight).toBeGreaterThanOrEqual(23);
+    expect(selectionHeight).toBeLessThanOrEqual(25);
+    expect(allHeight).toBeGreaterThanOrEqual(7);
+    expect(allHeight).toBeLessThanOrEqual(9);
+  });
+
+  test("cat tab without selection shows All N cells", async ({ page }) => {
+    await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
+    await waitForEngine(page);
+    await setModel(page, { selected_kind: "", selected_index: -1 });
+    await page.getByRole("tab", { name: "cat" }).click();
+    await expect(page.getByTestId("info-context-row")).toContainText(/^All .* cells$/);
+    await expect(page.getByTestId("info-stacked-bar")).toBeVisible();
+    await expect(page.getByTestId("info-selection-bar")).toHaveCount(0);
+  });
 });

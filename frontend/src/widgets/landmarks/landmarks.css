@@ -642,6 +642,15 @@
   color: var(--lm-hit-on-fg);
 }
 
+/* Minimise toggle: outlined square icon only — no pressed fill (spec d). */
+.landmarks-view-minimise-toggle.landmarks-hit,
+.landmarks-view-minimise-toggle.landmarks-hit:hover,
+.landmarks-view-minimise-toggle.landmarks-hit[aria-pressed="true"],
+.landmarks-view-minimise-toggle.landmarks-hit[aria-pressed="true"]:hover {
+  background: var(--lm-hit-bg);
+  color: var(--foreground);
+}
+
 .landmarks-hit:disabled,
 .landmarks-hit[data-disabled] {
   opacity: var(--lm-hit-disabled-opacity);
@@ -1036,15 +1045,28 @@
   text-transform: none;
 }
 
+.landmarks-panel-section-header__main:has(.landmarks-panel-section-header__pin) {
+  grid-template-columns: auto minmax(0, 3.25rem) minmax(0, 1fr) auto auto;
+}
+
+.landmarks-panel-section-header__main:has(.landmarks-panel-section-header__pin)
+  .landmarks-panel-section-header__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .landmarks-panel-section-header__pin {
   display: inline-flex;
   min-width: 0;
+  width: auto;
   max-width: 100%;
   align-items: center;
   gap: 0.25rem;
   overflow: hidden;
   border-radius: 9999px;
-  border: 1px solid color-mix(in oklab, var(--foreground) 14%, transparent);
+  border: none;
+  background: var(--lm-chip-bg);
   padding-inline: 0.375rem 0.125rem;
 }
 
@@ -1057,7 +1079,7 @@
 
 .landmarks-panel-section-header__pin-label {
   min-width: 0;
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1112,19 +1134,24 @@
   line-height: 1;
 }
 
-.landmarks-view-minimise-box {
-  box-sizing: border-box;
-  display: inline-flex;
-  width: 0.875rem;
-  height: 0.875rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid color-mix(in oklab, var(--foreground) 35%, transparent);
-  border-radius: 2px;
+.landmarks-minimise-color-chip__btn {
+  border: none;
+  background: var(--lm-chip-bg);
+}
+
+.landmarks-info-bar-gutter {
+  width: 3.625rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  color: color-mix(in oklab, var(--foreground) 78%, transparent);
 }
 
 .landmarks--minimise .landmarks__chrome-dock--right {
   width: min(var(--lm-dock-width), 14.5rem);
+}
+
+.landmarks--minimise .landmarks__chrome-dock--right.landmarks__chrome-dock--right-chip .landmarks-panel-collapse-caret {
+  display: none;
 }
 
 .landmarks--minimise .landmarks__chrome-dock--right.landmarks__chrome-dock--right-chip .landmarks__chrome-stack-body {
@@ -1132,7 +1159,30 @@
 }
 
 .landmarks--minimise .landmarks__chrome-dock--left {
-  width: min(var(--lm-dock-width), 12.5rem);
+  width: max-content;
+  min-width: var(--lm-dock-width);
+  max-width: min(20rem, calc(100% - 2 * var(--lm-chrome-inset) - 14rem));
+}
+
+.landmarks--minimise .landmarks-panel-section-header__main:has(.landmarks-panel-section-header__pin) {
+  grid-template-columns: auto auto max-content auto auto;
+}
+
+.landmarks--minimise
+  .landmarks-panel-section-header__main:has(.landmarks-panel-section-header__pin)
+  .landmarks-panel-section-header__label {
+  overflow: visible;
+  text-overflow: clip;
+  max-width: none;
+}
+
+.landmarks--minimise .landmarks-panel-section-header__pin {
+  max-width: min(12rem, 100%);
+}
+
+.landmarks--minimise .landmarks-panel-section-header__pin-label {
+  flex: none;
+  max-width: min(10rem, 100%);
 }
 
 .landmarks--minimise .landmarks__layers-panel--minimise .landmarks-panel-section:not(.landmarks-panel-section--open) .landmarks-panel-section__body {

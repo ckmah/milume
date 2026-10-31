@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { colorSignal, type ColorSignal } from "./coloring";
 import { SubcategoryAvatars } from "./explore-panel";
-import { CHIP_CLASS } from "./primitives";
 
 function chipPrefix(signal: ColorSignal): string {
   if (signal === "categories") return "category";
@@ -62,8 +61,7 @@ export function MinimiseColorChip({
         type="button"
         variant="ghost"
         className={cn(
-          CHIP_CLASS,
-          "landmarks-minimise-color-chip__btn h-8 w-full justify-between gap-1 px-2 font-normal",
+          "landmarks-minimise-color-chip__btn h-8 w-full justify-between gap-1 rounded-md px-2 font-normal text-foreground",
         )}
         aria-expanded={false}
         aria-label="Expand color card"

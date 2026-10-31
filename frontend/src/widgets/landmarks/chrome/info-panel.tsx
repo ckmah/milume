@@ -25,7 +25,7 @@ import {
   CLOUD_OTHER_SIZE_SCALE,
   CLOUD_SELECTED_SIZE_SCALE,
 } from "./info-stats";
-import { InfoStackedBar } from "./info-stacked-bar";
+import { InfoCategoryComposition, InfoStackedBar } from "./info-stacked-bar";
 import { NumHeatStrip } from "./num-heat-strip";
 import { CLOUD_CUBE, cubeCornerLabel, embeddingCloudPointRadius } from "./rgb-cube";
 import { PlotChannelLegend } from "./plot-channel-legend";
@@ -72,13 +72,16 @@ function InfoContextRow({
       primary = name;
     }
   } else if (selected_kind === "selection" && selected_index >= 0) {
-    primary = selections[selected_index]?.id || "Selection";
+    const name = selections[selected_index]?.id || "Selection";
+    primary = `Selection: ${name}`;
   }
 
   const secondary =
-    selected_kind === "type" || selected_kind === "selection"
-      ? `${scopeCount.toLocaleString()} cells`
-      : `All ${cohortCount.toLocaleString()} cells`;
+    selected_kind === "selection"
+      ? `${scopeCount.toLocaleString()} of ${cohortCount.toLocaleString()} cells`
+      : selected_kind === "type"
+        ? `${scopeCount.toLocaleString()} cells`
+        : `All ${cohortCount.toLocaleString()} cells`;
 
   return (
     <div className="flex flex-col gap-0.5 pb-1.5" data-testid="info-context-row">
@@ -260,13 +263,22 @@ export function InfoPanel({
     return c;
   }, [selected_kind, focusMask, compositionMask]);
 
+  const allCellsMask = useMemo(() => {
+    const m = new Uint8Array(Math.max(n, 0));
+    m.fill(1);
+    return m;
+  }, [n]);
+
   const composition = useMemo(
     () =>
       showGenes || showNumeric
         ? []
         : compositionSlices({
             n,
-            mask: compositionMask,
+            mask:
+              selected_kind === "selection" && selected_index >= 0
+                ? allCellsMask
+                : compositionMask,
             categoryCodesB64: category_codes || "",
             categoryColumns: category_columns || [],
             activeCategory: active_category || "",
@@ -275,7 +287,33 @@ export function InfoPanel({
       showGenes,
       showNumeric,
       n,
+      selected_kind,
+      selected_index,
+      allCellsMask,
       compositionMask,
+      category_codes,
+      category_columns,
+      active_category,
+    ],
+  );
+
+  const selectionComposition = useMemo(
+    () =>
+      showCategories && selected_kind === "selection" && selected_index >= 0
+        ? compositionSlices({
+            n,
+            mask: focusMask,
+            categoryCodesB64: category_codes || "",
+            categoryColumns: category_columns || [],
+            activeCategory: active_category || "",
+          })
+        : [],
+    [
+      showCategories,
+      selected_kind,
+      selected_index,
+      n,
+      focusMask,
       category_codes,
       category_columns,
       active_category,
@@ -439,7 +477,20 @@ export function InfoPanel({
     )
   ) : showCategories && composition.length ? (
     <div className="flex w-full flex-col justify-center gap-2 py-1">
-      <InfoStackedBar slices={composition} activeTypeIndex={activeTypeIndex} />
+      {selected_kind === "selection" &&
+      selected_index >= 0 &&
+      selectionComposition.length ? (
+        <InfoCategoryComposition
+          allSlices={composition}
+          selectionSlices={selectionComposition}
+          selectionLabel={
+            selections[selected_index]?.id || "Selection"
+          }
+          activeTypeIndex={activeTypeIndex}
+        />
+      ) : (
+        <InfoStackedBar slices={composition} activeTypeIndex={activeTypeIndex} />
+      )}
     </div>
   ) : (
     <FieldDescription className="m-0 py-4 text-center text-xs">
