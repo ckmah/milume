@@ -323,6 +323,7 @@ export function createMockModel(
   const state: Record<string, unknown> = { ...initial };
   const eagerGenes =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("eagerGenes") === "1";
+  const bootGenesKernel = kernelGenes(state);
   adoptLegacyColor(state);
   const geneRequests: string[][] = [];
   const colorOptions = ensureOptions(state);
@@ -331,10 +332,9 @@ export function createMockModel(
     state._gene_csc_indptr = "";
     state._gene_csc_indices = "";
     state._gene_csc_data = "";
-  } else if (!state._gene_csc_indptr && kernelGenes(state).size) {
-    const bootKernel = kernelGenes(state);
+  } else if (!state._gene_csc_indptr && bootGenesKernel.size) {
     const meta = colorOptions.genes ?? [];
-    const slices = meta.map((m) => bootKernel.get(m.name));
+    const slices = meta.map((m) => bootGenesKernel.get(m.name));
     const indptr = new Int32Array(meta.length + 1);
     slices.forEach((g, j) => (indptr[j + 1] = indptr[j]! + (g?.rows.length ?? 0)));
     const toB64 = (a: ArrayBufferView) =>
@@ -409,6 +409,11 @@ export function createMockModel(
     return [{ ok: true, status: res.status }, [payload]];
   }
 
+  function genesKernelNow(): Map<string, KernelGene> {
+    const live = kernelGenes(state);
+    return live.size ? live : bootGenesKernel;
+  }
+
   async function serveGeneGet(msg: unknown): Promise<[object, ArrayBuffer[]]> {
     const hook =
       typeof window !== "undefined" ? (window as unknown as { __geneCommHook?: GeneHook }).__geneCommHook : undefined;
@@ -423,7 +428,7 @@ export function createMockModel(
     if (unknown.length) return [{ ok: false, status: 404, error: `not in the gene catalog: ${unknown}` }, []];
     geneRequests.push(names.map(String));
     const empty = { rows: new Int32Array(0), values: new Float32Array(0), vmin: 0, vmax: 1 };
-    const kernel = kernelGenes(state);
+    const kernel = genesKernelNow();
     const slices = names.map((n) => ({ name: String(n), ...(kernel.get(String(n)) ?? empty) }));
     const total = slices.reduce((a, g) => a + g.rows.length, 0);
     const rows = new Int32Array(total);
