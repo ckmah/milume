@@ -41,8 +41,9 @@ w.color = "APOB"       # a gene: expression ramp
 w.color = "cell_type"  # an obs column: categorical palette
 ```
 
-- `w.color` takes an `adata.obs` column (categorical or numeric) or a gene in
-  `var_names`. A column added to `adata.obs` after the widget was built works.
+- `w.color` takes an `adata.obs` column (categorical or numeric), a gene in
+  `var_names`, a list of genes (blend), or an `obsm` embedding key. A column
+  added to `adata.obs` after the widget was built works.
 - An unknown key raises `milume.ColorKeyError` (a `KeyError`). A gene the
   widget's catalog doesn't include (`genes=` left it out), or a category column with more
   than 128 levels, raises `milume.ColorValueError` (a `ValueError`). Nothing
@@ -175,15 +176,16 @@ w_moran.color = adata.uns["moranI"]["I"].idxmax()
 - Never join IDs across datasets: colon (`colon_a2`) and Pyxa (`small`,
   `xsmall`, mouse brain) are different tissues, and their `obs_names` and
   label ids do not correspond.
-- Don't set internal traits (`color_mode`, `category_codes`, `point_palette`,
-  …) to recolour; use `w.color`.
+- Don't set private traits (`_color_state`, `_look`, `_category_columns`, …)
+  to recolour; use `w.color`. `active_category` and `active_genes` are
+  deprecated and derived from `color`.
 
 ## Public API
 
 <!-- BEGIN GENERATED: _PUBLIC_TRAITS (scripts/sync-use-milume-skill.py) -->
 | Name | Kind | What it is |
 | --- | --- | --- |
-| `w.color` | trait | obs column or gene the points are coloured by; assign a key to recolour (raises ColorKeyError / ColorValueError). |
+| `w.color` | trait | obs column, gene, gene list (blend), or obsm embedding key; assign to recolour (raises ColorKeyError / ColorValueError). |
 | `w.selections` | trait | Drawn selections as dicts with id, name, geometry and point indices. |
 | `w.landmarks` | trait | Drawn landmarks (points, lines, splines, shapes) as dicts. |
 | `w.selected_kind` | trait | Kind of the focused item: selection, landmark, type, or empty. |
@@ -195,8 +197,8 @@ w_moran.color = adata.uns["moranI"]["I"].idxmax()
 | `w.inspect_open` | trait | Whether the Inspect cube is open; True opens it at inspect_cx/cy, or at the volume centre when no window is placed; False closes it and exits Inspect. ValueError without a 3D image. |
 | `w.volume` | trait | The 3D image behind the Inspect cube (image path, cell polygons path and size, voxel size, origin, contrast); {} without one. Read it, don't set it. |
 | `w.volume_cut` | trait | Cube cut box [x0, x1, y0, y1, z0, z1] in µm; the browser writes it on slider release, assign it to cut from Python. |
-| `w.active_category` | trait | Name of the obs column driving categorical colour and type focus. |
-| `w.active_genes` | trait | Genes shown in the expression blend; unknown genes are dropped. |
+| `w.active_category` | trait | Deprecated: derived from color; removed in 3.0. |
+| `w.active_genes` | trait | Deprecated: derived from color; removed in 3.0. |
 | `w.category_colors()` | method | Label to hex colour map of a categorical column as drawn. |
 | `w.clear_selections()` | method | Remove every selection. |
 | `w.clear_landmarks()` | method | Remove every landmark. |

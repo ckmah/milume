@@ -25,15 +25,15 @@ def test_raster_basis_follows_genes_embedding_and_composition():
     )
     w = LandmarksWidget(adata, color="cell_class", genes=["Apob", "Lgr5"])
     assert w.render_mode == "points"
-    assert w.raster_basis == "composition"
+    assert w._color_state["raster_basis"] == "composition"
     w.raster_bin_size = 1.0
     w.raster_window_radius = 2.0
     w.active_genes = ["Apob", "Lgr5"]
-    assert w.raster_basis == "genes"
+    assert w._color_state["raster_basis"] == "genes"
     w.set_raster_basis(genes="active")
     w.set_render_mode("raster")
     assert w.render_mode == "raster"
-    assert w.raster_basis == "genes"
+    assert w._color_state["raster_basis"] == "genes"
     # Bin features are built in the browser, never on the kernel (probe included).
     w.mode = "probe"
     assert w.raster_n_bins == 0
@@ -44,13 +44,13 @@ def test_raster_basis_follows_genes_embedding_and_composition():
     assert w.raster_query_bin == -1
 
     w.set_raster_basis(embedding="X_pca")
-    assert w.raster_basis == "embedding"
-    assert w.embedding_matrix_dim == 2
-    raw = np.frombuffer(base64.b64decode(w.embedding_matrix), dtype=np.float32)
+    assert w._color_state["raster_basis"] == "embedding"
+    assert w._embedding_matrix_dim == 2
+    raw = np.frombuffer(base64.b64decode(w._embedding_matrix), dtype=np.float32)
     assert raw.size == 4 * 2
 
     w.set_raster_basis(composition="cell_class")
-    assert w.raster_basis == "composition"
+    assert w._color_state["raster_basis"] == "composition"
 
     w.set_render_mode("points")
     assert w.render_mode == "points"
@@ -101,11 +101,12 @@ def test_raster_discovers_embedding_keys():
         [adata.obsm["spatial"][:, 0], adata.obsm["spatial"][:, 1]]
     )
     w = LandmarksWidget(adata, color="cell_class", genes=["g1"])
-    assert "X_pca" in w.raster_embedding_keys
-    assert "X_umap" in w.raster_embedding_keys
-    assert "spatial" not in w.raster_embedding_keys
-    assert w.raster_embedding_key == "X_pca"
-    assert w.embedding_matrix_dim == 8
+    embeddings = w._color_options["embeddings"]
+    assert "X_pca" in embeddings
+    assert "X_umap" in embeddings
+    assert "spatial" not in embeddings
+    assert w._color_state["raster_embedding_key"] == "X_pca"
+    assert w._embedding_matrix_dim == 8
 
 
 def test_set_raster_basis_requires_one_kwarg():
@@ -139,13 +140,13 @@ def test_embedding_values_pack_for_point_rgb():
         dtype=np.float32,
     )
     w = LandmarksWidget(adata, color="cell_class", genes=["g1"])
-    assert w.raster_embedding_key == "X_pca"
-    assert w.embedding_channel_labels == ["0", "1", "2"]
-    packed = np.frombuffer(base64.b64decode(w.embedding_values), dtype=np.float32)
+    assert w._color_state["raster_embedding_key"] == "X_pca"
+    assert w._embedding_channel_labels == ["0", "1", "2"]
+    packed = np.frombuffer(base64.b64decode(w._embedding_values), dtype=np.float32)
     assert packed.size == 4 * 3
     assert np.all(packed >= 0) and np.all(packed <= 1)
-    assert w.embedding_matrix_dim == 3
-    full = np.frombuffer(base64.b64decode(w.embedding_matrix), dtype=np.float32)
+    assert w._embedding_matrix_dim == 3
+    full = np.frombuffer(base64.b64decode(w._embedding_matrix), dtype=np.float32)
     assert full.size == 4 * 3
 
 
@@ -162,18 +163,18 @@ def test_empty_genes_keeps_gene_view_across_render_mode():
     )
     w = LandmarksWidget(adata, color="cell_class", genes=["Apob", "Lgr5"])
     w.active_genes = ["Apob"]
-    assert w.color_mode == "continuous"
+    assert w._color_state["color_mode"] == "continuous"
 
     w.active_genes = []
     assert w.active_genes == []
-    assert w.color_mode == "continuous"
+    assert w._color_state["color_mode"] == "continuous"
 
     w.set_render_mode("raster")
     assert w.render_mode == "raster"
-    assert w.raster_basis == "genes"
-    assert w.color_mode == "continuous"
+    assert w._color_state["raster_basis"] == "genes"
+    assert w._color_state["color_mode"] == "continuous"
 
     w.set_render_mode("points")
     assert w.render_mode == "points"
-    assert w.color_mode == "continuous"
-    assert w.raster_basis == "genes"
+    assert w._color_state["color_mode"] == "continuous"
+    assert w._color_state["raster_basis"] == "genes"

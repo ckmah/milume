@@ -24,6 +24,20 @@ ROOT = Path(__file__).resolve().parents[1]
 SNAPSHOT = ROOT / ".github" / "public-api.json"
 SNAPSHOT_REL = ".github/public-api.json"
 
+# ``color`` is a ColorSpec (str or list of gene names). ``active_*`` stay synced
+# until 3.0 but are derived from ``color``.
+_TRAIT_RECORD = {
+    "color": "trait ColorSpec",
+    "active_category": "deprecated trait Unicode",
+    "active_genes": "deprecated trait List",
+}
+
+
+def _trait_record(name: str, trait: object) -> str:
+    if name in _TRAIT_RECORD:
+        return _TRAIT_RECORD[name]
+    return f"trait {type(trait).__name__}"
+
 
 def _sig(fn, drop_self: bool = False) -> str:
     sig = inspect.signature(fn)
@@ -56,7 +70,7 @@ def live() -> dict:
     public = {}
     for name in _PUBLIC_TRAITS:
         if name in traits:
-            public[name] = f"trait {type(traits[name]).__name__}"
+            public[name] = _trait_record(name, traits[name])
         else:
             public[name] = f"method {_sig(getattr(LandmarksWidget, name), drop_self=True)}"
 

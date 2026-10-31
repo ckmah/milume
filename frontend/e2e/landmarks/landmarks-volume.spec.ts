@@ -760,9 +760,9 @@ test.describe("Landmarks inspect cube", () => {
         const engine = (window as any).__landmarksEngine;
         const model = (window as any).__landmarksModel;
         const n = engine.getPoints().length;
-        const cols = model.get("category_columns") as { name: string; labels: string[] }[];
+        const cols = model.get("_category_columns") as { name: string; labels: string[] }[];
         const ci = cols.findIndex((c) => c.name === model.get("active_category"));
-        const bytes = Uint8Array.from(atob(model.get("category_codes")), (ch) => ch.charCodeAt(0));
+        const bytes = Uint8Array.from(atob(model.get("_category_codes")), (ch) => ch.charCodeAt(0));
         const codes = new Int32Array(bytes.buffer);
         const counts = new Map<number, number>();
         for (const i of indices) counts.set(codes[ci * n + i]!, (counts.get(codes[ci * n + i]!) ?? 0) + 1);
