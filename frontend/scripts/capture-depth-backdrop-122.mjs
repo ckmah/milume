@@ -88,35 +88,60 @@ async function openLayers(page) {
 }
 
 async function placeCaptureCursorOnThumb(page, ariaLabel) {
-  const track = page.locator(".landmarks-depth-rail__track").first();
   const thumb = page.getByRole("slider", { name: ariaLabel });
-  const trbox = await track.boundingBox();
-  const tbox = await thumb.boundingBox();
-  if (!trbox || !tbox) return;
-  const x = tbox.x - trbox.x + tbox.width / 2;
-  const y = tbox.y - trbox.y + tbox.height / 2;
-  await track.evaluate(
-    ({ left, top }) => {
-      document.getElementById("docs-capture-cursor-inline")?.remove();
-      const el = document.createElement("div");
-      el.id = "docs-capture-cursor-inline";
-      el.style.position = "absolute";
-      el.style.width = "22px";
-      el.style.height = "22px";
-      el.style.margin = "-6px 0 0 -6px";
-      el.style.left = `${left}px`;
-      el.style.top = `${top}px`;
-      el.style.zIndex = "40";
-      el.style.border = "2.5px solid #ffffff";
-      el.style.borderRadius = "50%";
-      el.style.boxShadow = "0 0 0 1.5px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.5)";
-      el.style.background = "rgba(251, 146, 60, 0.9)";
-      el.style.pointerEvents = "none";
-      const host = document.querySelector(".landmarks-depth-rail__track");
-      host?.appendChild(el);
-    },
-    { left: x, top: y },
-  );
+  await thumb.waitFor({ state: "visible" });
+  const placed = await thumb.evaluate((thumbEl) => {
+    const track = thumbEl.closest(".landmarks-depth-rail__track");
+    if (!track) return { ok: false, reason: "track missing" };
+    const tr = thumbEl.getBoundingClientRect();
+    const trackR = track.getBoundingClientRect();
+    const centerX = tr.left + tr.width / 2;
+    const centerY = tr.top + tr.height / 2;
+    const left = centerX - trackR.left;
+    const top = centerY - trackR.top;
+
+    document.getElementById("docs-capture-cursor-inline")?.remove();
+    const el = document.createElement("div");
+    el.id = "docs-capture-cursor-inline";
+    el.style.position = "absolute";
+    el.style.width = "22px";
+    el.style.height = "22px";
+    el.style.margin = "0";
+    el.style.left = `${left}px`;
+    el.style.top = `${top}px`;
+    el.style.transform = "translate(-50%, -50%)";
+    el.style.zIndex = "40";
+    el.style.border = "2.5px solid #ffffff";
+    el.style.borderRadius = "50%";
+    el.style.boxShadow = "0 0 0 1.5px rgba(0,0,0,0.85), 0 0 8px rgba(0,0,0,0.5)";
+    el.style.background = "rgba(251, 146, 60, 0.9)";
+    el.style.pointerEvents = "none";
+    track.appendChild(el);
+
+    const ring = el.getBoundingClientRect();
+    const rcx = ring.left + ring.width / 2;
+    const rcy = ring.top + ring.height / 2;
+    const onThumb =
+      Math.abs(rcx - centerX) < 2 &&
+      Math.abs(rcy - centerY) < 2 &&
+      rcy >= tr.top - 2 &&
+      rcy <= tr.bottom + 2;
+    const label = thumbEl.getAttribute("aria-label") || "";
+    const lowerBound = label === "Lower z bound";
+    const inLowerHalf = !lowerBound || centerY > trackR.top + trackR.height * 0.45;
+    return {
+      ok: onThumb && inLowerHalf,
+      rcy,
+      centerY,
+      thumbTop: tr.top,
+      thumbBottom: tr.bottom,
+      trackMid: trackR.top + trackR.height / 2,
+    };
+  });
+
+  if (!placed?.ok) {
+    throw new Error(`capture cursor not on thumb: ${JSON.stringify(placed)}`);
+  }
 }
 
 async function placeCaptureCursor(page, clientX, clientY) {
@@ -141,6 +166,10 @@ async function placeCaptureCursor(page, clientX, clientY) {
 async function captureWidget(page, name) {
   const widget = page.locator(".milume-widget.landmarks").first();
   await widget.waitFor({ state: "visible", timeout: 120_000 });
+  await page.evaluate(() => {
+    const el = document.getElementById("docs-capture-cursor");
+    if (el) el.style.display = "none";
+  });
   await hideHarnessBanner(page);
   await widget.screenshot({ path: join(outDir, `${name}.png`) });
 }
