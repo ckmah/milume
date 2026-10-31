@@ -29,7 +29,7 @@
       "website/landing/main.js",
       "website/landing/styles.css",
       "frontend/e2e/core/hero-webgl.spec.ts",
-      "frontend/e2e/core/recipe-studio-squidpy-layout.spec.ts",
+      "frontend/e2e/website/recipe-studio-squidpy-layout.spec.ts",
       "frontend/playwright.website.config.ts",
       "website/content/stylesheets/recipe-studio.css",
       "frontend/playwright.website.config.ts",
