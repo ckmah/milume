@@ -288,6 +288,7 @@ test.describe("depth backdrop (#122) — colon 3D volume", () => {
 
     const readout = page.getByTestId("depth-rail").locator(".landmarks-depth-rail__readout");
     await expect(readout).toHaveClass(/readout--dragging/);
+    expect(await readout.evaluate((el) => getComputedStyle(el).fontSize)).toBe("11px");
 
     const main = readout.locator(".landmarks-depth-rail__readout-main");
     await expect.poll(async () => main.textContent()).toMatch(/^\d+ ± \d+$/);
