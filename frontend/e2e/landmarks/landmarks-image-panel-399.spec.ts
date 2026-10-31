@@ -117,8 +117,7 @@ async function sampleSeamCanvasPixels(page: import("@playwright/test").Page) {
       x: (wx - tx) * scale + cRect.width / 2 + cRect.left,
       y: cRect.height / 2 - (wy - ty) * scale + cRect.top,
     });
-    const inside = project(right - span * 0.04, cy);
-    const outside = project(right + span * 0.06, cy);
+    const outsidePt = project(right + span * 0.06, cy);
     const readAtClient = (clientX: number, clientY: number) => {
       const x = Math.floor(((clientX - cRect.left) * canvas.width) / cRect.width);
       const y = Math.floor(
@@ -136,10 +135,37 @@ async function sampleSeamCanvasPixels(page: import("@playwright/test").Page) {
       );
       return [px[0]!, px[1]!, px[2]!] as [number, number, number];
     };
+    const nearBlack = ([r, g, b]: [number, number, number]) =>
+      r <= 1 && g <= 1 && b <= 1;
+    const insideCandidates = [
+      project(right - span * 0.02, cy),
+      project(right - span * 0.04, cy),
+      project(left + span * 0.93, cy),
+      project(left + span * 0.85, cy),
+    ];
+    let inside = readAtClient(insideCandidates[0]!.x, insideCandidates[0]!.y);
+    for (const pt of insideCandidates) {
+      const rgb = readAtClient(pt.x, pt.y);
+      if (nearBlack(rgb)) {
+        inside = rgb;
+        break;
+      }
+    }
+    if (!nearBlack(inside)) {
+      for (let t = 0.05; t <= 0.95; t += 0.05) {
+        const pt = project(left + span * t, cy);
+        const rgb = readAtClient(pt.x, pt.y);
+        if (nearBlack(rgb)) {
+          inside = rgb;
+          break;
+        }
+      }
+    }
+    const outside = project(right + span * 0.06, cy);
     return {
       ok: true as const,
-      inside: readAtClient(inside.x, inside.y),
-      outside: readAtClient(outside.x, outside.y),
+      inside,
+      outside: readAtClient(outsidePt.x, outsidePt.y),
     };
   });
 }

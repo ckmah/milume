@@ -102,8 +102,10 @@ function resolveChannelIndex(source, channelName, entries) {
 }
 
 function normalizeSample(value, lo, hi) {
+  const v = Number(value);
+  if (v <= lo) return 0;
   const span = Math.max(hi - lo, 1e-9);
-  return Math.max(0, Math.min(1, (Number(value) - lo) / span));
+  return Math.min(1, (v - lo) / span);
 }
 
 function maxProjectSlice(data, box, lo, hi) {
@@ -116,8 +118,7 @@ function maxProjectSlice(data, box, lo, hi) {
     const base = z * plane;
     for (let i = 0; i < plane; i++) {
       const byte = Math.round(normalizeSample(data[base + i], lo, hi) * 255);
-      const clipped = byte <= 12 ? 0 : byte;
-      if (clipped > gray[i]) gray[i] = clipped;
+      if (byte > gray[i]) gray[i] = byte;
     }
   }
   return gray;
@@ -153,7 +154,7 @@ function rgbaFromRgb(rgb, width, height, alphaMult = 1) {
       const r = Math.round(rgb[si * 3] * 255 * a);
       const g = Math.round(rgb[si * 3 + 1] * 255 * a);
       const b = Math.round(rgb[si * 3 + 2] * 255 * a);
-      const empty = r <= 2 && g <= 2 && b <= 2;
+      const empty = r === 0 && g === 0 && b === 0;
       out[di] = empty ? 0 : r;
       out[di + 1] = empty ? 0 : g;
       out[di + 2] = empty ? 0 : b;

@@ -251,13 +251,27 @@ async function seamCrop(page, name) {
   await captureWidget(page, name, clip);
   const measure = await page.evaluate(() => {
     const eng = window.__landmarksEngine;
-    const bounds = eng.getBackdropBounds?.();
-    const canvas = document.querySelector("canvas.landmarks__webgl");
-    const gl = canvas?.getContext("webgl2") ?? canvas?.getContext("webgl");
-    if (!bounds || !canvas || !gl) return null;
-    const [left, bottom, right, top] = bounds;
+    const lm = window.__landmarksModel;
+    const cached = eng.getBackdropBounds?.();
+    let left;
+    let bottom;
+    let right;
+    let top;
+    if (cached && cached.length === 4) {
+      [left, bottom, right, top] = cached;
+    } else {
+      const cut = lm.get("volume_cut");
+      if (!cut || cut.length < 4) return null;
+      left = cut[0];
+      right = cut[1];
+      bottom = cut[2];
+      top = cut[3];
+    }
     const cy = (bottom + top) / 2;
     const span = Math.max(right - left, top - bottom, 1);
+    const canvas = document.querySelector("canvas.landmarks__webgl");
+    const gl = canvas?.getContext("webgl2") ?? canvas?.getContext("webgl");
+    if (!canvas || !gl) return null;
     const vs = eng.getViewState();
     const cRect = canvas.getBoundingClientRect();
     const scale = 2 ** (vs.zoom ?? 0);
@@ -267,9 +281,7 @@ async function seamCrop(page, name) {
       x: (wx - tx) * scale + cRect.width / 2 + cRect.left,
       y: cRect.height / 2 - (wy - ty) * scale + cRect.top,
     });
-    const inside = project(right - span * 0.04, cy);
-    const insidePad = project(left + span * 0.93, cy);
-    const outside = project(right + span * 0.06, cy);
+    const outsidePt = project(right + span * 0.06, cy);
     const readAtClient = (clientX, clientY) => {
       const x = Math.floor(((clientX - cRect.left) * canvas.width) / cRect.width);
       const y = Math.floor((1 - (clientY - cRect.top) / cRect.height) * canvas.height);
@@ -285,15 +297,40 @@ async function seamCrop(page, name) {
       );
       return [px[0], px[1], px[2]];
     };
+    const nearBlack = (rgb) => rgb[0] <= 1 && rgb[1] <= 1 && rgb[2] <= 1;
+    const insideCandidates = [
+      project(right - span * 0.02, cy),
+      project(right - span * 0.04, cy),
+      project(left + span * 0.93, cy),
+      project(left + span * 0.85, cy),
+    ];
+    let insideEmpty = readAtClient(insideCandidates[0].x, insideCandidates[0].y);
+    for (const pt of insideCandidates) {
+      const rgb = readAtClient(pt.x, pt.y);
+      if (nearBlack(rgb)) {
+        insideEmpty = rgb;
+        break;
+      }
+    }
+    if (!nearBlack(insideEmpty)) {
+      for (let t = 0.05; t <= 0.95; t += 0.05) {
+        const pt = project(left + span * t, cy);
+        const rgb = readAtClient(pt.x, pt.y);
+        if (nearBlack(rgb)) {
+          insideEmpty = rgb;
+          break;
+        }
+      }
+    }
     return {
-      inside: readAtClient(inside.x, inside.y),
-      insidePad: readAtClient(insidePad.x, insidePad.y),
-      outside: readAtClient(outside.x, outside.y),
+      edge: readAtClient(project(right - span * 0.04, cy).x, project(right - span * 0.04, cy).y),
+      insideEmpty,
+      outside: readAtClient(outsidePt.x, outsidePt.y),
     };
   });
   if (measure) {
     console.log(
-      `${name} seam pixels inside=${measure.inside.join(",")} insidePad=${measure.insidePad.join(",")} outside=${measure.outside.join(",")}`,
+      `${name} seam pixels edge=${measure.edge.join(",")} insideEmpty=${measure.insideEmpty.join(",")} outside=${measure.outside.join(",")}`,
     );
   }
 }
