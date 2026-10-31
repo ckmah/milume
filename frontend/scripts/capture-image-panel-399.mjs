@@ -163,39 +163,92 @@ async function manyChannels(page, { rowTestId, listTestId }) {
   }
 }
 
-async function panToImageSeamEdge(page) {
+async function waitForBackdropBounds(page) {
+  await page.waitForFunction(
+    () => {
+      const b = window.__landmarksEngine?.getBackdropBounds?.();
+      return Array.isArray(b) && b.length === 4;
+    },
+    null,
+    { timeout: 90_000 },
+  );
+}
+
+async function panSeamView(page) {
   await fitViewToData(page);
-  await page.evaluate(() => {
+  await waitForBackdropBounds(page).catch(async () => {
+    await page.waitForTimeout(1200);
+  });
+  await page.evaluate(async () => {
     const eng = window.__landmarksEngine;
     const lm = window.__landmarksModel;
-    const [xMin, xMax] = lm.get("x_bounds");
-    const [yMin, yMax] = lm.get("y_bounds");
-    const cy = (yMin + yMax) / 2;
-    const spanX = Math.max(xMax - xMin, 1);
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    let bounds = eng.getBackdropBounds?.();
+    for (let i = 0; i < 20 && !bounds; i++) {
+      await sleep(200);
+      bounds = eng.getBackdropBounds?.();
+    }
+    if (!bounds) {
+      const [xMin, xMax] = lm.get("x_bounds");
+      const [yMin, yMax] = lm.get("y_bounds");
+      bounds = [xMin, yMin, xMax, yMax];
+    }
+    const [left, bottom, right, top] = bounds;
+    const cy = (bottom + top) / 2;
+    const span = Math.max(right - left, top - bottom, 1);
     const vs = eng.getViewState();
-    const { width, height } = eng.getCanvasSize?.() ?? { width: 900, height: 700 };
-    const zoom = Math.log2(Math.min(width, height) / (spanX * 0.12));
+    const { width, height } = eng.getCanvasSize?.() ?? { width: 1280, height: 800 };
+    const zoom = Math.log2(Math.min(width, height) / (span * 0.38));
     eng.setViewState({
       ...vs,
-      target: [xMin + spanX * 0.06, cy, vs.target?.[2] ?? 0],
+      target: [right - span * 0.035, cy, vs.target?.[2] ?? 0],
       zoom,
     });
   });
-  await waitBackdropRefined(page, 2);
+  await page.waitForTimeout(1400);
+  await waitBackdropRefined(page, 2).catch(() => {});
 }
 
-async function seamCrop(page) {
-  await panToImageSeamEdge(page);
-  const canvas = page.locator("canvas.landmarks__webgl").first();
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error("canvas missing");
-  const clip = {
-    x: box.x + box.width * 0.22,
-    y: box.y + box.height * 0.12,
-    width: Math.min(140, box.width * 0.18),
-    height: Math.min(box.height * 0.76, 520),
-  };
-  await captureWidget(page, "399-after-seam-crop", clip);
+async function seamClipOnWidget(page) {
+  return page.evaluate(() => {
+    const widget = document.querySelector(".milume-widget.landmarks");
+    const canvas = document.querySelector("canvas.landmarks__webgl");
+    if (!widget || !canvas) throw new Error("widget missing");
+    const wRect = widget.getBoundingClientRect();
+    const cRect = canvas.getBoundingClientRect();
+    const eng = window.__landmarksEngine;
+    const vs = eng.getViewState();
+    const scale = 2 ** (vs.zoom ?? 0);
+    const tx = vs.target?.[0] ?? 0;
+    const ty = vs.target?.[1] ?? 0;
+    const project = (wx, wy) => ({
+      x: (wx - tx) * scale + cRect.width / 2 + cRect.left,
+      y: cRect.height / 2 - (wy - ty) * scale + cRect.top,
+    });
+    const bounds = eng.getBackdropBounds?.();
+    let clipCenterX = cRect.left + cRect.width * 0.32;
+    if (bounds) {
+      const [left, bottom, right, top] = bounds;
+      const midY = (bottom + top) / 2;
+      const edge = project(right, midY);
+      const inner = project(right - (right - left) * 0.07, midY);
+      clipCenterX = (edge.x + inner.x) / 2;
+    }
+    const clipW = 140;
+    const clipH = Math.min(cRect.height * 0.62, 460);
+    return {
+      x: Math.max(0, clipCenterX - wRect.left - clipW / 2),
+      y: Math.max(0, cRect.top - wRect.top + cRect.height * 0.14),
+      width: clipW,
+      height: clipH,
+    };
+  });
+}
+
+async function seamCrop(page, name) {
+  await panSeamView(page);
+  const clip = await seamClipOnWidget(page);
+  await captureWidget(page, name, clip);
 }
 
 async function placeCaptureCursorOnThumb(page, ariaLabel) {
@@ -271,16 +324,7 @@ async function captureBefore(page, base) {
     listTestId: null,
   });
   await captureLeftDock(page, "399-before-18ch-scroll");
-  await panToImageSeamEdge(page);
-  const canvas = page.locator("canvas.landmarks__webgl").first();
-  const box = await canvas.boundingBox();
-  if (!box) throw new Error("canvas missing");
-  await captureWidget(page, "399-before-seam-crop", {
-    x: box.x + box.width * 0.18,
-    y: box.y + box.height * 0.12,
-    width: Math.min(160, box.width * 0.28),
-    height: Math.min(box.height * 0.76, 520),
-  });
+  await seamCrop(page, "399-before-seam-crop");
 }
 
 async function captureAfter(page, base) {
@@ -294,7 +338,7 @@ async function captureAfter(page, base) {
     listTestId: "layer-channel-list",
   });
   await captureLeftDock(page, "399-after-18ch-scroll");
-  await seamCrop(page);
+  await seamCrop(page, "399-after-seam-crop");
   try {
     await loadColon(page, process.env.CAPTURE_COLON_URL ?? base);
     await railDrag(page);

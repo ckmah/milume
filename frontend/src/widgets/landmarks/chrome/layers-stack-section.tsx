@@ -253,27 +253,33 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
       {hasImage ? (
         <div className="landmarks-layers-stack__row">
           <div
-            className={cn(
-              "landmarks-layer-row justify-between text-xs text-foreground",
-              imageOpen && "landmarks-layer-row--active",
-            )}
+            className="landmarks-layer-row justify-between text-xs text-foreground"
             data-testid="layers-image-header"
           >
             <Button
               type="button"
               variant="ghost"
-              className="landmarks-layers-image-trigger h-full min-h-0 min-w-0 flex-1 justify-start gap-1.5 px-0 text-xs font-normal text-foreground hover:bg-transparent"
+              size="icon-sm"
+              className="landmarks-cat-chevron shrink-0"
               aria-expanded={imageOpen}
+              aria-label={imageOpen ? "Collapse image layer" : "Expand image layer"}
               data-testid="layers-image-row"
               onClick={() => setImageOpen((v) => !v)}
             >
               <ChevronRightIcon
                 className={cn(
-                  "landmarks-layer-icon size-[0.875rem] shrink-0 opacity-70 transition-transform",
-                  imageOpen && "rotate-90",
+                  "landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0 opacity-70",
+                  imageOpen && "landmarks-cat-chevron-icon--open",
                 )}
                 aria-hidden
               />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="landmarks-layers-image-trigger h-full min-h-0 min-w-0 flex-1 justify-start gap-1.5 px-0 text-xs font-normal text-foreground hover:bg-transparent"
+              onClick={() => setImageOpen((v) => !v)}
+            >
               <span className="landmarks-layer-label min-w-0 flex-1 truncate text-left">
                 {imageHeaderLabel}
               </span>

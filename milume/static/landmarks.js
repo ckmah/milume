@@ -7335,6 +7335,7 @@ export function mountEngine({
       return out;
     },
     getBackdropPick: () => mapImageBackdrop.getLastPick?.(),
+    getBackdropBounds: () => mapImageBackdrop.getBounds?.(),
     noteBackdropZBandEnd: () => mapImageBackdrop.noteZBandInteractionEnd?.(),
     destroy,
   };

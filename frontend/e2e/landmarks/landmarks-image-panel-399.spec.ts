@@ -75,7 +75,7 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
     });
     await openImagePanel(page);
 
-    await expect(page.getByTestId("layers-image-row")).toContainText("Image · DAPI + PanCK");
+    await expect(page.getByTestId("layers-image-header")).toContainText("Image · DAPI + PanCK");
 
     await expect(page.locator(".landmarks-slider-caption").filter({ hasText: "DAPI contrast" })).toBeVisible();
 

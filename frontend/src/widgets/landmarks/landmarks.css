@@ -1469,6 +1469,15 @@
   padding-inline: 0 !important;
 }
 
+.landmarks-layers-stack__row > .landmarks-layer-row {
+  overflow: visible;
+}
+
+.landmarks-layers-stack__row .landmarks-layer-row .landmarks-layers-image-trigger:hover,
+.landmarks-layers-stack__row .landmarks-layer-row [data-testid="layer-toggle-image"]:hover {
+  background-color: transparent;
+}
+
 .landmarks-slider-row .landmarks-slider-control {
   min-width: 7.5rem;
 }
