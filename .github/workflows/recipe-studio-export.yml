@@ -141,7 +141,7 @@ jobs:
               m = re.search(r'"active_category"\s*:\s*"([^"]+)"', path.read_text())
               ac = m.group(1) if m else ""
               console = d.get("console") or []
-              if ac != "nhood_niche_res=0.5":
+              if ac != "niche_k30_res0.3":
                   raise SystemExit(f"active_category={ac!r}")
               if console:
                   raise SystemExit(f"landmark_map console not empty: {console!r}")
