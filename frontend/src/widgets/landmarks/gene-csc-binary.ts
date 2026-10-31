@@ -27,7 +27,7 @@ export async function decodeGeneCscBytes(b64: string, codec: string): Promise<Ar
   const bytes = await b64ToBytes(b64);
   if (!bytes.byteLength) return new ArrayBuffer(0);
   if (codec !== "gzip") return viewToArrayBuffer(bytes);
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  const stream = new Blob([viewToArrayBuffer(bytes)]).stream().pipeThrough(new DecompressionStream("gzip"));
   return new Response(stream).arrayBuffer();
 }
 
