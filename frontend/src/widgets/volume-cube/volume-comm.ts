@@ -1,5 +1,4 @@
 import type { AbsolutePath, AsyncReadable, RangeQuery } from "@zarrita/storage";
-import FetchStore from "@zarrita/storage/fetch";
 
 import { invokeCommand } from "../landmarks/comm-command.js";
 
@@ -50,14 +49,6 @@ export class VolumeCommClient {
   ) {}
 
   createStore(base: string): AsyncReadable {
-    const staticRoot =
-      typeof window !== "undefined"
-        ? (window as unknown as { __volumeCommStaticRoot?: string }).__volumeCommStaticRoot
-        : undefined;
-    if (staticRoot && isCommVolumeUrl(base)) {
-      const href = new URL(base.replace(/^\//, ""), new URL(staticRoot, window.location.href)).href;
-      return new FetchStore(href);
-    }
     return new CommStore(this, base);
   }
 
