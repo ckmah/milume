@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ChevronRightIcon, EyeIcon, LayersIcon } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronRightIcon, EyeIcon, EyeOffIcon, LayersIcon } from "lucide-react";
 
 import {
   Combobox,
@@ -11,12 +11,16 @@ import {
 } from "@/components/ui/combobox";
 import { FieldDescription } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 import type { CategoryColumn } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { COMBO_INPUT, META_LINE, STACK_GAP_SM } from "./sections";
+import { SoftFloatSliderRow } from "./soft-float-slider";
 import { useWidgetPortalContainer } from "./use-widget-portal";
+
+const MAX_VISIBLE_CHANNELS = 6;
 
 export function layersStackCount(lm: LandmarksModel): number {
   let n = lm.category_columns.length > 0 ? 1 : 0;
@@ -80,8 +84,20 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
     category_columns[0] ||
     null;
   const [imageOpen, setImageOpen] = useState(false);
+  const [channelCapHint, setChannelCapHint] = useState(false);
   const hasImage = Boolean(volume?.image_url);
-  const contrast = volume?.contrast_limits ?? [0, 255];
+  const channels = lm._image_channels?.length ? lm._image_channels : volume?.channels ?? [];
+  const visibleChannel = channels.find((c) => c.visible && !c.constant_zero);
+  const imageLabel = visibleChannel?.name ?? channels[0]?.name ?? "Image";
+  const imageVisible = lm._image_visible !== false;
+  const imageAlpha = lm._image_alpha ?? 0.55;
+  const defaultContrast = visibleChannel?.contrast_limits ??
+    volume?.contrast_limits ?? [0, 255];
+
+  const displayChannels = useMemo(
+    () => channels.filter((c) => !c.constant_zero),
+    [channels],
+  );
 
   if (!category_columns.length && !hasImage) {
     return (
@@ -119,36 +135,114 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
 
       {hasImage ? (
         <div className="landmarks-layers-stack__row">
-          <Button
-            type="button"
-            variant="ghost"
+          <div
             className={cn(
-              "landmarks-layer-row h-auto w-full justify-start text-xs text-foreground",
+              "landmarks-layer-row flex h-auto w-full items-center justify-start text-xs text-foreground",
               imageOpen && "landmarks-layer-row--active",
             )}
-            aria-expanded={imageOpen}
-            onClick={() => setImageOpen((v) => !v)}
           >
-            <ChevronRightIcon
-              className={cn(
-                "landmarks-layer-icon size-[0.875rem] shrink-0 transition-transform",
-                imageOpen && "rotate-90",
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-auto min-w-0 flex-1 justify-start gap-0 px-0 text-xs text-foreground hover:bg-transparent"
+              aria-expanded={imageOpen}
+              data-testid="layers-image-row"
+              onClick={() => setImageOpen((v) => !v)}
+            >
+              <ChevronRightIcon
+                className={cn(
+                  "landmarks-layer-icon size-[0.875rem] shrink-0 transition-transform",
+                  imageOpen && "rotate-90",
+                )}
+                aria-hidden
+              />
+              <span className="min-w-0 flex-1 truncate text-left">
+                Image · {imageLabel}
+              </span>
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="landmarks-layer-icon size-6 shrink-0"
+              aria-label={imageVisible ? "Hide image layer" : "Show image layer"}
+              data-testid="layer-toggle-image"
+              onClick={() => lm.setImageVisible(!imageVisible)}
+            >
+              {imageVisible ? (
+                <EyeIcon className="size-[0.875rem] opacity-70" />
+              ) : (
+                <EyeOffIcon className="size-[0.875rem] opacity-70" />
               )}
-              aria-hidden
-            />
-            <span className="min-w-0 flex-1 truncate text-left">
-              Image · DAPI
-            </span>
-            <EyeIcon className="landmarks-layer-icon size-[0.875rem] shrink-0 opacity-70" aria-hidden />
-          </Button>
+            </Button>
+          </div>
           {imageOpen ? (
-            <div className="flex flex-col gap-1.5 px-2.5 pt-1.5 pb-1">
-              <p className={META_LINE}>
-                Contrast {Math.round(contrast[0])}–{Math.round(contrast[1])}
-              </p>
-              <p className={META_LINE}>Alpha 0.55</p>
+            <div className="flex flex-col gap-2 px-2.5 pt-1.5 pb-1">
+              <SoftFloatSliderRow
+                caption="Contrast"
+                aria-label="Image contrast"
+                min={defaultContrast[0]}
+                max={defaultContrast[1]}
+                step={1}
+                value={[
+                  visibleChannel?.contrast_limits?.[0] ?? defaultContrast[0],
+                  visibleChannel?.contrast_limits?.[1] ?? defaultContrast[1],
+                ]}
+                readout={`${Math.round(visibleChannel?.contrast_limits?.[0] ?? defaultContrast[0])}–${Math.round(visibleChannel?.contrast_limits?.[1] ?? defaultContrast[1])}`}
+                onValueChange={(v) => {
+                  if (!visibleChannel) return;
+                  lm.patchImageChannel(visibleChannel.name, {
+                    contrast_limits: [v[0]!, v[1]!],
+                  });
+                }}
+              />
+              <SoftFloatSliderRow
+                caption="Alpha"
+                aria-label="Image alpha"
+                min={0}
+                max={1}
+                step={0.01}
+                value={[imageAlpha]}
+                readout={imageAlpha.toFixed(2)}
+                onValueChange={(v) => lm.setImageAlpha(v[0] ?? 0.55)}
+              />
+              {displayChannels.length > 1 ? (
+                <div className="flex flex-col gap-1">
+                  <p className={META_LINE}>Channels</p>
+                  {displayChannels.map((ch) => (
+                    <div
+                      key={ch.name}
+                      className="flex items-center justify-between gap-2 text-[11px]"
+                    >
+                      <span className="truncate">{ch.name}</span>
+                      <Switch
+                        size="sm"
+                        checked={ch.visible}
+                        aria-label={`Show ${ch.name}`}
+                        data-testid={`layer-channel-${ch.name}`}
+                        onCheckedChange={(next) => {
+                          if (next) {
+                            const visibleCount = displayChannels.filter((c) => c.visible).length;
+                            if (visibleCount >= MAX_VISIBLE_CHANNELS) {
+                              setChannelCapHint(true);
+                              return;
+                            }
+                          }
+                          setChannelCapHint(false);
+                          lm.patchImageChannel(ch.name, { visible: next });
+                        }}
+                      />
+                    </div>
+                  ))}
+                  {channelCapHint ? (
+                    <p className="m-0 text-[11px] text-foreground/80">
+                      At most {MAX_VISIBLE_CHANNELS} channels at once.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
               <p className="m-0 text-[11px] text-foreground/65">
-                Adjust contrast and alpha in Inspect.
+                More: palette, gamma… (Designer review pending for channel-row layout)
               </p>
             </div>
           ) : null}

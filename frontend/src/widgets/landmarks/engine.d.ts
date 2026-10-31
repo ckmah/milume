@@ -203,4 +203,5 @@ export function mountEngine(opts: {
   host: HTMLElement;
   /** Harness only: the Inspect window's side (µm), default 300. */
   inspectWindowUm?: number;
+  volumeComm?: import("@/widgets/volume-cube/volume-comm").VolumeCommClient | null;
 }): EngineHandle;

@@ -69,6 +69,11 @@ import {
   buildRaster,
   defaultWindowRadius,
 } from "../../frontend/src/widgets/landmarks/spatial-raster.js";
+import {
+  Z_BAND_ALPHA_FLOOR,
+  applyZBandAlphaByte,
+} from "../../frontend/src/widgets/landmarks/z-band-fade.js";
+import { createMapImageBackdrop } from "../../frontend/src/widgets/landmarks/map-image-backdrop.js";
 
 /** Pinned with frontend package.json (@deck.gl/*@9.2.11); bundled by Vite. */
 const DECK_MODULES = {
@@ -285,7 +290,12 @@ export const INSPECT_WINDOW_UM = 300;
  * `inspectWindowUm` overrides the Inspect window's side (harness only: the toy
  * volume is smaller than the product window).
  */
-export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }) {
+export function mountEngine({
+  model,
+  host,
+  inspectWindowUm = INSPECT_WINDOW_UM,
+  volumeComm = null,
+}) {
   if (!host) throw new Error("mountEngine: host element is required");
 
   const container = host.closest(".landmarks");
@@ -319,6 +329,23 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   // React owns theme class apply (dark / landmarks--dark / landmarks--light).
   // Re-clear the deck when those classes change on the container.
   let rasterImageCache = { key: "", image: null, bounds: null };
+  const mapImageBackdrop = createMapImageBackdrop({
+    model,
+    volumeComm,
+    getDeckModules: () => deckModules,
+    onLayersDirty: () => setDeckLayers(),
+    getCanvasSize: () => ({
+      width: Math.max(1, webglCanvas.clientWidth || webglCanvas.width || 1),
+      height: Math.max(1, webglCanvas.clientHeight || webglCanvas.height || 1),
+    }),
+  });
+  function syncImageLayerClass() {
+    const vol = model.get("volume") || {};
+    const on =
+      model.get("_image_visible") !== false &&
+      Boolean(vol.image_url);
+    container.classList.toggle("landmarks--image", on);
+  }
   let applyPlotBackground = () => { };
   /** Cached CSS bg + deck clearColor — invalidated on theme class changes. */
   let cachedPlotBackground = null;
@@ -491,6 +518,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
   let hoodHighlightData = [];
   let hoodHighlightKey = "";
   /** Cached: any point carries finite z (µm); when false, depth-band fade is skipped (2D). */
+  let pointsHaveFiniteZ = false;
   let deckLayersPublishSeq = 0;
   let pointFillColorsBuildHandle = 0;
   let scatterDisplayColors = null;
@@ -533,6 +561,27 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     embeddingMatrixDim = model.get("embedding_matrix_dim") | 0;
   }
   refreshEmbeddingMatrix();
+
+  function refreshPointsHaveFiniteZ(data) {
+    const pts = data || getPointsData();
+    pointsHaveFiniteZ = pts.some((d) => d.z !== undefined);
+    return pointsHaveFiniteZ;
+  }
+
+  function zBandLimits() {
+    const lo = Number(model.get("z_band_lo_um"));
+    const hi = Number(model.get("z_band_hi_um"));
+    return { lo, hi };
+  }
+
+  function zBandFadeActive() {
+    return pointsHaveFiniteZ;
+  }
+
+  function applyZBandAlpha(alphaByte, z) {
+    const { lo, hi } = zBandLimits();
+    return applyZBandAlphaByte(alphaByte, z, lo, hi, zBandFadeActive());
+  }
 
   function invalidatePointColorBuffers() {
     pointFillColors = null;
@@ -584,7 +633,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         colors[o] = rgba[0];
         colors[o + 1] = rgba[1];
         colors[o + 2] = rgba[2];
-        colors[o + 3] = rgba[3];
+        colors[o + 3] = applyZBandAlpha(rgba[3], data[i].z);
       }
       pointFillColors = colors;
       pointFillColorsKey = pointColorCacheKey(probeField);
@@ -637,11 +686,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       scatterDisplayColors[o + 1] = base[o + 1];
       scatterDisplayColors[o + 2] = base[o + 2];
       if (role === SEED_ROLE || role === NEIGH_ROLE) {
-        scatterDisplayColors[o + 3] = 255;
+        scatterDisplayColors[o + 3] = applyZBandAlpha(255, data[i].z);
         scatterDisplayRadii[i] =
           role === SEED_ROLE ? size * SELECTED_SIZE_SCALE : size;
       } else {
-        scatterDisplayColors[o + 3] = Math.round((base[o + 3] || 255) * OTHER_ALPHA_SCALE);
+        scatterDisplayColors[o + 3] = applyZBandAlpha(
+          Math.round((base[o + 3] || 255) * OTHER_ALPHA_SCALE),
+          data[i].z,
+        );
         scatterDisplayRadii[i] = size * OTHER_SIZE_SCALE;
       }
     }
@@ -695,6 +747,10 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       model.get("category_columns"),
       model.get("active_category"),
       probeField ? 1 : 0,
+      model.get("z_band_lo_um"),
+      model.get("z_band_hi_um"),
+      model.get("z_focus_um"),
+      pointsHaveFiniteZ ? 1 : 0,
     ].join("|");
   }
 
@@ -705,7 +761,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       out[offset] = sim[0];
       out[offset + 1] = sim[1];
       out[offset + 2] = sim[2];
-      out[offset + 3] = sim[3];
+      out[offset + 3] = applyZBandAlpha(sim[3], d.z);
       return;
     }
     const mode = model.get("color_mode") || "categorical";
@@ -736,7 +792,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     out[offset] = rgba[0];
     out[offset + 1] = rgba[1];
     out[offset + 2] = rgba[2];
-    out[offset + 3] = rgba[3];
+    out[offset + 3] = applyZBandAlpha(rgba[3], d.z);
   }
 
   function ensurePointFillColors(probeField) {
@@ -879,7 +935,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     return { features, dim, labels: active.map(String) };
   }
 
-  /** Active-category codes as Int32Array length n. */
+  /** Active-category codes as Int32Array length n (sequential 0..n-1). */
   function compositionCodeVector(n) {
     const cols = model.get("category_columns") || [];
     const ci = activeCategoryIndex();
@@ -896,16 +952,66 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     return { codes, nCats: nLabels, labels: labels.map(String) };
   }
 
+  function compositionCodesForPoints(pts) {
+    const cols = model.get("category_columns") || [];
+    const ci = activeCategoryIndex();
+    const col = ci >= 0 ? cols[ci] : null;
+    const labels = col?.labels || [];
+    const nLabels = labels.length | 0;
+    if (!nLabels || !categoryCodes) {
+      return { codes: null, nCats: 0, labels: [] };
+    }
+    const codes = new Int32Array(pts.length);
+    for (let j = 0; j < pts.length; j++) {
+      codes[j] = categoryCodeAt(pts[j].i) | 0;
+    }
+    return { codes, nCats: nLabels, labels: labels.map(String) };
+  }
+
+  function geneFeatureMatrixForPoints(pts) {
+    const active = model.get("active_genes") || [];
+    const dim = active.length | 0;
+    if (!dim) return { features: null, dim: 0, labels: [] };
+    const features = new Float32Array(pts.length * dim);
+    for (let g = 0; g < dim; g++) {
+      const col = geneColumn(active[g]);
+      if (!col) continue;
+      for (let j = 0; j < pts.length; j++) {
+        features[j * dim + g] = col[pts[j].i] || 0;
+      }
+    }
+    return { features, dim, labels: active.map(String) };
+  }
+
+  function embeddingFeaturesForPoints(pts, dim) {
+    if (!(dim > 0) || !embeddingMatrix) return null;
+    const out = new Float32Array(pts.length * dim);
+    for (let j = 0; j < pts.length; j++) {
+      const i = pts[j].i;
+      for (let d = 0; d < dim; d++) {
+        out[j * dim + d] = embeddingMatrix[i * dim + d] || 0;
+      }
+    }
+    return out;
+  }
+
   /**
    * Client-side bin assignment + windowed multi-d aggregation.
    * Writes scalar meta onto the model facade; TypedArrays stay in rasterCache.
    */
+  function filterPointsByZBand(pts) {
+    if (!zBandFadeActive()) return pts;
+    const { lo, hi } = zBandLimits();
+    return pts.filter((d) => d.z === undefined || (d.z >= lo && d.z <= hi));
+  }
+
   function ensureClientRaster() {
     if (!shouldMaintainClientRaster()) {
       return null;
     }
     if (rasterRebuildDepth) return rasterCache.key ? rasterCache : null;
-    const pts = getPointsData();
+    const ptsAll = getPointsData();
+    const pts = filterPointsByZBand(ptsAll);
     const n = pts.length;
     let binSize = Number(model.get("raster_bin_size")) || 0;
     if (!(binSize > 0)) {
@@ -924,6 +1030,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const key = [
       pointsCache.key,
       n,
+      model.get("z_band_lo_um"),
+      model.get("z_band_hi_um"),
       binSize,
       windowRadius,
       basis,
@@ -949,7 +1057,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
 
       let built;
       if (basis === "genes") {
-        const gm = geneFeatureMatrix(n);
+        const gm = geneFeatureMatrixForPoints(pts);
         built = buildRaster({
           xy: pts,
           binSize,
@@ -962,8 +1070,8 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         });
       } else if (basis === "embedding") {
         const dim = embeddingMatrixDim | 0;
-        const ok =
-          dim > 0 && embeddingMatrix && embeddingMatrix.length >= n * dim;
+        const features = embeddingFeaturesForPoints(pts, dim);
+        const ok = features != null;
         const labels = ok
           ? Array.from({ length: dim }, (_, i) => String(i))
           : [];
@@ -973,12 +1081,12 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
           windowRadius,
           tree: spatialIndex,
           basis: "embedding",
-          features: ok ? embeddingMatrix : null,
+          features: ok ? features : null,
           featureDim: ok ? dim : 0,
           featureLabels: labels,
         });
       } else {
-        const comp = compositionCodeVector(n);
+        const comp = compositionCodesForPoints(pts);
         built = buildRaster({
           xy: pts,
           binSize,
@@ -2821,13 +2929,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     const sim = similarityRgbaForPoint(d.i, opacity, probeField);
     if (sim) {
       if (!pointRoleMode || !pointRoles) {
+        sim[3] = applyZBandAlpha(sim[3], d.z);
         return sim;
       }
       const role = pointRoles[d.i] || 0;
       if (role === SEED_ROLE || role === NEIGH_ROLE) {
-        sim[3] = 255;
+        sim[3] = applyZBandAlpha(255, d.z);
       } else {
-        sim[3] = Math.round((sim[3] || 255) * OTHER_ALPHA_SCALE);
+        sim[3] = applyZBandAlpha(Math.round((sim[3] || 255) * OTHER_ALPHA_SCALE), d.z);
       }
       return sim;
     }
@@ -2858,13 +2967,14 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       rgba = hexToRgbaBytes(palette[((code % palette.length) + palette.length) % palette.length], opacity);
     }
     if (!pointRoleMode || !pointRoles) {
+      rgba[3] = applyZBandAlpha(rgba[3], d.z);
       return rgba;
     }
     const role = pointRoles[d.i] || 0;
     if (role === SEED_ROLE || role === NEIGH_ROLE) {
-      rgba[3] = 255;
+      rgba[3] = applyZBandAlpha(255, d.z);
     } else {
-      rgba[3] = Math.round((rgba[3] || 255) * OTHER_ALPHA_SCALE);
+      rgba[3] = applyZBandAlpha(Math.round((rgba[3] || 255) * OTHER_ALPHA_SCALE), d.z);
     }
     return rgba;
   }
@@ -2991,6 +3101,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     invalidatePointGeometryBuffers();
     spatialIndex = null;
     spatialIndexPointCount = 0;
+    refreshPointsHaveFiniteZ(data);
     scheduleSpatialIndexBuild();
     schedulePointFillColorsBuild();
     return data;
@@ -3012,7 +3123,12 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
         ? activePointProbeScores()
         : null;
     const fillKey = pointColorCacheKey(probeField);
-    const colorTriggers = [fillKey, pointRoleMode ? "hood-dim" : "rest"];
+    const colorTriggers = [
+      fillKey,
+      pointRoleMode ? "hood-dim" : "rest",
+      model.get("z_band_lo_um"),
+      model.get("z_band_hi_um"),
+    ];
     const layers = [];
     const scatterData = {
       length: data.length,
@@ -3733,6 +3849,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     lastDeckBuildProfile.prepareFocusGeomMs = performance.now() - tPrep;
     const tLay = performance.now();
     const layers = [
+      ...mapImageBackdrop.buildLayers(currentViewState),
       ...buildRasterLayers(),
       ...buildProbeOutlineLayers(),
       ...buildNeighborhoodLayers(),
@@ -6612,6 +6729,7 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     invalidatePointGeometryBuffers();
     spatialIndex = null;
     spatialIndexPointCount = 0;
+    refreshPointsHaveFiniteZ([]);
     scheduleSpatialIndexBuild();
     schedulePointFillColorsBuild();
     clientRasterKey = "";
@@ -6687,6 +6805,23 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
       }
       updateUI();
       updatePointLegend();
+      setDeckLayers();
+    });
+  });
+  ["z_band_lo_um", "z_band_hi_um", "z_focus_um"].forEach((k) => {
+    onChange(k, () => {
+      mapImageBackdrop.noteZBandChange();
+      mapImageBackdrop.syncFromModel(currentViewState);
+      invalidatePointColorBuffers();
+      clientRasterKey = "";
+      schedulePointFillColorsBuild();
+      setDeckLayers();
+    });
+  });
+  ["volume", "_image_channels", "_image_visible", "_image_alpha"].forEach((k) => {
+    onChange(k, () => {
+      syncImageLayerClass();
+      mapImageBackdrop.syncFromModel(currentViewState);
       setDeckLayers();
     });
   });
@@ -6772,9 +6907,12 @@ export function mountEngine({ model, host, inspectWindowUm = INSPECT_WINDOW_UM }
     });
   };
   startRaf = requestAnimationFrame(start);
+  syncImageLayerClass();
+  mapImageBackdrop.syncFromModel(null);
 
   function destroy() {
     destroyed = true;
+    mapImageBackdrop.dispose();
     if (plotBootstrapTimer) clearTimeout(plotBootstrapTimer);
     plotBootstrapTimer = 0;
     plotBootstrapListeners = [];

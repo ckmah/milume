@@ -46,6 +46,7 @@ import {
 import { wrapLandmarksModel } from "./model";
 import { isWindowSaved, useInspectCube } from "./use-inspect-cube";
 import { useLandmarksModel } from "./use-landmarks-model";
+import { usePointZExtent } from "./use-point-z-extent";
 import { useWidgetFullscreen } from "./use-widget-fullscreen";
 import { usePlotBootstrap } from "./use-plot-bootstrap";
 
@@ -91,6 +92,7 @@ export function LandmarksView({
   const dark = useNotebookTheme(hostEl.parentElement);
   const facade = useMemo(() => wrapLandmarksModel(model), [model]);
   const lm = useLandmarksModel(facade);
+  const { hasZ: pointsHaveZ } = usePointZExtent(lm.points_data);
   const plotHostRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
@@ -346,7 +348,7 @@ export function LandmarksView({
   useEffect(() => {
     const host = plotHostRef.current;
     if (!host) return;
-    const engine = mountEngine({ model: facade, host, inspectWindowUm });
+    const engine = mountEngine({ model: facade, host, inspectWindowUm, volumeComm });
     engineRef.current = engine;
     setEngine(engine);
     return () => {
@@ -355,7 +357,7 @@ export function LandmarksView({
       setEngine(null);
     };
     // Remount when Vite HMR replaces mountEngine (landmarks.js changes).
-  }, [facade, mountEngine, inspectWindowUm]);
+  }, [facade, mountEngine, inspectWindowUm, volumeComm]);
 
   const onResizePointerDown = useCallback(
     (event: React.PointerEvent<HTMLButtonElement>) => {
@@ -401,6 +403,10 @@ export function LandmarksView({
         // Docks and peek tabs float over the open cube (landmarks.css).
         cubeOpen && "landmarks--cube-open",
         minimise && "landmarks--minimise",
+        !pointsHaveZ && "landmarks--no-z",
+        lm._image_visible !== false &&
+          Boolean(lm.volume?.image_url) &&
+          "landmarks--image",
       )}
       data-rulers={lm.show_rulers ? "on" : "off"}
       onKeyDown={inspectCube.onKeyDown}
@@ -667,13 +673,13 @@ export function LandmarksView({
                 <MinimapPanel lm={lm} engine={engine} dark={dark} />
               </div>
             ) : null}
-            {!inspecting ? (
+            {!inspecting && pointsHaveZ ? (
               <div
                 className="landmarks__chrome-depth-rail"
                 onMouseDown={(e) => e.stopPropagation()}
                 onWheel={(e) => e.stopPropagation()}
               >
-                <DepthRail />
+                <DepthRail lm={lm} />
               </div>
             ) : null}
             {cubeOpen ? (

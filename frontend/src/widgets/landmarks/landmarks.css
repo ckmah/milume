@@ -107,7 +107,7 @@
   color: var(--foreground);
 }
 
-.landmarks {
+.landmarks:not(.landmarks--no-z) {
   --lm-depth-rail-active: var(--lm-depth-rail-slot);
 }
 
@@ -1937,9 +1937,22 @@
   font-variant-numeric: tabular-nums;
 }
 
+.landmarks-depth-rail__readout-muted {
+  font-size: 0.6875rem;
+  color: color-mix(in oklab, var(--foreground) 55%, transparent);
+}
+
+.landmarks-depth-rail__readout-bound--active {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
 .landmarks-depth-rail__track-wrap {
   flex: 1;
   min-height: 0;
+  display: flex;
+  gap: 0.25rem;
+  align-items: stretch;
 }
 
 .landmarks-depth-rail__track {
@@ -1978,6 +1991,11 @@
   background: var(--foreground);
 }
 
+.landmarks-depth-rail__thumb--dragging {
+  height: 16px;
+  background: var(--foreground);
+}
+
 .landmarks-depth-rail__focus {
   position: absolute;
   left: 50%;
@@ -1989,6 +2007,23 @@
   border-radius: 9999px;
   background: var(--foreground);
   cursor: ns-resize;
+}
+
+.landmarks-depth-rail__ruler {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.5625rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: color-mix(in oklab, var(--foreground) 50%, transparent);
+}
+
+.landmarks-depth-rail__ruler-tick {
+  position: absolute;
+  right: 0;
+  transform: translateY(50%);
+  white-space: nowrap;
 }
 
 .landmarks--narrow .landmarks__chrome-depth-rail {
