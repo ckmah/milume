@@ -19,6 +19,8 @@
 
 ### Changed
 
+- **`color` is a `ColorSpec`.** Assign an obs column, a gene name, a gene list (blend), or an `obsm` key. Colour mode, legend, palette, category columns, the gene catalogue, and embedding packs sync as private traits (`_color_state`, `_look`, `_color_options`, `_category_columns`, `_category_codes`, `_embedding_*`, `_gene_csc_*`) instead of top-level `color_mode`, `legend_*`, `category_columns`, `gene_names`, `raster_basis`, and `raster_embedding_key` ([#394](https://github.com/ckmah/milume/issues/394)).
+
 - **Map panel layout (option 1).** Left dock accordion (Selections · Landmarks · Layers), right data card tabs (cat · num · genes · embed), a reserved depth-rail chrome slot (behaviour in [#122](https://github.com/ckmah/milume/issues/122)), minimise mode (Shift+\\), and Spline as the default landmark tool ([#393](https://github.com/ckmah/milume/issues/393)).
 - **`channels=` on `LandmarksWidget` / `milume.peek`.** Pass channel names to show on open for the SpatialData tissue image; unknown names raise before render ([#122](https://github.com/ckmah/milume/issues/122)).
 
@@ -29,10 +31,14 @@
 - **Inspect contrast default.** When `contrast_limits` is omitted, the upper limit is the max of the coarsest pyramid level instead of the 99.5th percentile (colon A2 default goes from `(0, 171)` to `(0, 249)`).
 - Inspect segmentation meshes default to **0.6** peak opacity (was 0.9).
 
+### Deprecated
+
+- `LandmarksWidget.active_category` and `active_genes` are derived from `color` and will be removed in 3.0. Assign `color` instead ([#394](https://github.com/ckmah/milume/issues/394)).
+
 ### Removed
 
 - The `milume[demo]` pip extra. Use each demo notebook's PEP 723 inline script header, or `uv sync --group demo` from a checkout.
-- Internal synced traits `gene_format` and `gene_values` (not documented public API). With `genes=None` nothing is preloaded; preloaded `genes=[...]` always ships sparse CSC via `gene_csc_*` traits. The catalogue trait `gene_columns` is renamed `gene_names` with no alias (internal, not in the notebook API).
+- Internal synced traits `gene_format` and `gene_values` (not documented public API). With `genes=None` nothing is preloaded; preloaded `genes=[...]` always ships sparse CSC via `_gene_csc_*`. The gene catalogue is `_color_options["genes"]` (no top-level `gene_names`).
 
 ### Docs
 

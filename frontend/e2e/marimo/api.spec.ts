@@ -55,9 +55,11 @@ test.describe("marimo kernel — Python API", () => {
     await waitForLandmarksWidget(page);
 
     // Names-only catalog at comm-open: nothing preloaded.
-    expect(await getModel(page, "gene_names")).toEqual([{ name: "0" }]);
-    expect(await getModel(page, "gene_csc_data")).toBe("");
-    await setModelFromBrowser(page, { active_genes: ["0"], color_mode: "continuous" });
+    expect(((await getModel(page, "_color_options")) as { genes: { name: string }[] }).genes).toEqual([
+      { name: "0" },
+    ]);
+    expect(await getModel(page, "_gene_csc_data")).toBe("");
+    await setModelFromBrowser(page, { color: "0" });
     const stats = () => page.evaluate(() => (window as any).__landmarksEngine.getGeneStats());
     await expect.poll(async () => (await stats()).fetchedGenes, { timeout: 60_000 }).toBe(1);
     const s = await stats();

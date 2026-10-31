@@ -20,7 +20,10 @@ async function openGenesTab(page: Page) {
 
 async function catalog(page: Page) {
   return page.evaluate(() =>
-    ((window as any).__landmarksModel.get("gene_names") as { name: string }[]).map((g) => g.name),
+    (
+      ((window as any).__landmarksModel.get("_color_options") as { genes?: { name: string }[] }).genes ??
+      []
+    ).map((g) => g.name),
   );
 }
 

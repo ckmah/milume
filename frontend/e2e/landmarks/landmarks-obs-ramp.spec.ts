@@ -40,7 +40,9 @@ test.describe("Landmarks numeric obs heat strip", () => {
 
   test("num tab shows heat strip scale; cat and genes hide it", async ({ page }) => {
     await setModel(page, obsColor);
-    await expect.poll(() => getModel(page, "color_mode")).toBe("obs");
+    await expect
+      .poll(async () => ((await getModel(page, "_color_state")) as { color_mode?: string }).color_mode)
+      .toBe("obs");
 
     const right = await openExploreRight(page);
     await right.getByTestId("explore-color-by").getByRole("tab", { name: "num" }).click();

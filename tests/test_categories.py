@@ -24,7 +24,7 @@ def test_widget_uses_size_matched_palette_without_uns_colors():
         color_key="cell_type",
     )
     w = LandmarksWidget(adata, color="cell_type")
-    assert w.point_palette == default_categorical_palette(7)
+    assert w._look["point_palette"] == default_categorical_palette(7)
 
 
 def test_constructor_offers_string_and_categorical_obs_columns():
@@ -44,13 +44,13 @@ def test_constructor_offers_string_and_categorical_obs_columns():
     adata.obs["cell_type"] = cell_type
     adata.obs["score"] = [0.1, 0.2, 0.3, 0.4]
     w = LandmarksWidget(adata, color="cell_class")
-    names = [c["name"] for c in w.category_columns]
+    names = [c["name"] for c in w._category_columns]
     assert "cell_class" in names
     assert "cell_type" in names
     assert "score" not in names
     assert w.active_category == "cell_class"
-    assert w.legend_labels == ["Epi", "Imm", "Fib"]
-    assert w.point_palette == ["#111111", "#222222", "#333333"]
+    assert w._color_state["legend_labels"] == ["Epi", "Imm", "Fib"]
+    assert w._look["point_palette"] == ["#111111", "#222222", "#333333"]
 
 
 def test_missing_values_in_text_and_categorical_columns_become_a_label():
