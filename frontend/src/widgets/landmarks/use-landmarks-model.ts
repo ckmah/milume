@@ -53,6 +53,8 @@ export type ImageChannelRow = {
   visible: boolean;
   contrast_limits: [number, number];
   constant_zero?: boolean;
+  /** Display tint for map backdrop and layer swatch (optional). */
+  color?: string;
 };
 
 /** The inferred 3D image of a SpatialData (`{}` without one). Frames are z, y, x. */
