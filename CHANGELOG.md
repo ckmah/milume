@@ -31,9 +31,48 @@
 - **Inspect contrast default.** When `contrast_limits` is omitted, the upper limit is the max of the coarsest pyramid level instead of the 99.5th percentile (colon A2 default goes from `(0, 171)` to `(0, 249)`).
 - Inspect segmentation meshes default to **0.6** peak opacity (was 0.9).
 
+### Migration (#394)
+
+**Timeline.** `active_category` and `active_genes` remain on `LandmarksWidget` through 2.x. Assigning either emits `DeprecationWarning` and will fail in 3.0. All other removed top-level colour traits (below) are gone immediately in 2.1.0 with no warning; observe the private synced traits or assign `color` instead.
+
+**Exact warning** (only when you assign `active_category` or `active_genes` yourself):
+
+```text
+LandmarksWidget.<name> is deprecated and will be removed in 3.0; assign ``color`` instead (scanpy-style obs column, gene, gene list, or obsm key).
+```
+
+Replace `<name>` with `active_category` or `active_genes`.
+
+**Before → after (Python).**
+
+| Before | After |
+| --- | --- |
+| `w.active_category = "cell_type"` | `w.color = "cell_type"` |
+| `w.active_genes = ["Abtb3", "Adamts2"]` | `w.color = ["Abtb3", "Adamts2"]` |
+| `w.active_category` / `w.active_genes` to read the current colour | `w.color` (str or list of gene names) |
+| `LandmarksWidget(adata, color="cell_type")` | unchanged |
+| `ml.peek(adata, color="cell_type")` | unchanged (same kwargs as `LandmarksWidget`) |
+| `ml.peek(adata, color=["Abtb3", "Adamts2"])` | gene blend at open |
+
+**Removed top-level synced traits** (were internal in `public-api.json`, but observable in notebooks). No read/write shims; `#394` folds them into private dicts so one `color` assignment keeps kernel and browser aligned.
+
+| Removed trait | Use instead |
+| --- | --- |
+| `color_mode`, `legend_title`, `legend_labels`, `raster_basis`, `raster_embedding_key` | `_color_state[...]` (observe `change:_color_state`); set colour via `w.color = ...` |
+| `point_palette`, `color_vmin`, `color_vmax`, `gene_scale_mode`, `gene_log1p`, `raster_embedding_dims` | `_look[...]` (observe `change:_look`); ramp limits follow the active obs column when you set `w.color` |
+| `category_columns`, `category_codes` | `_category_columns`, `_category_codes` |
+| `gene_names` | `_color_options["genes"]` (list of `{name, vmin?, vmax?}`) |
+| `raster_embedding_keys` | `_color_options["embeddings"]` (map of obsm key → channel count) |
+| `gene_csc_indptr`, `gene_csc_indices`, `gene_csc_data` | `_gene_csc_indptr`, `_gene_csc_indices`, `_gene_csc_data` |
+| `embedding_values`, `embedding_channel_labels`, `embedding_matrix`, `embedding_matrix_dim` | `_embedding_values`, `_embedding_channel_labels`, `_embedding_matrix`, `_embedding_matrix_dim` |
+| `raster_obs_key` | **No replacement** (unused dead trait) |
+| `raster_gene_mode` | **No replacement** (gene aggregate Mean/Median/Max is browser-only chrome) |
+
+**Shim choice.** Only `active_category` and `active_genes` stay as deprecated public traits because they were documented notebook setters and reads; they still mirror `color` without warnings when the widget updates them internally. We did not add deprecated properties for `color_mode` or `gene_names` because observers on those names would keep code on the old surface; migrating to `color` plus `_color_state` / `_color_options` is the supported path.
+
 ### Deprecated
 
-- `LandmarksWidget.active_category` and `active_genes` are derived from `color` and will be removed in 3.0. Assign `color` instead ([#394](https://github.com/ckmah/milume/issues/394)).
+- `LandmarksWidget.active_category` and `active_genes` are derived from `color` and will be removed in 3.0. Assign `color` instead. Warning text: ``LandmarksWidget.<name> is deprecated and will be removed in 3.0; assign ``color`` instead (scanpy-style obs column, gene, gene list, or obsm key).`` ([#394](https://github.com/ckmah/milume/issues/394)).
 
 ### Removed
 
