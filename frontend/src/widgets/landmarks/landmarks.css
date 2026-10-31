@@ -107,7 +107,7 @@
   color: var(--foreground);
 }
 
-.landmarks {
+.landmarks:not(.landmarks--no-z) {
   --lm-depth-rail-active: var(--lm-depth-rail-slot);
 }
 
@@ -1970,26 +1970,76 @@
 .landmarks-depth-rail__readout {
   display: flex;
   flex-direction: column;
-  gap: 0.125rem;
+  gap: 0.0625rem;
+  width: 100%;
+  max-width: 100%;
+  flex-shrink: 0;
   font-size: 0.6875rem;
   font-weight: 500;
-  line-height: 1.25;
+  line-height: 1.15;
   color: color-mix(in oklab, var(--foreground) 72%, transparent);
+  overflow: hidden;
+}
+
+.landmarks-depth-rail__readout-line {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .landmarks-depth-rail__readout-main {
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 500;
   color: var(--foreground);
+  overflow: hidden;
+  text-overflow: clip;
 }
 
 .landmarks-depth-rail__readout-sub {
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+.landmarks-depth-rail__readout--dragging {
+  font-size: 0.625rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  overflow: visible;
+}
+
+.landmarks-depth-rail__readout--dragging .landmarks-depth-rail__readout-sub {
+  overflow: visible;
+}
+
+.landmarks-depth-rail__readout--dragging .landmarks-depth-rail__readout-main,
+.landmarks-depth-rail__readout--dragging .landmarks-depth-rail__readout-muted {
+  font-size: 0.625rem;
+}
+
+.landmarks-depth-rail__readout-muted {
+  font-size: 0.6875rem;
+  color: color-mix(in oklab, var(--foreground) 55%, transparent);
+  flex-shrink: 0;
+}
+
+.landmarks-depth-rail__readout-bound--active {
+  color: var(--foreground);
+  font-weight: 600;
 }
 
 .landmarks-depth-rail__track-wrap {
   flex: 1;
   min-height: 0;
+  display: flex;
+  gap: 0.125rem;
+  align-items: stretch;
+  margin-top: 0.125rem;
 }
 
 .landmarks-depth-rail__track {
@@ -2028,6 +2078,11 @@
   background: var(--foreground);
 }
 
+.landmarks-depth-rail__thumb--dragging {
+  height: 16px;
+  background: var(--foreground);
+}
+
 .landmarks-depth-rail__focus {
   position: absolute;
   left: 50%;
@@ -2039,6 +2094,26 @@
   border-radius: 9999px;
   background: var(--foreground);
   cursor: ns-resize;
+}
+
+.landmarks-depth-rail__ruler {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  font-size: 0.5625rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: color-mix(in oklab, var(--foreground) 50%, transparent);
+}
+
+.landmarks-depth-rail__ruler-tick {
+  position: absolute;
+  right: 0;
+  transform: translateY(50%);
+  white-space: nowrap;
+  max-width: 2.25rem;
+  overflow: hidden;
+  text-overflow: clip;
 }
 
 .landmarks--narrow .landmarks__chrome-depth-rail {

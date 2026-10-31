@@ -23,7 +23,8 @@ const METADATA_CACHE_BYTES = 4 * 1024 * 1024;
 
 function joinStorePath(base: string, key: AbsolutePath): string {
   const root = base.endsWith("/") ? base : `${base}/`;
-  return `${root}${key.replace(/^\//, "")}`;
+  const rel = key.replace(/^\//, "");
+  return `${root}${rel}`;
 }
 
 /** Batched comm reads for one widget; shared by every CommStore root. */
@@ -47,7 +48,7 @@ export class VolumeCommClient {
     private readonly concurrency = DEFAULT_CONCURRENCY,
   ) {}
 
-  createStore(base: string): CommStore {
+  createStore(base: string): AsyncReadable {
     return new CommStore(this, base);
   }
 

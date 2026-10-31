@@ -307,6 +307,10 @@ table, image, shapes
     SpatialData-only overrides for the inferred table, multiscale image, and
     the shapes element of per-slice cell polygons (``cell_id`` and ``Z_um``
     columns) the Inspect cube meshes. ``False`` leaves one out.
+channels
+    SpatialData-only channel names to show on open (e.g. ``["DAPI"]``). Unknown
+    names raise ``ValueError`` listing the available names. For 3D images only
+    one channel is allowed in this version.
 contrast_limits
     SpatialData-only image contrast ``(min, max)`` for the Inspect cube.
     Defaults to the coarsest pyramid level's 1st percentile and max.
@@ -323,6 +327,47 @@ UI chrome (mode, neighbourhoods, raster controls) stays in the browser and
 is not part of the notebook API. Raster bins and probe scores are built
 client-side from the loaded gene, embedding, and category packs.
 """
+
+
+def _validate_channels(channels: list[str], src: Any) -> None:
+    available = list(src.channel_names)
+    unknown = [name for name in channels if name not in available]
+    if unknown:
+        raise ValueError(
+            f"unknown channel(s) {unknown!r}; available: {', '.join(available) or '(none)'}"
+        )
+    if src.is_3d and len(channels) > 1:
+        raise ValueError(
+            "3D images support one channel in this version; pass a single name in channels="
+        )
+
+
+def _initial_image_channels(src: Any, channels: list[str] | None) -> list[dict[str, Any]]:
+    names = list(src.channel_names)
+    limits = list(src.channel_contrast_limits)
+    constant_zero = set(src.constant_zero_channels)
+    visible_names: set[str]
+    if channels is None:
+        visible_names = set()
+        for i, name in enumerate(names):
+            if i in constant_zero:
+                continue
+            visible_names.add(name)
+            break
+    else:
+        visible_names = set(channels)
+    out: list[dict[str, Any]] = []
+    for i, name in enumerate(names):
+        lo, hi = limits[i] if i < len(limits) else (0.0, 1.0)
+        out.append(
+            {
+                "name": name,
+                "visible": name in visible_names and i not in constant_zero,
+                "contrast_limits": (lo, hi),
+                "constant_zero": i in constant_zero,
+            }
+        )
+    return out
 
 
 class ColorKeyError(traitlets.TraitError, KeyError):
@@ -462,6 +507,12 @@ class LandmarksWidget(AnyWidget):
     volume = traitlets.Dict(default_value={}).tag(sync=True)
     volume_cell_rows = traitlets.Unicode("").tag(sync=True)  # base64 int32, polygon cell order
     volume_cut = traitlets.List(traitlets.Float(), default_value=[]).tag(sync=True)
+    z_focus_um = traitlets.Float(0.0).tag(sync=True)
+    z_band_lo_um = traitlets.Float(0.0).tag(sync=True)
+    z_band_hi_um = traitlets.Float(0.0).tag(sync=True)
+    _image_channels = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
+    _image_visible = traitlets.Bool(True).tag(sync=True)
+    _image_alpha = traitlets.Float(0.55).tag(sync=True)
 
     def __init__(
         self,
@@ -473,6 +524,7 @@ class LandmarksWidget(AnyWidget):
         table: str | None = None,
         image: str | bool | None = None,
         shapes: str | bool | None = None,
+        channels: list[str] | None = None,
         contrast_limits: tuple[float, float] | None = None,
     ) -> None:
         """Build from AnnData or SpatialData.
@@ -495,8 +547,11 @@ class LandmarksWidget(AnyWidget):
             source_sdata = adata
             sdata = adata
             adata, volume_source = resolve_volume(sdata, table=table, image=image, shapes=shapes)
-            if volume_source is not None and contrast_limits is None:
-                contrast_limits = image_contrast_limits(sdata.images[volume_source.image])
+            if volume_source is not None:
+                if channels is not None:
+                    _validate_channels(channels, volume_source)
+                if contrast_limits is None:
+                    contrast_limits = image_contrast_limits(sdata.images[volume_source.image])
         if not isinstance(adata, AnnData):
             raise TypeError("LandmarksWidget(data) requires an AnnData or a SpatialData")
 
@@ -619,7 +674,8 @@ class LandmarksWidget(AnyWidget):
         self._volume_allow_prefixes: tuple[str, ...] = ()
         self._volume_centre_xy: tuple[float, float] | None = None
         if volume_source is not None:
-            self._attach_volume(volume_source, contrast_limits)
+            self._attach_volume(volume_source, contrast_limits, channels=channels)
+        self._init_z_band_defaults(z_arr)
         self._sync_numeric_obs_columns()
 
     def _sync_numeric_obs_columns(self) -> None:
@@ -629,7 +685,13 @@ class LandmarksWidget(AnyWidget):
             return
         self._numeric_obs_columns = _numeric_obs_column_names(obs.obs)
 
-    def _attach_volume(self, src: Any, contrast_limits: tuple[float, float]) -> None:
+    def _attach_volume(
+        self,
+        src: Any,
+        contrast_limits: tuple[float, float],
+        *,
+        channels: list[str] | None = None,
+    ) -> None:
         from .volume_comm import normalize_allow_prefixes
 
         # Only the cube's image and cell polygons: tables and expression are never served.
@@ -637,11 +699,26 @@ class LandmarksWidget(AnyWidget):
         self._volume_store_root = src.root
         self._volume_allow_prefixes = normalize_allow_prefixes(allow)
         (sz, sy, sx), (oz, oy, ox), (d, h, w) = src.voxel_size_um, src.origin_um, src.shape_zyx
+        channel_state = _initial_image_channels(src, channels)
+        self._image_channels = channel_state
         volume = {
             "image_url": f"images/{src.image}/",
             "voxel_size_um": [sz, sy, sx],
             "origin_um": [oz, oy, ox],
             "contrast_limits": [float(v) for v in contrast_limits],
+            "dims": list(src.dims),
+            "is_3d": bool(src.is_3d),
+            "coordinate_system": src.coordinate_system,
+            "image_transform": dict(src.image_transform),
+            "channels": [
+                {
+                    "name": entry["name"],
+                    "visible": bool(entry["visible"]),
+                    "contrast_limits": [float(entry["contrast_limits"][0]), float(entry["contrast_limits"][1])],
+                    "constant_zero": bool(entry["constant_zero"]),
+                }
+                for entry in channel_state
+            ],
         }
         if src.shapes:
             path = src.shapes_path
@@ -650,6 +727,28 @@ class LandmarksWidget(AnyWidget):
         self.volume = volume
         self.volume_cut = [ox, ox + w * sx, oy, oy + h * sy, oz, oz + d * sz]
         self._volume_centre_xy = (ox + w * sx / 2.0, oy + h * sy / 2.0)
+        self._image_visible = True
+        self._image_alpha = 0.55
+
+    def _init_z_band_defaults(self, z_arr: Any) -> None:
+        import numpy as np
+
+        z = np.asarray(z_arr, dtype=np.float64)
+        finite = z[np.isfinite(z)]
+        if finite.size == 0:
+            return
+        z_min, z_max = float(finite.min()), float(finite.max())
+        focus = float(np.median(finite))
+        half = 5.0
+        lo = max(z_min, focus - half)
+        hi = min(z_max, focus + half)
+        if hi - lo < 5.0:
+            mid = 0.5 * (lo + hi)
+            lo = max(z_min, mid - 2.5)
+            hi = min(z_max, mid + 2.5)
+        self.z_focus_um = focus
+        self.z_band_lo_um = lo
+        self.z_band_hi_um = hi
 
     @traitlets.validate("inspect_open")
     def _validate_inspect_open(self, proposal: dict[str, Any]) -> bool:
@@ -657,9 +756,9 @@ class LandmarksWidget(AnyWidget):
         value = bool(proposal["value"])
         if not value:
             return False
-        if not (self.volume or {}).get("image_url"):
+        if not (self.volume or {}).get("image_url") or not (self.volume or {}).get("is_3d"):
             raise ValueError(
-                "inspect_open needs a 3D image: build the widget from SpatialData with an image"
+                "inspect_open needs a 3D image: build the widget from SpatialData with a 3D image"
             )
         centre = getattr(self, "_volume_centre_xy", None)
         if (self.inspect_cx is None or self.inspect_cy is None) and centre:

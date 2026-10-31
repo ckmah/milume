@@ -87,18 +87,7 @@ FIXTURE_KEYS = [
     "inspect_cy",
 ]
 
-VOLUME_KEYS = ["volume", "volume_label_ids", "volume_cut", "inspect_size_um"]
-
-
-def _static_volume_urls(volume: dict[str, object]) -> dict[str, object]:
-    out = dict(volume)
-    for key in ("image_url", "labels_url"):
-        url = str(out.get(key) or "")
-        if not url:
-            continue
-        path = urlparse(url).path
-        out[key] = f"/{STORE_NAME}{path}"
-    return out
+VOLUME_KEYS = ["volume", "volume_cell_rows", "volume_cut", "inspect_size_um"]
 
 
 def download_colon_source(dest: Path) -> Path:
@@ -220,7 +209,6 @@ def write_fixture(sdata, *, cells: int | None, hero: bool) -> None:
         widget.selected_index = -1
 
     payload = {key: getattr(widget, key) for key in FIXTURE_KEYS + VOLUME_KEYS}
-    payload["volume"] = _static_volume_urls(payload["volume"])
     OUT.write_text(json.dumps(payload, separators=(",", ":")))
     n = sdata.tables["rna"].n_obs
     print(f"wrote {OUT} ({OUT.stat().st_size // 1024} KiB, n_obs={n}, hero={hero})")

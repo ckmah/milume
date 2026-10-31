@@ -44,18 +44,21 @@ test.describe("panel layout (option 1)", () => {
     await expect(root).toHaveClass(/landmarks--minimise/);
   });
 
-  test("ileum 2D layout keeps depth rail placeholder slot", async ({ page }) => {
+  test("ileum 2D hides depth rail and uses no-z layout", async ({ page }) => {
     await page.goto(`/?fixture=${encodeURIComponent(ILEUM_FIXTURE)}`, {
       waitUntil: "networkidle",
     });
     await waitForEngine(page);
-    await expect(page.getByTestId("depth-rail-placeholder")).toBeVisible();
+    const root = page.locator(".milume-widget.landmarks");
+    await expect(root).toHaveClass(/landmarks--no-z/);
+    await expect(page.getByTestId("depth-rail")).toHaveCount(0);
   });
 
-  test("default layout reserves depth rail chrome slot", async ({ page }) => {
+  test("default 2D fixture hides depth rail slot", async ({ page }) => {
     await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
     await waitForEngine(page);
-    await expect(page.getByTestId("depth-rail-placeholder")).toBeVisible();
+    await expect(page.locator(".milume-widget.landmarks")).toHaveClass(/landmarks--no-z/);
+    await expect(page.getByTestId("depth-rail")).toHaveCount(0);
   });
 
   test("dock carets use text glyphs outside card corners", async ({ page }) => {

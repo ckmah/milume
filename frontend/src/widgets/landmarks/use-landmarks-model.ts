@@ -47,6 +47,14 @@ import {
   toggleSelectionHidden as toggleSelectionHiddenTrait,
 } from "./state";
 
+/** Channel row synced from Python (`volume.channels` mirror). */
+export type ImageChannelRow = {
+  name: string;
+  visible: boolean;
+  contrast_limits: [number, number];
+  constant_zero?: boolean;
+};
+
 /** The inferred 3D image of a SpatialData (`{}` without one). Frames are z, y, x. */
 export type LandmarksVolume = {
   image_url?: string;
@@ -55,6 +63,11 @@ export type LandmarksVolume = {
   voxel_size_um?: [number, number, number];
   origin_um?: [number, number, number];
   contrast_limits?: [number, number];
+  dims?: string[];
+  is_3d?: boolean;
+  coordinate_system?: string;
+  image_transform?: Record<string, unknown>;
+  channels?: ImageChannelRow[];
 };
 
 export type LandmarksState = {
@@ -116,6 +129,12 @@ export type LandmarksState = {
   inspect_size_um: number;
   /** Whether the Inspect cube is open; Python opens and closes it, the widget writes it back. */
   inspect_open: boolean;
+  z_focus_um: number;
+  z_band_lo_um: number;
+  z_band_hi_um: number;
+  _image_channels: ImageChannelRow[];
+  _image_visible: boolean;
+  _image_alpha: number;
 };
 
 const MODEL_KEYS: (keyof LandmarksState)[] = [
@@ -174,6 +193,12 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
   "inspect_cy",
   "inspect_size_um",
   "inspect_open",
+  "z_focus_um",
+  "z_band_lo_um",
+  "z_band_hi_um",
+  "_image_channels",
+  "_image_visible",
+  "_image_alpha",
 ];
 
 export type LandmarksModel = LandmarksState & {
@@ -217,6 +242,10 @@ export type LandmarksModel = LandmarksState & {
   setRasterEmbeddingDims(dims: number[]): void;
   setRasterThreshold(value: number): void;
   clearRasterQuery(): void;
+  setZBand(patch: { focus?: number; lo?: number; hi?: number }): void;
+  setImageVisible(visible: boolean): void;
+  setImageAlpha(alpha: number): void;
+  patchImageChannel(name: string, patch: Partial<Pick<ImageChannelRow, "visible" | "contrast_limits">>): void;
   activeNeighborhood(): ReturnType<typeof neighborhoodFor>;
   selectedLandmark(): LandmarkItem | null;
 };
@@ -372,6 +401,44 @@ export function useLandmarksModel(model: AnyModel): LandmarksModel {
     },
     clearRasterQuery() {
       clearRasterQueryTrait(model);
+    },
+    setZBand(patch) {
+      if (patch.focus != null) model.set("z_focus_um", patch.focus);
+      if (patch.lo != null) model.set("z_band_lo_um", patch.lo);
+      if (patch.hi != null) model.set("z_band_hi_um", patch.hi);
+      model.save_changes();
+    },
+    setImageVisible(visible) {
+      model.set("_image_visible", visible);
+      model.save_changes();
+    },
+    setImageAlpha(alpha) {
+      model.set("_image_alpha", Math.max(0, Math.min(1, alpha)));
+      model.save_changes();
+    },
+    patchImageChannel(name, patch) {
+      const rows = [...(model.get("_image_channels") as ImageChannelRow[] | undefined) || []];
+      const vol = { ...(model.get("volume") as LandmarksVolume | undefined) };
+      const volChannels = [...(vol.channels || [])];
+      const apply = (list: ImageChannelRow[]) => {
+        const i = list.findIndex((c) => c.name === name);
+        if (i < 0) return list;
+        const next = { ...list[i], ...patch };
+        if (patch.contrast_limits) {
+          next.contrast_limits = [
+            patch.contrast_limits[0],
+            patch.contrast_limits[1],
+          ] as [number, number];
+        }
+        const out = list.slice();
+        out[i] = next;
+        return out;
+      };
+      const nextRows = apply(rows);
+      const nextVolChannels = apply(volChannels);
+      model.set("_image_channels", nextRows);
+      model.set("volume", { ...vol, channels: nextVolChannels });
+      model.save_changes();
     },
     activeNeighborhood() {
       return neighborhoodFor(

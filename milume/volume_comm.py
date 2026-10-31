@@ -49,7 +49,7 @@ def _resolved_allow_roots(root: Path, allow_prefixes: tuple[str, ...]) -> tuple[
 
 def resolve_volume_path(root: Path, rel: str, allow_prefixes: tuple[str, ...]) -> Path | None:
     """Map a store-relative path to a file under ``root``, or None if disallowed."""
-    rel = rel.lstrip("/").replace("/", os.sep)
+    rel = rel.lstrip("/").replace("\\", "/").replace("/", os.sep)
     if not rel or ".." in rel.split(os.sep):
         return None
     if not _allowed(rel.replace(os.sep, "/"), allow_prefixes):
