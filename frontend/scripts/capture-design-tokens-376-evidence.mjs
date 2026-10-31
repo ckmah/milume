@@ -72,7 +72,7 @@ async function seedEvidenceState(page) {
     }
   }
 
-  await page.getByTestId("explore-color-by").getByRole("tab", { name: "category" }).click();
+  await page.getByTestId("explore-color-by").getByRole("tab", { name: "cat" }).click();
   await expectVisible(page.getByTestId("info-donut"));
   await expectVisible(page.getByTestId("landmark-measure"));
 
