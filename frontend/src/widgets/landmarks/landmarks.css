@@ -19,6 +19,8 @@
     transparent;
 
   --lm-bg: var(--background);
+  --lm-plot-bg: var(--lm-bg);
+  --lm-plot-bg-image: #000;
   --lm-border: #e5e5e5;
   --lm-text: #111111;
   --lm-text-muted: #666666;
@@ -178,6 +180,14 @@
     0 5px 14px color-mix(in srgb, #000 28%, transparent);
 }
 
+.landmarks.landmarks--image {
+  --lm-plot-bg: var(--lm-plot-bg-image);
+  --lm-float-shadow:
+    0 0 0 1px rgb(255 255 255 / 9%),
+    0 1px 0 rgb(255 255 255 / 5%) inset,
+    0 5px 14px rgb(0 0 0 / 60%);
+}
+
 .landmarks.landmarks--light {
   color-scheme: light;
   --lm-bg: var(--background);
@@ -264,7 +274,7 @@
   width: 100%;
   height: 100%;
   min-height: 0;
-  background: var(--lm-bg);
+  background: var(--lm-plot-bg);
 }
 
 .landmarks__webgl {
@@ -1385,6 +1395,89 @@
   padding: 0.125rem 0.25rem;
 }
 
+.landmarks-image-controls {
+  --lm-slider-caption-w: 3.5rem;
+}
+
+.landmarks-image-controls .landmarks-slider-row--contrast {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+.landmarks-image-controls .landmarks-slider-row--contrast .landmarks-slider-caption {
+  width: auto;
+  max-width: none;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
+.landmarks-image-controls .landmarks-slider-row--alpha .landmarks-slider-caption {
+  width: var(--lm-slider-caption-w);
+  max-width: var(--lm-slider-caption-w);
+}
+
+.landmarks-image-controls .landmarks-slider-row--contrast .landmarks-slider-control {
+  margin-left: calc(var(--lm-slider-caption-w) + 0.5rem);
+  width: calc(100% - var(--lm-slider-caption-w) - 0.5rem);
+  align-self: stretch;
+}
+
+.landmarks-image-channel-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: calc(8 * 24px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.landmarks-image-channel-row {
+  box-sizing: border-box;
+  display: flex;
+  min-height: 24px;
+  align-items: center;
+  gap: var(--lm-layer-row-gap);
+  padding-inline: 0.125rem;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--foreground);
+  cursor: pointer;
+  border-radius: var(--lm-layer-radius);
+}
+
+.landmarks-image-channel-row:hover {
+  background-color: var(--lm-layer-hover-bg);
+}
+
+.landmarks-image-channel-row:focus,
+.landmarks-image-channel-row:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 45%, transparent);
+}
+
+.landmarks-image-channel-row__name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.landmarks-layers-image-trigger {
+  padding-inline: 0 !important;
+}
+
+.landmarks-layers-stack__row > .landmarks-layer-row {
+  overflow: visible;
+}
+
+.landmarks-layers-stack__row .landmarks-layer-row .landmarks-layers-image-trigger:hover,
+.landmarks-layers-stack__row .landmarks-layer-row [data-testid="layer-toggle-image"]:hover {
+  background-color: transparent;
+}
+
 .landmarks-slider-row .landmarks-slider-control {
   min-width: 7.5rem;
 }
@@ -2007,19 +2100,11 @@
 }
 
 .landmarks-depth-rail__readout--dragging {
-  font-size: 0.625rem;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
   overflow: visible;
 }
 
 .landmarks-depth-rail__readout--dragging .landmarks-depth-rail__readout-sub {
   overflow: visible;
-}
-
-.landmarks-depth-rail__readout--dragging .landmarks-depth-rail__readout-main,
-.landmarks-depth-rail__readout--dragging .landmarks-depth-rail__readout-muted {
-  font-size: 0.625rem;
 }
 
 .landmarks-depth-rail__readout-muted {

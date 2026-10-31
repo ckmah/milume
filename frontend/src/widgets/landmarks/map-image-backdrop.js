@@ -420,6 +420,10 @@ export function createMapImageBackdrop({
     ];
   }
 
+  function getBounds() {
+    return cache.bounds ? [...cache.bounds] : null;
+  }
+
   function dispose() {
     disposed = true;
     fetchGen++;
@@ -438,5 +442,6 @@ export function createMapImageBackdrop({
     noteViewChange,
     noteViewInteractionEnd,
     getLastPick: () => lastPick,
+    getBounds,
   };
 }
