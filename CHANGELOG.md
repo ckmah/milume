@@ -1,39 +1,10 @@
 # Changelog
 
-## 2.1.0 (unreleased)
-
-### Added
-
-- **Landmarks map image backdrop.** SpatialData widgets show a tissue image under scatter (volume comm + Zarr pyramid, multichannel 2D or Z-band max projection for 3D); Layers stack exposes visibility, alpha, contrast, and channel toggles ([#122](https://github.com/ckmah/milume/issues/122)).
-- **`milume.datasets` / `milume.ds` (v1: ileum).** After ``import milume as ml``, ``ml.datasets`` and the alias ``ml.ds`` (same module object) expose scverse-style loaders for demo AnnData: ``ileum_merfish_xu2026()``, ``list_datasets()``, ``info()``, and ``fetch()`` with pinned-url download, sha256 verification, and ``$MILUME_DATA_DIR`` cache ([#380](https://github.com/ckmah/milume/issues/380)).
-- **On-demand gene loading and the 8-gene picker.** `milume.peek(adata)` opens with gene names only; the browser fetches a gene's normalized sparse column from the kernel the first time it is coloured, then keeps it in an LRU cache (128 MiB). On a 170,057-cell × 18,028-gene matrix at 10% density (Atera WTA breast scale), the kernel's peak extra memory from construct through comm-open drops from about 9.6 GiB (2.0.0, extrapolated from 0.96 GiB and 1.88 GiB measured at 1/10 and 1/5 of the cells) to 77 MiB measured at full scale, and the gene part of the comm-open message drops from about 3.1 GiB to 0.3 MiB. The 2.0.0 path OOM-killed the Jupyter kernel on that dataset. `genes=[...]` still restricts the catalog and preloads it when it packs under 64 MiB; a larger list loads on demand with a `UserWarning`. Pick up to 8 genes: up to three blend one colour channel each; four or more colour by one combined value with **Mean** / **Median** / **Max** under the gene field. Fetching a gene from CSR `adata.X` binary-searches each cell's sorted column indices (about 47 ms vs 545 ms per gene on that matrix; [#241](https://github.com/ckmah/milume/issues/241), [#248](https://github.com/ckmah/milume/issues/248), [#253](https://github.com/ckmah/milume/issues/253)).
-- **The `use-milume` skill.** One-line install via `npx skills add ckmah/milume --skill use-milume`, `python -m milume.skill install` (copies the version-matched file from the wheel into `.agents/skills/use-milume/SKILL.md`), or the Claude Code marketplace (`/plugin marketplace add ckmah/milume`, then `use-milume@milume`). `.claude-plugin/plugin.json` exposes only that skill; keep its `version` in sync with `milume.__version__` when releasing ([#338](https://github.com/ckmah/milume/issues/338)).
-
-### Fixed
-
-- The Inspect (**I**) shortcut works with the pointer over the map ([#364](https://github.com/ckmah/milume/pull/364), [#362](https://github.com/ckmah/milume/issues/362)).
-- molab demo notebooks include explicit "click Run all" guidance ([#366](https://github.com/ckmah/milume/pull/366), [#361](https://github.com/ckmah/milume/issues/361)).
-- Vertex-only lasso and polygon selections populate Measure category counts instead of "No category counts in this scope" ([#371](https://github.com/ckmah/milume/pull/371), [#370](https://github.com/ckmah/milume/issues/370)).
-- Pressing Escape in the Explore genes picker only closes the popup; it no longer clears every picked gene when the popup was already closed ([#252](https://github.com/ckmah/milume/issues/252)).
-- On Python 3.14, `uv add milume` with `matplotlib>=3.11.2` no longer fails building ancient `s3fs` 0.3.5; declare `s3fs>=2024.1` ([#350](https://github.com/ckmah/milume/issues/350)).
-
-### Changed
-
-- **`color` is a `ColorSpec`.** Assign an obs column, a gene name, a gene list (blend), or an `obsm` key. Colour mode, legend, palette, category columns, the gene catalogue, and embedding packs sync as private traits (`_color_state`, `_look`, `_color_options`, `_category_columns`, `_category_codes`, `_embedding_*`, `_gene_csc_*`) instead of top-level `color_mode`, `legend_*`, `category_columns`, `gene_names`, `raster_basis`, and `raster_embedding_key` ([#394](https://github.com/ckmah/milume/issues/394)).
-
-- **Map panel layout (option 1).** Left dock accordion (Selections · Landmarks · Layers), right data card tabs (cat · num · genes · embed), a reserved depth-rail chrome slot (behaviour in [#122](https://github.com/ckmah/milume/issues/122)), minimise mode (Shift+\\), and Spline as the default landmark tool ([#393](https://github.com/ckmah/milume/issues/393)).
-- **`channels=` on `LandmarksWidget` / `milume.peek`.** Pass channel names to show on open for the SpatialData tissue image; unknown names raise before render ([#122](https://github.com/ckmah/milume/issues/122)).
-
-- **Lighter core install.** `matplotlib`, `polars`, and `leidenalg` (and `igraph` with it) are no longer installed by `pip install milume`. Category columns use pandas categorical codes (same labels, order, and colours); lasso hit-testing uses a numpy port of matplotlib's point-in-path test. Tab10/tab20 palettes are hardcoded with the same hex values. Demo notebooks and the Squidpy niche recipe still need `leidenalg` where they call `sc.tl.leiden`.
-- **Dependency floors.** `spatialdata>=0.7.3` (>=0.8.0 on Python 3.12+ so anndata 0.13 cannot pair with broken 0.7.3). `pyarrow>=16` is declared for cell-polygon parquet. `s3fs>=2024.1` on Python 3.14.
-- **Smaller sdist.** The source distribution no longer ships `website/`, README screenshots, Playwright snapshots, or vendored `.agents/` / `.cursor/` config (~60 MB to ~4.3 MB). Wheel contents unchanged.
-- **Minified widget bundle.** `milume/static/bundled/landmarks.mjs` ships minified (5.17 → 3.99 MB raw; 1.41 → 1.24 MB gzip) ([#318](https://github.com/ckmah/milume/issues/318)).
-- **Inspect contrast default.** When `contrast_limits` is omitted, the upper limit is the max of the coarsest pyramid level instead of the 99.5th percentile (colon A2 default goes from `(0, 171)` to `(0, 249)`).
-- Inspect segmentation meshes default to **0.6** peak opacity (was 0.9).
+## Unreleased
 
 ### Migration (#394)
 
-**Timeline.** `active_category` and `active_genes` remain on `LandmarksWidget` through 2.x. Assigning either emits `DeprecationWarning` and will fail in 3.0. All other removed top-level colour traits (below) are gone immediately in 2.1.0 with no warning; observe the private synced traits or assign `color` instead.
+**Timeline.** `active_category` and `active_genes` remain on `LandmarksWidget` through 2.x. Assigning either emits `DeprecationWarning` and will fail in 3.0. All other removed top-level colour traits (below) are removed in the **next release** with no warning; observe the private synced traits or assign `color` instead.
 
 **Exact warning** (only when you assign `active_category` or `active_genes` yourself):
 
@@ -70,7 +41,39 @@ Replace `<name>` with `active_category` or `active_genes`.
 
 **Shim choice.** Only `active_category` and `active_genes` stay as deprecated public traits because they were documented notebook setters and reads; they still mirror `color` without warnings when the widget updates them internally. We did not add deprecated properties for `color_mode` or `gene_names` because observers on those names would keep code on the old surface; migrating to `color` plus `_color_state` / `_color_options` is the supported path.
 
-**Signed numeric obs (decoupler / LIANA-style scores).** When a column’s finite values span zero (`min < 0 < max`), the widget auto-selects a diverging palette (ColorBrewer-style blue → neutral → red, neutral at 0), symmetric limits `±max(|v|)`, and sets `_look["color_diverging"]`. Sequential columns keep the cream→magenta ramp and p99 cap. Override without a public API via `_look["color_diverging_override"]` (`true` / `false`) before re-assigning `color`; future chrome may expose this in the UI.
+**Signed numeric obs (decoupler / LIANA-style scores).** When a column's finite values span zero (`min < 0 < max`), the widget auto-selects a diverging palette (ColorBrewer-style blue → neutral → red, neutral at 0), symmetric limits `±max(|v|)`, and sets `_look["color_diverging"]`. Sequential columns keep the cream→magenta ramp and p99 cap. Override without a public API via `_look["color_diverging_override"]` (`true` / `false`) before re-assigning `color`; future chrome may expose this in the UI.
+
+## 2.1.0 (unreleased)
+
+### Added
+
+- **Landmarks map image backdrop.** SpatialData widgets show a tissue image under scatter (volume comm + Zarr pyramid, multichannel 2D or Z-band max projection for 3D); Layers stack exposes visibility, alpha, contrast, and channel toggles ([#122](https://github.com/ckmah/milume/issues/122)).
+- **`milume.datasets` / `milume.ds` (v1: ileum).** After ``import milume as ml``, ``ml.datasets`` and the alias ``ml.ds`` (same module object) expose scverse-style loaders for demo AnnData: ``ileum_merfish_xu2026()``, ``list_datasets()``, ``info()``, and ``fetch()`` with pinned-url download, sha256 verification, and ``$MILUME_DATA_DIR`` cache ([#380](https://github.com/ckmah/milume/issues/380)).
+- **On-demand gene loading and the 8-gene picker.** `milume.peek(adata)` opens with gene names only; the browser fetches a gene's normalized sparse column from the kernel the first time it is coloured, then keeps it in an LRU cache (128 MiB). On a 170,057-cell × 18,028-gene matrix at 10% density (Atera WTA breast scale), the kernel's peak extra memory from construct through comm-open drops from about 9.6 GiB (2.0.0, extrapolated from 0.96 GiB and 1.88 GiB measured at 1/10 and 1/5 of the cells) to 77 MiB measured at full scale, and the gene part of the comm-open message drops from about 3.1 GiB to 0.3 MiB. The 2.0.0 path OOM-killed the Jupyter kernel on that dataset. `genes=[...]` still restricts the catalog and preloads it when it packs under 64 MiB; a larger list loads on demand with a `UserWarning`. Pick up to 8 genes: up to three blend one colour channel each; four or more colour by one combined value with **Mean** / **Median** / **Max** under the gene field. Fetching a gene from CSR `adata.X` binary-searches each cell's sorted column indices (about 47 ms vs 545 ms per gene on that matrix; [#241](https://github.com/ckmah/milume/issues/241), [#248](https://github.com/ckmah/milume/issues/248), [#253](https://github.com/ckmah/milume/issues/253)).
+- **The `use-milume` skill.** One-line install via `npx skills add ckmah/milume --skill use-milume`, `python -m milume.skill install` (copies the version-matched file from the wheel into `.agents/skills/use-milume/SKILL.md`), or the Claude Code marketplace (`/plugin marketplace add ckmah/milume`, then `use-milume@milume`). `.claude-plugin/plugin.json` exposes only that skill; keep its `version` in sync with `milume.__version__` when releasing ([#338](https://github.com/ckmah/milume/issues/338)).
+
+### Fixed
+
+- The Inspect (**I**) shortcut works with the pointer over the map ([#364](https://github.com/ckmah/milume/pull/364), [#362](https://github.com/ckmah/milume/issues/362)).
+- molab demo notebooks include explicit "click Run all" guidance ([#366](https://github.com/ckmah/milume/pull/366), [#361](https://github.com/ckmah/milume/issues/361)).
+- Vertex-only lasso and polygon selections populate Measure category counts instead of "No category counts in this scope" ([#371](https://github.com/ckmah/milume/pull/371), [#370](https://github.com/ckmah/milume/issues/370)).
+- Pressing Escape in the Explore genes picker only closes the popup; it no longer clears every picked gene when the popup was already closed ([#252](https://github.com/ckmah/milume/issues/252)).
+- On Python 3.14, `uv add milume` with `matplotlib>=3.11.2` no longer fails building ancient `s3fs` 0.3.5; declare `s3fs>=2024.1` ([#350](https://github.com/ckmah/milume/issues/350)).
+
+### Changed
+
+- **`color` is a `ColorSpec`.** Assign an obs column, a gene name, a gene list (blend), or an `obsm` key. Colour mode, legend, palette, category columns, the gene catalogue, and embedding packs sync as private traits (`_color_state`, `_look`, `_color_options`, `_category_columns`, `_category_codes`, `_embedding_*`, `_gene_csc_*`) instead of top-level `color_mode`, `legend_*`, `category_columns`, `gene_names`, `raster_basis`, and `raster_embedding_key` ([#394](https://github.com/ckmah/milume/issues/394)).
+
+- **Map panel layout (option 1).** Left dock accordion (Selections · Landmarks · Layers), right data card tabs (cat · num · genes · embed), a reserved depth-rail chrome slot (behaviour in [#122](https://github.com/ckmah/milume/issues/122)), minimise mode (Shift+\\), and Spline as the default landmark tool ([#393](https://github.com/ckmah/milume/issues/393)).
+- **`channels=` on `LandmarksWidget` / `milume.peek`.** Pass channel names to show on open for the SpatialData tissue image; unknown names raise before render ([#122](https://github.com/ckmah/milume/issues/122)).
+
+- **Lighter core install.** `matplotlib`, `polars`, and `leidenalg` (and `igraph` with it) are no longer installed by `pip install milume`. Category columns use pandas categorical codes (same labels, order, and colours); lasso hit-testing uses a numpy port of matplotlib's point-in-path test. Tab10/tab20 palettes are hardcoded with the same hex values. Demo notebooks and the Squidpy niche recipe still need `leidenalg` where they call `sc.tl.leiden`.
+- **Dependency floors.** `spatialdata>=0.7.3` (>=0.8.0 on Python 3.12+ so anndata 0.13 cannot pair with broken 0.7.3). `pyarrow>=16` is declared for cell-polygon parquet. `s3fs>=2024.1` on Python 3.14.
+- **Smaller sdist.** The source distribution no longer ships `website/`, README screenshots, Playwright snapshots, or vendored `.agents/` / `.cursor/` config (~60 MB to ~4.3 MB). Wheel contents unchanged.
+- **Minified widget bundle.** `milume/static/bundled/landmarks.mjs` ships minified (5.17 → 3.99 MB raw; 1.41 → 1.24 MB gzip) ([#318](https://github.com/ckmah/milume/issues/318)).
+- **Inspect contrast default.** When `contrast_limits` is omitted, the upper limit is the max of the coarsest pyramid level instead of the 99.5th percentile (colon A2 default goes from `(0, 171)` to `(0, 249)`).
+- Inspect segmentation meshes default to **0.6** peak opacity (was 0.9).
+
 
 ### Deprecated
 

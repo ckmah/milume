@@ -87,7 +87,8 @@ async function main() {
   await waitEngine(page);
   await applyPatch(page, doc.colorApi, doc.shared?._color_options);
   await page.getByRole("tab", { name: "num" }).click();
-  await page.waitForTimeout(800);
+  await page.getByTestId("obs-ramp-vzero").waitFor({ state: "visible", timeout: 30_000 });
+  await page.waitForTimeout(400);
   await captureWidget(page, "after-diverging");
 
   writeFileSync(

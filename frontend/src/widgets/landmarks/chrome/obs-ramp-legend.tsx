@@ -40,17 +40,28 @@ export function ObsRampLegend({
       ) : null}
       <div className="flex items-stretch gap-1.5">
         <div
-          className="flex flex-col justify-between py-0.5 text-[11px] font-medium tabular-nums text-foreground/70"
+          className={cn(
+            "flex flex-col justify-between py-0.5 text-[11px] font-medium tabular-nums text-foreground/70",
+            diverging ? "min-h-14" : "min-h-10",
+          )}
           data-testid="obs-ramp-scale"
         >
           <span data-testid="obs-ramp-vmax">{formatLegendValue(vmax)}</span>
           {diverging ? (
-            <span data-testid="obs-ramp-vzero">{formatLegendValue(0)}</span>
+            <span
+              className="text-foreground"
+              data-testid="obs-ramp-vzero"
+            >
+              {formatLegendValue(0)}
+            </span>
           ) : null}
           <span data-testid="obs-ramp-vmin">{formatLegendValue(vmin)}</span>
         </div>
         <div
-          className="h-10 w-2.5 shrink-0 rounded-full border border-border/60"
+          className={cn(
+            "w-2.5 shrink-0 rounded-full border border-border/60",
+            diverging ? "h-14" : "h-10",
+          )}
           style={{ background: obsPaletteGradient(palette) }}
           role="img"
           aria-label={`${title || "Observation"} scale`}
