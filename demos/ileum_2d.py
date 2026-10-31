@@ -44,7 +44,7 @@ def _(mo):
 
     1. Fetch the slice and open the map on `cell_type`.
     2. Recolour by layer and villus–crypt genes.
-    3. Lasso a gut-associated lymphoid (GALT) follicle and enrich immune types in the selection.
+    3. Lasso a small GALT cryptopatch aggregate and enrich immune and stromal types in the selection.
     """)
     return
 
@@ -125,7 +125,7 @@ def _(mo, w):
 def _(mo, w):
     mo.md(
         r"""
-        Draw a **lasso** around the large GALT follicle on the map (Select tool). The next
+        Draw a **lasso** around the western GALT cryptopatch on the map (Select tool). The next
         cell replays a fixed polygon for headless runs; in molab, your own lasso replaces it
         when you re-run after drawing.
         """
@@ -135,27 +135,27 @@ def _(mo, w):
 
 @app.cell
 def _(w):
-    # Convex hull of the main GALT follicle (`anatomical_layer == "GALT"`, larger cluster).
+    # Convex hull of annotated GALT in the western cryptopatch (`anatomical_layer == "GALT"`).
     w.selections = [
         {
             "id": "galt-follicle",
             "type": "polygon",
             "vertices": [
-                [-3992.68, 1334.9],
-                [-4012.99, 1290.28],
-                [-4011.83, 1279.79],
-                [-4009.53, 1273.14],
-                [-3989.17, 1253.08],
-                [-3976.01, 1246.48],
-                [-3969.55, 1247.26],
-                [-3944.06, 1256.34],
-                [-3905.74, 1270.34],
-                [-3000.04, 1679.67],
-                [-2969.14, 1697.16],
-                [-2961.4, 1715.74],
-                [-2964.16, 1723.35],
-                [-2983.99, 1747.98],
-                [-3459.14, 1949.51],
+                [-3994.25, 1336.14],
+                [-4014.95, 1289.9],
+                [-4013.7, 1279.1],
+                [-4011.32, 1272.25],
+                [-3990.39, 1251.49],
+                [-3976.81, 1244.65],
+                [-3970.17, 1245.36],
+                [-3943.73, 1254.37],
+                [-3904.1, 1269.2],
+                [-3896.4, 1283.3],
+                [-3888.03, 1319.95],
+                [-3892.21, 1330.93],
+                [-3925.88, 1348.16],
+                [-3950.63, 1358.98],
+                [-3978.15, 1345.78],
             ],
         }
     ]
