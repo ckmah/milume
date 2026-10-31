@@ -3,7 +3,7 @@
  * Capture light still-galt-selection for the 2D tutorial (issue #372).
  *
  * Matches Clarence's hand-capture framing (1068×728): default fit-to-data zoom,
- * galt-follicle + active Mucosa · 551 selection, category tab with anatomical_layer
+ * galt-follicle + active GALT · 164 selection, category tab with anatomical_layer
  * expanded and cell_type / cell_class collapsed.
  *
  * Prereq:
@@ -40,10 +40,11 @@ const indicesPath =
   process.env.GALT_INDICES_JSON ??
   join(root, "frontend", "dev", "galt-point-indices.json");
 const pointIndices = JSON.parse(readFileSync(indicesPath, "utf8"));
-if (!Array.isArray(pointIndices) || pointIndices.length !== 551) {
-  throw new Error(`expected 551 point indices, got ${pointIndices?.length}`);
+if (!Array.isArray(pointIndices) || pointIndices.length !== 164) {
+  throw new Error(`expected 164 point indices, got ${pointIndices?.length}`);
 }
 
+const theme = process.env.GALT_STILL_THEME ?? "light";
 const { width: stillW, height: stillH } = GALT_TUTORIAL_STILL_SIZE;
 
 async function installGaltStillViewport(page) {
@@ -110,7 +111,7 @@ async function prepareGaltView(page) {
     active_genes: [],
     selections: [
       { id: "galt-follicle", point_indices: pointIndices },
-      { id: "Mucosa · 551", point_indices: pointIndices },
+      { id: "GALT · 164", point_indices: pointIndices },
     ],
     selected_kind: "selection",
     selected_index: 1,
@@ -123,7 +124,7 @@ async function prepareGaltView(page) {
   if ((await right.getAttribute("data-collapsed")) === "true") {
     await page.getByRole("button", { name: "Show right panel" }).click();
   }
-  await page.getByRole("tab", { name: "category" }).click();
+  await page.getByRole("tab", { name: "cat" }).click();
   await page.getByRole("button", { name: "Expand anatomical_layer" }).click();
   await page.waitForFunction(() => {
     const well = document.querySelector('[data-testid="info-chart-well"]');
@@ -140,12 +141,12 @@ async function main() {
   });
   try {
     const page = await browser.newPage({ viewport: { width: stillW, height: stillH } });
-    await installDocsCaptureChrome(page, "light");
+    await installDocsCaptureChrome(page, theme);
     await installGaltStillViewport(page);
     await gotoDocsFixture(page, baseUrl, ileumFixture);
-    await applyDocsHarnessTheme(page, "light");
+    await applyDocsHarnessTheme(page, theme);
     await prepareGaltView(page);
-    const out = join(assets, "still-galt-selection.light.png");
+    const out = join(assets, `still-galt-selection.${theme}.png`);
     const lm = page.locator(".landmarks").first();
     const box = await lm.boundingBox();
     if (!box || Math.round(box.width) !== stillW || Math.round(box.height) !== stillH) {
