@@ -1,4 +1,10 @@
-import { decodeF32Base64, decodeI32Base64 } from "@/widgets/landmarks/binary";
+import { decodeF32Base64 } from "@/widgets/landmarks/binary";
+import {
+  decodeGeneCscF32,
+  decodeGeneCscI32,
+  decodeGeneCscF32Sync,
+  decodeGeneCscI32Sync,
+} from "@/widgets/landmarks/gene-csc-binary";
 import type { AnyModel } from "@/widgets/landmarks/helpers";
 import { isCommVolumeUrl } from "@/widgets/volume-cube/volume-url";
 
@@ -21,7 +27,7 @@ function base64Bytes(b64: string): number {
  * The fixture's gene pack, held "kernel-side" like Python's ``_gene_get``. Legacy
  * fixtures carry dense col-major ``gene_values``; newer ones the CSC traits.
  */
-function kernelGenes(state: Record<string, unknown>): Map<string, KernelGene> {
+async function kernelGenes(state: Record<string, unknown>): Promise<Map<string, KernelGene>> {
   const meta = (state.gene_names as Array<{ name: string; vmin?: number; vmax?: number }>) ?? [];
   const n = Math.floor(base64Bytes(String(state.points_data ?? "")) / 16);
   const out = new Map<string, KernelGene>();
@@ -29,11 +35,24 @@ function kernelGenes(state: Record<string, unknown>): Map<string, KernelGene> {
     const m = meta[j]!;
     out.set(m.name, { name: m.name, vmin: m.vmin ?? 0, vmax: m.vmax ?? 1, rows, values });
   };
-  const indptr = decodeI32Base64(String(state.gene_csc_indptr ?? ""));
-  if (indptr.length === meta.length + 1 && meta.length) {
-    const indices = decodeI32Base64(String(state.gene_csc_indices ?? ""));
-    const data = decodeF32Base64(String(state.gene_csc_data ?? ""));
-    meta.forEach((_, j) => put(j, indices.slice(indptr[j], indptr[j + 1]), data.slice(indptr[j], indptr[j + 1])));
+  const codec = String(state.gene_csc_codec ?? "");
+  const indptrB64 = String(state.gene_csc_indptr ?? "");
+  if (indptrB64) {
+    const indptr =
+      codec === "gzip"
+        ? await decodeGeneCscI32(indptrB64, codec)
+        : decodeGeneCscI32Sync(indptrB64, codec);
+    if (indptr.length === meta.length + 1 && meta.length) {
+      const indices =
+        codec === "gzip"
+          ? await decodeGeneCscI32(String(state.gene_csc_indices ?? ""), codec)
+          : decodeGeneCscI32Sync(String(state.gene_csc_indices ?? ""), codec);
+      const data =
+        codec === "gzip"
+          ? await decodeGeneCscF32(String(state.gene_csc_data ?? ""), codec)
+          : decodeGeneCscF32Sync(String(state.gene_csc_data ?? ""), codec);
+      meta.forEach((_, j) => put(j, indices.slice(indptr[j], indptr[j + 1]), data.slice(indptr[j], indptr[j + 1])));
+    }
   } else {
     const dense = decodeF32Base64(String(state.gene_values ?? ""));
     const active = (state.active_genes as string[]) ?? [];
@@ -61,14 +80,14 @@ function kernelGenes(state: Record<string, unknown>): Map<string, KernelGene> {
  * demand through a simulated ``_gene_get`` (names-only catalog, like Python's
  * default); ``?eagerGenes=1`` keeps the fixture's CSC pack in the state instead.
  */
-export function createMockModel(
+export async function createMockModel(
   initial: Record<string, unknown>,
   options: { volumeStaticRoot?: string; fixtureUrl?: string } = {},
-): AnyModel {
+): Promise<AnyModel> {
   const state: Record<string, unknown> = { ...initial };
   const eagerGenes =
     typeof window !== "undefined" && new URLSearchParams(window.location.search).get("eagerGenes") === "1";
-  const genesKernel = kernelGenes(state);
+  const genesKernel = await kernelGenes(state);
   const geneRequests: string[][] = [];
   if (!eagerGenes) {
     state.gene_names = ((state.gene_names as Array<{ name: string }>) ?? []).map((g) => ({ name: g.name }));
@@ -252,5 +271,5 @@ export async function loadFixtureModel(url?: string): Promise<AnyModel> {
   }
   const initial = (await res.json()) as Record<string, unknown>;
   const fixtureUrl = url ?? harnessFixtureUrl();
-  return createMockModel(initial, { fixtureUrl });
+  return await createMockModel(initial, { fixtureUrl });
 }
