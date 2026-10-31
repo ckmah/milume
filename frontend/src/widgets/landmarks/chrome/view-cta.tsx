@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Morph } from "cube-motion/react";
-import { CircleDot, Grid2x2, MinusIcon, PlusIcon, Ruler } from "lucide-react";
+import { CircleDot, Grid2x2, Ruler, SquareMinus, SquarePlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -89,13 +89,11 @@ export function ViewCta({
             onClick={onToggleMinimise}
             className={cn(chromeHitClass, minimise && chromeHitOnClass)}
           >
-            <span className="landmarks-view-minimise-box" aria-hidden>
-              {minimise ? (
-                <PlusIcon className="size-3" />
-              ) : (
-                <MinusIcon className="size-3" />
-              )}
-            </span>
+            {minimise ? (
+              <SquarePlus className="size-4" strokeWidth={2} aria-hidden />
+            ) : (
+              <SquareMinus className="size-4" strokeWidth={2} aria-hidden />
+            )}
           </Button>
         </ChromeTooltip>
       </div>
