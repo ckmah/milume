@@ -57,6 +57,7 @@
       "embedding_matrix": "trait Unicode",
       "embedding_matrix_dim": "trait Int",
       "embedding_values": "trait Unicode",
+      "gene_csc_codec": "trait Unicode",
       "gene_csc_data": "trait Unicode",
       "gene_csc_indices": "trait Unicode",
       "gene_csc_indptr": "trait Unicode",

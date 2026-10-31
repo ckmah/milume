@@ -46,6 +46,7 @@ FIXTURE_KEYS = [
     "gene_csc_indptr",
     "gene_csc_indices",
     "gene_csc_data",
+    "gene_csc_codec",
     "x_bounds",
     "y_bounds",
     "point_size",

@@ -102,8 +102,10 @@ function resolveChannelIndex(source, channelName, entries) {
 }
 
 function normalizeSample(value, lo, hi) {
+  const v = Number(value);
+  if (v <= lo) return 0;
   const span = Math.max(hi - lo, 1e-9);
-  return Math.max(0, Math.min(1, (Number(value) - lo) / span));
+  return Math.min(1, (v - lo) / span);
 }
 
 function maxProjectSlice(data, box, lo, hi) {
@@ -140,18 +142,23 @@ function additiveRgbFromPlane(gray, rgb, plane, tint) {
   }
 }
 
-function rgbaFromRgb(rgb, width, height) {
+function rgbaFromRgb(rgb, width, height, alphaMult = 1) {
   const plane = width * height;
   const out = new Uint8ClampedArray(plane * 4);
+  const a = Number.isFinite(alphaMult) ? Math.max(0, Math.min(1, alphaMult)) : 1;
   for (let row = 0; row < height; row++) {
     const srcRow = height - 1 - row;
     for (let col = 0; col < width; col++) {
       const si = srcRow * width + col;
       const di = (row * width + col) * 4;
-      out[di] = Math.round(rgb[si * 3] * 255);
-      out[di + 1] = Math.round(rgb[si * 3 + 1] * 255);
-      out[di + 2] = Math.round(rgb[si * 3 + 2] * 255);
-      out[di + 3] = 255;
+      const r = Math.round(rgb[si * 3] * 255 * a);
+      const g = Math.round(rgb[si * 3 + 1] * 255 * a);
+      const b = Math.round(rgb[si * 3 + 2] * 255 * a);
+      const empty = r === 0 && g === 0 && b === 0;
+      out[di] = empty ? 0 : r;
+      out[di + 1] = empty ? 0 : g;
+      out[di + 2] = empty ? 0 : b;
+      out[di + 3] = empty ? 0 : 255;
     }
   }
   return out;
@@ -364,9 +371,15 @@ export function createMapImageBackdrop({
 
     const wPx = box.x1 - box.x0;
     const hPx = box.y1 - box.y0;
-    const pixels = rgbaFromRgb(rgb, wPx, hPx);
+    const alphaMult = Number(model.get("_image_alpha"));
+    const pixels = rgbaFromRgb(
+      rgb,
+      wPx,
+      hPx,
+      Number.isFinite(alphaMult) ? alphaMult : 0.55,
+    );
     const imageData = new ImageData(pixels, wPx, hPx);
-    const bitmap = await createImageBitmap(imageData);
+    const bitmap = await createImageBitmap(imageData, { premultiplyAlpha: "none" });
     if (gen !== fetchGen || disposed) {
       bitmap.close();
       return;
@@ -399,14 +412,13 @@ export function createMapImageBackdrop({
     lastViewState = viewState ?? lastViewState;
     if (!cache.image || !cache.bounds) return [];
     const { BitmapLayer } = getDeckModules();
-    const alpha = Number(model.get("_image_alpha"));
     return [
       new BitmapLayer({
         id: "map-image-backdrop",
         image: cache.image,
         bounds: cache.bounds,
         pickable: false,
-        opacity: Number.isFinite(alpha) ? alpha : 0.55,
+        opacity: 1,
         textureParameters: {
           minFilter: "linear",
           magFilter: "linear",
@@ -418,6 +430,10 @@ export function createMapImageBackdrop({
         },
       }),
     ];
+  }
+
+  function getBounds() {
+    return cache.bounds ? [...cache.bounds] : null;
   }
 
   function dispose() {
@@ -438,5 +454,6 @@ export function createMapImageBackdrop({
     noteViewChange,
     noteViewInteractionEnd,
     getLastPick: () => lastPick,
+    getBounds,
   };
 }

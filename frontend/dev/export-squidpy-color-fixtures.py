@@ -29,6 +29,7 @@ FIXTURE_KEYS = [
     "gene_csc_indptr",
     "gene_csc_indices",
     "gene_csc_data",
+    "gene_csc_codec",
     "active_genes",
     "color_mode",
     "legend_labels",

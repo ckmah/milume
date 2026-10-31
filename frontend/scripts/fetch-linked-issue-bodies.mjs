@@ -18,6 +18,10 @@ for (const n of findLinkedIssueNumbers(body)) {
     encoding: "utf8",
     env: { ...process.env, GH_TOKEN: token },
   });
-  map[n] = JSON.parse(json).body ?? "";
+  const issue = JSON.parse(json);
+  map[n] = {
+    body: issue.body ?? "",
+    labels: (issue.labels ?? []).map((l) => l.name),
+  };
 }
 writeFileSync("issue-bodies.json", JSON.stringify(map));

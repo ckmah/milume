@@ -44,7 +44,7 @@ def _(mo):
 
     1. Fetch the slice and open the map on `cell_type`.
     2. Recolour by layer and villus–crypt genes.
-    3. Lasso a gut-associated lymphoid (GALT) follicle and enrich immune types in the selection.
+    3. Lasso the GALT cryptopatch aggregates and enrich immune and stromal types in the selection.
     """)
     return
 
@@ -125,8 +125,8 @@ def _(mo, w):
 def _(mo, w):
     mo.md(
         r"""
-        Draw a **lasso** around the large GALT follicle on the map (Select tool). The next
-        cell replays a fixed polygon for headless runs; in molab, your own lasso replaces it
+        Draw **lassos** around each GALT cryptopatch aggregate on the map (Select tool). The next
+        cell replays fixed polygons for headless runs; in molab, your own lassos replace them
         when you re-run after drawing.
         """
     )
@@ -135,29 +135,47 @@ def _(mo, w):
 
 @app.cell
 def _(w):
-    # Convex hull of the main GALT follicle (`anatomical_layer == "GALT"`, larger cluster).
+    # Western: +1 µm padded convex hull of annotated GALT. Eastern: inner 92.5% radial GALT hull (+3% pad).
     w.selections = [
         {
-            "id": "galt-follicle",
+            "id": "galt-aggregates-west",
             "type": "polygon",
             "vertices": [
-                [-3992.68, 1334.9],
-                [-4012.99, 1290.28],
-                [-4011.83, 1279.79],
-                [-4009.53, 1273.14],
-                [-3989.17, 1253.08],
-                [-3976.01, 1246.48],
-                [-3969.55, 1247.26],
-                [-3944.06, 1256.34],
-                [-3905.74, 1270.34],
-                [-3000.04, 1679.67],
-                [-2969.14, 1697.16],
-                [-2961.4, 1715.74],
-                [-2964.16, 1723.35],
-                [-2983.99, 1747.98],
-                [-3459.14, 1949.51],
+                [-3993.47, 1335.52],
+                [-4013.97, 1290.09],
+                [-4012.76, 1279.44],
+                [-4010.43, 1272.69],
+                [-3989.78, 1252.28],
+                [-3976.41, 1245.56],
+                [-3969.86, 1246.31],
+                [-3943.89, 1255.36],
+                [-3904.92, 1269.77],
+                [-3897.35, 1283.63],
+                [-3889.0, 1319.68],
+                [-3893.11, 1330.49],
+                [-3926.37, 1347.29],
+                [-3950.65, 1357.98],
+                [-3977.63, 1344.92],
             ],
-        }
+        },
+        {
+            "id": "galt-aggregates-east",
+            "type": "polygon",
+            "vertices": [
+                [-2992.42, 1752.03],
+                [-3028.2, 1748.27],
+                [-3055.62, 1715.37],
+                [-3058.96, 1698.55],
+                [-3059.93, 1691.12],
+                [-3058.21, 1686.83],
+                [-3040.21, 1666.9],
+                [-3034.53, 1666.8],
+                [-2999.43, 1678.88],
+                [-2967.61, 1696.89],
+                [-2967.12, 1719.82],
+                [-2982.89, 1749.24],
+            ],
+        },
     ]
     w.color = "cell_type"
     return
@@ -165,7 +183,7 @@ def _(w):
 
 @app.cell
 def _(adata, ml, w):
-    galt_hits = w.get_obs_names("galt-follicle")
+    galt_hits = w.get_obs_names("galt-aggregates-west").union(w.get_obs_names("galt-aggregates-east"))
     enrich = ml.enrichment(adata, galt_hits, obs_key="cell_type")
     enrich
     return enrich, galt_hits
