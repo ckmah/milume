@@ -110,22 +110,34 @@ async function zoomIn(page, steps = 1) {
 
 async function captureIssue122d(page) {
   await load(page);
-  await openLayers(page);
-  await captureWidget(page, "122-2d-default-dapi-gray");
   await page.evaluate(() => {
     const lm = window.__landmarksModel;
     const vol = lm.get("volume") || {};
-    const channels = (vol.channels || []).map((c) => ({
-      ...c,
-      visible: c.name === "DAPI" || c.name === "PanCK",
-    }));
-    lm.set("_image_channels", channels);
+    lm.set(
+      "_image_channels",
+      (vol.channels || []).map((c) => ({
+        ...c,
+        visible: c.name === "DAPI" || c.name === "PanCK",
+      })),
+    );
+    lm.save_changes();
+  });
+  await page.waitForTimeout(400);
+  await openLayers(page);
+  await captureWidget(page, "122-2d-two-channel-blend-layers");
+  await page.evaluate(() => {
+    const lm = window.__landmarksModel;
+    const vol = lm.get("volume") || {};
+    lm.set(
+      "_image_channels",
+      (vol.channels || []).map((c) => ({ ...c, visible: c.name === "DAPI" })),
+    );
     lm.save_changes();
   });
   await page.waitForTimeout(600);
-  await captureWidget(page, "122-2d-two-channel-blend-layers");
+  await captureWidget(page, "122-2d-default-dapi-gray");
   await zoomIn(page, 2);
-  await captureWidget(page, "122-2d-two-channel-zoomed");
+  await captureWidget(page, "122-2d-dapi-zoomed");
 }
 
 async function captureColon(page) {

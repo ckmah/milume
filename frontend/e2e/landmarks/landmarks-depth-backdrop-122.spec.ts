@@ -13,6 +13,7 @@ import {
 const volumeHarness = process.env.E2E_HARNESS === "landmarks-volume";
 const volumeProfile = process.env.E2E_VOLUME_PROFILE ?? "toy";
 const issue122d = volumeProfile === "issue122-2d";
+const colonProfile = volumeProfile === "colon";
 const ILEUM_FIXTURE = "/e2e-galt-lasso-fixture.json";
 
 async function openLayersSection(page: import("@playwright/test").Page) {
@@ -173,6 +174,53 @@ test.describe("depth backdrop (#122) — 2D multichannel fixture", () => {
     await shot(page, "122-2d-two-channel-blend", widget);
   });
 
+});
+
+test.describe("depth backdrop (#122) — colon 3D volume", () => {
+  test.skip(!volumeHarness || !colonProfile, "requires E2E_HARNESS=landmarks-volume and E2E_VOLUME_PROFILE=colon");
+
+  test.beforeEach(async ({ page }) => {
+    await bootLandmarksVolumeHarness(page, "noDialkit=1");
+  });
+
+  test("Escape during lower bound drag reverts z_band_lo_um", async ({ page }) => {
+    await expect(page.getByTestId("depth-rail")).toBeVisible();
+    const loBefore = (await getModel(page, "z_band_lo_um")) as number;
+    const loThumb = page.getByRole("slider", { name: "Lower z bound" });
+    const box = await loThumb.boundingBox();
+    expect(box).toBeTruthy();
+    const cx = box!.x + box!.width / 2;
+    const cy = box!.y + box!.height / 2;
+    await loThumb.hover();
+    await page.mouse.down();
+    await page.mouse.move(cx, cy + 28, { steps: 8 });
+    await expect(loThumb).toHaveClass(/dragging/);
+    await expect.poll(async () => (await getModel(page, "z_band_lo_um")) as number).not.toBeCloseTo(loBefore, 0);
+    await page.evaluate(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    });
+    await expect.poll(async () => (await getModel(page, "z_band_lo_um")) as number).toBeCloseTo(loBefore, 0);
+    await page.mouse.up();
+  });
+
+  test("symmetric band readout uses whole numbers on one line", async ({ page }) => {
+    await expect(page.getByTestId("depth-rail")).toBeVisible();
+    const focus = Math.round((await getModel(page, "z_focus_um")) as number);
+    const lo = focus - 5;
+    const hi = focus + 5;
+    await setModel(page, { z_focus_um: focus, z_band_lo_um: lo, z_band_hi_um: hi });
+    const rail = page.getByTestId("depth-rail");
+    const half = 5;
+    await expect.poll(async () => rail.locator(".landmarks-depth-rail__readout-main").textContent()).toBe(
+      `${focus} ± ${half}`,
+    );
+    await expect(rail.locator(".landmarks-depth-rail__readout-sub")).toHaveText(`${lo}–${hi} µm`);
+    const line = await rail.locator(".landmarks-depth-rail__readout-line").boundingBox();
+    const sub = await rail.locator(".landmarks-depth-rail__readout-sub").boundingBox();
+    expect(line).toBeTruthy();
+    expect(sub).toBeTruthy();
+    expect(line!.width).toBeLessThanOrEqual(58 + 4);
+  });
 });
 
 test.describe("depth backdrop (#122) — default harness", () => {

@@ -108,8 +108,19 @@ async function runBench(revTag, channelMode = "default") {
     await p.mouse.up();
   });
 
+  const band3d = await measureScenario(page, "band-move-3d", async (p) => {
+    const focus = p.getByRole("slider", { name: "Focus z" });
+    if ((await focus.count()) === 0) return;
+    const box = await focus.boundingBox();
+    if (!box) return;
+    await p.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await p.mouse.down();
+    await p.mouse.move(box.x + box.width / 2, box.y + box.height - 36, { steps: 10 });
+    await p.mouse.up();
+  });
+
   await browser.close();
-  return { revTag, profile, channelMode, pan, rail };
+  return { revTag, profile, channelMode, pan, rail, band3d };
 }
 
 function gitRev(label) {
@@ -120,11 +131,12 @@ function gitRev(label) {
 async function main() {
   const rows = [];
   const head = gitRev("HEAD");
-  const channelModes = profile === "issue122-2d" ? ["1", "2", "4"] : ["default"];
+  const channelModes =
+    profile === "issue122-2d" ? ["1", "2", "4"] : profile === "colon" ? ["3d"] : ["default"];
   for (const channelMode of channelModes) {
     rows.push(await runBench(`pr-${head.slice(0, 8)}`, channelMode));
   }
-  if (compareMain) {
+  if (compareMain && profile === "issue122-2d") {
     const main = gitRev("origin/main");
     spawnSync("git", ["stash", "push", "-m", "bench-depth-backdrop", "--", ":!frontend/dev/landmarks-volume/public"], {
       stdio: "inherit",
@@ -132,7 +144,7 @@ async function main() {
     spawnSync("git", ["checkout", "origin/main", "--", "frontend/src/widgets/landmarks", "milume/static/landmarks.js"], {
       stdio: "inherit",
     });
-    rows.push(await runBench(`main-${main.slice(0, 8)}`, "default"));
+    rows.push(await runBench(`main-${main.slice(0, 8)}`, "2"));
     spawnSync("git", ["checkout", "HEAD", "--", "frontend/src/widgets/landmarks", "milume/static/landmarks.js"], {
       stdio: "inherit",
     });
@@ -140,6 +152,16 @@ async function main() {
   }
   const out = join(artifactDir, "depth-backdrop-122-perf.json");
   writeFileSync(out, JSON.stringify(rows, null, 2));
+  const md = [
+    "| scenario | p50 pan (ms) | p95 pan (ms) | p50 rail (ms) | p95 rail (ms) | p50 band (ms) | level | heap MB |",
+    "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+    ...rows.map((r) => {
+      const ch = r.channelMode === "default" ? "toy" : `${r.channelMode}ch`;
+      return `| ${r.revTag} ${ch} | ${r.pan.p50Ms.toFixed(1)} | ${r.pan.p95Ms.toFixed(1)} | ${r.rail.p50Ms.toFixed(1)} | ${r.rail.p95Ms.toFixed(1)} | ${(r.band3d?.p50Ms ?? 0).toFixed(1)} | ${r.pan.pyramidLevel ?? "—"} | ${r.pan.jsHeapMb?.toFixed(1) ?? "—"} |`;
+    }),
+  ].join("\n");
+  writeFileSync(join(artifactDir, "depth-backdrop-122-perf.md"), md);
+  console.log(md);
   console.log(JSON.stringify(rows, null, 2));
   console.log(`wrote ${out}`);
 }

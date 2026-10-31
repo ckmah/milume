@@ -105,6 +105,7 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
   const { hasZ, lo: extLo, hi: extHi } = usePointZExtent(lm.points_data);
   const railRef = useRef<HTMLDivElement>(null);
   const dragSnapshot = useRef<BandSnapshot | null>(null);
+  const dragActiveRef = useRef<DragKind | null>(null);
 
   const bandLo = lm.z_band_lo_um;
   const bandHi = lm.z_band_hi_um;
@@ -157,45 +158,52 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
   const beginDrag = useCallback(
     (kind: DragKind) => {
       dragSnapshot.current = { focus, lo: bandLo, hi: bandHi };
+      dragActiveRef.current = kind;
       setDrag(kind);
     },
     [bandHi, bandLo, focus],
   );
 
   const cancelDrag = useCallback(() => {
+    dragActiveRef.current = null;
     const snap = dragSnapshot.current;
-    if (snap) applyBandSnapshot(snap, (next) => lm.setZBand(next));
     dragSnapshot.current = null;
+    if (snap) applyBandSnapshot(snap, (next) => lm.setZBand(next));
     setDrag(null);
   }, [lm]);
 
   useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key !== "Escape" || !dragActiveRef.current) return;
+      e.preventDefault();
+      cancelDrag();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [cancelDrag]);
+
+  useEffect(() => {
     if (!drag) return;
     const onMove = (e: PointerEvent) => {
+      const kind = dragActiveRef.current;
+      if (!kind) return;
       const z = pickZ(e.clientY);
-      if (drag === "lo") pushBand({ lo: Math.min(z, bandHi - MIN_BAND_UM) });
-      else if (drag === "hi") pushBand({ hi: Math.max(z, bandLo + MIN_BAND_UM) });
+      if (kind === "lo") pushBand({ lo: Math.min(z, bandHi - MIN_BAND_UM) });
+      else if (kind === "hi") pushBand({ hi: Math.max(z, bandLo + MIN_BAND_UM) });
       else pushBand({ focus: z, moveBand: true });
     };
     const onUp = () => {
       dragSnapshot.current = null;
+      dragActiveRef.current = null;
       setDrag(null);
-    };
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        cancelDrag();
-      }
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
-    window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("keydown", onKey);
     };
-  }, [drag, bandHi, bandLo, pickZ, pushBand, cancelDrag]);
+  }, [drag, bandHi, bandLo, pickZ, pushBand]);
 
   const onSliderKey =
     (kind: DragKind) =>
