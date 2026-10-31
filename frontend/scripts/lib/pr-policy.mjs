@@ -7,8 +7,16 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 const CLOSE_RE = /\b(?:close|closes|closed|fix|fixes|fixed|resolve|resolves|resolved)\s+#\d+\b/i;
 
-/** Meta/CI tracking issues (not landmarks-ui); skip widget-issue template on linked bodies. */
+/** Grandfathered until #128 carries `ci-failure`; prefer the label in issueLabels. */
 const WIDGET_ISSUE_TEMPLATE_EXEMPT = new Set([128]);
+
+const CI_FAILURE_LABEL = "ci-failure";
+
+/** @param {number} n @param {Record<number, string[]>} issueLabels */
+export function isWidgetIssueTemplateExempt(n, issueLabels = {}) {
+  if (WIDGET_ISSUE_TEMPLATE_EXEMPT.has(n)) return true;
+  return (issueLabels[n] ?? []).includes(CI_FAILURE_LABEL);
+}
 
 /** Markdown / HTML / common agent artifact patterns for embedded UI evidence. */
 const VISUAL_EVIDENCE_RE =
@@ -169,9 +177,17 @@ export function hasVisualEvidence(text) {
  * Closing keywords only fire on the default branch, so PRs into a long-lived
  * branch (e.g. feat/*) say "Part of #N" and skip that rule. `baseRef` defaults to main.
  * Ready PRs also need a per-item "Visual acceptance" section mirroring each linked issue (#262).
- * @param {{ changedPaths: string[], body: string, isDraft: boolean, issueBodies?: Record<number, string>, baseRef?: string, labels?: string[] }}
+ * @param {{ changedPaths: string[], body: string, isDraft: boolean, issueBodies?: Record<number, string>, issueLabels?: Record<number, string[]>, baseRef?: string, labels?: string[] }}
  */
-export function validateUiPullRequest({ changedPaths, body, isDraft, issueBodies = {}, baseRef = "main", labels = [] }) {
+export function validateUiPullRequest({
+  changedPaths,
+  body,
+  isDraft,
+  issueBodies = {},
+  issueLabels = {},
+  baseRef = "main",
+  labels = [],
+}) {
   const errors = [];
   if (!isUiPullRequest(changedPaths) && !labels.includes(UI_EVIDENCE_LABEL)) return errors;
 
@@ -183,7 +199,7 @@ export function validateUiPullRequest({ changedPaths, body, isDraft, issueBodies
 
   const linked = findLinkedIssueNumbers(body);
   for (const n of linked) {
-    if (WIDGET_ISSUE_TEMPLATE_EXEMPT.has(n)) continue;
+    if (isWidgetIssueTemplateExempt(n, issueLabels)) continue;
     const issueBody = issueBodies[n];
     if (issueBody === undefined) continue;
     for (const e of validateWidgetIssueBody(issueBody)) {

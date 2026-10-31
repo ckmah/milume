@@ -34,14 +34,26 @@ if (fixture) {
     .filter(Boolean);
   const isDraft = (arg("--draft", process.env.PR_DRAFT ?? "false") || "false") === "true";
   let issueBodies = {};
+  let issueLabels = {};
   const issueBodiesFile = arg("--issue-bodies-file", "");
-  if (issueBodiesFile) issueBodies = JSON.parse(readFileSync(issueBodiesFile, "utf8"));
+  if (issueBodiesFile) {
+    const raw = JSON.parse(readFileSync(issueBodiesFile, "utf8"));
+    for (const [key, value] of Object.entries(raw)) {
+      const n = Number(key);
+      if (typeof value === "string") {
+        issueBodies[n] = value;
+      } else {
+        issueBodies[n] = value.body ?? "";
+        issueLabels[n] = value.labels ?? [];
+      }
+    }
+  }
   const baseRef = arg("--base", process.env.PR_BASE ?? "main") || "main";
   const labels = (arg("--labels", process.env.PR_LABELS ?? "") || "")
     .split(/[\n,]/)
     .map((s) => s.trim())
     .filter(Boolean);
-  payload = { body, changedPaths: changed, isDraft, issueBodies, baseRef, labels };
+  payload = { body, changedPaths: changed, isDraft, issueBodies, issueLabels, baseRef, labels };
 }
 
 const errors = validateUiPullRequest(payload);
