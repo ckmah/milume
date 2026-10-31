@@ -176,6 +176,41 @@ def landmark_map(
     )
     adata_map = adata[fov].copy()
     adata_map.obs = adata_map.obs[["cell_type", *expected]].copy()
+    galt_lasso_vertices = [
+        [-3992.68, 1334.9],
+        [-4012.99, 1290.28],
+        [-4011.83, 1279.79],
+        [-4009.53, 1273.14],
+        [-3989.17, 1253.08],
+        [-3976.01, 1246.48],
+        [-3969.55, 1247.26],
+        [-3944.06, 1256.34],
+        [-3905.74, 1270.34],
+        [-3000.04, 1679.67],
+        [-2969.14, 1697.16],
+        [-2961.4, 1715.74],
+        [-2964.16, 1723.35],
+        [-2983.99, 1747.98],
+        [-3459.14, 1949.51],
+    ]
+
+    def _point_in_ring(x: float, y: float, ring: list[list[float]]) -> bool:
+        inside = False
+        n = len(ring)
+        for i in range(n):
+            x0, y0 = ring[i]
+            x1, y1 = ring[(i + 1) % n]
+            if (y0 > y) != (y1 > y) and x < (x1 - x0) * (y - y0) / (y1 - y0 + 1e-12) + x0:
+                inside = not inside
+        return inside
+
+    spatial = adata_map.obsm["spatial"]
+    galt_point_indices = [
+        i
+        for i, (x, y) in enumerate(spatial)
+        if _point_in_ring(float(x), float(y), galt_lasso_vertices)
+    ]
+
     w = mo.ui.anywidget(
         ml.peek(
             adata_map,
@@ -188,25 +223,12 @@ def landmark_map(
         {
             "id": "galt-follicle",
             "type": "polygon",
-            "vertices": [
-                [-3992.68, 1334.9],
-                [-4012.99, 1290.28],
-                [-4011.83, 1279.79],
-                [-4009.53, 1273.14],
-                [-3989.17, 1253.08],
-                [-3976.01, 1246.48],
-                [-3969.55, 1247.26],
-                [-3944.06, 1256.34],
-                [-3905.74, 1270.34],
-                [-3000.04, 1679.67],
-                [-2969.14, 1697.16],
-                [-2961.4, 1715.74],
-                [-2964.16, 1723.35],
-                [-2983.99, 1747.98],
-                [-3459.14, 1949.51],
-            ],
+            "vertices": galt_lasso_vertices,
+            "point_indices": galt_point_indices,
         }
     ]
+    w.selected_kind = "selection"
+    w.selected_index = 0
     w
     return (w,)
 

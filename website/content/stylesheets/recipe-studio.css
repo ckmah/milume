@@ -12,16 +12,10 @@
 }
 
 .milume-recipe-studio-wide {
-  width: min(100vw - 2rem, 96rem);
-  margin-inline: calc(50% - min(50vw, 48rem));
-  max-width: none;
-}
-
-@media screen and (min-width: 76.25em) {
-  .milume-recipe-studio-wide {
-    width: calc(100vw - 19.2rem);
-    margin-inline: calc(50% - 50vw + 9.6rem);
-  }
+  width: 100%;
+  max-width: 100%;
+  margin-inline: 0;
+  overflow: hidden;
 }
 
 .milume-recipe-studio-host marimo-cell {

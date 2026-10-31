@@ -134,18 +134,28 @@ jobs:
           python3 <<'PY'
           import json, re
           from pathlib import Path
+
+          EXPECTED = "niche_k30_res0.3"
+
+          def initial_color_column(raw: str) -> str:
+              m = re.search(r'"color"\s*:\s*"([^"]+)"', raw)
+              if m:
+                  return m.group(1)
+              m = re.search(r'"active_category"\s*:\s*"([^"]+)"', raw)
+              return m.group(1) if m else ""
+
           for path in Path("/tmp/recipe-export/docs").rglob("*.cell.json"):
               d = json.loads(path.read_text())
               if d.get("cell", {}).get("name") != "landmark_map":
                   continue
-              m = re.search(r'"active_category"\s*:\s*"([^"]+)"', path.read_text())
-              ac = m.group(1) if m else ""
+              raw = path.read_text()
+              col = initial_color_column(raw)
               console = d.get("console") or []
-              if ac != "niche_k30_res0.3":
-                  raise SystemExit(f"active_category={ac!r}")
+              if col != EXPECTED:
+                  raise SystemExit(f"initial color column={col!r}")
               if console:
                   raise SystemExit(f"landmark_map console not empty: {console!r}")
-          print("active_category ok, console empty")
+          print("initial color column ok, console empty")
           PY
           python3 <<'PY'
           from pathlib import Path
