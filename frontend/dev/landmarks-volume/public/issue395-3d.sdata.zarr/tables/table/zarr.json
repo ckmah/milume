@@ -3,9 +3,9 @@
     "encoding-type": "anndata",
     "encoding-version": "0.1.0",
     "spatialdata-encoding-type": "ngff:regions_table",
-    "region": null,
-    "region_key": null,
-    "instance_key": null,
+    "region": "cells",
+    "region_key": "region",
+    "instance_key": "cell_id",
     "version": "0.2"
   },
   "zarr_format": 3,

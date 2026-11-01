@@ -1,9 +1,8 @@
 import type React from "react";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Matrix4 } from "@math.gl/core";
 import { VivViewer } from "@hms-dbmi/viv";
 import { loadVolumePyramid } from "./load-volume-pyramid";
-import equal from "fast-deep-equal";
 
 import { ChromeLoadIndicator } from "@/widgets/landmarks/chrome/load-indicator";
 
@@ -939,9 +938,12 @@ export function VolumeCube({
     () => contrastLimits.map((c) => `${c[0]},${c[1]}`).join(";"),
     [contrastLimits],
   );
-  useEffect(() => {
+  useLayoutEffect(() => {
     setCubeTraitContrast(contrastLimits);
   }, [contrastLimitsKey, contrastLimits]);
+  useEffect(() => {
+    setViewState((prev) => (prev ? { ...prev } : prev));
+  }, [contrastLimitsKey]);
   const shownRenderForDeck = useMemo(
     () => ({ ...shownRender, traitContrast: contrastLimits }),
     [shownRender, contrastLimits],
@@ -1486,7 +1488,7 @@ export function VolumeCube({
     >
       {layerProps && displayViewStates ? (
         <VolumeCubeDeck
-          deckKey={`${activeImageChannels.length}:${contrastLimitsKey}`}
+          deckKey={`channels:${activeImageChannels.length}:${contrastLimitsKey}`}
           layerProps={layerProps}
           views={views}
           viewStates={displayViewStates}
@@ -1552,31 +1554,7 @@ type VolumeCubeDeckProps = {
 };
 
 /** Viv deck only: cut-face hover updates skip this subtree so deck does not redraw. */
-function deckLayerPropsEqual(a: Record<string, unknown>[], b: Record<string, unknown>[]): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    const left = a[i]!;
-    const right = b[i]!;
-    for (const key of new Set([...Object.keys(left), ...Object.keys(right)])) {
-      const lv = left[key];
-      const rv = right[key];
-      if (typeof lv === "function" && typeof rv === "function") continue;
-      if (!equal(lv, rv)) return false;
-    }
-  }
-  return true;
-}
-
-function volumeCubeDeckPropsEqual(prev: VolumeCubeDeckProps, next: VolumeCubeDeckProps): boolean {
-  if (prev.deckKey !== next.deckKey) return false;
-  if (prev.views !== next.views) return false;
-  if (!equal(prev.viewStates, next.viewStates)) return false;
-  if (!deckLayerPropsEqual(prev.layerProps, next.layerProps)) return false;
-  if (prev.deckProps.effects !== next.deckProps.effects) return false;
-  return true;
-}
-
-const VolumeCubeDeck = memo(function VolumeCubeDeck({
+function VolumeCubeDeck({
   deckKey,
   layerProps,
   views,
@@ -1597,7 +1575,7 @@ const VolumeCubeDeck = memo(function VolumeCubeDeck({
       } as unknown as React.ComponentProps<typeof VivViewer>)}
     />
   );
-}, volumeCubeDeckPropsEqual);
+}
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);

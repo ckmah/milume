@@ -35,6 +35,16 @@ export function setCubeTraitContrast(limits: [number, number][]) {
     : [[0, 255], [0, 255], [0, 255], [0, 255]];
 }
 
+function contrastFromRender(render: CubeUniforms, channel: 0 | 1 | 2 | 3): [number, number] {
+  const pairs: ([number, number] | undefined)[] = [
+    render.imageContrast0,
+    render.imageContrast1,
+    render.imageContrast2,
+    render.imageContrast3,
+  ];
+  return pairs[channel] ?? liveTraitContrast[channel] ?? [0, 255];
+}
+
 type CubeUniforms = Partial<RenderSettings> & {
   imageOn?: number;
   imageScale?: number;
@@ -102,7 +112,6 @@ const CUBE_RENDER_DEFAULT_UNIFORMS = {
   };
 
 function cubeRenderGetUniforms(render: CubeUniforms = {}) {
-  const lim = (i: number): [number, number] => liveTraitContrast[i] ?? [0, 255];
   return {
     imageAlpha: render.imageAlpha ?? DEFAULT_RENDER.imageAlpha,
     imageGamma: render.imageGamma ?? DEFAULT_RENDER.imageGamma,
@@ -110,10 +119,10 @@ function cubeRenderGetUniforms(render: CubeUniforms = {}) {
     imageScale: render.imageScale ?? 1,
     imageMip: render.imageMip ?? 0,
     imageChannelCount: render.imageChannelCount ?? 1,
-    imageContrast0: render.imageContrast0 ?? lim(0),
-    imageContrast1: render.imageContrast1 ?? lim(1),
-    imageContrast2: render.imageContrast2 ?? lim(2),
-    imageContrast3: render.imageContrast3 ?? lim(3),
+    imageContrast0: contrastFromRender(render, 0),
+    imageContrast1: contrastFromRender(render, 1),
+    imageContrast2: contrastFromRender(render, 2),
+    imageContrast3: contrastFromRender(render, 3),
     cutX0: render.cutX0 ?? 0,
     cutX1: render.cutX1 ?? 1,
     cutY0: render.cutY0 ?? 0,
@@ -169,13 +178,15 @@ float cover(float a, float steps) {
   return 1.0 - pow(clamp(1.0 - a, 0.0, 1.0), steps);
 }
 
-vec4 imageSample(float raw) {
-  float v = cubeRender.imageContrast0.y <= cubeRender.imageContrast0.x
-    ? 0.0
-    : clamp((raw - cubeRender.imageContrast0.x) / (cubeRender.imageContrast0.y - cubeRender.imageContrast0.x), 0.0, 1.0);
+vec4 tintedSample(float raw, highp sampler3D palette, vec2 limits) {
+  float v = limits.y <= limits.x ? 0.0 : clamp((raw - limits.x) / (limits.y - limits.x), 0.0, 1.0);
   float g = pow(v, cubeRender.imageGamma);
-  vec3 c = srgbToLinear(texelFetch(imagePalette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
+  vec3 c = srgbToLinear(texelFetch(palette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
+}
+
+vec4 imageSample(float v) {
+  return tintedSample(v, imagePalette, cubeRender.imageContrast0);
 }
 
 const float NO_MESH = 1e9;
@@ -269,27 +280,26 @@ vec4 tintedSample(float raw, highp sampler3D palette, vec2 limits) {
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
-// Image value after contrast -> (linear rgb, per-sample alpha); clear with the image off.
 vec4 imageSample(float v) {
-  return tintedSample(v, imagePalette, cubeRender.imageContrast0);
+  return tintedSample(v, imagePalette, channelIntensity3D.contrastLimits0);
 }
 
 vec4 combinedImageSample2(float v0, float v1) {
-  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
-  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+  vec4 s0 = tintedSample(v0, imagePalette, channelIntensity3D.contrastLimits0);
+  vec4 s1 = tintedSample(v1, imagePalette1, channelIntensity3D.contrastLimits1);
   return vec4(s0.rgb + s1.rgb, min(1.0, s0.a + s1.a));
 }
 
 vec4 combinedImageSample3(float v0, float v1, float v2) {
-  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
-  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+  vec4 s0 = tintedSample(v0, imagePalette, channelIntensity3D.contrastLimits0);
+  vec4 s1 = tintedSample(v1, imagePalette1, channelIntensity3D.contrastLimits1);
   vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
   return vec4(s0.rgb + s1.rgb + s2.rgb, min(1.0, s0.a + s1.a + s2.a));
 }
 
 vec4 combinedImageSample4(float v0, float v1, float v2, float v3) {
-  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
-  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+  vec4 s0 = tintedSample(v0, imagePalette, channelIntensity3D.contrastLimits0);
+  vec4 s1 = tintedSample(v1, imagePalette1, channelIntensity3D.contrastLimits1);
   vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
   vec4 s3 = tintedSample(v3, imagePalette3, cubeRender.imageContrast3);
   return vec4(s0.rgb + s1.rgb + s2.rgb + s3.rgb, min(1.0, s0.a + s1.a + s2.a + s3.a));
@@ -632,6 +642,19 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
     const layer = this as unknown as LayerLike;
     const { props, oldProps } = update as { props: LayerLike["props"]; oldProps: LayerLike["props"] };
     if (!isRaycaster(layer)) return;
+    const traitLimits =
+      (props as { cubeTraitContrast?: [number, number][] }).cubeTraitContrast ?? props.contrastLimits;
+    const oldTrait =
+      (oldProps as { cubeTraitContrast?: [number, number][] }).cubeTraitContrast ?? oldProps.contrastLimits;
+    const traitKey = JSON.stringify(traitLimits ?? []);
+    const oldTraitKey = JSON.stringify(oldTrait ?? []);
+    if (traitKey !== oldTraitKey) {
+      if (traitLimits?.length) setCubeTraitContrast(traitLimits as [number, number][]);
+      this.draw();
+      const layerInstance = this as unknown as { setNeedsUpdate?: () => void; setState?: (p: object) => void };
+      layerInstance.setNeedsUpdate?.();
+      layerInstance.setState?.({ contrastRevision: traitKey });
+    }
     const palettes = props.channelPalettes?.length
       ? props.channelPalettes
       : [props.imagePalette ?? paletteLut(props.render?.palette ?? DEFAULT_RENDER.palette)];
@@ -690,7 +713,7 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
       layer.props.contrastLimits ??
       undefined;
     if (traitLimits?.length) setCubeTraitContrast(traitLimits);
-    const lim = (i: number): [number, number] => liveTraitContrast[i] ?? [0, 255];
+    const lim = (i: number): [number, number] => traitLimits?.[i] ?? [0, 255];
     const uniforms: CubeUniforms = {
       ...(layer.props.render ?? DEFAULT_RENDER),
       imageOn,

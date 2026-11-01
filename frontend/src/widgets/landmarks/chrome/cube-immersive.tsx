@@ -234,6 +234,7 @@ export const CubeImmersive = memo(function CubeImmersive({
           showPoints={drawPoints}
           coarse={{ scale: PREVIEW_REGION_SCALE, budget: budgets.preview }}
           budget={budgets.dock}
+          tightenZToSignal={false}
           chunkCache={cache}
           volumeComm={volumeComm}
           pausesPrefetch

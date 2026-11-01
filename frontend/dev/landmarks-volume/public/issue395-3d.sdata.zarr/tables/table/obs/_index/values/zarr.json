@@ -1,13 +1,13 @@
 {
   "shape": [
-    20
+    3
   ],
   "data_type": "string",
   "chunk_grid": {
     "name": "regular",
     "configuration": {
       "chunk_shape": [
-        20
+        3
       ]
     }
   },
@@ -23,7 +23,7 @@
       "name": "sharding_indexed",
       "configuration": {
         "chunk_shape": [
-          20
+          3
         ],
         "codecs": [
           {

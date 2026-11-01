@@ -310,6 +310,119 @@ export async function expectCubePanckOffRemovesMagenta(page: Page) {
   }
 }
 
+export async function expectCubeDapiContrastDimsBlueLive(page: Page) {
+  await page.getByRole("radio", { name: "Oblique view" }).click();
+  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
+  await page.waitForTimeout(600);
+  await page.evaluate(() => {
+    const rows = window.__landmarksModel.get("_image_channels") as Array<{ name: string; visible: boolean }>;
+    const next = rows.map((r) => (r.name === "PanCK" ? { ...r, visible: false } : r));
+    window.__landmarksModel.set("_image_channels", next);
+    window.__landmarksModel.save_changes();
+  });
+  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-channels", "1", { timeout: 30_000 });
+  await page.waitForTimeout(800);
+  const before = await cubeGlTintStats(page);
+  expect(before).toBeTruthy();
+  expect(before!.blueExcess, "DAPI signal in cube before contrast crush").toBeGreaterThan(120);
+  const minLo = await page.evaluate(() => {
+    const rows = window.__landmarksModel.get("_image_channels") as Array<{
+      name: string;
+      contrast_limits: [number, number];
+    }>;
+    return rows.find((c) => c.name === "DAPI")?.contrast_limits?.[0] ?? 0;
+  });
+  await page.evaluate((lo) => {
+    const model = window.__landmarksModel;
+    const rows = model.get("_image_channels") as Array<{
+      name: string;
+      contrast_limits: [number, number];
+    }>;
+    const nextRows = rows.map((r) =>
+      r.name === "DAPI" ? { ...r, contrast_limits: [lo, lo] as [number, number] } : r,
+    );
+    const vol = { ...(model.get("volume") as Record<string, unknown>) };
+    const volChannels = [...((vol.channels as typeof nextRows) ?? [])];
+    const apply = (list: typeof nextRows) => {
+      const i = list.findIndex((c) => c.name === "DAPI");
+      if (i < 0) return list;
+      const out = list.slice();
+      out[i] = { ...out[i]!, contrast_limits: [lo, lo] as [number, number] };
+      return out;
+    };
+    model.set("_image_channels", nextRows);
+    model.set("volume", { ...vol, channels: apply(volChannels.length ? volChannels : nextRows) });
+    model.save_changes();
+  }, minLo);
+  await expect
+    .poll(async () => (await page.locator(CUBE_VIEW_SEL).getAttribute("data-contrast-limits"))?.split(";")[0])
+    .toBe(`${minLo},${minLo}`);
+  await page.waitForTimeout(300);
+  await page.getByRole("radio", { name: "Top view" }).click();
+  await page.getByRole("radio", { name: "Oblique view" }).click();
+  await page.waitForTimeout(400);
+  await expect
+    .poll(async () => (await cubeGlTintStats(page))!.blueExcess, { timeout: 15_000 })
+    .toBeLessThan(Math.max(20, before!.blueExcess * 0.2));
+}
+
+export async function expectCubePanckOffDimsMagentaLive(page: Page) {
+  await page.getByRole("radio", { name: "Oblique view" }).click();
+  await page.waitForTimeout(600);
+  const before = await cubeGlTintStats(page);
+  expect(before).toBeTruthy();
+  await page.evaluate(() => {
+    const root = document.querySelector(".milume-widget.landmarks");
+    if (root instanceof HTMLElement) root.focus();
+  });
+  await page.keyboard.press("[");
+  await page.getByTestId("panel-section-layers").click({ force: true });
+  const row = page.getByTestId("layers-image-row");
+  if ((await row.getAttribute("aria-expanded")) !== "true") await row.click({ force: true });
+  await page.getByTestId("layer-channel-PanCK").click();
+  await expect
+    .poll(async () => {
+      const rows = (await page.evaluate(() => window.__landmarksModel.get("_image_channels"))) as Array<{
+        name: string;
+        visible: boolean;
+      }>;
+      return rows.find((c) => c.name === "PanCK")?.visible;
+    })
+    .toBe(false);
+  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-channels", "1", { timeout: 30_000 });
+  await page.waitForTimeout(700);
+  const after = await cubeGlTintStats(page);
+  expect(after).toBeTruthy();
+  if (before!.magentaExcess > 200) {
+    expect(
+      after!.magentaExcess,
+      "PanCK off must drop magenta in cube deck GL without closing cube",
+    ).toBeLessThan(Math.max(40, before!.magentaExcess * 0.2));
+  }
+}
+
+export async function expectCubeDapiOnlyShowsVolume(page: Page) {
+  await page.evaluate(() => {
+    const rows = window.__landmarksModel.get("_image_channels") as Array<{ name: string; visible: boolean }>;
+    const next = rows.map((r) => (r.name === "PanCK" ? { ...r, visible: false } : r));
+    window.__landmarksModel.set("_image_channels", next);
+    window.__landmarksModel.save_changes();
+  });
+  await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+  const plot = page.locator(".landmarks__plot");
+  const box = await plot.boundingBox();
+  expect(box).toBeTruthy();
+  await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await expect(page.getByRole("dialog", { name: "Cube" })).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
+  await page.getByRole("radio", { name: "Oblique view" }).click();
+  await page.waitForTimeout(600);
+  const stats = await cubeGlTintStats(page);
+  expect(stats).toBeTruthy();
+  expect(stats!.bright, "DAPI-only issue395 fixture must render tissue in cube").toBeGreaterThan(120);
+  expect(stats!.blueExcess, "DAPI-only cube should retain blue channel ink").toBeGreaterThan(80);
+}
+
 export async function expectMapBandShowsMultichannelImage(page: Page) {
   await hideMapPointsForImageAssert(page);
   await expect

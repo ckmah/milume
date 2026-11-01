@@ -1,9 +1,9 @@
 {
   "shape": [
     2,
-    24,
-    96,
-    96
+    64,
+    256,
+    256
   ],
   "data_type": "uint8",
   "chunk_grid": {
@@ -11,7 +11,7 @@
     "configuration": {
       "chunk_shape": [
         2,
-        24,
+        64,
         64,
         64
       ]

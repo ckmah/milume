@@ -183,54 +183,80 @@ def issue122_2d_multichannel_spatialdata(dest):
 
 
 def issue395_3d_multichannel_spatialdata(dest):
-    """Small 3D multichannel SpatialData for #395: two channels, distinct blobs, many cells, under 10 MiB."""
+    """3D multichannel SpatialData for #395: toy grid (64×256×256 µm), DAPI=toy spheres, PanCK at other sites."""
     import anndata as ad
+    import geopandas as gpd
     import numpy as np
     import pandas as pd
     import spatialdata as sd
-    from spatialdata.models import Image3DModel, TableModel
+    from shapely.geometry import Polygon
+    from spatialdata.models import Image3DModel, Labels3DModel, ShapesModel, TableModel
     from spatialdata.transformations import Identity
 
-    z, y, x = 24, 96, 96
-    ch_dapi = np.zeros((z, y, x), dtype=np.uint8)
-    ch_panck = np.zeros((z, y, x), dtype=np.uint8)
+    from milume.volume_cube import toy_volumes
+
+    ch_dapi, labels = toy_volumes()
+    z, y, x = ch_dapi.shape
+    ch_panck = np.full((z, y, x), 12, dtype=np.uint8)
     zz, yy, xx = np.ogrid[:z, :y, :x]
-
-    peaks = [(22, 28), (48, 62), (48, 28), (20, 58), (70, 40), (30, 72), (60, 20), (75, 75)]
-    extra = [(12 + i * 7, 10 + (i % 5) * 9) for i in range(12)]
-    centers_xy = peaks + extra
-    panck_idx = {0, 2, 4, 6, 8, 10, 12, 14}
-    sigma_xy = 4.5
-    sigma_z = 2.0
-
-    centroids = []
-    for i, (cy, cx) in enumerate(centers_xy):
-        cz = 10 + (i % 5)
-        centroids.append([float(cx), float(cy), float(cz)])
-        d2 = ((yy - cy) / sigma_xy) ** 2 + ((xx - cx) / sigma_xy) ** 2 + ((zz - cz) / sigma_z) ** 2
-        ch_dapi[d2 <= 1.0] = np.maximum(ch_dapi[d2 <= 1.0], 210)
-        if i in panck_idx:
-            ch_panck[d2 <= 1.0] = np.maximum(ch_panck[d2 <= 1.0], 195)
+    for cz, cy, cx, radius, value in (
+        (24, 100, 200, 20, 220),
+        (40, 200, 80, 24, 200),
+        (52, 120, 180, 18, 180),
+    ):
+        mask = (zz - cz) ** 2 + (yy - cy) ** 2 + (xx - cx) ** 2 <= radius**2
+        ch_panck[mask] = value
 
     stack = np.stack([ch_dapi, ch_panck], axis=0)
-    n = len(centroids)
+
+    ids = np.unique(labels)
+    ids = ids[ids > 0]
+    centroids = []
+    for i in ids:
+        zz_i, yy_i, xx_i = np.nonzero(labels == i)
+        centroids.append([xx_i.mean(), yy_i.mean(), zz_i.mean()])
     obs = pd.DataFrame(
-        {"cell_type": pd.Categorical([f"type{i % 2}" for i in range(n)])},
-        index=[f"cell{i}" for i in range(n)],
+        {
+            "cell_type": pd.Categorical([f"type{i % 2}" for i in ids]),
+            "cell_id": ids.astype(int),
+            "region": pd.Categorical(["cells"] * len(ids)),
+        },
+        index=[f"cell{i}" for i in ids],
     )
-    table = ad.AnnData(np.ones((n, 1), dtype=np.float32), obs=obs)
+    rows = []
+    for i in ids:
+        zz_i, yy_i, xx_i = np.nonzero(labels == i)
+        cz, cy, cx = zz_i.mean(), yy_i.mean() + 0.5, xx_i.mean() + 0.5
+        radius = (np.ptp(xx_i) + 1) / 2
+        for z_plane in np.unique(zz_i):
+            r = np.sqrt(max(radius**2 - (z_plane - cz) ** 2, 0.25))
+            t = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+            ring = np.c_[cx + r * np.cos(t), cy + r * np.sin(t)]
+            rows.append({"cell_id": f"cell{i}", "Z_um": z_plane + 0.5, "geometry": Polygon(ring)})
+    polygons = ShapesModel.parse(gpd.GeoDataFrame(rows), transformations={"global": Identity()})
+    table = ad.AnnData(np.ones((len(ids), 1), dtype=np.float32), obs=obs)
     table.obsm["spatial"] = np.asarray(centroids, dtype=float)
 
-    image = Image3DModel.parse(
-        stack,
-        dims=("c", "z", "y", "x"),
-        c_coords=pd.Index(["DAPI", "PanCK"]),
-        transformations={"global": Identity()},
-        scale_factors=[2, 2],
-    )
     sdata = sd.SpatialData(
-        images={"mosaic": image},
-        tables={"table": TableModel.parse(table)},
+        images={
+            "mosaic": Image3DModel.parse(
+                stack,
+                dims=("c", "z", "y", "x"),
+                c_coords=pd.Index(["DAPI", "PanCK"]),
+                transformations={"global": Identity()},
+                scale_factors=[2, 2],
+            )
+        },
+        labels={
+            "cells": Labels3DModel.parse(
+                labels.astype(np.uint32),
+                dims=("z", "y", "x"),
+                transformations={"global": Identity()},
+                scale_factors=[2, 2],
+            )
+        },
+        shapes={"cell_polygons": polygons},
+        tables={"table": TableModel.parse(table, region="cells", region_key="region", instance_key="cell_id")},
     )
     sdata.write(dest)
     return sd.read_zarr(dest)

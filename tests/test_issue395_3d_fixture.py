@@ -20,5 +20,5 @@ def test_issue395_widget_two_channels(tmp_path):
     w = LandmarksWidget(sdata, channels=["DAPI", "PanCK"])
     on = [c for c in w._image_channels if c["visible"]]
     assert [c["name"] for c in on] == ["DAPI", "PanCK"]
-    assert len(w.points_data) >= 20
+    assert len(w.points_data) >= 3
     assert w.volume["is_3d"] is True

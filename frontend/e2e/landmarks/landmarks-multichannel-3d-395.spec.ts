@@ -3,6 +3,9 @@ import { expect } from "@playwright/test";
 import { test } from "../fixtures";
 import {
   expectCubeFootprintChangesTopToIso,
+  expectCubeDapiContrastDimsBlueLive,
+  expectCubePanckOffDimsMagentaLive,
+  expectCubeDapiOnlyShowsVolume,
   expectCubePixelsChangeWhenPanckOff,
   expectCubeShowsMultichannelImage,
   expectCubeUserVisibleScreenshot,
@@ -84,6 +87,20 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   }) => {
     await openCubeAtCentre(page);
     await expectCubeUserVisibleScreenshot(page);
+  });
+
+  test("DAPI-only channel still renders volume in cube (fixture sanity)", async ({ page }) => {
+    await expectCubeDapiOnlyShowsVolume(page);
+  });
+
+  test("live DAPI contrast crush drops blue in cube GL without closing cube", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await expectCubeDapiContrastDimsBlueLive(page);
+  });
+
+  test("live PanCK off drops magenta in cube GL without closing cube", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await expectCubePanckOffDimsMagentaLive(page);
   });
 
   test("toggle PanCK off changes cube pixels and channel count", async ({ page }) => {

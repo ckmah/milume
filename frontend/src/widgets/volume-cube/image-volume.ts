@@ -1,5 +1,9 @@
 import { VolumeLayer, XR3DLayer } from "@hms-dbmi/viv";
 
+const volumeLayerDefaults = (VolumeLayer as unknown as { defaultProps?: Record<string, unknown> }).defaultProps ?? {};
+const volumeUpdateTriggers =
+  (volumeLayerDefaults.updateTriggers as Record<string, unknown> | undefined) ?? {};
+
 type Texture = { destroy(): void; copyImageData(options: { data: ArrayBufferView }): void };
 
 /**
@@ -137,6 +141,16 @@ export class CubeXR3DLayer extends XR3DBase {
 /** Viv's VolumeLayer, drawing through `CubeXR3DLayer`. */
 export class CubeVolumeLayer extends VolumeBase {
   static layerName = "CubeVolumeLayer";
+  static defaultProps = {
+    ...volumeLayerDefaults,
+    updateTriggers: {
+      ...volumeUpdateTriggers,
+      contrastLimits: (p: { contrastLimits?: unknown }) => p.contrastLimits,
+      cubeTraitContrast: (p: { cubeTraitContrast?: unknown }) => p.cubeTraitContrast,
+      render: (p: { render?: unknown }) => p.render,
+      channelPalettes: (p: { channelPalettes?: unknown }) => p.channelPalettes,
+    },
+  };
 
   renderLayers() {
     const layer = super.renderLayers();

@@ -1,7 +1,9 @@
 {
   "attributes": {
     "column-order": [
-      "cell_type"
+      "cell_type",
+      "cell_id",
+      "region"
     ],
     "_index": "_index",
     "encoding-type": "dataframe",

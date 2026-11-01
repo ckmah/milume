@@ -96,9 +96,6 @@ def main() -> None:
         channels=["DAPI", "PanCK"],
     )
     widget.set_render_mode("points")
-    widget.z_band_lo_um = 10.0
-    widget.z_band_hi_um = 14.0
-    widget.z_focus_um = 12.0
     payload = {key: getattr(widget, key) for key in FIXTURE_KEYS + VOLUME_KEYS}
     tint_by_name = {"DAPI": "#2563eb", "PanCK": "#c026d3"}
     rows = payload.get("_image_channels") or []
