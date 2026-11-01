@@ -331,7 +331,7 @@ export function createMapImageBackdrop({
     const is3d = Boolean(vol.is_3d);
     const loUm = Number(model.get("z_band_lo_um"));
     const hiUm = Number(model.get("z_band_hi_um"));
-    const channelCount = is3d ? 1 : channels.length;
+    const channelCount = channels.length;
     const coarse = preferCoarseLevel();
     const level = pickLevel(
       levels,
@@ -354,7 +354,7 @@ export function createMapImageBackdrop({
 
     const plane = (box.x1 - box.x0) * (box.y1 - box.y0);
     const rgb = new Float32Array(plane * 3);
-    const toDraw = is3d ? channels.slice(0, 1) : channels;
+    const toDraw = channels;
 
     for (const ch of toDraw) {
       const ci = resolveChannelIndex(level.source, ch.name, entries);
