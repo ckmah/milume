@@ -944,6 +944,9 @@ export function VolumeCube({
   useEffect(() => {
     setViewState((prev) => (prev ? { ...prev } : prev));
   }, [contrastLimitsKey]);
+  useEffect(() => {
+    setViewState((prev) => (prev ? { ...prev } : prev));
+  }, [activeImageChannels.length]);
   const shownRenderForDeck = useMemo(
     () => ({ ...shownRender, traitContrast: contrastLimits }),
     [shownRender, contrastLimits],

@@ -27,6 +27,7 @@ export { DEFAULT_RENDER, type RenderSettings } from "./palettes";
 export type ImagePalette = { data: Uint8Array; width: number; height: number };
 
 let liveTraitContrast: [number, number][] = [[0, 255], [0, 255], [0, 255], [0, 255]];
+let liveImageChannelCount = 1;
 
 /** Per-channel contrast for the cube raycast (trait `_image_channels`, raw dtype units). */
 export function setCubeTraitContrast(limits: [number, number][]) {
@@ -55,6 +56,7 @@ export function applyCubeRenderShaderUniforms(layer: LayerLike): void {
   const imageOn = layer.props.showImage === false ? 0 : 1;
   const image = imageTextureInfo(layer.state.textures?.volume0);
   const frac = layer.props.cutFrac;
+  liveImageChannelCount = layer.props.channelPalettes?.length ?? 1;
   const lim = (i: number): [number, number] =>
     liveTraitContrast[i] ?? traitLimits?.[i] ?? [0, 255];
   const target = layer.props.cubeMeshTarget;
@@ -64,7 +66,7 @@ export function applyCubeRenderShaderUniforms(layer: LayerLike): void {
     imageOn,
     imageScale: image?.scale ?? 1,
     imageMip: layer.props.imageMode === "mip" ? 1 : 0,
-    imageChannelCount: layer.props.channelPalettes?.length ?? 1,
+    imageChannelCount: liveImageChannelCount,
     imageContrast0: lim(0),
     imageContrast1: lim(1),
     imageContrast2: lim(2),
@@ -198,7 +200,7 @@ function cubeRenderGetUniforms(render: CubeUniforms = {}) {
     imageOn: render.imageOn ?? 1,
     imageScale: render.imageScale ?? 1,
     imageMip: render.imageMip ?? 0,
-    imageChannelCount: render.imageChannelCount ?? 1,
+    imageChannelCount: render.imageChannelCount ?? liveImageChannelCount,
     imageContrast0: trait(0),
     imageContrast1: trait(1),
     imageContrast2: trait(2),
@@ -368,23 +370,44 @@ vec4 imageSample(float v) {
 
 vec4 combinedImageSample2(float v0, float v1) {
   vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  if (cubeRender.imageChannelCount < 1.5) return vec4(0.0);
+  if (cubeRender.imageChannelCount < 2.5) return s0;
   vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
   return vec4(s0.rgb + s1.rgb, min(1.0, s0.a + s1.a));
 }
 
 vec4 combinedImageSample3(float v0, float v1, float v2) {
   vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
-  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
-  vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
-  return vec4(s0.rgb + s1.rgb + s2.rgb, min(1.0, s0.a + s1.a + s2.a));
+  if (cubeRender.imageChannelCount < 1.5) return vec4(0.0);
+  vec4 acc = s0;
+  if (cubeRender.imageChannelCount > 1.5) {
+    vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+    acc = vec4(acc.rgb + s1.rgb, min(1.0, acc.a + s1.a));
+  }
+  if (cubeRender.imageChannelCount > 2.5) {
+    vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
+    acc = vec4(acc.rgb + s2.rgb, min(1.0, acc.a + s2.a));
+  }
+  return acc;
 }
 
 vec4 combinedImageSample4(float v0, float v1, float v2, float v3) {
   vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
-  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
-  vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
-  vec4 s3 = tintedSample(v3, imagePalette3, cubeRender.imageContrast3);
-  return vec4(s0.rgb + s1.rgb + s2.rgb + s3.rgb, min(1.0, s0.a + s1.a + s2.a + s3.a));
+  if (cubeRender.imageChannelCount < 1.5) return vec4(0.0);
+  vec4 acc = s0;
+  if (cubeRender.imageChannelCount > 1.5) {
+    vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+    acc = vec4(acc.rgb + s1.rgb, min(1.0, acc.a + s1.a));
+  }
+  if (cubeRender.imageChannelCount > 2.5) {
+    vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
+    acc = vec4(acc.rgb + s2.rgb, min(1.0, acc.a + s2.a));
+  }
+  if (cubeRender.imageChannelCount > 3.5) {
+    vec4 s3 = tintedSample(v3, imagePalette3, cubeRender.imageContrast3);
+    acc = vec4(acc.rgb + s3.rgb, min(1.0, acc.a + s3.a));
+  }
+  return acc;
 }
 
 const float NO_MESH = 1e9;
@@ -752,6 +775,14 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
         prev.forEach((t) => t.destroy());
         const channelPaletteTextures = palettes.slice(1, 4).map((p) => lookupTexture(layer, p));
         layer.setState({ channelPaletteTextures });
+      }
+      const paletteCount = palettes.length;
+      const oldPaletteCount = oldPalettes.length;
+      if (paletteCount !== oldPaletteCount) {
+        liveImageChannelCount = paletteCount;
+        applyCubeRenderShaderUniforms(layer);
+        const layerInstance = this as unknown as { setNeedsUpdate?: () => void };
+        layerInstance.setNeedsUpdate?.();
       }
     }
   }

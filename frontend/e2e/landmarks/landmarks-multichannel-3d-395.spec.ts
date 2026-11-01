@@ -101,6 +101,7 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   });
 
   test.skip("live PanCK off drops magenta in cube GL without closing cube", async ({ page }) => {
+    // Trait and data-channels update; cube deck GL magenta readback does not reliably drop (see toggle test note).
     await openCubeAtCentre(page);
     await expectCubePanckOffDimsMagentaLive(page);
   });
