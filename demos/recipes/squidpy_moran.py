@@ -5,6 +5,8 @@
 #     "marimo-studio==0.4.1",
 #     "matplotlib>=3.8",
 #     "milume",
+#     "numpy",
+#     "pandas",
 #     "pyarrow>=15",
 #     "squidpy>=1.8.2"
 # ]
@@ -13,11 +15,30 @@
 # runtimes = ["server", "zero-python"]
 #
 # [tool.marimo-studio.cells]
-# cell-1 = {ref = "cell:v1:5b621d231f81462ef801dbfe3b01a8a4a0e8ffe781b9d016cfcb86a00fc00392:3684620b0b3f8b3bfd5dab5be196d4643029198394926622163f46330c4daf74:0"}
 # cell-2 = {ref = "cell:v1:34bf30d7c701e58e846cb3e6a3e6ef5d01f3d9b042be0a125354f994603f0129:f0caf9a8dcba3f85135816af4caf0db5fa161bdb3552eea6c45406462610f644:0"}
-# cell-7 = {ref = "cell:v1:8b7a08944f047a0f5106146b0ed2a58122ea5446fc073c4f690e3671b1b94e5e:8841281c5f31d875cbf4cd89f18fca8ee33578edd01833bd8092d49354e8d2a1:0"}
+# cell-6 = {ref = "cell:v1:8942c9fa7e239d23b21e3ac7061199b199b6b1d3bbdcc0d83b7fc532a2730d47:bdd2e4956a518c977abd04ed66cc21412e4b5c3ae60f46a71ec6b23ed3fe2571:0"}
+# cell-8 = {ref = "cell:v1:3c0e2e94ae91a1c7dcd5581697c68afaa71b866de093c6b0ab31a5394f4e3103:eccf982ad5d7b79d40432561221ae22ab396674dfbf0ed7b4c38ca751a99e20b:0"}
+# cell-9 = {ref = "cell:v1:8141535a2b458dbe03ca4e7fd0ff000b49ef57f1345240db4620e9d1488fd7ca:066bd3605c0c55c70303caad13f173557ab953ac03c6824a4c1d84757c1e08f8:0"}
+# cell-12 = {ref = "cell:v1:d272b224ec1d53e7294f918522f8d212b98ae6de2bfb50cb0bb4ac0cef3f6c0d:8ae18855679f6d28706f8f8132b5a8088e2cc066cfe4773d49bcdeff8a2a3afb:0"}
+# cell-13 = {ref = "cell:v1:d272b224ec1d53e7294f918522f8d212b98ae6de2bfb50cb0bb4ac0cef3f6c0d:8ae18855679f6d28706f8f8132b5a8088e2cc066cfe4773d49bcdeff8a2a3afb:0"}
+# cell-17 = {ref = "cell:v1:b773405c53c80356a5e7b1ef53886760ab3f6f63dc147af6a0f78de455292327:388e4167ac3b577c705df343e137ca390f0517c6685495a74c749697a162e4b1:0"}
+# cell-18 = {ref = "cell:v1:4563743bdcbae0f48758f8825071cc7ae7ee1eee82925682889f4b06efe37639:fedb3240d035e0a096e455920d454ed61539455ab08ba6e41ab57b8b26b9530a:0"}
+# cell-21 = {ref = "cell:v1:19f00dc881226eef2ce215bdb808dee4af8d862f5433cf342b05c99a3ac5a3ba:a094d83d97e9fc73351c6445d15a33c40ae604f2f9d51f7815f3fdc73d265ac9:0"}
+# cell-22 = {ref = "cell:v1:72e6a04ada9b1027783d1be1edb443a851c48888d628cf89738b7ee909c5e6d3:9ff4410036d03c847dc462fba7b85dff22cbf06fe1c5c3214feb3b5d9ebed3cb:0"}
+# cell-26 = {ref = "cell:v1:c9c1c7ead3e9190dceceba88e2918020aeee94c5602b5b28569c4ab76e28a982:6a46a5240cd0f2ee9c8a7de6afe479b0a5b577eb49af2f8f6907db0668a42702:0"}
+# cell-27 = {ref = "cell:v1:e327b19148d5503edfa884b9829ddc53c98c52fa83b564808a3d36aa5e88263c:ac3a5720fe91b0db48cfdd65af1d8cf82349064750c130958dc0d2c257079fdb:0"}
+# cell-28 = {ref = "cell:v1:baa5eefcf60024eb8a5a42b2839a6303dc855f7f71097e854da0f3f004d05c9e:1f78d4ae346711a8158699c2ebb913a44b3e8043ed346aa5f1a6b42b59f59e55:0"}
+# cell-29 = {ref = "cell:v1:e327b19148d5503edfa884b9829ddc53c98c52fa83b564808a3d36aa5e88263c:ac3a5720fe91b0db48cfdd65af1d8cf82349064750c130958dc0d2c257079fdb:0"}
+# cell-30 = {ref = "cell:v1:baa5eefcf60024eb8a5a42b2839a6303dc855f7f71097e854da0f3f004d05c9e:1f78d4ae346711a8158699c2ebb913a44b3e8043ed346aa5f1a6b42b59f59e55:0"}
+# cell-11 = {ref = "cell:v1:2d724c2ef4cd90f075bea376feb00d6d5576147fb43ff7290f3e1996264fa54b:4ab29936bfa49a181985756ca2cad857d6dda2bf4c5bdc6d76193606b5621542:0"}
+# cell-15 = {ref = "cell:v1:b773405c53c80356a5e7b1ef53886760ab3f6f63dc147af6a0f78de455292327:388e4167ac3b577c705df343e137ca390f0517c6685495a74c749697a162e4b1:0"}
+# cell-16 = {ref = "cell:v1:84c7b605ab97b6318d265e11310ad3730b4f282bc8a4fe1700a17679a8993ad2:a587e6dafe2c80772eb7bd4697dcc2d5dbced434dc1de616b015da35d1f07b69:0"}
+# cell-19 = {ref = "cell:v1:2585cfa7ca022c60afd9a769f73058755f732b7ab760b043738958dc71abe75e:60d1d3aaa1257a28b05925fed75d929282e8813663ee034ede94cd5bdbb6dff9:0"}
+# cell-20 = {ref = "cell:v1:72e6a04ada9b1027783d1be1edb443a851c48888d628cf89738b7ee909c5e6d3:9ff4410036d03c847dc462fba7b85dff22cbf06fe1c5c3214feb3b5d9ebed3cb:0"}
+# cell-24 = {ref = "cell:v1:56fb5f1fc30803574fd5959bb801a5d1a2992981ed410cc1cb83bdbc073508e9:d5fe73f7ee50c1b2e6f37ac011ee2c95da0f3ef5ae6992bd5816d38873e05ee9:0"}
+# cell-25 = {ref = "cell:v1:c1e1b9904c15cc965e9d0362d839bacc197a1d03dde556fa9c5d74f686bcf31b:f704dd34b155233f5705f7d781231ee8bf137b163852c058f372c12571f470d1:0"}
 # ///
-"""Squidpy Moran's I recipe for docs (marimo-studio zero-python export)."""
+"""Squidpy Moran's I recipe: cell-type layout vs patterns inside enterocytes (ileum)."""
 
 import marimo
 
@@ -26,31 +47,17 @@ app = marimo.App(width="medium")
 
 
 @app.cell(hide_code=True)
-def _(mo):
+def intro(mo):
     mo.md(r"""
-    # Moran's I on the ileum
+    # Moran's I: is a gene spatial because of where cell types sit, or within one?
 
-    On this Xu et al. 2026 ileum MERFISH slice, all-cell Moran's I ranks genes that vary in space because cell types sit in different places. Moran's I inside enterocytes asks which of those genes still vary along the crypt-villus axis within one class.
+    *By Clarence Mah · Last updated 2026-11-01*
 
-    Both runs use the authors' log-normalized `X` and a 6-nearest-neighbour graph with the longest 1% of edges removed, then Moran's I with 100 permutations.
+    Many genes look patterned in a tissue section. Some only look that way because the cells that express them sit together. Others change with position inside a single cell type, and those tell us how one cell type divides its work across the tissue.
 
-    The all-cell top 20 and the enterocyte top 20 share **8** genes (Apob, Slc5a1, Nos2, Cps1, Nlrp6, Fgf15, Fzd5, Ephb2). All-cell ranks lead with **Acta2** and **Apob**; enterocyte ranks lead with **Apob** and **Slc5a1**.
+    We use one MERFISH section of mouse ileum from [Xu et al. 2026](https://doi.org/10.1016/j.chom.2026.01.018): 30,332 cells × 1,815 genes, with the authors' cell types and each mucosal cell's position from crypt base to villus tip. Here we score every gene with Moran's I across all cells, score again inside enterocytes only, and follow two genes: **Erbb3**, which drops, and **Apob**, which holds.
 
-    **Apob** stays high within enterocytes. All-cell I is **0.631**. Enterocyte I is **0.521**.
-
-    **Acta2** ranks first across all cells (I **0.743**) because smooth muscle forms its own layers. It is detected in only 2.4% of enterocytes, so the enterocyte run does not score it; **Grem1** (I **0.476**) is the same case. **Erbb3** is the within-class contrast: 82% of enterocytes express it, yet its I falls from **0.473** across all cells to **0.098** within enterocytes. Its all-cell score comes from where epithelium sits relative to the gut wall, not from position along the villus. Pick **Erbb3** next to **Apob** (0.631 → 0.521) to see the difference.
-
-    `n_counts` is an obs column. It is the per-cell total of `layers['raw_counts']`. The median on this slice is **48**. Colour by `n_counts` when a spatial pattern might be a depth artifact. Depth itself is spatially patterned within enterocytes (Moran's I **0.24** on `n_counts`), so the depth caveat earns its place.
-
-    Yan, Hua, and Li, Nat Commun 2025, make this composition point. This page runs the same comparison with one fixed neighbour graph.
-    [s41467-025-56080-w](https://www.nature.com/articles/s41467-025-56080-w)
-
-    Moran (1950), Biometrika 37:17–23, defines the statistic ([doi:10.2307/2332142](https://doi.org/10.2307/2332142)).
-
-    **Open in molab:**
-    [squidpy_moran.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_moran.py)
-
-    > **Static docs view.** Moran's I is precomputed in `ileum_moran_recipe_scores.parquet`. The map is the full slice, framed on the crypt-villus field, coloured by **Apob**. The scatter highlights the gene you pick. molab is where that pick is live.
+    [Open in molab](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_moran.py). This page shows a precomputed default view. To change selections or rerun the analysis, open the notebook in molab.
     """)
     return
 
@@ -64,128 +71,177 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def recipe_config():
-    from pathlib import Path
-
-    import marimo as mo
-    import matplotlib.pyplot as plt
-    import milume as ml
-    import numpy as np
-    import pandas as pd
-    import squidpy as sq
-
-    DEFAULT_GENE = "Apob"
-    CRYPT_VILLUS_X_HALF_UM = 200.0
-    _PKG_ROOT = Path(ml.__file__).resolve().parent
-    _REPO_ROOT = _PKG_ROOT.parent
-    RECIPE_DATA_DIR = _REPO_ROOT / "demos" / "data"
-    MORAN_CACHE_PATH = RECIPE_DATA_DIR / "ileum_moran_recipe_scores.parquet"
-    ILEUM_H5AD = RECIPE_DATA_DIR / "ileum.h5ad"
-    return (
-        CRYPT_VILLUS_X_HALF_UM,
-        DEFAULT_GENE,
-        ILEUM_H5AD,
-        MORAN_CACHE_PATH,
-        Path,
-        ml,
-        mo,
-        np,
-        pd,
-        plt,
-        sq,
-    )
+def assets(mo):
+    def asset(relpath):
+        """Repo file next to this notebook, or the same file on main (molab opens the notebook alone)."""
+        local = mo.notebook_dir().parent.parent / relpath
+        return local if local.is_file() else f"https://raw.githubusercontent.com/ckmah/milume/main/{relpath}"
+    return (asset,)
 
 
 @app.cell(hide_code=True)
-def load_adata(ILEUM_H5AD, MORAN_CACHE_PATH, Path, ml, np, pd):
-    ileum = ILEUM_H5AD if ILEUM_H5AD.is_file() else Path("demos/data/ileum.h5ad")
-    if not ileum.is_file():
-        raise FileNotFoundError(
-            f"ileum tier missing: tried {ILEUM_H5AD} and demos/data/ileum.h5ad (cwd={Path.cwd()})"
-        )
-    adata = ml.ds.ileum_merfish_xu2026(path=ileum)
-    if "n_counts" not in adata.obs.columns:
-        if "raw_counts" not in adata.layers:
-            raise KeyError("n_counts is missing and layers['raw_counts'] is not on this AnnData")
-        adata.obs["n_counts"] = np.asarray(adata.layers["raw_counts"].sum(axis=1)).ravel()
-
-    cwd_cache = Path("demos/data/ileum_moran_recipe_scores.parquet")
-    if MORAN_CACHE_PATH.is_file():
-        cache = MORAN_CACHE_PATH
-    elif cwd_cache.is_file():
-        cache = cwd_cache
-    elif MORAN_CACHE_PATH.parent.is_dir():
-        cache = MORAN_CACHE_PATH
-    else:
-        cache = cwd_cache
-    if cache.is_file():
-        cached = pd.read_parquet(cache)
-        if "moran_I_all" in cached.columns and "moran_I_enterocyte" in cached.columns:
-            adata.var["moran_I_all"] = cached["moran_I_all"]
-            adata.var["moran_I_enterocyte"] = cached["moran_I_enterocyte"]
-    return adata, cache
+def schematic(asset, mo):
+    mo.vstack([
+        mo.image(src=asset("demos/recipes/squidpy_moran_schematic/schematic-moran-statechart.svg"), alt="Method flow: one graph and score on all cells, the same calls on enterocytes only"),
+        mo.image(src=asset("demos/recipes/squidpy_moran_schematic/schematic-moran-panels.svg"), alt="Schematic, not data: Erbb3 and Apob before and after fixing the cell type"),
+    ])
+    return
 
 
-@app.cell
-def moran_setup(adata, cache, np, pd, sq):
-    if "moran_I_all" not in adata.var.columns or "moran_I_enterocyte" not in adata.var.columns:
-        sq.gr.spatial_neighbors_knn(adata, n_neighs=6, percentile=99)
-        sq.gr.spatial_autocorr(
-            adata, mode="moran", n_perms=100, seed=0, show_progress_bar=False
-        )
-        ent = adata[adata.obs.cell_type.str.startswith("Enterocyte")].copy()
-        detected = np.asarray((ent.X > 0).sum(axis=0)).ravel() / ent.n_obs
-        expressed = list(ent.var_names[detected >= 0.05])
-        sq.gr.spatial_neighbors_knn(ent, n_neighs=6, percentile=99)
-        sq.gr.spatial_autocorr(
-            ent,
-            genes=expressed,
-            mode="moran",
-            n_perms=100,
-            seed=0,
-            show_progress_bar=False,
-        )
-        frame = pd.DataFrame(index=adata.var_names)
-        frame["moran_I_all"] = adata.uns["moranI"]["I"]
-        frame["moran_I_enterocyte"] = ent.uns["moranI"]["I"]
-        adata.var["moran_I_all"] = frame["moran_I_all"]
-        adata.var["moran_I_enterocyte"] = frame["moran_I_enterocyte"]
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        tmp = cache.with_suffix(".tmp")
-        frame.to_parquet(tmp)
-        tmp.replace(cache)
+@app.cell(hide_code=True)
+def imports():
+    import marimo as mo
+    import milume as ml
+    import numpy as np
+    import matplotlib.pyplot as plt
+    import pandas as pd
+    import squidpy as sq
+    return ml, mo, np, pd, plt, sq
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Load data
+
+    We load the ileum section with milume's dataset loader and add `n_counts`, the transcripts per cell from `layers["raw_counts"]`, so we can check later whether a pattern is just sequencing depth.
+    """)
     return
 
 
 @app.cell
-def landmark_map(CRYPT_VILLUS_X_HALF_UM, DEFAULT_GENE, adata, ml, mo, np):
+def load_data(asset, ml, mo, np, pd):
+    adata = ml.ds.ileum_merfish_xu2026()
+    adata.obs["n_counts"] = np.asarray(adata.layers["raw_counts"].sum(axis=1)).ravel()
+    _scores = pd.read_parquet(asset("demos/data/ileum_moran_recipe_scores.parquet"))
+    for _col in ("moran_I_all", "moran_I_enterocyte"):
+        if _col not in adata.var:
+            adata.var[_col] = _scores[_col]
+    mo.show_code(adata)
+    return (adata,)
+
+
+@app.cell(hide_code=True)
+def _(adata, mo):
+    mo.md(f"""
+    Moran's I runs on `X`. It already holds the authors' log-normalized values (non-integer, max {adata.X.max():.1f}), so we don't normalize or log-transform again.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Score every gene across all cells
+
+    **Moran's I** asks whether neighboring cells have more similar expression than random pairs of cells ([Moran 1950](https://doi.org/10.2307/2332142)). Think of a seating chart: if people next to each other wear the same color, the room has a pattern. I is near 0 for a random layout and near 1 when neighbors match.
+
+    We link each cell to its `n_neighs=6` nearest cells, about the ring of cells that touch it. `percentile=99` drops the longest 1% of links, which jump across the lumen or tissue gaps. `n_perms=100` shuffles expression 100 times to get a p-value.
+    """)
+    return
+
+
+@app.cell
+def moran_all(mo):
+    mo.md(r"""
+```python
+sq.gr.spatial_neighbors_knn(adata, n_neighs=6, percentile=99)
+sq.gr.spatial_autocorr(adata, mode="moran", n_perms=100, rng=0)
+adata.var["moran_I_all"] = adata.uns["moranI"]["I"]
+```
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    /// tip | Choosing the neighbor graph
+    Moran's I depends on who counts as a neighbor. A small `n_neighs` asks about the cells right next door; a large one smooths over whole villi. Six nearest cells is a common default for imaging data. Don't use an unpruned Delaunay graph here: its longest links span about 1 mm. The [niches recipe](../squidpy_color/) shows how graph size changes a result.
+    ///
+
+    /// note | Precomputed
+    Scoring all 1,815 genes across every cell takes about 6 minutes on one core, so this page reads saved scores from `demos/data/ileum_moran_recipe_scores.parquet`. `scripts/generate_ileum_moran_recipe_cache.py` makes them with these exact calls.
+    ///
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Score again inside enterocytes
+
+    A high all-cell score can come from the layout of cell types alone: epithelium on the inside, muscle on the outside. To ask what varies *within* one cell type, we keep only enterocytes, the absorptive cells that line the villi, and rebuild the graph so each enterocyte's neighbors are other enterocytes. We score genes detected in at least 5% of enterocytes; rarer genes give unstable scores. This is the same idea as the cell-type-specific spatially variable genes in [Yan, Hua & Li 2025](https://doi.org/10.1038/s41467-025-56080-w), done with one subset.
+    """)
+    return
+
+
+@app.cell
+def subset(adata, mo, np):
+    ent = adata[adata.obs.cell_type.str.startswith("Enterocyte")].copy()
+    detected = np.asarray((ent.X > 0).sum(axis=0)).ravel() / ent.n_obs
+    genes = list(ent.var_names[detected >= 0.05])
+    mo.show_code()
+    return ent, genes
+
+
+@app.cell
+def moran_ent(mo):
+    mo.md(r"""
+```python
+sq.gr.spatial_neighbors_knn(ent, n_neighs=6, percentile=99)
+sq.gr.spatial_autocorr(ent, genes=genes, mode="moran", n_perms=100, rng=0)
+adata.var["moran_I_enterocyte"] = ent.uns["moranI"]["I"]
+```
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(ent, genes, mo):
+    mo.md(f"""
+    The subset holds {ent.n_obs:,} enterocytes, and {len(genes)} genes pass the 5% rule.
+
+    /// tip | Choosing the subset
+    `str.startswith("Enterocyte")` keeps all four enterocyte labels. The authors named three of them by villus position (bottom, mid, top), so pooling them keeps the villus gradient we want to see. Run on one label to remove that gradient instead (see the caveat below).
+    ///
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Explore Erbb3 and Apob in the tissue
+
+    The map opens on one strip of the gut wall, from the villus tips at the lumen to the muscle on the outside, colored by **Apob**.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def map_view(adata, np):
     import os
 
-    xy = np.asarray(adata.obsm["spatial"])
-    mucosa = adata.obs["anatomical_layer"].astype(str).eq("Mucosa").to_numpy()
-    x_mid = float(np.median(xy[mucosa, 0]))
-    cv_window = mucosa & (xy[:, 0] >= x_mid - CRYPT_VILLUS_X_HALF_UM) & (
-        xy[:, 0] <= x_mid + CRYPT_VILLUS_X_HALF_UM
-    )
-    xs = xy[cv_window, 0]
-    ys = xy[cv_window, 1]
-    view_x_bounds = (float(xs.min()), float(xs.max()))
-    view_y_bounds = (float(ys.min()), float(ys.max()))
-    export_strip = os.environ.get("MILUME_RECIPE_EXPORT_STRIP") == "1"
-    adata_map = (adata[cv_window] if export_strip else adata).copy()
+    _xy = adata.obsm["spatial"]
+    _mucosa = adata.obs["anatomical_layer"].eq("Mucosa").to_numpy()
+    _x_mid = float(np.median(_xy[_mucosa, 0]))
+    _strip = (_xy[:, 0] >= _x_mid - 200) & (_xy[:, 0] <= _x_mid + 200)
+    VIEW_X = (float(_xy[_strip & _mucosa, 0].min()), float(_xy[_strip & _mucosa, 0].max()))
+    VIEW_Y = (float(_xy[_strip & _mucosa, 1].min()), float(_xy[_strip & _mucosa, 1].max()))
+    _export_strip = os.environ.get("MILUME_RECIPE_EXPORT_STRIP") == "1"
+    adata_map = (adata[_strip] if _export_strip else adata).copy()
     adata_map.obs = adata_map.obs[["cell_type", "n_counts"]].copy()
-    w = mo.ui.anywidget(
-        ml.peek(
-            adata_map,
-            color=DEFAULT_GENE,
-            genes=None,
-        )
-    )
-    w.color = DEFAULT_GENE
-    w.x_bounds = view_x_bounds
-    w.y_bounds = view_y_bounds
-    if "mesh_opacity" in w.traits():
-        w.mesh_opacity = 0.6
+    return VIEW_X, VIEW_Y, adata_map
+
+
+@app.cell
+def landmark_map(VIEW_X, VIEW_Y, adata_map, ml, mo):
+    # TODO(#415 scientist-rework): Erbb3 default once preload and docs agree on contrast framing.
+    _w = ml.peek(adata_map, color="Apob")
+    _w.x_bounds, _w.y_bounds = VIEW_X, VIEW_Y
+    w = mo.ui.anywidget(_w)
     w
     return (w,)
 
@@ -193,83 +249,136 @@ def landmark_map(CRYPT_VILLUS_X_HALF_UM, DEFAULT_GENE, adata, ml, mo, np):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    > **molab:** The reactive **`moran_plots`** cell follows **`w.color`** when you pick a gene. The static docs view keeps **Apob** and the pre-rendered scatter.
+    Apob rises toward the villus tips and stays dim near the crypts. Switch the color to **Erbb3** to see epithelial-wide signal that drops once enterocytes are fixed.
     """)
     return
 
 
-@app.cell
-def moran_plots(adata, np, pd, plt, w):
-    _ = w.value
-    gene = str(w.color or "Apob")
-    top_n_cell_types = 15
-    moran_scores = adata.var[["moran_I_all", "moran_I_enterocyte"]]
-    both = moran_scores.dropna(subset=["moran_I_all", "moran_I_enterocyte"])
-    fig, axes = plt.subplots(
-        2,
-        1,
-        figsize=(8.0, 6.2),
-        layout="constrained",
-        height_ratios=[3.8, 2.4],
-    )
-    ax = axes[0]
-    ax.scatter(
-        both["moran_I_all"],
-        both["moran_I_enterocyte"],
-        s=8,
-        c="0.75",
-        linewidths=0,
-    )
-    lo = float(min(both["moran_I_all"].min(), both["moran_I_enterocyte"].min()))
-    hi = float(max(both["moran_I_all"].max(), both["moran_I_enterocyte"].max()))
-    ax.plot([lo, hi], [lo, hi], color="0.45", linewidth=0.8)
-    if gene in both.index:
-        row = both.loc[gene]
-        ax.scatter(
-            [row["moran_I_all"]],
-            [row["moran_I_enterocyte"]],
-            s=36,
-            c="#d62728",
-            zorder=3,
-        )
-        ax.annotate(
-            gene,
-            (float(row["moran_I_all"]), float(row["moran_I_enterocyte"])),
-            textcoords="offset points",
-            xytext=(6, 4),
-        )
-    elif gene in moran_scores.index and pd.isna(moran_scores.at[gene, "moran_I_enterocyte"]):
-        x_all = float(moran_scores.at[gene, "moran_I_all"])
-        ax.axvline(x_all, color="#d62728", linewidth=0.8)
-        ax.annotate(
-            f"{gene}: not expressed in ≥5% of enterocytes",
-            (x_all, hi),
-            textcoords="offset points",
-            xytext=(6, -10),
-            fontsize=8,
-        )
-    ax.set_xlabel("Moran's I, all cells")
-    ax.set_ylabel("Moran's I, enterocytes")
-    ax.set_title("All cells vs enterocytes")
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Erbb3 drops inside enterocytes; Apob holds
 
-    ax = axes[1]
-    if gene in adata.var_names:
-        column = adata[:, gene].X
-        if hasattr(column, "toarray"):
-            values = np.asarray(column.toarray()).ravel()
-        else:
-            values = np.asarray(column).ravel()
-        labels = adata.obs["cell_type"].astype(str).to_numpy()
-        means = pd.Series(values).groupby(labels, sort=False).mean()
-        top_means = means.nlargest(top_n_cell_types).sort_values(ascending=True)
-        ax.barh(top_means.index.astype(str), top_means.to_numpy(), color="0.35")
-        ax.tick_params(axis="y", labelsize=7)
-        ax.set_xlabel("mean log expression")
-        ax.set_title(f"{gene} (top {len(top_means)} cell types by mean expression)")
-    else:
-        ax.set_axis_off()
-        ax.text(0.0, 0.5, f"{gene} is not a gene", transform=ax.transAxes, va="center")
-    fig
+    The left panel compares each gene's two scores. The right panel shows mean expression in enterocytes from villus base to tip, using the authors' `mucosal_pseudospace` (0 at the crypt base, 1 at the villus tip). The gene you pick in the map is added in black. In molab, lasso one villus to profile only its enterocytes.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def plot_helpers(pd, plt):
+    HIGHLIGHT = {"Erbb3": "#4E79A7", "Apob": "#E15759"}
+    PICKED = "#1F2328"
+    def villus_profile(villus, genes, n_bins: int = 10) -> pd.DataFrame:
+        """Mean expression of `genes` in n_bins equal-count bins of mucosal_pseudospace (1 = base)."""
+        pos = pd.qcut(villus.obs["mucosal_pseudospace"], n_bins, labels=range(1, n_bins + 1))
+        return villus[:, list(genes)].to_df().groupby(pos.to_numpy(), observed=True).mean()
+
+
+    def plot_moran_contrast(adata, villus, gene: str):
+        """Left: all-cell vs within-enterocyte Moran's I. Right: expression along the villus."""
+        scores = adata.var[["moran_I_all", "moran_I_enterocyte"]].dropna()
+        genes = dict(HIGHLIGHT)
+        if gene not in genes and gene in villus.var_names:
+            genes[gene] = PICKED
+        fig, (ax, bx) = plt.subplots(1, 2, figsize=(10, 4.2), layout="constrained")
+        ax.scatter(scores["moran_I_all"], scores["moran_I_enterocyte"], s=8, c="0.78", linewidths=0)
+        hi = float(scores.to_numpy().max())
+        ax.plot([0, hi], [0, hi], color="0.6", linewidth=0.8)
+        for name, color in genes.items():
+            if name in scores.index:
+                x, y = scores.loc[name]
+                ax.scatter([x], [y], s=40, c=color, zorder=3)
+                ax.annotate(name, (x, y), xytext=(6, 4), textcoords="offset points")
+        ax.set_xlabel("Moran's I, all cells")
+        ax.set_ylabel("Moran's I, enterocytes only")
+        profile = villus_profile(villus, genes)
+        for name, color in genes.items():
+            bx.plot(profile.index, profile[name], "-o", color=color, label=name, markersize=4)
+        bx.set_xlabel("Villus position, base (1) to tip (10)")
+        bx.set_ylabel("Mean expression in enterocytes (log)")
+        bx.legend(frameon=False)
+        return fig
+    return (plot_moran_contrast,)
+
+
+@app.cell
+def villus(ent, mo):
+    villus = ent[ent.obs["mucosal_pseudospace"] >= 0]
+    pos = villus.obs["mucosal_pseudospace"]
+    rho = {g: villus[:, g].to_df()[g].corr(pos, method="spearman") for g in ("Erbb3", "Apob")}
+    rho["n_counts"] = villus.obs["n_counts"].corr(pos, method="spearman")
+    mo.show_code()
+    return rho, villus
+
+
+@app.cell
+def result_figure(adata, plot_moran_contrast, villus, w):
+    gene = w.color if w.color in adata.var_names else "Apob"
+    picked = [s["id"] for s in w.selections]
+    cells = villus.obs_names.intersection(w.get_obs_names(picked[0])) if picked else villus.obs_names
+    plot_moran_contrast(adata, villus[cells], gene)
+    return
+
+
+@app.cell(hide_code=True)
+def _(adata, ent, mo):
+    _erbb3 = adata.var.loc["Erbb3"]
+    _frac = float((ent[:, "Erbb3"].X > 0).mean())
+    mo.md(f"""
+    **Erbb3** scores {_erbb3.moran_I_all:.2f} across all cells but only {_erbb3.moran_I_enterocyte:.2f} inside enterocytes, even though {_frac:.0%} of enterocytes express it. Its all-cell score comes from where epithelium sits relative to the gut wall, not from position along the villus.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(adata, mo, rho):
+    _apob = adata.var.loc["Apob"]
+    mo.md(f"""
+    **Apob** scores {_apob.moran_I_all:.2f} across all cells and still {_apob.moran_I_enterocyte:.2f} inside enterocytes. Its expression rises from villus base to tip (Spearman ρ = {rho["Apob"]:.2f}), so neighboring enterocytes match because they sit at the same height on the villus.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(adata, mo):
+    _top_all = adata.var["moran_I_all"].nlargest(20).index
+    _top_ent = adata.var["moran_I_enterocyte"].nlargest(20).index
+    mo.md(f"""
+    The two top-20 lists share only {len(_top_all.intersection(_top_ent))} genes. Many of the all-cell leaders, like smooth muscle **Acta2**, rank high because of tissue layout.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo, rho):
+    mo.md(f"""
+    /// note | Caveat: position-named subtypes and depth
+    Three of the four enterocyte labels are named by villus position, and sequencing depth (`n_counts`) also rises toward the tip (ρ = {rho["n_counts"]:.2f}). `X` is already scaled by a per-cell size factor, but depth can still leak into a gradient. For a stricter check in molab, rerun the enterocyte calls on one label, `ent[ent.obs.cell_type == "Enterocyte (mid)"]`, and color the map by `n_counts` to compare with Apob. This file has one point per cell, so it can't show where Apob mRNA sits inside a cell.
+    ///
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Takeaway
+
+    - An all-cell Moran's I ranking mixes two things: where cell types sit, and how expression changes inside a cell type.
+    - Scoring again inside one cell type separates them. **Erbb3** is spatial only because epithelium sits in one place. **Apob** stays spatial inside enterocytes because it rises toward the villus tip.
+    - This matches [Moor et al. 2018](https://doi.org/10.1016/j.cell.2018.08.063), who found the chylomicron-assembly genes, including Apob, highest in enterocytes at the villus tips of the mouse jejunum.
+
+    ## Try it
+
+    - Color by **Cps1**. Its high enterocytes sit near the villus base, the mirror image of Apob. Where does it land in the scatter?
+    - Color by `n_counts`. Does depth rise toward the tips the way Apob does?
+    - Lasso a single villus (molab only). Does the Apob profile still climb from base to tip in one villus?
+    - Color by **Acta2**. It tops the all-cell ranking but isn't scored in enterocytes. Why?
+
+    ## Next
+
+    - [Squidpy niches](../squidpy_color/): how the size of the neighbor graph changes which niches you find.
+    """)
     return
 
 
