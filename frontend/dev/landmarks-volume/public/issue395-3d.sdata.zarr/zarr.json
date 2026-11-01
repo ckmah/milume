@@ -517,7 +517,7 @@
       },
       "tables/table/X": {
         "shape": [
-          1,
+          20,
           1
         ],
         "data_type": "float32",
@@ -525,7 +525,7 @@
           "name": "regular",
           "configuration": {
             "chunk_shape": [
-              1,
+              20,
               1
             ]
           }
@@ -542,7 +542,7 @@
             "name": "sharding_indexed",
             "configuration": {
               "chunk_shape": [
-                1,
+                20,
                 1
               ],
               "codecs": [
@@ -613,7 +613,7 @@
       },
       "tables/table/obsm/spatial": {
         "shape": [
-          1,
+          20,
           3
         ],
         "data_type": "float64",
@@ -621,7 +621,7 @@
           "name": "regular",
           "configuration": {
             "chunk_shape": [
-              1,
+              20,
               3
             ]
           }
@@ -638,7 +638,7 @@
             "name": "sharding_indexed",
             "configuration": {
               "chunk_shape": [
-                1,
+                20,
                 3
               ],
               "codecs": [
@@ -695,14 +695,14 @@
       },
       "tables/table/obs/_index/mask": {
         "shape": [
-          1
+          20
         ],
         "data_type": "bool",
         "chunk_grid": {
           "name": "regular",
           "configuration": {
             "chunk_shape": [
-              1
+              20
             ]
           }
         },
@@ -718,7 +718,7 @@
             "name": "sharding_indexed",
             "configuration": {
               "chunk_shape": [
-                1
+                20
               ],
               "codecs": [
                 {
@@ -757,14 +757,14 @@
       },
       "tables/table/obs/_index/values": {
         "shape": [
-          1
+          20
         ],
         "data_type": "string",
         "chunk_grid": {
           "name": "regular",
           "configuration": {
             "chunk_shape": [
-              1
+              20
             ]
           }
         },
@@ -780,7 +780,7 @@
             "name": "sharding_indexed",
             "configuration": {
               "chunk_shape": [
-                1
+                20
               ],
               "codecs": [
                 {
@@ -820,14 +820,14 @@
       },
       "tables/table/obs/cell_type/categories": {
         "shape": [
-          1
+          2
         ],
         "data_type": "string",
         "chunk_grid": {
           "name": "regular",
           "configuration": {
             "chunk_shape": [
-              1
+              2
             ]
           }
         },
@@ -843,7 +843,7 @@
             "name": "sharding_indexed",
             "configuration": {
               "chunk_shape": [
-                1
+                2
               ],
               "codecs": [
                 {
@@ -883,14 +883,14 @@
       },
       "tables/table/obs/cell_type/codes": {
         "shape": [
-          1
+          20
         ],
         "data_type": "int8",
         "chunk_grid": {
           "name": "regular",
           "configuration": {
             "chunk_shape": [
-              1
+              20
             ]
           }
         },
@@ -906,7 +906,7 @@
             "name": "sharding_indexed",
             "configuration": {
               "chunk_shape": [
-                1
+                20
               ],
               "codecs": [
                 {

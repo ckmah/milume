@@ -183,7 +183,7 @@ def issue122_2d_multichannel_spatialdata(dest):
 
 
 def issue395_3d_multichannel_spatialdata(dest):
-    """Small 3D multichannel SpatialData for #395: two channels, µm voxels, under CI size budget."""
+    """Small 3D multichannel SpatialData for #395: two channels, distinct blobs, many cells, under 10 MiB."""
     import anndata as ad
     import numpy as np
     import pandas as pd
@@ -192,17 +192,34 @@ def issue395_3d_multichannel_spatialdata(dest):
     from spatialdata.transformations import Identity
 
     z, y, x = 24, 96, 96
-    ch_dapi = np.full((z, y, x), 10, dtype=np.uint8)
-    ch_panck = np.full((z, y, x), 8, dtype=np.uint8)
+    ch_dapi = np.zeros((z, y, x), dtype=np.uint8)
+    ch_panck = np.zeros((z, y, x), dtype=np.uint8)
     zz, yy, xx = np.ogrid[:z, :y, :x]
-    ch_dapi[(zz - 8) ** 2 + (yy - 48) ** 2 + (xx - 40) ** 2 <= 144] = 210
-    ch_panck[(zz - 14) ** 2 + (yy - 52) ** 2 + (xx - 58) ** 2 <= 121] = 195
-    stack = np.stack([ch_dapi, ch_panck], axis=0)
 
-    cx, cy, cz = 48.0, 48.0, 12.0
-    obs = pd.DataFrame({"cell_type": pd.Categorical(["type0"])}, index=["cell0"])
-    table = ad.AnnData(np.ones((1, 1), dtype=np.float32), obs=obs)
-    table.obsm["spatial"] = np.array([[cx, cy, cz]], dtype=float)
+    peaks = [(22, 28), (48, 62), (48, 28), (20, 58), (70, 40), (30, 72), (60, 20), (75, 75)]
+    extra = [(12 + i * 7, 10 + (i % 5) * 9) for i in range(12)]
+    centers_xy = peaks + extra
+    panck_idx = {0, 2, 4, 6, 8, 10, 12, 14}
+    sigma_xy = 4.5
+    sigma_z = 2.0
+
+    centroids = []
+    for i, (cy, cx) in enumerate(centers_xy):
+        cz = 10 + (i % 5)
+        centroids.append([float(cx), float(cy), float(cz)])
+        d2 = ((yy - cy) / sigma_xy) ** 2 + ((xx - cx) / sigma_xy) ** 2 + ((zz - cz) / sigma_z) ** 2
+        ch_dapi[d2 <= 1.0] = np.maximum(ch_dapi[d2 <= 1.0], 210)
+        if i in panck_idx:
+            ch_panck[d2 <= 1.0] = np.maximum(ch_panck[d2 <= 1.0], 195)
+
+    stack = np.stack([ch_dapi, ch_panck], axis=0)
+    n = len(centroids)
+    obs = pd.DataFrame(
+        {"cell_type": pd.Categorical([f"type{i % 2}" for i in range(n)])},
+        index=[f"cell{i}" for i in range(n)],
+    )
+    table = ad.AnnData(np.ones((n, 1), dtype=np.float32), obs=obs)
+    table.obsm["spatial"] = np.asarray(centroids, dtype=float)
 
     image = Image3DModel.parse(
         stack,

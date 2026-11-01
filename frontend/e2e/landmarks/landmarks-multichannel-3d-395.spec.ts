@@ -2,6 +2,13 @@ import { expect } from "@playwright/test";
 
 import { test } from "../fixtures";
 import {
+  expectCubePixelsChangeWhenPanckOff,
+  expectCubeShowsMultichannelImage,
+  expectMapBandShowsMultichannelImage,
+  expectNoDeckShaderCompileOverlay,
+} from "../helpers/shader-and-pixels";
+import {
+  bootLandmarksVolumeHarness,
   getModel,
   shot,
   stabilizeUi,
@@ -17,22 +24,23 @@ async function openCubeAtCentre(page: import("@playwright/test").Page) {
   const box = await plot.boundingBox();
   expect(box).toBeTruthy();
   await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
-  await expect(page.getByRole("dialog", { name: "Cube" })).toBeVisible({ timeout: 60_000 });
+  const cube = page.getByRole("dialog", { name: "Cube" });
+  await expect(cube).toBeVisible({ timeout: 60_000 });
+  await expect(cube.locator(".volume-cube__view")).toHaveAttribute("data-refining", "false", {
+    timeout: 120_000,
+  });
+  await expectNoDeckShaderCompileOverlay(page);
 }
 
-async function openLayersSection(page: import("@playwright/test").Page) {
-  const left = page.locator(".landmarks__chrome-dock--left");
-  if ((await left.getAttribute("data-collapsed")) === "true") {
-    await page.getByRole("button", { name: "Show left panel" }).click();
-  }
-  await page.getByTestId("panel-section-layers").click();
-}
-
-async function openImagePanel(page: import("@playwright/test").Page) {
-  await openLayersSection(page);
+async function openImagePanelInInspect(page: import("@playwright/test").Page) {
+  await page.evaluate(() => {
+    const root = document.querySelector(".milume-widget.landmarks");
+    if (root instanceof HTMLElement) root.focus();
+  });
+  await page.keyboard.press("[");
+  await page.getByTestId("panel-section-layers").click({ force: true });
   const row = page.getByTestId("layers-image-row");
-  const expanded = await row.getAttribute("aria-expanded");
-  if (expanded !== "true") await row.click();
+  if ((await row.getAttribute("aria-expanded")) !== "true") await row.click({ force: true });
 }
 
 test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
@@ -40,38 +48,40 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   test.skip(!volumeHarness || !issue395, "requires E2E_HARNESS=landmarks-volume and E2E_VOLUME_PROFILE=issue395-3d");
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/", { waitUntil: "networkidle" });
+    await bootLandmarksVolumeHarness(page, "noDialkit=1");
     await waitForEngine(page);
     await stabilizeUi(page);
   });
 
-  test("toggle channel off updates cube channel count", async ({ page }) => {
-    await openImagePanel(page);
-    await page.getByTestId("layer-channel-PanCK").click();
-    await expect
-      .poll(async () => {
-        const rows = (await getModel(page, "_image_channels")) as Array<{ name: string; visible: boolean }>;
-        return rows.find((c) => c.name === "PanCK")?.visible;
-      })
-      .toBe(false);
+  test("map band shows blended multichannel tissue", async ({ page }) => {
+    await expectMapBandShowsMultichannelImage(page);
+    await expectNoDeckShaderCompileOverlay(page);
+  });
+
+  test("cube compiles shader and shows blended channels", async ({ page }) => {
     await openCubeAtCentre(page);
-    const cube = page.getByRole("dialog", { name: "Cube" });
-    await expect(cube.locator(".volume-cube__view")).toHaveAttribute("data-channels", "1", { timeout: 30_000 });
-    const channels = (await getModel(page, "_image_channels")) as Array<{ name: string; visible: boolean }>;
-    expect(channels.find((c) => c.name === "PanCK")?.visible).toBe(false);
-    await page.keyboard.press("Escape");
+    await expectCubeShowsMultichannelImage(page);
+  });
+
+  test("toggle PanCK off changes cube pixels and channel count", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await openImagePanelInInspect(page);
+    await expectCubePixelsChangeWhenPanckOff(page);
   });
 
   test("per-channel contrast drag in layers updates trait", async ({ page }) => {
-    await openImagePanel(page);
+    await openCubeAtCentre(page);
+    await openImagePanelInInspect(page);
     await page.getByTestId("layer-channel-row-DAPI").focus();
     const loBefore = await page.evaluate(() => {
       const rows = window.__landmarksModel.get("_image_channels") as Array<{
         name: string;
         contrast_limits: [number, number];
       }>;
-      return rows.find((c) => c.name === "DAPI")?.contrast_limits?.[1] ?? 0;
+      const dapi = rows.find((c) => c.name === "DAPI");
+      return dapi?.contrast_limits ?? [0, 0];
     });
+    expect(loBefore[1]).toBeGreaterThan(loBefore[0]);
     const hiThumb = page.getByRole("slider", { name: "DAPI contrast, maximum" });
     await expect(hiThumb).toBeVisible();
     const box = await hiThumb.boundingBox();
@@ -88,13 +98,13 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
         }>;
         return rows.find((c) => c.name === "DAPI")?.contrast_limits?.[1] ?? 0;
       })
-      .not.toBe(loBefore);
+      .not.toBe(loBefore[1]);
+    await page.keyboard.press("Escape");
   });
 
   test("cube reports GPU bytes per visible channel", async ({ page }) => {
     await openCubeAtCentre(page);
     const cube = page.getByRole("dialog", { name: "Cube" });
-    await expect(cube).toBeVisible();
     await expect(cube.locator(".volume-cube__view")).toHaveAttribute("data-channels", "2");
     await expect(cube.locator(".volume-cube__view")).toHaveAttribute("data-gpu-channel-bytes", /\d+,\d+/);
     const bytes = await cube.locator(".volume-cube__view").getAttribute("data-gpu-channel-bytes");
@@ -102,7 +112,6 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
     expect(parts.length).toBe(2);
     expect(parts.every((n) => n > 0)).toBeTruthy();
     await page.keyboard.press("Escape");
-    await expect(cube).toHaveCount(0, { timeout: 30_000 });
   });
 
   test("screenshot: cube two-channel blend", async ({ page }) => {
@@ -113,6 +122,7 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   });
 
   test("screenshot: map band two-channel blend", async ({ page }) => {
+    await expectMapBandShowsMultichannelImage(page);
     await stabilizeUi(page);
     const widget = page.locator(".milume-widget.landmarks");
     await shot(page, "395-map-band-two-channel-blend", widget);

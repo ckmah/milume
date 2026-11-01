@@ -101,7 +101,7 @@ function cubeRenderGetUniforms(render: CubeUniforms = {}) {
 }
 
 const cubeRenderModuleSingle = {
-  name: "cubeRender",
+  name: "cubeRenderSingle",
   uniformTypes: CUBE_RENDER_UNIFORM_TYPES,
   defaultUniforms: CUBE_RENDER_DEFAULT_UNIFORMS,
   getUniforms: cubeRenderGetUniforms,
@@ -181,7 +181,7 @@ void meshFlush(inout vec4 shown, inout vec4 acc, vec4 m) {
 };
 
 const cubeRenderModuleMulti = {
-  name: "cubeRender",
+  name: "cubeRenderMulti",
   uniformTypes: CUBE_RENDER_UNIFORM_TYPES,
   defaultUniforms: CUBE_RENDER_DEFAULT_UNIFORMS,
   getUniforms: cubeRenderGetUniforms,
@@ -238,21 +238,25 @@ vec4 imageSample(float v) {
   return tintedSample(v, imagePalette);
 }
 
-vec4 combinedImageSample(float v0, float v1, float v2, float v3) {
+vec4 combinedImageSample2(float v0, float v1) {
   vec4 acc = tintedSample(v0, imagePalette);
-  if (cubeRender.imageChannelCount > 1.5) acc.rgb += tintedSample(v1, imagePalette1).rgb;
-  if (cubeRender.imageChannelCount > 2.5) acc.rgb += tintedSample(v2, imagePalette2).rgb;
-  if (cubeRender.imageChannelCount > 3.5) acc.rgb += tintedSample(v3, imagePalette3).rgb;
-  acc.a = min(1.0, acc.a * cubeRender.imageChannelCount);
+  acc.rgb += tintedSample(v1, imagePalette1).rgb;
+  acc.a = min(1.0, acc.a * 2.0);
   return acc;
 }
 
-float combinedMip(float v0, float v1, float v2, float v3) {
-  float m = v0;
-  if (cubeRender.imageChannelCount > 1.5) m = max(m, v1);
-  if (cubeRender.imageChannelCount > 2.5) m = max(m, v2);
-  if (cubeRender.imageChannelCount > 3.5) m = max(m, v3);
-  return m;
+vec4 combinedImageSample3(float v0, float v1, float v2) {
+  vec4 acc = combinedImageSample2(v0, v1);
+  acc.rgb += tintedSample(v2, imagePalette2).rgb;
+  acc.a = min(1.0, acc.a * 1.5);
+  return acc;
+}
+
+vec4 combinedImageSample4(float v0, float v1, float v2, float v3) {
+  vec4 acc = combinedImageSample3(v0, v1, v2);
+  acc.rgb += tintedSample(v3, imagePalette3).rgb;
+  acc.a = min(1.0, acc.a * 1.3333333);
+  return acc;
 }
 
 const float NO_MESH = 1e9;
@@ -402,8 +406,12 @@ const RENDERING_MULTI = {
   vec4 shown = vec4(0.0);
   float maxImage0 = -1.0;
   float maxImage1 = -1.0;
+#if NUM_CHANNELS > 2
   float maxImage2 = -1.0;
+#endif
+#if NUM_CHANNELS > 3
   float maxImage3 = -1.0;
+#endif
   bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
     || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
     || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
@@ -416,7 +424,18 @@ const RENDERING_MULTI = {
     if (meshHere && cubeRender.imageMip < 0.5 && meshT0 < lo + dt) {
       // A mesh surface inside the step splits it: the part in front goes in before
       // the surface, the rest after.
-      vec4 im = imageHere ? combinedImageSample(intensityValue0, intensityValue1, intensityValue2, intensityValue3) : vec4(0.0);
+      vec4 im = vec4(0.0);
+      if (imageHere) {
+#if NUM_CHANNELS == 1
+        im = imageSample(intensityValue0);
+#elif NUM_CHANNELS == 2
+        im = combinedImageSample2(intensityValue0, intensityValue1);
+#elif NUM_CHANNELS == 3
+        im = combinedImageSample3(intensityValue0, intensityValue1, intensityValue2);
+#else
+        im = combinedImageSample4(intensityValue0, intensityValue1, intensityValue2, intensityValue3);
+#endif
+      }
       float done = 0.0;
       // At most the two surfaces; the one left after a flush moves up to mesh0.
       for (int k = 0; k < 2; k++) {
@@ -433,11 +452,26 @@ const RENDERING_MULTI = {
     } else if (imageHere) {
       if (cubeRender.imageMip > 0.5) {
         maxImage0 = max(maxImage0, intensityValue0);
-        if (cubeRender.imageChannelCount > 1.5) maxImage1 = max(maxImage1, intensityValue1);
-        if (cubeRender.imageChannelCount > 2.5) maxImage2 = max(maxImage2, intensityValue2);
-        if (cubeRender.imageChannelCount > 3.5) maxImage3 = max(maxImage3, intensityValue3);
+#if NUM_CHANNELS > 1
+        maxImage1 = max(maxImage1, intensityValue1);
+#endif
+#if NUM_CHANNELS > 2
+        maxImage2 = max(maxImage2, intensityValue2);
+#endif
+#if NUM_CHANNELS > 3
+        maxImage3 = max(maxImage3, intensityValue3);
+#endif
       } else if (acc.a < 0.95) {
-        vec4 im = combinedImageSample(intensityValue0, intensityValue1, intensityValue2, intensityValue3);
+        vec4 im = vec4(0.0);
+#if NUM_CHANNELS == 1
+        im = imageSample(intensityValue0);
+#elif NUM_CHANNELS == 2
+        im = combinedImageSample2(intensityValue0, intensityValue1);
+#elif NUM_CHANNELS == 3
+        im = combinedImageSample3(intensityValue0, intensityValue1, intensityValue2);
+#else
+        im = combinedImageSample4(intensityValue0, intensityValue1, intensityValue2, intensityValue3);
+#endif
         float a = cover(im.a, stepScale);
         acc.rgb += (1.0 - acc.a) * a * im.rgb;
         acc.a += (1.0 - acc.a) * a;
@@ -449,7 +483,16 @@ const RENDERING_MULTI = {
   _AFTER_RENDER: `
   color = acc;
   if (cubeRender.imageMip > 0.5) {
-    vec4 im = combinedImageSample(maxImage0, maxImage1, maxImage2, maxImage3);
+    vec4 im = vec4(0.0);
+#if NUM_CHANNELS == 1
+    im = imageSample(maxImage0);
+#elif NUM_CHANNELS == 2
+    im = combinedImageSample2(maxImage0, maxImage1);
+#elif NUM_CHANNELS == 3
+    im = combinedImageSample3(maxImage0, maxImage1, maxImage2);
+#else
+    im = combinedImageSample4(maxImage0, maxImage1, maxImage2, maxImage3);
+#endif
     color = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
   }
   if (meshHere) {
@@ -548,11 +591,6 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
     this.multichannel = multichannel;
   }
 
-  getVivShaderTemplates() {
-    return { modules: [this.multichannel ? cubeRenderModuleMulti : cubeRenderModuleSingle] };
-  }
-
-  // deck.gl calls these with `this` bound to the layer.
   updateState(update: { props: object; oldProps: object }) {
     const layer = this as unknown as LayerLike;
     const { props, oldProps } = update as { props: LayerLike["props"]; oldProps: LayerLike["props"] };
@@ -601,11 +639,9 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
       meshBackDepth: meshOn ? target!.back!.depth : paletteTexture,
     });
     const imageOn = layer.props.showImage === false ? 0 : 1;
-    // The image texture Viv binds for this draw: the one it last loaded.
     const image = imageTextureInfo(layer.state.textures?.volume0);
     const imageFormat = image?.format ?? null;
     if (imageFormat !== (layer.state.boundImage ?? null)) {
-      // Plain state: set while drawing, so it must not ask for a layer update.
       layer.state.boundImage = imageFormat;
       layer.props.onImageBound?.(imageFormat);
     }
@@ -645,15 +681,22 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
   }
 }
 
-/** Viv keys shader programs on `extensionName`; single and multi must differ. */
 class CubeExtensionSingle extends CubeExtensionBase {
   static componentName = "CubeExtensionSingle";
   static extensionName = "CubeExtensionSingle";
+
+  getVivShaderTemplates() {
+    return { modules: [cubeRenderModuleSingle] };
+  }
 }
 
 class CubeExtensionMulti extends CubeExtensionBase {
   static componentName = "CubeExtensionMulti";
   static extensionName = "CubeExtensionMulti";
+
+  getVivShaderTemplates() {
+    return { modules: [cubeRenderModuleMulti] };
+  }
 }
 
 export const CUBE_EXTENSIONS: unknown[] = [new CubeExtensionSingle(RENDERING_SINGLE, false)];

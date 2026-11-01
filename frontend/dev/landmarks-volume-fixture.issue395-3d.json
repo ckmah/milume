@@ -8,10 +8,12 @@
     {
       "name": "cell_type",
       "labels": [
-        "type0"
+        "type0",
+        "type1"
       ],
       "palette": [
-        "#1f77b4"
+        "#1f77b4",
+        "#ff7f0e"
       ]
     }
   ],
@@ -27,30 +29,32 @@
   "gene_expression_logged": false,
   "color_mode": "categorical",
   "legend_labels": [
-    "type0"
+    "type0",
+    "type1"
   ],
   "legend_title": "cell_type",
   "type_neighborhoods": [],
   "default_buffer_width": 0.0,
-  "neighbor_radius_max": 0.07353910524340139,
+  "neighbor_radius_max": 5.239887021682815,
   "neighbor_k_max": 64,
   "gene_csc_indptr": "",
   "gene_csc_indices": "",
   "gene_csc_data": "",
   "x_bounds": [
-    47.98,
-    49.02
+    8.7,
+    76.3
   ],
   "y_bounds": [
-    47.98,
-    49.02
+    10.46,
+    90.54
   ],
-  "point_size": 0.014142135623730952,
-  "points_data": "Yid2v2Indr8AAAAAAABAQQ==",
+  "point_size": 4.443681615476669,
+  "points_data": "HaXbvsE3Nr8AAAAAAAAgQTuxEz+Ivn+9AAAAAAAAMEEdpdu+iL5/vQAAAAAAAEBB+8rqPkcBQ78AAAAAAABQQbN6l73EWfk+AAAAAAAAYEGUbl8/pREDvwAAAAAAACBBCWoqvwH1cj4AAAAAAAAwQWIndj+zpBw/AAAAAAAAQEFiJ3a/Yid2vwAAAAAAAFBB+PwxvwtmSb8AAAAAAABgQR2l276zpBy/AAAAAAAAIEGRoCa+t8bfvgAAAAAAADBBLRLUPQdEhr4AAAAAAABAQWIndr9fBbO9AAAAAAAAUEH4/DG/XwWzPQAAAAAAAGBBHaXbvgdEhj4AAAAAAAAgQZGgJr63xt8+AAAAAAAAMEEtEtQ9s6QcPwAAAAAAAEBBYid2vwtmST8AAAAAAABQQfj8Mb9iJ3Y/AAAAAAAAYEE=",
   "point_palette": [
-    "#1f77b4"
+    "#1f77b4",
+    "#ff7f0e"
   ],
-  "category_codes": "AAAAAA==",
+  "category_codes": "AAAAAAEAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAEAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAEAAAAAAAAAAQAAAAAAAAABAAAAAAAAAAEAAAA=",
   "color_vmin": 0.0,
   "color_vmax": 1.0,
   "render_mode": "points",
@@ -80,8 +84,8 @@
       "name": "DAPI",
       "visible": true,
       "contrast_limits": [
-        10.0,
-        210.0
+        0.0,
+        160.0
       ],
       "constant_zero": false
     },
@@ -89,8 +93,8 @@
       "name": "PanCK",
       "visible": true,
       "contrast_limits": [
-        8.0,
-        195.0
+        0.0,
+        149.0
       ],
       "constant_zero": false
     }
@@ -110,8 +114,8 @@
       0.0
     ],
     "contrast_limits": [
-      10.0,
-      210.0
+      0.0,
+      160.0
     ],
     "dims": [
       "c",
@@ -144,8 +148,8 @@
         "name": "DAPI",
         "visible": true,
         "contrast_limits": [
-          10.0,
-          210.0
+          0.0,
+          160.0
         ],
         "constant_zero": false
       },
@@ -153,8 +157,8 @@
         "name": "PanCK",
         "visible": true,
         "contrast_limits": [
-          8.0,
-          195.0
+          0.0,
+          149.0
         ],
         "constant_zero": false
       }
