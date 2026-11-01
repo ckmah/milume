@@ -201,8 +201,7 @@ def _(mo):
 @app.cell
 def moran_plots(adata, np, pd, plt, w):
     _ = w.value
-    active = list(w.active_genes or [])
-    gene = str(active[-1]) if active else str(w.color or "Apob")
+    gene = str(w.color or "Apob")
     top_n_cell_types = 15
     moran_scores = adata.var[["moran_I_all", "moran_I_enterocyte"]]
     both = moran_scores.dropna(subset=["moran_I_all", "moran_I_enterocyte"])
