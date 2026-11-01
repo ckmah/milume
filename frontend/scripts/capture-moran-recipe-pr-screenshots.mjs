@@ -30,7 +30,7 @@ const plotImg = plotsCell.locator("img").first();
 await plotImg.waitFor({ state: "visible", timeout: 60_000 });
 const box = await plotImg.boundingBox();
 if (!box) throw new Error("moran_plots image missing");
-const scatterHeight = Math.round(box.height * 0.52);
+const scatterHeight = Math.round(box.height * (3.8 / (3.8 + 2.4)));
 await page.screenshot({
   path: `${outDir}/02-static-moran-scatter-apob.png`,
   clip: {
