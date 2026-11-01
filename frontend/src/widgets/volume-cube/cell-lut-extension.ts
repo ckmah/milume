@@ -327,7 +327,8 @@ float cover(float a, float steps) {
 }
 
 vec4 tintedSample(float v, highp sampler3D palette, vec2 lim) {
-  float adjusted = lim.y <= lim.x ? 0.0 : apply_contrast_limits(v, lim);
+  float raw = v * cubeRender.imageScale;
+  float adjusted = lim.y <= lim.x ? 0.0 : apply_contrast_limits(raw, lim);
   float g = pow(clamp(adjusted, 0.0, 1.0), cubeRender.imageGamma);
   vec3 c = srgbToLinear(texelFetch(palette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);

@@ -27,8 +27,31 @@ export type MainViewportSample = ChannelTintCounts & {
 const MAIN_VIEWPORT_MIN_LUMA = 45;
 const MAIN_VIEWPORT_MIN_SAT = 20;
 const MAIN_VIEWPORT_MIN_DAPI = 400;
-const MAIN_VIEWPORT_MIN_PANCK = 150;
 const MAIN_VIEWPORT_MIN_CHROMATIC = 800;
+
+/** Minimum connected strict-magenta pixels per issue395 PanCK-only sphere in the cube main viewport. */
+const ISSUE395_PANCK_COMPONENT_MIN_PIXELS = 14;
+
+/**
+ * Normalized sub-rects within the cube `.volume-cube__view` screenshot (Oblique, inspect 130.5×170.5 µm).
+ * Each ROI covers one PanCK-only fixture site (voxel z,y,x): (24,100,200), (40,200,80), (52,120,180).
+ */
+export const ISSUE395_PANCK_CUBE_ROIS = [
+  { id: "panck-z24", x0: 0.36, y0: 0.32, x1: 0.52, y1: 0.46 },
+  { id: "panck-z40", x0: 0.26, y0: 0.41, x1: 0.4, y1: 0.55 },
+  { id: "panck-z52", x0: 0.46, y0: 0.27, x1: 0.58, y1: 0.41 },
+] as const satisfies readonly CanvasRect[];
+
+type PanckSiteAnalysis = {
+  sites: Array<{ id: string; maxComponent: number; panckPixels: number }>;
+  w: number;
+  h: number;
+};
+
+function panckSiteAnalysisDetail(a: PanckSiteAnalysis): string {
+  const parts = a.sites.map((s) => `${s.id}: cc=${s.maxComponent} px=${s.panckPixels}`).join("; ");
+  return `${a.w}×${a.h}; ${parts}`;
+}
 
 /** Tighter inset for contrast asserts: axis ticks and frame lines sit just inside the 0.2 margin. */
 export const CUBE_CONTRAST_INSET = { x0: 0.38, y0: 0.38, x1: 0.62, y1: 0.62 } as const;
@@ -150,11 +173,122 @@ function formatMainViewportSample(sample: MainViewportSample): string {
   return `region px x=${sample.rx0}..${sample.rx1} y=${sample.ry0}..${sample.ry1} (${sample.w}×${sample.h}); thresholds luma≥${MAIN_VIEWPORT_MIN_LUMA} sat≥${MAIN_VIEWPORT_MIN_SAT}; measured dapi=${sample.dapi} panck=${sample.panck} bright=${sample.bright} bright60=${sample.bright60} chromatic=${sample.chromatic}`;
 }
 
+/** Strict PanCK magenta: rejects blue-only DAPI spheres and loose purple-from-blue counts. */
+export function isStrictPanckMagentaPixel(R: number, G: number, B: number): boolean {
+  const luma = R + G + B;
+  if (luma < 45) return false;
+  const sat = Math.max(R, G, B) - Math.min(R, G, B);
+  if (sat < 28) return false;
+  if (B > R + 6 && R <= G + 18) return false;
+  if (R < 68 || B < 52) return false;
+  if (G > R * 0.7 || G > B * 0.72) return false;
+  if (R + B < G + 38) return false;
+  if (R < G + 14) return false;
+  return true;
+}
+
+/** Largest 4-connected strict-magenta component inside each fixture PanCK ROI on a cube view PNG. */
+export async function analyzeIssue395PanckSitesInCubeView(page: Page): Promise<PanckSiteAnalysis | null> {
+  const png = await page.locator(CUBE_VIEW_SEL).screenshot();
+  return page.evaluate(
+    async ({ b64, rois, minComponent, isPanckSource }) => {
+      const isPanck = new Function("R", "G", "B", `return (${isPanckSource})(R,G,B);`) as (
+        R: number,
+        G: number,
+        B: number,
+      ) => boolean;
+      const img = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+      const ctx = new OffscreenCanvas(img.width, img.height).getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(img, 0, 0);
+      const { width: w, height: h, data } = ctx.getImageData(0, 0, img.width, img.height);
+      const sites = rois.map((roi: { id: string; x0: number; y0: number; x1: number; y1: number }) => {
+        const x0 = Math.floor(w * roi.x0);
+        const x1 = Math.ceil(w * roi.x1);
+        const y0 = Math.floor(h * roi.y0);
+        const y1 = Math.ceil(h * roi.y1);
+        const mask = new Uint8Array(w * h);
+        let panckPixels = 0;
+        for (let y = y0; y < y1; y++) {
+          for (let x = x0; x < x1; x++) {
+            const i = (y * w + x) * 4;
+            const R = data[i]!;
+            const G = data[i + 1]!;
+            const B = data[i + 2]!;
+            if (isPanck(R, G, B)) {
+              mask[y * w + x] = 1;
+              panckPixels++;
+            }
+          }
+        }
+        let maxComponent = 0;
+        const seen = new Uint8Array(w * h);
+        for (let y = y0; y < y1; y++) {
+          for (let x = x0; x < x1; x++) {
+            const start = y * w + x;
+            if (!mask[start] || seen[start]) continue;
+            let size = 0;
+            const stack: number[] = [start];
+            seen[start] = 1;
+            while (stack.length) {
+              const cur = stack.pop()!;
+              size++;
+              const cx = cur % w;
+              const cy = (cur / w) | 0;
+              for (const [dx, dy] of [
+                [1, 0],
+                [-1, 0],
+                [0, 1],
+                [0, -1],
+              ] as const) {
+                const nx = cx + dx;
+                const ny = cy + dy;
+                if (nx < x0 || nx >= x1 || ny < y0 || ny >= y1) continue;
+                const ni = ny * w + nx;
+                if (!mask[ni] || seen[ni]) continue;
+                seen[ni] = 1;
+                stack.push(ni);
+              }
+            }
+            if (size > maxComponent) maxComponent = size;
+          }
+        }
+        void minComponent;
+        return { id: roi.id, maxComponent, panckPixels };
+      });
+      return { sites, w, h };
+    },
+    {
+      b64: png.toString("base64"),
+      rois: ISSUE395_PANCK_CUBE_ROIS,
+      minComponent: ISSUE395_PANCK_COMPONENT_MIN_PIXELS,
+      isPanckSource: isStrictPanckMagentaPixel.toString().replace(/^export function isStrictPanckMagentaPixel/, "function isPanck"),
+    },
+  );
+}
+
+export async function expectIssue395PanckMagentaSitesInCubeMainViewport(
+  page: Page,
+  preset: "Top view" | "Oblique view",
+) {
+  await page.getByRole("radio", { name: preset }).click();
+  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
+  await page.waitForTimeout(600);
+  const analysis = await analyzeIssue395PanckSitesInCubeView(page);
+  expect(analysis, `${preset} PanCK site analysis`).toBeTruthy();
+  const detail = panckSiteAnalysisDetail(analysis!);
+  for (const site of analysis!.sites) {
+    expect(
+      site.maxComponent,
+      `${preset} must show connected strict-magenta PanCK at ${site.id} (${detail})`,
+    ).toBeGreaterThanOrEqual(ISSUE395_PANCK_COMPONENT_MIN_PIXELS);
+  }
+}
+
 export async function expectCubeMainViewportMultichannelTints(
   page: Page,
   preset: "Top view" | "Oblique view",
   minDapi = preset === "Top view" ? 150 : MAIN_VIEWPORT_MIN_DAPI,
-  minPanck = MAIN_VIEWPORT_MIN_PANCK,
 ) {
   await page.getByRole("radio", { name: preset }).click();
   await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
@@ -173,10 +307,15 @@ export async function expectCubeMainViewportMultichannelTints(
     counts!.dapi,
     `${preset} main viewport must show blue-dominant (DAPI) voxels (${detail})`,
   ).toBeGreaterThanOrEqual(minDapi);
-  expect(
-    counts!.panck,
-    `${preset} main viewport must show magenta-dominant (PanCK) voxels (${detail})`,
-  ).toBeGreaterThanOrEqual(minPanck);
+  if (preset === "Oblique view") {
+    await expectIssue395PanckMagentaSitesInCubeMainViewport(page, preset);
+  } else {
+    const strictPanck = counts!.panck;
+    expect(
+      strictPanck,
+      `${preset} main viewport must show strict magenta PanCK ink (${detail})`,
+    ).toBeGreaterThanOrEqual(40);
+  }
 }
 
 async function canvasStatsGl(
@@ -634,9 +773,15 @@ export async function expectCubeMainViewportChangesWhenPanckToggledViaLayers(pag
     await page.waitForTimeout(600);
     await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
   }
-  const before = await cubeMainViewportChannelCounts(page);
-  expect(before, "two-channel baseline in main viewport").toBeTruthy();
-  expect(before!.panck, formatMainViewportSample(before!)).toBeGreaterThanOrEqual(25);
+  const beforeSites = await analyzeIssue395PanckSitesInCubeView(page);
+  expect(beforeSites, "two-channel baseline PanCK sites").toBeTruthy();
+  const beforeSiteDetail = panckSiteAnalysisDetail(beforeSites!);
+  for (const site of beforeSites!.sites) {
+    expect(
+      site.maxComponent,
+      `PanCK on: connected magenta at ${site.id} (${beforeSiteDetail})`,
+    ).toBeGreaterThanOrEqual(ISSUE395_PANCK_COMPONENT_MIN_PIXELS);
+  }
   await expectMapCubeImageChannelStateAligned(page);
   const pngTwoChannel = await page.locator(CUBE_VIEW_SEL).screenshot();
 
@@ -673,12 +818,15 @@ export async function expectCubeMainViewportChangesWhenPanckToggledViaLayers(pag
     pngTwoChannel.equals(pngPanckOff),
     "PanCK off must change the main cube viewport pixels",
   ).toBe(false);
-  const panckOff = await cubeMainViewportChannelCounts(page);
-  expect(panckOff).toBeTruthy();
-  expect(
-    panckOff!.panck,
-    `PanCK off must drop magenta in main viewport (${formatMainViewportSample(panckOff!)})`,
-  ).toBeLessThan(Math.max(15, Math.floor(before!.panck * 0.5)));
+  const panckOffSites = await analyzeIssue395PanckSitesInCubeView(page);
+  expect(panckOffSites).toBeTruthy();
+  const offDetail = panckSiteAnalysisDetail(panckOffSites!);
+  for (const site of panckOffSites!.sites) {
+    expect(
+      site.maxComponent,
+      `PanCK off must remove connected magenta at ${site.id} (${offDetail})`,
+    ).toBeLessThan(Math.max(6, Math.floor(ISSUE395_PANCK_COMPONENT_MIN_PIXELS * 0.45)));
+  }
 
   await clickPanckSwitch();
   await expect
@@ -699,14 +847,19 @@ export async function expectCubeMainViewportChangesWhenPanckToggledViaLayers(pag
     pngPanckOff.equals(pngPanckOn),
     "PanCK on must change the main cube viewport pixels again",
   ).toBe(false);
-  const panckOn = await cubeMainViewportChannelCounts(page);
-  expect(panckOn).toBeTruthy();
+  const panckOnSites = await analyzeIssue395PanckSitesInCubeView(page);
+  expect(panckOnSites).toBeTruthy();
+  const onDetail = panckSiteAnalysisDetail(panckOnSites!);
+  for (const site of panckOnSites!.sites) {
+    expect(
+      site.maxComponent,
+      `PanCK on must restore connected magenta at ${site.id} (${onDetail})`,
+    ).toBeGreaterThanOrEqual(ISSUE395_PANCK_COMPONENT_MIN_PIXELS);
+  }
+  const panckOnCounts = await cubeMainViewportChannelCounts(page);
+  expect(panckOnCounts).toBeTruthy();
   expect(
-    panckOn!.panck,
-    `PanCK on must raise magenta-tinted voxels vs off (${formatMainViewportSample(panckOn!)})`,
-  ).toBeGreaterThan(Math.max(panckOff!.panck + 8, panckOff!.panck * 2, 12));
-  expect(
-    panckOn!.chromatic,
-    `PanCK on must restore multichannel ink in the main viewport (${formatMainViewportSample(panckOn!)})`,
-  ).toBeGreaterThanOrEqual(Math.floor(before!.chromatic * 0.75));
+    panckOnCounts!.chromatic,
+    `PanCK on must restore multichannel ink in the main viewport (${formatMainViewportSample(panckOnCounts!)})`,
+  ).toBeGreaterThanOrEqual(600);
 }

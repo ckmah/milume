@@ -3,6 +3,7 @@
  * Start dev server: DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=issue395-3d npm run dev:landmarks-volume -- --port 5173
  */
 import { chromium, expect } from "@playwright/test";
+import { execFileSync } from "node:child_process";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -13,28 +14,16 @@ import {
 } from "../e2e/helpers.ts";
 import {
   cubeMainViewportChannelCounts,
-  expectCubeMainViewportChangesWhenPanckToggledViaLayers,
   hideMapPointsForImageAssert,
 } from "../e2e/helpers/shader-and-pixels.ts";
 
 const outDir = process.env.CAPTURE_OUT ?? "/opt/cursor/artifacts/issue395";
 const base = process.env.CAPTURE_BASE ?? "http://127.0.0.1:5173/?noDialkit=1";
-const videoTmp = join(outDir, "_video_tmp");
 const cubeViewSel = '[role="dialog"][aria-label="Cube"] .volume-cube__view';
 
 await mkdir(outDir, { recursive: true });
-await mkdir(videoTmp, { recursive: true });
 
-const browser = await chromium.launch();
-const context = await browser.newContext({
-  baseURL: new URL(base).origin,
-  recordVideo: { dir: videoTmp, size: { width: 1280, height: 900 } },
-  viewport: { width: 1280, height: 900 },
-  deviceScaleFactor: 1,
-});
-const page = await context.newPage();
-
-async function hideHarnessChrome() {
+async function hideHarnessChrome(page: import("@playwright/test").Page) {
   await page.addStyleTag({
     content: `
       [data-testid="harness-banner"],
@@ -48,7 +37,7 @@ async function hideHarnessChrome() {
   });
 }
 
-async function openCubeAtCentre() {
+async function openCubeAtCentre(page: import("@playwright/test").Page) {
   await page.evaluate(() => {
     window.__landmarksModel.set("inspect_cx", 130.5);
     window.__landmarksModel.set("inspect_cy", 170.5);
@@ -66,26 +55,22 @@ async function openCubeAtCentre() {
   });
 }
 
-async function waitMainViewportInk(label: string) {
+async function waitMainViewportInk(page: import("@playwright/test").Page) {
   await expect
     .poll(async () => (await cubeMainViewportChannelCounts(page))?.chromatic ?? 0, {
       timeout: 120_000,
-      message: label,
     })
     .toBeGreaterThan(800);
 }
 
-async function setLabels(on: boolean) {
+async function setLabels(page: import("@playwright/test").Page, on: boolean) {
   const btn = page.getByRole("button", { name: "Labels" });
   const pressed = (await btn.getAttribute("aria-pressed")) === "true";
   if (pressed !== on) await btn.click();
   await page.waitForTimeout(on ? 400 : 600);
-  if (on) {
-    await expect(page.locator(cubeViewSel)).toHaveAttribute("data-labels", "on", { timeout: 60_000 });
-  }
 }
 
-async function openLayersPanel() {
+async function openLayersPanel(page: import("@playwright/test").Page) {
   await page.evaluate(() => {
     const root = document.querySelector(".milume-widget.landmarks");
     if (root instanceof HTMLElement) root.focus();
@@ -101,7 +86,25 @@ async function openLayersPanel() {
   await page.getByTestId("layer-channel-PanCK").waitFor({ state: "visible", timeout: 30_000 });
 }
 
-async function capturePreset(preset: "Top view" | "Oblique view", widgetName: string, viewName: string) {
+async function clickPanckSwitch(page: import("@playwright/test").Page) {
+  const sw = page.getByTestId("layer-channel-PanCK");
+  const box = await sw.boundingBox();
+  if (!box) throw new Error("PanCK switch missing");
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await page.mouse.move(cx - 100, cy - 60, { steps: 8 });
+  await page.waitForTimeout(120);
+  await page.mouse.move(cx, cy, { steps: 10 });
+  await page.waitForTimeout(100);
+  await page.mouse.click(cx, cy);
+}
+
+async function capturePreset(
+  page: import("@playwright/test").Page,
+  preset: "Top view" | "Oblique view",
+  widgetName: string,
+  viewName: string,
+) {
   await page.getByRole("radio", { name: preset }).click();
   await expect(page.locator(cubeViewSel)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
   await page.waitForTimeout(1500);
@@ -110,42 +113,89 @@ async function capturePreset(preset: "Top view" | "Oblique view", widgetName: st
   await page.locator(cubeViewSel).screenshot({ path: join(outDir, viewName) });
 }
 
+async function recordToggleClip() {
+  const videoTmp = join(outDir, "_toggle_video_tmp");
+  await mkdir(videoTmp, { recursive: true });
+  const browser = await chromium.launch();
+  const context = await browser.newContext({
+    baseURL: new URL(base).origin,
+    recordVideo: { dir: videoTmp, size: { width: 1280, height: 900 } },
+    viewport: { width: 1280, height: 900 },
+    deviceScaleFactor: 1,
+  });
+  const page = await context.newPage();
+  await bootLandmarksVolumeHarness(page, "noDialkit=1");
+  await hideHarnessChrome(page);
+  await hideMapPointsForImageAssert(page);
+  await stabilizeUi(page);
+  await openCubeAtCentre(page);
+  await page.getByRole("radio", { name: "Oblique view" }).click();
+  await expect(page.locator(cubeViewSel)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
+  await page.waitForTimeout(800);
+  await waitMainViewportInk(page);
+  await openLayersPanel(page);
+  await page.waitForTimeout(400);
+  await clickPanckSwitch(page);
+  await expect(page.locator(cubeViewSel)).toHaveAttribute("data-channels", "1", { timeout: 30_000 });
+  await page.waitForTimeout(1200);
+  await clickPanckSwitch(page);
+  await expect(page.locator(cubeViewSel)).toHaveAttribute("data-channels", "2", { timeout: 30_000 });
+  await page.waitForTimeout(1200);
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(400);
+  const rawWebm = join(outDir, "395-channel-toggle-cube-raw.webm");
+  const video = page.video();
+  await context.close();
+  if (video) await video.saveAs(rawWebm);
+  await browser.close();
+
+  const trimmed = join(outDir, "395-channel-toggle-cube.webm");
+  execFileSync(
+    "ffmpeg",
+    ["-y", "-i", rawWebm, "-t", "18", "-c:v", "libvpx-vp9", "-b:v", "1M", trimmed],
+    { stdio: "inherit" },
+  );
+}
+
+const browser = await chromium.launch();
+const context = await browser.newContext({
+  baseURL: new URL(base).origin,
+  viewport: { width: 1280, height: 900 },
+  deviceScaleFactor: 1,
+});
+const page = await context.newPage();
+
 await bootLandmarksVolumeHarness(page, "noDialkit=1");
-await hideHarnessChrome();
+await hideHarnessChrome(page);
 await hideMapPointsForImageAssert(page);
 await stabilizeUi(page);
 
 const widget = page.locator(".milume-widget.landmarks");
 await widget.screenshot({ path: join(outDir, "395-map-band-two-channel-blend.png") });
 
-await openCubeAtCentre();
+await openCubeAtCentre(page);
 await page.getByRole("radio", { name: "Oblique view" }).click();
 await page.waitForTimeout(800);
-await waitMainViewportInk("cube open — main viewport tissue ink");
+await waitMainViewportInk(page);
 
-await setLabels(false);
+await setLabels(page, false);
 await expect(page.locator(cubeViewSel)).toHaveAttribute("data-points", "0");
 
-await capturePreset("Top view", "395-cube-fullwidget-top-labels-off.png", "395-cube-two-channel-blend-top.png");
 await capturePreset(
+  page,
+  "Top view",
+  "395-cube-fullwidget-top-labels-off.png",
+  "395-cube-two-channel-blend-top.png",
+);
+await capturePreset(
+  page,
   "Oblique view",
   "395-cube-fullwidget-iso-labels-off.png",
   "395-cube-two-channel-blend-iso.png",
 );
 
-await setLabels(true);
-await capturePreset(
-  "Oblique view",
-  "395-cube-fullwidget-iso-labels-on.png",
-  "395-cube-view-iso-labels-on.png",
-);
-
-await openLayersPanel();
-await expectCubeMainViewportChangesWhenPanckToggledViaLayers(page);
-
-await page.waitForTimeout(800);
-const video = page.video();
 await context.close();
-if (video) await video.saveAs(join(outDir, "395-channel-toggle-cube.webm"));
 await browser.close();
+
+await recordToggleClip();
 console.log(`Wrote captures under ${outDir}`);
