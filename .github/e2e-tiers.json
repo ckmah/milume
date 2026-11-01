@@ -20,7 +20,8 @@
       "frontend/scripts/marimo-e2e-serve.mjs",
       "frontend/scripts/marimo-e2e-host.mjs",
       "frontend/scripts/prefetch-marimo-e2e-data.py",
-      "demos/landmarks.py"
+      "demos/landmarks.py",
+      "demos/recipes/squidpy_moran.py"
     ],
     "core": [
       "website/landing/hero/**",

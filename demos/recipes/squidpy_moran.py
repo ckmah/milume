@@ -13,55 +13,53 @@
 # runtimes = ["server", "zero-python"]
 #
 # [tool.marimo-studio.cells]
-# cell-1 = {ref = "cell:v1:e47415a54c83a8048bc292b1e9c4f154ba85b9ef8dc2c434c3563d059fe37761:b79b0bc211ac84367cca26ddf61f1bc340134b0d4519335926b96baedbe17191:0"}
-# cell-2 = {ref = "cell:v1:eaab100e38906edf9f943e261802946200da797e294fabac5e524181e4126256:f0caf9a8dcba3f85135816af4caf0db5fa161bdb3552eea6c45406462610f644:0"}
+# cell-1 = {ref = "cell:v1:5b621d231f81462ef801dbfe3b01a8a4a0e8ffe781b9d016cfcb86a00fc00392:3684620b0b3f8b3bfd5dab5be196d4643029198394926622163f46330c4daf74:0"}
+# cell-2 = {ref = "cell:v1:34bf30d7c701e58e846cb3e6a3e6ef5d01f3d9b042be0a125354f994603f0129:f0caf9a8dcba3f85135816af4caf0db5fa161bdb3552eea6c45406462610f644:0"}
 # cell-7 = {ref = "cell:v1:8b7a08944f047a0f5106146b0ed2a58122ea5446fc073c4f690e3671b1b94e5e:8841281c5f31d875cbf4cd89f18fca8ee33578edd01833bd8092d49354e8d2a1:0"}
 # ///
 """Squidpy Moran's I recipe for docs (marimo-studio zero-python export)."""
 
 import marimo
 
-__generated_with = "0.25.1"
+__generated_with = "0.25.2"
 app = marimo.App(width="medium")
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-        # Moran's I on the ileum
+    mo.md(r"""
+    # Moran's I on the ileum
 
-        On this Xu et al. 2026 ileum MERFISH slice, all-cell Moran's I ranks genes that vary in space because cell types sit in different places. Moran's I inside enterocytes asks which of those genes still vary along the crypt-villus axis within one class.
+    On this Xu et al. 2026 ileum MERFISH slice, all-cell Moran's I ranks genes that vary in space because cell types sit in different places. Moran's I inside enterocytes asks which of those genes still vary along the crypt-villus axis within one class.
 
-        Both runs use the authors' log-normalized `X` and a 6-nearest-neighbour graph with the longest 1% of edges removed, then Moran's I with 100 permutations.
+    Both runs use the authors' log-normalized `X` and a 6-nearest-neighbour graph with the longest 1% of edges removed, then Moran's I with 100 permutations.
 
-        The all-cell top 20 and the enterocyte top 20 share **8** genes (Apob, Slc5a1, Nos2, Cps1, Nlrp6, Fgf15, Fzd5, Ephb2). All-cell ranks lead with **Acta2** and **Apob**; enterocyte ranks lead with **Apob** and **Slc5a1**.
+    The all-cell top 20 and the enterocyte top 20 share **8** genes (Apob, Slc5a1, Nos2, Cps1, Nlrp6, Fgf15, Fzd5, Ephb2). All-cell ranks lead with **Acta2** and **Apob**; enterocyte ranks lead with **Apob** and **Slc5a1**.
 
-        **Apob** stays high within enterocytes. All-cell I is **0.631**. Enterocyte I is **0.521**.
+    **Apob** stays high within enterocytes. All-cell I is **0.631**. Enterocyte I is **0.521**.
 
-        **Acta2** ranks first across all cells (I **0.743**) because smooth muscle forms its own layers. It is detected in only 2.4% of enterocytes, so the enterocyte run does not score it; **Grem1** (I **0.476**) is the same case. **Erbb3** is the within-class contrast: 82% of enterocytes express it, yet its I falls from **0.473** across all cells to **0.098** within enterocytes. Its all-cell score comes from where epithelium sits relative to the gut wall, not from position along the villus. Pick **Erbb3** next to **Apob** (0.631 → 0.521) to see the difference.
+    **Acta2** ranks first across all cells (I **0.743**) because smooth muscle forms its own layers. It is detected in only 2.4% of enterocytes, so the enterocyte run does not score it; **Grem1** (I **0.476**) is the same case. **Erbb3** is the within-class contrast: 82% of enterocytes express it, yet its I falls from **0.473** across all cells to **0.098** within enterocytes. Its all-cell score comes from where epithelium sits relative to the gut wall, not from position along the villus. Pick **Erbb3** next to **Apob** (0.631 → 0.521) to see the difference.
 
-        `n_counts` is an obs column. It is the per-cell total of `layers['raw_counts']`. The median on this slice is **48**. Colour by `n_counts` when a spatial pattern might be a depth artifact. Depth itself is spatially patterned within enterocytes (Moran's I **0.24** on `n_counts`), so the depth caveat earns its place.
+    `n_counts` is an obs column. It is the per-cell total of `layers['raw_counts']`. The median on this slice is **48**. Colour by `n_counts` when a spatial pattern might be a depth artifact. Depth itself is spatially patterned within enterocytes (Moran's I **0.24** on `n_counts`), so the depth caveat earns its place.
 
-        Yan, Hua, and Li, Nat Commun 2025, make this composition point. This page runs the same comparison with one fixed neighbour graph.
-        [s41467-025-56080-w](https://www.nature.com/articles/s41467-025-56080-w)
+    Yan, Hua, and Li, Nat Commun 2025, make this composition point. This page runs the same comparison with one fixed neighbour graph.
+    [s41467-025-56080-w](https://www.nature.com/articles/s41467-025-56080-w)
 
-        **Open in molab:**
-        [squidpy_moran.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_moran.py)
+    Moran (1950), Biometrika 37:17–23, defines the statistic ([doi:10.2307/2332142](https://doi.org/10.2307/2332142)).
 
-        > **Static docs view.** Moran's I is precomputed in `ileum_moran_recipe_scores.parquet`. The map is the full slice, framed on the crypt-villus field, coloured by **Apob**. The scatter highlights the gene you pick. molab is where that pick is live.
-        """
-    )
+    **Open in molab:**
+    [squidpy_moran.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_moran.py)
+
+    > **Static docs view.** Moran's I is precomputed in `ileum_moran_recipe_scores.parquet`. The map is the full slice, framed on the crypt-villus field, coloured by **Apob**. The scatter highlights the gene you pick. molab is where that pick is live.
+    """)
     return
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-        > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook. After the server connects, click **Run all** (the ▶ button at the bottom right) to run the notebook.
-        """
-    )
+    mo.md(r"""
+    > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook. After the server connects, click **Run all** (the ▶ button at the bottom right) to run the notebook.
+    """)
     return
 
 
@@ -84,11 +82,10 @@ def recipe_config():
     MORAN_CACHE_PATH = RECIPE_DATA_DIR / "ileum_moran_recipe_scores.parquet"
     ILEUM_H5AD = RECIPE_DATA_DIR / "ileum.h5ad"
     return (
-        DEFAULT_GENE,
         CRYPT_VILLUS_X_HALF_UM,
+        DEFAULT_GENE,
         ILEUM_H5AD,
         MORAN_CACHE_PATH,
-        RECIPE_DATA_DIR,
         Path,
         ml,
         mo,
@@ -187,8 +184,7 @@ def landmark_map(CRYPT_VILLUS_X_HALF_UM, DEFAULT_GENE, adata, ml, mo, np):
     w.color = DEFAULT_GENE
     w.x_bounds = view_x_bounds
     w.y_bounds = view_y_bounds
-    traits = w.widget.traits() if hasattr(w, "widget") else w.traits()
-    if "mesh_opacity" in traits:
+    if "mesh_opacity" in w.traits():
         w.mesh_opacity = 0.6
     w
     return (w,)
@@ -196,17 +192,17 @@ def landmark_map(CRYPT_VILLUS_X_HALF_UM, DEFAULT_GENE, adata, ml, mo, np):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-        > **molab:** Re-run **`moran_plots`** after you pick another gene. The static page keeps **Apob** and the pre-rendered scatter.
-        """
-    )
+    mo.md(r"""
+    > **molab:** The reactive **`moran_plots`** cell follows **`w.color`** when you pick a gene. The static docs view keeps **Apob** and the pre-rendered scatter.
+    """)
     return
 
 
 @app.cell
 def moran_plots(adata, np, pd, plt, w):
-    gene = str(w.color)
+    _ = w.value
+    active = list(w.active_genes or [])
+    gene = str(active[-1]) if active else str(w.color or "Apob")
     top_n_cell_types = 15
     moran_scores = adata.var[["moran_I_all", "moran_I_enterocyte"]]
     both = moran_scores.dropna(subset=["moran_I_all", "moran_I_enterocyte"])
