@@ -52,9 +52,14 @@ function errorText(err: unknown): string {
 }
 
 /** Fetch `t` completely before it is shown; the image source of `prev` is reused when the window is the same. */
-async function loadWindow(t: WindowTarget, prev: ShownWindow | null, frame: Frame): Promise<ShownWindow> {
+async function loadWindow(
+  t: WindowTarget,
+  prev: ShownWindow | null,
+  frame: Frame,
+  chunkCache: ChunkCache | null,
+): Promise<ShownWindow> {
   if (prev && sameWindow(prev, t)) return prev;
-  const image = new WindowPixelSource(t.level.source, t.box, levelVoxelSize(frame, t.level));
+  const image = new WindowPixelSource(t.level.source, t.box, levelVoxelSize(frame, t.level), chunkCache);
   await image.fetchBlock({});
   return { level: t.level, box: t.box, image };
 }
@@ -120,7 +125,7 @@ export function useShownWindow({
       for (const step of steps) {
         const isFine = step === t;
         try {
-          const loaded = await loadWindow(step, base, f);
+          const loaded = await loadWindow(step, base, f, cache);
           if (!live) return;
           base = loaded;
           setState({ levels, shown: loaded, coarse: !isFine });

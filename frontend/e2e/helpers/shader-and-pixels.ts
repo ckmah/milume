@@ -767,6 +767,8 @@ export async function expectCubeMainViewportChangesWhenPanckToggledViaLayers(pag
   await page.getByRole("radio", { name: "Oblique view" }).click();
   await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
   await page.waitForTimeout(500);
+  await rejectCubeViewportSolidFill(page, "PanCK toggle baseline");
+  await rejectCubeViewportEmpty(page, "PanCK toggle baseline");
   const labelsBtn = page.getByRole("button", { name: "Labels" });
   if ((await labelsBtn.getAttribute("aria-pressed")) === "true") {
     await labelsBtn.click();
@@ -862,4 +864,113 @@ export async function expectCubeMainViewportChangesWhenPanckToggledViaLayers(pag
     panckOnCounts!.chromatic,
     `PanCK on must restore multichannel ink in the main viewport (${formatMainViewportSample(panckOnCounts!)})`,
   ).toBeGreaterThanOrEqual(600);
+}
+
+/** Max fraction of the cube box interior one hue may cover (solid-fill regression, #416 / df81605). */
+export const CUBE_SOLID_FILL_MAX_BOX_FRACTION = 0.4;
+
+const CUBE_EMPTY_MIN_BRIGHT_INSET = 80;
+const CUBE_EMPTY_MIN_CHROMATIC_INSET = 90;
+
+export type CubeInsetHueStats = {
+  total: number;
+  bright: number;
+  chromatic: number;
+  blueDominant: number;
+  magentaDominant: number;
+  otherChromatic: number;
+};
+
+export async function cubeInsetHueStats(
+  page: Page,
+  rect: CanvasRect = CUBE_VOLUME_INSET,
+): Promise<CubeInsetHueStats | null> {
+  const png = await page.locator(CUBE_VIEW_SEL).screenshot();
+  return page.evaluate(
+    async ({ b64, r, isPanckSource }) => {
+      const isPanck = new Function("R", "G", "B", `return (${isPanckSource})(R,G,B);`) as (
+        R: number,
+        G: number,
+        B: number,
+      ) => boolean;
+      const img = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+      const ctx = new OffscreenCanvas(img.width, img.height).getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(img, 0, 0);
+      const { width: w, height: h, data } = ctx.getImageData(0, 0, img.width, img.height);
+      const x0 = Math.floor(w * r.x0);
+      const x1 = Math.floor(w * r.x1);
+      const y0 = Math.floor(h * r.y0);
+      const y1 = Math.floor(h * r.y1);
+      let total = 0;
+      let bright = 0;
+      let chromatic = 0;
+      let blueDominant = 0;
+      let magentaDominant = 0;
+      let otherChromatic = 0;
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const i = (y * w + x) * 4;
+          const R = data[i]!;
+          const G = data[i + 1]!;
+          const B = data[i + 2]!;
+          total++;
+          const luma = R + G + B;
+          if (luma > 40) bright++;
+          const sat = Math.max(R, G, B) - Math.min(R, G, B);
+          if (luma < 45 || sat < 20) continue;
+          chromatic++;
+          if (isPanck(R, G, B)) magentaDominant++;
+          else if (B > Math.max(R, G) + 10) blueDominant++;
+          else otherChromatic++;
+        }
+      }
+      return { total, bright, chromatic, blueDominant, magentaDominant, otherChromatic };
+    },
+    {
+      b64: png.toString("base64"),
+      r: rect,
+      isPanckSource: isStrictPanckMagentaPixel.toString().replace(/^export function isStrictPanckMagentaPixel/, "function isPanck"),
+    },
+  );
+}
+
+function formatInsetHueStats(s: CubeInsetHueStats): string {
+  return `inset total=${s.total} bright=${s.bright} chromatic=${s.chromatic} blue=${s.blueDominant} magenta=${s.magentaDominant} other=${s.otherChromatic}`;
+}
+
+export async function rejectCubeViewportSolidFill(page: Page, label: string) {
+  const stats = await cubeInsetHueStats(page);
+  expect(stats, `${label} inset hue stats`).toBeTruthy();
+  const detail = formatInsetHueStats(stats!);
+  const t = stats!.total || 1;
+  const blueFrac = stats!.blueDominant / t;
+  const magentaFrac = stats!.magentaDominant / t;
+  const greenFrac = stats!.otherChromatic / t;
+  expect(
+    blueFrac,
+    `${label}: solid blue fill (${detail}; max ${CUBE_SOLID_FILL_MAX_BOX_FRACTION})`,
+  ).toBeLessThanOrEqual(CUBE_SOLID_FILL_MAX_BOX_FRACTION);
+  expect(
+    magentaFrac,
+    `${label}: solid magenta fill (${detail})`,
+  ).toBeLessThanOrEqual(CUBE_SOLID_FILL_MAX_BOX_FRACTION);
+  expect(
+    greenFrac,
+    `${label}: solid green/other fill (${detail})`,
+  ).toBeLessThanOrEqual(CUBE_SOLID_FILL_MAX_BOX_FRACTION);
+}
+
+export async function rejectCubeViewportEmpty(page: Page, label: string) {
+  const stats = await cubeInsetHueStats(page);
+  expect(stats, `${label} inset hue stats`).toBeTruthy();
+  const detail = formatInsetHueStats(stats!);
+  expect(
+    stats!.bright,
+    `${label}: empty cube viewport (${detail})`,
+  ).toBeGreaterThanOrEqual(CUBE_EMPTY_MIN_BRIGHT_INSET);
+  expect(
+    stats!.chromatic,
+    `${label}: empty cube viewport (${detail})`,
+  ).toBeGreaterThanOrEqual(CUBE_EMPTY_MIN_CHROMATIC_INSET);
 }

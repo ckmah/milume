@@ -555,31 +555,6 @@ export function VolumeCube({
     contentZSpanImage.current = null;
   }, [shownImage]);
   const imageSignalMin = contrast[0];
-  // Viv has read the whole window by then (its own copy, laid out for upload),
-  // so the fetched block goes.
-  const onViewportLoad = useMemo(
-    () =>
-      shownImage
-        ? (volumes: { data: unknown }[]) => {
-            const raw = volumes[0]?.data;
-            if (tightenZToSignal && raw && typeof raw === "object" && "length" in raw) {
-              const zAxis = shownImage.labels.indexOf("z");
-              const depth = zAxis >= 0 ? shownImage.shape[zAxis]! : 1;
-              contentZSpanImage.current = shownImage;
-              const span = contentZIndexSpan(
-                raw as ArrayLike<number>,
-                shownImage.width,
-                shownImage.height,
-                depth,
-                imageSignalMin,
-              );
-              setContentZSpan((prev) => (prev && prev[0] === span[0] && prev[1] === span[1] ? prev : span));
-            }
-            shownImage.release();
-          }
-        : undefined,
-    [shownImage, imageSignalMin, tightenZToSignal],
-  );
   // The format of the image texture a layer draws now (image-volume.ts).
   const [imageFormat, setImageFormat] = useState<ImageFormat | null>(null);
   const onImageBound = useCallback((f: ImageFormat | null) => setImageFormat(f), []);
@@ -615,6 +590,32 @@ export function VolumeCube({
       },
     ];
   }, [traitChannelRows, image, contrast, shownImageLook.contrast]);
+  const expectedVolumeChannels = activeImageChannels.length;
+  const onViewportLoad = useMemo(
+    () =>
+      shownImage
+        ? (volumes: { data: unknown }[]) => {
+            const raw = volumes[0]?.data;
+            if (tightenZToSignal && raw && typeof raw === "object" && "length" in raw) {
+              const zAxis = shownImage.labels.indexOf("z");
+              const depth = zAxis >= 0 ? shownImage.shape[zAxis]! : 1;
+              contentZSpanImage.current = shownImage;
+              const span = contentZIndexSpan(
+                raw as ArrayLike<number>,
+                shownImage.width,
+                shownImage.height,
+                depth,
+                imageSignalMin,
+              );
+              setContentZSpan((prev) => (prev && prev[0] === span[0] && prev[1] === span[1] ? prev : span));
+            }
+            if (volumes.length >= expectedVolumeChannels) {
+              shownImage.release();
+            }
+          }
+        : undefined,
+    [shownImage, imageSignalMin, tightenZToSignal, expectedVolumeChannels],
+  );
   const multichannelCube = activeImageChannels.length > 1;
   const showCubeImage = showImage && activeImageChannels.length > 0;
   const channelPalettes = useMemo(
@@ -960,9 +961,7 @@ export function VolumeCube({
   );
   const channelSelections = useMemo(() => {
     const hasC = Boolean(level?.source.labels.includes("c"));
-    // Viv toy / single-channel loads match main: `{}` per layer. Only pass `{ c }` when
-    // drawing multiple channels from a multi-channel pyramid (see #395).
-    if (!hasC || activeImageChannels.length <= 1) {
+    if (!hasC) {
       return activeImageChannels.map(() => ({}));
     }
     return activeImageChannels.map((ch) => ({ c: ch.index }));

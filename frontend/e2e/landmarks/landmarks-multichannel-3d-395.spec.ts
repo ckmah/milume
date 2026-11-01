@@ -2,6 +2,12 @@ import { expect } from "@playwright/test";
 
 import { test } from "../fixtures";
 import {
+  bootIssue395LandmarksVolume,
+  openIssue395CubeAtInspectCentre,
+  openLayersPanelWithCubeOpen,
+  runIssue395ToggleClipFlow,
+} from "../helpers/issue395-cube-flow";
+import {
   expectCubeFootprintChangesTopToIso,
   expectCubeDapiContrastDimsBlueLive,
   expectCubePanckOffDimsMagentaLive,
@@ -17,46 +23,16 @@ import {
   hideMapPointsForImageAssert,
 } from "../helpers/shader-and-pixels";
 import {
-  bootLandmarksVolumeHarness,
   getModel,
   shot,
   stabilizeUi,
-  waitForEngine,
 } from "../helpers";
 
 const volumeHarness = process.env.E2E_HARNESS === "landmarks-volume";
 const issue395 = (process.env.E2E_VOLUME_PROFILE ?? "toy") === "issue395-3d";
 
-async function openCubeAtCentre(page: import("@playwright/test").Page) {
-  await page.evaluate(() => {
-    window.__landmarksModel.set("inspect_cx", 130.5);
-    window.__landmarksModel.set("inspect_cy", 170.5);
-    window.__landmarksModel.save_changes();
-  });
-  await page.getByRole("radio", { name: "Inspect", exact: true }).click();
-  const plot = page.locator(".landmarks__plot");
-  const box = await plot.boundingBox();
-  expect(box).toBeTruthy();
-  await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
-  const cube = page.getByRole("dialog", { name: "Cube" });
-  await expect(cube).toBeVisible({ timeout: 60_000 });
-  await expect(cube.locator(".volume-cube__view")).toHaveAttribute("data-refining", "false", {
-    timeout: 120_000,
-  });
-  await page.getByRole("radio", { name: "Oblique view" }).click();
-  await page.waitForTimeout(800);
-  await expectNoDeckShaderCompileOverlay(page);
-}
-
 async function openImagePanelInInspect(page: import("@playwright/test").Page) {
-  await page.evaluate(() => {
-    const root = document.querySelector(".milume-widget.landmarks");
-    if (root instanceof HTMLElement) root.focus();
-  });
-  await page.keyboard.press("[");
-  await page.getByTestId("panel-section-layers").click({ force: true });
-  const row = page.getByTestId("layers-image-row");
-  if ((await row.getAttribute("aria-expanded")) !== "true") await row.click({ force: true });
+  await openLayersPanelWithCubeOpen(page);
 }
 
 test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
@@ -64,9 +40,7 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   test.skip(!volumeHarness || !issue395, "requires E2E_HARNESS=landmarks-volume and E2E_VOLUME_PROFILE=issue395-3d");
 
   test.beforeEach(async ({ page }) => {
-    await bootLandmarksVolumeHarness(page, "noDialkit=1");
-    await waitForEngine(page);
-    await stabilizeUi(page);
+    await bootIssue395LandmarksVolume(page);
   });
 
   test("map band shows blended multichannel tissue", async ({ page }) => {
@@ -75,30 +49,34 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   });
 
   test("cube compiles shader and shows blended channels", async ({ page }) => {
-    await openCubeAtCentre(page);
+    await openIssue395CubeAtInspectCentre(page);
     await expectCubeShowsMultichannelImage(page);
   });
 
   test("main viewport shows DAPI and PanCK tints (Top and Iso)", async ({ page }) => {
-    await openCubeAtCentre(page);
+    await openIssue395CubeAtInspectCentre(page);
     await expectCubeMainViewportMultichannelTints(page, "Top view");
     await expectCubeMainViewportMultichannelTints(page, "Oblique view");
   });
 
+  test("clip viewport states (Top, Iso, PanCK off/on) reject solid fill and empty", async ({ page }) => {
+    await runIssue395ToggleClipFlow(page);
+  });
+
   test("cube volume survives hiding map image (not flat backdrop bleed)", async ({ page }) => {
-    await openCubeAtCentre(page);
+    await openIssue395CubeAtInspectCentre(page);
     await expectCubeVolumeSurvivesMapImageHidden(page);
   });
 
   test("Top vs Oblique changes cube GL footprint", async ({ page }) => {
-    await openCubeAtCentre(page);
+    await openIssue395CubeAtInspectCentre(page);
     await expectCubeFootprintChangesTopToIso(page);
   });
 
   test("Playwright cube viewport screenshot shows multichannel ink in box (Top and Oblique)", async ({
     page,
   }) => {
-    await openCubeAtCentre(page);
+    await openIssue395CubeAtInspectCentre(page);
     await expectCubeUserVisibleScreenshot(page);
   });
 
@@ -108,24 +86,24 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
 
   test.skip("live DAPI contrast crush drops blue in cube GL without closing cube", async ({ page }) => {
     // Live cube contrast rendering is #417; trait/state coverage is separate in this spec.
-    await openCubeAtCentre(page);
+    await openIssue395CubeAtInspectCentre(page);
     await expectCubeDapiContrastDimsBlueLive(page);
   });
 
   test.skip("live PanCK off drops magenta in cube GL without closing cube", async ({ page }) => {
     // Live cube GL readback for channel/contrast is #417; UI toggle + main viewport is covered below.
-    await openCubeAtCentre(page);
+    await openIssue395CubeAtInspectCentre(page);
     await expectCubePanckOffDimsMagentaLive(page);
   });
 
   test("toggle PanCK in layers updates trait, data-channels, and main viewport", async ({ page }) => {
-    await openCubeAtCentre(page);
+    await openIssue395CubeAtInspectCentre(page);
     await openImagePanelInInspect(page);
     await expectCubeMainViewportChangesWhenPanckToggledViaLayers(page);
   });
 
   test("per-channel contrast drag keeps map trait and cube channel state aligned", async ({ page }) => {
-    await openCubeAtCentre(page);
+    await openIssue395CubeAtInspectCentre(page);
     await openImagePanelInInspect(page);
     await page.getByTestId("layer-channel-row-DAPI").focus();
     const loBefore = await page.evaluate(() => {
@@ -159,7 +137,7 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   });
 
   test("cube reports GPU bytes per visible channel", async ({ page }) => {
-    await openCubeAtCentre(page);
+    await openIssue395CubeAtInspectCentre(page);
     const cube = page.getByRole("dialog", { name: "Cube" });
     await expect(cube.locator(".volume-cube__view")).toHaveAttribute("data-channels", "2");
     await expect(cube.locator(".volume-cube__view")).toHaveAttribute("data-gpu-channel-bytes", /\d+,\d+/);
@@ -171,7 +149,7 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   });
 
   test("screenshot: cube two-channel blend", async ({ page }) => {
-    await openCubeAtCentre(page);
+    await openIssue395CubeAtInspectCentre(page);
     await page.getByRole("radio", { name: "Oblique view" }).click();
     await page.waitForTimeout(800);
     await stabilizeUi(page);

@@ -1,5 +1,7 @@
 import * as zarr from "zarrita";
 
+import type { ChunkCache } from "./chunk-cache";
+
 /**
  * Windowed volume loading for Viv.
  *
@@ -134,10 +136,11 @@ export function boxUmRanges(
 }
 
 /** One box of `source` in a single `zarr.get` (each chunk read once), `selection` on the other axes. */
-export function fetchBox(
+export async function fetchBox(
   source: ZarrSource,
   box: Box,
   selection: Record<string, number> = {},
+  chunkCache: ChunkCache | null = null,
 ): Promise<zarr.Chunk<zarr.DataType>> {
   const { z0, z1, y0, y1, x0, x1 } = box;
   const index = source.labels.map((label) => {
@@ -146,7 +149,26 @@ export function fetchBox(
     if (label === "x") return zarr.slice(x0, x1);
     return selection[label] ?? 0;
   });
-  return zarr.get(source._data, index) as Promise<zarr.Chunk<zarr.DataType>>;
+  const ci = source.labels.indexOf("c");
+  const channelCount = ci >= 0 ? source.shape[ci]! : 1;
+  const ch = selection.c ?? 0;
+  const read = (): Promise<zarr.Chunk<zarr.DataType>> =>
+    zarr.get(source._data, index) as Promise<zarr.Chunk<zarr.DataType>>;
+  const chunk =
+    chunkCache && channelCount > 1
+      ? await chunkCache.enqueueFetch(ch, read)
+      : await read();
+  const voxels = (z1 - z0) * (y1 - y0) * (x1 - x0);
+  const raw = chunk.data as ArrayLike<number> & {
+    length: number;
+    subarray(a: number, b: number): ArrayLike<number>;
+  };
+  // ChunkCache keys spatial chunk coords only; multichannel tiles can decode all c planes.
+  if (channelCount > 1 && raw.length === voxels * channelCount) {
+    const off = ch * voxels;
+    return { ...chunk, data: raw.subarray(off, off + voxels) as zarr.Chunk<zarr.DataType>["data"] };
+  }
+  return chunk;
 }
 
 type Raster = { data: ArrayLike<number> & { subarray(a: number, b: number): unknown }; width: number; height: number };
@@ -168,6 +190,7 @@ export class WindowPixelSource {
     private readonly base: ZarrSource,
     readonly box: Box,
     voxelSize: [number, number, number],
+    private readonly chunkCache: ChunkCache | null = null,
   ) {
     this.labels = base.labels;
     this.tileSize = base.tileSize;
@@ -210,7 +233,7 @@ export class WindowPixelSource {
       .join("/");
     let pending = this.blocks.get(key);
     if (!pending) {
-      pending = fetchBox(this.base, this.box, selection);
+      pending = fetchBox(this.base, this.box, selection, this.chunkCache);
       // A failed fetch must not poison later retries of the same window.
       pending.catch(() => this.blocks.delete(key));
       this.blocks.set(key, pending);
