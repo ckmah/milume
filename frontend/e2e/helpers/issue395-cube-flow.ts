@@ -44,6 +44,7 @@ export async function hideLandmarksVolumeHarnessChrome(page: Page) {
       [data-dialkit-panel],
       .dialkit-root,
       .deckgl-error-overlay { display: none !important; }
+      button pre { display: none !important; pointer-events: none !important; }
     `,
   });
 }

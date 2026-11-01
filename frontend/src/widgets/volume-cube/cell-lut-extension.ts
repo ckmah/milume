@@ -327,6 +327,13 @@ float cover(float a, float steps) {
   return 1.0 - pow(clamp(1.0 - a, 0.0, 1.0), steps);
 }
 
+// A sample over that many steps' worth of the ray (must precede dual-channel integration).
+void addSample(inout vec4 acc, vec4 im, float steps) {
+  float a = cover(im.a, steps);
+  acc.rgb += (1.0 - acc.a) * a * im.rgb;
+  acc.a += (1.0 - acc.a) * a;
+}
+
 // intensity is contrast-limited 0-1 (inject applies imageScale then contrastLimits per channel).
 vec4 tintedSample(float v, highp sampler3D palette, vec2 lim) {
   float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
@@ -442,13 +449,6 @@ vec4 meshSurface(highp sampler3D col, highp sampler3D dep, vec3 eye, vec3 dir, o
   vec4 q = cubeRender.meshInv * vec4(ndc, z * 2.0 - 1.0, 1.0);
   t = dot(q.xyz / q.w - eye, dir);
   return c;
-}
-
-// A sample over that many steps' worth of the ray.
-void addSample(inout vec4 acc, vec4 im, float steps) {
-  float a = cover(im.a, steps);
-  acc.rgb += (1.0 - acc.a) * a * im.rgb;
-  acc.a += (1.0 - acc.a) * a;
 }
 
 // Where a ray meets a mesh, the image so far (acc, the ray's usual linear sum) goes
@@ -640,11 +640,11 @@ const RENDERING_MULTI = {
 #endif
       } else if (
 #if NUM_CHANNELS == 2
-        accCh0.a + accCh1.a - accCh0.a * accCh1.a
+        accCh0.a < 0.95 || accCh1.a < 0.95
 #else
-        acc.a
+        acc.a < 0.95
 #endif
-        < 0.95) {
+        ) {
         vec4 im = vec4(0.0);
 #if NUM_CHANNELS == 1
         im = imageSample(intensityValue0);
@@ -680,6 +680,47 @@ const RENDERING_MULTI = {
   mergeDualChannelAcc(acc, accCh0, accCh1);
 #endif
   color = acc;
+  if (cubeRender.imageMip > 0.5) {
+    vec4 im = vec4(0.0);
+#if NUM_CHANNELS == 1
+    im = imageSample(maxImage0);
+#elif NUM_CHANNELS == 2
+    im = dualChannelMipColor(maxImage0, maxImage1);
+#elif NUM_CHANNELS == 3
+    im = combinedImageSample3(maxImage0, maxImage1, maxImage2);
+#else
+    im = combinedImageSample4(maxImage0, maxImage1, maxImage2, maxImage3);
+#endif
+    color = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
+  }
+  if (meshHere) {
+    if (cubeRender.imageMip > 0.5) {
+      acc = vec4(0.0);
+      if (meshT0 < NO_MESH) meshFlush(shown, acc, mesh0);
+      if (meshT1 < NO_MESH) meshFlush(shown, acc, mesh1);
+      acc = color;
+    } else {
+      if (meshT0 < NO_MESH) meshFlush(shown, acc, mesh0);
+      if (meshT1 < NO_MESH) meshFlush(shown, acc, mesh1);
+    }
+    meshFlush(shown, acc, vec4(0.0));
+    color = vec4(srgbToLinear(shown.rgb / max(shown.a, 1e-6)), shown.a);
+  }`,
+};
+
+/** Dual compositing with accCh1-only output (harness: ?cubeDebugAccCh1=1). */
+export const RENDERING_MULTI_ACC_CH1_DEBUG = {
+  ...RENDERING_MULTI,
+  _AFTER_RENDER: `
+#if NUM_CHANNELS == 2
+  mergeDualChannelAcc(acc, accCh0, accCh1);
+  {
+    vec3 ch1 = accCh1.a > 1e-6 ? accCh1.rgb / accCh1.a : vec3(0.0);
+    color = vec4(linearToSrgb(clamp(ch1, 0.0, 1.0)), max(accCh1.a, 0.001));
+  }
+#else
+  color = acc;
+#endif
   if (cubeRender.imageMip > 0.5) {
     vec4 im = vec4(0.0);
 #if NUM_CHANNELS == 1
@@ -891,6 +932,10 @@ class CubeExtensionMulti extends CubeExtensionBase {
 
 export const CUBE_EXTENSIONS: unknown[] = [new CubeExtensionSingle(RENDERING_SINGLE, false)];
 export const CUBE_EXTENSIONS_MULTI: unknown[] = [new CubeExtensionMulti(RENDERING_MULTI, true)];
+
+export function multichannelCubeExtensions(debugAccCh1 = false): unknown[] {
+  return [new CubeExtensionMulti(debugAccCh1 ? RENDERING_MULTI_ACC_CH1_DEBUG : RENDERING_MULTI, true)];
+}
 
 function srgbToLinear(c: number): number {
   const s = c / 255;

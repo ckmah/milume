@@ -14,7 +14,7 @@ import type { VolumeCommClient } from "./volume-comm";
 import { contentZIndexSpan, type ContentZSpan } from "./content-z-span";
 import {
   CUBE_EXTENSIONS,
-  CUBE_EXTENSIONS_MULTI,
+  multichannelCubeExtensions,
   type CellColoring,
   type HighlightGroup,
   type RenderSettings,
@@ -757,9 +757,12 @@ export function VolumeCube({
     [ozUm, levelVoxel?.[0], windowZSlice[0], windowZSlice[1]],
   );
   const cutZFrac: [number, number] = [cutFrac[4]!, cutFrac[5]!];
+  const cubeDebugAccCh1 =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("cubeDebugAccCh1") === "1";
   const cubeExtensions = useMemo(
-    () => (multichannelCube ? CUBE_EXTENSIONS_MULTI : CUBE_EXTENSIONS),
-    [multichannelCube],
+    () => (multichannelCube ? multichannelCubeExtensions(cubeDebugAccCh1) : CUBE_EXTENSIONS),
+    [multichannelCube, cubeDebugAccCh1],
   );
   const cubeRaycastLayerId = multichannelCube ? "volume-raycast-multi" : "volume-raycast-single";
 
@@ -1523,7 +1526,7 @@ export function VolumeCube({
     >
       {layerProps && displayViewStates ? (
         <VolumeCubeDeck
-          deckKey={`channels:${activeImageChannels.map((c) => c.name).join("+")}`}
+          deckKey={`channels:${activeImageChannels.map((c) => c.name).join("+")}${cubeDebugAccCh1 ? ":acc-ch1-debug" : ""}`}
           layerProps={layerProps}
           views={views}
           viewStates={displayViewStates}

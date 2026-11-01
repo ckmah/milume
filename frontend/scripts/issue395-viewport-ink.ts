@@ -28,6 +28,12 @@ import {
 type Mode = CubeViewportInkMode;
 
 const mode = (process.argv[2] ?? "dual") as Mode;
+const debugAccCh1 = process.argv.includes("--debug-acc-ch1");
+
+async function boot(page: import("@playwright/test").Page) {
+  const q = debugAccCh1 ? "noDialkit=1&cubeDebugAccCh1=1" : "noDialkit=1";
+  await bootIssue395LandmarksVolume(page, q);
+}
 
 async function applyMode(page: import("@playwright/test").Page, m: Mode) {
   if (m === "dual") {
@@ -49,10 +55,10 @@ async function applyMode(page: import("@playwright/test").Page, m: Mode) {
 const browser = await chromium.launch();
 const page = await browser.newPage({
   viewport: { width: 1280, height: 900 },
-  baseURL: "http://127.0.0.1:5173",
+  baseURL: process.env.ISSUE395_BASE_URL ?? "http://127.0.0.1:5173",
 });
 
-await bootIssue395LandmarksVolume(page);
+await boot(page);
 await openIssue395CubeAtInspectCentre(page);
 await setCubeLabels(page, false);
 await applyMode(page, mode);
@@ -71,7 +77,7 @@ await rejectCubeViewportEmpty(page, `bisect ${mode}`, mode);
 const gl = await cubeGlInkStats(page, CUBE_VOLUME_INSET);
 const shot = await cubeScreenshotInkStats(page, CUBE_VOLUME_INSET);
 
-const outPath = `/opt/cursor/artifacts/issue395/bisect-${mode}-iso.png`;
+const outPath = `/opt/cursor/artifacts/issue395/bisect-${mode}${debugAccCh1 ? "-acc-ch1-debug" : ""}-iso.png`;
 await page.locator('[role="dialog"][aria-label="Cube"] .volume-cube__view').screenshot({ path: outPath });
 
 console.log(
