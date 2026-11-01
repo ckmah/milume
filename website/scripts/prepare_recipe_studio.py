@@ -147,12 +147,28 @@ def prepare(
     if loaded_urls:
         prune_shared_runtime_chunks(loaded_urls)
 
+    install_shared_runtime(export_dir)
+    patch_zero_python_runtime(SHARED_RUNTIME / "assets")
+    if loaded_urls:
+        prune_shared_runtime_chunks(loaded_urls)
+
     recipe_dir = content_root / slug
     install_view_state(export_dir, recipe_dir)
+    views_root = recipe_dir / "_marimo-studio" / "views"
     esm_report = externalize_cell_json_files(
-        recipe_dir / "_marimo-studio" / "views",
+        views_root,
         widget_href_template=WIDGET_ASSET_HREF_FROM_RECIPE,
     )
+
+    asset_renames: dict[str, str] = {}
+    if slug == "squidpy_moran":
+        from inject_recipe_gene_preload import inject_moran_recipe_views
+
+        asset_renames = inject_moran_recipe_views(recipe_dir)
+
+    from reconcile_recipe_cell_assets import reconcile_prepared_views
+
+    reconcile_prepared_views(views_root, asset_renames or None)
 
     html = index.read_text(encoding="utf-8")
     head = extract_runtime_head(html, runtime_href=RUNTIME_PATH_FROM_RECIPE)
