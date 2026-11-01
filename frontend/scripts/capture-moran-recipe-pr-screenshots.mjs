@@ -12,7 +12,7 @@ const url =
   `${base}/docs/how-to/recipes/squidpy_moran/index.html`;
 const outDir = process.argv[3] ?? "/opt/cursor/artifacts/recipe-moran-409";
 const viewport = { width: 1280, height: 900 };
-const STRIP_CELLS = "6,486";
+const ALL_CELLS = "30,332";
 
 mkdirSync(outDir, { recursive: true });
 
@@ -145,7 +145,7 @@ async function captureMode(page, scheme, suffix) {
   await page.waitForFunction(() => window.__landmarksModel?.get("color") === "Erbb3", {
     timeout: 30_000,
   });
-  let meta = await assertMapState(page, { color: "Erbb3", cellsLabel: STRIP_CELLS });
+  let meta = await assertMapState(page, { color: "Erbb3", cellsLabel: ALL_CELLS });
   const mapErbb3 = `${outDir}/01-static-default-erbb3-${suffix}.png`;
   await captureLandmarksWidget(page, mapErbb3);
   report.push({ file: mapErbb3, md5: md5(mapErbb3), ...meta });
