@@ -141,6 +141,33 @@ export async function expectPanckVisible(page: Page, visible: boolean) {
   await page.waitForTimeout(visible ? 800 : 700);
 }
 
+export async function expectDapiVisible(page: Page, visible: boolean) {
+  await page.evaluate((on) => {
+    const rows = window.__landmarksModel.get("_image_channels") as Array<{ name: string; visible: boolean }>;
+    const next = rows.map((r) => (r.name === "DAPI" ? { ...r, visible: on } : r));
+    window.__landmarksModel.set("_image_channels", next);
+    window.__landmarksModel.save_changes();
+  }, visible);
+  await expect
+    .poll(async () => {
+      const rows = (await page.evaluate(() => window.__landmarksModel.get("_image_channels"))) as Array<{
+        name: string;
+        visible: boolean;
+      }>;
+      return rows.find((c) => c.name === "DAPI")?.visible;
+    })
+    .toBe(visible);
+  const channels = visible ? (await page.evaluate(() => {
+    const rows = window.__landmarksModel.get("_image_channels") as Array<{ name: string; visible: boolean }>;
+    return rows.filter((c) => c.visible).length;
+  })) : 0;
+  if (visible) {
+    await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-channels", String(channels), { timeout: 30_000 });
+  }
+  await waitCubeRefined(page);
+  await page.waitForTimeout(700);
+}
+
 /** Same viewport checks for e2e and capture: no solid single-hue fill, not empty. */
 export async function expectIssue395CubeViewportHealthy(
   page: Page,
@@ -149,7 +176,20 @@ export async function expectIssue395CubeViewportHealthy(
 ) {
   await expectNoDeckShaderCompileOverlay(page);
   await rejectCubeViewportSolidFill(page, label);
-  await rejectCubeViewportEmpty(page, label);
+  const channels = await page.locator(CUBE_VIEW_SEL).getAttribute("data-channels");
+  const rows = (await page.evaluate(() => window.__landmarksModel.get("_image_channels"))) as Array<{
+    name: string;
+    visible: boolean;
+  }>;
+  const dapiOn = rows.find((c) => c.name === "DAPI")?.visible ?? true;
+  const panckOn = rows.find((c) => c.name === "PanCK")?.visible ?? true;
+  const mode =
+    channels === "2"
+      ? "dual"
+      : panckOn && !dapiOn
+        ? "panck-only"
+        : "dapi-only";
+  await rejectCubeViewportEmpty(page, label, mode);
   if (opts.requirePanckSites) {
     await expectIssue395PanckMagentaSitesInCubeMainViewport(page, "Oblique view");
   }

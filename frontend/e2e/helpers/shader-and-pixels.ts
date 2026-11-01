@@ -187,9 +187,41 @@ export function isStrictPanckMagentaPixel(R: number, G: number, B: number): bool
   return true;
 }
 
+/** Dual-channel additive composite at PanCK fixture sites (strict filter alone misses purple blend). */
+export function isIssue395DualPanckSitePixel(R: number, G: number, B: number): boolean {
+  if (isStrictPanckMagentaPixel(R, G, B)) return true;
+  const luma = R + G + B;
+  if (luma < 45) return false;
+  const sat = Math.max(R, G, B) - Math.min(R, G, B);
+  if (sat < 28) return false;
+  return R >= 88 && B >= 92 && G <= Math.min(R, B) * 0.62 && R + B > G + 72;
+}
+
 /** Largest 4-connected strict-magenta component inside each fixture PanCK ROI on a cube view PNG. */
 export async function analyzeIssue395PanckSitesInCubeView(page: Page): Promise<PanckSiteAnalysis | null> {
+  let rois: Array<{ id: string; x0: number; y0: number; x1: number; y1: number }> = [...ISSUE395_PANCK_CUBE_ROIS];
+  try {
+    const { projectIssue395PanckRoIs } = await import("./issue395-panck-roi.ts");
+    const projected = await projectIssue395PanckRoIs(page);
+    if (projected.length === rois.length) {
+      rois = projected.map((r) => ({ id: r.id, x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 }));
+    }
+  } catch {
+    // Projection helper unavailable (e.g. capture script); keep fixture ROIs.
+  }
   const png = await page.locator(CUBE_VIEW_SEL).screenshot();
+  const channels = await page.locator(CUBE_VIEW_SEL).getAttribute("data-channels");
+  const panckTestSource =
+    channels === "2"
+      ? `function isPanck(R,G,B){
+  const luma=R+G+B;
+  if(luma<45)return false;
+  const sat=Math.max(R,G,B)-Math.min(R,G,B);
+  if(sat<28)return false;
+  if(R>=68&&B>=52&&G<=R*0.7&&G<=B*0.72&&R+B>=G+38&&R>=G+14)return true;
+  return R>=88&&B>=92&&G<=Math.min(R,B)*0.62&&R+B>G+72;
+}`
+      : isStrictPanckMagentaPixel.toString().replace(/^export function isStrictPanckMagentaPixel/, "function isPanck");
   return page.evaluate(
     async ({ b64, rois, minComponent, isPanckSource }) => {
       const isPanck = new Function("R", "G", "B", `return (${isPanckSource})(R,G,B);`) as (
@@ -260,9 +292,9 @@ export async function analyzeIssue395PanckSitesInCubeView(page: Page): Promise<P
     },
     {
       b64: png.toString("base64"),
-      rois: ISSUE395_PANCK_CUBE_ROIS,
+      rois,
       minComponent: ISSUE395_PANCK_COMPONENT_MIN_PIXELS,
-      isPanckSource: isStrictPanckMagentaPixel.toString().replace(/^export function isStrictPanckMagentaPixel/, "function isPanck"),
+      isPanckSource: panckTestSource,
     },
   );
 }
@@ -872,6 +904,24 @@ export const CUBE_SOLID_FILL_MAX_BOX_FRACTION = 0.4;
 const CUBE_EMPTY_MIN_BRIGHT_INSET = 80;
 const CUBE_EMPTY_MIN_CHROMATIC_INSET = 90;
 
+export type CubeViewportInkMode = "dual" | "dapi-only" | "panck-only";
+
+/** Minimum tissue pixels (sat ≥ 28) inside the wireframe inset on GL readback. */
+export const CUBE_EMPTY_MIN_TISSUE_GL = 4000;
+/** Same filter on Playwright element screenshots (user-visible). */
+export const CUBE_EMPTY_MIN_TISSUE_SCREEN = 1200;
+const CUBE_EMPTY_MIN_DAPI_TISSUE_GL = 1500;
+const CUBE_EMPTY_MIN_MAGENTA_TISSUE_GL = 400;
+
+export type CubeInkStats = {
+  total: number;
+  bright: number;
+  chromatic: number;
+  tissue: number;
+  blueTissue: number;
+  magentaTissue: number;
+};
+
 export type CubeInsetHueStats = {
   total: number;
   bright: number;
@@ -880,6 +930,202 @@ export type CubeInsetHueStats = {
   magentaDominant: number;
   otherChromatic: number;
 };
+
+function formatInkStats(s: CubeInkStats): string {
+  return `inset total=${s.total} bright=${s.bright} chromatic=${s.chromatic} tissue=${s.tissue} blue=${s.blueTissue} magenta=${s.magentaTissue}`;
+}
+
+/** GL readback tissue stats inside the cube wireframe inset (ignores axis grey). */
+export async function cubeGlInkStats(
+  page: Page,
+  rect: CanvasRect = CUBE_VOLUME_INSET,
+): Promise<CubeInkStats | null> {
+  return page.evaluate(
+    ({ sel, r, isPanckSource }) => {
+      const isPanck = new Function("R", "G", "B", `return (${isPanckSource})(R,G,B);`) as (
+        R: number,
+        G: number,
+        B: number,
+      ) => boolean;
+      const c = document.querySelector(sel) as HTMLCanvasElement | null;
+      if (!c) return null;
+      const gl = c.getContext("webgl2") || c.getContext("webgl");
+      if (!gl) return null;
+      const w = c.width;
+      const h = c.height;
+      const buf = new Uint8Array(w * h * 4);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+      const x0 = Math.floor(w * r.x0);
+      const x1 = Math.floor(w * r.x1);
+      const y0 = Math.floor(h * r.y0);
+      const y1 = Math.floor(h * r.y1);
+      let total = 0;
+      let bright = 0;
+      let chromatic = 0;
+      let tissue = 0;
+      let blueTissue = 0;
+      let magentaTissue = 0;
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const yi = h - 1 - y;
+          const i = (yi * w + x) * 4;
+          const R = buf[i]!;
+          const G = buf[i + 1]!;
+          const B = buf[i + 2]!;
+          total++;
+          const luma = R + G + B;
+          if (luma > 40) bright++;
+          const sat = Math.max(R, G, B) - Math.min(R, G, B);
+          if (luma < 45 || sat < 20) continue;
+          chromatic++;
+          if (sat >= 28) {
+            tissue++;
+            if (isPanck(R, G, B)) magentaTissue++;
+            else if (B > Math.max(R, G) + 10) blueTissue++;
+          }
+        }
+      }
+      return { total, bright, chromatic, tissue, blueTissue, magentaTissue };
+    },
+    {
+      sel: cubeCanvasSel,
+      r: rect,
+      isPanckSource: isStrictPanckMagentaPixel.toString().replace(/^export function isStrictPanckMagentaPixel/, "function isPanck"),
+    },
+  );
+}
+
+/** Playwright screenshot tissue stats (same filters as cubeGlInkStats). */
+export async function cubeScreenshotInkStats(
+  page: Page,
+  rect: CanvasRect = CUBE_VOLUME_INSET,
+): Promise<CubeInkStats | null> {
+  const png = await page.locator(CUBE_VIEW_SEL).screenshot();
+  return page.evaluate(
+    async ({ b64, r, isPanckSource }) => {
+      const isPanck = new Function("R", "G", "B", `return (${isPanckSource})(R,G,B);`) as (
+        R: number,
+        G: number,
+        B: number,
+      ) => boolean;
+      const img = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+      const ctx = new OffscreenCanvas(img.width, img.height).getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(img, 0, 0);
+      const { width: w, height: h, data } = ctx.getImageData(0, 0, img.width, img.height);
+      const x0 = Math.floor(w * r.x0);
+      const x1 = Math.floor(w * r.x1);
+      const y0 = Math.floor(h * r.y0);
+      const y1 = Math.floor(h * r.y1);
+      let total = 0;
+      let bright = 0;
+      let chromatic = 0;
+      let tissue = 0;
+      let blueTissue = 0;
+      let magentaTissue = 0;
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const i = (y * w + x) * 4;
+          const R = data[i]!;
+          const G = data[i + 1]!;
+          const B = data[i + 2]!;
+          total++;
+          const luma = R + G + B;
+          if (luma > 40) bright++;
+          const sat = Math.max(R, G, B) - Math.min(R, G, B);
+          if (luma < 45 || sat < 20) continue;
+          chromatic++;
+          if (sat >= 28) {
+            tissue++;
+            if (isPanck(R, G, B)) magentaTissue++;
+            else if (B > Math.max(R, G) + 10) blueTissue++;
+          }
+        }
+      }
+      return { total, bright, chromatic, tissue, blueTissue, magentaTissue };
+    },
+    {
+      b64: png.toString("base64"),
+      r: rect,
+      isPanckSource: isStrictPanckMagentaPixel.toString().replace(/^export function isStrictPanckMagentaPixel/, "function isPanck"),
+    },
+  );
+}
+
+export async function waitForCubeViewportInk(
+  page: Page,
+  mode: CubeViewportInkMode,
+  timeoutMs = 120_000,
+): Promise<CubeInkStats> {
+  await expect
+    .poll(async () => (await cubeGlInkStats(page))?.tissue ?? 0, { timeout: timeoutMs })
+    .toBeGreaterThanOrEqual(mode === "panck-only" ? CUBE_EMPTY_MIN_MAGENTA_TISSUE_GL : CUBE_EMPTY_MIN_DAPI_TISSUE_GL / 3);
+  const gl = await cubeGlInkStats(page);
+  expect(gl, "cube GL ink stats").toBeTruthy();
+  return gl!;
+}
+
+function inferCubeViewportInkMode(page: Page): Promise<CubeViewportInkMode> {
+  return page
+    .locator(CUBE_VIEW_SEL)
+    .getAttribute("data-channels")
+    .then((ch) => (ch === "1" ? "dapi-only" : "dual"));
+}
+
+export async function rejectCubeViewportEmpty(
+  page: Page,
+  label: string,
+  mode?: CubeViewportInkMode,
+) {
+  const resolvedMode = mode ?? (await inferCubeViewportInkMode(page));
+  const gl = await cubeGlInkStats(page);
+  const shot = await cubeScreenshotInkStats(page);
+  expect(gl, `${label} GL ink stats`).toBeTruthy();
+  expect(shot, `${label} screenshot ink stats`).toBeTruthy();
+  const glDetail = formatInkStats(gl!);
+  const shotDetail = formatInkStats(shot!);
+
+  expect(
+    gl!.tissue,
+    `${label}: empty cube viewport on GL (${glDetail})`,
+  ).toBeGreaterThanOrEqual(
+    resolvedMode === "dual"
+      ? CUBE_EMPTY_MIN_TISSUE_GL
+      : resolvedMode === "dapi-only"
+        ? CUBE_EMPTY_MIN_DAPI_TISSUE_GL
+        : CUBE_EMPTY_MIN_MAGENTA_TISSUE_GL,
+  );
+  expect(
+    shot!.tissue,
+    `${label}: empty cube viewport on screenshot (${shotDetail})`,
+  ).toBeGreaterThanOrEqual(
+    resolvedMode === "dual"
+      ? CUBE_EMPTY_MIN_TISSUE_SCREEN
+      : Math.floor(
+          (resolvedMode === "dapi-only" ? CUBE_EMPTY_MIN_DAPI_TISSUE_GL : CUBE_EMPTY_MIN_MAGENTA_TISSUE_GL) * 0.35,
+        ),
+  );
+
+  if (resolvedMode === "dapi-only") {
+    expect(gl!.blueTissue, `${label}: DAPI-only must show blue tissue GL (${glDetail})`).toBeGreaterThanOrEqual(
+      CUBE_EMPTY_MIN_DAPI_TISSUE_GL,
+    );
+  }
+  if (resolvedMode === "panck-only") {
+    expect(
+      gl!.magentaTissue,
+      `${label}: PanCK-only must show magenta tissue GL (${glDetail})`,
+    ).toBeGreaterThanOrEqual(CUBE_EMPTY_MIN_MAGENTA_TISSUE_GL);
+  }
+  if (resolvedMode === "dual") {
+    expect(gl!.blueTissue, `${label}: dual must show DAPI blue GL (${glDetail})`).toBeGreaterThanOrEqual(800);
+  }
+
+  expect(
+    gl!.tissue >= CUBE_EMPTY_MIN_TISSUE_GL / 4 && shot!.tissue < 80,
+    `${label}: GL shows tissue but user screenshot is empty (${glDetail}; ${shotDetail})`,
+  ).toBe(false);
+}
 
 export async function cubeInsetHueStats(
   page: Page,
@@ -959,18 +1205,4 @@ export async function rejectCubeViewportSolidFill(page: Page, label: string) {
     greenFrac,
     `${label}: solid green/other fill (${detail})`,
   ).toBeLessThanOrEqual(CUBE_SOLID_FILL_MAX_BOX_FRACTION);
-}
-
-export async function rejectCubeViewportEmpty(page: Page, label: string) {
-  const stats = await cubeInsetHueStats(page);
-  expect(stats, `${label} inset hue stats`).toBeTruthy();
-  const detail = formatInsetHueStats(stats!);
-  expect(
-    stats!.bright,
-    `${label}: empty cube viewport (${detail})`,
-  ).toBeGreaterThanOrEqual(CUBE_EMPTY_MIN_BRIGHT_INSET);
-  expect(
-    stats!.chromatic,
-    `${label}: empty cube viewport (${detail})`,
-  ).toBeGreaterThanOrEqual(CUBE_EMPTY_MIN_CHROMATIC_INSET);
 }

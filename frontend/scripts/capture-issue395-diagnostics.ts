@@ -1,18 +1,29 @@
 /**
- * Dual-channel cube diagnostic stills + RGB samples at PanCK site ROI centres.
+ * Dual-channel cube diagnostic stills + RGB samples at projected PanCK site centres.
  * MILUME_VOLUME_PROFILE=issue395-3d dev server on :5173
  */
 import { chromium } from "@playwright/test";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-import { ISSUE395_PANCK_CUBE_ROIS } from "../e2e/helpers/shader-and-pixels.ts";
 import {
   bootIssue395LandmarksVolume,
   openIssue395CubeAtInspectCentre,
   setCubeLabels,
   setCubePreset,
+  waitCubeRefined,
 } from "../e2e/helpers/issue395-cube-flow.ts";
+import {
+  cubeGlInkStats,
+  cubeScreenshotInkStats,
+  CUBE_VOLUME_INSET,
+  rejectCubeViewportEmpty,
+} from "../e2e/helpers/shader-and-pixels.ts";
+
+async function loadProjectedRoIs(page: import("@playwright/test").Page) {
+  const { projectIssue395PanckRoIs } = await import("../e2e/helpers/issue395-panck-roi.ts");
+  return projectIssue395PanckRoIs(page);
+}
 
 const outDir = process.env.CAPTURE_OUT ?? "/opt/cursor/artifacts/issue395";
 const base = process.env.CAPTURE_BASE ?? "http://127.0.0.1:5173/?noDialkit=1";
@@ -25,7 +36,10 @@ type SiteSample = {
   rgb: [number, number, number];
 };
 
-async function sampleSiteCenters(page: import("@playwright/test").Page): Promise<SiteSample[]> {
+async function sampleProjectedSites(
+  page: import("@playwright/test").Page,
+  rois: Awaited<ReturnType<typeof loadProjectedRoIs>>,
+): Promise<SiteSample[]> {
   const png = await page.locator(cubeViewSel).screenshot();
   return page.evaluate(
     async ({ b64, rois }) => {
@@ -34,21 +48,19 @@ async function sampleSiteCenters(page: import("@playwright/test").Page): Promise
       if (!ctx) return [];
       ctx.drawImage(img, 0, 0);
       const { width: w, height: h, data } = ctx.getImageData(0, 0, img.width, img.height);
-      return rois.map((roi: { id: string; x0: number; y0: number; x1: number; y1: number }) => {
-        const nx = (roi.x0 + roi.x1) / 2;
-        const ny = (roi.y0 + roi.y1) / 2;
-        const x = Math.min(w - 1, Math.max(0, Math.round(nx * w)));
-        const y = Math.min(h - 1, Math.max(0, Math.round(ny * h)));
+      return rois.map((roi: { id: string; cx: number; cy: number }) => {
+        const x = Math.min(w - 1, Math.max(0, Math.round(roi.cx * w)));
+        const y = Math.min(h - 1, Math.max(0, Math.round(roi.cy * h)));
         const i = (y * w + x) * 4;
         return {
           id: roi.id,
-          normX: nx,
-          normY: ny,
+          normX: roi.cx,
+          normY: roi.cy,
           rgb: [data[i]!, data[i + 1]!, data[i + 2]!] as [number, number, number],
         };
       });
     },
-    { b64: png.toString("base64"), rois: ISSUE395_PANCK_CUBE_ROIS },
+    { b64: png.toString("base64"), rois },
   );
 }
 
@@ -65,16 +77,24 @@ await bootIssue395LandmarksVolume(page);
 await openIssue395CubeAtInspectCentre(page);
 await setCubeLabels(page, false);
 
-const report: Record<string, unknown> = { base, sites: ISSUE395_PANCK_CUBE_ROIS };
+const report: Record<string, unknown> = { base };
 
 for (const preset of ["Top view", "Oblique view"] as const) {
   await setCubePreset(page, preset);
-  await page.waitForTimeout(1200);
+  await waitCubeRefined(page);
+  await page.waitForTimeout(900);
+  await rejectCubeViewportEmpty(page, `diagnostic ${preset}`, "dual");
+  const gl = await cubeGlInkStats(page, CUBE_VOLUME_INSET);
+  const shotInk = await cubeScreenshotInkStats(page, CUBE_VOLUME_INSET);
+  const rois = await loadProjectedRoIs(page);
   const slug = preset === "Top view" ? "top" : "iso";
   const pngPath = join(outDir, `395-diagnostic-dual-${slug}-labels-off.png`);
   await page.locator(cubeViewSel).screenshot({ path: pngPath });
-  const samples = await sampleSiteCenters(page);
+  const samples = rois.length ? await sampleProjectedSites(page, rois) : [];
   report[`${slug}Png`] = pngPath;
+  report[`${slug}GlInk`] = gl;
+  report[`${slug}ScreenshotInk`] = shotInk;
+  report[`${slug}ProjectedRoIs`] = rois;
   report[`${slug}SiteRgb`] = samples;
 }
 

@@ -346,6 +346,34 @@ vec4 mergeTintedSamples(vec4 s0, vec4 s1) {
   return vec4(rgb, a);
 }
 
+#if NUM_CHANNELS == 2
+// Integrate each channel along the ray, then composite additively in linear rgb.
+void integrateDualChannelStep(inout vec4 accCh0, inout vec4 accCh1, float v0, float v1, float steps) {
+  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+  addSample(accCh0, s0, steps);
+  addSample(accCh1, s1, steps);
+}
+
+void mergeDualChannelAcc(inout vec4 acc, vec4 accCh0, vec4 accCh1) {
+  vec3 lin0 = srgbToLinear(clamp(accCh0.rgb, 0.0, 1.0));
+  vec3 lin1 = srgbToLinear(clamp(accCh1.rgb, 0.0, 1.0));
+  vec3 rgb = min(lin0 * accCh0.a + lin1 * accCh1.a, vec3(1.0));
+  float a = accCh0.a + accCh1.a - accCh0.a * accCh1.a;
+  acc = vec4(rgb, a);
+}
+
+vec4 dualChannelMipColor(float max0, float max1) {
+  vec4 s0 = tintedSample(max0, imagePalette, cubeRender.imageContrast0);
+  vec4 s1 = tintedSample(max1, imagePalette1, cubeRender.imageContrast1);
+  vec3 lin0 = srgbToLinear(clamp(s0.rgb, 0.0, 1.0));
+  vec3 lin1 = srgbToLinear(clamp(s1.rgb, 0.0, 1.0));
+  vec3 rgb = min(lin0 * s0.a + lin1 * s1.a, vec3(1.0));
+  float a = s0.a + s1.a - s0.a * s1.a;
+  return vec4(rgb, a);
+}
+#endif
+
 vec4 combinedImageSample2(float v0, float v1) {
 #if NUM_CHANNELS == 1
   return imageSample(v0);
@@ -550,7 +578,11 @@ const RENDERING_MULTI = {
   bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
     || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
     || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
-  float stepScale = 1.0;`,
+  float stepScale = 1.0;
+#if NUM_CHANNELS == 2
+  vec4 accCh0 = vec4(0.0);
+  vec4 accCh1 = vec4(0.0);
+#endif`,
   _RENDER: `
     ${IN_CUT}
     bool imageHere = !(ghosting && !inCut);
@@ -561,7 +593,7 @@ const RENDERING_MULTI = {
 #if NUM_CHANNELS == 1
         im = imageSample(intensityValue0);
 #elif NUM_CHANNELS == 2
-        im = combinedImageSample2(intensityValue0, intensityValue1);
+        // integrated per segment below
 #elif NUM_CHANNELS == 3
         im = combinedImageSample3(intensityValue0, intensityValue1, intensityValue2);
 #else
@@ -572,14 +604,28 @@ const RENDERING_MULTI = {
       for (int k = 0; k < 2; k++) {
         if (meshT0 >= lo + dt) break;
         float f = clamp((meshT0 - lo) / dt, done, 1.0);
+#if NUM_CHANNELS == 2
+        if (imageHere) {
+          integrateDualChannelStep(accCh0, accCh1, intensityValue0, intensityValue1, stepScale * (f - done));
+          mergeDualChannelAcc(acc, accCh0, accCh1);
+        }
+#else
         addSample(acc, im, stepScale * (f - done));
+#endif
         done = f;
         meshFlush(shown, acc, mesh0);
         meshT0 = meshT1;
         mesh0 = mesh1;
         meshT1 = NO_MESH;
       }
+#if NUM_CHANNELS == 2
+      if (imageHere) {
+        integrateDualChannelStep(accCh0, accCh1, intensityValue0, intensityValue1, stepScale * (1.0 - done));
+        mergeDualChannelAcc(acc, accCh0, accCh1);
+      }
+#else
       addSample(acc, im, stepScale * (1.0 - done));
+#endif
     } else if (imageHere) {
       if (cubeRender.imageMip > 0.5) {
         maxImage0 = max(maxImage0, intensityValue0);
@@ -592,20 +638,33 @@ const RENDERING_MULTI = {
 #if NUM_CHANNELS > 3
         maxImage3 = max(maxImage3, intensityValue3);
 #endif
-      } else if (acc.a < 0.95) {
+      } else if (
+#if NUM_CHANNELS == 2
+        accCh0.a + accCh1.a - accCh0.a * accCh1.a
+#else
+        acc.a
+#endif
+        < 0.95) {
         vec4 im = vec4(0.0);
 #if NUM_CHANNELS == 1
         im = imageSample(intensityValue0);
-#elif NUM_CHANNELS == 2
-        im = combinedImageSample2(intensityValue0, intensityValue1);
-#elif NUM_CHANNELS == 3
-        im = combinedImageSample3(intensityValue0, intensityValue1, intensityValue2);
-#else
-        im = combinedImageSample4(intensityValue0, intensityValue1, intensityValue2, intensityValue3);
-#endif
         float a = cover(im.a, stepScale);
         acc.rgb += (1.0 - acc.a) * a * im.rgb;
         acc.a += (1.0 - acc.a) * a;
+#elif NUM_CHANNELS == 2
+        integrateDualChannelStep(accCh0, accCh1, intensityValue0, intensityValue1, stepScale);
+        mergeDualChannelAcc(acc, accCh0, accCh1);
+#elif NUM_CHANNELS == 3
+        im = combinedImageSample3(intensityValue0, intensityValue1, intensityValue2);
+        float a = cover(im.a, stepScale);
+        acc.rgb += (1.0 - acc.a) * a * im.rgb;
+        acc.a += (1.0 - acc.a) * a;
+#else
+        im = combinedImageSample4(intensityValue0, intensityValue1, intensityValue2, intensityValue3);
+        float a = cover(im.a, stepScale);
+        acc.rgb += (1.0 - acc.a) * a * im.rgb;
+        acc.a += (1.0 - acc.a) * a;
+#endif
       }
     }
 #if NUM_CHANNELS > 1
@@ -617,13 +676,16 @@ const RENDERING_MULTI = {
 #endif
     `,
   _AFTER_RENDER: `
+#if NUM_CHANNELS == 2
+  mergeDualChannelAcc(acc, accCh0, accCh1);
+#endif
   color = acc;
   if (cubeRender.imageMip > 0.5) {
     vec4 im = vec4(0.0);
 #if NUM_CHANNELS == 1
     im = imageSample(maxImage0);
 #elif NUM_CHANNELS == 2
-    im = combinedImageSample2(maxImage0, maxImage1);
+    im = dualChannelMipColor(maxImage0, maxImage1);
 #elif NUM_CHANNELS == 3
     im = combinedImageSample3(maxImage0, maxImage1, maxImage2);
 #else
