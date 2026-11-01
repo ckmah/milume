@@ -9,6 +9,7 @@ MODE="${1:?usage: export-recipes.sh prepare-for-zensical | export-recipes.sh <si
 
 RECIPES=(
   squidpy_color
+  squidpy_moran
 )
 
 (
