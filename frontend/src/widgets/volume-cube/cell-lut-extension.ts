@@ -684,8 +684,10 @@ const RENDERING_MULTI = {
   _AFTER_RENDER: `
 #if NUM_CHANNELS == 2
   mergeDualChannelAcc(acc, accCh0, accCh1);
-#endif
+  color = vec4(linearToSrgb(clamp(acc.rgb, 0.0, 1.0)), acc.a);
+#else
   color = acc;
+#endif
   if (cubeRender.imageMip > 0.5) {
     vec4 im = vec4(0.0);
 #if NUM_CHANNELS == 1

@@ -30,7 +30,9 @@ import {
   umZToWorldHeight,
   dragToFaceDelta,
   moveCutEdge,
+  projectPreModelToViewPixel,
 } from "./cut-faces";
+import { ISSUE395_PANCK_SITES_VOXEL } from "./issue395-fixture-sites";
 import { VolumeCubeCutChrome, type VolumeCubeCutChromeHandle } from "./cut-hover-chrome";
 import { AxisLegend } from "./axis-legend";
 import type { ImageFormat } from "./image-volume";
@@ -1300,6 +1302,62 @@ export function VolumeCube({
   }, [meshesOn, labelCellCount]);
   const cubeSettled =
     !refining && !panning && (!meshesOn || (labelsState === "on" && labelCellsStable));
+
+  const issue395PanckProjectedRoIs = useMemo(() => {
+    if (!cubeSettled || activeImageChannels.length !== 2 || !panBox || !levelVoxel || !cubeFrame || !viewState) {
+      return "";
+    }
+    const [stepZ, stepY, stepX] = levelVoxel;
+    const [panX0, , , panY1] = [panBox.x0, panBox.y0, panBox.x1, panBox.y1];
+    const depth = cubeFrame.size[2];
+    const camera = {
+      zoom: viewState.zoom,
+      rotationX: viewState.rotationX,
+      rotationOrbit: viewState.rotationOrbit,
+    };
+    const rois = ISSUE395_PANCK_SITES_VOXEL.map((site) => {
+      const xUm = oxUm + site.x * stepX;
+      const yUm = oyUm + site.y * stepY;
+      const zUm = ozUm + site.z * stepZ;
+      const px = (xUm - oxUm) / stepX - panX0;
+      const py = (panY1 - (yUm - oyUm) / stepY) * ry;
+      const pz = umZToWorldHeight(zUm, ozUm, stepZ, windowZSlice, depth);
+      const { x, y } = projectPreModelToViewPixel([px, py, pz], camera, aimTarget, viewPixelSize);
+      const cx = x / viewPixelSize.width;
+      const cy = y / viewPixelSize.height;
+      const radiusPx = 28;
+      const rx = radiusPx / viewPixelSize.width;
+      const ryN = radiusPx / viewPixelSize.height;
+      return {
+        id: site.id,
+        cx,
+        cy,
+        x0: Math.max(0, cx - rx),
+        y0: Math.max(0, cy - ryN),
+        x1: Math.min(1, cx + rx),
+        y1: Math.min(1, cy + ryN),
+      };
+    });
+    return JSON.stringify(rois);
+  }, [
+    cubeSettled,
+    activeImageChannels.length,
+    aimTarget,
+    cubeFrame,
+    levelVoxel,
+    oxUm,
+    oyUm,
+    ozUm,
+    panBox,
+    ry,
+    viewPixelSize.height,
+    viewPixelSize.width,
+    viewState?.rotationOrbit,
+    viewState?.rotationX,
+    viewState?.zoom,
+    windowZSlice,
+  ]);
+
   /** Stop a pan still in progress; its end is reported, so its last moves are saved. */
   const stopPan = useCallback(() => {
     const abort = panAbort.current;
@@ -1510,6 +1568,8 @@ export function VolumeCube({
       data-orbit={viewState ? viewState.rotationOrbit.toFixed(1) : ""}
       data-viewport-w={Math.round(viewPixelSize.width)}
       data-viewport-h={Math.round(viewPixelSize.height)}
+      data-pan-box={panBox ? `${panBox.x0},${panBox.y0},${panBox.x1},${panBox.y1}` : ""}
+      data-ry={ry}
       data-win-x={`${winX[0]},${winX[1]}`}
       data-win-y={`${winY[0]},${winY[1]}`}
       data-stack-z={`${stackZ[0]},${stackZ[1]}`}
@@ -1523,6 +1583,7 @@ export function VolumeCube({
       data-channels={activeImageChannels.length}
       data-gpu-channel-bytes={gpuChannelBytes.join(",") || "0"}
       data-volume-sums={volumeChannelSums}
+      data-issue395-panck-rois={issue395PanckProjectedRoIs || undefined}
     >
       {layerProps && displayViewStates ? (
         <VolumeCubeDeck
