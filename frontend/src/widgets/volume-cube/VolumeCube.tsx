@@ -959,7 +959,12 @@ export function VolumeCube({
   );
   const channelSelections = useMemo(() => {
     const hasC = Boolean(level?.source.labels.includes("c"));
-    return activeImageChannels.map((ch) => (hasC ? { c: ch.index } : {}));
+    // Viv toy / single-channel loads match main: `{}` per layer. Only pass `{ c }` when
+    // drawing multiple channels from a multi-channel pyramid (see #395).
+    if (!hasC || activeImageChannels.length <= 1) {
+      return activeImageChannels.map(() => ({}));
+    }
+    return activeImageChannels.map((ch) => ({ c: ch.index }));
   }, [activeImageChannels, level?.source.labels]);
   const channelColors = useMemo(
     () => activeImageChannels.map(() => [255, 255, 255] as [number, number, number]),
