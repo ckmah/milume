@@ -28,7 +28,7 @@
     "test:e2e": "npm run test:e2e:core && npm run test:e2e:landmarks",
     "test:e2e:core": "playwright test e2e/core && npm run test:e2e:core:hero",
     "test:e2e:core:hero": "cd .. && uv run bash website/scripts/assemble-pages.sh && cd frontend && playwright test --config=playwright.website.config.ts",
-    "test:e2e:marimo-api": "cross-env E2E_MARIMO_NOTEBOOK=frontend/e2e/marimo/fixtures/toy-api.marimo.py playwright test -c playwright.marimo.config.ts api.spec.ts && cross-env E2E_MARIMO_NOTEBOOK=frontend/e2e/marimo/fixtures/gzip-eager-api.marimo.py playwright test -c playwright.marimo.config.ts gzip-eager-api.spec.ts && cross-env E2E_MARIMO_NOTEBOOK=frontend/e2e/marimo/fixtures/moran-w-color-api.marimo.py playwright test -c playwright.marimo.config.ts moran-w-color-api.spec.ts && playwright test -c playwright.marimo.config.ts landmarks-inspect.spec.ts",
+    "test:e2e:marimo-api": "cross-env E2E_MARIMO_NOTEBOOK=frontend/e2e/marimo/fixtures/toy-api.marimo.py playwright test -c playwright.marimo.config.ts api.spec.ts && cross-env E2E_MARIMO_NOTEBOOK=frontend/e2e/marimo/fixtures/gzip-eager-api.marimo.py playwright test -c playwright.marimo.config.ts gzip-eager-api.spec.ts && playwright test -c playwright.marimo.config.ts landmarks-inspect.spec.ts",
     "test:e2e:landmarks": "cross-env E2E_HARNESS=landmarks-volume playwright test e2e/landmarks/landmarks-volume.spec.ts && playwright test e2e/landmarks",
     "test:e2e:landmarks:smoke": "cross-env E2E_HARNESS=landmarks-volume E2E_SMOKE=1 E2E_RETRIES=0 playwright test e2e/landmarks/landmarks-volume-smoke.spec.ts && playwright test e2e/landmarks",
     "test:e2e:install": "playwright install chromium",

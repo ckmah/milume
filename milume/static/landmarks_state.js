@@ -113,7 +113,6 @@ export function setActiveGenes(model, names) {
     model.set("legend_title", next.join(", "));
   }
   model.set("raster_basis", "genes");
-  flushNotebook(model);
 }
 
 export function setGeneScaleMode(model, mode) {
