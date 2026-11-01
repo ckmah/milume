@@ -455,11 +455,7 @@ export function VolumeCube({
           await new Promise((resolve) => setTimeout(resolve, hook.delayMs));
         }
         const pyramid = await loadVolumePyramid(imageUrl, volumeComm);
-        const base = pyramid[0]!;
-        const multichannel = axisSize(base, "c") > 1;
-        if (!multichannel) {
-          pyramid.forEach((level, i) => chunkCache?.attach(level._data, `${imageUrl}#${i}`));
-        }
+        pyramid.forEach((level, i) => chunkCache?.attach(level._data, `${imageUrl}#${i}`));
         if (!cancelled) setImage(pyramid);
       } catch (err) {
         if (!cancelled) setError(errorText(err));
