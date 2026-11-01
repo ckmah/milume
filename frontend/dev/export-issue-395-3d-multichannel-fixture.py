@@ -1,0 +1,124 @@
+#!/usr/bin/env python3
+"""Export committed 3D multichannel SpatialData + harness JSON for #395."""
+
+from __future__ import annotations
+
+import json
+import shutil
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT))
+
+from milume import LandmarksWidget  # noqa: E402
+from milume.volume_source import image_contrast_limits  # noqa: E402
+from tests.helpers import issue395_3d_multichannel_spatialdata  # noqa: E402
+
+DEV = Path(__file__).resolve().parent
+PUBLIC = DEV / "landmarks-volume" / "public"
+STORE_NAME = "issue395-3d.sdata.zarr"
+OUT = DEV / "landmarks-volume-fixture.issue395-3d.json"
+
+FIXTURE_KEYS = [
+    "mode",
+    "selections",
+    "landmarks",
+    "selected_kind",
+    "selected_index",
+    "category_columns",
+    "active_category",
+    "gene_names",
+    "active_genes",
+    "gene_scale_mode",
+    "gene_log1p",
+    "gene_expression_logged",
+    "color_mode",
+    "legend_labels",
+    "legend_title",
+    "type_neighborhoods",
+    "default_buffer_width",
+    "neighbor_radius_max",
+    "neighbor_k_max",
+    "gene_csc_indptr",
+    "gene_csc_indices",
+    "gene_csc_data",
+    "x_bounds",
+    "y_bounds",
+    "point_size",
+    "points_data",
+    "point_palette",
+    "category_codes",
+    "color_vmin",
+    "color_vmax",
+    "render_mode",
+    "raster_bin_size",
+    "raster_window_radius",
+    "raster_basis",
+    "raster_embedding_key",
+    "raster_embedding_keys",
+    "raster_embedding_dims",
+    "embedding_values",
+    "embedding_channel_labels",
+    "embedding_matrix",
+    "embedding_matrix_dim",
+    "raster_obs_key",
+    "raster_gene_mode",
+    "raster_origin_x",
+    "raster_origin_y",
+    "raster_similarity_enabled",
+    "raster_query_bin",
+    "inspect_cx",
+    "inspect_cy",
+    "z_focus_um",
+    "z_band_lo_um",
+    "z_band_hi_um",
+    "_image_channels",
+    "_image_visible",
+    "_image_alpha",
+]
+
+VOLUME_KEYS = ["volume", "volume_cell_rows", "volume_cut", "inspect_size_um"]
+
+
+def main() -> None:
+    store = PUBLIC / STORE_NAME
+    if store.exists():
+        shutil.rmtree(store)
+    store.parent.mkdir(parents=True, exist_ok=True)
+    sdata = issue395_3d_multichannel_spatialdata(store)
+    image_key = next(iter(sdata.images))
+    contrast = image_contrast_limits(sdata.images[image_key])
+    widget = LandmarksWidget(
+        sdata,
+        color="cell_type",
+        contrast_limits=contrast,
+        channels=["DAPI", "PanCK"],
+    )
+    widget.set_render_mode("points")
+    payload = {key: getattr(widget, key) for key in FIXTURE_KEYS + VOLUME_KEYS}
+    tint_by_name = {"DAPI": "#2563eb", "PanCK": "#c026d3"}
+    rows = payload.get("_image_channels") or []
+    payload["_image_channels"] = [
+        {**row, "color": tint_by_name.get(row["name"], row.get("color"))} for row in rows
+    ]
+    vol = payload.get("volume") or {}
+    if vol.get("channels"):
+        payload["volume"] = {
+            **vol,
+            "channels": [
+                {**row, "color": tint_by_name.get(row["name"], row.get("color"))}
+                for row in vol["channels"]
+            ],
+        }
+    OUT.write_text(json.dumps(payload, indent=2) + "\n")
+    data_mib = sum(f.stat().st_size for f in store.rglob("*") if f.is_file()) / (1024 * 1024)
+    page_kib = OUT.stat().st_size / 1024
+    print(
+        f"wrote {store} and {OUT} "
+        f"(zarr data ~{data_mib:.3f} MiB, fixture page ~{page_kib:.1f} KiB)"
+    )
+
+
+if __name__ == "__main__":
+    main()
