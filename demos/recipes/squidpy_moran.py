@@ -25,18 +25,18 @@
 # cell-18 = {ref = "cell:v1:4563743bdcbae0f48758f8825071cc7ae7ee1eee82925682889f4b06efe37639:fedb3240d035e0a096e455920d454ed61539455ab08ba6e41ab57b8b26b9530a:0"}
 # cell-21 = {ref = "cell:v1:19f00dc881226eef2ce215bdb808dee4af8d862f5433cf342b05c99a3ac5a3ba:a094d83d97e9fc73351c6445d15a33c40ae604f2f9d51f7815f3fdc73d265ac9:0"}
 # cell-22 = {ref = "cell:v1:72e6a04ada9b1027783d1be1edb443a851c48888d628cf89738b7ee909c5e6d3:9ff4410036d03c847dc462fba7b85dff22cbf06fe1c5c3214feb3b5d9ebed3cb:0"}
-# cell-26 = {ref = "cell:v1:c9c1c7ead3e9190dceceba88e2918020aeee94c5602b5b28569c4ab76e28a982:6a46a5240cd0f2ee9c8a7de6afe479b0a5b577eb49af2f8f6907db0668a42702:0"}
-# cell-27 = {ref = "cell:v1:e327b19148d5503edfa884b9829ddc53c98c52fa83b564808a3d36aa5e88263c:ac3a5720fe91b0db48cfdd65af1d8cf82349064750c130958dc0d2c257079fdb:0"}
+# cell-26 = {ref = "cell:v1:9faafc222d58bc4169488efc4e444b01f95cc91bcd13fecbae30951a14a1dc06:2ad1af1424c7f35ff807612fb0c4cb1719eb2ef0acef5c1070c0efca849be57f:0"}
+# cell-27 = {ref = "cell:v1:baa5eefcf60024eb8a5a42b2839a6303dc855f7f71097e854da0f3f004d05c9e:1f78d4ae346711a8158699c2ebb913a44b3e8043ed346aa5f1a6b42b59f59e55:0"}
 # cell-28 = {ref = "cell:v1:baa5eefcf60024eb8a5a42b2839a6303dc855f7f71097e854da0f3f004d05c9e:1f78d4ae346711a8158699c2ebb913a44b3e8043ed346aa5f1a6b42b59f59e55:0"}
 # cell-29 = {ref = "cell:v1:e327b19148d5503edfa884b9829ddc53c98c52fa83b564808a3d36aa5e88263c:ac3a5720fe91b0db48cfdd65af1d8cf82349064750c130958dc0d2c257079fdb:0"}
 # cell-30 = {ref = "cell:v1:baa5eefcf60024eb8a5a42b2839a6303dc855f7f71097e854da0f3f004d05c9e:1f78d4ae346711a8158699c2ebb913a44b3e8043ed346aa5f1a6b42b59f59e55:0"}
-# cell-11 = {ref = "cell:v1:2d724c2ef4cd90f075bea376feb00d6d5576147fb43ff7290f3e1996264fa54b:4ab29936bfa49a181985756ca2cad857d6dda2bf4c5bdc6d76193606b5621542:0"}
+# cell-11 = {ref = "cell:v1:8dd05238387efd9473a2de7c419ae4c4a49520464a8e76eeebcbcce3ffd55776:3819b23cdc9ff940bccfe549fa58951e90c8bd2233368b06b95e8b27a442f4ad:0"}
 # cell-15 = {ref = "cell:v1:b773405c53c80356a5e7b1ef53886760ab3f6f63dc147af6a0f78de455292327:388e4167ac3b577c705df343e137ca390f0517c6685495a74c749697a162e4b1:0"}
 # cell-16 = {ref = "cell:v1:84c7b605ab97b6318d265e11310ad3730b4f282bc8a4fe1700a17679a8993ad2:a587e6dafe2c80772eb7bd4697dcc2d5dbced434dc1de616b015da35d1f07b69:0"}
 # cell-19 = {ref = "cell:v1:2585cfa7ca022c60afd9a769f73058755f732b7ab760b043738958dc71abe75e:60d1d3aaa1257a28b05925fed75d929282e8813663ee034ede94cd5bdbb6dff9:0"}
 # cell-20 = {ref = "cell:v1:72e6a04ada9b1027783d1be1edb443a851c48888d628cf89738b7ee909c5e6d3:9ff4410036d03c847dc462fba7b85dff22cbf06fe1c5c3214feb3b5d9ebed3cb:0"}
-# cell-24 = {ref = "cell:v1:56fb5f1fc30803574fd5959bb801a5d1a2992981ed410cc1cb83bdbc073508e9:d5fe73f7ee50c1b2e6f37ac011ee2c95da0f3ef5ae6992bd5816d38873e05ee9:0"}
-# cell-25 = {ref = "cell:v1:c1e1b9904c15cc965e9d0362d839bacc197a1d03dde556fa9c5d74f686bcf31b:f704dd34b155233f5705f7d781231ee8bf137b163852c058f372c12571f470d1:0"}
+# cell-24 = {ref = "cell:v1:42e118efcdbc735a2e80ed16ef75d8d84c658bf91b98667972c958d652eb092c:ad0f119e6299e3e950c8e03fccb6206764288e07f6704b2f530b4a1bb773d6f1:0"}
+# cell-25 = {ref = "cell:v1:5613ae7638deee35a6ca49abdd4cdc51fcb015f89cfcb3ee01aad5b155d631b5:01e638f8000b9ef25d23fdaa4dd841b1260a69e3c15fe26422679e7671d2434c:0"}
 # ///
 """Squidpy Moran's I recipe: cell-type layout vs patterns inside enterocytes (ileum)."""
 
@@ -110,13 +110,9 @@ def _(mo):
 
 
 @app.cell
-def load_data(asset, ml, mo, np, pd):
+def load_data(ml, mo, np):
     adata = ml.ds.ileum_merfish_xu2026()
     adata.obs["n_counts"] = np.asarray(adata.layers["raw_counts"].sum(axis=1)).ravel()
-    _scores = pd.read_parquet(asset("demos/data/ileum_moran_recipe_scores.parquet"))
-    for _col in ("moran_I_all", "moran_I_enterocyte"):
-        if _col not in adata.var:
-            adata.var[_col] = _scores[_col]
     mo.show_code(adata)
     return (adata,)
 
@@ -145,12 +141,20 @@ def _(mo):
 def moran_all(mo):
     mo.md(r"""
 ```python
-sq.gr.spatial_neighbors_knn(adata, n_neighs=6, percentile=99)
-sq.gr.spatial_autocorr(adata, mode="moran", n_perms=100, rng=0)
-adata.var["moran_I_all"] = adata.uns["moranI"]["I"]
+with mo.persistent_cache("moran_all_cells"):
+    sq.gr.spatial_neighbors_knn(adata, n_neighs=6, percentile=99)
+    moran_all_cells = sq.gr.spatial_autocorr(adata, mode="moran", n_perms=100, seed=0, copy=True)
 ```
     """)
     return
+
+
+@app.cell(hide_code=True)
+def moran_all_compute(adata, mo, sq):
+    with mo.persistent_cache("moran_all_cells"):
+        sq.gr.spatial_neighbors_knn(adata, n_neighs=6, percentile=99)
+        moran_all_cells = sq.gr.spatial_autocorr(adata, mode="moran", n_perms=100, seed=0, copy=True)
+    return (moran_all_cells,)
 
 
 @app.cell(hide_code=True)
@@ -160,8 +164,8 @@ def _(mo):
     Moran's I depends on who counts as a neighbor. A small `n_neighs` asks about the cells right next door; a large one smooths over whole villi. Six nearest cells is a common default for imaging data. Don't use an unpruned Delaunay graph here: its longest links span about 1 mm. The [niches recipe](../squidpy_color/) shows how graph size changes a result.
     ///
 
-    /// note | Precomputed
-    Scoring all 1,815 genes across every cell takes about 6 minutes on one core, so this page reads saved scores from `demos/data/ileum_moran_recipe_scores.parquet`. `scripts/generate_ileum_moran_recipe_cache.py` makes them with these exact calls.
+    /// note | Cached
+    Scoring all 1,815 genes across every cell takes about 6 minutes on one core; most of that is the 100 shuffles. `mo.persistent_cache` saves the result under `__marimo__/cache/` next to the notebook and reloads it while this cell and the cells above it are unchanged. The first **Run all** in molab has no saved result, so expect that wait once per session.
     ///
     """)
     return
@@ -190,12 +194,23 @@ def subset(adata, mo, np):
 def moran_ent(mo):
     mo.md(r"""
 ```python
-sq.gr.spatial_neighbors_knn(ent, n_neighs=6, percentile=99)
-sq.gr.spatial_autocorr(ent, genes=genes, mode="moran", n_perms=100, rng=0)
-adata.var["moran_I_enterocyte"] = ent.uns["moranI"]["I"]
+with mo.persistent_cache("moran_enterocytes"):
+    sq.gr.spatial_neighbors_knn(ent, n_neighs=6, percentile=99)
+    moran_enterocytes = sq.gr.spatial_autocorr(ent, genes=genes, mode="moran", n_perms=100, seed=0, copy=True)
+scores = pd.DataFrame({"moran_I_all": moran_all_cells["I"], "moran_I_enterocyte": moran_enterocytes["I"]})
+scores.loc[["Erbb3", "Apob"]]
 ```
     """)
     return
+
+
+@app.cell(hide_code=True)
+def moran_ent_compute(ent, genes, mo, moran_all_cells, pd, sq):
+    with mo.persistent_cache("moran_enterocytes"):
+        sq.gr.spatial_neighbors_knn(ent, n_neighs=6, percentile=99)
+        moran_enterocytes = sq.gr.spatial_autocorr(ent, genes=genes, mode="moran", n_perms=100, seed=0, copy=True)
+    scores = pd.DataFrame({"moran_I_all": moran_all_cells["I"], "moran_I_enterocyte": moran_enterocytes["I"]})
+    return (scores,)
 
 
 @app.cell(hide_code=True)
@@ -274,9 +289,9 @@ def plot_helpers(pd, plt):
         return villus[:, list(genes)].to_df().groupby(pos.to_numpy(), observed=True).mean()
 
 
-    def plot_moran_contrast(adata, villus, gene: str):
+    def plot_moran_contrast(scores, villus, gene: str):
         """Left: all-cell vs within-enterocyte Moran's I. Right: expression along the villus."""
-        scores = adata.var[["moran_I_all", "moran_I_enterocyte"]].dropna()
+        scores = scores.dropna()
         genes = dict(HIGHLIGHT)
         if gene not in genes and gene in villus.var_names:
             genes[gene] = PICKED
@@ -312,17 +327,17 @@ def villus(ent, mo):
 
 
 @app.cell
-def result_figure(adata, plot_moran_contrast, villus, w):
+def result_figure(adata, plot_moran_contrast, scores, villus, w):
     gene = w.color if w.color in adata.var_names else "Apob"
     picked = [s["id"] for s in w.selections]
     cells = villus.obs_names.intersection(w.get_obs_names(picked[0])) if picked else villus.obs_names
-    plot_moran_contrast(adata, villus[cells], gene)
+    plot_moran_contrast(scores, villus[cells], gene)
     return
 
 
 @app.cell(hide_code=True)
-def _(adata, ent, mo):
-    _erbb3 = adata.var.loc["Erbb3"]
+def _(ent, mo, scores):
+    _erbb3 = scores.loc["Erbb3"]
     _frac = float((ent[:, "Erbb3"].X > 0).mean())
     mo.md(f"""
     **Erbb3** scores {_erbb3.moran_I_all:.2f} across all cells but only {_erbb3.moran_I_enterocyte:.2f} inside enterocytes, even though {_frac:.0%} of enterocytes express it. Its all-cell score comes from where epithelium sits relative to the gut wall, not from position along the villus.
@@ -331,8 +346,8 @@ def _(adata, ent, mo):
 
 
 @app.cell(hide_code=True)
-def _(adata, mo, rho):
-    _apob = adata.var.loc["Apob"]
+def _(mo, rho, scores):
+    _apob = scores.loc["Apob"]
     mo.md(f"""
     **Apob** scores {_apob.moran_I_all:.2f} across all cells and still {_apob.moran_I_enterocyte:.2f} inside enterocytes. Its expression rises from villus base to tip (Spearman ρ = {rho["Apob"]:.2f}), so neighboring enterocytes match because they sit at the same height on the villus.
     """)
@@ -340,9 +355,9 @@ def _(adata, mo, rho):
 
 
 @app.cell(hide_code=True)
-def _(adata, mo):
-    _top_all = adata.var["moran_I_all"].nlargest(20).index
-    _top_ent = adata.var["moran_I_enterocyte"].nlargest(20).index
+def _(mo, scores):
+    _top_all = scores["moran_I_all"].nlargest(20).index
+    _top_ent = scores["moran_I_enterocyte"].nlargest(20).index
     mo.md(f"""
     The two top-20 lists share only {len(_top_all.intersection(_top_ent))} genes. Many of the all-cell leaders, like smooth muscle **Acta2**, rank high because of tissue layout.
     """)
@@ -353,7 +368,7 @@ def _(adata, mo):
 def _(mo, rho):
     mo.md(f"""
     /// note | Caveat: position-named subtypes and depth
-    Three of the four enterocyte labels are named by villus position, and sequencing depth (`n_counts`) also rises toward the tip (ρ = {rho["n_counts"]:.2f}). `X` is already scaled by a per-cell size factor, but depth can still leak into a gradient. For a stricter check in molab, rerun the enterocyte calls on one label, `ent[ent.obs.cell_type == "Enterocyte (mid)"]`, and color the map by `n_counts` to compare with Apob. This file has one point per cell, so it can't show where Apob mRNA sits inside a cell.
+    Three of the four enterocyte labels are named by villus position, and sequencing depth (`n_counts`) also rises toward the tip (ρ = {rho["n_counts"]:.2f}). `X` is already scaled by a per-cell size factor, but depth can still leak into a gradient. For a stricter check in molab, rerun the enterocyte calls on one label, `ent[ent.obs.cell_type == "Enterocyte (mid)"]`, and color the map by `n_counts` to compare with Apob. For enterocytes, `mucosal_pseudospace` is the authors' expression-derived pseudotime ([Xu et al. 2026](https://doi.org/10.1016/j.chom.2026.01.018), STAR Methods), so a gene's correlation with it is partly built in; distance from the crypt in µm is a geometric check. This file has one point per cell, so it can't show where Apob mRNA sits inside a cell.
     ///
     """)
     return
