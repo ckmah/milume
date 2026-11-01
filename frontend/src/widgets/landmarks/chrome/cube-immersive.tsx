@@ -215,6 +215,7 @@ export const CubeImmersive = memo(function CubeImmersive({
           windowSizeUm={size}
           cut={cut}
           contrast={settings.contrast}
+          imageChannelRows={lm._image_channels}
           imageMode={settings.imageMode}
           preset={settings.preset}
           home="top"

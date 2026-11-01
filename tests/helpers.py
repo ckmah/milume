@@ -181,3 +181,40 @@ def issue122_2d_multichannel_spatialdata(dest):
     sdata.write(dest)
     return sd.read_zarr(dest)
 
+
+def issue395_3d_multichannel_spatialdata(dest):
+    """Small 3D multichannel SpatialData for #395: two channels, µm voxels, under CI size budget."""
+    import anndata as ad
+    import numpy as np
+    import pandas as pd
+    import spatialdata as sd
+    from spatialdata.models import Image3DModel, TableModel
+    from spatialdata.transformations import Identity
+
+    z, y, x = 24, 96, 96
+    ch_dapi = np.full((z, y, x), 10, dtype=np.uint8)
+    ch_panck = np.full((z, y, x), 8, dtype=np.uint8)
+    zz, yy, xx = np.ogrid[:z, :y, :x]
+    ch_dapi[(zz - 8) ** 2 + (yy - 48) ** 2 + (xx - 40) ** 2 <= 144] = 210
+    ch_panck[(zz - 14) ** 2 + (yy - 52) ** 2 + (xx - 58) ** 2 <= 121] = 195
+    stack = np.stack([ch_dapi, ch_panck], axis=0)
+
+    cx, cy, cz = 48.0, 48.0, 12.0
+    obs = pd.DataFrame({"cell_type": pd.Categorical(["type0"])}, index=["cell0"])
+    table = ad.AnnData(np.ones((1, 1), dtype=np.float32), obs=obs)
+    table.obsm["spatial"] = np.array([[cx, cy, cz]], dtype=float)
+
+    image = Image3DModel.parse(
+        stack,
+        dims=("c", "z", "y", "x"),
+        c_coords=pd.Index(["DAPI", "PanCK"]),
+        transformations={"global": Identity()},
+        scale_factors=[2, 2],
+    )
+    sdata = sd.SpatialData(
+        images={"mosaic": image},
+        tables={"table": TableModel.parse(table)},
+    )
+    sdata.write(dest)
+    return sd.read_zarr(dest)
+
