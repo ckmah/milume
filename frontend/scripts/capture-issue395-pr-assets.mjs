@@ -73,6 +73,26 @@ async function openCube() {
   if (err) throw new Error("cube shader compile overlay visible");
   await page.getByRole("radio", { name: "Oblique view" }).click();
   await page.waitForTimeout(1200);
+  await page.getByRole("radio", { name: "Top view" }).click();
+  await page.waitForFunction(
+    () => document.querySelector(".volume-cube__view")?.getAttribute("data-refining") === "false",
+    null,
+    { timeout: 120_000 },
+  );
+  await page.waitForTimeout(1500);
+}
+
+async function captureIsoMultichannelStill(page, widget, outDir) {
+  await page.getByRole("radio", { name: "Oblique view" }).click();
+  await page.waitForFunction(
+    () => document.querySelector(".volume-cube__view")?.getAttribute("data-refining") === "false",
+    null,
+    { timeout: 120_000 },
+  );
+  await page.waitForTimeout(2000);
+  await widget.screenshot({ path: join(outDir, "395-cube-widget-iso.png") });
+  const cubeView = page.locator('[role="dialog"][aria-label="Cube"] .volume-cube__view');
+  await cubeView.screenshot({ path: join(outDir, "395-cube-two-channel-blend-iso.png") });
 }
 
 async function openPerChannelContrastInLayers() {
@@ -95,10 +115,7 @@ await page.waitForTimeout(1500);
 await widget.screenshot({ path: join(outDir, "395-map-band-two-channel-blend.png") });
 
 await openCube();
-await page.waitForTimeout(800);
-const cubeView = page.locator('[role="dialog"][aria-label="Cube"] .volume-cube__view');
-await cubeView.screenshot({ path: join(outDir, "395-cube-two-channel-blend-iso.png") });
-await widget.screenshot({ path: join(outDir, "395-cube-widget-iso.png") });
+await captureIsoMultichannelStill(page, widget, outDir);
 
 await openPerChannelContrastInLayers();
 const hiThumb = page.getByRole("slider", { name: "DAPI contrast, maximum" });
