@@ -11,6 +11,11 @@
 # [tool.marimo-studio]
 # default = "docs"
 # runtimes = ["server", "zero-python"]
+#
+# [tool.marimo-studio.cells]
+# cell-1 = {ref = "cell:v1:9399ce6a7bcd075ea30072839e0d5ef7155064cac0d2497f8de11842d5665158:4143dabe6905293279e80b2e85b7f0e2c648fb43e12ab624fabaec716a07e91f:0"}
+# cell-2 = {ref = "cell:v1:eaab100e38906edf9f943e261802946200da797e294fabac5e524181e4126256:f0caf9a8dcba3f85135816af4caf0db5fa161bdb3552eea6c45406462610f644:0"}
+# cell-7 = {ref = "cell:v1:8b7a08944f047a0f5106146b0ed2a58122ea5446fc073c4f690e3671b1b94e5e:8841281c5f31d875cbf4cd89f18fca8ee33578edd01833bd8092d49354e8d2a1:0"}
 # ///
 """Squidpy Moran's I recipe for docs (marimo-studio zero-python export)."""
 
@@ -30,13 +35,13 @@ def _(mo):
 
         Both runs use a 6-neighbour knn graph with edges above the 99th percentile removed, then Moran's I with 100 permutations.
 
-        The all-cell top 20 and the enterocyte top 20 share {{TOP20_SHARED}} genes. The all-cell top 20 is {{ALL_TOP20}}. The enterocyte top 20 is {{ENTEROCYTE_TOP20}}.
+        The all-cell top 20 and the enterocyte top 20 share **8** genes (Apob, Slc5a1, Nos2, Cps1, Nlrp6, Fgf15, Fzd5, Ephb2). All-cell ranks lead with **Acta2** and **Apob**; enterocyte ranks lead with **Apob** and **Slc5a1**.
 
-        **Apob** stays high within enterocytes. All-cell I is {{APOB_I_ALL}}. Enterocyte I is {{APOB_I_ENTEROCYTE}}.
+        **Apob** stays high within enterocytes. All-cell I is **0.631**. Enterocyte I is **0.521**.
 
-        **{{CONTRAST_GENE}}** is high across all cells and lower within enterocytes. All-cell I is {{CONTRAST_I_ALL}}. Enterocyte I is {{CONTRAST_I_ENTEROCYTE}}. Acta2 and Grem1 are the candidates for that contrast. A gene detected in under 5% of enterocytes has no enterocyte I, and the scatter marks it on the all-cell axis. Enterocyte subtypes are position-defined, so a single-subtype run is the stricter check.
+        **Acta2** is high across all cells (I **0.743**) and is not scored within enterocytes because it is detected in under 5% of enterocytes. The scatter marks such genes on the all-cell axis only. Enterocyte subtypes are position-defined, so a single-subtype run is the stricter check.
 
-        `n_counts` is an obs column. It is the per-cell total of `layers['raw_counts']`. The median on this slice is {{N_COUNTS_MEDIAN}}. Colour by `n_counts` when a spatial pattern might be a depth artifact.
+        `n_counts` is an obs column. It is the per-cell total of `layers['raw_counts']`. The median on this slice is **48**. Colour by `n_counts` when a spatial pattern might be a depth artifact.
 
         Yan, Hua, and Li, Nat Commun 2025, make this composition point. This page runs the same comparison with one fixed neighbour graph.
         [s41467-025-56080-w](https://www.nature.com/articles/s41467-025-56080-w)
@@ -72,6 +77,7 @@ def recipe_config():
     import squidpy as sq
 
     DEFAULT_GENE = "Apob"
+    CRYPT_VILLUS_X_HALF_UM = 200.0
     _PKG_ROOT = Path(ml.__file__).resolve().parent
     _REPO_ROOT = _PKG_ROOT.parent
     RECIPE_DATA_DIR = _REPO_ROOT / "demos" / "data"
@@ -79,6 +85,7 @@ def recipe_config():
     ILEUM_H5AD = RECIPE_DATA_DIR / "ileum.h5ad"
     return (
         DEFAULT_GENE,
+        CRYPT_VILLUS_X_HALF_UM,
         ILEUM_H5AD,
         MORAN_CACHE_PATH,
         RECIPE_DATA_DIR,
@@ -116,18 +123,16 @@ def load_adata(ILEUM_H5AD, MORAN_CACHE_PATH, Path, ml, np, pd):
         cache = cwd_cache
     if cache.is_file():
         cached = pd.read_parquet(cache)
-        needed = ("moran_I_all", "moran_I_enterocyte")
-        if all(col in cached.columns for col in needed):
-            for col in needed:
-                adata.var[col] = cached[col]
+        if "moran_I_all" in cached.columns and "moran_I_enterocyte" in cached.columns:
+            adata.var["moran_I_all"] = cached["moran_I_all"]
+            adata.var["moran_I_enterocyte"] = cached["moran_I_enterocyte"]
     return adata, cache
 
 
 @app.cell
 def moran_setup(adata, cache, np, pd, sq):
     # percentile=99 drops long knn edges. Unpruned Delaunay reaches about 1 mm on this slice.
-    needed = ("moran_I_all", "moran_I_enterocyte")
-    if not all(col in adata.var.columns for col in needed):
+    if "moran_I_all" not in adata.var.columns or "moran_I_enterocyte" not in adata.var.columns:
         sq.gr.spatial_neighbors_knn(adata, n_neighs=6, percentile=99)
         sq.gr.spatial_autocorr(adata, mode="moran", n_perms=100, show_progress_bar=False)
         ent = adata[adata.obs.cell_type.str.startswith("Enterocyte")].copy()
@@ -141,32 +146,41 @@ def moran_setup(adata, cache, np, pd, sq):
             n_perms=100,
             show_progress_bar=False,
         )
-        scores = pd.DataFrame(index=adata.var_names)
-        scores["moran_I_all"] = adata.uns["moranI"]["I"]
-        scores["moran_I_enterocyte"] = ent.uns["moranI"]["I"]
-        for col in needed:
-            adata.var[col] = scores[col]
+        frame = pd.DataFrame(index=adata.var_names)
+        frame["moran_I_all"] = adata.uns["moranI"]["I"]
+        frame["moran_I_enterocyte"] = ent.uns["moranI"]["I"]
+        adata.var["moran_I_all"] = frame["moran_I_all"]
+        adata.var["moran_I_enterocyte"] = frame["moran_I_enterocyte"]
         cache.parent.mkdir(parents=True, exist_ok=True)
         tmp = cache.with_suffix(".tmp")
-        scores.to_parquet(tmp)
+        frame.to_parquet(tmp)
         tmp.replace(cache)
     return
 
 
 @app.cell
-def landmark_map(DEFAULT_GENE, adata, ml, mo, np):
+def landmark_map(CRYPT_VILLUS_X_HALF_UM, DEFAULT_GENE, adata, ml, mo, np):
+    xy = np.asarray(adata.obsm["spatial"])
+    mucosa = adata.obs["anatomical_layer"].astype(str).eq("Mucosa").to_numpy()
+    x_mid = float(np.median(xy[mucosa, 0]))
+    strip = mucosa & (xy[:, 0] >= x_mid - CRYPT_VILLUS_X_HALF_UM) & (
+        xy[:, 0] <= x_mid + CRYPT_VILLUS_X_HALF_UM
+    )
+    adata_map = adata[strip].copy()
+    adata_map.obs = adata_map.obs[["cell_type", "n_counts"]].copy()
+    gene_list = list(adata_map.var_names)
     w = mo.ui.anywidget(
         ml.peek(
-            adata,
+            adata_map,
             color=DEFAULT_GENE,
-            genes=list(adata.var_names),
+            genes=None,
         )
     )
     w.color = DEFAULT_GENE
-    xy = np.asarray(adata.obsm["spatial"])
-    # Whole slice. ileum_2d shows the crypt-villus axis on this full field.
-    w.x_bounds = (float(xy[:, 0].min()), float(xy[:, 0].max()))
-    w.y_bounds = (float(xy[:, 1].min()), float(xy[:, 1].max()))
+    xs = xy[strip, 0]
+    ys = xy[strip, 1]
+    w.x_bounds = (float(xs.min()), float(xs.max()))
+    w.y_bounds = (float(ys.min()), float(ys.max()))
     traits = w.widget.traits() if hasattr(w, "widget") else w.traits()
     if "mesh_opacity" in traits:
         w.mesh_opacity = 0.6
@@ -187,8 +201,8 @@ def _(mo):
 @app.cell
 def moran_plots(adata, np, pd, plt, w):
     gene = str(w.color)
-    scores = adata.var[["moran_I_all", "moran_I_enterocyte"]]
-    both = scores.dropna(subset=["moran_I_all", "moran_I_enterocyte"])
+    moran_scores = adata.var[["moran_I_all", "moran_I_enterocyte"]]
+    both = moran_scores.dropna(subset=["moran_I_all", "moran_I_enterocyte"])
     n_types = int(adata.obs["cell_type"].nunique())
     fig, axes = plt.subplots(
         2,
@@ -223,8 +237,8 @@ def moran_plots(adata, np, pd, plt, w):
             textcoords="offset points",
             xytext=(6, 4),
         )
-    elif gene in scores.index and pd.isna(scores.at[gene, "moran_I_enterocyte"]):
-        x_all = float(scores.at[gene, "moran_I_all"])
+    elif gene in moran_scores.index and pd.isna(moran_scores.at[gene, "moran_I_enterocyte"]):
+        x_all = float(moran_scores.at[gene, "moran_I_all"])
         ax.axvline(x_all, color="#d62728", linewidth=0.8)
         ax.annotate(
             f"{gene} not scored in enterocytes",
