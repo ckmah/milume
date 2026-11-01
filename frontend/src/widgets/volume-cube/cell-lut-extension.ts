@@ -37,41 +37,12 @@ export function setCubeTraitContrast(limits: [number, number][]) {
 
 type CubeRaycastModel = {
   draw: (renderPass: unknown) => void;
-  shaderInputs: {
-    setProps(p: Record<string, unknown>): void;
-    __cubeSetPropsPatch?: boolean;
-  };
-  __cubeContrastDrawHook?: boolean;
+  shaderInputs: { setProps(p: Record<string, unknown>): void };
+  __cubeUboDrawHook?: boolean;
 };
 
-let cubeUniformApplyDepth = 0;
-
-/** Viv's XR3DLayer.draw sets channelIntensity3D from cached state after any earlier setProps. */
-function patchChannelIntensitySetProps(layer: LayerLike): void {
-  const model = layer.state.model as CubeRaycastModel | null | undefined;
-  if (!model?.shaderInputs || model.shaderInputs.__cubeSetPropsPatch) return;
-  model.shaderInputs.__cubeSetPropsPatch = true;
-  const orig = model.shaderInputs.setProps.bind(model.shaderInputs);
-  model.shaderInputs.setProps = (props: Record<string, unknown>) => {
-    orig(props);
-    if (cubeUniformApplyDepth > 0) return;
-    if (!("channelIntensity3D" in props)) return;
-    applyCubeRenderShaderUniforms(layer);
-  };
-}
-
-/** Push trait contrast into the raycast UBO immediately before Viv draws (CubeXR3DLayer). */
+/** Push trait contrast into cubeRender UBO immediately before the GPU draw call. */
 export function applyCubeRenderShaderUniforms(layer: LayerLike): void {
-  patchChannelIntensitySetProps(layer);
-  cubeUniformApplyDepth++;
-  try {
-    applyCubeRenderShaderUniformsInner(layer);
-  } finally {
-    cubeUniformApplyDepth--;
-  }
-}
-
-function applyCubeRenderShaderUniformsInner(layer: LayerLike): void {
   const { model } = layer.state;
   if (!model) return;
   const render = layer.props.render as (RenderSettings & { traitContrast?: [number, number][] }) | null;
@@ -116,17 +87,18 @@ function applyCubeRenderShaderUniformsInner(layer: LayerLike): void {
     uniforms.meshInv = Array.from(m.invert());
     uniforms.meshViewport = Array.from(device.gl.getParameter(device.gl.VIEWPORT) as Int32Array);
   }
-  model.shaderInputs.setProps({
-    cubeRender: uniforms,
-  });
-  const contrastLimits = layer.props.contrastLimits as [number, number][] | undefined;
-  if (contrastLimits?.length) {
-    const channelPatch: Record<string, [number, number]> = {};
-    for (let i = 0; i < contrastLimits.length; i++) {
-      channelPatch[`contrastLimits${i}`] = contrastLimits[i]!;
-    }
-    model.shaderInputs.setProps({ channelIntensity3D: channelPatch });
-  }
+  model.shaderInputs.setProps({ cubeRender: uniforms });
+}
+
+function ensureCubeUboDrawHook(layer: LayerLike): void {
+  const model = layer.state.model as CubeRaycastModel | null | undefined;
+  if (!model || model.__cubeUboDrawHook) return;
+  model.__cubeUboDrawHook = true;
+  const vivDraw = model.draw.bind(model);
+  model.draw = (renderPass: unknown) => {
+    applyCubeRenderShaderUniforms(layer);
+    vivDraw(renderPass);
+  };
 }
 
 function contrastFromRender(render: CubeUniforms, channel: 0 | 1 | 2 | 3): [number, number] {
@@ -249,17 +221,7 @@ const cubeRenderModuleSingle = {
   defaultUniforms: CUBE_RENDER_DEFAULT_UNIFORMS,
   getUniforms: cubeRenderGetUniforms,
   inject: {
-    "fs:DECKGL_PROCESS_INTENSITY": `\
-vec2 traitLimits = cubeRender.imageContrast0;
-if (channelIndex == 1) traitLimits = cubeRender.imageContrast1;
-#if NUM_CHANNELS > 2
-if (channelIndex == 2) traitLimits = cubeRender.imageContrast2;
-#endif
-#if NUM_CHANNELS > 3
-if (channelIndex == 3) traitLimits = cubeRender.imageContrast3;
-#endif
-float scaled = intensity * cubeRender.imageScale;
-intensity = traitLimits.y <= traitLimits.x ? 0.0 : apply_contrast_limits(scaled, traitLimits);`,
+    "fs:DECKGL_PROCESS_INTENSITY": "intensity = intensity * cubeRender.imageScale;",
   },
   fs: `\
 uniform cubeRenderUniforms {
@@ -296,14 +258,16 @@ float cover(float a, float steps) {
   return 1.0 - pow(clamp(1.0 - a, 0.0, 1.0), steps);
 }
 
-vec4 tintedSample(float v, highp sampler3D palette) {
-  float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
+vec4 tintedSample(float v, highp sampler3D palette, vec2 lim) {
+  if (lim.y <= lim.x) return vec4(0.0);
+  float adjusted = apply_contrast_limits(v, lim);
+  float g = pow(clamp(adjusted, 0.0, 1.0), cubeRender.imageGamma);
   vec3 c = srgbToLinear(texelFetch(palette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
 vec4 imageSample(float v) {
-  return tintedSample(v, imagePalette);
+  return tintedSample(v, imagePalette, cubeRender.imageContrast0);
 }
 
 const float NO_MESH = 1e9;
@@ -346,17 +310,7 @@ const cubeRenderModuleMulti = {
   defaultUniforms: CUBE_RENDER_DEFAULT_UNIFORMS,
   getUniforms: cubeRenderGetUniforms,
   inject: {
-    "fs:DECKGL_PROCESS_INTENSITY": `\
-vec2 traitLimits = cubeRender.imageContrast0;
-if (channelIndex == 1) traitLimits = cubeRender.imageContrast1;
-#if NUM_CHANNELS > 2
-if (channelIndex == 2) traitLimits = cubeRender.imageContrast2;
-#endif
-#if NUM_CHANNELS > 3
-if (channelIndex == 3) traitLimits = cubeRender.imageContrast3;
-#endif
-float scaled = intensity * cubeRender.imageScale;
-intensity = traitLimits.y <= traitLimits.x ? 0.0 : apply_contrast_limits(scaled, traitLimits);`,
+    "fs:DECKGL_PROCESS_INTENSITY": "intensity = intensity * cubeRender.imageScale;",
   },
   fs: `\
 uniform cubeRenderUniforms {
@@ -400,34 +354,36 @@ float cover(float a, float steps) {
   return 1.0 - pow(clamp(1.0 - a, 0.0, 1.0), steps);
 }
 
-vec4 tintedSample(float v, highp sampler3D palette) {
-  float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
+vec4 tintedSample(float v, highp sampler3D palette, vec2 lim) {
+  if (lim.y <= lim.x) return vec4(0.0);
+  float adjusted = apply_contrast_limits(v, lim);
+  float g = pow(clamp(adjusted, 0.0, 1.0), cubeRender.imageGamma);
   vec3 c = srgbToLinear(texelFetch(palette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
 vec4 imageSample(float v) {
-  return tintedSample(v, imagePalette);
+  return tintedSample(v, imagePalette, cubeRender.imageContrast0);
 }
 
 vec4 combinedImageSample2(float v0, float v1) {
-  vec4 s0 = tintedSample(v0, imagePalette);
-  vec4 s1 = tintedSample(v1, imagePalette1);
+  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
   return vec4(s0.rgb + s1.rgb, min(1.0, s0.a + s1.a));
 }
 
 vec4 combinedImageSample3(float v0, float v1, float v2) {
-  vec4 s0 = tintedSample(v0, imagePalette);
-  vec4 s1 = tintedSample(v1, imagePalette1);
-  vec4 s2 = tintedSample(v2, imagePalette2);
+  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+  vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
   return vec4(s0.rgb + s1.rgb + s2.rgb, min(1.0, s0.a + s1.a + s2.a));
 }
 
 vec4 combinedImageSample4(float v0, float v1, float v2, float v3) {
-  vec4 s0 = tintedSample(v0, imagePalette);
-  vec4 s1 = tintedSample(v1, imagePalette1);
-  vec4 s2 = tintedSample(v2, imagePalette2);
-  vec4 s3 = tintedSample(v3, imagePalette3);
+  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+  vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
+  vec4 s3 = tintedSample(v3, imagePalette3, cubeRender.imageContrast3);
   return vec4(s0.rgb + s1.rgb + s2.rgb + s3.rgb, min(1.0, s0.a + s1.a + s2.a + s3.a));
 }
 
@@ -776,10 +732,8 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
     const traitKey = JSON.stringify(traitLimits ?? []);
     const oldTraitKey = JSON.stringify(oldTrait ?? []);
     if (traitKey !== oldTraitKey) {
-      this.draw();
-      const layerInstance = this as unknown as { setNeedsUpdate?: () => void; setState?: (p: object) => void };
+      const layerInstance = this as unknown as { setNeedsUpdate?: () => void };
       layerInstance.setNeedsUpdate?.();
-      layerInstance.setState?.({ contrastRevision: traitKey });
     }
     const palettes = props.channelPalettes?.length
       ? props.channelPalettes
@@ -864,31 +818,9 @@ export const CUBE_EXTENSIONS_MULTI: unknown[] = [new CubeExtensionMulti(RENDERIN
 
 import { CubeXR3DLayer } from "./image-volume";
 
-const xr3dUpdateUniforms = CubeXR3DLayer.prototype._updateUniforms as
-  | ((props: LayerLike["props"]) => void)
-  | undefined;
-if (xr3dUpdateUniforms) {
-  CubeXR3DLayer.prototype._updateUniforms = function (this: LayerLike, props: LayerLike["props"]) {
-    xr3dUpdateUniforms.call(this, props);
-    const limits = props.contrastLimits as [number, number][] | undefined;
-    const state = this.state as {
-      channelIntensity3DUniforms?: Record<string, [number, number]>;
-    };
-    if (limits?.length && state.channelIntensity3DUniforms) {
-      for (let i = 0; i < limits.length; i++) {
-        state.channelIntensity3DUniforms[`contrastLimits${i}`] = limits[i]!;
-      }
-    }
-  };
-}
-
 const xr3dLayerDraw = CubeXR3DLayer.prototype.draw as (this: LayerLike) => void;
 CubeXR3DLayer.prototype.draw = function (this: LayerLike) {
-  const layer = this as LayerLike & { _updateUniforms?: (p: LayerLike["props"]) => void };
-  if (layer.state.textures && layer.state.scaleMatrix && layer._updateUniforms) {
-    layer._updateUniforms(layer.props);
-  }
-  patchChannelIntensitySetProps(layer);
+  ensureCubeUboDrawHook(this);
   xr3dLayerDraw.call(this);
 };
 

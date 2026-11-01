@@ -358,7 +358,14 @@ export async function expectCubeDapiContrastDimsBlueLive(page: Page) {
     model.save_changes();
   }, minLo);
   await expect
-    .poll(async () => (await page.locator(CUBE_VIEW_SEL).getAttribute("data-contrast-limits"))?.split(";")[0])
+    .poll(async () => {
+      const rows = (await page.evaluate(() => window.__landmarksModel.get("_image_channels"))) as Array<{
+        name: string;
+        contrast_limits: [number, number];
+      }>;
+      const dapi = rows.find((c) => c.name === "DAPI")?.contrast_limits;
+      return dapi ? `${dapi[0]},${dapi[1]}` : "";
+    })
     .toBe(`${minLo},${minLo}`);
   await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
   await page.waitForTimeout(600);

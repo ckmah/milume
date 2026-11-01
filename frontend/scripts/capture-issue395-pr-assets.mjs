@@ -97,8 +97,8 @@ await widget.screenshot({ path: join(outDir, "395-map-band-two-channel-blend.png
 await openCube();
 await page.waitForTimeout(800);
 const cubeView = page.locator('[role="dialog"][aria-label="Cube"] .volume-cube__view');
-await cubeView.screenshot({ path: join(outDir, "395-cube-two-channel-blend.png") });
-await widget.screenshot({ path: join(outDir, "395-cube-widget-oblique.png") });
+await cubeView.screenshot({ path: join(outDir, "395-cube-two-channel-blend-iso.png") });
+await widget.screenshot({ path: join(outDir, "395-cube-widget-iso.png") });
 
 await openPerChannelContrastInLayers();
 const hiThumb = page.getByRole("slider", { name: "DAPI contrast, maximum" });

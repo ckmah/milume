@@ -1483,7 +1483,6 @@ export function VolumeCube({
       data-viewport-w={Math.round(viewPixelSize.width)}
       data-viewport-h={Math.round(viewPixelSize.height)}
       data-channels={activeImageChannels.length}
-      data-contrast-limits={contrastLimits.map((c) => c.join(",")).join(";")}
       data-gpu-channel-bytes={gpuChannelBytes.join(",") || "0"}
     >
       {layerProps && displayViewStates ? (
