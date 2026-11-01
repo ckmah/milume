@@ -2,13 +2,8 @@
 /**
  * Visual acceptance: local marimo run after picking Erbb3 (two screenshots).
  */
-import { execSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-
-const repoRoot = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 const baseUrl = process.env.MARIMO_BASE_URL ?? "http://127.0.0.1:28765";
 const outDir =
@@ -93,17 +88,31 @@ await pickGeneOnly("Erbb3");
 await frame.waitForFunction(
   () => {
     const genes = window.__landmarksModel?.get?.("active_genes");
-    return Array.isArray(genes) && genes.includes("Erbb3");
+    const color = window.__landmarksModel?.get?.("color");
+    return (
+      Array.isArray(genes) &&
+      genes.includes("Erbb3") &&
+      String(color ?? "") === "Erbb3"
+    );
   },
   undefined,
   { timeout: 60_000 },
 );
 
+await frame.waitForFunction(
+  (prev) => {
+    const imgs = Array.from(document.querySelectorAll("img"));
+    const plot = imgs[imgs.length - 1];
+    const src = plot?.getAttribute("src") ?? "";
+    return src.length > 0 && src !== prev;
+  },
+  plotSrcApob,
+  { timeout: 120_000 },
+);
+
 const moranPlotsCell = frame.locator('[data-cell-name="moran_plots"]');
 await moranPlotsCell.scrollIntoViewIfNeeded();
-await moranPlotsCell.click({ position: { x: 12, y: 12 } });
-await page.keyboard.press("Control+Enter");
-await page.waitForTimeout(1500);
+await page.waitForTimeout(400);
 
 const widget = frame.locator(".milume-widget.landmarks").first();
 await page.setViewportSize({ width: 1280, height: 1100 });
@@ -121,10 +130,10 @@ await widget.screenshot({
   path: `${outDir}/04-molab-erbb3-widget.png`,
 });
 
-const plotOut = `${outDir}/05-molab-erbb3-scatter-expression.png`;
-execSync(
-  `uv run --directory ${JSON.stringify(repoRoot)} python frontend/scripts/render_moran_recipe_plot_capture.py Erbb3 ${JSON.stringify(plotOut)}`,
-  { stdio: "inherit" },
-);
+await moranPlotsCell.scrollIntoViewIfNeeded();
+await page.waitForTimeout(400);
+await plotImg.screenshot({
+  path: `${outDir}/05-molab-erbb3-scatter-expression.png`,
+});
 
 await browser.close();
