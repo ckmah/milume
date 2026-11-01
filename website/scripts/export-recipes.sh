@@ -11,6 +11,7 @@ export PYTHONPATH="${_SITE_CUSTOMIZE}${PYTHONPATH:+:${PYTHONPATH}}"
 
 RECIPES=(
   squidpy_color
+  squidpy_moran
 )
 
 (
