@@ -25,3 +25,11 @@ def test_apob_stays_high_within_enterocytes() -> None:
     assert "Apob" in ent_top.index
     assert float(apob["moran_I_all"]) > 0.5
     assert float(apob["moran_I_enterocyte"]) > 0.4
+
+
+def test_erbb3_drops_within_enterocytes() -> None:
+    scores = read_moran_scores(MORAN_CACHE)
+    assert scores is not None
+    erbb3 = scores.loc["Erbb3"]
+    drop = float(erbb3["moran_I_all"]) - float(erbb3["moran_I_enterocyte"])
+    assert drop > 0.3
