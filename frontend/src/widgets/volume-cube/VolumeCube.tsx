@@ -762,10 +762,19 @@ export function VolumeCube({
   const cubeDebugAccCh1 =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("cubeDebugAccCh1") === "1";
+  const cubeDebugDualBisect =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search).get("cubeDebugDualBisect")
+      : null;
   const cubeExtensions = useMemo(
-    () => (multichannelCube ? multichannelCubeExtensions(cubeDebugAccCh1) : CUBE_EXTENSIONS),
-    [multichannelCube, cubeDebugAccCh1],
+    () =>
+      multichannelCube
+        ? multichannelCubeExtensions(cubeDebugAccCh1, cubeDebugDualBisect)
+        : CUBE_EXTENSIONS,
+    [multichannelCube, cubeDebugAccCh1, cubeDebugDualBisect],
   );
+  /** Bust Deck.gl program cache when multichannel raycast GLSL changes (HMR does not re-link). */
+  const cubeMultichannelShaderKey = "dual-raycast-v10";
   const cubeRaycastLayerId = multichannelCube ? "volume-raycast-multi" : "volume-raycast-single";
 
   // Centre of the whole window box in world units (physical scale, then Z_UP).
@@ -1587,7 +1596,7 @@ export function VolumeCube({
     >
       {layerProps && displayViewStates ? (
         <VolumeCubeDeck
-          deckKey={`channels:${activeImageChannels.map((c) => c.name).join("+")}${cubeDebugAccCh1 ? ":acc-ch1-debug" : ""}`}
+          deckKey={`channels:${activeImageChannels.map((c) => c.name).join("+")}:cube-render-v4${cubeDebugAccCh1 ? ":acc-ch1-debug" : ""}${multichannelCube ? `:${cubeMultichannelShaderKey}${cubeDebugDualBisect ? `:bisect-${cubeDebugDualBisect}` : ""}` : ""}`}
           layerProps={layerProps}
           views={views}
           viewStates={displayViewStates}

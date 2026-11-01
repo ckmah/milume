@@ -282,7 +282,7 @@ const cubeRenderModuleMulti = {
   defaultUniforms: CUBE_RENDER_DEFAULT_UNIFORMS,
   getUniforms: cubeRenderGetUniforms,
   inject: {
-    "fs:DECKGL_PROCESS_INTENSITY":
+    "fs:DECKGL_PROCESS_INTENSITY(inout float intensity, vec2 contrastLimits, int channelIndex)":
       "intensity = apply_contrast_limits(intensity * cubeRender.imageScale, contrastLimits);",
   },
   fs: `\
@@ -337,7 +337,7 @@ void addSample(inout vec4 acc, vec4 im, float steps) {
 // intensity is contrast-limited 0-1 (inject applies imageScale then contrastLimits per channel).
 vec4 tintedSample(float v, highp sampler3D palette, vec2 lim) {
   float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
-  vec3 c = texelFetch(palette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb;
+  vec3 c = srgbToLinear(texelFetch(palette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
@@ -366,11 +366,23 @@ void integrateDualChannelStep(inout vec4 accCh0, inout vec4 accCh1, float v0, fl
   accCh1.a += (1.0 - accCh1.a) * a1;
 }
 
+void integrateCh0OnlyStep(inout vec4 accCh0, float v0, float steps) {
+  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  float a0 = cover(s0.a, steps);
+  accCh0.rgb += (1.0 - accCh0.a) * a0 * s0.rgb;
+  accCh0.a += (1.0 - accCh0.a) * a0;
+}
+
+void integrateCh1OnlyStep(inout vec4 accCh1, float v1, float steps) {
+  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+  float a1 = cover(s1.a, steps);
+  accCh1.rgb += (1.0 - accCh1.a) * a1 * s1.rgb;
+  accCh1.a += (1.0 - accCh1.a) * a1;
+}
+
 void mergeDualChannelAcc(inout vec4 acc, vec4 accCh0, vec4 accCh1) {
-  vec3 t0 = accCh0.a > 1e-6 ? accCh0.rgb / accCh0.a : vec3(0.0);
-  vec3 t1 = accCh1.a > 1e-6 ? accCh1.rgb / accCh1.a : vec3(0.0);
-  vec3 lin0 = srgbToLinear(clamp(t0, 0.0, 1.0)) * accCh0.a;
-  vec3 lin1 = srgbToLinear(clamp(t1, 0.0, 1.0)) * accCh1.a;
+  vec3 lin0 = accCh0.a > 1e-6 ? accCh0.rgb : vec3(0.0);
+  vec3 lin1 = accCh1.a > 1e-6 ? accCh1.rgb : vec3(0.0);
   vec3 rgb = min(lin0 + lin1, vec3(1.0));
   float a = accCh0.a + accCh1.a - accCh0.a * accCh1.a;
   acc = vec4(rgb, a);
@@ -712,6 +724,30 @@ const RENDERING_MULTI = {
   }`,
 };
 
+const RENDERING_MULTI_BISECT_CH0 = {
+  ...RENDERING_MULTI,
+  _RENDER: RENDERING_MULTI._RENDER.replaceAll(
+    "integrateDualChannelStep(accCh0, accCh1, intensityValue0, intensityValue1",
+    "integrateCh0OnlyStep(accCh0, intensityValue0",
+  ),
+  _AFTER_RENDER: RENDERING_MULTI._AFTER_RENDER.replace(
+    "  mergeDualChannelAcc(acc, accCh0, accCh1);",
+    "  { vec3 ch0 = accCh0.a > 1e-6 ? accCh0.rgb / accCh0.a : vec3(0.0); acc = vec4(ch0, max(accCh0.a, 0.001)); }",
+  ),
+};
+
+const RENDERING_MULTI_BISECT_CH1 = {
+  ...RENDERING_MULTI,
+  _RENDER: RENDERING_MULTI._RENDER.replaceAll(
+    "integrateDualChannelStep(accCh0, accCh1, intensityValue0, intensityValue1",
+    "integrateCh1OnlyStep(accCh1, intensityValue1",
+  ),
+  _AFTER_RENDER: RENDERING_MULTI._AFTER_RENDER.replace(
+    "  mergeDualChannelAcc(acc, accCh0, accCh1);",
+    "  { vec3 ch1 = accCh1.a > 1e-6 ? accCh1.rgb / accCh1.a : vec3(0.0); acc = vec4(ch1, max(accCh1.a, 0.001)); }",
+  ),
+};
+
 /** Dual compositing with accCh1-only output (harness: ?cubeDebugAccCh1=1). */
 export const RENDERING_MULTI_ACC_CH1_DEBUG = {
   ...RENDERING_MULTI,
@@ -906,6 +942,19 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
       layer.props.onImageBound?.(imageFormat);
     }
     applyCubeRenderShaderUniforms(layer);
+    if (this.multichannel && typeof globalThis.window !== "undefined") {
+      const tex = layer.state.textures as { volume0?: { id?: string }; volume1?: { id?: string } } | null;
+      const vol0 = tex?.volume0;
+      const vol1 = tex?.volume1;
+      (globalThis.window as unknown as { __issue395CubeDrawDiag?: Record<string, unknown> }).__issue395CubeDrawDiag =
+        {
+          t: Date.now(),
+          liveImageChannelCount,
+          volume0Id: vol0?.id ?? (vol0 ? "object" : null),
+          volume1Id: vol1?.id ?? (vol1 ? "object" : null),
+          volumeSameRef: vol0 != null && vol0 === vol1,
+        };
+    }
   }
 
   finalizeState() {
@@ -937,8 +986,15 @@ class CubeExtensionMulti extends CubeExtensionBase {
 export const CUBE_EXTENSIONS: unknown[] = [new CubeExtensionSingle(RENDERING_SINGLE, false)];
 export const CUBE_EXTENSIONS_MULTI: unknown[] = [new CubeExtensionMulti(RENDERING_MULTI, true)];
 
-export function multichannelCubeExtensions(debugAccCh1 = false): unknown[] {
-  return [new CubeExtensionMulti(debugAccCh1 ? RENDERING_MULTI_ACC_CH1_DEBUG : RENDERING_MULTI, true)];
+export function multichannelCubeExtensions(
+  debugAccCh1 = false,
+  bisect: string | null = null,
+): unknown[] {
+  let rendering: CubeRendering = RENDERING_MULTI;
+  if (bisect === "ch0") rendering = RENDERING_MULTI_BISECT_CH0;
+  else if (bisect === "ch1") rendering = RENDERING_MULTI_BISECT_CH1;
+  if (debugAccCh1) rendering = RENDERING_MULTI_ACC_CH1_DEBUG;
+  return [new CubeExtensionMulti(rendering, true)];
 }
 
 function srgbToLinear(c: number): number {
