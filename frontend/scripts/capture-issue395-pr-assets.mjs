@@ -1,5 +1,5 @@
 /**
- * Record #395 visual acceptance: full-widget PNGs (Top + Iso). Contrast webm optional.
+ * Record #395 visual acceptance: full-widget PNGs (Top + Iso) and channel-toggle webm.
  * Run with dev or preview on MILUME_VOLUME_PROFILE=issue395-3d.
  * CAPTURE_BASE=http://127.0.0.1:5173/?noDialkit=1
  */
@@ -9,19 +9,17 @@ import { join } from "node:path";
 
 const base = process.env.CAPTURE_BASE ?? "http://127.0.0.1:5173/?noDialkit=1";
 const outDir = process.env.CAPTURE_OUT ?? "/opt/cursor/artifacts/issue395";
-const recordContrast = process.env.CAPTURE_CONTRAST_WEBM === "1";
+const skipVideo = process.env.CAPTURE_NO_VIDEO === "1";
 const videoTmp = join(outDir, "_video_tmp");
 
 await mkdir(outDir, { recursive: true });
-if (recordContrast) await mkdir(videoTmp, { recursive: true });
+if (!skipVideo) await mkdir(videoTmp, { recursive: true });
 
-const browser = await chromium.launch({
-  args: ["--enable-gpu", "--ignore-gpu-blocklist", "--disable-lcd-text"],
-});
+const browser = await chromium.launch();
 const context = await browser.newContext({
-  ...(recordContrast ? { recordVideo: { dir: videoTmp, size: { width: 1280, height: 800 } } } : {}),
-  viewport: { width: 1280, height: 800 },
-  deviceScaleFactor: 2,
+  ...(skipVideo ? {} : { recordVideo: { dir: videoTmp, size: { width: 1280, height: 900 } } }),
+  viewport: { width: 1280, height: 900 },
+  deviceScaleFactor: 1,
 });
 const page = await context.newPage();
 
@@ -103,12 +101,81 @@ async function captureCubePreset(page, widget, preset, widgetName, viewName) {
   await page.locator(cubeViewSel).screenshot({ path: join(outDir, viewName) });
 }
 
+async function openLayersWhileCubeOpen() {
+  await page.evaluate(() => {
+    const root = document.querySelector(".milume-widget.landmarks");
+    if (root instanceof HTMLElement) root.focus();
+  });
+  const left = page.locator(".landmarks__chrome-dock--left");
+  if ((await left.getAttribute("data-collapsed")) === "true") {
+    await page.getByRole("button", { name: "Show left panel" }).click();
+  }
+  await page.keyboard.press("[");
+  await page.getByTestId("panel-section-layers").click({ force: true });
+  const row = page.getByTestId("layers-image-row");
+  await row.waitFor({ state: "attached", timeout: 60_000 });
+  if ((await row.getAttribute("aria-expanded")) !== "true") await row.click({ force: true });
+  await page.getByTestId("layer-channel-PanCK").waitFor({ state: "attached", timeout: 30_000 });
+}
+
+async function clickChannelSwitch(name) {
+  const sw = page.getByTestId(`layer-channel-${name}`);
+  await sw.scrollIntoViewIfNeeded();
+  const box = await sw.boundingBox();
+  if (!box) throw new Error(`no switch ${name}`);
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  await page.mouse.move(cx - 120, cy - 80, { steps: 10 });
+  await page.waitForTimeout(200);
+  await page.mouse.move(cx, cy, { steps: 12 });
+  await page.waitForTimeout(180);
+  await page.mouse.click(cx, cy);
+  await page.waitForTimeout(900);
+}
+
 await waitReady();
 const widget = page.locator(".milume-widget.landmarks");
 await page.waitForTimeout(1500);
 await widget.screenshot({ path: join(outDir, "395-map-band-two-channel-blend.png") });
 
 await openCube();
+
+if (!skipVideo) {
+  await page.getByRole("radio", { name: "Oblique view" }).click();
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view')
+        ?.getAttribute("data-refining") === "false",
+    null,
+    { timeout: 120_000 },
+  );
+  await page.waitForTimeout(600);
+  await openLayersWhileCubeOpen();
+  await clickChannelSwitch("PanCK");
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view')
+        ?.getAttribute("data-channels") === "1",
+    null,
+    { timeout: 30_000 },
+  );
+  await page.waitForTimeout(1200);
+  await clickChannelSwitch("PanCK");
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view')
+        ?.getAttribute("data-channels") === "2",
+    null,
+    { timeout: 30_000 },
+  );
+  await page.waitForTimeout(1200);
+  const video = page.video();
+  if (video) await video.saveAs(join(outDir, "395-channel-toggle-cube.webm"));
+}
+
 await captureCubePreset(
   page,
   widget,
@@ -123,31 +190,6 @@ await captureCubePreset(
   "395-cube-widget-iso.png",
   "395-cube-two-channel-blend-iso.png",
 );
-
-if (recordContrast) {
-  await page.evaluate(() => {
-    const root = document.querySelector(".milume-widget.landmarks");
-    if (root instanceof HTMLElement) root.focus();
-  });
-  await page.keyboard.press("[");
-  await page.getByTestId("panel-section-layers").click({ force: true });
-  const row = page.getByTestId("layers-image-row");
-  if ((await row.getAttribute("aria-expanded")) !== "true") await row.click({ force: true });
-  const hiThumb = page.getByRole("slider", { name: "DAPI contrast, maximum" });
-  await hiThumb.scrollIntoViewIfNeeded();
-  const hiBox = await hiThumb.boundingBox();
-  if (!hiBox) throw new Error("no hi slider");
-  await page.mouse.move(hiBox.x + hiBox.width / 2, hiBox.y + hiBox.height / 2);
-  await page.mouse.down();
-  for (let i = 1; i <= 16; i++) {
-    await page.mouse.move(hiBox.x - i * 4, hiBox.y + hiBox.height / 2);
-    await page.waitForTimeout(55);
-  }
-  await page.mouse.up();
-  await page.waitForTimeout(800);
-  const video = page.video();
-  if (video) await video.saveAs(join(outDir, "395-contrast-drag-cube.webm"));
-}
 
 await context.close();
 await browser.close();

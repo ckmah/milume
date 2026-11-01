@@ -556,38 +556,62 @@ export async function expectCubeUserVisibleScreenshot(page: Page) {
   await expectCubeMainViewportScreenshot(page, "Oblique view", "cube-iso-user-visible");
 }
 
-export async function expectCubePixelsChangeWhenPanckOff(page: Page) {
+type ImageChannelTraitRow = {
+  name: string;
+  visible: boolean;
+  constant_zero?: boolean;
+  contrast_limits?: [number, number];
+};
+
+/** Trait rows, volume.channels, and cube `data-channels` stay in sync (not live GL contrast). */
+export async function expectMapCubeImageChannelStateAligned(page: Page) {
+  const snap = await page.evaluate(() => {
+    const rows = window.__landmarksModel.get("_image_channels") as ImageChannelTraitRow[];
+    const vol = window.__landmarksModel.get("volume") as { channels?: ImageChannelTraitRow[] };
+    const volRows = vol?.channels ?? [];
+    const dataChannels =
+      document
+        .querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view')
+        ?.getAttribute("data-channels") ?? "";
+    const visibleCount = rows.filter((r) => r.visible && !r.constant_zero).length;
+    return { rows, volRows, dataChannels, visibleCount };
+  });
+  expect(Number(snap.dataChannels), "cube data-channels vs trait visibility").toBe(snap.visibleCount);
+  for (const row of snap.rows) {
+    const vol = snap.volRows.find((v) => v.name === row.name);
+    expect(vol, `volume.channels entry for ${row.name}`).toBeTruthy();
+    expect(vol!.visible).toBe(row.visible);
+    expect(vol!.contrast_limits?.[0]).toBe(row.contrast_limits?.[0]);
+    expect(vol!.contrast_limits?.[1]).toBe(row.contrast_limits?.[1]);
+  }
+}
+
+/** PanCK off/on via layers UI while cube is open; main viewport magenta must drop then return. */
+export async function expectCubeMainViewportChangesWhenPanckToggledViaLayers(page: Page) {
   await page.getByRole("radio", { name: "Oblique view" }).click();
   await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
   await page.waitForTimeout(500);
-  const before = await cubeGlTintStats(page, CUBE_CONTRAST_INSET);
-  expect(before).toBeTruthy();
-  await page.evaluate(() => {
-    const root = document.querySelector(".milume-widget.landmarks");
-    if (root instanceof HTMLElement) root.focus();
-  });
-  await page.keyboard.press("[");
-  await page.getByTestId("panel-section-layers").click({ force: true });
-  const row = page.getByTestId("layers-image-row");
-  if ((await row.getAttribute("aria-expanded")) !== "true") await row.click({ force: true });
-  // Immersive cube dialog occludes the layer switch; trait toggle matches user intent.
-  await page.evaluate(() => {
-    const model = window.__landmarksModel;
-    const rows = model.get("_image_channels") as Array<{ name: string; visible: boolean }>;
-    const next = rows.map((r) => (r.name === "PanCK" ? { ...r, visible: false } : r));
-    const vol = { ...(model.get("volume") as Record<string, unknown>) };
-    const volChannels = [...((vol.channels as typeof next) ?? [])];
-    const apply = (list: typeof next) => {
-      const i = list.findIndex((c) => c.name === "PanCK");
-      if (i < 0) return list;
-      const out = list.slice();
-      out[i] = { ...out[i]!, visible: false };
-      return out;
-    };
-    model.set("_image_channels", next);
-    model.set("volume", { ...vol, channels: apply(volChannels.length ? volChannels : next) });
-    model.save_changes();
-  });
+  const before = await cubeMainViewportChannelCounts(page);
+  expect(before, "two-channel baseline in main viewport").toBeTruthy();
+  expect(before!.panck).toBeGreaterThanOrEqual(80);
+  await expectMapCubeImageChannelStateAligned(page);
+  const pngTwoChannel = await page.locator(CUBE_VIEW_SEL).screenshot();
+
+  const panckSwitch = page.getByTestId("layer-channel-PanCK");
+  await expect(panckSwitch).toBeVisible();
+  const clickPanckSwitch = async () => {
+    const sw = page.getByTestId("layer-channel-PanCK");
+    const box = await sw.boundingBox();
+    expect(box).toBeTruthy();
+    const cx = box!.x + box!.width / 2;
+    const cy = box!.y + box!.height / 2;
+    await page.mouse.move(cx - 100, cy - 60, { steps: 8 });
+    await page.waitForTimeout(120);
+    await page.mouse.move(cx, cy, { steps: 10 });
+    await page.waitForTimeout(100);
+    await page.mouse.click(cx, cy);
+  };
+  await clickPanckSwitch();
   await expect
     .poll(async () => {
       const rows = (await page.evaluate(() => window.__landmarksModel.get("_image_channels"))) as Array<{
@@ -599,8 +623,39 @@ export async function expectCubePixelsChangeWhenPanckOff(page: Page) {
     .toBe(false);
   await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-channels", "1", { timeout: 30_000 });
   await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
-  const after = await cubeGlTintStats(page, CUBE_CONTRAST_INSET);
-  expect(after).toBeTruthy();
-  expect(after!.colored).toBeGreaterThan(40);
-  // Cube deck GL may lag trait visibility (same class of gap as live contrast on main); trait + data-channels are the gate here.
+  await page.waitForTimeout(800);
+  await expectMapCubeImageChannelStateAligned(page);
+  const pngPanckOff = await page.locator(CUBE_VIEW_SEL).screenshot();
+  expect(
+    pngTwoChannel.equals(pngPanckOff),
+    "PanCK off must change the main cube viewport pixels",
+  ).toBe(false);
+  const panckOff = await cubeMainViewportChannelCounts(page);
+  expect(panckOff).toBeTruthy();
+
+  await clickPanckSwitch();
+  await expect
+    .poll(async () => {
+      const rows = (await page.evaluate(() => window.__landmarksModel.get("_image_channels"))) as Array<{
+        name: string;
+        visible: boolean;
+      }>;
+      return rows.find((c) => c.name === "PanCK")?.visible;
+    })
+    .toBe(true);
+  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-channels", "2", { timeout: 30_000 });
+  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
+  await page.waitForTimeout(800);
+  await expectMapCubeImageChannelStateAligned(page);
+  const pngPanckOn = await page.locator(CUBE_VIEW_SEL).screenshot();
+  expect(
+    pngPanckOff.equals(pngPanckOn),
+    "PanCK on must change the main cube viewport pixels again",
+  ).toBe(false);
+  const panckOn = await cubeMainViewportChannelCounts(page);
+  expect(panckOn).toBeTruthy();
+  expect(
+    panckOn!.panck,
+    "PanCK on must restore magenta-dominant voxels in the main cube viewport",
+  ).toBeGreaterThanOrEqual(80);
 }

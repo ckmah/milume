@@ -56,7 +56,8 @@ export function applyCubeRenderShaderUniforms(layer: LayerLike): void {
   const imageOn = layer.props.showImage === false ? 0 : 1;
   const image = imageTextureInfo(layer.state.textures?.volume0);
   const frac = layer.props.cutFrac;
-  liveImageChannelCount = layer.props.channelPalettes?.length ?? 1;
+  const selections = (layer.props as { selections?: unknown[] }).selections;
+  liveImageChannelCount = Math.max(selections?.length ?? 0, layer.props.channelPalettes?.length ?? 1);
   const lim = (i: number): [number, number] =>
     liveTraitContrast[i] ?? traitLimits?.[i] ?? [0, 255];
   const target = layer.props.cubeMeshTarget;

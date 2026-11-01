@@ -6,7 +6,8 @@ import {
   expectCubeDapiContrastDimsBlueLive,
   expectCubePanckOffDimsMagentaLive,
   expectCubeDapiOnlyShowsVolume,
-  expectCubePixelsChangeWhenPanckOff,
+  expectCubeMainViewportChangesWhenPanckToggledViaLayers,
+  expectMapCubeImageChannelStateAligned,
   expectCubeMainViewportMultichannelTints,
   expectCubeShowsMultichannelImage,
   expectCubeUserVisibleScreenshot,
@@ -106,25 +107,24 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   });
 
   test.skip("live DAPI contrast crush drops blue in cube GL without closing cube", async ({ page }) => {
-    // Pre-existing gap on main: toy single-channel cube GL unchanged after UI contrast or model crush
-    // (bright/blueExcess 47175 / 5206475 before and after). PM scope — not #395-only regression.
+    // Live cube contrast rendering is #417; trait/state coverage is separate in this spec.
     await openCubeAtCentre(page);
     await expectCubeDapiContrastDimsBlueLive(page);
   });
 
   test.skip("live PanCK off drops magenta in cube GL without closing cube", async ({ page }) => {
-    // Trait and data-channels update; cube deck GL magenta readback does not reliably drop (see toggle test note).
+    // Live cube GL readback for channel/contrast is #417; UI toggle + main viewport is covered below.
     await openCubeAtCentre(page);
     await expectCubePanckOffDimsMagentaLive(page);
   });
 
-  test("toggle PanCK off changes cube pixels and channel count", async ({ page }) => {
+  test("toggle PanCK in layers updates trait, data-channels, and main viewport", async ({ page }) => {
     await openCubeAtCentre(page);
     await openImagePanelInInspect(page);
-    await expectCubePixelsChangeWhenPanckOff(page);
+    await expectCubeMainViewportChangesWhenPanckToggledViaLayers(page);
   });
 
-  test("per-channel contrast drag in layers updates trait", async ({ page }) => {
+  test("per-channel contrast drag keeps map trait and cube channel state aligned", async ({ page }) => {
     await openCubeAtCentre(page);
     await openImagePanelInInspect(page);
     await page.getByTestId("layer-channel-row-DAPI").focus();
@@ -154,6 +154,7 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
         return rows.find((c) => c.name === "DAPI")?.contrast_limits?.[1] ?? 0;
       })
       .not.toBe(loBefore[1]);
+    await expectMapCubeImageChannelStateAligned(page);
     await page.keyboard.press("Escape");
   });
 

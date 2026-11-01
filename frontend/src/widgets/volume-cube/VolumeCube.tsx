@@ -599,7 +599,6 @@ export function VolumeCube({
     [render, imageGamma, shownImageLook.gamma],
   );
   const traitChannelRows = imageChannelRows ?? [];
-  const traitMultichannel = traitChannelRows.length > 1;
   const activeImageChannels: CubeImageChannel[] = useMemo(() => {
     const rows = traitChannelRows;
     const pyramidBase = image?.[0] ?? null;
@@ -616,7 +615,7 @@ export function VolumeCube({
       },
     ];
   }, [traitChannelRows, image, contrast, shownImageLook.contrast]);
-  const multichannelCube = traitMultichannel || activeImageChannels.length > 1;
+  const multichannelCube = activeImageChannels.length > 1;
   const showCubeImage = showImage && activeImageChannels.length > 0;
   const channelPalettes = useMemo(
     () =>
@@ -1497,7 +1496,7 @@ export function VolumeCube({
     >
       {layerProps && displayViewStates ? (
         <VolumeCubeDeck
-          deckKey={`channels:${activeImageChannels.length}`}
+          deckKey={`channels:${activeImageChannels.map((c) => c.name).join("+")}`}
           layerProps={layerProps}
           views={views}
           viewStates={displayViewStates}
