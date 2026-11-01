@@ -13,6 +13,7 @@ import {
   openIssue395CubeAtInspectCentre,
   openLayersPanelWithCubeOpen,
   clickPanckLayerSwitch,
+  prepareIssue395DapiOnlyObliqueView,
   setCubeLabels,
   setCubePreset,
   waitIssue395CubeReadyForCapture,
@@ -41,15 +42,13 @@ async function applyMode(page: import("@playwright/test").Page, m: Mode) {
     await expectPanckVisible(page, true);
     return;
   }
-  await openLayersPanelWithCubeOpen(page);
   if (m === "dapi-only") {
-    await clickPanckLayerSwitch(page);
-    await expectPanckVisible(page, false);
-    await expectDapiVisible(page, true);
-  } else {
-    await expectPanckVisible(page, true);
-    await expectDapiVisible(page, false);
+    await prepareIssue395DapiOnlyObliqueView(page);
+    return;
   }
+  await openLayersPanelWithCubeOpen(page);
+  await expectPanckVisible(page, true);
+  await expectDapiVisible(page, false);
 }
 
 const browser = await chromium.launch();
@@ -60,10 +59,14 @@ const page = await browser.newPage({
 
 await boot(page);
 await openIssue395CubeAtInspectCentre(page);
-await setCubeLabels(page, false);
-await applyMode(page, mode);
-await setCubePreset(page, "Oblique view");
-await waitIssue395CubeReadyForCapture(page, `capture ${mode}`, mode);
+if (mode === "dapi-only") {
+  await prepareIssue395DapiOnlyObliqueView(page);
+} else {
+  await setCubeLabels(page, false);
+  await applyMode(page, mode);
+  await setCubePreset(page, "Oblique view");
+  await waitIssue395CubeReadyForCapture(page, `capture ${mode}`, mode);
+}
 const attrs = await page.locator('[role="dialog"][aria-label="Cube"] .volume-cube__view').evaluate((el) => ({
   channels: el.getAttribute("data-channels"),
   refining: el.getAttribute("data-refining"),

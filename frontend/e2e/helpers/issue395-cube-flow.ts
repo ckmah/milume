@@ -144,6 +144,16 @@ export async function waitIssue395CubeReadyForCapture(
   );
 }
 
+export async function prepareIssue395DapiOnlyObliqueView(page: Page) {
+  await setCubeLabels(page, false);
+  await setCubePreset(page, "Top view");
+  await setCubePreset(page, "Oblique view");
+  await openLayersPanelWithCubeOpen(page);
+  await clickPanckLayerSwitch(page);
+  await expectPanckVisible(page, false);
+  await waitIssue395CubeReadyForCapture(page, "DAPI-only Oblique", "dapi-only");
+}
+
 export async function setCubeLabels(page: Page, on: boolean) {
   const btn = page.getByRole("button", { name: "Labels" });
   const pressed = (await btn.getAttribute("aria-pressed")) === "true";

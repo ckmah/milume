@@ -1066,9 +1066,19 @@ export async function waitForCubeViewportInk(
   mode: CubeViewportInkMode,
   timeoutMs = 120_000,
 ): Promise<CubeInkStats> {
-  await expect
-    .poll(async () => (await cubeGlInkStats(page))?.tissue ?? 0, { timeout: timeoutMs })
-    .toBeGreaterThanOrEqual(mode === "panck-only" ? CUBE_EMPTY_MIN_MAGENTA_TISSUE_GL : CUBE_EMPTY_MIN_DAPI_TISSUE_GL / 3);
+  if (mode === "dapi-only") {
+    await expect
+      .poll(async () => (await cubeGlInkStats(page))?.blueTissue ?? 0, { timeout: timeoutMs })
+      .toBeGreaterThanOrEqual(CUBE_EMPTY_MIN_DAPI_TISSUE_GL);
+  } else if (mode === "panck-only") {
+    await expect
+      .poll(async () => (await cubeGlInkStats(page))?.magentaTissue ?? 0, { timeout: timeoutMs })
+      .toBeGreaterThanOrEqual(CUBE_EMPTY_MIN_MAGENTA_TISSUE_GL);
+  } else {
+    await expect
+      .poll(async () => (await cubeGlInkStats(page))?.tissue ?? 0, { timeout: timeoutMs })
+      .toBeGreaterThanOrEqual(CUBE_EMPTY_MIN_TISSUE_GL);
+  }
   const gl = await cubeGlInkStats(page);
   expect(gl, "cube GL ink stats").toBeTruthy();
   return gl!;
