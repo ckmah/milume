@@ -1115,7 +1115,7 @@ export function VolumeCube({
       loader
         ? [
             {
-              id: `${cubeRaycastLayerId}@${contrastLimitsKey}`,
+              id: cubeRaycastLayerId,
               loader,
               onViewportLoad,
               contrastLimits,
@@ -1488,7 +1488,7 @@ export function VolumeCube({
     >
       {layerProps && displayViewStates ? (
         <VolumeCubeDeck
-          deckKey={`channels:${activeImageChannels.length}:${contrastLimitsKey}`}
+          deckKey={`channels:${activeImageChannels.length}`}
           layerProps={layerProps}
           views={views}
           viewStates={displayViewStates}

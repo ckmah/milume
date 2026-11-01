@@ -3,6 +3,9 @@ import { VolumeLayer, XR3DLayer } from "@hms-dbmi/viv";
 const volumeLayerDefaults = (VolumeLayer as unknown as { defaultProps?: Record<string, unknown> }).defaultProps ?? {};
 const volumeUpdateTriggers =
   (volumeLayerDefaults.updateTriggers as Record<string, unknown> | undefined) ?? {};
+const xr3dLayerDefaults = (XR3DLayer as unknown as { defaultProps?: Record<string, unknown> }).defaultProps ?? {};
+const xr3dUpdateTriggers =
+  (xr3dLayerDefaults.updateTriggers as Record<string, unknown> | undefined) ?? {};
 
 type Texture = { destroy(): void; copyImageData(options: { data: ArrayBufferView }): void };
 
@@ -101,6 +104,16 @@ const VolumeBase = VolumeLayer as unknown as new (...props: object[]) => LayerIn
 /** Viv's XR3DLayer, uploading the image at its own dtype (see the module note). */
 export class CubeXR3DLayer extends XR3DBase {
   static layerName = "CubeXR3DLayer";
+  static defaultProps = {
+    ...xr3dLayerDefaults,
+    updateTriggers: {
+      ...xr3dUpdateTriggers,
+      contrastLimits: (p: { contrastLimits?: unknown }) => p.contrastLimits,
+      cubeTraitContrast: (p: { cubeTraitContrast?: unknown }) => p.cubeTraitContrast,
+      channelsVisible: (p: { channelsVisible?: unknown }) => p.channelsVisible,
+      colors: (p: { colors?: unknown }) => p.colors,
+    },
+  };
 
   /** Called by Viv's `loadTexture` for each volume it is handed. */
   dataToTexture(data: Volume, width: number, height: number, depth: number): Texture {

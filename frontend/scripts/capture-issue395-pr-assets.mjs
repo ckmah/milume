@@ -1,7 +1,7 @@
 /**
  * Record #395 visual acceptance: full-widget PNGs + contrast drag webm (cube open, cursor visible).
  * Run with production preview: npm run build && node scripts/capture-issue395-pr-assets.mjs
- * Env: CAPTURE_BASE=http://127.0.0.1:4173/?noDialkit=1 (vite preview + issue395 profile)
+ * Env: MILUME_VOLUME_PROFILE=issue395-3d (required). CAPTURE_BASE=http://127.0.0.1:5173/?noDialkit=1
  */
 import { chromium } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
@@ -44,6 +44,7 @@ async function waitReady() {
   await hideHarnessChrome();
   await page.evaluate(() => {
     window.__landmarksModel.set("point_size", 0);
+    window.__landmarksModel.save_changes();
   });
   await page.waitForTimeout(600);
 }
@@ -57,6 +58,14 @@ async function openCube() {
   await page.getByRole("dialog", { name: "Cube" }).waitFor({ timeout: 60_000 });
   await page.waitForFunction(
     () => document.querySelector(".volume-cube__view")?.getAttribute("data-refining") === "false",
+    null,
+    { timeout: 120_000 },
+  );
+  await page.waitForFunction(
+    () => {
+      const fmt = document.querySelector(".volume-cube__view")?.getAttribute("data-image-format");
+      return fmt === "r8unorm" || fmt === "r16unorm" || fmt === "r32float";
+    },
     null,
     { timeout: 120_000 },
   );
