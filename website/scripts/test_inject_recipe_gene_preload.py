@@ -32,9 +32,10 @@ def test_inject_landmark_map_genes_sets_gzip_codec(tmp_path: Path) -> None:
     ileum = Path(__file__).resolve().parents[2] / "demos" / "data" / "ileum.h5ad"
     adata = ml.ds.ileum_merfish_xu2026(path=ileum)
     adata.obs["n_counts"] = np.asarray(adata.layers["raw_counts"].sum(axis=1)).ravel()
-    from inject_recipe_gene_preload import _strip_adata_map
+    from inject_recipe_gene_preload import _map_adata_for_widget
 
-    adata_map = _strip_adata_map(adata)
+    adata_map = _map_adata_for_widget(adata)
+    assert adata_map.n_obs == adata.n_obs
     assert inject_landmark_map_genes(path, adata_map)[0]
     updated = json.loads(path.read_text())
     new_state = updated["resources"]["modelNotifications"][0]["message"]["state"]

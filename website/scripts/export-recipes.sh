@@ -25,6 +25,7 @@ RECIPES=(
 )
 
 export MARIMO_EXPORT_REPOSITORY="${MARIMO_EXPORT_REPOSITORY:-${ROOT}/.cache/marimo-export-recipes}"
+export MILUME_RECIPE_EXPORT_STRIP=1
 
 export_one() {
   local slug="$1"
