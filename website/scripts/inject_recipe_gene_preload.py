@@ -22,24 +22,21 @@ def _map_adata_for_widget(adata):
     return adata_map
 
 
-def _crypt_villus_bounds(adata, half_um: float = 200.0):
+def _export_strip_adata(adata):
     import numpy as np
 
     xy = np.asarray(adata.obsm["spatial"])
-    mucosa = adata.obs["anatomical_layer"].astype(str).eq("Mucosa").to_numpy()
+    mucosa = adata.obs["anatomical_layer"].eq("Mucosa").to_numpy()
     x_mid = float(np.median(xy[mucosa, 0]))
-    cv_window = mucosa & (xy[:, 0] >= x_mid - half_um) & (xy[:, 0] <= x_mid + half_um)
-    xs = xy[cv_window, 0]
-    ys = xy[cv_window, 1]
-    return (float(xs.min()), float(xs.max())), (float(ys.min()), float(ys.max()))
+    strip = (xy[:, 0] >= x_mid - 200) & (xy[:, 0] <= x_mid + 200)
+    return adata[strip].copy()
 
 
 def _update_widget_state(
     state: dict[str, Any],
     adata_map,
     *,
-    color: str = "Apob",
-    view_bounds: tuple[tuple[float, float], tuple[float, float]] | None = None,
+    color: str = "Erbb3",
 ) -> None:
     from milume.genes import gene_names_from_adata, pack_eager_gene_matrix
 
@@ -56,14 +53,6 @@ def _update_widget_state(
     meta, payload = pack_eager_gene_matrix(adata_map, names, adata_map.n_obs)
     state["gene_names"] = meta
     state.update(payload)
-    if view_bounds is not None:
-        x_bounds, y_bounds = view_bounds
-    else:
-        x_bounds, y_bounds = _crypt_villus_bounds(adata_map)
-    if "x_bounds" in state:
-        state["x_bounds"] = list(x_bounds)
-    if "y_bounds" in state:
-        state["y_bounds"] = list(y_bounds)
 
 
 def _walk_notifications(cell: dict[str, Any]) -> list[dict[str, Any]]:
@@ -81,8 +70,6 @@ def _walk_notifications(cell: dict[str, Any]) -> list[dict[str, Any]]:
 def inject_landmark_map_genes(
     cell_path: Path,
     adata_map,
-    *,
-    view_bounds: tuple[tuple[float, float], tuple[float, float]] | None = None,
 ) -> tuple[bool, str | None, str | None]:
     from marimo_export._json import canonical_bytes, decode_json_object
 
@@ -92,19 +79,8 @@ def inject_landmark_map_genes(
     if not states:
         return False, None, None
     old_digest = cell_path.name.removesuffix(".cell.json")
-    if view_bounds is None:
-        if "anatomical_layer" in adata_map.obs.columns:
-            view_bounds = _crypt_villus_bounds(adata_map)
-        else:
-            import numpy as np
-
-            xy = np.asarray(adata_map.obsm["spatial"])
-            view_bounds = (
-                (float(xy[:, 0].min()), float(xy[:, 0].max())),
-                (float(xy[:, 1].min()), float(xy[:, 1].max())),
-            )
     for state in states:
-        _update_widget_state(state, adata_map, view_bounds=view_bounds)
+        _update_widget_state(state, adata_map)
     cell_path.write_bytes(canonical_bytes(data, max_values=2_000_000))
     new_digest, _size = _cell_asset_digest(cell_path.read_bytes())
     return True, old_digest, new_digest
@@ -118,8 +94,7 @@ def inject_moran_recipe_views(recipe_dir: Path) -> dict[str, str]:
     adata = ml.ds.ileum_merfish_xu2026(path=ileum)
     if "n_counts" not in adata.obs.columns:
         adata.obs["n_counts"] = np.asarray(adata.layers["raw_counts"].sum(axis=1)).ravel()
-    adata_map = _map_adata_for_widget(adata)
-    view_bounds = _crypt_villus_bounds(adata)
+    adata_map = _map_adata_for_widget(_export_strip_adata(adata))
     views = recipe_dir / "_marimo-studio" / "views"
     updated = 0
     asset_renames: dict[str, str] = {}

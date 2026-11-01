@@ -15,7 +15,7 @@ ILEUM_H5AD = REPO_ROOT / "demos" / "data" / "ileum.h5ad"
 MORAN_CACHE = REPO_ROOT / "demos" / "data" / "ileum_moran_recipe_scores.parquet"
 
 MORAN_COLUMNS = ("moran_I_all", "moran_I_enterocyte")
-DEFAULT_GENE = "Apob"
+DEFAULT_GENE = "Erbb3"
 ENTEROCYTE_MIN_FRACTION = 0.05
 
 

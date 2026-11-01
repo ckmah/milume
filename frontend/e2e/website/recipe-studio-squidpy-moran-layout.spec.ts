@@ -42,13 +42,13 @@ test.describe("recipe studio squidpy moran layout", () => {
     expect(layout!.insideViewport).toBe(true);
   });
 
-  test("static export colors Apob with full gene catalog", async ({ page }) => {
+  test("static export colors Erbb3 with full gene catalog", async ({ page }) => {
     await page.goto(RECIPE_PATH, { waitUntil: "networkidle", timeout: 120_000 });
     await page.locator("canvas").first().waitFor({ state: "visible", timeout: 120_000 });
     await page.waitForFunction(
       () => {
         const genes = window.__landmarksModel?.get?.("active_genes");
-        return Array.isArray(genes) && genes.includes("Apob");
+        return Array.isArray(genes) && genes.includes("Erbb3");
       },
       { timeout: 30_000 },
     );

@@ -5,7 +5,7 @@ Reproduces every number quoted in the reworked recipe and the Scientist report.
 Settings match scripts/generate_ileum_moran_recipe_cache.py on the branch:
   X = authors' log-normalized matrix (no normalize_total, no log1p)
   sq.gr.spatial_neighbors_knn(n_neighs=6, percentile=99)
-  sq.gr.spatial_autocorr(mode="moran", n_perms=100, seed=0)
+  sq.gr.spatial_autocorr(mode="moran", n_perms=None)
   enterocytes = cell_type.str.startswith("Enterocyte"); graph rebuilt on the subset;
   enterocyte run scores genes detected (X > 0) in >= 5% of enterocytes.
 Usage: python rerun.py ILEUM_H5AD OUTDIR
@@ -59,7 +59,7 @@ def moran_manual(a, values):
 
 # ---------- Moran's I: all cells and enterocytes (the recipe's calls) ----------
 sq.gr.spatial_neighbors_knn(adata, n_neighs=6, percentile=99)
-sq.gr.spatial_autocorr(adata, mode="moran", n_perms=100, seed=0, n_jobs=NJ, show_progress_bar=False)
+sq.gr.spatial_autocorr(adata, mode="moran", n_perms=None, n_jobs=NJ, show_progress_bar=False)
 A = adata.uns["moranI"].copy()
 
 ent = adata[adata.obs.cell_type.astype(str).str.startswith("Enterocyte")].copy()
@@ -67,7 +67,7 @@ det_ent = np.asarray((ent.X > 0).sum(0)).ravel() / ent.n_obs
 det_all = np.asarray((adata.X > 0).sum(0)).ravel() / adata.n_obs
 genes = list(ent.var_names[det_ent >= 0.05])
 sq.gr.spatial_neighbors_knn(ent, n_neighs=6, percentile=99)
-sq.gr.spatial_autocorr(ent, genes=genes, mode="moran", n_perms=100, seed=0, n_jobs=NJ, show_progress_bar=False)
+sq.gr.spatial_autocorr(ent, genes=genes, mode="moran", n_perms=None, n_jobs=NJ, show_progress_bar=False)
 E = ent.uns["moranI"].copy()
 
 tab = pd.DataFrame(index=adata.var_names)
@@ -179,7 +179,7 @@ S["villus_trend_residual"] = resid
 # stricter check: single subtype (Enterocyte (mid)), graph rebuilt again
 mid = ent[ent.obs.cell_type.astype(str) == "Enterocyte (mid)"].copy()
 sq.gr.spatial_neighbors_knn(mid, n_neighs=6, percentile=99)
-sq.gr.spatial_autocorr(mid, genes=list(GENES), mode="moran", n_perms=100, seed=0, n_jobs=NJ, show_progress_bar=False)
+sq.gr.spatial_autocorr(mid, genes=list(GENES), mode="moran", n_perms=None, n_jobs=NJ, show_progress_bar=False)
 S["single_subtype_mid"] = {"n": int(mid.n_obs), **{g: float(mid.uns["moranI"].at[g, "I"]) for g in GENES}}
 
 # Gene summaries

@@ -13,22 +13,22 @@ test.describe("marimo kernel — moran w.color reactivity", () => {
     await page.goto("/", { waitUntil: "domcontentloaded", timeout: 120_000 });
     await waitForLandmarksWidget(page);
 
-    await expect(page.getByText("moran-w-color-probe gene=Apob")).toBeVisible({
+    await expect(page.getByText("moran-w-color-probe gene=Erbb3")).toBeVisible({
       timeout: onCi() ? 120_000 : 60_000,
     });
 
     const plotImg = page.locator("img").last();
     await plotImg.waitFor({ state: "visible", timeout: 60_000 });
-    const srcApob = (await plotImg.getAttribute("src")) ?? "";
+    const srcErbb3 = (await plotImg.getAttribute("src")) ?? "";
 
-    await setModelFromBrowser(page, { color: "Erbb3" });
-    await expect.poll(() => getModel(page, "color")).toBe("Erbb3");
+    await setModelFromBrowser(page, { color: "Apob" });
+    await expect.poll(() => getModel(page, "color")).toBe("Apob");
 
-    await expect(page.getByText("moran-w-color-probe gene=Erbb3")).toBeVisible({
+    await expect(page.getByText("moran-w-color-probe gene=Apob")).toBeVisible({
       timeout: onCi() ? 120_000 : 60_000,
     });
     await expect
-      .poll(async () => (await plotImg.getAttribute("src")) !== srcApob, {
+      .poll(async () => (await plotImg.getAttribute("src")) !== srcErbb3, {
         timeout: onCi() ? 120_000 : 60_000,
       })
       .toBe(true);
