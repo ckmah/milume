@@ -100,6 +100,20 @@ def main() -> None:
     widget.z_band_hi_um = 14.0
     widget.z_focus_um = 12.0
     payload = {key: getattr(widget, key) for key in FIXTURE_KEYS + VOLUME_KEYS}
+    tint_by_name = {"DAPI": "#2563eb", "PanCK": "#c026d3"}
+    rows = payload.get("_image_channels") or []
+    payload["_image_channels"] = [
+        {**row, "color": tint_by_name.get(row["name"], row.get("color"))} for row in rows
+    ]
+    vol = payload.get("volume") or {}
+    if vol.get("channels"):
+        payload["volume"] = {
+            **vol,
+            "channels": [
+                {**row, "color": tint_by_name.get(row["name"], row.get("color"))}
+                for row in vol["channels"]
+            ],
+        }
     OUT.write_text(json.dumps(payload, indent=2) + "\n")
     data_mib = sum(f.stat().st_size for f in store.rglob("*") if f.is_file()) / (1024 * 1024)
     page_kib = OUT.stat().st_size / 1024

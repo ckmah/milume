@@ -6,6 +6,7 @@ import {
   expectCubeShowsMultichannelImage,
   expectMapBandShowsMultichannelImage,
   expectNoDeckShaderCompileOverlay,
+  hideMapPointsForImageAssert,
 } from "../helpers/shader-and-pixels";
 import {
   bootLandmarksVolumeHarness,
@@ -29,6 +30,8 @@ async function openCubeAtCentre(page: import("@playwright/test").Page) {
   await expect(cube.locator(".volume-cube__view")).toHaveAttribute("data-refining", "false", {
     timeout: 120_000,
   });
+  await page.getByRole("radio", { name: "Oblique view" }).click();
+  await page.waitForTimeout(800);
   await expectNoDeckShaderCompileOverlay(page);
 }
 
@@ -116,12 +119,15 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
 
   test("screenshot: cube two-channel blend", async ({ page }) => {
     await openCubeAtCentre(page);
+    await page.getByRole("radio", { name: "Oblique view" }).click();
+    await page.waitForTimeout(800);
     await stabilizeUi(page);
     const widget = page.locator(".milume-widget.landmarks");
     await shot(page, "395-cube-two-channel-blend", widget);
   });
 
   test("screenshot: map band two-channel blend", async ({ page }) => {
+    await hideMapPointsForImageAssert(page);
     await expectMapBandShowsMultichannelImage(page);
     await stabilizeUi(page);
     const widget = page.locator(".milume-widget.landmarks");

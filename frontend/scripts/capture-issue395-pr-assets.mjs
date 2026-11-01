@@ -43,6 +43,9 @@ async function waitReady() {
   await page.goto(base, { waitUntil: "networkidle" });
   await page.waitForFunction(() => Boolean(window.__landmarksEngine?.getViewState?.()));
   await hideHarnessChrome();
+  await page.evaluate(() => {
+    window.__landmarksModel.set("point_size", 0);
+  });
   await page.waitForTimeout(600);
 }
 
@@ -60,22 +63,21 @@ async function openCube() {
   );
   const err = await page.evaluate(() => document.body.innerText.includes("Compilation error"));
   if (err) throw new Error("cube shader compile overlay visible");
+  await page.getByRole("radio", { name: "Oblique view" }).click();
+  await page.waitForTimeout(1200);
 }
 
-async function openLayersInInspect() {
+async function openPerChannelContrastInLayers() {
+  await page.waitForTimeout(1000);
   await page.evaluate(() => {
     const root = document.querySelector(".milume-widget.landmarks");
     if (root instanceof HTMLElement) root.focus();
   });
   await page.keyboard.press("[");
-  await page.waitForFunction(
-    () => document.querySelector(".landmarks__chrome-dock--left")?.getAttribute("data-collapsed") === "false",
-    null,
-    { timeout: 15_000 },
-  );
+  await page.waitForTimeout(400);
   await page.getByTestId("panel-section-layers").click({ force: true });
-  await page.getByTestId("layers-image-row").waitFor({ state: "attached", timeout: 15_000 });
   const row = page.getByTestId("layers-image-row");
+  await row.waitFor({ state: "attached", timeout: 30_000 });
   if ((await row.getAttribute("aria-expanded")) !== "true") await row.click({ force: true });
 }
 
@@ -88,20 +90,20 @@ await openCube();
 await page.waitForTimeout(800);
 await widget.screenshot({ path: join(outDir, "395-cube-two-channel-blend.png") });
 
-await openLayersInInspect();
+await openPerChannelContrastInLayers();
 const hiThumb = page.getByRole("slider", { name: "DAPI contrast, maximum" });
 await hiThumb.scrollIntoViewIfNeeded();
-const box = await hiThumb.boundingBox();
-if (!box) throw new Error("no slider");
-await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+const hiBox = await hiThumb.boundingBox();
+if (!hiBox) throw new Error("no hi slider");
+await page.mouse.move(hiBox.x + hiBox.width / 2, hiBox.y + hiBox.height / 2);
 await page.waitForTimeout(300);
 await page.mouse.down();
-for (let i = 1; i <= 24; i++) {
-  await page.mouse.move(box.x - i * 5, box.y + box.height / 2);
-  await page.waitForTimeout(50);
+for (let i = 1; i <= 16; i++) {
+  await page.mouse.move(hiBox.x - i * 4, hiBox.y + hiBox.height / 2);
+  await page.waitForTimeout(55);
 }
 await page.mouse.up();
-await page.waitForTimeout(600);
+await page.waitForTimeout(800);
 
 await context.close();
 await browser.close();

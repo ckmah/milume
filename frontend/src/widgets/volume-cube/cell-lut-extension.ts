@@ -239,24 +239,24 @@ vec4 imageSample(float v) {
 }
 
 vec4 combinedImageSample2(float v0, float v1) {
-  vec4 acc = tintedSample(v0, imagePalette);
-  acc.rgb += tintedSample(v1, imagePalette1).rgb;
-  acc.a = min(1.0, acc.a * 2.0);
-  return acc;
+  vec4 s0 = tintedSample(v0, imagePalette);
+  vec4 s1 = tintedSample(v1, imagePalette1);
+  return vec4(s0.rgb + s1.rgb, min(1.0, s0.a + s1.a));
 }
 
 vec4 combinedImageSample3(float v0, float v1, float v2) {
-  vec4 acc = combinedImageSample2(v0, v1);
-  acc.rgb += tintedSample(v2, imagePalette2).rgb;
-  acc.a = min(1.0, acc.a * 1.5);
-  return acc;
+  vec4 s0 = tintedSample(v0, imagePalette);
+  vec4 s1 = tintedSample(v1, imagePalette1);
+  vec4 s2 = tintedSample(v2, imagePalette2);
+  return vec4(s0.rgb + s1.rgb + s2.rgb, min(1.0, s0.a + s1.a + s2.a));
 }
 
 vec4 combinedImageSample4(float v0, float v1, float v2, float v3) {
-  vec4 acc = combinedImageSample3(v0, v1, v2);
-  acc.rgb += tintedSample(v3, imagePalette3).rgb;
-  acc.a = min(1.0, acc.a * 1.3333333);
-  return acc;
+  vec4 s0 = tintedSample(v0, imagePalette);
+  vec4 s1 = tintedSample(v1, imagePalette1);
+  vec4 s2 = tintedSample(v2, imagePalette2);
+  vec4 s3 = tintedSample(v3, imagePalette3);
+  return vec4(s0.rgb + s1.rgb + s2.rgb + s3.rgb, min(1.0, s0.a + s1.a + s2.a + s3.a));
 }
 
 const float NO_MESH = 1e9;

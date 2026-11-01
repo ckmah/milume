@@ -87,7 +87,8 @@
         0.0,
         160.0
       ],
-      "constant_zero": false
+      "constant_zero": false,
+      "color": "#2563eb"
     },
     {
       "name": "PanCK",
@@ -96,7 +97,8 @@
         0.0,
         149.0
       ],
-      "constant_zero": false
+      "constant_zero": false,
+      "color": "#c026d3"
     }
   ],
   "_image_visible": true,
@@ -151,7 +153,8 @@
           0.0,
           160.0
         ],
-        "constant_zero": false
+        "constant_zero": false,
+        "color": "#2563eb"
       },
       {
         "name": "PanCK",
@@ -160,7 +163,8 @@
           0.0,
           149.0
         ],
-        "constant_zero": false
+        "constant_zero": false,
+        "color": "#c026d3"
       }
     ]
   },
