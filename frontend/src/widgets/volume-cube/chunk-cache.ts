@@ -22,8 +22,6 @@ export class ChunkCache {
   private running = 0;
   private pauseDepth = 0;
   private paused = false;
-  /** Multichannel zarr tiles: spatial chunk cache must not reuse another channel's decode. */
-  private fetchChannel = 0;
   bytes = 0;
   hits = 0;
   misses = 0;
@@ -32,8 +30,6 @@ export class ChunkCache {
     private readonly maxBytes = CHUNK_CACHE_BYTES,
     private readonly concurrency = PREFETCH_CONCURRENCY,
   ) {}
-
-  private fetchQueue: Promise<unknown> = Promise.resolve();
 
   attach(arr: AnyArray, key: string): void {
     const tagged = arr as AnyArray & { [ATTACHED]?: ChunkCache };
@@ -44,49 +40,18 @@ export class ChunkCache {
     tagged[ATTACHED] = this;
   }
 
-  /** Scope decoded chunk cache keys to one channel index (see fetchBox / multichannel cube). */
-  runWithFetchChannel<T>(channel: number, fn: () => T): T {
-    const prev = this.fetchChannel;
-    this.fetchChannel = channel;
-    try {
-      const out = fn();
-      if (out instanceof Promise) {
-        return out.finally(() => {
-          this.fetchChannel = prev;
-        }) as T;
-      }
-      this.fetchChannel = prev;
-      return out;
-    } catch (err) {
-      this.fetchChannel = prev;
-      throw err;
-    }
-  }
-
-  /** Serialize multichannel fetches so ChunkCache channel scope is not interleaved. */
-  enqueueFetch<T>(channel: number, fn: () => Promise<T>): Promise<T> {
-    const run = () => this.runWithFetchChannel(channel, fn);
-    const next = this.fetchQueue.then(run, run);
-    this.fetchQueue = next.then(
-      () => undefined,
-      () => undefined,
-    );
-    return next;
-  }
-
   private load(id: string, fetch: () => Promise<Chunk>): Promise<Chunk> {
-    const scoped = `${id}@c${this.fetchChannel}`;
-    const hit = this.entries.get(scoped);
+    const hit = this.entries.get(id);
     if (hit) {
       this.hits++;
       // Re-insert: Map order is the LRU order.
-      this.entries.delete(scoped);
-      this.entries.set(scoped, hit);
+      this.entries.delete(id);
+      this.entries.set(id, hit);
       return hit.chunk;
     }
     this.misses++;
     const entry = { chunk: fetch(), bytes: 0 };
-    this.entries.set(scoped, entry);
+    this.entries.set(id, entry);
     entry.chunk.then(
       (chunk) => {
         entry.bytes = (chunk.data as { byteLength?: number }).byteLength ?? 0;
@@ -95,7 +60,7 @@ export class ChunkCache {
       },
       () => {
         // A failed read must not poison retries.
-        if (this.entries.get(scoped) === entry) this.entries.delete(scoped);
+        if (this.entries.get(id) === entry) this.entries.delete(id);
       },
     );
     return entry.chunk;

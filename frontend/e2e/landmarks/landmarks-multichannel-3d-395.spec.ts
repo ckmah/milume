@@ -145,6 +145,12 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
     const parts = (bytes ?? "").split(",").map(Number);
     expect(parts.length).toBe(2);
     expect(parts.every((n) => n > 0)).toBeTruthy();
+    await expect
+      .poll(async () => cube.locator(".volume-cube__view").getAttribute("data-volume-sums"))
+      .toMatch(/^\d+,\d+$/);
+    const sums = (await cube.locator(".volume-cube__view").getAttribute("data-volume-sums"))!.split(",").map(Number);
+    expect(sums[0]).not.toBe(sums[1]);
+    expect(sums[0]).toBeGreaterThan(sums[1]);
     await page.keyboard.press("Escape");
   });
 

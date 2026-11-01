@@ -407,6 +407,7 @@ export function VolumeCube({
   const [viewPixelSize, setViewPixelSize] = useState({ width: 640, height: 520 });
   const [image, setImage] = useState<ZarrSource[] | null>(null);
   const [error, setError] = useState("");
+  const [volumeChannelSums, setVolumeChannelSums] = useState("");
   const [viewState, setViewState] = useState<ViewState | null>(null);
   /** Pan must not drift the cube; the window moves the content instead. */
   const fixedTargetRef = useRef<number[] | null>(null);
@@ -454,7 +455,11 @@ export function VolumeCube({
           await new Promise((resolve) => setTimeout(resolve, hook.delayMs));
         }
         const pyramid = await loadVolumePyramid(imageUrl, volumeComm);
-        pyramid.forEach((level, i) => chunkCache?.attach(level._data, `${imageUrl}#${i}`));
+        const base = pyramid[0]!;
+        const multichannel = axisSize(base, "c") > 1;
+        if (!multichannel) {
+          pyramid.forEach((level, i) => chunkCache?.attach(level._data, `${imageUrl}#${i}`));
+        }
         if (!cancelled) setImage(pyramid);
       } catch (err) {
         if (!cancelled) setError(errorText(err));
@@ -610,6 +615,15 @@ export function VolumeCube({
               setContentZSpan((prev) => (prev && prev[0] === span[0] && prev[1] === span[1] ? prev : span));
             }
             if (volumes.length >= expectedVolumeChannels) {
+              if (expectedVolumeChannels > 1) {
+                const sums = volumes.map((vol) => {
+                  const d = vol.data as ArrayLike<number>;
+                  let s = 0;
+                  for (let i = 0; i < d.length; i++) s += d[i]!;
+                  return s;
+                });
+                setVolumeChannelSums(sums.join(","));
+              }
               shownImage.release();
             }
           }
@@ -1498,6 +1512,7 @@ export function VolumeCube({
       data-viewport-h={Math.round(viewPixelSize.height)}
       data-channels={activeImageChannels.length}
       data-gpu-channel-bytes={gpuChannelBytes.join(",") || "0"}
+      data-volume-sums={volumeChannelSums}
     >
       {layerProps && displayViewStates ? (
         <VolumeCubeDeck
