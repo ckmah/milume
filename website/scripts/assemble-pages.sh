@@ -64,10 +64,7 @@ chmod +x "${WEBSITE}/scripts/export-recipes.sh"
 uv run --directory "${ROOT}" bash "${WEBSITE}/scripts/export-recipes.sh" prepare-for-zensical
 
 rm -rf "${WEBSITE}/dist"
-(
-  cd "${WEBSITE}"
-  zensical build --clean
-)
+uv run --directory "${ROOT}" bash -c 'cd "$1" && zensical build --clean' _ "${WEBSITE}"
 
 loaded_urls="$(mktemp)"
 preview_pid=""
@@ -106,10 +103,7 @@ uv run --directory "${ROOT}" python "${WEBSITE}/scripts/prepare_recipe_studio.py
   --prune-shared-only --loaded-urls "${loaded_urls}"
 
 rm -rf "${WEBSITE}/dist"
-(
-  cd "${WEBSITE}"
-  zensical build --clean
-)
+uv run --directory "${ROOT}" bash -c 'cd "$1" && zensical build --clean' _ "${WEBSITE}"
 
 mkdir -p "${OUT}/docs"
 cp -a "${WEBSITE}/dist/." "${OUT}/docs/"

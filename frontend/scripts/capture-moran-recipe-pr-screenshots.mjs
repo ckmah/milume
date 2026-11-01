@@ -142,6 +142,9 @@ async function captureMode(page, scheme, suffix) {
   }
   await page.waitForTimeout(1200);
 
+  await page.waitForFunction(() => window.__landmarksModel?.get("color") === "Erbb3", {
+    timeout: 30_000,
+  });
   let meta = await assertMapState(page, { color: "Erbb3", cellsLabel: STRIP_CELLS });
   const mapErbb3 = `${outDir}/01-static-default-erbb3-${suffix}.png`;
   await captureLandmarksWidget(page, mapErbb3);
