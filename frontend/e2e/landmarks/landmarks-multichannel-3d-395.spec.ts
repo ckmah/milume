@@ -4,6 +4,7 @@ import { test } from "../fixtures";
 import {
   expectCubePixelsChangeWhenPanckOff,
   expectCubeShowsMultichannelImage,
+  expectCubeUserVisibleScreenshot,
   expectMapBandShowsMultichannelImage,
   expectNoDeckShaderCompileOverlay,
   hideMapPointsForImageAssert,
@@ -64,6 +65,13 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   test("cube compiles shader and shows blended channels", async ({ page }) => {
     await openCubeAtCentre(page);
     await expectCubeShowsMultichannelImage(page);
+  });
+
+  test("Playwright cube viewport screenshot shows multichannel ink in box (Top and Oblique)", async ({
+    page,
+  }) => {
+    await openCubeAtCentre(page);
+    await expectCubeUserVisibleScreenshot(page);
   });
 
   test("toggle PanCK off changes cube pixels and channel count", async ({ page }) => {

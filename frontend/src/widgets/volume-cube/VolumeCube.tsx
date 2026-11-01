@@ -897,6 +897,10 @@ export function VolumeCube({
   // Reported once there is a camera: a null before the first view would
   // overwrite a preset the caller asked for meanwhile.
   const cameraPreset = presetOf(viewState);
+  // Multichannel additive ray integration is empty on Top for thin z slabs; MIP keeps
+  // tissue visible in the box (matches inspect preview / minimap).
+  const renderImageMode =
+    activeImageChannels.length > 1 && imageMode === "additive" ? "mip" : imageMode;
   const hasCamera = Boolean(viewState);
   const onPresetRef = useLatest(onPreset);
   useLayoutEffect(() => {
@@ -1112,7 +1116,7 @@ export function VolumeCube({
                   : null,
               resolution: 0,
               extensions: cubeExtensions,
-              imageMode,
+              imageMode: renderImageMode,
               onImageBound,
               imagePalette,
               channelPalettes,
@@ -1155,7 +1159,7 @@ export function VolumeCube({
       winY[1],
       stackZ[0],
       stackZ[1],
-      imageMode,
+      renderImageMode,
       onImageBound,
       imagePalette,
       channelPalettes,
@@ -1447,7 +1451,7 @@ export function VolumeCube({
       data-label-cells={mesh?.ids.length ?? 0}
       data-coloring={coloringState}
       data-highlight={highlighted.length}
-      data-image-mode={imageMode}
+      data-image-mode={renderImageMode}
       data-pan={`${panX},${panY}`}
       data-palette={render.palette}
       data-image-gamma={render.imageGamma}

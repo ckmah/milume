@@ -4,8 +4,7 @@
  * Env: CAPTURE_BASE=http://127.0.0.1:4173/?noDialkit=1 (vite preview + issue395 profile)
  */
 import { chromium } from "@playwright/test";
-import { mkdir, rename } from "node:fs/promises";
-import { readdir } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
 const base = process.env.CAPTURE_BASE ?? "http://127.0.0.1:5173/?noDialkit=1";
@@ -88,7 +87,9 @@ await widget.screenshot({ path: join(outDir, "395-map-band-two-channel-blend.png
 
 await openCube();
 await page.waitForTimeout(800);
-await widget.screenshot({ path: join(outDir, "395-cube-two-channel-blend.png") });
+const cubeView = page.locator('[role="dialog"][aria-label="Cube"] .volume-cube__view');
+await cubeView.screenshot({ path: join(outDir, "395-cube-two-channel-blend.png") });
+await widget.screenshot({ path: join(outDir, "395-cube-widget-oblique.png") });
 
 await openPerChannelContrastInLayers();
 const hiThumb = page.getByRole("slider", { name: "DAPI contrast, maximum" });
@@ -103,13 +104,13 @@ for (let i = 1; i <= 16; i++) {
   await page.waitForTimeout(55);
 }
 await page.mouse.up();
-await page.waitForTimeout(800);
+await page.waitForTimeout(1200);
 
+const video = page.video();
+const webmOut = join(outDir, "395-contrast-drag-cube.webm");
 await context.close();
-await browser.close();
-
-const webm = (await readdir(videoTmp)).find((f) => f.endsWith(".webm"));
-if (webm) {
-  await rename(join(videoTmp, webm), join(outDir, "395-contrast-drag-cube.webm"));
+if (video) {
+  await video.saveAs(webmOut);
 }
+await browser.close();
 console.log(`Wrote captures under ${outDir}`);

@@ -183,6 +183,15 @@ export const CubeImmersive = memo(function CubeImmersive({
   const renderCountOverlay =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("cubeRenderOverlay") === "1";
+  const inspectRegion = useMemo(() => {
+    if (lm.inspect_cx == null || lm.inspect_cy == null) return null;
+    return {
+      scale: PREVIEW_REGION_SCALE,
+      budget: budgets.preview,
+      cx: lm.inspect_cx,
+      cy: lm.inspect_cy,
+    };
+  }, [lm.inspect_cx, lm.inspect_cy, budgets.preview]);
 
   return (
     <section
@@ -213,6 +222,7 @@ export const CubeImmersive = memo(function CubeImmersive({
           windowCx={lm.inspect_cx ?? 0}
           windowCy={lm.inspect_cy ?? 0}
           windowSizeUm={size}
+          region={inspectRegion}
           cut={cut}
           contrast={settings.contrast}
           imageChannelRows={lm._image_channels}
@@ -227,6 +237,7 @@ export const CubeImmersive = memo(function CubeImmersive({
           render={renderSettings}
           meshLook={meshLook}
           dark={dark}
+          background={false}
           height="100%"
           showLegend={false}
           overlays={overlays}
@@ -237,6 +248,8 @@ export const CubeImmersive = memo(function CubeImmersive({
           chunkCache={cache}
           volumeComm={volumeComm}
           pausesPrefetch
+          tightenZToSignal={false}
+          zStackFraction={[0.25, 0.75]}
           onLoadState={onLoadState}
           onRendered={onRendered}
           renderCountOverlay={renderCountOverlay}
