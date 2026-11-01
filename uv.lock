@@ -2454,7 +2454,7 @@ demo = [
     { name = "marimo", specifier = ">=0.25.1" },
     { name = "scanpy", specifier = ">=1.10" },
     { name = "spatialdata-io", marker = "python_full_version >= '3.12'", git = "https://github.com/ckmah/spatialdata-io?branch=pyxa-reader" },
-    { name = "squidpy", specifier = ">=1.6" },
+    { name = "squidpy", specifier = ">=1.8.2" },
 ]
 dev = [
     { name = "geopandas", specifier = ">=1.1.4" },
@@ -2469,7 +2469,7 @@ dev = [
     { name = "spatialdata", marker = "python_full_version < '3.12'", specifier = ">=0.7.3" },
     { name = "spatialdata", marker = "python_full_version >= '3.12'", specifier = ">=0.8.0" },
     { name = "spatialdata-io", marker = "python_full_version >= '3.12'", git = "https://github.com/ckmah/spatialdata-io?branch=pyxa-reader" },
-    { name = "squidpy", specifier = ">=1.6" },
+    { name = "squidpy", specifier = ">=1.8.2" },
     { name = "watchfiles", specifier = ">=1.2.0" },
     { name = "zensical", specifier = ">=0.0.69" },
 ]

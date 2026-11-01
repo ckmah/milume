@@ -42,7 +42,7 @@ test.describe("recipe studio squidpy moran layout", () => {
     expect(layout!.insideViewport).toBe(true);
   });
 
-  test("static export colours Apob with full gene catalog", async ({ page }) => {
+  test("static export colors Apob with full gene catalog", async ({ page }) => {
     await page.goto(RECIPE_PATH, { waitUntil: "networkidle", timeout: 120_000 });
     await page.locator("canvas").first().waitFor({ state: "visible", timeout: 120_000 });
     await page.waitForFunction(

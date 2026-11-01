@@ -3,11 +3,11 @@ import { expect, test } from "@playwright/test";
 import { getModel, onCi, setModelFromBrowser, waitForLandmarksWidget } from "./helpers";
 
 /**
- * Reactive moran_plots follows w.color once kernel sync lands (#404).
+ * Reactive result_figure follows w.color once kernel sync lands (#404).
  * Run with E2E_MARIMO_NOTEBOOK=frontend/e2e/marimo/fixtures/moran-w-color-api.marimo.py
  */
 test.describe("marimo kernel — moran w.color reactivity", () => {
-  test("color sync re-runs moran_plots (probe and plot output)", async ({ page }) => {
+  test("color sync re-runs result_figure (probe and plot output)", async ({ page }) => {
     test.skip(true, "needs #404: color syncs to kernel");
     test.slow(onCi(), "marimo kernel boot");
     await page.goto("/", { waitUntil: "domcontentloaded", timeout: 120_000 });

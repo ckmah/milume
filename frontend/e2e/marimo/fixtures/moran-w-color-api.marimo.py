@@ -9,7 +9,7 @@
 # ]
 # ///
 
-"""Marimo API e2e: moran_plots re-runs when the Landmarks color gene changes (w.color)."""
+"""Marimo API e2e: result_figure re-runs when the Landmarks color gene changes (w.color)."""
 
 import marimo
 
@@ -53,7 +53,7 @@ def _(w):
 
 
 @app.cell
-def moran_plots(adata, mo, np, pd, plt, w):
+def result_figure(adata, mo, np, pd, plt, w):
     _ = w.value
     active = list(w.active_genes or [])
     gene_name = str(active[-1]) if active else str(w.color or "Apob")
