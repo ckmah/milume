@@ -12,3 +12,12 @@ Colour Landmarks from Squidpy neighborhood niches on a masked selection, then as
 | --- | --- |
 | Docs (prepared studio view) | [Squidpy niche colour](squidpy_color/) |
 | molab (live kernel) | [squidpy_color.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py) |
+
+## Squidpy Moran's I (ileum)
+
+Compare all-cell Moran's I with Moran's I within enterocytes on the ileum slice, then pick a gene in the widget.
+
+| | Link |
+| --- | --- |
+| Docs (prepared studio view) | [Squidpy Moran's I](squidpy_moran/) |
+| molab (live kernel) | [squidpy_moran.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_moran.py) |
