@@ -6,14 +6,14 @@
 #     "matplotlib>=3.8",
 #     "milume",
 #     "pyarrow>=15",
-#     "squidpy>=1.6"
+#     "squidpy>=1.8.2"
 # ]
 # [tool.marimo-studio]
 # default = "docs"
 # runtimes = ["server", "zero-python"]
 #
 # [tool.marimo-studio.cells]
-# cell-1 = {ref = "cell:v1:4155515c9f79b0af46afcd303a6b9ea4a7b5e0023e759222e9e4a9131d7b5172:a64c6103cd3713338f4861391c8a68ebc8c9f9586010d1c613cb0ea743e503ed:0"}
+# cell-1 = {ref = "cell:v1:e47415a54c83a8048bc292b1e9c4f154ba85b9ef8dc2c434c3563d059fe37761:b79b0bc211ac84367cca26ddf61f1bc340134b0d4519335926b96baedbe17191:0"}
 # cell-2 = {ref = "cell:v1:eaab100e38906edf9f943e261802946200da797e294fabac5e524181e4126256:f0caf9a8dcba3f85135816af4caf0db5fa161bdb3552eea6c45406462610f644:0"}
 # cell-7 = {ref = "cell:v1:8b7a08944f047a0f5106146b0ed2a58122ea5446fc073c4f690e3671b1b94e5e:8841281c5f31d875cbf4cd89f18fca8ee33578edd01833bd8092d49354e8d2a1:0"}
 # ///
@@ -33,15 +33,15 @@ def _(mo):
 
         On this Xu et al. 2026 ileum MERFISH slice, all-cell Moran's I ranks genes that vary in space because cell types sit in different places. Moran's I inside enterocytes asks which of those genes still vary along the crypt-villus axis within one class.
 
-        Both runs use a 6-neighbour knn graph with edges above the 99th percentile removed, then Moran's I with 100 permutations.
+        Both runs use the authors' log-normalized `X` and a 6-nearest-neighbour graph with the longest 1% of edges removed, then Moran's I with 100 permutations.
 
         The all-cell top 20 and the enterocyte top 20 share **8** genes (Apob, Slc5a1, Nos2, Cps1, Nlrp6, Fgf15, Fzd5, Ephb2). All-cell ranks lead with **Acta2** and **Apob**; enterocyte ranks lead with **Apob** and **Slc5a1**.
 
         **Apob** stays high within enterocytes. All-cell I is **0.631**. Enterocyte I is **0.521**.
 
-        **Acta2** ranks high across all cells (I **0.743**) but drops out of the enterocyte comparison because it is not expressed in at least 5% of enterocytes. Pick **Acta2** in molab and the scatter places a vertical marker on the all-cell axis with a note instead of a y value. **Grem1** behaves the same way. Enterocyte subtypes are position-defined, so a single-subtype run is the stricter check.
+        **Acta2** ranks first across all cells (I **0.743**) because smooth muscle forms its own layers. It is detected in only 2.4% of enterocytes, so the enterocyte run does not score it; **Grem1** (I **0.476**) is the same case. **Erbb3** is the within-class contrast: 82% of enterocytes express it, yet its I falls from **0.473** across all cells to **0.098** within enterocytes. Its all-cell score comes from where epithelium sits relative to the gut wall, not from position along the villus. Pick **Erbb3** next to **Apob** (0.631 → 0.521) to see the difference.
 
-        `n_counts` is an obs column. It is the per-cell total of `layers['raw_counts']`. The median on this slice is **48**. Colour by `n_counts` when a spatial pattern might be a depth artifact.
+        `n_counts` is an obs column. It is the per-cell total of `layers['raw_counts']`. The median on this slice is **48**. Colour by `n_counts` when a spatial pattern might be a depth artifact. Depth itself is spatially patterned within enterocytes (Moran's I **0.24** on `n_counts`), so the depth caveat earns its place.
 
         Yan, Hua, and Li, Nat Commun 2025, make this composition point. This page runs the same comparison with one fixed neighbour graph.
         [s41467-025-56080-w](https://www.nature.com/articles/s41467-025-56080-w)
@@ -131,10 +131,11 @@ def load_adata(ILEUM_H5AD, MORAN_CACHE_PATH, Path, ml, np, pd):
 
 @app.cell
 def moran_setup(adata, cache, np, pd, sq):
-    # percentile=99 drops long knn edges. Unpruned Delaunay reaches about 1 mm on this slice.
     if "moran_I_all" not in adata.var.columns or "moran_I_enterocyte" not in adata.var.columns:
         sq.gr.spatial_neighbors_knn(adata, n_neighs=6, percentile=99)
-        sq.gr.spatial_autocorr(adata, mode="moran", n_perms=100, show_progress_bar=False)
+        sq.gr.spatial_autocorr(
+            adata, mode="moran", n_perms=100, seed=0, show_progress_bar=False
+        )
         ent = adata[adata.obs.cell_type.str.startswith("Enterocyte")].copy()
         detected = np.asarray((ent.X > 0).sum(axis=0)).ravel() / ent.n_obs
         expressed = list(ent.var_names[detected >= 0.05])
@@ -144,6 +145,7 @@ def moran_setup(adata, cache, np, pd, sq):
             genes=expressed,
             mode="moran",
             n_perms=100,
+            seed=0,
             show_progress_bar=False,
         )
         frame = pd.DataFrame(index=adata.var_names)
@@ -205,15 +207,15 @@ def _(mo):
 @app.cell
 def moran_plots(adata, np, pd, plt, w):
     gene = str(w.color)
+    top_n_cell_types = 15
     moran_scores = adata.var[["moran_I_all", "moran_I_enterocyte"]]
     both = moran_scores.dropna(subset=["moran_I_all", "moran_I_enterocyte"])
-    n_types = int(adata.obs["cell_type"].nunique())
     fig, axes = plt.subplots(
         2,
         1,
-        figsize=(8.0, 3.8 + 0.16 * n_types),
+        figsize=(8.0, 6.2),
         layout="constrained",
-        height_ratios=[3.8, max(0.16 * n_types, 1.0)],
+        height_ratios=[3.8, 2.4],
     )
     ax = axes[0]
     ax.scatter(
@@ -263,11 +265,12 @@ def moran_plots(adata, np, pd, plt, w):
         else:
             values = np.asarray(column).ravel()
         labels = adata.obs["cell_type"].astype(str).to_numpy()
-        means = pd.Series(values).groupby(labels, sort=False).mean().sort_values(ascending=True)
-        ax.barh(means.index.astype(str), means.to_numpy(), color="0.35")
+        means = pd.Series(values).groupby(labels, sort=False).mean()
+        top_means = means.nlargest(top_n_cell_types).sort_values(ascending=True)
+        ax.barh(top_means.index.astype(str), top_means.to_numpy(), color="0.35")
         ax.tick_params(axis="y", labelsize=7)
         ax.set_xlabel("mean log expression")
-        ax.set_title(gene)
+        ax.set_title(f"{gene} (top {len(top_means)} cell types by mean expression)")
     else:
         ax.set_axis_off()
         ax.text(0.0, 0.5, f"{gene} is not a gene", transform=ax.transAxes, va="center")

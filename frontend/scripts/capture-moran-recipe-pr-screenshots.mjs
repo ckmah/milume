@@ -5,7 +5,7 @@ import { chromium } from "@playwright/test";
 const url =
   process.argv[2] ??
   "http://127.0.0.1:8765/docs/how-to/recipes/squidpy_moran/index.html";
-const outDir = "/opt/cursor/artifacts/recipe-moran-409";
+const outDir = process.argv[3] ?? "/opt/cursor/artifacts/recipe-moran-409";
 const viewport = { width: 1280, height: 900 };
 
 mkdirSync(outDir, { recursive: true });
@@ -23,11 +23,31 @@ await page.screenshot({
   fullPage: false,
 });
 
-await page.locator(".milume-recipe-studio-prose marimo-cell").last().scrollIntoViewIfNeeded();
+const plotsCell = page.locator(".milume-recipe-studio-prose marimo-cell").last();
+await plotsCell.scrollIntoViewIfNeeded();
 await page.waitForTimeout(800);
+const plotImg = plotsCell.locator("img").first();
+await plotImg.waitFor({ state: "visible", timeout: 60_000 });
+const box = await plotImg.boundingBox();
+if (!box) throw new Error("moran_plots image missing");
+const scatterHeight = Math.round(box.height * 0.52);
 await page.screenshot({
-  path: `${outDir}/02-static-moran-plots-apob.png`,
-  fullPage: false,
+  path: `${outDir}/02-static-moran-scatter-apob.png`,
+  clip: {
+    x: box.x,
+    y: box.y,
+    width: box.width,
+    height: scatterHeight,
+  },
+});
+await page.screenshot({
+  path: `${outDir}/03-static-moran-expression-apob.png`,
+  clip: {
+    x: box.x,
+    y: box.y + scatterHeight,
+    width: box.width,
+    height: box.height - scatterHeight,
+  },
 });
 
 await browser.close();
