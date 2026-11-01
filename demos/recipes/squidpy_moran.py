@@ -13,7 +13,7 @@
 # runtimes = ["server", "zero-python"]
 #
 # [tool.marimo-studio.cells]
-# cell-1 = {ref = "cell:v1:9399ce6a7bcd075ea30072839e0d5ef7155064cac0d2497f8de11842d5665158:4143dabe6905293279e80b2e85b7f0e2c648fb43e12ab624fabaec716a07e91f:0"}
+# cell-1 = {ref = "cell:v1:4155515c9f79b0af46afcd303a6b9ea4a7b5e0023e759222e9e4a9131d7b5172:a64c6103cd3713338f4861391c8a68ebc8c9f9586010d1c613cb0ea743e503ed:0"}
 # cell-2 = {ref = "cell:v1:eaab100e38906edf9f943e261802946200da797e294fabac5e524181e4126256:f0caf9a8dcba3f85135816af4caf0db5fa161bdb3552eea6c45406462610f644:0"}
 # cell-7 = {ref = "cell:v1:8b7a08944f047a0f5106146b0ed2a58122ea5446fc073c4f690e3671b1b94e5e:8841281c5f31d875cbf4cd89f18fca8ee33578edd01833bd8092d49354e8d2a1:0"}
 # ///
@@ -39,7 +39,7 @@ def _(mo):
 
         **Apob** stays high within enterocytes. All-cell I is **0.631**. Enterocyte I is **0.521**.
 
-        **Acta2** is high across all cells (I **0.743**) and is not scored within enterocytes because it is detected in under 5% of enterocytes. The scatter marks such genes on the all-cell axis only. Enterocyte subtypes are position-defined, so a single-subtype run is the stricter check.
+        **Acta2** ranks high across all cells (I **0.743**) but drops out of the enterocyte comparison because it is not expressed in at least 5% of enterocytes. Pick **Acta2** in molab and the scatter places a vertical marker on the all-cell axis with a note instead of a y value. **Grem1** behaves the same way. Enterocyte subtypes are position-defined, so a single-subtype run is the stricter check.
 
         `n_counts` is an obs column. It is the per-cell total of `layers['raw_counts']`. The median on this slice is **48**. Colour by `n_counts` when a spatial pattern might be a depth artifact.
 
@@ -160,15 +160,21 @@ def moran_setup(adata, cache, np, pd, sq):
 
 @app.cell
 def landmark_map(CRYPT_VILLUS_X_HALF_UM, DEFAULT_GENE, adata, ml, mo, np):
+    import os
+
     xy = np.asarray(adata.obsm["spatial"])
     mucosa = adata.obs["anatomical_layer"].astype(str).eq("Mucosa").to_numpy()
     x_mid = float(np.median(xy[mucosa, 0]))
-    strip = mucosa & (xy[:, 0] >= x_mid - CRYPT_VILLUS_X_HALF_UM) & (
+    cv_window = mucosa & (xy[:, 0] >= x_mid - CRYPT_VILLUS_X_HALF_UM) & (
         xy[:, 0] <= x_mid + CRYPT_VILLUS_X_HALF_UM
     )
-    adata_map = adata[strip].copy()
+    xs = xy[cv_window, 0]
+    ys = xy[cv_window, 1]
+    view_x_bounds = (float(xs.min()), float(xs.max()))
+    view_y_bounds = (float(ys.min()), float(ys.max()))
+    export_strip = os.environ.get("MILUME_RECIPE_EXPORT_STRIP") == "1"
+    adata_map = (adata[cv_window] if export_strip else adata).copy()
     adata_map.obs = adata_map.obs[["cell_type", "n_counts"]].copy()
-    gene_list = list(adata_map.var_names)
     w = mo.ui.anywidget(
         ml.peek(
             adata_map,
@@ -177,10 +183,8 @@ def landmark_map(CRYPT_VILLUS_X_HALF_UM, DEFAULT_GENE, adata, ml, mo, np):
         )
     )
     w.color = DEFAULT_GENE
-    xs = xy[strip, 0]
-    ys = xy[strip, 1]
-    w.x_bounds = (float(xs.min()), float(xs.max()))
-    w.y_bounds = (float(ys.min()), float(ys.max()))
+    w.x_bounds = view_x_bounds
+    w.y_bounds = view_y_bounds
     traits = w.widget.traits() if hasattr(w, "widget") else w.traits()
     if "mesh_opacity" in traits:
         w.mesh_opacity = 0.6
@@ -241,10 +245,11 @@ def moran_plots(adata, np, pd, plt, w):
         x_all = float(moran_scores.at[gene, "moran_I_all"])
         ax.axvline(x_all, color="#d62728", linewidth=0.8)
         ax.annotate(
-            f"{gene} not scored in enterocytes",
+            f"{gene}: not expressed in ≥5% of enterocytes",
             (x_all, hi),
             textcoords="offset points",
             xytext=(6, -10),
+            fontsize=8,
         )
     ax.set_xlabel("Moran's I, all cells")
     ax.set_ylabel("Moran's I, enterocytes")

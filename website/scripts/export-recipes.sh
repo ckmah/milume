@@ -26,9 +26,10 @@ RECIPES=(
   npm run -s build
 )
 
-export MARIMO_EXPORT_REPOSITORY="${MARIMO_EXPORT_REPOSITORY:-${ROOT}/.cache/marimo-export-recipes}"
 # LandmarksWidget full-slice state exceeds marimo_export's default 256 KiB prepared manifest cap.
 export MILUME_MARIMO_PREPARED_MANIFEST_BYTES="${MILUME_MARIMO_PREPARED_MANIFEST_BYTES:-2097152}"
+export MARIMO_EXPORT_REPOSITORY="${MARIMO_EXPORT_REPOSITORY:-${ROOT}/.cache/marimo-export-recipes}"
+export MILUME_RECIPE_EXPORT_STRIP=1
 
 export_one() {
   local slug="$1"
