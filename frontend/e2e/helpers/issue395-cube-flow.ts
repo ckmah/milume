@@ -6,12 +6,17 @@ import {
 } from "../helpers";
 import {
   CUBE_VIEW_SEL,
+  CUBE_VOLUME_INSET,
   analyzeIssue395PanckSitesInCubeView,
+  canvasStatsGl,
   expectIssue395PanckMagentaSitesInCubeMainViewport,
   expectNoDeckShaderCompileOverlay,
   hideMapPointsForImageAssert,
+  inferIssue395CubeViewportInkMode,
   rejectCubeViewportEmpty,
   rejectCubeViewportSolidFill,
+  waitForCubeViewportInk,
+  type CubeViewportInkMode,
 } from "./shader-and-pixels";
 
 export const ISSUE395_INSPECT_CX = 130.5;
@@ -85,6 +90,58 @@ export async function setCubePreset(page: Page, preset: "Top view" | "Oblique vi
   await page.getByRole("radio", { name: preset }).click();
   await waitCubeRefined(page);
   await page.waitForTimeout(preset === "Oblique view" ? 800 : 600);
+}
+
+/** Wait for refined cube, settled deck frame, and non-empty GL/screenshot ink before captures. */
+export async function waitIssue395CubeReadyForCapture(
+  page: Page,
+  label: string,
+  mode?: CubeViewportInkMode,
+) {
+  await waitCubeRefined(page);
+  await expectNoDeckShaderCompileOverlay(page);
+  const resolved = mode ?? (await inferIssue395CubeViewportInkMode(page));
+  await waitForCubeViewportInk(page, resolved);
+  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-settled", "true", { timeout: 60_000 });
+  const rendersBefore = await page.evaluate(() => (window as unknown as { __volumeCubeRenderCount?: number }).__volumeCubeRenderCount ?? 0);
+  try {
+    await expect
+      .poll(async () => page.evaluate(() => (window as unknown as { __volumeCubeRenderCount?: number }).__volumeCubeRenderCount ?? 0), {
+        timeout: 8_000,
+      })
+      .toBeGreaterThan(rendersBefore);
+  } catch {
+    await page.waitForTimeout(800);
+  }
+  await page.waitForTimeout(600);
+  await rejectCubeViewportEmpty(page, label, resolved);
+  const mapStats = await canvasStatsGl(page, "canvas.landmarks__webgl");
+  const cubeGl = await canvasStatsGl(page, `${CUBE_VIEW_SEL} canvas`, CUBE_VOLUME_INSET);
+  if (
+    mapStats &&
+    cubeGl &&
+    mapStats.colored > 150 &&
+    cubeGl.blueTissue < 100 &&
+    resolved !== "panck-only"
+  ) {
+    expect(
+      cubeGl.blueTissue,
+      `${label}: map shows tissue but cube GL inset lacks DAPI (map colored=${mapStats.colored}; cube blue=${cubeGl.blueTissue} tissue=${cubeGl.tissue})`,
+    ).toBeGreaterThanOrEqual(800);
+  }
+  await page.waitForFunction(
+    () => {
+      const view = document.querySelector('[role="dialog"][aria-label="Cube"] .volume-cube__view');
+      if (!view) return false;
+      const r = view.getBoundingClientRect();
+      const cx = r.left + r.width * 0.45;
+      const cy = r.top + r.height * 0.45;
+      const top = document.elementFromPoint(cx, cy);
+      return top instanceof HTMLCanvasElement && view.contains(top);
+    },
+    null,
+    { timeout: 15_000 },
+  );
 }
 
 export async function setCubeLabels(page: Page, on: boolean) {

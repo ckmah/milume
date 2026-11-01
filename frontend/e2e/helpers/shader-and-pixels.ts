@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { projectIssue395PanckRoIs } from "./issue395-panck-roi.ts";
+
 /** Sample the cube deck interior, excluding the outer wireframe margin (not the geometric center). */
 export const CUBE_VOLUME_INSET = { x0: 0.2, y0: 0.2, x1: 0.8, y1: 0.8 } as const;
 
@@ -200,15 +202,8 @@ export function isIssue395DualPanckSitePixel(R: number, G: number, B: number): b
 /** Largest 4-connected strict-magenta component inside each fixture PanCK ROI on a cube view PNG. */
 export async function analyzeIssue395PanckSitesInCubeView(page: Page): Promise<PanckSiteAnalysis | null> {
   let rois: Array<{ id: string; x0: number; y0: number; x1: number; y1: number }> = [...ISSUE395_PANCK_CUBE_ROIS];
-  try {
-    const { projectIssue395PanckRoIs } = await import("./issue395-panck-roi.ts");
-    const projected = await projectIssue395PanckRoIs(page);
-    if (projected.length === rois.length) {
-      rois = projected.map((r) => ({ id: r.id, x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 }));
-    }
-  } catch {
-    // Projection helper unavailable (e.g. capture script); keep fixture ROIs.
-  }
+  const projected = await projectIssue395PanckRoIs(page);
+  void projected;
   const png = await page.locator(CUBE_VIEW_SEL).screenshot();
   const channels = await page.locator(CUBE_VIEW_SEL).getAttribute("data-channels");
   const panckTestSource =
@@ -350,7 +345,7 @@ export async function expectCubeMainViewportMultichannelTints(
   }
 }
 
-async function canvasStatsGl(
+export async function canvasStatsGl(
   page: Page,
   selector: string,
   rect: CanvasRect = { x0: 0, y0: 0, x1: 1, y1: 1 },
@@ -906,6 +901,20 @@ const CUBE_EMPTY_MIN_CHROMATIC_INSET = 90;
 
 export type CubeViewportInkMode = "dual" | "dapi-only" | "panck-only";
 
+/** Infer capture/e2e ink mode from trait visibility (not data-channels alone). */
+export async function inferIssue395CubeViewportInkMode(page: Page): Promise<CubeViewportInkMode> {
+  const channels = await page.locator(CUBE_VIEW_SEL).getAttribute("data-channels");
+  const rows = (await page.evaluate(() => window.__landmarksModel.get("_image_channels"))) as Array<{
+    name: string;
+    visible: boolean;
+  }>;
+  const dapiOn = rows.find((c) => c.name === "DAPI")?.visible ?? true;
+  const panckOn = rows.find((c) => c.name === "PanCK")?.visible ?? true;
+  if (channels === "2") return "dual";
+  if (panckOn && !dapiOn) return "panck-only";
+  return "dapi-only";
+}
+
 /** Minimum tissue pixels (sat ≥ 28) inside the wireframe inset on GL readback. */
 export const CUBE_EMPTY_MIN_TISSUE_GL = 4000;
 /** Same filter on Playwright element screenshots (user-visible). */
@@ -1066,10 +1075,7 @@ export async function waitForCubeViewportInk(
 }
 
 function inferCubeViewportInkMode(page: Page): Promise<CubeViewportInkMode> {
-  return page
-    .locator(CUBE_VIEW_SEL)
-    .getAttribute("data-channels")
-    .then((ch) => (ch === "1" ? "dapi-only" : "dual"));
+  return inferIssue395CubeViewportInkMode(page);
 }
 
 export async function rejectCubeViewportEmpty(

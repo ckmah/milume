@@ -14,6 +14,7 @@ import {
   runIssue395ToggleClipFlow,
   setCubeLabels,
   setCubePreset,
+  waitIssue395CubeReadyForCapture,
 } from "../e2e/helpers/issue395-cube-flow.ts";
 
 const outDir = process.env.CAPTURE_OUT ?? "/opt/cursor/artifacts/issue395";
@@ -28,6 +29,7 @@ async function captureStillFrames(page: import("@playwright/test").Page) {
   await openIssue395CubeAtInspectCentre(page);
   await setCubePreset(page, "Oblique view");
   await setCubeLabels(page, false);
+  await waitIssue395CubeReadyForCapture(page, "capture Iso labels off", "dual");
   await expectIssue395CubeViewportHealthy(page, "capture Iso labels off", { requirePanckSites: true });
   await setCubePreset(page, "Top view");
   await page.waitForTimeout(800);

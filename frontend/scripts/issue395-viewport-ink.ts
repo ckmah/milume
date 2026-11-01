@@ -15,7 +15,7 @@ import {
   clickPanckLayerSwitch,
   setCubeLabels,
   setCubePreset,
-  waitCubeRefined,
+  waitIssue395CubeReadyForCapture,
 } from "../e2e/helpers/issue395-cube-flow.ts";
 import {
   cubeGlInkStats,
@@ -63,17 +63,13 @@ await openIssue395CubeAtInspectCentre(page);
 await setCubeLabels(page, false);
 await applyMode(page, mode);
 await setCubePreset(page, "Oblique view");
-await waitCubeRefined(page);
-await page.waitForTimeout(900);
-
+await waitIssue395CubeReadyForCapture(page, `capture ${mode}`, mode);
 const attrs = await page.locator('[role="dialog"][aria-label="Cube"] .volume-cube__view').evaluate((el) => ({
   channels: el.getAttribute("data-channels"),
   refining: el.getAttribute("data-refining"),
   sums: el.getAttribute("data-volume-sums"),
   format: el.getAttribute("data-image-format"),
 }));
-
-await rejectCubeViewportEmpty(page, `bisect ${mode}`, mode);
 const gl = await cubeGlInkStats(page, CUBE_VOLUME_INSET);
 const shot = await cubeScreenshotInkStats(page, CUBE_VOLUME_INSET);
 

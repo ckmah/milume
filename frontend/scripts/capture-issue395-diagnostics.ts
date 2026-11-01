@@ -11,13 +11,12 @@ import {
   openIssue395CubeAtInspectCentre,
   setCubeLabels,
   setCubePreset,
-  waitCubeRefined,
+  waitIssue395CubeReadyForCapture,
 } from "../e2e/helpers/issue395-cube-flow.ts";
 import {
   cubeGlInkStats,
   cubeScreenshotInkStats,
   CUBE_VOLUME_INSET,
-  rejectCubeViewportEmpty,
 } from "../e2e/helpers/shader-and-pixels.ts";
 
 async function loadProjectedRoIs(page: import("@playwright/test").Page) {
@@ -81,9 +80,7 @@ const report: Record<string, unknown> = { base };
 
 for (const preset of ["Top view", "Oblique view"] as const) {
   await setCubePreset(page, preset);
-  await waitCubeRefined(page);
-  await page.waitForTimeout(900);
-  await rejectCubeViewportEmpty(page, `diagnostic ${preset}`, "dual");
+  await waitIssue395CubeReadyForCapture(page, `diagnostic ${preset}`, "dual");
   const gl = await cubeGlInkStats(page, CUBE_VOLUME_INSET);
   const shotInk = await cubeScreenshotInkStats(page, CUBE_VOLUME_INSET);
   const rois = await loadProjectedRoIs(page);
