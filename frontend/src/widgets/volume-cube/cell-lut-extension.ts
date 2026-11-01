@@ -358,14 +358,20 @@ vec4 mergeTintedSamples(vec4 s0, vec4 s1) {
 void integrateDualChannelStep(inout vec4 accCh0, inout vec4 accCh1, float v0, float v1, float steps) {
   vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
   vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
-  addSample(accCh0, s0, steps);
-  addSample(accCh1, s1, steps);
+  float a0 = cover(s0.a, steps);
+  accCh0.rgb += (1.0 - accCh0.a) * a0 * s0.rgb;
+  accCh0.a += (1.0 - accCh0.a) * a0;
+  float a1 = cover(s1.a, steps);
+  accCh1.rgb += (1.0 - accCh1.a) * a1 * s1.rgb;
+  accCh1.a += (1.0 - accCh1.a) * a1;
 }
 
 void mergeDualChannelAcc(inout vec4 acc, vec4 accCh0, vec4 accCh1) {
-  vec3 lin0 = srgbToLinear(clamp(accCh0.rgb, 0.0, 1.0));
-  vec3 lin1 = srgbToLinear(clamp(accCh1.rgb, 0.0, 1.0));
-  vec3 rgb = min(lin0 * accCh0.a + lin1 * accCh1.a, vec3(1.0));
+  vec3 t0 = accCh0.a > 1e-6 ? accCh0.rgb / accCh0.a : vec3(0.0);
+  vec3 t1 = accCh1.a > 1e-6 ? accCh1.rgb / accCh1.a : vec3(0.0);
+  vec3 lin0 = srgbToLinear(clamp(t0, 0.0, 1.0)) * accCh0.a;
+  vec3 lin1 = srgbToLinear(clamp(t1, 0.0, 1.0)) * accCh1.a;
+  vec3 rgb = min(lin0 + lin1, vec3(1.0));
   float a = accCh0.a + accCh1.a - accCh0.a * accCh1.a;
   acc = vec4(rgb, a);
 }
