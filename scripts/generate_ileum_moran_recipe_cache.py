@@ -40,7 +40,7 @@ def _expressed_gene_names(adata, min_fraction: float) -> list[str]:
 
 def _moran_I(sq, adata, genes: list[str] | None = None):
     sq.gr.spatial_neighbors_knn(adata, n_neighs=6, percentile=99)
-    sq.gr.spatial_autocorr(adata, mode="moran", n_perms=100, rng=0, genes=genes)
+    sq.gr.spatial_autocorr(adata, mode="moran", n_perms=100, seed=0, genes=genes)
     return adata.uns["moranI"]["I"]
 
 
