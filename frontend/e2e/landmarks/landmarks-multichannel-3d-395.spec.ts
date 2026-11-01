@@ -2,9 +2,11 @@ import { expect } from "@playwright/test";
 
 import { test } from "../fixtures";
 import {
+  expectCubeFootprintChangesTopToIso,
   expectCubePixelsChangeWhenPanckOff,
   expectCubeShowsMultichannelImage,
   expectCubeUserVisibleScreenshot,
+  expectCubeVolumeSurvivesMapImageHidden,
   expectMapBandShowsMultichannelImage,
   expectNoDeckShaderCompileOverlay,
   hideMapPointsForImageAssert,
@@ -65,6 +67,16 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   test("cube compiles shader and shows blended channels", async ({ page }) => {
     await openCubeAtCentre(page);
     await expectCubeShowsMultichannelImage(page);
+  });
+
+  test("cube volume survives hiding map image (not flat backdrop bleed)", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await expectCubeVolumeSurvivesMapImageHidden(page);
+  });
+
+  test("Top vs Oblique changes cube GL footprint", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await expectCubeFootprintChangesTopToIso(page);
   });
 
   test("Playwright cube viewport screenshot shows multichannel ink in box (Top and Oblique)", async ({

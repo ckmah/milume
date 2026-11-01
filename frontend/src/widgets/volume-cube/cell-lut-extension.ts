@@ -26,11 +26,24 @@ export { DEFAULT_RENDER, type RenderSettings } from "./palettes";
 /** A 256-texel image colour map from `paletteLut`. */
 export type ImagePalette = { data: Uint8Array; width: number; height: number };
 
+let liveTraitContrast: [number, number][] = [[0, 255], [0, 255], [0, 255], [0, 255]];
+
+/** Per-channel contrast for the cube raycast (trait `_image_channels`, raw dtype units). */
+export function setCubeTraitContrast(limits: [number, number][]) {
+  liveTraitContrast = limits.length
+    ? limits
+    : [[0, 255], [0, 255], [0, 255], [0, 255]];
+}
+
 type CubeUniforms = Partial<RenderSettings> & {
   imageOn?: number;
   imageScale?: number;
   imageMip?: number;
   imageChannelCount?: number;
+  imageContrast0?: [number, number];
+  imageContrast1?: [number, number];
+  imageContrast2?: [number, number];
+  imageContrast3?: [number, number];
   cutX0?: number;
   cutX1?: number;
   cutY0?: number;
@@ -51,6 +64,10 @@ const CUBE_RENDER_UNIFORM_TYPES = {
     imageScale: "f32",
     imageMip: "f32",
     imageChannelCount: "f32",
+    imageContrast0: "vec2<f32>",
+    imageContrast1: "vec2<f32>",
+    imageContrast2: "vec2<f32>",
+    imageContrast3: "vec2<f32>",
     cutX0: "f32",
     cutX1: "f32",
     cutY0: "f32",
@@ -69,6 +86,10 @@ const CUBE_RENDER_DEFAULT_UNIFORMS = {
     imageScale: 1,
     imageMip: 0,
     imageChannelCount: 1,
+    imageContrast0: [0, 255],
+    imageContrast1: [0, 255],
+    imageContrast2: [0, 255],
+    imageContrast3: [0, 255],
     cutX0: 0,
     cutX1: 1,
     cutY0: 0,
@@ -81,6 +102,7 @@ const CUBE_RENDER_DEFAULT_UNIFORMS = {
   };
 
 function cubeRenderGetUniforms(render: CubeUniforms = {}) {
+  const lim = (i: number): [number, number] => liveTraitContrast[i] ?? [0, 255];
   return {
     imageAlpha: render.imageAlpha ?? DEFAULT_RENDER.imageAlpha,
     imageGamma: render.imageGamma ?? DEFAULT_RENDER.imageGamma,
@@ -88,6 +110,10 @@ function cubeRenderGetUniforms(render: CubeUniforms = {}) {
     imageScale: render.imageScale ?? 1,
     imageMip: render.imageMip ?? 0,
     imageChannelCount: render.imageChannelCount ?? 1,
+    imageContrast0: render.imageContrast0 ?? lim(0),
+    imageContrast1: render.imageContrast1 ?? lim(1),
+    imageContrast2: render.imageContrast2 ?? lim(2),
+    imageContrast3: render.imageContrast3 ?? lim(3),
     cutX0: render.cutX0 ?? 0,
     cutX1: render.cutX1 ?? 1,
     cutY0: render.cutY0 ?? 0,
@@ -106,8 +132,7 @@ const cubeRenderModuleSingle = {
   defaultUniforms: CUBE_RENDER_DEFAULT_UNIFORMS,
   getUniforms: cubeRenderGetUniforms,
   inject: {
-    "fs:DECKGL_PROCESS_INTENSITY":
-      "intensity = apply_contrast_limits(intensity * cubeRender.imageScale, contrastLimits);",
+    "fs:DECKGL_PROCESS_INTENSITY": "intensity = intensity * cubeRender.imageScale;",
   },
   fs: `\
 uniform cubeRenderUniforms {
@@ -117,6 +142,10 @@ uniform cubeRenderUniforms {
   float imageScale;
   float imageMip;
   float imageChannelCount;
+  vec2 imageContrast0;
+  vec2 imageContrast1;
+  vec2 imageContrast2;
+  vec2 imageContrast3;
   float cutX0;
   float cutX1;
   float cutY0;
@@ -140,8 +169,11 @@ float cover(float a, float steps) {
   return 1.0 - pow(clamp(1.0 - a, 0.0, 1.0), steps);
 }
 
-vec4 imageSample(float v) {
-  float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
+vec4 imageSample(float raw) {
+  float v = cubeRender.imageContrast0.y <= cubeRender.imageContrast0.x
+    ? 0.0
+    : clamp((raw - cubeRender.imageContrast0.x) / (cubeRender.imageContrast0.y - cubeRender.imageContrast0.x), 0.0, 1.0);
+  float g = pow(v, cubeRender.imageGamma);
   vec3 c = srgbToLinear(texelFetch(imagePalette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
@@ -186,8 +218,7 @@ const cubeRenderModuleMulti = {
   defaultUniforms: CUBE_RENDER_DEFAULT_UNIFORMS,
   getUniforms: cubeRenderGetUniforms,
   inject: {
-    "fs:DECKGL_PROCESS_INTENSITY":
-      "intensity = apply_contrast_limits(intensity * cubeRender.imageScale, contrastLimits);",
+    "fs:DECKGL_PROCESS_INTENSITY": "intensity = intensity * cubeRender.imageScale;",
   },
   fs: `\
 uniform cubeRenderUniforms {
@@ -197,6 +228,10 @@ uniform cubeRenderUniforms {
   float imageScale;
   float imageMip;
   float imageChannelCount;
+  vec2 imageContrast0;
+  vec2 imageContrast1;
+  vec2 imageContrast2;
+  vec2 imageContrast3;
   float cutX0;
   float cutX1;
   float cutY0;
@@ -227,35 +262,36 @@ float cover(float a, float steps) {
   return 1.0 - pow(clamp(1.0 - a, 0.0, 1.0), steps);
 }
 
-vec4 tintedSample(float v, highp sampler3D palette) {
-  float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
+vec4 tintedSample(float raw, highp sampler3D palette, vec2 limits) {
+  float v = limits.y <= limits.x ? 0.0 : clamp((raw - limits.x) / (limits.y - limits.x), 0.0, 1.0);
+  float g = pow(v, cubeRender.imageGamma);
   vec3 c = srgbToLinear(texelFetch(palette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
 // Image value after contrast -> (linear rgb, per-sample alpha); clear with the image off.
 vec4 imageSample(float v) {
-  return tintedSample(v, imagePalette);
+  return tintedSample(v, imagePalette, cubeRender.imageContrast0);
 }
 
 vec4 combinedImageSample2(float v0, float v1) {
-  vec4 s0 = tintedSample(v0, imagePalette);
-  vec4 s1 = tintedSample(v1, imagePalette1);
+  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
   return vec4(s0.rgb + s1.rgb, min(1.0, s0.a + s1.a));
 }
 
 vec4 combinedImageSample3(float v0, float v1, float v2) {
-  vec4 s0 = tintedSample(v0, imagePalette);
-  vec4 s1 = tintedSample(v1, imagePalette1);
-  vec4 s2 = tintedSample(v2, imagePalette2);
+  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+  vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
   return vec4(s0.rgb + s1.rgb + s2.rgb, min(1.0, s0.a + s1.a + s2.a));
 }
 
 vec4 combinedImageSample4(float v0, float v1, float v2, float v3) {
-  vec4 s0 = tintedSample(v0, imagePalette);
-  vec4 s1 = tintedSample(v1, imagePalette1);
-  vec4 s2 = tintedSample(v2, imagePalette2);
-  vec4 s3 = tintedSample(v3, imagePalette3);
+  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+  vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
+  vec4 s3 = tintedSample(v3, imagePalette3, cubeRender.imageContrast3);
   return vec4(s0.rgb + s1.rgb + s2.rgb + s3.rgb, min(1.0, s0.a + s1.a + s2.a + s3.a));
 }
 
@@ -530,6 +566,7 @@ type LayerLike = {
     render?: RenderSettings | null;
     /** Cut edges as fractions of the ray box. Omitted: the whole box. */
     cutFrac?: number[] | null;
+    contrastLimits?: [number, number][] | null;
     /** The meshes' offscreen surfaces for this view (cell-mesh.ts). */
     cubeMeshTarget?: MeshTarget | null;
     modelMatrix?: Matrix4 | null;
@@ -646,12 +683,24 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
       layer.props.onImageBound?.(imageFormat);
     }
     const frac = layer.props.cutFrac;
+    const render = layer.props.render as (RenderSettings & { traitContrast?: [number, number][] }) | null;
+    const traitLimits =
+      (layer.props as { cubeTraitContrast?: [number, number][] }).cubeTraitContrast ??
+      render?.traitContrast ??
+      layer.props.contrastLimits ??
+      undefined;
+    if (traitLimits?.length) setCubeTraitContrast(traitLimits);
+    const lim = (i: number): [number, number] => liveTraitContrast[i] ?? [0, 255];
     const uniforms: CubeUniforms = {
       ...(layer.props.render ?? DEFAULT_RENDER),
       imageOn,
       imageScale: image?.scale ?? 1,
       imageMip: layer.props.imageMode === "mip" ? 1 : 0,
       imageChannelCount: layer.props.channelPalettes?.length ?? 1,
+      imageContrast0: lim(0),
+      imageContrast1: lim(1),
+      imageContrast2: lim(2),
+      imageContrast3: lim(3),
       cutX0: frac?.[0] ?? 0,
       cutX1: frac?.[1] ?? 1,
       cutY0: frac?.[2] ?? 0,

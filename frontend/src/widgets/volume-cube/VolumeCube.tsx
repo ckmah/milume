@@ -19,6 +19,7 @@ import {
   type CellColoring,
   type HighlightGroup,
   type RenderSettings,
+  setCubeTraitContrast,
 } from "./cell-lut-extension";
 import {
   type CutFace,
@@ -601,8 +602,9 @@ export function VolumeCube({
   const activeImageChannels: CubeImageChannel[] = useMemo(() => {
     const rows = imageChannelRows ?? [];
     const pyramidBase = image?.[0] ?? null;
-    const fromTrait = cubeImageChannels(rows, pyramidBase, contrast);
-    if (fromTrait.length) return fromTrait;
+    if (rows.length > 0) {
+      return cubeImageChannels(rows, pyramidBase, contrast);
+    }
     return [
       {
         name: "Channel 0",
@@ -613,6 +615,7 @@ export function VolumeCube({
       },
     ];
   }, [imageChannelRows, image, contrast, shownImageLook.contrast]);
+  const showCubeImage = showImage && activeImageChannels.length > 0;
   const channelPalettes = useMemo(
     () =>
       activeImageChannels.length === 1 && !(imageChannelRows?.length ?? 0)
@@ -932,6 +935,17 @@ export function VolumeCube({
     () => activeImageChannels.map((ch) => [ch.contrast[0], ch.contrast[1]] as [number, number]),
     [activeImageChannels],
   );
+  const contrastLimitsKey = useMemo(
+    () => contrastLimits.map((c) => `${c[0]},${c[1]}`).join(";"),
+    [contrastLimits],
+  );
+  useEffect(() => {
+    setCubeTraitContrast(contrastLimits);
+  }, [contrastLimitsKey, contrastLimits]);
+  const shownRenderForDeck = useMemo(
+    () => ({ ...shownRender, traitContrast: contrastLimits }),
+    [shownRender, contrastLimits],
+  );
   const channelSelections = useMemo(() => {
     const hasC = Boolean(level?.source.labels.includes("c"));
     return activeImageChannels.map((ch) => (hasC ? { c: ch.index } : {}));
@@ -1099,7 +1113,7 @@ export function VolumeCube({
       loader
         ? [
             {
-              id: cubeRaycastLayerId,
+              id: `${cubeRaycastLayerId}@${contrastLimitsKey}`,
               loader,
               onViewportLoad,
               contrastLimits,
@@ -1120,8 +1134,9 @@ export function VolumeCube({
               onImageBound,
               imagePalette,
               channelPalettes,
-              render: shownRender,
-              showImage,
+              cubeTraitContrast: contrastLimits,
+              render: shownRenderForDeck,
+              showImage: showCubeImage,
               modelMatrix: volumeMatrix,
               frameMatrix: Z_UP,
               clippingPlanes: [],
@@ -1137,6 +1152,7 @@ export function VolumeCube({
       loader,
       onViewportLoad,
       contrastLimits,
+      contrastLimitsKey,
       channelColors,
       channelsVisible,
       channelSelections,
@@ -1163,8 +1179,8 @@ export function VolumeCube({
       onImageBound,
       imagePalette,
       channelPalettes,
-      shownRender,
-      showImage,
+      shownRenderForDeck,
+      showCubeImage,
       cubeFrame,
       placedOverlays,
       placedScatterPoints,
@@ -1445,7 +1461,7 @@ export function VolumeCube({
       data-outside={outsideCut ? "cut" : "open"}
       className={cn("volume-cube__view relative w-full overflow-hidden rounded-md", background && "bg-neutral-950")}
       style={{ height }}
-      data-image={showImage ? "on" : "off"}
+      data-image={showCubeImage ? "on" : "off"}
       data-labels={labelsState}
       data-image-format={imageFormat ?? "none"}
       data-label-cells={mesh?.ids.length ?? 0}
@@ -1465,10 +1481,12 @@ export function VolumeCube({
       data-viewport-w={Math.round(viewPixelSize.width)}
       data-viewport-h={Math.round(viewPixelSize.height)}
       data-channels={activeImageChannels.length}
+      data-contrast-limits={contrastLimits.map((c) => c.join(",")).join(";")}
       data-gpu-channel-bytes={gpuChannelBytes.join(",") || "0"}
     >
       {layerProps && displayViewStates ? (
         <VolumeCubeDeck
+          deckKey={`${activeImageChannels.length}:${contrastLimitsKey}`}
           layerProps={layerProps}
           views={views}
           viewStates={displayViewStates}
@@ -1525,6 +1543,7 @@ export function VolumeCube({
 }
 
 type VolumeCubeDeckProps = {
+  deckKey: string;
   layerProps: Record<string, unknown>[];
   views: FramedVolumeView[];
   viewStates: ViewState[];
@@ -1549,6 +1568,7 @@ function deckLayerPropsEqual(a: Record<string, unknown>[], b: Record<string, unk
 }
 
 function volumeCubeDeckPropsEqual(prev: VolumeCubeDeckProps, next: VolumeCubeDeckProps): boolean {
+  if (prev.deckKey !== next.deckKey) return false;
   if (prev.views !== next.views) return false;
   if (!equal(prev.viewStates, next.viewStates)) return false;
   if (!deckLayerPropsEqual(prev.layerProps, next.layerProps)) return false;
@@ -1557,6 +1577,7 @@ function volumeCubeDeckPropsEqual(prev: VolumeCubeDeckProps, next: VolumeCubeDec
 }
 
 const VolumeCubeDeck = memo(function VolumeCubeDeck({
+  deckKey,
   layerProps,
   views,
   viewStates,
@@ -1565,6 +1586,7 @@ const VolumeCubeDeck = memo(function VolumeCubeDeck({
 }: VolumeCubeDeckProps) {
   return (
     <VivViewer
+      key={deckKey}
       {...({
         layerProps,
         views,

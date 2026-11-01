@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
-/** Inner fraction of the cube deck, excluding the wireframe margin. */
-export const CUBE_VOLUME_INSET = { x0: 0.35, y0: 0.35, x1: 0.65, y1: 0.65 } as const;
+/** Sample the cube deck interior, excluding the outer wireframe margin (not the geometric center). */
+export const CUBE_VOLUME_INSET = { x0: 0.2, y0: 0.2, x1: 0.8, y1: 0.8 } as const;
 
 export const CUBE_VIEW_SEL = '[role="dialog"][aria-label="Cube"] .volume-cube__view';
 const cubeCanvasSel = `${CUBE_VIEW_SEL} canvas`;
@@ -116,6 +116,200 @@ export async function hideMapPointsForImageAssert(page: Page) {
   });
 }
 
+type TintStats = { blueExcess: number; magentaExcess: number; bright: number; colored: number };
+
+/** Cube deck GL readback inside the wireframe box (not the map plot canvas). */
+export async function cubeGlTintStats(page: Page, rect: CanvasRect = CUBE_VOLUME_INSET): Promise<TintStats | null> {
+  return page.evaluate(
+    ({ sel, r }) => {
+      const c = document.querySelector(sel) as HTMLCanvasElement | null;
+      if (!c) return null;
+      const gl = c.getContext("webgl2") || c.getContext("webgl");
+      if (!gl) return null;
+      const w = c.width;
+      const h = c.height;
+      const rx0 = Math.floor(w * r.x0);
+      const rx1 = Math.floor(w * r.x1);
+      const ry0 = Math.floor(h * r.y0);
+      const ry1 = Math.floor(h * r.y1);
+      const buf = new Uint8Array(w * h * 4);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+      let blueExcess = 0;
+      let magentaExcess = 0;
+      let bright = 0;
+      let colored = 0;
+      for (let y = ry0; y < ry1; y++) {
+        for (let x = rx0; x < rx1; x++) {
+          const yi = h - 1 - y;
+          const i = (yi * w + x) * 4;
+          const r8 = buf[i]!;
+          const g = buf[i + 1]!;
+          const b = buf[i + 2]!;
+          if (r8 + g + b > 40) bright++;
+          if (Math.abs(r8 - g) > 12 || Math.abs(r8 - b) > 12 || Math.abs(g - b) > 12) colored++;
+          blueExcess += Math.max(0, b - Math.max(r8, g) - 10);
+          magentaExcess += Math.max(0, r8 + b - 2 * g - 20);
+        }
+      }
+      return { blueExcess, magentaExcess, bright, colored };
+    },
+    { sel: cubeCanvasSel, r: rect },
+  );
+}
+
+/** Stable subsample of cube GL pixels; Top vs Iso must differ when the volume re-projects. */
+export async function cubeGlFootprintSample(
+  page: Page,
+  preset: "Top view" | "Oblique view",
+): Promise<number[] | null> {
+  await page.getByRole("radio", { name: preset }).click();
+  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
+  await page.waitForTimeout(500);
+  return page.evaluate(
+    ({ sel, r }) => {
+      const c = document.querySelector(sel) as HTMLCanvasElement | null;
+      if (!c) return null;
+      const gl = c.getContext("webgl2") || c.getContext("webgl");
+      if (!gl) return null;
+      const w = c.width;
+      const h = c.height;
+      const rx0 = Math.floor(w * r.x0);
+      const rx1 = Math.floor(w * r.x1);
+      const ry0 = Math.floor(h * r.y0);
+      const ry1 = Math.floor(h * r.y1);
+      const buf = new Uint8Array(w * h * 4);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+      const out: number[] = [];
+      for (let y = ry0; y < ry1; y += 4) {
+        for (let x = rx0; x < rx1; x += 4) {
+          const yi = h - 1 - y;
+          const i = (yi * w + x) * 4;
+          out.push(buf[i]!, buf[i + 1]!, buf[i + 2]!);
+        }
+      }
+      return out;
+    },
+    { sel: cubeCanvasSel, r: CUBE_VOLUME_INSET },
+  );
+}
+
+export async function expectCubeVolumeSurvivesMapImageHidden(page: Page) {
+  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
+  const before = await cubeGlTintStats(page);
+  expect(before).toBeTruthy();
+  expect(before!.colored, "cube must show multichannel ink before map hide").toBeGreaterThan(80);
+  await page.evaluate(() => {
+    window.__landmarksModel.set("_image_visible", false);
+    window.__landmarksModel.save_changes();
+  });
+  await page.waitForTimeout(900);
+  const after = await cubeGlTintStats(page);
+  expect(after).toBeTruthy();
+  expect(
+    after!.colored,
+    "hiding map image must not remove cube volume (backdrop bleed)",
+  ).toBeGreaterThan(Math.max(60, before!.colored * 0.55));
+  await page.evaluate(() => {
+    window.__landmarksModel.set("_image_visible", true);
+    window.__landmarksModel.save_changes();
+  });
+}
+
+export async function expectCubeFootprintChangesTopToIso(page: Page) {
+  const top = await cubeGlFootprintSample(page, "Top view");
+  const iso = await cubeGlFootprintSample(page, "Oblique view");
+  expect(top).toBeTruthy();
+  expect(iso).toBeTruthy();
+  expect(top!.length).toBe(iso!.length);
+  let diff = 0;
+  for (let i = 0; i < top!.length; i++) {
+    if (top![i] !== iso![i]) diff++;
+  }
+  expect(diff, "Top vs Oblique cube GL footprint (flat backdrop stays fixed)").toBeGreaterThan(120);
+}
+
+export async function expectCubeDapiContrastRemovesBlue(page: Page) {
+  await page.getByTestId("layer-channel-PanCK").click();
+  await expect
+    .poll(async () => {
+      const rows = (await page.evaluate(() => window.__landmarksModel.get("_image_channels"))) as Array<{
+        name: string;
+        visible: boolean;
+      }>;
+      return rows.find((c) => c.name === "PanCK")?.visible;
+    })
+    .toBe(false);
+  const reopenCube = async () => {
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Cube" })).toHaveCount(0, { timeout: 30_000 });
+    await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+    const plot = page.locator(".landmarks__plot");
+    const box = await plot.boundingBox();
+    expect(box).toBeTruthy();
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await expect(page.getByRole("dialog", { name: "Cube" })).toBeVisible({ timeout: 60_000 });
+    await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
+    await page.getByRole("radio", { name: "Oblique view" }).click();
+    await page.waitForTimeout(800);
+  };
+  await reopenCube();
+  const before = await cubeGlTintStats(page);
+  expect(before).toBeTruthy();
+  expect(before!.bright, "DAPI-only cube should show tissue before contrast change").toBeGreaterThan(120);
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Cube" })).toHaveCount(0, { timeout: 30_000 });
+  await page.evaluate(() => {
+    const rows = window.__landmarksModel.get("_image_channels") as Array<{
+      name: string;
+      contrast_limits: [number, number];
+    }>;
+    const next = rows.map((r) =>
+      r.name === "DAPI" ? { ...r, contrast_limits: [0, 0] as [number, number] } : r,
+    );
+    window.__landmarksModel.set("_image_channels", next);
+    window.__landmarksModel.save_changes();
+  });
+  await reopenCube();
+  const after = await cubeGlTintStats(page);
+  expect(after).toBeTruthy();
+  expect(
+    after!.bright,
+    "DAPI contrast max→0 must remove DAPI signal in cube deck GL",
+  ).toBeLessThan(Math.max(40, before!.bright * 0.15));
+}
+
+export async function expectCubePanckOffRemovesMagenta(page: Page) {
+  const before = await cubeGlTintStats(page);
+  expect(before).toBeTruthy();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Cube" })).toHaveCount(0, { timeout: 30_000 });
+  await page.getByTestId("layer-channel-PanCK").click();
+  await expect
+    .poll(async () => {
+      const rows = (await page.evaluate(() => window.__landmarksModel.get("_image_channels"))) as Array<{
+        name: string;
+        visible: boolean;
+      }>;
+      return rows.find((c) => c.name === "PanCK")?.visible;
+    })
+    .toBe(false);
+  await page.getByRole("radio", { name: "Inspect", exact: true }).click();
+  const plot = page.locator(".landmarks__plot");
+  const box = await plot.boundingBox();
+  expect(box).toBeTruthy();
+  await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+  await expect(page.getByRole("dialog", { name: "Cube" })).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
+  await page.getByRole("radio", { name: "Oblique view" }).click();
+  await page.waitForTimeout(800);
+  const after = await cubeGlTintStats(page);
+  expect(after).toBeTruthy();
+  expect(after!.magentaExcess).toBeLessThanOrEqual(before!.magentaExcess);
+  if (before!.magentaExcess > 300) {
+    expect(after!.magentaExcess).toBeLessThan(Math.max(80, before!.magentaExcess * 0.35));
+  }
+}
+
 export async function expectMapBandShowsMultichannelImage(page: Page) {
   await hideMapPointsForImageAssert(page);
   await expect
@@ -148,6 +342,8 @@ export async function expectCubeMainViewportScreenshot(
   expect(glStats).toBeTruthy();
   expect(stats.bright, `${preset} screenshot: volume ink in box interior`).toBeGreaterThan(120);
   expect(stats.colored, `${preset} screenshot: multichannel tint in box interior`).toBeGreaterThan(80);
+  expect(glStats!.bright, `${preset} GL: volume ink in cube canvas`).toBeGreaterThan(120);
+  expect(glStats!.colored, `${preset} GL: multichannel tint in cube canvas`).toBeGreaterThan(80);
   expect(
     glStats!.bright > 120 && stats.bright < 40,
     `${preset}: GL readback bright but user screenshot empty (buffer/canvas mismatch)`,
