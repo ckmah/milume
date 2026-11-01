@@ -69,7 +69,7 @@ jobs:
           rm -rf demos/recipes/__marimo__ "${MARIMO_EXPORT_REPOSITORY}"
           start="${SECONDS}"
           uv run marimo-studio view preflight "${RECIPE_VIEW}" --target "${RECIPE_NB}" \
-            --prepare-timeout 600
+            --prepare-timeout 900
           elapsed=$((SECONDS - start))
           echo "seconds=${elapsed}" >> "${GITHUB_OUTPUT}"
           echo "## Recipe export CI" >> "${GITHUB_STEP_SUMMARY}"
@@ -125,7 +125,7 @@ jobs:
           start="${SECONDS}"
           set -o pipefail
           uv run marimo-studio view export "${RECIPE_VIEW}" --target "${RECIPE_NB}" \
-            --output /tmp/recipe-export/docs --prepare-timeout 600 --force 2>&1 | tee /tmp/recipe-export.log
+            --output /tmp/recipe-export/docs --prepare-timeout 900 --force 2>&1 | tee /tmp/recipe-export.log
           elapsed=$((SECONDS - start))
           if ! grep -qE "Prepared (reused|committed)" /tmp/recipe-export.log; then
             echo "Expected 'Prepared reused' or 'Prepared committed' in warm export log" >&2
