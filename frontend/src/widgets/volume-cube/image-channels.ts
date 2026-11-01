@@ -31,11 +31,12 @@ export function cubeImageChannels(
 ): CubeImageChannel[] {
   if (!entries.length) return [];
   const ci = source ? channelAxisIndex(source) : -1;
-  const channelCount = source && ci >= 0 ? axisSize(source, "c") : 1;
+  const fromSource = source && ci >= 0 ? axisSize(source, "c") : 0;
+  const channelCount = Math.max(fromSource, Math.min(entries.length, MAX_CUBE_IMAGE_CHANNELS));
   const out: CubeImageChannel[] = [];
   entries.forEach((row, i) => {
     if (!row.visible || row.constant_zero) return;
-    const index = source ? resolveChannelIndex(source, row.name, entries) : 0;
+    const index = source ? resolveChannelIndex(source, row.name, entries) : i;
     if (index < 0 || index >= channelCount) return;
     out.push({
       name: row.name,

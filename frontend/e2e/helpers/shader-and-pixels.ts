@@ -3,6 +3,14 @@ import { expect, test, type Page } from "@playwright/test";
 /** Sample the cube deck interior, excluding the outer wireframe margin (not the geometric center). */
 export const CUBE_VOLUME_INSET = { x0: 0.2, y0: 0.2, x1: 0.8, y1: 0.8 } as const;
 
+/**
+ * Main cube viewport (center box): excludes axis ticks, bottom controls, and bottom-left chrome bleed.
+ * Assertions here match what users see in the immersive deck, not GL inset readback alone.
+ */
+export const CUBE_MAIN_VIEWPORT = { x0: 0.38, y0: 0.14, x1: 0.82, y1: 0.58 } as const;
+
+export type ChannelTintCounts = { dapi: number; panck: number; bright: number };
+
 /** Tighter inset for contrast asserts: axis ticks and frame lines sit just inside the 0.2 margin. */
 export const CUBE_CONTRAST_INSET = { x0: 0.38, y0: 0.38, x1: 0.62, y1: 0.62 } as const;
 
@@ -70,6 +78,68 @@ export async function cubeViewScreenshotStats(
   }
   const stats = await statsFromPngBuffer(page, png, rect);
   return { stats, png };
+}
+
+/** Playwright screenshot channel tint counts in the main viewport (user-visible deck). */
+export async function cubeMainViewportChannelCounts(
+  page: Page,
+  rect: CanvasRect = CUBE_MAIN_VIEWPORT,
+): Promise<ChannelTintCounts | null> {
+  const png = await page.locator(CUBE_VIEW_SEL).screenshot();
+  return page.evaluate(
+    async ({ b64, r }) => {
+      const img = await createImageBitmap(await (await fetch(`data:image/png;base64,${b64}`)).blob());
+      const ctx = new OffscreenCanvas(img.width, img.height).getContext("2d");
+      if (!ctx) return null;
+      ctx.drawImage(img, 0, 0);
+      const { width: w, height: h, data } = ctx.getImageData(0, 0, img.width, img.height);
+      const rx0 = Math.floor(w * r.x0);
+      const rx1 = Math.floor(w * r.x1);
+      const ry0 = Math.floor(h * r.y0);
+      const ry1 = Math.floor(h * r.y1);
+      let dapiN = 0;
+      let panckN = 0;
+      let bright = 0;
+      for (let y = ry0; y < ry1; y++) {
+        for (let x = rx0; x < rx1; x++) {
+          const i = (y * w + x) * 4;
+          const R = data[i]!;
+          const G = data[i + 1]!;
+          const B = data[i + 2]!;
+          if (R + G + B < 45) continue;
+          bright++;
+          if (B > Math.max(R, G) + 8) dapiN++;
+          if (R > B + 8 && R > G - 5) panckN++;
+        }
+      }
+      return { dapi: dapiN, panck: panckN, bright };
+    },
+    { b64: png.toString("base64"), r: rect },
+  );
+}
+
+export async function expectCubeMainViewportMultichannelTints(
+  page: Page,
+  preset: "Top view" | "Oblique view",
+  minDapi = 80,
+  minPanck = 80,
+) {
+  await page.getByRole("radio", { name: preset }).click();
+  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
+  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-image-format", /r8unorm|r16unorm|r32float/, {
+    timeout: 120_000,
+  });
+  await page.waitForTimeout(800);
+  const counts = await cubeMainViewportChannelCounts(page);
+  expect(counts, `${preset} main viewport screenshot`).toBeTruthy();
+  expect(
+    counts!.dapi,
+    `${preset} main viewport must show blue-dominant (DAPI) voxels`,
+  ).toBeGreaterThanOrEqual(minDapi);
+  expect(
+    counts!.panck,
+    `${preset} main viewport must show magenta-dominant (PanCK) voxels`,
+  ).toBeGreaterThanOrEqual(minPanck);
 }
 
 async function canvasStatsGl(

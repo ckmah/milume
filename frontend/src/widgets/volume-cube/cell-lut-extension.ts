@@ -103,16 +103,6 @@ function ensureCubeUboDrawHook(layer: LayerLike): void {
   };
 }
 
-function contrastFromRender(render: CubeUniforms, channel: 0 | 1 | 2 | 3): [number, number] {
-  const pairs: ([number, number] | undefined)[] = [
-    render.imageContrast0,
-    render.imageContrast1,
-    render.imageContrast2,
-    render.imageContrast3,
-  ];
-  return pairs[channel] ?? liveTraitContrast[channel] ?? [0, 255];
-}
-
 type CubeUniforms = Partial<RenderSettings> & {
   imageOn?: number;
   imageScale?: number;
@@ -260,16 +250,11 @@ float cover(float a, float steps) {
   return 1.0 - pow(clamp(1.0 - a, 0.0, 1.0), steps);
 }
 
-vec4 tintedSample(float v, highp sampler3D palette, vec2 lim) {
-  if (lim.y <= lim.x) return vec4(0.0);
-  float adjusted = apply_contrast_limits(v, lim);
-  float g = pow(clamp(adjusted, 0.0, 1.0), cubeRender.imageGamma);
-  vec3 c = srgbToLinear(texelFetch(palette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
-  return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
-}
-
+// Single-channel: Viv applies contrast before intensity reaches this shader (see inject).
 vec4 imageSample(float v) {
-  return tintedSample(v, imagePalette, cubeRender.imageContrast0);
+  float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
+  vec3 c = srgbToLinear(texelFetch(imagePalette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
+  return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
 const float NO_MESH = 1e9;
@@ -356,55 +341,53 @@ float cover(float a, float steps) {
   return 1.0 - pow(clamp(1.0 - a, 0.0, 1.0), steps);
 }
 
-vec4 tintedSample(float v, highp sampler3D palette, vec2 lim) {
-  if (lim.y <= lim.x) return vec4(0.0);
-  float adjusted = apply_contrast_limits(v, lim);
-  float g = pow(clamp(adjusted, 0.0, 1.0), cubeRender.imageGamma);
+vec4 tintedSample(float v, highp sampler3D palette) {
+  float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
   vec3 c = srgbToLinear(texelFetch(palette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
 vec4 imageSample(float v) {
-  return tintedSample(v, imagePalette, cubeRender.imageContrast0);
+  return tintedSample(v, imagePalette);
 }
 
 vec4 combinedImageSample2(float v0, float v1) {
-  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  vec4 s0 = tintedSample(v0, imagePalette);
   if (cubeRender.imageChannelCount < 1.5) return vec4(0.0);
   if (cubeRender.imageChannelCount < 2.5) return s0;
-  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+  vec4 s1 = tintedSample(v1, imagePalette1);
   return vec4(s0.rgb + s1.rgb, min(1.0, s0.a + s1.a));
 }
 
 vec4 combinedImageSample3(float v0, float v1, float v2) {
-  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  vec4 s0 = tintedSample(v0, imagePalette);
   if (cubeRender.imageChannelCount < 1.5) return vec4(0.0);
   vec4 acc = s0;
   if (cubeRender.imageChannelCount > 1.5) {
-    vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+    vec4 s1 = tintedSample(v1, imagePalette1);
     acc = vec4(acc.rgb + s1.rgb, min(1.0, acc.a + s1.a));
   }
   if (cubeRender.imageChannelCount > 2.5) {
-    vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
+    vec4 s2 = tintedSample(v2, imagePalette2);
     acc = vec4(acc.rgb + s2.rgb, min(1.0, acc.a + s2.a));
   }
   return acc;
 }
 
 vec4 combinedImageSample4(float v0, float v1, float v2, float v3) {
-  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  vec4 s0 = tintedSample(v0, imagePalette);
   if (cubeRender.imageChannelCount < 1.5) return vec4(0.0);
   vec4 acc = s0;
   if (cubeRender.imageChannelCount > 1.5) {
-    vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+    vec4 s1 = tintedSample(v1, imagePalette1);
     acc = vec4(acc.rgb + s1.rgb, min(1.0, acc.a + s1.a));
   }
   if (cubeRender.imageChannelCount > 2.5) {
-    vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
+    vec4 s2 = tintedSample(v2, imagePalette2);
     acc = vec4(acc.rgb + s2.rgb, min(1.0, acc.a + s2.a));
   }
   if (cubeRender.imageChannelCount > 3.5) {
-    vec4 s3 = tintedSample(v3, imagePalette3, cubeRender.imageContrast3);
+    vec4 s3 = tintedSample(v3, imagePalette3);
     acc = vec4(acc.rgb + s3.rgb, min(1.0, acc.a + s3.a));
   }
   return acc;
@@ -849,8 +832,9 @@ export const CUBE_EXTENSIONS_MULTI: unknown[] = [new CubeExtensionMulti(RENDERIN
 
 import { CubeXR3DLayer } from "./image-volume";
 
-const xr3dLayerDraw = CubeXR3DLayer.prototype.draw as (this: LayerLike) => void;
-CubeXR3DLayer.prototype.draw = function (this: LayerLike) {
+const xr3dProto = CubeXR3DLayer.prototype as unknown as LayerLike & { draw(): void };
+const xr3dLayerDraw = xr3dProto.draw.bind(xr3dProto);
+xr3dProto.draw = function (this: LayerLike) {
   ensureCubeUboDrawHook(this);
   xr3dLayerDraw.call(this);
 };

@@ -7,6 +7,7 @@ import {
   expectCubePanckOffDimsMagentaLive,
   expectCubeDapiOnlyShowsVolume,
   expectCubePixelsChangeWhenPanckOff,
+  expectCubeMainViewportMultichannelTints,
   expectCubeShowsMultichannelImage,
   expectCubeUserVisibleScreenshot,
   expectCubeVolumeSurvivesMapImageHidden,
@@ -26,6 +27,11 @@ const volumeHarness = process.env.E2E_HARNESS === "landmarks-volume";
 const issue395 = (process.env.E2E_VOLUME_PROFILE ?? "toy") === "issue395-3d";
 
 async function openCubeAtCentre(page: import("@playwright/test").Page) {
+  await page.evaluate(() => {
+    window.__landmarksModel.set("inspect_cx", 130.5);
+    window.__landmarksModel.set("inspect_cy", 170.5);
+    window.__landmarksModel.save_changes();
+  });
   await page.getByRole("radio", { name: "Inspect", exact: true }).click();
   const plot = page.locator(".landmarks__plot");
   const box = await plot.boundingBox();
@@ -70,6 +76,12 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   test("cube compiles shader and shows blended channels", async ({ page }) => {
     await openCubeAtCentre(page);
     await expectCubeShowsMultichannelImage(page);
+  });
+
+  test("main viewport shows DAPI and PanCK tints (Top and Iso)", async ({ page }) => {
+    await openCubeAtCentre(page);
+    await expectCubeMainViewportMultichannelTints(page, "Top view");
+    await expectCubeMainViewportMultichannelTints(page, "Oblique view");
   });
 
   test("cube volume survives hiding map image (not flat backdrop bleed)", async ({ page }) => {

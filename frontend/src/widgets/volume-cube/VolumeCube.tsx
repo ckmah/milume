@@ -598,8 +598,10 @@ export function VolumeCube({
     () => (shownImageLook.gamma === imageGamma ? render : { ...render, imageGamma: shownImageLook.gamma }),
     [render, imageGamma, shownImageLook.gamma],
   );
+  const traitChannelRows = imageChannelRows ?? [];
+  const traitMultichannel = traitChannelRows.length > 1;
   const activeImageChannels: CubeImageChannel[] = useMemo(() => {
-    const rows = imageChannelRows ?? [];
+    const rows = traitChannelRows;
     const pyramidBase = image?.[0] ?? null;
     if (rows.length > 0) {
       return cubeImageChannels(rows, pyramidBase, contrast);
@@ -613,7 +615,8 @@ export function VolumeCube({
         tint: "#dcdce6",
       },
     ];
-  }, [imageChannelRows, image, contrast, shownImageLook.contrast]);
+  }, [traitChannelRows, image, contrast, shownImageLook.contrast]);
+  const multichannelCube = traitMultichannel || activeImageChannels.length > 1;
   const showCubeImage = showImage && activeImageChannels.length > 0;
   const channelPalettes = useMemo(
     () =>
@@ -745,10 +748,10 @@ export function VolumeCube({
   );
   const cutZFrac: [number, number] = [cutFrac[4]!, cutFrac[5]!];
   const cubeExtensions = useMemo(
-    () => (activeImageChannels.length > 1 ? CUBE_EXTENSIONS_MULTI : CUBE_EXTENSIONS),
-    [activeImageChannels.length],
+    () => (multichannelCube ? CUBE_EXTENSIONS_MULTI : CUBE_EXTENSIONS),
+    [multichannelCube],
   );
-  const cubeRaycastLayerId = activeImageChannels.length > 1 ? "volume-raycast-multi" : "volume-raycast-single";
+  const cubeRaycastLayerId = multichannelCube ? "volume-raycast-multi" : "volume-raycast-single";
 
   // Centre of the whole window box in world units (physical scale, then Z_UP).
   // Deliberately not the cut region's centre: cross-sections must not move the cube.
@@ -899,10 +902,14 @@ export function VolumeCube({
   // Reported once there is a camera: a null before the first view would
   // overwrite a preset the caller asked for meanwhile.
   const cameraPreset = presetOf(viewState);
-  // Multichannel additive ray integration is empty on Top for thin z slabs; MIP keeps
-  // tissue visible in the box (matches inspect preview / minimap).
+  // Additive integration is empty on Top for thin z slabs; MIP keeps tissue visible
+  // (matches inspect preview). Use MIP for configured multichannel and for thin 3D windows.
+  const thinZSlab = contentDepthVox > 0 && contentDepthVox <= 128;
   const renderImageMode =
-    activeImageChannels.length > 1 && imageMode === "additive" ? "mip" : imageMode;
+    imageMode === "mip" ||
+    ((multichannelCube || thinZSlab) && imageMode === "additive")
+      ? "mip"
+      : imageMode;
   const hasCamera = Boolean(viewState);
   const onPresetRef = useLatest(onPreset);
   useLayoutEffect(() => {
