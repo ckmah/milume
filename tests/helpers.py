@@ -181,3 +181,83 @@ def issue122_2d_multichannel_spatialdata(dest):
     sdata.write(dest)
     return sd.read_zarr(dest)
 
+
+def issue395_3d_multichannel_spatialdata(dest):
+    """3D multichannel SpatialData for #395: toy grid (64×256×256 µm), DAPI=toy spheres, PanCK at other sites."""
+    import anndata as ad
+    import geopandas as gpd
+    import numpy as np
+    import pandas as pd
+    import spatialdata as sd
+    from shapely.geometry import Polygon
+    from spatialdata.models import Image3DModel, Labels3DModel, ShapesModel, TableModel
+    from spatialdata.transformations import Identity
+
+    from milume.volume_cube import toy_volumes
+
+    ch_dapi, labels = toy_volumes()
+    z, y, x = ch_dapi.shape
+    ch_panck = np.full((z, y, x), 12, dtype=np.uint8)
+    zz, yy, xx = np.ogrid[:z, :y, :x]
+    for cz, cy, cx, radius, value in (
+        (24, 100, 200, 20, 220),
+        (40, 200, 80, 24, 200),
+        (52, 120, 180, 18, 180),
+    ):
+        mask = (zz - cz) ** 2 + (yy - cy) ** 2 + (xx - cx) ** 2 <= radius**2
+        ch_panck[mask] = value
+
+    stack = np.stack([ch_dapi, ch_panck], axis=0)
+
+    ids = np.unique(labels)
+    ids = ids[ids > 0]
+    centroids = []
+    for i in ids:
+        zz_i, yy_i, xx_i = np.nonzero(labels == i)
+        centroids.append([xx_i.mean(), yy_i.mean(), zz_i.mean()])
+    obs = pd.DataFrame(
+        {
+            "cell_type": pd.Categorical([f"type{i % 2}" for i in ids]),
+            "cell_id": ids.astype(int),
+            "region": pd.Categorical(["cells"] * len(ids)),
+        },
+        index=[f"cell{i}" for i in ids],
+    )
+    rows = []
+    for i in ids:
+        zz_i, yy_i, xx_i = np.nonzero(labels == i)
+        cz, cy, cx = zz_i.mean(), yy_i.mean() + 0.5, xx_i.mean() + 0.5
+        radius = (np.ptp(xx_i) + 1) / 2
+        for z_plane in np.unique(zz_i):
+            r = np.sqrt(max(radius**2 - (z_plane - cz) ** 2, 0.25))
+            t = np.linspace(0, 2 * np.pi, 32, endpoint=False)
+            ring = np.c_[cx + r * np.cos(t), cy + r * np.sin(t)]
+            rows.append({"cell_id": f"cell{i}", "Z_um": z_plane + 0.5, "geometry": Polygon(ring)})
+    polygons = ShapesModel.parse(gpd.GeoDataFrame(rows), transformations={"global": Identity()})
+    table = ad.AnnData(np.ones((len(ids), 1), dtype=np.float32), obs=obs)
+    table.obsm["spatial"] = np.asarray(centroids, dtype=float)
+
+    sdata = sd.SpatialData(
+        images={
+            "mosaic": Image3DModel.parse(
+                stack,
+                dims=("c", "z", "y", "x"),
+                c_coords=pd.Index(["DAPI", "PanCK"]),
+                transformations={"global": Identity()},
+                scale_factors=[2, 2],
+            )
+        },
+        labels={
+            "cells": Labels3DModel.parse(
+                labels.astype(np.uint32),
+                dims=("z", "y", "x"),
+                transformations={"global": Identity()},
+                scale_factors=[2, 2],
+            )
+        },
+        shapes={"cell_polygons": polygons},
+        tables={"table": TableModel.parse(table, region="cells", region_key="region", instance_key="cell_id")},
+    )
+    sdata.write(dest)
+    return sd.read_zarr(dest)
+

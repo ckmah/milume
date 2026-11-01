@@ -23,6 +23,7 @@
     "dev:fixture:volume-small": "uv run --group demo --directory .. python frontend/dev/export-landmarks-volume-fixture.py --profile small",
     "dev:fixture:volume-small-if-missing": "npm run dev:prefetch:hf-demo -- --profile small && uv run --group demo --directory .. python frontend/dev/export-landmarks-volume-fixture.py --profile small --if-present",
     "dev:fixture:issue122-2d": "uv run --directory .. python frontend/dev/export-issue-122-2d-backdrop-fixture.py",
+    "dev:fixture:issue395-3d": "uv run --directory .. python frontend/dev/export-issue-395-3d-multichannel-fixture.py",
     "dev:landmarks-volume-small": "cross-env DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=small vite",
     "typecheck": "tsc --noEmit",
     "test:e2e": "npm run test:e2e:core && npm run test:e2e:landmarks",

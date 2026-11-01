@@ -26,10 +26,76 @@ export { DEFAULT_RENDER, type RenderSettings } from "./palettes";
 /** A 256-texel image colour map from `paletteLut`. */
 export type ImagePalette = { data: Uint8Array; width: number; height: number };
 
+let liveTraitContrast: [number, number][] = [[0, 255], [0, 255], [0, 255], [0, 255]];
+let liveImageChannelCount = 1;
+
+/** Per-channel contrast for the cube raycast (trait `_image_channels`, raw dtype units). */
+export function setCubeTraitContrast(limits: [number, number][]) {
+  liveTraitContrast = limits.length
+    ? limits
+    : [[0, 255], [0, 255], [0, 255], [0, 255]];
+}
+
+/** Push trait contrast into cubeRender UBO before the cube extension draw binds palettes. */
+export function applyCubeRenderShaderUniforms(layer: LayerLike): void {
+  const { model } = layer.state;
+  if (!model) return;
+  const render = layer.props.render as (RenderSettings & { traitContrast?: [number, number][] }) | null;
+  const traitLimits =
+    (layer.props as { cubeTraitContrast?: [number, number][] }).cubeTraitContrast ??
+    render?.traitContrast ??
+    layer.props.contrastLimits ??
+    undefined;
+  if (traitLimits?.length) setCubeTraitContrast(traitLimits as [number, number][]);
+  const imageOn = layer.props.showImage === false ? 0 : 1;
+  const image = imageTextureInfo(layer.state.textures?.volume0);
+  const frac = layer.props.cutFrac;
+  const selections = (layer.props as { selections?: unknown[] }).selections;
+  liveImageChannelCount = Math.max(selections?.length ?? 0, layer.props.channelPalettes?.length ?? 1);
+  const lim = (i: number): [number, number] =>
+    liveTraitContrast[i] ?? traitLimits?.[i] ?? [0, 255];
+  const target = layer.props.cubeMeshTarget;
+  const meshOn = Boolean(target?.drawn && target.front && target.back);
+  const uniforms: CubeUniforms = {
+    ...(layer.props.render ?? DEFAULT_RENDER),
+    imageOn,
+    imageScale: image?.scale ?? 1,
+    imageMip: layer.props.imageMode === "mip" ? 1 : 0,
+    imageChannelCount: liveImageChannelCount,
+    imageContrast0: lim(0),
+    imageContrast1: lim(1),
+    imageContrast2: lim(2),
+    imageContrast3: lim(3),
+    cutX0: frac?.[0] ?? 0,
+    cutX1: frac?.[1] ?? 1,
+    cutY0: frac?.[2] ?? 0,
+    cutY1: frac?.[3] ?? 1,
+    cutZ0: frac?.[4] ?? 0,
+    cutZ1: frac?.[5] ?? 1,
+    meshOn: meshOn ? 1 : 0,
+  };
+  if (meshOn) {
+    const { viewport, device } = layer.context;
+    const m = new Matrix4(viewport.projectionMatrix)
+      .multiplyRight(viewport.viewMatrix)
+      .multiplyRight(layer.props.modelMatrix ?? new Matrix4())
+      .multiplyRight(layer.state.scaleMatrix ?? new Matrix4())
+      .multiplyRight(layer.props.resolutionMatrix ?? new Matrix4());
+    uniforms.meshInv = Array.from(m.invert());
+    uniforms.meshViewport = Array.from(device.gl.getParameter(device.gl.VIEWPORT) as Int32Array);
+  }
+  model.shaderInputs.setProps({ cubeRender: uniforms });
+}
+
 type CubeUniforms = Partial<RenderSettings> & {
   imageOn?: number;
   imageScale?: number;
   imageMip?: number;
+  imageChannelCount?: number;
+  imageContrast0?: [number, number];
+  imageContrast1?: [number, number];
+  imageContrast2?: [number, number];
+  imageContrast3?: [number, number];
   cutX0?: number;
   cutX1?: number;
   cutY0?: number;
@@ -43,14 +109,17 @@ type CubeUniforms = Partial<RenderSettings> & {
 
 // The module must not share a sampler's name: luma.gl keys a module's
 // uniforms by module name and would set that sampler's texture unit from them.
-const cubeRenderModule = {
-  name: "cubeRender",
-  uniformTypes: {
+const CUBE_RENDER_UNIFORM_TYPES = {
     imageAlpha: "f32",
     imageGamma: "f32",
     imageOn: "f32",
     imageScale: "f32",
     imageMip: "f32",
+    imageChannelCount: "f32",
+    imageContrast0: "vec2<f32>",
+    imageContrast1: "vec2<f32>",
+    imageContrast2: "vec2<f32>",
+    imageContrast3: "vec2<f32>",
     cutX0: "f32",
     cutX1: "f32",
     cutY0: "f32",
@@ -60,13 +129,19 @@ const cubeRenderModule = {
     meshOn: "f32",
     meshInv: "mat4x4<f32>",
     meshViewport: "vec4<f32>",
-  },
-  defaultUniforms: {
+  } as const;
+
+const CUBE_RENDER_DEFAULT_UNIFORMS = {
     imageAlpha: 1,
     imageGamma: 1,
     imageOn: 1,
     imageScale: 1,
     imageMip: 0,
+    imageChannelCount: 1,
+    imageContrast0: [0, 255],
+    imageContrast1: [0, 255],
+    imageContrast2: [0, 255],
+    imageContrast3: [0, 255],
     cutX0: 0,
     cutX1: 1,
     cutY0: 0,
@@ -76,14 +151,34 @@ const cubeRenderModule = {
     meshOn: 0,
     meshInv: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
     meshViewport: [0, 0, 1, 1],
-  },
-  // Only the numbers reach the uniform block; the palette is a texture.
-  getUniforms: (render: CubeUniforms = {}) => ({
+  };
+
+function channelContrastFromProps(render: CubeUniforms, channel: 0 | 1 | 2 | 3): [number, number] {
+  const pairs: ([number, number] | undefined)[] = [
+    render.imageContrast0,
+    render.imageContrast1,
+    render.imageContrast2,
+    render.imageContrast3,
+  ];
+  const fromProps = pairs[channel];
+  if (fromProps) return fromProps;
+  return liveTraitContrast[channel] ?? [0, 255];
+}
+
+function cubeRenderGetUniforms(render: CubeUniforms = {}) {
+  const trait = (i: 0 | 1 | 2 | 3): [number, number] =>
+    liveTraitContrast[i] ?? channelContrastFromProps(render, i);
+  return {
     imageAlpha: render.imageAlpha ?? DEFAULT_RENDER.imageAlpha,
     imageGamma: render.imageGamma ?? DEFAULT_RENDER.imageGamma,
     imageOn: render.imageOn ?? 1,
     imageScale: render.imageScale ?? 1,
     imageMip: render.imageMip ?? 0,
+    imageChannelCount: render.imageChannelCount ?? liveImageChannelCount,
+    imageContrast0: trait(0),
+    imageContrast1: trait(1),
+    imageContrast2: trait(2),
+    imageContrast3: trait(3),
     cutX0: render.cutX0 ?? 0,
     cutX1: render.cutX1 ?? 1,
     cutY0: render.cutY0 ?? 0,
@@ -93,11 +188,14 @@ const cubeRenderModule = {
     meshOn: render.meshOn ?? 0,
     meshInv: render.meshInv ?? [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
     meshViewport: render.meshViewport ?? [0, 0, 1, 1],
-  }),
-  // Viv's contrast ramp on the raw value: a unorm image texture (r8unorm,
-  // r16unorm) samples as value / max, and imageScale (max; 1 for float)
-  // undoes that first, so contrast limits mean what they did at float32.
-  // Defined here, the hook replaces Viv's default ramp (XR3DLayer.getShaders).
+  };
+}
+
+const cubeRenderModuleSingle = {
+  name: "cubeRender",
+  uniformTypes: CUBE_RENDER_UNIFORM_TYPES,
+  defaultUniforms: CUBE_RENDER_DEFAULT_UNIFORMS,
+  getUniforms: cubeRenderGetUniforms,
   inject: {
     "fs:DECKGL_PROCESS_INTENSITY":
       "intensity = apply_contrast_limits(intensity * cubeRender.imageScale, contrastLimits);",
@@ -109,6 +207,95 @@ uniform cubeRenderUniforms {
   float imageOn;
   float imageScale;
   float imageMip;
+  float imageChannelCount;
+  vec2 imageContrast0;
+  vec2 imageContrast1;
+  vec2 imageContrast2;
+  vec2 imageContrast3;
+  float cutX0;
+  float cutX1;
+  float cutY0;
+  float cutY1;
+  float cutZ0;
+  float cutZ1;
+  float meshOn;
+  mat4 meshInv;
+  vec4 meshViewport;
+} cubeRender;
+
+uniform highp sampler3D imagePalette;
+uniform highp sampler3D meshFrontColor;
+uniform highp sampler3D meshFrontDepth;
+uniform highp sampler3D meshBackColor;
+uniform highp sampler3D meshBackDepth;
+
+vec3 srgbToLinear(vec3 c) { return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(0.04045, c)); }
+
+float cover(float a, float steps) {
+  return 1.0 - pow(clamp(1.0 - a, 0.0, 1.0), steps);
+}
+
+// Single-channel: Viv applies contrast before intensity reaches this shader (see inject).
+vec4 imageSample(float v) {
+  float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
+  vec3 c = srgbToLinear(texelFetch(imagePalette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
+  return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
+}
+
+const float NO_MESH = 1e9;
+
+vec3 linearToSrgb(vec3 c) { return mix(12.92 * c, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(0.0031308, c)); }
+
+vec4 meshSurface(highp sampler3D col, highp sampler3D dep, vec3 eye, vec3 dir, out float t) {
+  t = NO_MESH;
+  if (cubeRender.meshOn < 0.5) return vec4(0.0);
+  ivec3 px = ivec3(ivec2(gl_FragCoord.xy), 0);
+  vec4 d = texelFetch(dep, px, 0);
+  if (d.a < 0.5) return vec4(0.0);
+  vec4 c = texelFetch(col, px, 0);
+  float z = dot(d.rgb, vec3(1.0, 1.0 / 255.0, 1.0 / 65025.0));
+  vec2 ndc = (gl_FragCoord.xy - cubeRender.meshViewport.xy) / cubeRender.meshViewport.zw * 2.0 - 1.0;
+  vec4 q = cubeRender.meshInv * vec4(ndc, z * 2.0 - 1.0, 1.0);
+  t = dot(q.xyz / q.w - eye, dir);
+  return c;
+}
+
+void addSample(inout vec4 acc, vec4 im, float steps) {
+  float a = cover(im.a, steps);
+  acc.rgb += (1.0 - acc.a) * a * im.rgb;
+  acc.a += (1.0 - acc.a) * a;
+}
+
+void meshFlush(inout vec4 shown, inout vec4 acc, vec4 m) {
+  shown.rgb += (1.0 - shown.a) * acc.a * linearToSrgb(clamp(acc.rgb, 0.0, 1.0));
+  shown.a += (1.0 - shown.a) * acc.a;
+  acc = vec4(0.0);
+  shown.rgb += (1.0 - shown.a) * m.a * m.rgb;
+  shown.a += (1.0 - shown.a) * m.a;
+}
+`,
+};
+
+const cubeRenderModuleMulti = {
+  name: "cubeRender",
+  uniformTypes: CUBE_RENDER_UNIFORM_TYPES,
+  defaultUniforms: CUBE_RENDER_DEFAULT_UNIFORMS,
+  getUniforms: cubeRenderGetUniforms,
+  inject: {
+    "fs:DECKGL_PROCESS_INTENSITY": "intensity = intensity * cubeRender.imageScale;",
+  },
+  fs: `\
+uniform cubeRenderUniforms {
+  float imageAlpha;
+  float imageGamma;
+  float imageOn;
+  float imageScale;
+  float imageMip;
+  float imageChannelCount;
+  vec2 imageContrast0;
+  vec2 imageContrast1;
+  vec2 imageContrast2;
+  vec2 imageContrast3;
   float cutX0;
   float cutX1;
   float cutY0;
@@ -124,6 +311,9 @@ uniform cubeRenderUniforms {
 // texture units, and a sampler2D beside Viv's sampler3Ds (all on unit 0 then)
 // fails that validation.
 uniform highp sampler3D imagePalette;
+uniform highp sampler3D imagePalette1;
+uniform highp sampler3D imagePalette2;
+uniform highp sampler3D imagePalette3;
 uniform highp sampler3D meshFrontColor;
 uniform highp sampler3D meshFrontDepth;
 uniform highp sampler3D meshBackColor;
@@ -136,11 +326,56 @@ float cover(float a, float steps) {
   return 1.0 - pow(clamp(1.0 - a, 0.0, 1.0), steps);
 }
 
-// Image value after contrast -> (linear rgb, per-sample alpha); clear with the image off.
-vec4 imageSample(float v) {
-  float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
-  vec3 c = srgbToLinear(texelFetch(imagePalette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
+vec4 tintedSample(float v, highp sampler3D palette, vec2 lim) {
+  float adjusted = lim.y <= lim.x ? 0.0 : apply_contrast_limits(v, lim);
+  float g = pow(clamp(adjusted, 0.0, 1.0), cubeRender.imageGamma);
+  vec3 c = srgbToLinear(texelFetch(palette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
+}
+
+vec4 imageSample(float v) {
+  return tintedSample(v, imagePalette, cubeRender.imageContrast0);
+}
+
+vec4 combinedImageSample2(float v0, float v1) {
+  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  if (cubeRender.imageChannelCount < 2.5) return s0;
+  vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+  return vec4(s0.rgb + s1.rgb, min(1.0, s0.a + s1.a));
+}
+
+vec4 combinedImageSample3(float v0, float v1, float v2) {
+  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  if (cubeRender.imageChannelCount < 1.5) return s0;
+  vec4 acc = s0;
+  if (cubeRender.imageChannelCount > 1.5) {
+    vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+    acc = vec4(acc.rgb + s1.rgb, min(1.0, acc.a + s1.a));
+  }
+  if (cubeRender.imageChannelCount > 2.5) {
+    vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
+    acc = vec4(acc.rgb + s2.rgb, min(1.0, acc.a + s2.a));
+  }
+  return acc;
+}
+
+vec4 combinedImageSample4(float v0, float v1, float v2, float v3) {
+  vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  if (cubeRender.imageChannelCount < 1.5) return s0;
+  vec4 acc = s0;
+  if (cubeRender.imageChannelCount > 1.5) {
+    vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+    acc = vec4(acc.rgb + s1.rgb, min(1.0, acc.a + s1.a));
+  }
+  if (cubeRender.imageChannelCount > 2.5) {
+    vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
+    acc = vec4(acc.rgb + s2.rgb, min(1.0, acc.a + s2.a));
+  }
+  if (cubeRender.imageChannelCount > 3.5) {
+    vec4 s3 = tintedSample(v3, imagePalette3, cubeRender.imageContrast3);
+    acc = vec4(acc.rgb + s3.rgb, min(1.0, acc.a + s3.a));
+  }
+  return acc;
 }
 
 const float NO_MESH = 1e9;
@@ -205,7 +440,7 @@ const IN_CUT = `
       && p.y >= yLo - 0.002 && p.y <= yHi + 0.002
       && p.z >= zLo - 0.002 && p.z <= zHi + 0.002;`;
 
-const RENDERING = {
+const RENDERING_SINGLE = {
   _BEFORE_RENDER: `
   vec4 acc = vec4(0.0);
   float meshT0;
@@ -226,14 +461,10 @@ const RENDERING = {
   _RENDER: `
     ${IN_CUT}
     bool imageHere = !(ghosting && !inCut);
-    // This sample stands for the step around it (lo to lo + dt along the ray).
     float lo = meshHere ? dot(p - transformed_eye, ray_dir) - 0.5 * dt : 0.0;
     if (meshHere && cubeRender.imageMip < 0.5 && meshT0 < lo + dt) {
-      // A mesh surface inside the step splits it: the part in front goes in before
-      // the surface, the rest after.
       vec4 im = imageHere ? imageSample(intensityValue0) : vec4(0.0);
       float done = 0.0;
-      // At most the two surfaces; the one left after a flush moves up to mesh0.
       for (int k = 0; k < 2; k++) {
         if (meshT0 >= lo + dt) break;
         float f = clamp((meshT0 - lo) / dt, done, 1.0);
@@ -262,6 +493,125 @@ const RENDERING = {
   color = acc;
   if (cubeRender.imageMip > 0.5) {
     vec4 im = imageSample(maxImage);
+    color = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
+  }
+  if (meshHere) {
+    if (cubeRender.imageMip > 0.5) {
+      acc = vec4(0.0);
+      if (meshT0 < NO_MESH) meshFlush(shown, acc, mesh0);
+      if (meshT1 < NO_MESH) meshFlush(shown, acc, mesh1);
+      acc = color;
+    } else {
+      if (meshT0 < NO_MESH) meshFlush(shown, acc, mesh0);
+      if (meshT1 < NO_MESH) meshFlush(shown, acc, mesh1);
+    }
+    meshFlush(shown, acc, vec4(0.0));
+    color = vec4(srgbToLinear(shown.rgb / max(shown.a, 1e-6)), shown.a);
+  }`,
+};
+
+const RENDERING_MULTI = {
+  _BEFORE_RENDER: `
+  vec4 acc = vec4(0.0);
+  float meshT0;
+  float meshT1;
+  vec4 mesh0 = meshSurface(meshFrontColor, meshFrontDepth, transformed_eye, ray_dir, meshT0);
+  vec4 mesh1 = meshSurface(meshBackColor, meshBackDepth, transformed_eye, ray_dir, meshT1);
+  if (meshT1 < meshT0) {
+    vec4 m = mesh0; mesh0 = mesh1; mesh1 = m;
+    float t = meshT0; meshT0 = meshT1; meshT1 = t;
+  }
+  bool meshHere = meshT0 < NO_MESH;
+  vec4 shown = vec4(0.0);
+  float maxImage0 = -1.0;
+  float maxImage1 = -1.0;
+#if NUM_CHANNELS > 2
+  float maxImage2 = -1.0;
+#endif
+#if NUM_CHANNELS > 3
+  float maxImage3 = -1.0;
+#endif
+  bool ghosting = cubeRender.cutX1 - cubeRender.cutX0 < 0.999
+    || cubeRender.cutY1 - cubeRender.cutY0 < 0.999
+    || cubeRender.cutZ1 - cubeRender.cutZ0 < 0.999;
+  float stepScale = 1.0;`,
+  _RENDER: `
+    ${IN_CUT}
+    bool imageHere = !(ghosting && !inCut);
+    // This sample stands for the step around it (lo to lo + dt along the ray).
+    float lo = meshHere ? dot(p - transformed_eye, ray_dir) - 0.5 * dt : 0.0;
+    if (meshHere && cubeRender.imageMip < 0.5 && meshT0 < lo + dt) {
+      // A mesh surface inside the step splits it: the part in front goes in before
+      // the surface, the rest after.
+      vec4 im = vec4(0.0);
+      if (imageHere) {
+#if NUM_CHANNELS == 1
+        im = imageSample(intensityValue0);
+#elif NUM_CHANNELS == 2
+        im = combinedImageSample2(intensityValue0, intensityValue1);
+#elif NUM_CHANNELS == 3
+        im = combinedImageSample3(intensityValue0, intensityValue1, intensityValue2);
+#else
+        im = combinedImageSample4(intensityValue0, intensityValue1, intensityValue2, intensityValue3);
+#endif
+      }
+      float done = 0.0;
+      // At most the two surfaces; the one left after a flush moves up to mesh0.
+      for (int k = 0; k < 2; k++) {
+        if (meshT0 >= lo + dt) break;
+        float f = clamp((meshT0 - lo) / dt, done, 1.0);
+        addSample(acc, im, stepScale * (f - done));
+        done = f;
+        meshFlush(shown, acc, mesh0);
+        meshT0 = meshT1;
+        mesh0 = mesh1;
+        meshT1 = NO_MESH;
+      }
+      addSample(acc, im, stepScale * (1.0 - done));
+    } else if (imageHere) {
+      if (cubeRender.imageMip > 0.5) {
+        maxImage0 = max(maxImage0, intensityValue0);
+#if NUM_CHANNELS > 1
+        maxImage1 = max(maxImage1, intensityValue1);
+#endif
+#if NUM_CHANNELS > 2
+        maxImage2 = max(maxImage2, intensityValue2);
+#endif
+#if NUM_CHANNELS > 3
+        maxImage3 = max(maxImage3, intensityValue3);
+#endif
+      } else if (acc.a < 0.95) {
+        vec4 im = vec4(0.0);
+#if NUM_CHANNELS == 1
+        im = imageSample(intensityValue0);
+#elif NUM_CHANNELS == 2
+        im = combinedImageSample2(intensityValue0, intensityValue1);
+#elif NUM_CHANNELS == 3
+        im = combinedImageSample3(intensityValue0, intensityValue1, intensityValue2);
+#else
+        im = combinedImageSample4(intensityValue0, intensityValue1, intensityValue2, intensityValue3);
+#endif
+        float a = cover(im.a, stepScale);
+        acc.rgb += (1.0 - acc.a) * a * im.rgb;
+        acc.a += (1.0 - acc.a) * a;
+      }
+    }
+    if (cubeRender.imageMip < 0.5 && 1.0 - (1.0 - shown.a) * (1.0 - acc.a) >= 0.95) {
+      break;
+    }`,
+  _AFTER_RENDER: `
+  color = acc;
+  if (cubeRender.imageMip > 0.5) {
+    vec4 im = vec4(0.0);
+#if NUM_CHANNELS == 1
+    im = imageSample(maxImage0);
+#elif NUM_CHANNELS == 2
+    im = combinedImageSample2(maxImage0, maxImage1);
+#elif NUM_CHANNELS == 3
+    im = combinedImageSample3(maxImage0, maxImage1, maxImage2);
+#else
+    im = combinedImageSample4(maxImage0, maxImage1, maxImage2, maxImage3);
+#endif
     color = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
   }
   if (meshHere) {
@@ -294,9 +644,12 @@ type LayerLike = {
     /** Called when the format of the image texture this layer draws changes (null: none yet). */
     onImageBound?: (format: ImageFormat | null) => void;
     imagePalette?: ImagePalette | null;
+    /** Per-channel tint palettes (up to 4); index 0 uses `imagePalette`. */
+    channelPalettes?: ImagePalette[] | null;
     render?: RenderSettings | null;
     /** Cut edges as fractions of the ray box. Omitted: the whole box. */
     cutFrac?: number[] | null;
+    contrastLimits?: [number, number][] | null;
     /** The meshes' offscreen surfaces for this view (cell-mesh.ts). */
     cubeMeshTarget?: MeshTarget | null;
     modelMatrix?: Matrix4 | null;
@@ -312,6 +665,7 @@ type LayerLike = {
     /** Set by Viv's XR3DLayer: `volume0` is the image texture it draws. */
     textures?: { volume0?: unknown } | null;
     paletteTexture?: Texture | null;
+    channelPaletteTextures?: Texture[] | null;
     scaleMatrix?: Matrix4 | null;
   };
   context: { device: Device; viewport: { viewMatrix: number[]; projectionMatrix: number[] } };
@@ -345,92 +699,121 @@ function lookupTexture(layer: LayerLike, lut: ImagePalette): Texture {
   });
 }
 
-/** The cube's image raycast. */
-class CubeExtension extends ColorPalette3DExtensions.BaseExtension {
-  static componentName = "CubeExtension";
-  static extensionName = "CubeExtension";
-  rendering: typeof RENDERING;
+type CubeRendering = typeof RENDERING_SINGLE | typeof RENDERING_MULTI;
 
-  constructor(rendering: typeof RENDERING) {
+class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
+  rendering: CubeRendering;
+  multichannel: boolean;
+
+  constructor(rendering: CubeRendering, multichannel: boolean) {
     super();
     this.rendering = rendering;
+    this.multichannel = multichannel;
   }
 
-  getVivShaderTemplates() {
-    return { modules: [cubeRenderModule] };
-  }
-
-  // deck.gl calls these with `this` bound to the layer.
   updateState(update: { props: object; oldProps: object }) {
     const layer = this as unknown as LayerLike;
     const { props, oldProps } = update as { props: LayerLike["props"]; oldProps: LayerLike["props"] };
     if (!isRaycaster(layer)) return;
-    if (!layer.state.paletteTexture || props.imagePalette !== oldProps.imagePalette) {
+    const traitLimits =
+      (props as { cubeTraitContrast?: [number, number][] }).cubeTraitContrast ?? props.contrastLimits;
+    if (traitLimits?.length) setCubeTraitContrast(traitLimits as [number, number][]);
+    const oldTrait =
+      (oldProps as { cubeTraitContrast?: [number, number][] }).cubeTraitContrast ?? oldProps.contrastLimits;
+    const traitKey = JSON.stringify(traitLimits ?? []);
+    const oldTraitKey = JSON.stringify(oldTrait ?? []);
+    if (traitKey !== oldTraitKey) {
+      const layerInstance = this as unknown as { setNeedsUpdate?: () => void };
+      layerInstance.setNeedsUpdate?.();
+    }
+    const palettes = props.channelPalettes?.length
+      ? props.channelPalettes
+      : [props.imagePalette ?? paletteLut(props.render?.palette ?? DEFAULT_RENDER.palette)];
+    const oldPalettes = oldProps.channelPalettes?.length
+      ? oldProps.channelPalettes
+      : [oldProps.imagePalette ?? paletteLut(oldProps.render?.palette ?? DEFAULT_RENDER.palette)];
+    if (!layer.state.paletteTexture || palettes[0] !== oldPalettes[0]) {
       layer.state.paletteTexture?.destroy();
-      const palette = props.imagePalette ?? paletteLut(props.render?.palette ?? DEFAULT_RENDER.palette);
-      layer.setState({ paletteTexture: lookupTexture(layer, palette) });
+      layer.setState({ paletteTexture: lookupTexture(layer, palettes[0]!) });
+    }
+    if (this.multichannel) {
+      const prev = layer.state.channelPaletteTextures ?? [];
+      const nextCount = Math.max(0, palettes.length - 1);
+      if (nextCount !== prev.length || palettes.slice(1).some((p, i) => p !== oldPalettes[i + 1])) {
+        prev.forEach((t) => t.destroy());
+        const channelPaletteTextures = palettes.slice(1, 4).map((p) => lookupTexture(layer, p));
+        layer.setState({ channelPaletteTextures });
+      }
+      const paletteCount = palettes.length;
+      const oldPaletteCount = oldPalettes.length;
+      if (paletteCount !== oldPaletteCount) {
+        liveImageChannelCount = paletteCount;
+        applyCubeRenderShaderUniforms(layer);
+        const layerInstance = this as unknown as { setNeedsUpdate?: () => void };
+        layerInstance.setNeedsUpdate?.();
+      }
     }
   }
 
   draw() {
     const layer = this as unknown as LayerLike;
     if (!isRaycaster(layer)) return;
-    const { model, paletteTexture } = layer.state;
+    const { model, paletteTexture, channelPaletteTextures } = layer.state;
     if (!model || !paletteTexture) return;
     const target = layer.props.cubeMeshTarget;
     const meshOn = Boolean(target?.drawn && target.front && target.back);
     if (target) target.drawn = false;
+    const pad = paletteTexture;
+    const p1 = channelPaletteTextures?.[0] ?? pad;
+    const p2 = channelPaletteTextures?.[1] ?? pad;
+    const p3 = channelPaletteTextures?.[2] ?? pad;
     model.setBindings({
       imagePalette: paletteTexture,
+      imagePalette1: p1,
+      imagePalette2: p2,
+      imagePalette3: p3,
       meshFrontColor: meshOn ? target!.front!.color : paletteTexture,
       meshFrontDepth: meshOn ? target!.front!.depth : paletteTexture,
       meshBackColor: meshOn ? target!.back!.color : paletteTexture,
       meshBackDepth: meshOn ? target!.back!.depth : paletteTexture,
     });
-    const imageOn = layer.props.showImage === false ? 0 : 1;
-    // The image texture Viv binds for this draw: the one it last loaded.
     const image = imageTextureInfo(layer.state.textures?.volume0);
     const imageFormat = image?.format ?? null;
     if (imageFormat !== (layer.state.boundImage ?? null)) {
-      // Plain state: set while drawing, so it must not ask for a layer update.
       layer.state.boundImage = imageFormat;
       layer.props.onImageBound?.(imageFormat);
     }
-    const frac = layer.props.cutFrac;
-    const uniforms: CubeUniforms = {
-      ...(layer.props.render ?? DEFAULT_RENDER),
-      imageOn,
-      imageScale: image?.scale ?? 1,
-      imageMip: layer.props.imageMode === "mip" ? 1 : 0,
-      cutX0: frac?.[0] ?? 0,
-      cutX1: frac?.[1] ?? 1,
-      cutY0: frac?.[2] ?? 0,
-      cutY1: frac?.[3] ?? 1,
-      cutZ0: frac?.[4] ?? 0,
-      cutZ1: frac?.[5] ?? 1,
-      meshOn: meshOn ? 1 : 0,
-    };
-    if (meshOn) {
-      const { viewport, device } = layer.context;
-      const m = new Matrix4(viewport.projectionMatrix)
-        .multiplyRight(viewport.viewMatrix)
-        .multiplyRight(layer.props.modelMatrix ?? new Matrix4())
-        .multiplyRight(layer.state.scaleMatrix ?? new Matrix4())
-        .multiplyRight(layer.props.resolutionMatrix ?? new Matrix4());
-      uniforms.meshInv = Array.from(m.invert());
-      uniforms.meshViewport = Array.from(device.gl.getParameter(device.gl.VIEWPORT) as Int32Array);
-    }
-    model.shaderInputs.setProps({ cubeRender: uniforms });
+    applyCubeRenderShaderUniforms(layer);
   }
 
   finalizeState() {
     const layer = this as unknown as LayerLike;
     if (!isRaycaster(layer)) return;
     layer.state.paletteTexture?.destroy();
+    layer.state.channelPaletteTextures?.forEach((t) => t.destroy());
   }
 }
 
-export const CUBE_EXTENSIONS: unknown[] = [new CubeExtension(RENDERING)];
+class CubeExtensionSingle extends CubeExtensionBase {
+  static componentName = "CubeExtensionSingle";
+  static extensionName = "CubeExtensionSingle";
+
+  getVivShaderTemplates() {
+    return { modules: [cubeRenderModuleSingle] };
+  }
+}
+
+class CubeExtensionMulti extends CubeExtensionBase {
+  static componentName = "CubeExtensionMulti";
+  static extensionName = "CubeExtensionMulti";
+
+  getVivShaderTemplates() {
+    return { modules: [cubeRenderModuleMulti] };
+  }
+}
+
+export const CUBE_EXTENSIONS: unknown[] = [new CubeExtensionSingle(RENDERING_SINGLE, false)];
+export const CUBE_EXTENSIONS_MULTI: unknown[] = [new CubeExtensionMulti(RENDERING_MULTI, true)];
 
 function srgbToLinear(c: number): number {
   const s = c / 255;

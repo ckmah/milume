@@ -1,9 +1,8 @@
 import type React from "react";
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Matrix4 } from "@math.gl/core";
 import { VivViewer } from "@hms-dbmi/viv";
 import { loadVolumePyramid } from "./load-volume-pyramid";
-import equal from "fast-deep-equal";
 
 import { ChromeLoadIndicator } from "@/widgets/landmarks/chrome/load-indicator";
 
@@ -15,9 +14,11 @@ import type { VolumeCommClient } from "./volume-comm";
 import { contentZIndexSpan, type ContentZSpan } from "./content-z-span";
 import {
   CUBE_EXTENSIONS,
+  CUBE_EXTENSIONS_MULTI,
   type CellColoring,
   type HighlightGroup,
   type RenderSettings,
+  setCubeTraitContrast,
 } from "./cell-lut-extension";
 import {
   type CutFace,
@@ -33,9 +34,9 @@ import {
 import { VolumeCubeCutChrome, type VolumeCubeCutChromeHandle } from "./cut-hover-chrome";
 import { AxisLegend } from "./axis-legend";
 import type { ImageFormat } from "./image-volume";
-import type { Range, ViewPreset } from "./CubeControls";
 import { type MapScatterPoint, placeScatterPoints } from "./cube-points";
 import { type CubeFrame, FramedVolumeView, labelPad } from "./frame-layers";
+import type { Range, ViewPreset } from "./CubeControls";
 import {
   CELL_MESH_LIGHTING,
   type CellMeshData,
@@ -52,6 +53,9 @@ import { type CellPolygons, cellMeshBuilder } from "./cell-mesh-source";
 import { type CubeOverlay, placeOverlays } from "./overlay-layers";
 import { CUBE_LABEL_CELLS_SETTLE_MS } from "./cube-settled";
 import { paletteLut } from "./palettes";
+import { tintPalette } from "./tint-palette";
+import { cubeImageChannels, type CubeImageChannel } from "./image-channels";
+import type { ImageChannelRow } from "@/widgets/landmarks/use-landmarks-model";
 import { dragToWindowDelta } from "./pan";
 import { type WindowTarget, levelVoxelSize, useShownWindow } from "./use-shown-window";
 import {
@@ -116,6 +120,8 @@ export type VolumeCubeProps = {
   /** Shown cut (already the live value); clamped to the window and the stack here. */
   cut: CubeCut;
   contrast: [number, number];
+  /** When set, per-channel contrast, visibility, and tints follow `_image_channels`. */
+  imageChannelRows?: ImageChannelRow[];
   /** Default "additive": the image's samples accumulate; "mip": its maximum along each ray. */
   imageMode?: "additive" | "mip";
   /**
@@ -230,11 +236,6 @@ const NO_GROUPS: HighlightGroup[] = [];
 /** Coalesce the separate window_cx / window_cy updates of one inspect click. */
 const WINDOW_DEBOUNCE_MS = 120;
 const VOLUME_LOAD_TIMEOUT_MS = 60_000;
-
-const IMAGE_COLORS: [number, number, number][] = [[220, 225, 230]];
-/** Viv's per-channel props for the one image channel (stable, so Viv never refetches for them). */
-const ONE_CHANNEL = [{}];
-const ONE_CHANNEL_VISIBLE = [true];
 
 /**
  * Tissue Z points up the screen. Viv's orbit view spins about world Y, so rotating
@@ -358,6 +359,7 @@ export function VolumeCube({
   windowSizeUm: window_size_um,
   cut,
   contrast,
+  imageChannelRows,
   imageMode = "additive",
   preset,
   home = "iso",
@@ -596,6 +598,40 @@ export function VolumeCube({
     () => (shownImageLook.gamma === imageGamma ? render : { ...render, imageGamma: shownImageLook.gamma }),
     [render, imageGamma, shownImageLook.gamma],
   );
+  const traitChannelRows = imageChannelRows ?? [];
+  const activeImageChannels: CubeImageChannel[] = useMemo(() => {
+    const rows = traitChannelRows;
+    const pyramidBase = image?.[0] ?? null;
+    if (rows.length > 0) {
+      return cubeImageChannels(rows, pyramidBase, contrast);
+    }
+    return [
+      {
+        name: "Channel 0",
+        index: 0,
+        visible: true,
+        contrast: [shownImageLook.contrast[0], shownImageLook.contrast[1]],
+        tint: "#dcdce6",
+      },
+    ];
+  }, [traitChannelRows, image, contrast, shownImageLook.contrast]);
+  const multichannelCube = activeImageChannels.length > 1;
+  const showCubeImage = showImage && activeImageChannels.length > 0;
+  const channelPalettes = useMemo(
+    () =>
+      activeImageChannels.length === 1 && !(imageChannelRows?.length ?? 0)
+        ? [imagePalette]
+        : activeImageChannels.map((ch) => tintPalette(ch.tint)),
+    [activeImageChannels, imageChannelRows, imagePalette],
+  );
+  const gpuChannelBytes = useMemo((): number[] => {
+    if (!shownBox || !imageFormat) return [];
+    const voxels =
+      (shownBox.x1 - shownBox.x0) * (shownBox.y1 - shownBox.y0) * (shownBox.z1 - shownBox.z0);
+    const bpv = imageFormat === "r8unorm" ? 1 : imageFormat === "r16unorm" ? 2 : 4;
+    const bytes = voxels * bpv;
+    return activeImageChannels.map(() => bytes);
+  }, [shownBox, imageFormat, activeImageChannels.length]);
 
   // Frame, camera and cuts live in the requested window; the shown volume pans
   // under it until the new window arrives, so moving Inspect slides the tissue
@@ -710,7 +746,11 @@ export function VolumeCube({
     [ozUm, levelVoxel?.[0], windowZSlice[0], windowZSlice[1]],
   );
   const cutZFrac: [number, number] = [cutFrac[4]!, cutFrac[5]!];
-  const cubeExtensions = CUBE_EXTENSIONS;
+  const cubeExtensions = useMemo(
+    () => (multichannelCube ? CUBE_EXTENSIONS_MULTI : CUBE_EXTENSIONS),
+    [multichannelCube],
+  );
+  const cubeRaycastLayerId = multichannelCube ? "volume-raycast-multi" : "volume-raycast-single";
 
   // Centre of the whole window box in world units (physical scale, then Z_UP).
   // Deliberately not the cut region's centre: cross-sections must not move the cube.
@@ -861,6 +901,15 @@ export function VolumeCube({
   // Reported once there is a camera: a null before the first view would
   // overwrite a preset the caller asked for meanwhile.
   const cameraPreset = presetOf(viewState);
+  // Additive integration is empty on Top for thin z slabs; MIP keeps tissue visible
+  // (matches inspect preview). Do not force MIP for multichannel alone — the multi
+  // channel MIP raycast path is still being brought to parity with single-channel.
+  const thinZSlab = contentDepthVox > 0 && contentDepthVox <= 128;
+  const renderImageMode =
+    imageMode === "mip" ||
+    (thinZSlab && imageMode === "additive" && !multichannelCube)
+      ? "mip"
+      : imageMode;
   const hasCamera = Boolean(viewState);
   const onPresetRef = useLatest(onPreset);
   useLayoutEffect(() => {
@@ -887,13 +936,42 @@ export function VolumeCube({
     [],
   );
 
-  // One channel, the image; the cells are meshes beside it. The cube shader
-  // colours the image from `imagePalette`; `colors` is unused by it and only
-  // satisfies Viv's props.
+  // Per-channel contrast and Viv selections; tints go through `channelPalettes`.
   const contrastLimits = useMemo(
-    () => [[shownImageLook.contrast[0], shownImageLook.contrast[1]]] as [number, number][],
-    [shownImageLook.contrast[0], shownImageLook.contrast[1]],
+    () => activeImageChannels.map((ch) => [ch.contrast[0], ch.contrast[1]] as [number, number]),
+    [activeImageChannels],
   );
+  const contrastLimitsKey = useMemo(
+    () => contrastLimits.map((c) => `${c[0]},${c[1]}`).join(";"),
+    [contrastLimits],
+  );
+  useLayoutEffect(() => {
+    setCubeTraitContrast(contrastLimits);
+  }, [contrastLimitsKey, contrastLimits]);
+  useEffect(() => {
+    setViewState((prev) => (prev ? { ...prev } : prev));
+  }, [contrastLimitsKey]);
+  useEffect(() => {
+    setViewState((prev) => (prev ? { ...prev } : prev));
+  }, [activeImageChannels.length]);
+  const shownRenderForDeck = useMemo(
+    () => ({ ...shownRender, traitContrast: contrastLimits }),
+    [shownRender, contrastLimits],
+  );
+  const channelSelections = useMemo(() => {
+    const hasC = Boolean(level?.source.labels.includes("c"));
+    // Viv toy / single-channel loads match main: `{}` per layer. Only pass `{ c }` when
+    // drawing multiple channels from a multi-channel pyramid (see #395).
+    if (!hasC || activeImageChannels.length <= 1) {
+      return activeImageChannels.map(() => ({}));
+    }
+    return activeImageChannels.map((ch) => ({ c: ch.index }));
+  }, [activeImageChannels, level?.source.labels]);
+  const channelColors = useMemo(
+    () => activeImageChannels.map(() => [255, 255, 255] as [number, number, number]),
+    [activeImageChannels],
+  );
+  const channelsVisible = useMemo(() => activeImageChannels.map(() => true), [activeImageChannels.length]);
 
   const cubeFrame: CubeFrame | null = useMemo(
     () =>
@@ -1052,12 +1130,13 @@ export function VolumeCube({
       loader
         ? [
             {
+              id: cubeRaycastLayerId,
               loader,
               onViewportLoad,
               contrastLimits,
-              colors: IMAGE_COLORS,
-              channelsVisible: ONE_CHANNEL_VISIBLE,
-              selections: ONE_CHANNEL,
+              colors: channelColors,
+              channelsVisible,
+              selections: channelSelections,
               xSlice: vivXSlice,
               ySlice: vivYSlice,
               zSlice: vivZSlice,
@@ -1068,11 +1147,13 @@ export function VolumeCube({
                   : null,
               resolution: 0,
               extensions: cubeExtensions,
-              imageMode,
+              imageMode: renderImageMode,
               onImageBound,
               imagePalette,
-              render: shownRender,
-              showImage,
+              channelPalettes,
+              cubeTraitContrast: contrastLimits,
+              render: shownRenderForDeck,
+              showImage: showCubeImage,
               modelMatrix: volumeMatrix,
               frameMatrix: Z_UP,
               clippingPlanes: [],
@@ -1088,11 +1169,16 @@ export function VolumeCube({
       loader,
       onViewportLoad,
       contrastLimits,
+      contrastLimitsKey,
+      channelColors,
+      channelsVisible,
+      channelSelections,
       vivXSlice,
       vivYSlice,
       vivZSlice,
       cutFrac,
       cubeExtensions,
+      cubeRaycastLayerId,
       outsideCut,
       shownCut[0],
       shownCut[1],
@@ -1106,11 +1192,12 @@ export function VolumeCube({
       winY[1],
       stackZ[0],
       stackZ[1],
-      imageMode,
+      renderImageMode,
       onImageBound,
       imagePalette,
-      shownRender,
-      showImage,
+      channelPalettes,
+      shownRenderForDeck,
+      showCubeImage,
       cubeFrame,
       placedOverlays,
       placedScatterPoints,
@@ -1391,13 +1478,13 @@ export function VolumeCube({
       data-outside={outsideCut ? "cut" : "open"}
       className={cn("volume-cube__view relative w-full overflow-hidden rounded-md", background && "bg-neutral-950")}
       style={{ height }}
-      data-image={showImage ? "on" : "off"}
+      data-image={showCubeImage ? "on" : "off"}
       data-labels={labelsState}
       data-image-format={imageFormat ?? "none"}
       data-label-cells={mesh?.ids.length ?? 0}
       data-coloring={coloringState}
       data-highlight={highlighted.length}
-      data-image-mode={imageMode}
+      data-image-mode={renderImageMode}
       data-pan={`${panX},${panY}`}
       data-palette={render.palette}
       data-image-gamma={render.imageGamma}
@@ -1410,9 +1497,12 @@ export function VolumeCube({
       data-pitch={viewState ? Math.round(viewState.rotationX) : ""}
       data-viewport-w={Math.round(viewPixelSize.width)}
       data-viewport-h={Math.round(viewPixelSize.height)}
+      data-channels={activeImageChannels.length}
+      data-gpu-channel-bytes={gpuChannelBytes.join(",") || "0"}
     >
       {layerProps && displayViewStates ? (
         <VolumeCubeDeck
+          deckKey={`channels:${activeImageChannels.map((c) => c.name).join("+")}`}
           layerProps={layerProps}
           views={views}
           viewStates={displayViewStates}
@@ -1469,6 +1559,7 @@ export function VolumeCube({
 }
 
 type VolumeCubeDeckProps = {
+  deckKey: string;
   layerProps: Record<string, unknown>[];
   views: FramedVolumeView[];
   viewStates: ViewState[];
@@ -1477,30 +1568,8 @@ type VolumeCubeDeckProps = {
 };
 
 /** Viv deck only: cut-face hover updates skip this subtree so deck does not redraw. */
-function deckLayerPropsEqual(a: Record<string, unknown>[], b: Record<string, unknown>[]): boolean {
-  if (a.length !== b.length) return false;
-  for (let i = 0; i < a.length; i++) {
-    const left = a[i]!;
-    const right = b[i]!;
-    for (const key of new Set([...Object.keys(left), ...Object.keys(right)])) {
-      const lv = left[key];
-      const rv = right[key];
-      if (typeof lv === "function" && typeof rv === "function") continue;
-      if (!equal(lv, rv)) return false;
-    }
-  }
-  return true;
-}
-
-function volumeCubeDeckPropsEqual(prev: VolumeCubeDeckProps, next: VolumeCubeDeckProps): boolean {
-  if (prev.views !== next.views) return false;
-  if (!equal(prev.viewStates, next.viewStates)) return false;
-  if (!deckLayerPropsEqual(prev.layerProps, next.layerProps)) return false;
-  if (prev.deckProps.effects !== next.deckProps.effects) return false;
-  return true;
-}
-
-const VolumeCubeDeck = memo(function VolumeCubeDeck({
+function VolumeCubeDeck({
+  deckKey,
   layerProps,
   views,
   viewStates,
@@ -1509,6 +1578,7 @@ const VolumeCubeDeck = memo(function VolumeCubeDeck({
 }: VolumeCubeDeckProps) {
   return (
     <VivViewer
+      key={deckKey}
       {...({
         layerProps,
         views,
@@ -1519,7 +1589,7 @@ const VolumeCubeDeck = memo(function VolumeCubeDeck({
       } as unknown as React.ComponentProps<typeof VivViewer>)}
     />
   );
-}, volumeCubeDeckPropsEqual);
+}
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);

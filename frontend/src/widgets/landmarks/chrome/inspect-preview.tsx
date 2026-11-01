@@ -413,6 +413,7 @@ export function InspectPreview({
           windowSizeUm={hover.sizeUm}
           cut={OPEN_CUT}
           contrast={settings.contrast}
+          imageChannelRows={lm._image_channels}
           imageMode="mip"
           preset="top"
           home="top"
