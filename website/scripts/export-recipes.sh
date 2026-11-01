@@ -32,9 +32,9 @@ export_one() {
   local nb="${ROOT}/demos/recipes/${slug}.py"
   rm -rf "${out}"
   if [[ "${slug}" == "squidpy_moran" ]]; then
-    export MILUME_RECIPE_EXPORT_STRIP=1
+    export MILUME_RECIPE_STATIC_PAGE_EXPORT=1
   else
-    unset MILUME_RECIPE_EXPORT_STRIP
+    unset MILUME_RECIPE_STATIC_PAGE_EXPORT
   fi
   uv run --directory "${ROOT}" marimo-studio view export docs \
     --target "${nb}" \

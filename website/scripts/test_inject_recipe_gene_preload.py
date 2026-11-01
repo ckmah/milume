@@ -8,6 +8,8 @@ from pathlib import Path
 
 from inject_recipe_gene_preload import inject_landmark_map_genes
 
+from moran_static_page_genes import static_page_gene_count
+
 
 def test_inject_landmark_map_genes_sets_gzip_codec(tmp_path: Path) -> None:
     state = {
@@ -40,5 +42,5 @@ def test_inject_landmark_map_genes_sets_gzip_codec(tmp_path: Path) -> None:
     updated = json.loads(path.read_text())
     new_state = updated["resources"]["modelNotifications"][0]["message"]["state"]
     assert new_state["gene_csc_codec"] == "gzip"
-    assert len(new_state["gene_names"]) == adata_map.n_vars
+    assert len(new_state["gene_names"]) == static_page_gene_count
     assert len(new_state["gene_csc_data"]) > 1000

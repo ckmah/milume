@@ -22,16 +22,16 @@
 # cell-11 = {ref = "cell:v1:017e424c9c6cbcf9664740368a8cf42338eaefaebbf4bd0cfb9ef12c36761c91:24d1831492d53a1fcd18adda170be0499639f88c075503ef60371af0957070c0:0"}
 # cell-12 = {ref = "cell:v1:d272b224ec1d53e7294f918522f8d212b98ae6de2bfb50cb0bb4ac0cef3f6c0d:8ae18855679f6d28706f8f8132b5a8088e2cc066cfe4773d49bcdeff8a2a3afb:0"}
 # cell-15 = {ref = "cell:v1:b773405c53c80356a5e7b1ef53886760ab3f6f63dc147af6a0f78de455292327:388e4167ac3b577c705df343e137ca390f0517c6685495a74c749697a162e4b1:0"}
-# cell-16 = {ref = "cell:v1:15c21ffed9ea9b2866f6445dca1a9c437c14225712c87857d4c42d21cda44999:d3138d2ebf25cbd00386eba8beee7bfa8a5837655530ec4c553cc46f0e41a0f5:0"}
+# cell-16 = {ref = "cell:v1:dc4df70a0910196bcc5aa24457a44e35ab251a369b3cd8fad051c632434fd512:7017ab7ab2fb0c80678b63832e894919b15acbb31d1877a2956274bd00503864:0"}
 # cell-19 = {ref = "cell:v1:3383cbe69ad2eff6c3333c73ff28b880ced76e11fcac204349423f453396fe17:770b56eb8f34374130cc0b7f22b2cf5d8a26d714f60eb6361ab6f9f09c4f13f7:0"}
-# cell-20 = {ref = "cell:v1:d41f50aa0373f40b024433af8454a27dd75ca98e04d51eee698d7ba7bae30531:5e1a02510c5b9f2742918846df490c1a7ced6849b9c46b5c4f220eb25e7c9fb1:0"}
+# cell-20 = {ref = "cell:v1:45a811689172974f44010c3cca0eb9eca685c1427e5624632efabf2c0e308006:d2ddb2a8f89d27aa4d5734e914ae2c2d0f8d5b3ff96708308a1b2f6a46709dbf:0"}
 # cell-erbb3 = {ref = "cell:v1:d6e619798bae0d204182cfcbb2c3a39bb29695b459343d2efe2257e5369e37be:5bcf96bbfb9bf1a3f32b9423527464515538ccdbfe7fdd7bf640e765ca42a902:0"}
 # cell-24 = {ref = "cell:v1:9770979b8557bad7829dc6f15441a9a369d6adfb8a9dd3f6074b1e4cc71a5566:187654320bf4950d0cab9add7845875b35eb000b278b0a0936926b442353f1dc:0"}
 # cell-tenth = {ref = "cell:v1:2ab4e03ff83c55cd41d48a0c8689dc4f4afc1abd64f02456df498eae856a173d:f74de9407e488ae3c2fa8b5f57a91d4695795b28e21e0120a341d1ebbffbe920:0"}
 # cell-25 = {ref = "cell:v1:5613ae7638deee35a6ca49abdd4cdc51fcb015f89cfcb3ee01aad5b155d631b5:01e638f8000b9ef25d23fdaa4dd841b1260a69e3c15fe26422679e7671d2434c:0"}
 # cell-depth = {ref = "cell:v1:5581d8a68354be83b4df1e806be9c3a0e0f9baea0f346b4ba836243a44658087:b9721f2814ba90b2ef4bd7c515c2ef0f5030ec8719e84635c7a6bcfc382bde3b:0"}
 # cell-26 = {ref = "cell:v1:692f798c0ce2b1f7b3753d50d51488529d662858294b3ac5b16d808442dff23b:dd0e5952b24b03666159297cac39b040600ece05438618e8b20693d2a6e31cae:0"}
-# cell-27 = {ref = "cell:v1:46fe492910aedcf069dbe30de204619bbd66fdc7f4189339e56e25f82b91e793:f755a728fae900789e84c7501c866c4e0e934f4f39710ff5abc816245197296f:0"}
+# cell-27 = {ref = "cell:v1:625c48270fb0f0dffb5145c019b65ec82cc048059ccad7677a86b51757f0856b:7911904d5d1a5461ceea318b497d6a51a436aca9b49036acba51d4f0e283b858:0"}
 # ///
 """Squidpy Moran's I recipe: cell-type layout vs patterns inside enterocytes (ileum)."""
 
@@ -216,32 +216,44 @@ def _(ent, genes, mo):
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
+def static_page_gene_catalog(mo):
+    import sys
+    from pathlib import Path
+
+    root = Path(mo.notebook_dir())
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
+    from moran_static_page_genes import STATIC_PAGE_GENES, static_page_gene_count
+
+    return STATIC_PAGE_GENES, static_page_gene_count
+
+
+@app.cell(hide_code=True)
+def _(mo, static_page_gene_count):
+    mo.md(f"""
     ## Explore Erbb3 and Apob in the tissue
 
-    The map opens colored by **Erbb3**. It lights up the epithelium that lines every villus and stays dark in the muscle and immune tissue around it. To keep this page small, its map holds only a 400 µm wide strip across the middle of the section; in molab the map holds the whole section.
+    The map opens on the whole section colored by **Erbb3**. It lights up the epithelium that lines every villus and stays dark in the muscle and immune tissue around it. This page carries a subset of the {static_page_gene_count:,} genes, including every gene named here; open the notebook in molab to color by any of them.
     """)
     return
 
 
 @app.cell(hide_code=True)
-def map_view(adata, np):
+def map_view(adata):
     import os
 
-    _xy = adata.obsm["spatial"]
-    _mucosa = adata.obs["anatomical_layer"].eq("Mucosa").to_numpy()
-    _x_mid = float(np.median(_xy[_mucosa, 0]))
-    _strip = (_xy[:, 0] >= _x_mid - 200) & (_xy[:, 0] <= _x_mid + 200)
-    _export_strip = os.environ.get("MILUME_RECIPE_EXPORT_STRIP") == "1"
-    adata_map = (adata[_strip] if _export_strip else adata).copy()
+    adata_map = adata.copy()
     adata_map.obs = adata_map.obs[["cell_type", "n_counts"]].copy()
+    # marimo-studio caps the prepared manifest at 256 KiB; inject expands the
+    # landmark cell asset to the full section after export.
+    if os.environ.get("MILUME_RECIPE_STATIC_PAGE_EXPORT") == "1":
+        adata_map = adata_map[:1].copy()
     return (adata_map,)
 
 
 @app.cell
 def landmark_map(adata_map, ml, mo):
-    w = mo.ui.anywidget(ml.peek(adata_map, color="Erbb3"))
+    w = mo.ui.anywidget(ml.peek(adata_map, color="Erbb3", genes=None))
     w
     return (w,)
 
@@ -261,7 +273,7 @@ def _(mo):
 
     To place each enterocyte between villus base and tip, we use the crypt as the landmark. Stem and Paneth cells sit at the crypt base, so an enterocyte's villus position is its straight-line distance to the nearest stem or Paneth cell: small near the base, large near the tip. We find that nearest cell with a k-d tree from scipy.
 
-    The left panel compares each gene's two scores. The right panel splits enterocytes into ten equal-size groups by that distance and shows each group's mean expression. The gene you pick in the map is added in black. In molab, lasso one villus to profile only its enterocytes.
+    The left panel compares each gene's two scores. The right panel splits enterocytes into ten equal-size groups by that distance and shows each group's mean expression. This page shows the figure for Erbb3 and Apob. In molab, the gene you pick in the map is added in black, and you can lasso one villus to profile only its enterocytes.
     """)
     return
 
@@ -407,8 +419,8 @@ def _(mo):
 
     ## Try it
 
-    - Switch between **Erbb3** and **Apob** and watch the right panel. Which line climbs?
-    - Color by **Cps1**. Its high enterocytes sit near the crypts, the mirror image of Apob. Where does it land in the scatter?
+    - Switch the map between **Erbb3** and **Apob**. Which one brightens toward the villus tips?
+    - Color by **Cps1**. Its high enterocytes sit near the crypts, the mirror image of Apob. In molab, where does it land in the scatter?
     - Color by `n_counts`. Compare it with Apob along a few villi.
     - Lasso a single villus (molab only). Does the Apob profile still climb with distance from the crypt in one villus?
     - Color by **Acta2**. It tops the all-cell ranking but isn't scored in enterocytes. Why?
