@@ -330,7 +330,7 @@ float cover(float a, float steps) {
 // intensity is contrast-limited 0-1 (inject applies imageScale then contrastLimits per channel).
 vec4 tintedSample(float v, highp sampler3D palette, vec2 lim) {
   float g = pow(clamp(v, 0.0, 1.0), cubeRender.imageGamma);
-  vec3 c = srgbToLinear(texelFetch(palette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb);
+  vec3 c = texelFetch(palette, ivec3(int(g * 255.0 + 0.5), 0, 0), 0).rgb;
   return vec4(c, g * cubeRender.imageAlpha * cubeRender.imageOn);
 }
 
@@ -338,11 +338,26 @@ vec4 imageSample(float v) {
   return tintedSample(v, imagePalette, cubeRender.imageContrast0);
 }
 
+// Merge two channel tints at one ray step (linear rgb, scalar alpha for addSample).
+vec4 mergeTintedSamples(vec4 s0, vec4 s1) {
+  float a = s0.a + s1.a - s0.a * s1.a;
+  if (a < 1e-6) return vec4(0.0);
+  vec3 rgb = (s0.rgb * s0.a + s1.rgb * s1.a) / a;
+  return vec4(rgb, a);
+}
+
 vec4 combinedImageSample2(float v0, float v1) {
+#if NUM_CHANNELS == 1
+  return imageSample(v0);
+#else
+  if (v1 >= v0 * 2.0 + 0.008) return tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+  if (v0 >= v1 * 2.0 + 0.008) return tintedSample(v0, imagePalette, cubeRender.imageContrast0);
+  if (v0 <= v1 * 0.05 + 0.002) return tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
+  if (v1 <= v0 * 0.05 + 0.002) return tintedSample(v0, imagePalette, cubeRender.imageContrast0);
   vec4 s0 = tintedSample(v0, imagePalette, cubeRender.imageContrast0);
-  if (cubeRender.imageChannelCount < 2.5) return s0;
   vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
-  return vec4(s0.rgb + s1.rgb, min(1.0, s0.a + s1.a));
+  return mergeTintedSamples(s0, s1);
+#endif
 }
 
 vec4 combinedImageSample3(float v0, float v1, float v2) {
@@ -351,11 +366,11 @@ vec4 combinedImageSample3(float v0, float v1, float v2) {
   vec4 acc = s0;
   if (cubeRender.imageChannelCount > 1.5) {
     vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
-    acc = vec4(acc.rgb + s1.rgb, min(1.0, acc.a + s1.a));
+    acc = mergeTintedSamples(acc, s1);
   }
   if (cubeRender.imageChannelCount > 2.5) {
     vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
-    acc = vec4(acc.rgb + s2.rgb, min(1.0, acc.a + s2.a));
+    acc = mergeTintedSamples(acc, s2);
   }
   return acc;
 }
@@ -366,15 +381,15 @@ vec4 combinedImageSample4(float v0, float v1, float v2, float v3) {
   vec4 acc = s0;
   if (cubeRender.imageChannelCount > 1.5) {
     vec4 s1 = tintedSample(v1, imagePalette1, cubeRender.imageContrast1);
-    acc = vec4(acc.rgb + s1.rgb, min(1.0, acc.a + s1.a));
+    acc = mergeTintedSamples(acc, s1);
   }
   if (cubeRender.imageChannelCount > 2.5) {
     vec4 s2 = tintedSample(v2, imagePalette2, cubeRender.imageContrast2);
-    acc = vec4(acc.rgb + s2.rgb, min(1.0, acc.a + s2.a));
+    acc = mergeTintedSamples(acc, s2);
   }
   if (cubeRender.imageChannelCount > 3.5) {
     vec4 s3 = tintedSample(v3, imagePalette3, cubeRender.imageContrast3);
-    acc = vec4(acc.rgb + s3.rgb, min(1.0, acc.a + s3.a));
+    acc = mergeTintedSamples(acc, s3);
   }
   return acc;
 }
@@ -539,11 +554,8 @@ const RENDERING_MULTI = {
   _RENDER: `
     ${IN_CUT}
     bool imageHere = !(ghosting && !inCut);
-    // This sample stands for the step around it (lo to lo + dt along the ray).
     float lo = meshHere ? dot(p - transformed_eye, ray_dir) - 0.5 * dt : 0.0;
     if (meshHere && cubeRender.imageMip < 0.5 && meshT0 < lo + dt) {
-      // A mesh surface inside the step splits it: the part in front goes in before
-      // the surface, the rest after.
       vec4 im = vec4(0.0);
       if (imageHere) {
 #if NUM_CHANNELS == 1
@@ -557,7 +569,6 @@ const RENDERING_MULTI = {
 #endif
       }
       float done = 0.0;
-      // At most the two surfaces; the one left after a flush moves up to mesh0.
       for (int k = 0; k < 2; k++) {
         if (meshT0 >= lo + dt) break;
         float f = clamp((meshT0 - lo) / dt, done, 1.0);
@@ -597,9 +608,14 @@ const RENDERING_MULTI = {
         acc.a += (1.0 - acc.a) * a;
       }
     }
+#if NUM_CHANNELS > 1
+    // Do not stop the ray when one combined sample saturates; PanCK sites sit behind DAPI along oblique rays.
+#else
     if (cubeRender.imageMip < 0.5 && 1.0 - (1.0 - shown.a) * (1.0 - acc.a) >= 0.95) {
       break;
-    }`,
+    }
+#endif
+    `,
   _AFTER_RENDER: `
   color = acc;
   if (cubeRender.imageMip > 0.5) {
@@ -616,7 +632,6 @@ const RENDERING_MULTI = {
     color = vec4(im.rgb * cubeRender.imageAlpha * cubeRender.imageOn, cubeRender.imageOn);
   }
   if (meshHere) {
-    // In a projection there is no depth to put the meshes at: they go over it.
     if (cubeRender.imageMip > 0.5) {
       acc = vec4(0.0);
       if (meshT0 < NO_MESH) meshFlush(shown, acc, mesh0);
@@ -627,7 +642,6 @@ const RENDERING_MULTI = {
       if (meshT1 < NO_MESH) meshFlush(shown, acc, mesh1);
     }
     meshFlush(shown, acc, vec4(0.0));
-    // Viv turns color to sRGB and the canvas blend weights it by alpha: undo both.
     color = vec4(srgbToLinear(shown.rgb / max(shown.a, 1e-6)), shown.a);
   }`,
 };
