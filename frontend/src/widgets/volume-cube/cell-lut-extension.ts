@@ -36,13 +36,7 @@ export function setCubeTraitContrast(limits: [number, number][]) {
     : [[0, 255], [0, 255], [0, 255], [0, 255]];
 }
 
-type CubeRaycastModel = {
-  draw: (renderPass: unknown) => void;
-  shaderInputs: { setProps(p: Record<string, unknown>): void };
-  __cubeUboDrawHook?: boolean;
-};
-
-/** Push trait contrast into cubeRender UBO immediately before the GPU draw call. */
+/** Push trait contrast into cubeRender UBO before the cube extension draw binds palettes. */
 export function applyCubeRenderShaderUniforms(layer: LayerLike): void {
   const { model } = layer.state;
   if (!model) return;
@@ -91,17 +85,6 @@ export function applyCubeRenderShaderUniforms(layer: LayerLike): void {
     uniforms.meshViewport = Array.from(device.gl.getParameter(device.gl.VIEWPORT) as Int32Array);
   }
   model.shaderInputs.setProps({ cubeRender: uniforms });
-}
-
-function ensureCubeUboDrawHook(layer: LayerLike): void {
-  const model = layer.state.model as CubeRaycastModel | null | undefined;
-  if (!model || model.__cubeUboDrawHook) return;
-  model.__cubeUboDrawHook = true;
-  const vivDraw = model.draw.bind(model);
-  model.draw = (renderPass: unknown) => {
-    applyCubeRenderShaderUniforms(layer);
-    vivDraw(renderPass);
-  };
 }
 
 type CubeUniforms = Partial<RenderSettings> & {
@@ -354,7 +337,6 @@ vec4 imageSample(float v) {
 
 vec4 combinedImageSample2(float v0, float v1) {
   vec4 s0 = tintedSample(v0, imagePalette);
-  if (cubeRender.imageChannelCount < 1.5) return vec4(0.0);
   if (cubeRender.imageChannelCount < 2.5) return s0;
   vec4 s1 = tintedSample(v1, imagePalette1);
   return vec4(s0.rgb + s1.rgb, min(1.0, s0.a + s1.a));
@@ -362,7 +344,7 @@ vec4 combinedImageSample2(float v0, float v1) {
 
 vec4 combinedImageSample3(float v0, float v1, float v2) {
   vec4 s0 = tintedSample(v0, imagePalette);
-  if (cubeRender.imageChannelCount < 1.5) return vec4(0.0);
+  if (cubeRender.imageChannelCount < 1.5) return s0;
   vec4 acc = s0;
   if (cubeRender.imageChannelCount > 1.5) {
     vec4 s1 = tintedSample(v1, imagePalette1);
@@ -377,7 +359,7 @@ vec4 combinedImageSample3(float v0, float v1, float v2) {
 
 vec4 combinedImageSample4(float v0, float v1, float v2, float v3) {
   vec4 s0 = tintedSample(v0, imagePalette);
-  if (cubeRender.imageChannelCount < 1.5) return vec4(0.0);
+  if (cubeRender.imageChannelCount < 1.5) return s0;
   vec4 acc = s0;
   if (cubeRender.imageChannelCount > 1.5) {
     vec4 s1 = tintedSample(v1, imagePalette1);
@@ -830,15 +812,6 @@ class CubeExtensionMulti extends CubeExtensionBase {
 
 export const CUBE_EXTENSIONS: unknown[] = [new CubeExtensionSingle(RENDERING_SINGLE, false)];
 export const CUBE_EXTENSIONS_MULTI: unknown[] = [new CubeExtensionMulti(RENDERING_MULTI, true)];
-
-import { CubeXR3DLayer } from "./image-volume";
-
-const xr3dProto = CubeXR3DLayer.prototype as unknown as LayerLike & { draw(): void };
-const xr3dLayerDraw = xr3dProto.draw.bind(xr3dProto);
-xr3dProto.draw = function (this: LayerLike) {
-  ensureCubeUboDrawHook(this);
-  xr3dLayerDraw.call(this);
-};
 
 function srgbToLinear(c: number): number {
   const s = c / 255;

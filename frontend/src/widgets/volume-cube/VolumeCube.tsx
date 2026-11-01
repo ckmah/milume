@@ -902,11 +902,12 @@ export function VolumeCube({
   // overwrite a preset the caller asked for meanwhile.
   const cameraPreset = presetOf(viewState);
   // Additive integration is empty on Top for thin z slabs; MIP keeps tissue visible
-  // (matches inspect preview). Use MIP for configured multichannel and for thin 3D windows.
+  // (matches inspect preview). Do not force MIP for multichannel alone — the multi
+  // channel MIP raycast path is still being brought to parity with single-channel.
   const thinZSlab = contentDepthVox > 0 && contentDepthVox <= 128;
   const renderImageMode =
     imageMode === "mip" ||
-    ((multichannelCube || thinZSlab) && imageMode === "additive")
+    (thinZSlab && imageMode === "additive" && !multichannelCube)
       ? "mip"
       : imageMode;
   const hasCamera = Boolean(viewState);

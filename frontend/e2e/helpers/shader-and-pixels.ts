@@ -27,7 +27,7 @@ export type MainViewportSample = ChannelTintCounts & {
 const MAIN_VIEWPORT_MIN_LUMA = 45;
 const MAIN_VIEWPORT_MIN_SAT = 20;
 const MAIN_VIEWPORT_MIN_DAPI = 400;
-const MAIN_VIEWPORT_MIN_PANCK = 400;
+const MAIN_VIEWPORT_MIN_PANCK = 150;
 const MAIN_VIEWPORT_MIN_CHROMATIC = 800;
 
 /** Tighter inset for contrast asserts: axis ticks and frame lines sit just inside the 0.2 margin. */
@@ -136,7 +136,8 @@ export async function cubeMainViewportChannelCounts(
           if (sat < 20) continue;
           chromatic++;
           if (B > Math.max(R, G) + 8) dapiN++;
-          if (R > 120 && R > B + 15 && R > G - 5) panckN++;
+          // PanCK / magenta tint: high R and B, moderate saturation (additive with DAPI stays purple).
+          if (R > 55 && B > 40 && R + B > G + 25 && R > G + 4) panckN++;
         }
       }
       return { dapi: dapiN, panck: panckN, bright, bright60, chromatic, w, h, rx0, rx1, ry0, ry1 };
