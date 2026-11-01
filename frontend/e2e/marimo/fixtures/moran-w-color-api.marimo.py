@@ -41,8 +41,8 @@ def _():
 
 @app.cell
 def landmark_map(adata, ml, mo):
-    w = mo.ui.anywidget(ml.peek(adata, color="Apob", genes=None))
-    w.color = "Apob"
+    w = mo.ui.anywidget(ml.peek(adata, color="Erbb3", genes=None))
+    w.color = "Erbb3"
     return (w,)
 
 
@@ -56,7 +56,7 @@ def _(w):
 def result_figure(adata, mo, np, pd, plt, w):
     _ = w.value
     active = list(w.active_genes or [])
-    gene_name = str(active[-1]) if active else str(w.color or "Apob")
+    gene_name = str(active[-1]) if active else str(w.color or "Erbb3")
     moran_scores = adata.var[["moran_I_all", "moran_I_enterocyte"]]
     both = moran_scores.dropna(subset=["moran_I_all", "moran_I_enterocyte"])
     fig, ax = plt.subplots(figsize=(4, 3), layout="constrained")
