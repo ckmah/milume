@@ -912,8 +912,6 @@ class LandmarksWidget(AnyWidget):
         # Selected genes own the observation signal in bins mode (client rebuilds).
         if genes and self.raster_basis != "genes":
             self.raster_basis = "genes"
-        if len(genes) == 1 and str(self.color or "") != genes[0]:
-            self.color = genes[0]
 
     def set_render_mode(self, mode: str) -> None:
         """Switch canvas between point scatter and spatial raster bins."""
