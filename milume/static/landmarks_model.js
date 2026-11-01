@@ -10,6 +10,8 @@
  * and leaves the points on the previous embedding.
  */
 export const NOTEBOOK_KEYS = new Set([
+  "active_genes",
+  "color",
   "landmarks",
   "selections",
   "selected_kind",
