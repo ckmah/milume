@@ -25,13 +25,17 @@ RECIPES=(
 )
 
 export MARIMO_EXPORT_REPOSITORY="${MARIMO_EXPORT_REPOSITORY:-${ROOT}/.cache/marimo-export-recipes}"
-export MILUME_RECIPE_EXPORT_STRIP=1
 
 export_one() {
   local slug="$1"
   local out="$2"
   local nb="${ROOT}/demos/recipes/${slug}.py"
   rm -rf "${out}"
+  if [[ "${slug}" == "squidpy_moran" ]]; then
+    export MILUME_RECIPE_EXPORT_STRIP=1
+  else
+    unset MILUME_RECIPE_EXPORT_STRIP
+  fi
   uv run --directory "${ROOT}" marimo-studio view export docs \
     --target "${nb}" \
     --output "${out}" \
