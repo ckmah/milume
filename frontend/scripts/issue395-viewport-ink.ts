@@ -1,6 +1,6 @@
 /**
  * Measure cube canvas ink inside wireframe inset (GL + screenshot readback).
- * Usage: npx tsx scripts/issue395-viewport-ink.ts [dapi-only|panck-only|dual]
+ * Usage: npx tsx scripts/issue395-viewport-ink.ts [dapi-only|dapi-bad-order|panck-only|dual]
  */
 import { chromium } from "@playwright/test";
 
@@ -13,6 +13,7 @@ import {
   openIssue395CubeAtInspectCentre,
   openLayersPanelWithCubeOpen,
   clickPanckLayerSwitch,
+  prepareIssue395DapiOnlyObliqueDirectOrder,
   prepareIssue395DapiOnlyObliqueView,
   setCubeLabels,
   setCubePreset,
@@ -26,7 +27,7 @@ import {
   type CubeViewportInkMode,
 } from "../e2e/helpers/shader-and-pixels.ts";
 
-type Mode = CubeViewportInkMode;
+type Mode = CubeViewportInkMode | "dapi-bad-order";
 
 const mode = (process.argv[2] ?? "dual") as Mode;
 const debugAccCh1 = process.argv.includes("--debug-acc-ch1");
@@ -46,6 +47,10 @@ async function applyMode(page: import("@playwright/test").Page, m: Mode) {
     await prepareIssue395DapiOnlyObliqueView(page);
     return;
   }
+  if (m === "dapi-bad-order") {
+    await prepareIssue395DapiOnlyObliqueDirectOrder(page);
+    return;
+  }
   await openLayersPanelWithCubeOpen(page);
   await expectPanckVisible(page, true);
   await expectDapiVisible(page, false);
@@ -59,8 +64,8 @@ const page = await browser.newPage({
 
 await boot(page);
 await openIssue395CubeAtInspectCentre(page);
-if (mode === "dapi-only") {
-  await prepareIssue395DapiOnlyObliqueView(page);
+if (mode === "dapi-only" || mode === "dapi-bad-order") {
+  await applyMode(page, mode);
 } else {
   await setCubeLabels(page, false);
   await applyMode(page, mode);

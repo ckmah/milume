@@ -149,9 +149,17 @@ export async function prepareIssue395DapiOnlyObliqueView(page: Page) {
   await setCubePreset(page, "Top view");
   await setCubePreset(page, "Oblique view");
   await openLayersPanelWithCubeOpen(page);
-  await clickPanckLayerSwitch(page);
-  await expectPanckVisible(page, false);
+  await setPanckLayerVisible(page, false);
   await waitIssue395CubeReadyForCapture(page, "DAPI-only Oblique", "dapi-only");
+}
+
+/** PanCK off before Oblique (must still fill DAPI volume, not wireframe-only). */
+export async function prepareIssue395DapiOnlyObliqueDirectOrder(page: Page) {
+  await setCubeLabels(page, false);
+  await openLayersPanelWithCubeOpen(page);
+  await setPanckLayerVisible(page, false);
+  await setCubePreset(page, "Oblique view");
+  await waitIssue395CubeReadyForCapture(page, "DAPI-only Oblique direct order", "dapi-only");
 }
 
 export async function setCubeLabels(page: Page, on: boolean) {
@@ -180,8 +188,21 @@ export async function openLayersPanelWithCubeOpen(page: Page) {
   await page.getByTestId("layer-channel-PanCK").waitFor({ state: "visible", timeout: 30_000 });
 }
 
-export async function clickPanckLayerSwitch(page: Page) {
+async function readPanckLayerVisible(page: Page): Promise<boolean | undefined> {
+  return page.evaluate(() => {
+    const rows = window.__landmarksModel.get("_image_channels") as Array<{ name: string; visible: boolean }>;
+    return rows.find((c) => c.name === "PanCK")?.visible;
+  });
+}
+
+export async function clickPanckLayerSwitch(page: Page, opts: { force?: boolean } = {}) {
   const sw = page.getByTestId("layer-channel-PanCK");
+  await expect(sw).toBeVisible();
+  if (opts.force) {
+    await sw.click({ force: true });
+    await page.waitForTimeout(150);
+    return;
+  }
   const box = await sw.boundingBox();
   expect(box).toBeTruthy();
   const cx = box!.x + box!.width / 2;
@@ -191,6 +212,17 @@ export async function clickPanckLayerSwitch(page: Page) {
   await page.mouse.move(cx, cy, { steps: 10 });
   await page.waitForTimeout(100);
   await page.mouse.click(cx, cy);
+}
+
+/** Toggle PanCK in the layers panel until trait and cube channel count match. */
+export async function setPanckLayerVisible(page: Page, visible: boolean) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const current = await readPanckLayerVisible(page);
+    if (current === visible) break;
+    await clickPanckLayerSwitch(page, { force: attempt >= 2 });
+    await page.waitForTimeout(250);
+  }
+  await expectPanckVisible(page, visible);
 }
 
 export async function expectPanckVisible(page: Page, visible: boolean) {
@@ -274,20 +306,24 @@ export async function expectIssue395CubeViewportHealthy(
 }
 
 /** Clip order: cube open (Iso) → layers → PanCK off → PanCK on. */
-export async function runIssue395ToggleClipFlow(page: Page) {
+export async function runIssue395ToggleClipFlow(
+  page: Page,
+  onPhase?: (phase: "dual-oblique" | "panck-off" | "panck-on") => Promise<void>,
+) {
   await openIssue395CubeAtInspectCentre(page);
   await setCubePreset(page, "Oblique view");
   await setCubeLabels(page, false);
   await expectIssue395CubeViewportHealthy(page, "two-channel Iso labels off", { requirePanckSites: true });
+  await onPhase?.("dual-oblique");
   await setCubePreset(page, "Top view");
   await expectIssue395CubeViewportHealthy(page, "two-channel Top labels off", { requirePanckSites: false });
   await setCubePreset(page, "Oblique view");
   await openLayersPanelWithCubeOpen(page);
   await page.waitForTimeout(400);
-  await clickPanckLayerSwitch(page);
-  await expectPanckVisible(page, false);
+  await setPanckLayerVisible(page, false);
   await expectIssue395CubeViewportHealthy(page, "PanCK off", { forbidPanckSites: true });
-  await clickPanckLayerSwitch(page);
-  await expectPanckVisible(page, true);
+  await onPhase?.("panck-off");
+  await setPanckLayerVisible(page, true);
   await expectIssue395CubeViewportHealthy(page, "PanCK on", { requirePanckSites: true });
+  await onPhase?.("panck-on");
 }

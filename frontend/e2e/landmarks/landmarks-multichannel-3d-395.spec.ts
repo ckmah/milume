@@ -5,7 +5,11 @@ import {
   bootIssue395LandmarksVolume,
   openIssue395CubeAtInspectCentre,
   openLayersPanelWithCubeOpen,
+  expectIssue395CubeViewportHealthy,
+  prepareIssue395DapiOnlyObliqueDirectOrder,
   runIssue395ToggleClipFlow,
+  setCubeLabels,
+  setCubePreset,
 } from "../helpers/issue395-cube-flow";
 import {
   expectCubeFootprintChangesTopToIso,
@@ -61,6 +65,20 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
 
   test("clip viewport states (Top, Iso, PanCK off/on) reject solid fill and empty", async ({ page }) => {
     await runIssue395ToggleClipFlow(page);
+  });
+
+  test("toggle order: PanCK off before Oblique still shows DAPI", async ({ page }) => {
+    await openIssue395CubeAtInspectCentre(page);
+    await prepareIssue395DapiOnlyObliqueDirectOrder(page);
+    await expectIssue395CubeViewportHealthy(page, "DAPI-only direct order Oblique", { forbidPanckSites: true });
+  });
+
+  test("dual Oblique shows blended ink and PanCK sites after Top warmup", async ({ page }) => {
+    await openIssue395CubeAtInspectCentre(page);
+    await setCubePreset(page, "Top view");
+    await setCubePreset(page, "Oblique view");
+    await setCubeLabels(page, false);
+    await expectIssue395CubeViewportHealthy(page, "dual Oblique labels off", { requirePanckSites: true });
   });
 
   test("cube volume survives hiding map image (not flat backdrop bleed)", async ({ page }) => {

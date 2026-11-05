@@ -126,21 +126,11 @@ type ChannelVolumePayload = {
 /** Viv's XR3DLayer, uploading the image at its own dtype (see the module note). */
 export class CubeXR3DLayer extends XR3DBase {
   static layerName = "CubeXR3DLayer";
-  private compiledChannelCount = 0;
 
-  updateState(params: {
-    props: Record<string, unknown>;
-    oldProps?: Record<string, unknown>;
-    changeFlags: Record<string, boolean>;
-  }): void {
-    const n = this.getNumChannels();
-    if (n !== this.compiledChannelCount && this.state.model) {
-      this.state.model.destroy();
-      this.setState({ model: null });
-    }
-    super.updateState(params);
-    this.compiledChannelCount = n;
-  }
+  // Viv rebuilds the raycast program when selections.length changes. Do not also
+  // destroy state.model from an instance counter: Deck copies that model onto the
+  // next sublayer with the same id, the counter starts at 0, and the next cut or
+  // label update deletes the program without compiling another.
 
   /**
    * Viv fills missing `volumeN` textures by aliasing `volume0`, which breaks

@@ -774,7 +774,7 @@ export function VolumeCube({
     [multichannelCube, cubeDebugAccCh1, cubeDebugDualBisect],
   );
   /** Bust Deck.gl program cache when multichannel raycast GLSL changes (HMR does not re-link). */
-  const cubeMultichannelShaderKey = "dual-raycast-v10";
+  const cubeMultichannelShaderKey = "dual-raycast-v12";
   const cubeRaycastLayerId = multichannelCube ? "volume-raycast-multi" : "volume-raycast-single";
 
   // Centre of the whole window box in world units (physical scale, then Z_UP).
@@ -926,13 +926,11 @@ export function VolumeCube({
   // Reported once there is a camera: a null before the first view would
   // overwrite a preset the caller asked for meanwhile.
   const cameraPreset = presetOf(viewState);
-  // Additive integration is empty on Top for thin z slabs; MIP keeps tissue visible
-  // (matches inspect preview). Do not force MIP for multichannel alone — the multi
-  // channel MIP raycast path is still being brought to parity with single-channel.
+  // Additive integration is empty on Top for thin z slabs; MIP keeps tissue visible.
+  // Multichannel stays on the requested mode so Oblique can integrate both channels.
   const thinZSlab = contentDepthVox > 0 && contentDepthVox <= 128;
   const renderImageMode =
-    imageMode === "mip" ||
-    (thinZSlab && imageMode === "additive" && !multichannelCube)
+    imageMode === "mip" || (thinZSlab && imageMode === "additive" && !multichannelCube)
       ? "mip"
       : imageMode;
   const hasCamera = Boolean(viewState);

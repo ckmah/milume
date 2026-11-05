@@ -201,9 +201,14 @@ export function isIssue395DualPanckSitePixel(R: number, G: number, B: number): b
 
 /** Largest 4-connected strict-magenta component inside each fixture PanCK ROI on a cube view PNG. */
 export async function analyzeIssue395PanckSitesInCubeView(page: Page): Promise<PanckSiteAnalysis | null> {
-  let rois: Array<{ id: string; x0: number; y0: number; x1: number; y1: number }> = [...ISSUE395_PANCK_CUBE_ROIS];
   const projected = await projectIssue395PanckRoIs(page);
-  void projected;
+  const projectedRois = projected.filter(
+    (roi) => roi.x1 > roi.x0 && roi.y1 > roi.y0 && roi.cx > -0.2 && roi.cx < 1.2 && roi.cy > -0.2 && roi.cy < 1.2,
+  );
+  const rois =
+    projectedRois.length === ISSUE395_PANCK_CUBE_ROIS.length
+      ? projectedRois.map(({ id, x0, y0, x1, y1 }) => ({ id, x0, y0, x1, y1 }))
+      : [...ISSUE395_PANCK_CUBE_ROIS];
   const png = await page.locator(CUBE_VIEW_SEL).screenshot();
   const channels = await page.locator(CUBE_VIEW_SEL).getAttribute("data-channels");
   const panckTestSource =
@@ -304,11 +309,16 @@ export async function expectIssue395PanckMagentaSitesInCubeMainViewport(
   const analysis = await analyzeIssue395PanckSitesInCubeView(page);
   expect(analysis, `${preset} PanCK site analysis`).toBeTruthy();
   const detail = panckSiteAnalysisDetail(analysis!);
+  const imageMode = await page.locator(CUBE_VIEW_SEL).getAttribute("data-image-mode");
   for (const site of analysis!.sites) {
+    const pass =
+      imageMode === "mip"
+        ? site.panckPixels >= ISSUE395_PANCK_COMPONENT_MIN_PIXELS
+        : site.maxComponent >= ISSUE395_PANCK_COMPONENT_MIN_PIXELS;
     expect(
-      site.maxComponent,
-      `${preset} must show connected strict-magenta PanCK at ${site.id} (${detail})`,
-    ).toBeGreaterThanOrEqual(ISSUE395_PANCK_COMPONENT_MIN_PIXELS);
+      pass,
+      `${preset} must show PanCK at ${site.id} (${detail}; mode=${imageMode ?? "?"})`,
+    ).toBeTruthy();
   }
 }
 

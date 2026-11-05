@@ -282,7 +282,7 @@ const cubeRenderModuleMulti = {
   defaultUniforms: CUBE_RENDER_DEFAULT_UNIFORMS,
   getUniforms: cubeRenderGetUniforms,
   inject: {
-    "fs:DECKGL_PROCESS_INTENSITY(inout float intensity, vec2 contrastLimits, int channelIndex)":
+    "fs:DECKGL_PROCESS_INTENSITY":
       "intensity = apply_contrast_limits(intensity * cubeRender.imageScale, contrastLimits);",
   },
   fs: `\
@@ -869,10 +869,12 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
     this.multichannel = multichannel;
   }
 
-  updateState(update: { props: object; oldProps: object }) {
+  updateState(update: { props: object; oldProps: object }, extension?: { multichannel?: boolean }) {
     const layer = this as unknown as LayerLike;
     const { props, oldProps } = update as { props: LayerLike["props"]; oldProps: LayerLike["props"] };
     if (!isRaycaster(layer)) return;
+    // deck.gl calls extension methods with the layer as `this` and the extension as the next argument.
+    const multichannel = extension?.multichannel ?? this.multichannel;
     const traitLimits =
       (props as { cubeTraitContrast?: [number, number][] }).cubeTraitContrast ?? props.contrastLimits;
     if (traitLimits?.length) setCubeTraitContrast(traitLimits as [number, number][]);
@@ -884,6 +886,10 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
       const layerInstance = this as unknown as { setNeedsUpdate?: () => void };
       layerInstance.setNeedsUpdate?.();
     }
+    const selections = (props as { selections?: unknown[] }).selections;
+    const oldSelections = (oldProps as { selections?: unknown[] }).selections;
+    const selCount = selections?.length ?? 0;
+    const oldSelCount = oldSelections?.length ?? 0;
     const palettes = props.channelPalettes?.length
       ? props.channelPalettes
       : [props.imagePalette ?? paletteLut(props.render?.palette ?? DEFAULT_RENDER.palette)];
@@ -894,7 +900,13 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
       layer.state.paletteTexture?.destroy();
       layer.setState({ paletteTexture: lookupTexture(layer, palettes[0]!) });
     }
-    if (this.multichannel) {
+    if (selCount !== oldSelCount || palettes.length !== oldPalettes.length) {
+      liveImageChannelCount = Math.max(selCount, palettes.length, 1);
+      applyCubeRenderShaderUniforms(layer);
+      const layerInstance = this as unknown as { setNeedsUpdate?: () => void };
+      layerInstance.setNeedsUpdate?.();
+    }
+    if (multichannel) {
       const prev = layer.state.channelPaletteTextures ?? [];
       const nextCount = Math.max(0, palettes.length - 1);
       if (nextCount !== prev.length || palettes.slice(1).some((p, i) => p !== oldPalettes[i + 1])) {
@@ -904,7 +916,7 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
       }
       const paletteCount = palettes.length;
       const oldPaletteCount = oldPalettes.length;
-      if (paletteCount !== oldPaletteCount) {
+      if (paletteCount !== oldPaletteCount && selCount === oldSelCount) {
         liveImageChannelCount = paletteCount;
         applyCubeRenderShaderUniforms(layer);
         const layerInstance = this as unknown as { setNeedsUpdate?: () => void };
@@ -913,9 +925,10 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
     }
   }
 
-  draw() {
+  draw(_opts?: unknown, extension?: { multichannel?: boolean }) {
     const layer = this as unknown as LayerLike;
     if (!isRaycaster(layer)) return;
+    const multichannel = extension?.multichannel ?? this.multichannel;
     const { model, paletteTexture, channelPaletteTextures } = layer.state;
     if (!model || !paletteTexture) return;
     const target = layer.props.cubeMeshTarget;
@@ -942,14 +955,20 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
       layer.props.onImageBound?.(imageFormat);
     }
     applyCubeRenderShaderUniforms(layer);
-    if (this.multichannel && typeof globalThis.window !== "undefined") {
+    if (typeof globalThis.window !== "undefined") {
       const tex = layer.state.textures as { volume0?: { id?: string }; volume1?: { id?: string } } | null;
       const vol0 = tex?.volume0;
       const vol1 = tex?.volume1;
+      const render = layer.props.render as { imageAlpha?: number } | null;
       (globalThis.window as unknown as { __issue395CubeDrawDiag?: Record<string, unknown> }).__issue395CubeDrawDiag =
         {
           t: Date.now(),
+          multichannel,
           liveImageChannelCount,
+          imageMode: layer.props.imageMode ?? null,
+          showImage: layer.props.showImage !== false,
+          imageAlpha: render?.imageAlpha ?? null,
+          palette1: Boolean(layer.state.channelPaletteTextures?.length),
           volume0Id: vol0?.id ?? (vol0 ? "object" : null),
           volume1Id: vol1?.id ?? (vol1 ? "object" : null),
           volumeSameRef: vol0 != null && vol0 === vol1,
