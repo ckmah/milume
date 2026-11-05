@@ -288,7 +288,9 @@ jobs:
       - uses: ./.github/actions/node-modules
       - uses: ./.github/actions/playwright-browser
       - name: Run volume smoke e2e
-        run: npx playwright test e2e/landmarks/landmarks-volume-smoke.spec.ts
+        run: |
+          npx playwright test e2e/landmarks/landmarks-volume-smoke.spec.ts
+          npx cross-env E2E_VOLUME_PROFILE=issue395-3d playwright test e2e/landmarks/landmarks-multichannel-3d-395.spec.ts
         env:
           CI: true
           E2E_HARNESS: landmarks-volume

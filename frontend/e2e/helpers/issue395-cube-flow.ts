@@ -5,6 +5,11 @@ import {
   stabilizeUi,
 } from "../helpers";
 import {
+  installIssue395PointerOverlay,
+  issue395PointerClick,
+  issue395PointerMove,
+} from "./issue395-visual-capture";
+import {
   CUBE_VIEW_SEL,
   CUBE_VOLUME_INSET,
   analyzeIssue395PanckSitesInCubeView,
@@ -59,6 +64,7 @@ export async function bootIssue395LandmarksVolume(page: Page, query = "noDialkit
   await hideLandmarksVolumeHarnessChrome(page);
   await hideMapPointsForImageAssert(page);
   await stabilizeUi(page);
+  await installIssue395PointerOverlay(page);
 }
 
 export async function waitCubeRefined(page: Page, timeout = 120_000) {
@@ -199,19 +205,18 @@ export async function clickPanckLayerSwitch(page: Page, opts: { force?: boolean 
   const sw = page.getByTestId("layer-channel-PanCK");
   await expect(sw).toBeVisible();
   if (opts.force) {
-    await sw.click({ force: true });
-    await page.waitForTimeout(150);
+    const box = await sw.boundingBox();
+    expect(box).toBeTruthy();
+    await issue395PointerClick(page, box!.x + box!.width / 2, box!.y + box!.height / 2);
     return;
   }
   const box = await sw.boundingBox();
   expect(box).toBeTruthy();
   const cx = box!.x + box!.width / 2;
   const cy = box!.y + box!.height / 2;
-  await page.mouse.move(cx - 100, cy - 60, { steps: 8 });
+  await issue395PointerMove(page, cx - 100, cy - 60, 8);
   await page.waitForTimeout(120);
-  await page.mouse.move(cx, cy, { steps: 10 });
-  await page.waitForTimeout(100);
-  await page.mouse.click(cx, cy);
+  await issue395PointerClick(page, cx, cy);
 }
 
 /** Toggle PanCK in the layers panel until trait and cube channel count match. */
