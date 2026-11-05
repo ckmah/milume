@@ -12,9 +12,6 @@
 # [tool.marimo-studio]
 # default = "docs"
 # runtimes = ["server", "zero-python"]
-#
-# [tool.marimo-studio.cells]
-# cell-1 = {ref = "cell:v1:4f29e60d37a0a74c949d66ac61ff7aa38b2de28a02aea5f012869898b3ec16bb:4983be74aa5f1871fecfd6fc7115804b62217632fcd759ee3ce412529cf5a9ba:0"}
 # ///
 """Squidpy neighborhood niche recipe for docs (marimo-studio zero-python export)."""
 
@@ -65,14 +62,14 @@ def recipe_config():
 
 
 @app.cell(hide_code=True)
-def _(mo):
+def recipe_intro(mo):
     mo.md(
         r"""
         # Squidpy neighborhood niches on ileum GALT
 
         On this Xu 2026 ileum slice, does the gut-associated lymphoid tissue (GALT)
         follicle come out as its own Squidpy niche, or dissolve into lamina propria?
-        **Neighbourhood size `k`** in `sq.gr.spatial_neighbors` decides it. We cluster
+        **Neighborhood size `k`** in `sq.gr.spatial_neighbors` decides it. We cluster
         with `groups="cell_type"` (cryptopatch / ILF-like cDC, ILC3, FRC aggregates,
         not classical B/T zones).
 
@@ -89,7 +86,7 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(mo):
+def run_on_server_tip(mo):
     mo.md(
         r"""
         > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook. After the server connects, click **Run all** (the ▶ button at the bottom right) to run the notebook.
@@ -127,8 +124,37 @@ def load_adata(
     return adata, cache, expected
 
 
+@app.cell(hide_code=True)
+def niche_sweep_method(mo):
+    mo.md(
+        r"""
+        ## Niche sweep (Squidpy)
+
+        The loop below writes one `niche_k{k}_res{r}` column per neighborhood size and
+        Leiden resolution. On this static page the columns are **precomputed**; in molab,
+        re-run the cell after you change the cache path or delete the parquet file.
+
+        ```python
+        for k in NICHE_KS:
+            sq.gr.spatial_neighbors(adata, coord_type="generic", n_neighs=k)
+            sq.gr.calculate_niche_neighborhood(
+                adata,
+                groups="cell_type",
+                scale=False,
+                n_neighbors=15,
+                resolutions=list(NICHE_RESOLUTIONS),
+                random_state=0,
+            )
+            for r in NICHE_RESOLUTIONS:
+                adata.obs[f"niche_k{k}_res{r}"] = adata.obs[f"nhood_niche_res={r}"].astype(str)
+        ```
+        """
+    )
+    return
+
+
 @app.cell
-def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, adata, cache, expected, pd, sq):
+def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, adata, cache, expected, mo, pd, sq):
     def _calculate_niche_neighborhood(adata, **kwargs):
         fn = getattr(sq.gr, "calculate_niche_neighborhood", None)
         if fn is not None:
@@ -154,7 +180,7 @@ def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, adata, cache, expected, pd, sq):
                 frames[dst] = adata.obs[dst]
         cache.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(frames, index=adata.obs_names).to_parquet(cache)
-    return
+    return mo.show_code()
 
 
 @app.cell
@@ -234,7 +260,7 @@ def landmark_map(
 
 
 @app.cell(hide_code=True)
-def _(mo):
+def molab_rerun_tip(mo):
     mo.md(
         r"""
         > **molab:** Re-run **`landmark_map`** and the composition cell after you change

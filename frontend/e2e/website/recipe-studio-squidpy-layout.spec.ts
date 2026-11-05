@@ -57,6 +57,15 @@ test.describe("recipe studio squidpy layout", () => {
     expect(layout!.insideViewport).toBe(true);
   });
 
+  test("niche sweep method shows Squidpy calls on the static page", async ({ page }) => {
+    await page.goto(RECIPE_PATH, { waitUntil: "networkidle", timeout: 120_000 });
+    const method = page.locator('marimo-cell[name="niche_sweep_method"]');
+    await expect(method.getByText(/sq\.gr\.spatial_neighbors/i)).toBeVisible();
+    await expect(method.getByText(/calculate_niche_neighborhood/i)).toBeVisible();
+    const box = await method.boundingBox();
+    expect(box?.height ?? 0).toBeGreaterThan(40);
+  });
+
   test("default export focuses galt-follicle selection on the map", async ({ page }) => {
     await page.goto(RECIPE_PATH, { waitUntil: "networkidle", timeout: 120_000 });
     await page.locator("canvas").first().waitFor({ state: "visible", timeout: 120_000 });

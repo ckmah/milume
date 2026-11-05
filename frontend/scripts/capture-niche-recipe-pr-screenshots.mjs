@@ -67,7 +67,7 @@ await page.locator("canvas").first().waitFor({ state: "visible", timeout: 120_00
 await page.waitForTimeout(1500);
 
 const introHeading = page
-  .locator('marimo-cell[name="cell-1"]')
+  .locator('marimo-cell[name="recipe_intro"]')
   .getByRole("heading", { name: /Squidpy neighborhood niches/i });
 await introHeading.evaluate((el) =>
   el.scrollIntoView({ block: "start", inline: "nearest" }),
@@ -79,8 +79,8 @@ await page.screenshot({
 });
 
 const nicheSweepAnchor = page
-  .locator('marimo-cell[name="cell-1"]')
-  .getByText(/Switch k \/ resolution columns/i)
+  .locator('marimo-cell[name="niche_sweep_method"]')
+  .getByText(/sq\.gr\.spatial_neighbors/i)
   .first();
 await scrollViewportShot(page, nicheSweepAnchor, outputs[1], "center");
 
@@ -94,6 +94,7 @@ await page.waitForFunction(
   { timeout: 30_000 },
 );
 await page.waitForTimeout(800);
+await page.mouse.move(640, 420);
 await viewportShot(page, outputs[2]);
 
 await page.evaluate(() => {
@@ -121,6 +122,10 @@ await page.waitForTimeout(300);
 const rightDock = page.locator("marimo-anywidget >> .landmarks__chrome-dock--right").first();
 const dockBox = await rightDock.boundingBox();
 if (!dockBox) throw new Error("category dock not visible for k8 capture");
+await page.mouse.move(
+  Math.min(viewport.width - 8, dockBox.x + dockBox.width / 2),
+  Math.min(viewport.height - 8, dockBox.y + dockBox.height / 2),
+);
 await page.screenshot({
   path: outputs[3],
   clip: {
@@ -140,6 +145,7 @@ await page.evaluate(() => {
 await page.waitForTimeout(600);
 await wide.scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
+await page.mouse.move(520, 380);
 await viewportShot(page, outputs[4]);
 
 const compositionBlock = page.locator('marimo-cell[name="niche_composition"]').first();
