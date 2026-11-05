@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deterministic GitHub snapshot for milume agent dashboard. Never fabricates data.
 
-Auth is the gh CLI (GH_TOKEN or GITHUB_TOKEN). There is no config.json.
+Auth is the gh CLI (GH_TOKEN or GITHUB_TOKEN).
 """
 from __future__ import annotations
 

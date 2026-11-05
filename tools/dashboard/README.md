@@ -15,18 +15,13 @@ pushes the generated files to the `gh-pages` branch under `dashboard/`.
 ## Auth
 
 `fetch_snapshot.py` talks to GitHub only through the `gh` CLI. In Actions that
-is `GITHUB_TOKEN` (set as `GH_TOKEN`). Locally, `gh auth` is enough. There is
-no `config.json`.
+is `GITHUB_TOKEN` (set as `GH_TOKEN`). Locally, `gh auth` is enough.
 
 Permissions used by the workflow: contents (write, to update `gh-pages`),
 actions (read, workflow runs and artifacts), pull-requests (read), issues
 (read), pages (write) and id-token (write) for `deploy-pages`.
 
-## Local refresh (box)
-
-The box copy at `/home/box/dashboard-refresh/` stays the source for an
-on-demand `./refresh.sh` (writes `dashboard.html` and `summary.txt` there).
-That path does not publish to Pages.
+## Local refresh
 
 From this directory:
 

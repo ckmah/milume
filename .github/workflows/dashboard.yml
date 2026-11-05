@@ -104,6 +104,11 @@ jobs:
       github.event_name != 'pull_request'
       && (needs.refresh.outputs.changed == 'true' || needs.refresh.outputs.restore == 'true')
     runs-on: ubuntu-latest
+    # Same group pages.yml uses for pushes to main, so deploy-pages cannot overlap.
+    # cancel-in-progress: false — do not cancel an in-progress docs deploy.
+    concurrency:
+      group: pages-push-refs/heads/main
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: https://ckmah.github.io/milume/dashboard/

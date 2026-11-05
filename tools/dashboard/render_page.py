@@ -364,9 +364,8 @@ def write_html(data: dict) -> None:
         )
     else:
         footer = (
-            "Times are PT. Refresh: "
-            "<code>cd /home/box/dashboard-refresh &amp;&amp; ./refresh.sh</code> "
-            "(or the local server Refresh button). Zero model tokens."
+            "Times are PT. Run <code>./refresh.sh</code> to rebuild locally. "
+            "Zero model tokens."
         )
     m = data["m"]
     nights = data["nights"]
