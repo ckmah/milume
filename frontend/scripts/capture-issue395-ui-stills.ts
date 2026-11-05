@@ -53,4 +53,22 @@ async function captureTheme(theme: "light" | "dark") {
 
 await captureTheme("light");
 await captureTheme("dark");
+
+async function captureMapBand() {
+  const browser = await chromium.launch();
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 900 },
+    deviceScaleFactor: 2,
+    baseURL: new URL(base).origin,
+  });
+  await page.goto(base, { waitUntil: "domcontentloaded" });
+  await bootIssue395LandmarksVolume(page);
+  await page.waitForTimeout(800);
+  await page.locator(".milume-widget.landmarks").screenshot({
+    path: join(outDir, "395-map-band-dpr2-dual-blend.png"),
+  });
+  await browser.close();
+}
+
+await captureMapBand();
 console.log(`Wrote stills under ${outDir}`);

@@ -1,3 +1,5 @@
+import { join } from "node:path";
+
 import { expect } from "@playwright/test";
 
 import { test } from "../fixtures";
@@ -187,5 +189,10 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
     await stabilizeUi(page);
     const widget = page.locator(".milume-widget.landmarks");
     await shot(page, "395-map-band-two-channel-blend", widget);
+    if (process.env.ISSUE395_CAPTURE_DOCS === "1") {
+      await widget.screenshot({
+        path: join(process.cwd(), "..", "docs/visual-acceptance/issue395/395-map-band-dpr2-dual-blend.png"),
+      });
+    }
   });
 });
