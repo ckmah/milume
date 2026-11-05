@@ -52,6 +52,7 @@ def recipe_config():
         ILEUM_H5AD,
         NICHE_CACHE_PATH,
         RECIPE_DATA_DIR,
+        _REPO_ROOT,
         ml,
         mo,
         np,
@@ -59,30 +60,6 @@ def recipe_config():
         plt,
         sq,
     )
-
-
-@app.cell(hide_code=True)
-def recipe_intro(mo):
-    mo.md(
-        r"""
-        # Squidpy neighborhood niches on ileum GALT
-
-        On this Xu 2026 ileum slice, does the gut-associated lymphoid tissue (GALT)
-        follicle come out as its own Squidpy niche, or dissolve into lamina propria?
-        **Neighborhood size `k`** in `sq.gr.spatial_neighbors` decides it. We cluster
-        with `groups="cell_type"` (cryptopatch / ILF-like cDC, ILC3, FRC aggregates,
-        not classical B/T zones).
-
-        **Open in molab:**
-        [squidpy_color.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py)
-
-        > **Static docs view:** niches are **precomputed** and baked into the export.
-        > Switch **`k` / resolution** columns in the widget categorical tab (no kernel).
-        > The map is cropped to the follicle field of view below; molab loads the full slice.
-        > The composition figure matches **`niche_k30_res0.3`** and the tutorial lasso.
-        """
-    )
-    return
 
 
 @app.cell(hide_code=True)
@@ -101,6 +78,7 @@ def load_adata(
     ILEUM_H5AD,
     NICHE_CACHE_PATH,
     RECIPE_DATA_DIR,
+    _REPO_ROOT,
     ml,
     NICHE_KS,
     NICHE_RESOLUTIONS,
@@ -125,6 +103,25 @@ def load_adata(
 
 
 @app.cell(hide_code=True)
+def recipe_intro(adata, cache, mo):
+    import importlib.util
+    import sys
+
+    repo_root = cache.resolve().parent.parent.parent
+    science_path = repo_root / "scripts" / "ileum_niche_recipe_science.py"
+    if not science_path.is_file():
+        raise FileNotFoundError(f"missing {science_path} (from cache {cache})")
+    spec = importlib.util.spec_from_file_location("ileum_niche_recipe_science", science_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {science_path}")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    mo.md(mod.format_intro_markdown(mod.page_contrast_stats(adata)))
+    return
+
+
+@app.cell(hide_code=True)
 def niche_sweep_method(mo):
     mo.md(
         r"""
@@ -143,7 +140,7 @@ def niche_sweep_method(mo):
                 scale=False,
                 n_neighbors=15,
                 resolutions=list(NICHE_RESOLUTIONS),
-                random_state=0,
+                rng=0,
             )
             for r in NICHE_RESOLUTIONS:
                 adata.obs[f"niche_k{k}_res{r}"] = adata.obs[f"nhood_niche_res={r}"].astype(str)
@@ -154,12 +151,14 @@ def niche_sweep_method(mo):
 
 
 @app.cell
-def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, adata, cache, expected, mo, pd, sq):
+def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, adata, cache, expected, pd, sq):
     def _calculate_niche_neighborhood(adata, **kwargs):
         fn = getattr(sq.gr, "calculate_niche_neighborhood", None)
         if fn is not None:
             return fn(adata, **kwargs)
-        return sq.gr.calculate_niche(adata, flavor="neighborhood", **kwargs)
+        kw = {k: v for k, v in kwargs.items() if k != "rng"}
+        kw["random_state"] = kwargs.get("rng", 0)
+        return sq.gr.calculate_niche(adata, flavor="neighborhood", **kw)
 
     if not all(col in adata.obs for col in expected):
         frames = {}
@@ -171,7 +170,7 @@ def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, adata, cache, expected, mo, pd, sq)
                 scale=False,
                 n_neighbors=15,
                 resolutions=list(NICHE_RESOLUTIONS),
-                random_state=0,
+                rng=0,
             )
             for r in NICHE_RESOLUTIONS:
                 src = f"nhood_niche_res={r}"
