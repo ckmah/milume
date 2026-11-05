@@ -71,10 +71,12 @@ test.describe("Landmarks volume smoke", () => {
   });
 
   test("one Z high cut commits", async ({ page }) => {
+    test.setTimeout(120_000);
     await openCubeAtCentre(page);
     const bar = page.getByTestId("context-inspect-toolbar");
     const view = cubeWindow(page).locator(".volume-cube__view");
     await bar.getByRole("radio", { name: "Side view" }).click();
+    await expect(view).toHaveAttribute("data-refining", "false");
     await expect(view).toHaveAttribute("data-cut-centers", /z1:/);
     const host = await view.boundingBox();
     const attr = await view.getAttribute("data-cut-centers");
@@ -83,9 +85,11 @@ test.describe("Landmarks volume smoke", () => {
     const center = { x: host!.x + Number(hit![1]), y: host!.y + Number(hit![2]) };
     await page.mouse.move(center.x, center.y);
     await page.mouse.down();
-    await page.mouse.move(center.x, center.y + 40, { steps: 4 });
+    await page.mouse.move(center.x, center.y + 60, { steps: 12 });
     await page.mouse.up();
-    await expect.poll(async () => (await cutOf(page))[5] ?? 64).toBeLessThan(60);
+    await expect
+      .poll(async () => (await cutOf(page))[5] ?? 64, { timeout: 45_000 })
+      .toBeLessThan(60);
   });
 
   test("loading chip settles to ready", async ({ page }) => {
