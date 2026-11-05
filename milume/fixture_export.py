@@ -22,6 +22,7 @@ FIXTURE_SYNC_KEYS: tuple[str, ...] = (
     "_gene_csc_indptr",
     "_gene_csc_indices",
     "_gene_csc_data",
+    "_gene_csc_codec",
     "_embedding_values",
     "_embedding_channel_labels",
     "_embedding_matrix",

@@ -30,6 +30,7 @@ export const NOTEBOOK_KEYS = new Set([
   "_gene_csc_data",
   "_gene_csc_indices",
   "_gene_csc_indptr",
+  "_gene_csc_codec",
 ]);
 
 const COLOR_STATE_KEYS = new Set([
@@ -60,6 +61,7 @@ const RENAMED_COLOR_KEYS = {
   gene_csc_indptr: "_gene_csc_indptr",
   gene_csc_indices: "_gene_csc_indices",
   gene_csc_data: "_gene_csc_data",
+  gene_csc_codec: "_gene_csc_codec",
 };
 
 const DEFAULTS = {
@@ -151,6 +153,15 @@ export function wrapLandmarksModel(raw) {
   const wrapped = {
     get(key) {
       if (!NOTEBOOK_KEYS.has(key) && hasOwn(local, key)) return local[key];
+      if (key === "gene_names") {
+        const opts = readRaw("_color_options");
+        if (opts?.genes) return opts.genes;
+      }
+      const renamed = RENAMED_COLOR_KEYS[key];
+      if (renamed) {
+        const mapped = readRaw(renamed);
+        if (mapped !== undefined && mapped !== null) return mapped;
+      }
       const v = raw.get(key);
       if (v !== undefined && v !== null) return v;
       if (hasOwn(DEFAULTS, key)) return DEFAULTS[key];

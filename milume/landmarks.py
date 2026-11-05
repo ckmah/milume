@@ -435,6 +435,7 @@ class LandmarksWidget(AnyWidget):
     _gene_csc_indptr = traitlets.Unicode("").tag(sync=True)
     _gene_csc_indices = traitlets.Unicode("").tag(sync=True)
     _gene_csc_data = traitlets.Unicode("").tag(sync=True)
+    _gene_csc_codec = traitlets.Unicode("").tag(sync=True)
     # True when input expression is already log-scaled (disables log1p toggle).
     gene_expression_logged = traitlets.Bool(False).tag(sync=True)
     # Packed RGB embedding channels for point coloring (col-major float32 [0, 1]).

@@ -53,6 +53,8 @@ export type ImageChannelRow = {
   visible: boolean;
   contrast_limits: [number, number];
   constant_zero?: boolean;
+  /** Display tint for map backdrop and layer swatch (optional). */
+  color?: string;
 };
 
 /** Synced colour catalog (`_color_options`). */

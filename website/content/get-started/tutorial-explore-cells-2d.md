@@ -43,29 +43,30 @@ w.color = "Apob"              # villus-tip enterocytes
 w.color = "Cps1"              # crypt / lower villus
 ```
 
-**Result:** You see the crypt–villus axis and the GALT patch in anatomical layers before you select it.
+**Result:** You see the crypt–villus axis and the GALT patches in anatomical layers before you select them.
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tutorials/explore-cells-2d/still-anatomical-layer.dark.png" alt="The same section coloured by anatomical layer, with the GALT patch visible." loading="lazy">
-<img class="ml-only-light" src="../assets/tutorials/explore-cells-2d/still-anatomical-layer.light.png" alt="The same section coloured by anatomical layer, with the GALT patch visible." loading="lazy">
+<img class="ml-only-dark" src="../assets/tutorials/explore-cells-2d/still-anatomical-layer.dark.png" alt="The same section coloured by anatomical layer, with GALT patches visible." loading="lazy">
+<img class="ml-only-light" src="../assets/tutorials/explore-cells-2d/still-anatomical-layer.light.png" alt="The same section coloured by anatomical layer, with GALT patches visible." loading="lazy">
 </figure>
 
-## 4. Lasso a GALT follicle
+## 4. Lasso GALT cryptopatch aggregates
 
-Use the Select tool and lasso the large lymphoid follicle on the map ([Select regions](../reference/ui/select-regions.md)). Each edit updates `w.selections`.
+Use the Select tool and lasso each GALT cryptopatch on the map ([Select regions](../reference/ui/select-regions.md)). Xu et al. annotate these as small ILF-like aggregates (rich in cDC, ILC3, and FRC), not classical B/T follicles. Each edit updates `w.selections`.
 
-Read the cells in that selection:
+The notebook seeds two tight polygons (`galt-aggregates-west` and `galt-aggregates-east`). Join them for downstream analysis:
 
 ```python
-sel_id = w.selections[-1]["id"]
-galt_hits = w.get_obs_names(sel_id)
+galt_hits = w.get_obs_names("galt-aggregates-west").union(
+    w.get_obs_names("galt-aggregates-east")
+)
 ```
 
-**Result:** A few hundred cells, enriched for immune labels when you analyze them next.
+**Result:** The seeded headless lassos select **278 cells** in total, **261** with `anatomical_layer` GALT (**93.9%** of the selection), covering **all 260** annotated GALT cells in the two cryptopatch aggregates on this slice. The western polygon is **90.2%** GALT (164 cells, 148 GALT); the tightened eastern polygon is **99.1%** GALT (114 cells, 113 GALT). Your own lassos may differ.
 
 <figure class="ml-hero ml-hero--still" markdown="0">
-<img class="ml-only-dark" src="../assets/tutorials/explore-cells-2d/still-galt-selection.dark.png" alt="A GALT follicle lasso on the ileum map with cell-type counts for the selection." loading="lazy">
-<img class="ml-only-light" src="../assets/tutorials/explore-cells-2d/still-galt-selection.light.png" alt="A GALT follicle lasso on the ileum map with cell-type counts for the selection." loading="lazy">
+<img class="ml-only-dark" src="../assets/tutorials/explore-cells-2d/still-galt-selection.dark.png" alt="Two GALT cryptopatch lassos on the ileum map with cell-type counts for the selection." loading="lazy">
+<img class="ml-only-light" src="../assets/tutorials/explore-cells-2d/still-galt-selection.light.png" alt="Two GALT cryptopatch lassos on the ileum map with cell-type counts for the selection." loading="lazy">
 </figure>
 
 ## 5. Enrichment and violin plots
@@ -75,7 +76,7 @@ enrich = ml.enrichment(adata, galt_hits, obs_key="cell_type")
 enrich
 ```
 
-**Result:** Immune and stromal types (for example cDC, FRC, ILC3, plasma B cells) rank highest by `log2_enrichment` relative to the whole section.
+**Result:** Stromal and innate immune types rank highest by `log2_enrichment` relative to the whole section (seeded union: FRC 6.20, cDC (Il22ra2+) 6.04, ILC3 5.66, FDC 5.35, B (follicular) 4.52).
 
 Flag the selection and plot immune markers:
 

@@ -1,4 +1,5 @@
 import { decodeF32Base64, decodeI32Base64 } from "./binary";
+import { decodeGeneCscPack } from "./gene-csc-binary";
 import { invokeCommand, type CommandModel } from "./comm-command.js";
 import { createGeneStore, type GeneSlice, type GeneStore } from "./gene-store.js";
 
@@ -83,9 +84,29 @@ export function geneStoreFor(model: GeneModel): GeneStore {
         : Promise.reject(new Error("widget has no kernel comm")),
   });
   const loadEager = () => {
-    const indptr = decodeI32Base64(String(model.get("_gene_csc_indptr") || ""));
+    const codec = String(model.get("_gene_csc_codec") || "");
+    const meta = geneCatalog(model);
+    const indptrB64 = String(model.get("_gene_csc_indptr") || "");
+    if (!indptrB64) {
+      store.setEager(meta, null, new Int32Array(0), new Float32Array(0));
+      return;
+    }
+    if (codec === "gzip") {
+      void (async () => {
+        const { indptr, indices, data } = await decodeGeneCscPack(
+          indptrB64,
+          String(model.get("_gene_csc_indices") || ""),
+          String(model.get("_gene_csc_data") || ""),
+          codec,
+        );
+        store.setEager(meta, indptr.length ? indptr : null, indices, data);
+        await store.ensure(active().filter((n) => !store.error(n)));
+      })();
+      return;
+    }
+    const indptr = decodeI32Base64(indptrB64);
     store.setEager(
-      geneCatalog(model),
+      meta,
       indptr.length ? indptr : null,
       decodeI32Base64(String(model.get("_gene_csc_indices") || "")),
       decodeF32Base64(String(model.get("_gene_csc_data") || "")),
@@ -99,6 +120,7 @@ export function geneStoreFor(model: GeneModel): GeneStore {
     indptr: String(model.get("_gene_csc_indptr") || ""),
     indices: String(model.get("_gene_csc_indices") || ""),
     data: String(model.get("_gene_csc_data") || ""),
+    codec: String(model.get("_gene_csc_codec") || ""),
   };
   const reloadIfCatalogChanged = () => {
     const next = {
@@ -106,12 +128,14 @@ export function geneStoreFor(model: GeneModel): GeneStore {
       indptr: String(model.get("_gene_csc_indptr") || ""),
       indices: String(model.get("_gene_csc_indices") || ""),
       data: String(model.get("_gene_csc_data") || ""),
+      codec: String(model.get("_gene_csc_codec") || ""),
     };
     if (
       sameCatalog(packed.genes, next.genes) &&
       packed.indptr === next.indptr &&
       packed.indices === next.indices &&
-      packed.data === next.data
+      packed.data === next.data &&
+      packed.codec === next.codec
     ) {
       return;
     }
@@ -121,12 +145,17 @@ export function geneStoreFor(model: GeneModel): GeneStore {
     fetchActive();
   };
   loadEager();
-  for (const key of ["_color_options", "_gene_csc_indptr", "_gene_csc_indices", "_gene_csc_data"]) {
+  for (const key of [
+    "_color_options",
+    "_gene_csc_codec",
+    "_gene_csc_indptr",
+    "_gene_csc_indices",
+    "_gene_csc_data",
+  ]) {
     model.on(`change:${key}`, reloadIfCatalogChanged);
   }
   model.on("change:points_data", () => store.dropColumns());
   model.on("change:active_genes", fetchActive);
-  fetchActive();
   stores.set(model, store);
   return store;
 }
