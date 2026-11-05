@@ -80,12 +80,6 @@ async function viewportShotWithPointer(page, path, x, y) {
   await clearPointerOverlay(page);
 }
 
-async function clipShotWithPointer(page, path, clip, x, y) {
-  await drawPointerOverlay(page, x, y);
-  await page.screenshot({ path, clip });
-  await clearPointerOverlay(page);
-}
-
 async function scrollViewportShot(page, target, path, block = "start") {
   await target.evaluate(
     (el, b) => el.scrollIntoView({ block: b, inline: "nearest" }),
@@ -153,21 +147,10 @@ await page.waitForFunction(
 );
 await page.waitForTimeout(800);
 await wide.scrollIntoViewIfNeeded();
-await page.waitForTimeout(300);
-const rightDock = page.locator("marimo-anywidget >> .landmarks__chrome-dock--right").first();
-const dockBox = await rightDock.boundingBox();
-if (!dockBox) throw new Error("category dock not visible for k8 capture");
-const pointerK8 = {
-  x: Math.min(viewport.width - 8, dockBox.x + dockBox.width / 2),
-  y: Math.min(viewport.height - 8, dockBox.y + dockBox.height / 2),
-};
-const clipK8 = {
-  x: Math.max(0, dockBox.x - 320),
-  y: Math.max(0, dockBox.y - 40),
-  width: Math.min(viewport.width, dockBox.width + 640),
-  height: Math.min(viewport.height, dockBox.height + 80),
-};
-await clipShotWithPointer(page, outputs[3], clipK8, pointerK8.x, pointerK8.y);
+await page.waitForTimeout(500);
+// Same follicle FOV and viewport framing as still 03; only the active niche column changes.
+const pointerK8 = { x: 640, y: 420 };
+await viewportShotWithPointer(page, outputs[3], pointerK8.x, pointerK8.y);
 
 await page.evaluate(() => {
   window.__landmarksModel.set("selected_kind", "selection");
