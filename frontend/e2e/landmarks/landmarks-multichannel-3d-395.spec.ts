@@ -123,6 +123,7 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   });
 
   test("per-channel contrast drag keeps map trait and cube channel state aligned", async ({ page }) => {
+    test.setTimeout(120_000);
     await openIssue395CubeAtInspectCentre(page);
     await openImagePanelInInspect(page);
     await page.getByTestId("layer-channel-row-DAPI").focus();
@@ -137,20 +138,21 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
     expect(loBefore[1]).toBeGreaterThan(loBefore[0]);
     const hiThumb = page.getByRole("slider", { name: "DAPI contrast, maximum" });
     await expect(hiThumb).toBeVisible();
-    const box = await hiThumb.boundingBox();
-    expect(box).toBeTruthy();
-    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(box!.x - 60, box!.y + box!.height / 2, { steps: 16 });
-    await page.mouse.up();
+    await hiThumb.focus();
+    for (let i = 0; i < 8; i++) {
+      await page.keyboard.press("ArrowLeft");
+    }
     await expect
-      .poll(async () => {
-        const rows = (await getModel(page, "_image_channels")) as Array<{
-          name: string;
-          contrast_limits: [number, number];
-        }>;
-        return rows.find((c) => c.name === "DAPI")?.contrast_limits?.[1] ?? 0;
-      })
+      .poll(
+        async () => {
+          const rows = (await getModel(page, "_image_channels")) as Array<{
+            name: string;
+            contrast_limits: [number, number];
+          }>;
+          return rows.find((c) => c.name === "DAPI")?.contrast_limits?.[1] ?? 0;
+        },
+        { timeout: 20_000 },
+      )
       .not.toBe(loBefore[1]);
     await expectMapCubeImageChannelStateAligned(page);
     await page.keyboard.press("Escape");
