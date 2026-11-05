@@ -336,10 +336,6 @@ def _validate_channels(channels: list[str], src: Any) -> None:
         raise ValueError(
             f"unknown channel(s) {unknown!r}; available: {', '.join(available) or '(none)'}"
         )
-    if src.is_3d and len(channels) > 1:
-        raise ValueError(
-            "3D images support one channel in this version; pass a single name in channels="
-        )
 
 
 def _initial_image_channels(src: Any, channels: list[str] | None) -> list[dict[str, Any]]:

@@ -3852,8 +3852,11 @@ export function mountEngine({
     prepareFocusGeom();
     lastDeckBuildProfile.prepareFocusGeomMs = performance.now() - tPrep;
     const tLay = performance.now();
+    // Immersive cube is transparent over the plot deck; hide the flat map backdrop
+    // while it is open so tissue is only what the cube raycaster draws (#395).
+    const backdropLayers = volumeWindowVisible ? [] : mapImageBackdrop.buildLayers(currentViewState);
     const layers = [
-      ...mapImageBackdrop.buildLayers(currentViewState),
+      ...backdropLayers,
       ...buildRasterLayers(),
       ...buildProbeOutlineLayers(),
       ...buildNeighborhoodLayers(),

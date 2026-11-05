@@ -1,0 +1,185 @@
+{
+  "mode": "select",
+  "selections": [],
+  "landmarks": [],
+  "selected_kind": "",
+  "selected_index": -1,
+  "category_columns": [
+    {
+      "name": "cell_type",
+      "labels": [
+        "type1",
+        "type0"
+      ],
+      "palette": [
+        "#1f77b4",
+        "#ff7f0e"
+      ]
+    }
+  ],
+  "active_category": "cell_type",
+  "gene_names": [
+    {
+      "name": "0"
+    }
+  ],
+  "active_genes": [],
+  "gene_scale_mode": "independent",
+  "gene_log1p": false,
+  "gene_expression_logged": false,
+  "color_mode": "categorical",
+  "legend_labels": [
+    "type1",
+    "type0"
+  ],
+  "legend_title": "cell_type",
+  "type_neighborhoods": [],
+  "default_buffer_width": 0.0,
+  "neighbor_radius_max": 7.3905886098469855,
+  "neighbor_k_max": 64,
+  "gene_csc_indptr": "",
+  "gene_csc_indices": "",
+  "gene_csc_data": "",
+  "x_bounds": [
+    68.2,
+    161.8
+  ],
+  "y_bounds": [
+    77.8,
+    192.2
+  ],
+  "point_size": 28.844410203711917,
+  "points_data": "Yid2v2Indr8AAAAAs42GQWIndj8HRIY+AAAAAAAAAEJCGqS+Yid2PwAAAAADGj9C",
+  "point_palette": [
+    "#1f77b4",
+    "#ff7f0e"
+  ],
+  "category_codes": "AAAAAAEAAAAAAAAA",
+  "color_vmin": 0.0,
+  "color_vmax": 1.0,
+  "render_mode": "points",
+  "raster_bin_size": 144.22205101855957,
+  "raster_window_radius": 432.6661530556787,
+  "raster_basis": "composition",
+  "raster_embedding_key": "",
+  "raster_embedding_keys": [],
+  "raster_embedding_dims": [],
+  "embedding_values": "",
+  "embedding_channel_labels": [],
+  "embedding_matrix": "",
+  "embedding_matrix_dim": 0,
+  "raster_obs_key": "",
+  "raster_gene_mode": "active",
+  "raster_origin_x": 0.0,
+  "raster_origin_y": 0.0,
+  "raster_similarity_enabled": false,
+  "raster_query_bin": -1,
+  "inspect_cx": null,
+  "inspect_cy": null,
+  "z_focus_um": 32.0,
+  "z_band_lo_um": 27.0,
+  "z_band_hi_um": 37.0,
+  "_image_channels": [
+    {
+      "name": "DAPI",
+      "visible": true,
+      "contrast_limits": [
+        12.0,
+        240.0
+      ],
+      "constant_zero": false,
+      "color": "#2563eb"
+    },
+    {
+      "name": "PanCK",
+      "visible": true,
+      "contrast_limits": [
+        12.0,
+        220.0
+      ],
+      "constant_zero": false,
+      "color": "#c026d3"
+    }
+  ],
+  "_image_visible": true,
+  "_image_alpha": 0.55,
+  "volume": {
+    "image_url": "images/mosaic/",
+    "voxel_size_um": [
+      1.0,
+      1.0,
+      1.0
+    ],
+    "origin_um": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "contrast_limits": [
+      12.0,
+      240.0
+    ],
+    "dims": [
+      "c",
+      "z",
+      "y",
+      "x"
+    ],
+    "is_3d": true,
+    "coordinate_system": "global",
+    "image_transform": {
+      "coordinate_system": "global",
+      "input_axes": [
+        "z",
+        "y",
+        "x"
+      ],
+      "scale": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "translation": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    "channels": [
+      {
+        "name": "DAPI",
+        "visible": true,
+        "contrast_limits": [
+          12.0,
+          240.0
+        ],
+        "constant_zero": false,
+        "color": "#2563eb"
+      },
+      {
+        "name": "PanCK",
+        "visible": true,
+        "contrast_limits": [
+          12.0,
+          220.0
+        ],
+        "constant_zero": false,
+        "color": "#c026d3"
+      }
+    ],
+    "cells": {
+      "url": "shapes/cell_polygons/shapes.parquet",
+      "bytes": 40203
+    }
+  },
+  "volume_cell_rows": "AAAAAAEAAAACAAAA",
+  "volume_cut": [
+    0.0,
+    256.0,
+    0.0,
+    256.0,
+    0.0,
+    64.0
+  ],
+  "inspect_size_um": 300.0
+}

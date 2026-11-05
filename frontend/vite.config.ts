@@ -34,7 +34,9 @@ const volumeProfile =
         ? "colon"
         : process.env.MILUME_VOLUME_PROFILE === "issue122-2d"
           ? "issue122-2d"
-          : "toy";
+          : process.env.MILUME_VOLUME_PROFILE === "issue395-3d"
+            ? "issue395-3d"
+            : "toy";
 const volumeFixtureFile =
   volumeProfile === "small"
     ? "landmarks-volume-fixture.small.json"
@@ -44,7 +46,9 @@ const volumeFixtureFile =
         ? "landmarks-volume-fixture.colon.json"
         : volumeProfile === "issue122-2d"
           ? "landmarks-volume-fixture.issue122-2d.json"
-          : "landmarks-volume-fixture.json";
+          : volumeProfile === "issue395-3d"
+            ? "landmarks-volume-fixture.issue395-3d.json"
+            : "landmarks-volume-fixture.json";
 const harnessRoots: Record<string, string> = {
   "landmarks-volume": path.resolve(devDir, "landmarks-volume"),
 };

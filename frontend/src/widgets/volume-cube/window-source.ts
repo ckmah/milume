@@ -1,5 +1,8 @@
 import * as zarr from "zarrita";
 
+import type { ChunkCache } from "./chunk-cache";
+import { cloneZarrChunk } from "./chunk-cache";
+
 /**
  * Windowed volume loading for Viv.
  *
@@ -134,7 +137,7 @@ export function boxUmRanges(
 }
 
 /** One box of `source` in a single `zarr.get` (each chunk read once), `selection` on the other axes. */
-export function fetchBox(
+export async function fetchBox(
   source: ZarrSource,
   box: Box,
   selection: Record<string, number> = {},
@@ -146,7 +149,10 @@ export function fetchBox(
     if (label === "x") return zarr.slice(x0, x1);
     return selection[label] ?? 0;
   });
-  return zarr.get(source._data, index) as Promise<zarr.Chunk<zarr.DataType>>;
+  // Same path as map-image-backdrop: one zarr.get per channel selection. ChunkCache
+  // stores full multichannel tiles keyed by spatial chunk coords (see chunk-cache.ts).
+  const chunk = (await zarr.get(source._data, index)) as zarr.Chunk<zarr.DataType>;
+  return cloneZarrChunk(chunk);
 }
 
 type Raster = { data: ArrayLike<number> & { subarray(a: number, b: number): unknown }; width: number; height: number };
@@ -163,12 +169,16 @@ export class WindowPixelSource {
   readonly tileSize: number;
   readonly meta: { physicalSizes: Record<"x" | "y" | "z", { size: number; unit: string }> };
   private readonly blocks = new Map<string, Promise<zarr.Chunk<zarr.DataType>>>();
+  /** Viv loads channels in parallel; serialize zarr.get per window to avoid zarrita races. */
+  private fetchSerial: Promise<unknown> = Promise.resolve();
 
   constructor(
     private readonly base: ZarrSource,
     readonly box: Box,
     voxelSize: [number, number, number],
+    private readonly chunkCache: ChunkCache | null = null,
   ) {
+    void this.chunkCache;
     this.labels = base.labels;
     this.tileSize = base.tileSize;
     const [sz, sy, sx] = voxelSize;
@@ -210,8 +220,12 @@ export class WindowPixelSource {
       .join("/");
     let pending = this.blocks.get(key);
     if (!pending) {
-      pending = fetchBox(this.base, this.box, selection);
-      // A failed fetch must not poison later retries of the same window.
+      const task = () => fetchBox(this.base, this.box, selection);
+      pending = this.fetchSerial.then(task);
+      this.fetchSerial = pending.then(
+        () => undefined,
+        () => undefined,
+      );
       pending.catch(() => this.blocks.delete(key));
       this.blocks.set(key, pending);
     }

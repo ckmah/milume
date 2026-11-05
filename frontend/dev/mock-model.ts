@@ -132,6 +132,7 @@ export async function createMockModel(
     const name = viteFixture || fixtureUrl.split("/").pop() || "";
     if (name.includes("xsmall")) return "/xsmall.sdata.zarr/";
     if (name.includes("small")) return "/small.sdata.zarr/";
+    if (name.includes("issue395")) return "/issue395-3d.sdata.zarr/";
     if (name.includes("issue122")) return "/issue122-2d.sdata.zarr/";
     if (name.includes("colon")) return "/colon_a2.sdata.zarr/";
     return "/toy.sdata.zarr/";

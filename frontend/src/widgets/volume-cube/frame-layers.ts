@@ -193,10 +193,14 @@ export class FramedVolumeView extends VolumeView {
     // Viv's VolumeView.getLayers, with the cube's VolumeLayer (the image at its
     // own dtype, image-volume.ts) under Viv's own layer id.
     const loader = props.loader as { type?: string };
+    const channelCount = (props.selections as unknown[] | undefined)?.length ?? 0;
+    // Viv bakes NUM_CHANNELS when the XR3D model is created; changing the deck id
+    // forces a new VolumeLayer when the inspect window goes single- vs multi-channel.
+    const volumeId = `${loader.type}${vivTag(id)}-ch${channelCount}`;
     // The meshes render offscreen first; the raycast composites them by depth.
     const layers = [
       ...cellMeshLayers(props.cubeCellMesh as PlacedCellMesh | null, this.meshTarget, id),
-      new CubeVolumeLayer({ ...props, cubeMeshTarget: this.meshTarget }, { id: `${loader.type}${vivTag(id)}` }),
+      new CubeVolumeLayer({ ...props, cubeMeshTarget: this.meshTarget }, { id: volumeId }),
     ];
     const frame = props.cubeFrame as CubeFrame | undefined;
     // The frame marks the requested window: it keeps its place while a loaded
