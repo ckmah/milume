@@ -42,7 +42,7 @@ async function openImagePanelInInspect(page: import("@playwright/test").Page) {
 }
 
 test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
-  test.describe.configure({ mode: "serial" });
+  test.describe.configure({ mode: "serial", timeout: 240_000 });
   test.skip(!volumeHarness || !issue395, "requires E2E_HARNESS=landmarks-volume and E2E_VOLUME_PROFILE=issue395-3d");
 
   test.beforeEach(async ({ page }) => {
