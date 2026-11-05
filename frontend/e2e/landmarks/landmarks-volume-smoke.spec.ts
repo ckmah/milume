@@ -71,25 +71,40 @@ test.describe("Landmarks volume smoke", () => {
   });
 
   test("one Z high cut commits", async ({ page }) => {
-    test.setTimeout(120_000);
+    test.slow(Boolean(process.env.CI), "SwiftShader cut drag on CI");
+    test.setTimeout(process.env.CI ? 180_000 : 120_000);
     await openCubeAtCentre(page);
     const bar = page.getByTestId("context-inspect-toolbar");
     const view = cubeWindow(page).locator(".volume-cube__view");
-    await bar.getByRole("radio", { name: "Side view" }).click();
     await expect(view).toHaveAttribute("data-refining", "false");
-    await expect(view).toHaveAttribute("data-cut-centers", /z1:/);
+    await bar.getByRole("radio", { name: "Side view" }).click();
+    await expect(view).toHaveAttribute("data-pitch", "0");
+    const point = (attr: string | null, key: string) => {
+      const hit = attr?.match(new RegExp(`${key}:(-?\\d+\\.?\\d*),(-?\\d+\\.?\\d*)`));
+      expect(hit, attr ?? "").toBeTruthy();
+      return { x: Number(hit![1]), y: Number(hit![2]) };
+    };
     const host = await view.boundingBox();
-    const attr = await view.getAttribute("data-cut-centers");
-    const hit = attr?.match(/z1:(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-    expect(hit).toBeTruthy();
-    const center = { x: host!.x + Number(hit![1]), y: host!.y + Number(hit![2]) };
+    expect(host).toBeTruthy();
+    const at = (p: { x: number; y: number }) => ({ x: host!.x + p.x, y: host!.y + p.y });
+    const anchorsBefore = await view.getAttribute("data-cut-anchors");
+    const near = at(point(await view.getAttribute("data-cut-near-anchors"), "z1"));
+    const rim = at(point(anchorsBefore, "z1"));
+    const center = at(point(await view.getAttribute("data-cut-centers"), "z1"));
+    await page.mouse.move(near.x, near.y);
+    await expect(view).toHaveAttribute("data-cut-near", "z1");
+    await page.mouse.move(rim.x, rim.y);
+    await expect(view).toHaveAttribute("data-cut-face", "z1");
+    const before = (await cutOf(page))[5];
     await page.mouse.move(center.x, center.y);
     await page.mouse.down();
-    await page.mouse.move(center.x, center.y + 60, { steps: 12 });
+    await expect(view).toHaveAttribute("data-cut-dragging", "true");
+    await page.mouse.move(center.x, center.y + 48, { steps: 8 });
     await page.mouse.up();
+    await expect(view).toHaveAttribute("data-cut-dragging", "false");
     await expect
-      .poll(async () => (await cutOf(page))[5] ?? 64, { timeout: 45_000 })
-      .toBeLessThan(60);
+      .poll(async () => (await cutOf(page))[5] ?? before, { timeout: 60_000 })
+      .toBeLessThan(before - 1);
   });
 
   test("loading chip settles to ready", async ({ page }) => {

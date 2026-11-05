@@ -51,7 +51,7 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: Number(process.env.E2E_RETRIES ?? 1),
-  workers: Number(process.env.E2E_WORKERS ?? (process.env.CI ? 2 : 4)),
+  workers: Number(process.env.E2E_WORKERS ?? (volumeSmoke ? 1 : process.env.CI ? 2 : 4)),
   reporter: process.env.CI
     ? [["list"], ["html", { open: "never", outputFolder: "playwright-report" }]]
     : [["list"]],
