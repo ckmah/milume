@@ -51,6 +51,41 @@ async function viewportShot(page, path) {
   await page.screenshot({ path, fullPage: false });
 }
 
+/** Headless Chromium omits the OS cursor; draw a pointer for widget interaction stills (#414). */
+async function drawPointerOverlay(page, x, y) {
+  await page.evaluate(
+    ({ px, py }) => {
+      document.getElementById("milume-capture-pointer-overlay")?.remove();
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.id = "milume-capture-pointer-overlay";
+      svg.setAttribute("width", "28");
+      svg.setAttribute("height", "28");
+      svg.setAttribute("viewBox", "0 0 28 28");
+      svg.style.cssText = `position:fixed;left:${px}px;top:${py}px;z-index:2147483647;pointer-events:none;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.45));`;
+      svg.innerHTML =
+        '<path fill="#ffffff" stroke="#111111" stroke-width="1.25" d="M3 2 L3 22 L9.5 16.5 L13.5 26 L16.5 24.5 L12.5 15 L20 15 Z"/>';
+      document.body.appendChild(svg);
+    },
+    { px: x, py: y },
+  );
+}
+
+async function clearPointerOverlay(page) {
+  await page.evaluate(() => document.getElementById("milume-capture-pointer-overlay")?.remove());
+}
+
+async function viewportShotWithPointer(page, path, x, y) {
+  await drawPointerOverlay(page, x, y);
+  await viewportShot(page, path);
+  await clearPointerOverlay(page);
+}
+
+async function clipShotWithPointer(page, path, clip, x, y) {
+  await drawPointerOverlay(page, x, y);
+  await page.screenshot({ path, clip });
+  await clearPointerOverlay(page);
+}
+
 async function scrollViewportShot(page, target, path, block = "start") {
   await target.evaluate(
     (el, b) => el.scrollIntoView({ block: b, inline: "nearest" }),
@@ -94,8 +129,8 @@ await page.waitForFunction(
   { timeout: 30_000 },
 );
 await page.waitForTimeout(800);
-await page.mouse.move(640, 420);
-await viewportShot(page, outputs[2]);
+const pointerK30 = { x: 640, y: 420 };
+await viewportShotWithPointer(page, outputs[2], pointerK30.x, pointerK30.y);
 
 await page.evaluate(() => {
   const root = document.querySelector("marimo-anywidget")?.shadowRoot;
@@ -122,19 +157,17 @@ await page.waitForTimeout(300);
 const rightDock = page.locator("marimo-anywidget >> .landmarks__chrome-dock--right").first();
 const dockBox = await rightDock.boundingBox();
 if (!dockBox) throw new Error("category dock not visible for k8 capture");
-await page.mouse.move(
-  Math.min(viewport.width - 8, dockBox.x + dockBox.width / 2),
-  Math.min(viewport.height - 8, dockBox.y + dockBox.height / 2),
-);
-await page.screenshot({
-  path: outputs[3],
-  clip: {
-    x: Math.max(0, dockBox.x - 320),
-    y: Math.max(0, dockBox.y - 40),
-    width: Math.min(viewport.width, dockBox.width + 640),
-    height: Math.min(viewport.height, dockBox.height + 80),
-  },
-});
+const pointerK8 = {
+  x: Math.min(viewport.width - 8, dockBox.x + dockBox.width / 2),
+  y: Math.min(viewport.height - 8, dockBox.y + dockBox.height / 2),
+};
+const clipK8 = {
+  x: Math.max(0, dockBox.x - 320),
+  y: Math.max(0, dockBox.y - 40),
+  width: Math.min(viewport.width, dockBox.width + 640),
+  height: Math.min(viewport.height, dockBox.height + 80),
+};
+await clipShotWithPointer(page, outputs[3], clipK8, pointerK8.x, pointerK8.y);
 
 await page.evaluate(() => {
   window.__landmarksModel.set("selected_kind", "selection");
@@ -145,8 +178,8 @@ await page.evaluate(() => {
 await page.waitForTimeout(600);
 await wide.scrollIntoViewIfNeeded();
 await page.waitForTimeout(300);
-await page.mouse.move(520, 380);
-await viewportShot(page, outputs[4]);
+const pointerGalt = { x: 520, y: 380 };
+await viewportShotWithPointer(page, outputs[4], pointerGalt.x, pointerGalt.y);
 
 const compositionBlock = page.locator('marimo-cell[name="niche_composition"]').first();
 await compositionBlock.scrollIntoViewIfNeeded();

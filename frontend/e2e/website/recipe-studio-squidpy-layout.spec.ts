@@ -57,11 +57,15 @@ test.describe("recipe studio squidpy layout", () => {
     expect(layout!.insideViewport).toBe(true);
   });
 
-  test("niche sweep method shows Squidpy calls on the static page", async ({ page }) => {
+  test("static page shows Squidpy sweep code without an empty niche_sweep shell", async ({ page }) => {
     await page.goto(RECIPE_PATH, { waitUntil: "networkidle", timeout: 120_000 });
+    await expect(page.locator('marimo-cell[name="niche_sweep"]')).toHaveCount(0);
+
     const method = page.locator('marimo-cell[name="niche_sweep_method"]');
-    await expect(method.getByText(/sq\.gr\.spatial_neighbors/i)).toBeVisible();
-    await expect(method.getByText(/calculate_niche_neighborhood/i)).toBeVisible();
+    const code = method.locator("pre code");
+    await expect(code).toBeVisible();
+    await expect(code).toContainText("sq.gr.spatial_neighbors");
+    await expect(code).toContainText("calculate_niche_neighborhood");
     const box = await method.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThan(40);
   });

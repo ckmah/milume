@@ -180,7 +180,7 @@ def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, adata, cache, expected, mo, pd, sq)
                 frames[dst] = adata.obs[dst]
         cache.parent.mkdir(parents=True, exist_ok=True)
         pd.DataFrame(frames, index=adata.obs_names).to_parquet(cache)
-    return mo.show_code()
+    return
 
 
 @app.cell
