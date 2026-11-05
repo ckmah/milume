@@ -1,4 +1,4 @@
-import { decodeF32Base64, decodeI32Base64 } from "@/widgets/landmarks/binary";
+import { decodeF32Base64 } from "@/widgets/landmarks/binary";
 import {
   decodeGeneCscF32Sync,
   decodeGeneCscI32Sync,
