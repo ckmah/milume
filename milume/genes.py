@@ -148,6 +148,8 @@ def _normalize_column(vals: "np.ndarray") -> tuple["np.ndarray", float, float]:
 # Hard cap on the eager ``genes=`` pack (raw int32 + float32 CSC bytes). Above it the
 # allowlist is served per gene on demand instead, so nothing ships a multi-GB payload.
 GENE_EAGER_MAX_BYTES = 64 * 1024 * 1024
+# Browser decodes ``gene_csc_*`` traits with ``DecompressionStream("gzip")`` when set.
+GENE_CSC_CODEC_GZIP = "gzip"
 # Most genes one ``_gene_get`` request may name (bounds one reply to ~16 sparse columns).
 GENE_FETCH_MAX_NAMES = 16
 
@@ -157,6 +159,15 @@ def _b64(arr: "np.ndarray") -> str:
 
     # Encode from the array buffer; ``tobytes()`` would add a full-size copy.
     return base64.b64encode(np.ascontiguousarray(arr).data).decode("ascii")
+
+
+def _b64_gzip(arr: "np.ndarray") -> str:
+    import gzip
+
+    import numpy as np
+
+    raw = np.ascontiguousarray(arr).tobytes()
+    return base64.b64encode(gzip.compress(raw, compresslevel=6)).decode("ascii")
 
 
 def _sparse_column_range(stored: "np.ndarray", n_implicit: int) -> tuple[float, float]:
@@ -365,7 +376,12 @@ def eager_pack_bytes(adata: Any, names: list[str]) -> int:
 
 
 def _empty_payload() -> dict[str, str]:
-    return {"gene_csc_indptr": "", "gene_csc_indices": "", "gene_csc_data": ""}
+    return {
+        "gene_csc_indptr": "",
+        "gene_csc_indices": "",
+        "gene_csc_data": "",
+        "gene_csc_codec": "",
+    }
 
 
 def pack_eager_gene_matrix(
@@ -391,13 +407,14 @@ def pack_eager_gene_matrix(
     indptr = np.zeros(len(slices) + 1, dtype=np.int64)
     np.cumsum([rows.size for _, rows, _ in slices], out=indptr[1:])
     payload = {
-        "gene_csc_indptr": _b64(indptr.astype(np.int32)),
-        "gene_csc_indices": _b64(
+        "gene_csc_indptr": _b64_gzip(indptr.astype(np.int32)),
+        "gene_csc_indices": _b64_gzip(
             np.concatenate([rows for _, rows, _ in slices]).astype(np.int32, copy=False)
         ),
-        "gene_csc_data": _b64(
+        "gene_csc_data": _b64_gzip(
             np.concatenate([vals for _, _, vals in slices]).astype(np.float32, copy=False)
         ),
+        "gene_csc_codec": GENE_CSC_CODEC_GZIP,
     }
     return [meta for meta, _, _ in slices], payload
 

@@ -1,4 +1,4 @@
-import { decodeF32Base64, decodeI32Base64 } from "./binary";
+import { decodeGeneCscPack } from "./gene-csc-binary";
 import { invokeCommand, type CommandModel } from "./comm-command.js";
 import { createGeneStore, type GeneSlice, type GeneStore } from "./gene-store.js";
 
@@ -68,28 +68,38 @@ export function geneStoreFor(model: GeneModel): GeneStore {
         : Promise.reject(new Error("widget has no kernel comm")),
   });
   const loadEager = () => {
-    const indptr = decodeI32Base64(String(model.get("gene_csc_indptr") || ""));
-    store.setEager(
-      (model.get("gene_names") as Array<{ name: string; vmin?: number; vmax?: number }>) ?? [],
-      indptr.length ? indptr : null,
-      decodeI32Base64(String(model.get("gene_csc_indices") || "")),
-      decodeF32Base64(String(model.get("gene_csc_data") || "")),
-    );
+    const codec = String(model.get("gene_csc_codec") || "");
+    const meta =
+      (model.get("gene_names") as Array<{ name: string; vmin?: number; vmax?: number }>) ?? [];
+    void (async () => {
+      const { indptr, indices, data } = await decodeGeneCscPack(
+        String(model.get("gene_csc_indptr") || ""),
+        String(model.get("gene_csc_indices") || ""),
+        String(model.get("gene_csc_data") || ""),
+        codec,
+      );
+      store.setEager(meta, indptr.length ? indptr : null, indices, data);
+      await store.ensure(active().filter((n) => !store.error(n)));
+    })();
   };
   const fetchActive = () => {
     void store.ensure(active().filter((n) => !store.error(n)));
   };
   loadEager();
-  for (const key of ["gene_names", "gene_csc_indptr", "gene_csc_indices", "gene_csc_data"]) {
+  for (const key of [
+    "gene_names",
+    "gene_csc_codec",
+    "gene_csc_indptr",
+    "gene_csc_indices",
+    "gene_csc_data",
+  ]) {
     model.on(`change:${key}`, () => {
       store.clear();
       loadEager();
-      fetchActive();
     });
   }
   model.on("change:points_data", () => store.dropColumns());
   model.on("change:active_genes", fetchActive);
-  fetchActive();
   stores.set(model, store);
   return store;
 }

@@ -155,6 +155,28 @@ test("linked CI tracking issue #128 skips widget-issue template", () => {
   assert.deepEqual(errors, []);
 });
 
+test("linked ci-failure-labelled issue with no template sections passes pr-policy", () => {
+  const errors = validateUiPullRequest({
+    body: "Closes #402\n\n![x](https://example.com/x.png)\n",
+    changedPaths: ["frontend/e2e/landmarks/landmarks-volume.spec.ts"],
+    isDraft: false,
+    issueBodies: { 402: "Nightly run failed: https://github.com/ckmah/milume/actions/runs/1\n" },
+    issueLabels: { 402: ["ci-failure"] },
+  });
+  assert.deepEqual(errors, []);
+});
+
+test("linked non-ci-failure issue without template sections still fails pr-policy", () => {
+  const errors = validateUiPullRequest({
+    body: "Closes #402\n\n![x](https://example.com/x.png)\n",
+    changedPaths: ["frontend/e2e/landmarks/landmarks-volume.spec.ts"],
+    isDraft: false,
+    issueBodies: { 402: "Nightly run failed: https://github.com/ckmah/milume/actions/runs/1\n" },
+    issueLabels: { 402: ["bug"] },
+  });
+  assert.ok(errors.some((e) => e.includes("linked issue #402")));
+});
+
 test("linked thin issue fails when PR closes it", () => {
   const errors = validateUiPullRequest({
     body: "Closes #77\n\n![x](https://example.com/x.png)\n",

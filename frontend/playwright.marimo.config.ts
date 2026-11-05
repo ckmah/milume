@@ -26,7 +26,7 @@ export default defineConfig({
   webServer: {
     command: "node scripts/marimo-e2e-serve.mjs",
     url: baseURL,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: onCi ? 900_000 : 600_000,
     stdout: "pipe",
     stderr: "pipe",

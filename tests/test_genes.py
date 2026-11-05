@@ -76,15 +76,23 @@ def _plain_adata(X):
 
 
 def _payload(w):
-    return {k: getattr(w, k) for k in ("gene_csc_indptr", "gene_csc_indices", "gene_csc_data")}
+    return {
+        k: getattr(w, k)
+        for k in ("gene_csc_indptr", "gene_csc_indices", "gene_csc_data", "gene_csc_codec")
+    }
 
 
 def _decode_payload(payload, n_obs, n_vars):
     """Dense float32 (n_obs, n_vars) view of the eager CSC pack (test-only)."""
+    import gzip
+
     from scipy import sparse
 
     def decode(key, dtype):
-        return np.frombuffer(base64.b64decode(payload[key]), dtype=dtype)
+        raw = base64.b64decode(payload[key])
+        if payload.get("gene_csc_codec") == "gzip":
+            raw = gzip.decompress(raw)
+        return np.frombuffer(raw, dtype=dtype)
 
     indptr = decode("gene_csc_indptr", np.int32)
     indices = decode("gene_csc_indices", np.int32)
@@ -252,7 +260,12 @@ def test_default_construct_sends_names_only():
     adata, w = _sparse_widget(20_000, 2_000, 0.1)
     assert [g["name"] for g in w.gene_names] == list(adata.var_names)
     assert all(set(g) == {"name"} for g in w.gene_names)
-    assert (w.gene_csc_indptr, w.gene_csc_indices, w.gene_csc_data) == ("", "", "")
+    assert (w.gene_csc_indptr, w.gene_csc_indices, w.gene_csc_data, w.gene_csc_codec) == (
+        "",
+        "",
+        "",
+        "",
+    )
     # The eager pack would be ~32 MiB; comm-open carries points + names only.
     state = w.get_state()
     gene_bytes = sum(len(json.dumps(v)) for k, v in state.items() if k.startswith("gene"))
@@ -312,6 +325,7 @@ def test_genes_allowlist_is_packed_eagerly():
     adata, w = _sparse_widget(2_000, 30, 0.1, genes=["g2", "g9"])
     assert [g["name"] for g in w.gene_names] == ["g2", "g9"]
     assert all({"vmin", "vmax"} <= set(g) for g in w.gene_names)
+    assert w.gene_csc_codec == "gzip"
     packed = _decode_payload(_payload(w), 2_000, 2)
     resp, buffers = w._gene_get({"names": ["g2", "g9"]}, [])
     rows = np.frombuffer(buffers[0], dtype=np.int32)

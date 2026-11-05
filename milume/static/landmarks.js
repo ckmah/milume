@@ -345,6 +345,7 @@ export function mountEngine({
       model.get("_image_visible") !== false &&
       Boolean(vol.image_url);
     container.classList.toggle("landmarks--image", on);
+    applyPlotBackground();
   }
   let applyPlotBackground = () => { };
   /** Cached CSS bg + deck clearColor — invalidated on theme class changes. */
@@ -4334,8 +4335,12 @@ export function mountEngine({
 
   function resolvePlotBackground() {
     if (cachedPlotBackground != null) return cachedPlotBackground;
+    if (container.classList.contains("landmarks--image")) {
+      cachedPlotBackground = "#000000";
+      return cachedPlotBackground;
+    }
     // Prefer a resolved used color (custom props may still be `var(...)`).
-    for (const el of [body, container, plotStack]) {
+    for (const el of [plotStack, body, container]) {
       if (!el) continue;
       const used = getComputedStyle(el).backgroundColor;
       if (used && used !== "rgba(0, 0, 0, 0)" && used !== "transparent") {
@@ -4357,6 +4362,8 @@ export function mountEngine({
   applyPlotBackground = () => {
     cachedPlotBackground = null;
     cachedPlotClearColor = null;
+    if (plotStack) plotStack.style.background = "";
+    if (webglCanvas) webglCanvas.style.background = "";
     const bg = resolvePlotBackground();
     cachedPlotClearColor = cssColorToClear(bg);
     plotStack.style.background = bg;
@@ -7333,6 +7340,7 @@ export function mountEngine({
       return out;
     },
     getBackdropPick: () => mapImageBackdrop.getLastPick?.(),
+    getBackdropBounds: () => mapImageBackdrop.getBounds?.(),
     noteBackdropZBandEnd: () => mapImageBackdrop.noteZBandInteractionEnd?.(),
     destroy,
   };
