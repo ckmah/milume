@@ -137,18 +137,37 @@ await page.evaluate(() => {
   row?.click();
   window.__landmarksModel.set("color", "niche_k8_res0.3");
   window.__landmarksModel.set("active_category", "niche_k8_res0.3");
+  window.__landmarksModel.set("selected_kind", "selection");
+  window.__landmarksModel.set("selected_index", 0);
   window.__landmarksModel.save_changes();
 });
 await page.waitForFunction(
   () =>
     window.__landmarksModel?.get?.("color") === "niche_k8_res0.3" &&
-    window.__landmarksModel?.get?.("active_category") === "niche_k8_res0.3",
+    window.__landmarksModel?.get?.("active_category") === "niche_k8_res0.3" &&
+    window.__landmarksModel?.get?.("selected_kind") === "selection" &&
+    window.__landmarksModel?.get?.("selected_index") === 0,
+  { timeout: 15_000 },
+);
+await page.waitForFunction(
+  () => {
+    const overlay = window.__landmarksEngine?.getSelectionOverlay?.();
+    return overlay?.some((row) => row.index === 0 && row.selected && row.pointCount > 0);
+  },
+  { timeout: 30_000 },
+);
+await page.waitForFunction(
+  () => {
+    const root = document.querySelector("marimo-anywidget")?.shadowRoot;
+    const text = root?.textContent ?? "";
+    return text.includes("galt-follicle") && /610\s+of\s+2,104/.test(text);
+  },
   { timeout: 15_000 },
 );
 await page.waitForTimeout(800);
 await wide.scrollIntoViewIfNeeded();
 await page.waitForTimeout(500);
-// Same follicle FOV and viewport framing as still 03; only the active niche column changes.
+// Same follicle FOV, zoom, selection, and pointer as still 03; only the niche column changes.
 const pointerK8 = { x: 640, y: 420 };
 await viewportShotWithPointer(page, outputs[3], pointerK8.x, pointerK8.y);
 
