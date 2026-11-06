@@ -1,0 +1,17 @@
+as_of: Fri Nov 6, 8:44 AM PT
+needs_you: 1
+  #407 Squidpy niche recipe pilot (k-sweep, cached niches, stati... (pr)
+open_prs: 5
+last_nightly: 2026-11-06 failure
+stale_prs:
+  #428 cursor/recipe-ci-gates-a3c1 (failing CI)
+  #427 cursor/remove-inspect-points-toolbar-13e2 (failing CI)
+  #426 cursor/fullscreen-dock-chrome-ec67 (failing CI)
+  #415 morans-i-409 (failing CI)
+red_nightlies: 2026-10-31, 2026-11-06
+last_red_nightly: 2026-11-06
+ci_failure_issues:
+  #429 Nightly landmarks e2e failed (2026-11-06)
+html: dashboard.html
+status: PUBLISH
+hash: 0b1e3b56e2a7
