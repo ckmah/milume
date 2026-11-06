@@ -34,7 +34,7 @@ def recipe_config():
     import pandas as pd
     import squidpy as sq
 
-    NICHE_KS = (8, 15, 30)
+    NICHE_KS = (8, 30)
     NICHE_RESOLUTIONS = (0.3,)
     DEFAULT_NICHE_COLOR = "niche_k30_res0.3"
     _PKG_ROOT = Path(ml.__file__).resolve().parent
@@ -115,17 +115,17 @@ def load_adata(
 
 @app.cell(hide_code=True)
 def recipe_intro(adata, cache, importlib, mo, sys):
-    repo_root = cache.resolve().parent.parent.parent
-    science_path = repo_root / "scripts" / "ileum_niche_recipe_science.py"
-    if not science_path.is_file():
-        raise FileNotFoundError(f"missing {science_path} (from cache {cache})")
-    spec = importlib.util.spec_from_file_location("ileum_niche_recipe_science", science_path)
-    if spec is None or spec.loader is None:
-        raise ImportError(f"cannot load {science_path}")
-    mod = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = mod
-    spec.loader.exec_module(mod)
-    mo.md(mod.format_intro_markdown(mod.page_contrast_stats(adata)))
+    _repo_root = cache.resolve().parent.parent.parent
+    _science_path = _repo_root / "scripts" / "ileum_niche_recipe_science.py"
+    if not _science_path.is_file():
+        raise FileNotFoundError(f"missing {_science_path} (from cache {cache})")
+    _spec = importlib.util.spec_from_file_location("ileum_niche_recipe_science", _science_path)
+    if _spec is None or _spec.loader is None:
+        raise ImportError(f"cannot load {_science_path}")
+    _mod = importlib.util.module_from_spec(_spec)
+    sys.modules[_spec.name] = _mod
+    _spec.loader.exec_module(_mod)
+    mo.md(_mod.format_intro_markdown(_mod.page_contrast_stats(adata)))
     return
 
 
@@ -136,9 +136,9 @@ def niche_sweep_method(mo):
         ## Niche sweep (Squidpy)
 
         The loop below writes one `niche_k{k}_res0.3` column per neighborhood size `k`
-        at fixed Leiden resolution **0.3**. On this static page the columns are
-        **precomputed**; in molab, re-run the cell after you change the cache path or
-        delete the parquet file.
+        (**8** and **30**) at fixed Leiden resolution **0.3**. On this static page the
+        columns are **precomputed**; in molab, re-run the cell after you change the cache
+        path or delete the parquet file.
 
         ```python
         for k in NICHE_KS:
@@ -186,46 +186,28 @@ def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, _niche_neighborhood, adata, cache, 
 def landmark_map(
     DEFAULT_NICHE_COLOR,
     adata,
+    cache,
     expected,
+    importlib,
     ml,
     mo,
+    sys,
 ):
+    _repo_root = cache.resolve().parent.parent.parent
+    _science_path = _repo_root / "scripts" / "ileum_niche_recipe_science.py"
+    if not _science_path.is_file():
+        raise FileNotFoundError(f"missing {_science_path} (from cache {cache})")
+    _spec = importlib.util.spec_from_file_location("ileum_niche_recipe_science_landmark", _science_path)
+    if _spec is None or _spec.loader is None:
+        raise ImportError(f"cannot load {_science_path}")
+    _mod = importlib.util.module_from_spec(_spec)
+    sys.modules[_spec.name] = _mod
+    _spec.loader.exec_module(_mod)
+    galt_lasso_vertices = _mod.GALT_FOLLICLE_LASSO_VERTICES
+    galt_point_indices = list(_mod.GALT_FOLLICLE_POINT_INDICES)
+
     adata_map = adata.copy()
     adata_map.obs = adata_map.obs[["cell_type", *expected]].copy()
-    galt_lasso_vertices = [
-        [-3992.68, 1334.9],
-        [-4012.99, 1290.28],
-        [-4011.83, 1279.79],
-        [-4009.53, 1273.14],
-        [-3989.17, 1253.08],
-        [-3976.01, 1246.48],
-        [-3969.55, 1247.26],
-        [-3944.06, 1256.34],
-        [-3905.74, 1270.34],
-        [-3000.04, 1679.67],
-        [-2969.14, 1697.16],
-        [-2961.4, 1715.74],
-        [-2964.16, 1723.35],
-        [-2983.99, 1747.98],
-        [-3459.14, 1949.51],
-    ]
-
-    def _point_in_ring(x: float, y: float, ring: list[list[float]]) -> bool:
-        inside = False
-        n = len(ring)
-        for i in range(n):
-            x0, y0 = ring[i]
-            x1, y1 = ring[(i + 1) % n]
-            if (y0 > y) != (y1 > y) and x < (x1 - x0) * (y - y0) / (y1 - y0 + 1e-12) + x0:
-                inside = not inside
-        return inside
-
-    spatial = adata_map.obsm["spatial"]
-    galt_point_indices = [
-        i
-        for i, (x, y) in enumerate(spatial)
-        if _point_in_ring(float(x), float(y), galt_lasso_vertices)
-    ]
 
     w = mo.ui.anywidget(
         ml.peek(
@@ -251,9 +233,9 @@ def molab_rerun_tip(mo):
         r"""
         > **molab:** Re-run **`landmark_map`** and the composition cell after you change
         > the categorical column or draw a new lasso. The static export keeps the default
-        > **`niche_k30_res0.3`** column, full-slice fit, and the tutorial GALT lasso
-        > available without focusing it (use the layers list to focus it for a
-        > follicle crop).
+        > **`niche_k30_res0.3`** column, full-slice fit, and the compact GALT selection
+        > available without focusing it (use the layers list to focus it for a follicle
+        > crop on the orange k30 blob).
         """
     )
     return

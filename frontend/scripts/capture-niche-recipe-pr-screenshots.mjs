@@ -170,7 +170,7 @@ await page.waitForFunction(
   () => {
     const root = document.querySelector("marimo-anywidget")?.shadowRoot;
     const text = root?.textContent ?? "";
-    return text.includes("galt-follicle") && /2,659\s+of\s+30,332/.test(text);
+    return text.includes("galt-follicle") && /123\s+of\s+30,332/.test(text);
   },
   { timeout: 15_000 },
 );
@@ -185,7 +185,7 @@ await page.evaluate(() => {
   window.__landmarksModel.set("selected_kind", "selection");
   window.__landmarksModel.set("selected_index", 0);
   window.__landmarksModel.save_changes();
-  window.__landmarksEngine?.panTo?.(-3950, 1300, { animate: false });
+  window.__landmarksEngine?.panTo?.(-3010, 1710, { animate: false });
 });
 await page.waitForTimeout(600);
 await wide.scrollIntoViewIfNeeded();

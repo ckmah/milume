@@ -42,11 +42,17 @@ def main() -> int:
     stats = page_contrast_stats(adata)
     print_verify_report(stats)
 
-    k15 = stats["k15_galt_majority"]
-    if not (280 <= k15.niche_cells <= 360):
-        raise SystemExit(f"k15 GALT-majority niche size {k15.niche_cells} outside ~321 sanity band")
-    if k15.galt_share < 0.88:
-        raise SystemExit(f"k15 GALT share {k15.galt_share:.3f} below ~93% sanity")
+    k30 = stats["k30_lasso_dominant"]
+    if k30.niche_id != "2":
+        raise SystemExit(f"k30 lasso-dominant niche id {k30.niche_id!r} expected '2'")
+    if not (520 <= k30.niche_cells <= 560):
+        raise SystemExit(f"k30 niche size {k30.niche_cells} outside ~537 sanity band")
+    if not (110 <= k30.lasso_cells_in_niche <= 125):
+        raise SystemExit(
+            f"lasso cells in k30 niche {k30.lasso_cells_in_niche} outside ~123 sanity band"
+        )
+    if k30.galt_share < 0.62:
+        raise SystemExit(f"k30 GALT share {k30.galt_share:.3f} below ~65% sanity")
     print("verify_ileum_niche_recipe: PASS")
     return 0
 

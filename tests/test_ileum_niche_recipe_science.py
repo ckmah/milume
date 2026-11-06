@@ -54,27 +54,18 @@ def test_niche_neighborhood_helper_writes_nhood_columns(science_mod):
 
 
 def test_format_intro_markdown_k30_share_one_decimal(science_mod):
-    """9/3761 ~= 0.24% must render as 0.2% with .1f, not 0%."""
+    """k=30 slice-wide GALT share must render with one decimal (e.g. 64.6%)."""
     NicheGaltSummary = science_mod.NicheGaltSummary
     md = science_mod.format_intro_markdown(
         {
             "k30_lasso_dominant": NicheGaltSummary(
                 k=30,
                 resolution=0.3,
-                niche_id="8",
-                niche_cells=3761,
-                galt_cells=9,
-                galt_share=9 / 3761,
-                lasso_cells_in_niche=21,
-            ),
-            "k15_galt_majority": NicheGaltSummary(
-                k=15,
-                resolution=0.3,
-                niche_id="4",
-                niche_cells=321,
-                galt_cells=299,
-                galt_share=299 / 321,
-                lasso_cells_in_niche=0,
+                niche_id="2",
+                niche_cells=537,
+                galt_cells=347,
+                galt_share=347 / 537,
+                lasso_cells_in_niche=123,
             ),
             "k8_lasso_dominant": NicheGaltSummary(
                 k=8,
@@ -83,8 +74,8 @@ def test_format_intro_markdown_k30_share_one_decimal(science_mod):
                 niche_cells=2973,
                 galt_cells=281,
                 galt_share=281 / 2973,
-                lasso_cells_in_niche=0,
+                lasso_cells_in_niche=84,
             ),
         }
     )
-    assert "**0.2%** annotated GALT" in md
+    assert "**64.6%** GALT" in md and "`anatomical_layer`" in md
