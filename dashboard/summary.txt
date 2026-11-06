@@ -1,4 +1,4 @@
-as_of: Fri Nov 6, 8:44 AM PT
+as_of: Fri Nov 6, 3:14 PM PT
 needs_you: 1
   #407 Squidpy niche recipe pilot (k-sweep, cached niches, stati... (pr)
 open_prs: 5
@@ -11,7 +11,7 @@ stale_prs:
 red_nightlies: 2026-10-31, 2026-11-06
 last_red_nightly: 2026-11-06
 ci_failure_issues:
-  #429 Nightly landmarks e2e failed (2026-11-06)
+  #429 CI: Inspect cube volume e2e hard-red since #418 (meshes /...
 html: dashboard.html
 status: PUBLISH
-hash: 0b1e3b56e2a7
+hash: 675b833879f7
