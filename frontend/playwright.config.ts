@@ -2,12 +2,14 @@ import { defineConfig, devices } from "@playwright/test";
 
 const harness = process.env.E2E_HARNESS ?? "landmarks";
 const viewportHeight = Number(process.env.E2E_VIEWPORT_H ?? 900);
+const vitePort = Number(process.env.E2E_VITE_PORT ?? 5173);
+const devBase = `http://127.0.0.1:${vitePort}`;
 const webServerCommands: Record<string, string> = {
-  landmarks: "npm run dev:landmarks -- --host 127.0.0.1 --port 5173 --strictPort",
+  landmarks: `npm run dev:landmarks -- --host 127.0.0.1 --port ${vitePort} --strictPort`,
   "landmarks-volume":
     process.env.E2E_VOLUME_PROFILE
-      ? `cross-env DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=${process.env.E2E_VOLUME_PROFILE} npm run dev:landmarks-volume -- --host 127.0.0.1 --port 5173 --strictPort`
-      : "npm run dev:landmarks-volume -- --host 127.0.0.1 --port 5173 --strictPort",
+      ? `cross-env DEV_WIDGET=landmarks-volume MILUME_VOLUME_PROFILE=${process.env.E2E_VOLUME_PROFILE} npm run dev:landmarks-volume -- --host 127.0.0.1 --port ${vitePort} --strictPort`
+      : `npm run dev:landmarks-volume -- --host 127.0.0.1 --port ${vitePort} --strictPort`,
 };
 // The inspect cube redraws a ray-marched volume (image and labels) per frame; on
 // SwiftShader one frame of an orbit or cut drag can take over a second.
@@ -60,7 +62,7 @@ export default defineConfig({
   use: {
     ...devices["Desktop Chrome"],
     channel: (process.env.PLAYWRIGHT_CHANNEL as "chrome" | undefined) || undefined,
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: devBase,
     headless: true,
     trace: "on-first-retry",
     // Videos only on CI failure — avoids requiring ffmpeg locally.
@@ -82,10 +84,7 @@ export default defineConfig({
     command: webServerCommand,
     // Volume harness serves fixture.json only when Vite is fully up; avoids ERR_CONNECTION_REFUSED
     // from agents running `npx playwright` while dev:landmarks-volume is still booting.
-    url:
-      harness === "landmarks-volume"
-        ? "http://127.0.0.1:5173/fixture.json"
-        : "http://127.0.0.1:5173",
+    url: harness === "landmarks-volume" ? `${devBase}/fixture.json` : devBase,
     reuseExistingServer: !process.env.CI || process.env.E2E_REUSE_VITE === "1",
     timeout: 120_000,
   },
