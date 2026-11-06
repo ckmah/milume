@@ -7,7 +7,11 @@ test.describe("recipe studio squidpy layout", () => {
 
   test("single site chrome and widget contained in content column", async ({ page }) => {
     await page.goto(RECIPE_PATH, { waitUntil: "networkidle", timeout: 120_000 });
-    await page.locator("canvas").first().waitFor({ state: "visible", timeout: 120_000 });
+    await page
+      .locator("marimo-anywidget")
+      .locator("canvas")
+      .first()
+      .waitFor({ state: "visible", timeout: 120_000 });
     await page.locator(".milume-recipe-studio-wide").scrollIntoViewIfNeeded();
     await page.waitForTimeout(300);
 
@@ -65,19 +69,23 @@ test.describe("recipe studio squidpy layout", () => {
     const code = method.locator("pre code");
     await expect(code).toBeVisible();
     await expect(code).toContainText("sq.gr.spatial_neighbors");
-    await expect(code).toContainText("calculate_niche_neighborhood");
+    await expect(code).toContainText("_niche_neighborhood");
     const box = await method.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThan(40);
   });
 
-  test("default export focuses galt-follicle selection on the map", async ({ page }) => {
+  test("default export keeps galt-follicle selection geometry on the map", async ({ page }) => {
     await page.goto(RECIPE_PATH, { waitUntil: "networkidle", timeout: 120_000 });
-    await page.locator("canvas").first().waitFor({ state: "visible", timeout: 120_000 });
+    await page
+      .locator("marimo-anywidget")
+      .locator("canvas")
+      .first()
+      .waitFor({ state: "visible", timeout: 120_000 });
     await page.waitForFunction(
       () => {
         const overlay = window.__landmarksEngine?.getSelectionOverlay?.();
-        return overlay?.some((row: { index: number; selected: boolean; pointCount: number }) =>
-          row.index === 0 && row.selected && row.pointCount > 0,
+        return overlay?.some((row: { index: number; pointCount: number }) =>
+          row.index === 0 && row.pointCount > 0,
         );
       },
       { timeout: 30_000 },

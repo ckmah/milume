@@ -10,7 +10,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[1]
 NICHE_KS = (8, 15, 30)
-RESOLUTIONS = (0.3, 0.5, 1.0)
+RESOLUTIONS = (0.3,)
 DEFAULT_RES = 0.3
 CACHE_PATH = ROOT / "demos" / "data" / "ileum_niche_recipe_niches.parquet"
 
@@ -215,9 +215,10 @@ read merges into lamina propria.
 [squidpy_color.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py)
 
 > **Static docs view:** niches are **precomputed** and baked into the export.
-> Switch **`k` / resolution** columns in the widget categorical tab (no kernel).
-> The map is cropped to the follicle field of view below; molab loads the full slice.
-> The composition figure matches **`niche_k30_res0.3`** and the tutorial lasso.
+> Switch between the three **`k`** niche columns (fixed Leiden resolution 0.3) in
+> the widget categorical tab (no kernel). The map shows the full slice zoomed to fit;
+> use the GALT lasso in molab to zoom the follicle. The composition figure matches
+> **`niche_k30_res0.3`** and the tutorial lasso.
 """
 
 

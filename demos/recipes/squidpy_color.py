@@ -35,10 +35,8 @@ def recipe_config():
     import squidpy as sq
 
     NICHE_KS = (8, 15, 30)
-    NICHE_RESOLUTIONS = (0.3, 0.5, 1.0)
+    NICHE_RESOLUTIONS = (0.3,)
     DEFAULT_NICHE_COLOR = "niche_k30_res0.3"
-    FOLLICLE_X_BOUNDS = (-4160.0, -3740.0)
-    FOLLICLE_Y_BOUNDS = (1100.0, 1500.0)
     _PKG_ROOT = Path(ml.__file__).resolve().parent
     _REPO_ROOT = _PKG_ROOT.parent
     RECIPE_DATA_DIR = _REPO_ROOT / "demos" / "data"
@@ -56,8 +54,6 @@ def recipe_config():
     _niche_neighborhood = _science_mod._niche_neighborhood
     return (
         DEFAULT_NICHE_COLOR,
-        FOLLICLE_X_BOUNDS,
-        FOLLICLE_Y_BOUNDS,
         NICHE_KS,
         NICHE_RESOLUTIONS,
         Path,
@@ -139,9 +135,10 @@ def niche_sweep_method(mo):
         r"""
         ## Niche sweep (Squidpy)
 
-        The loop below writes one `niche_k{k}_res{r}` column per neighborhood size and
-        Leiden resolution. On this static page the columns are **precomputed**; in molab,
-        re-run the cell after you change the cache path or delete the parquet file.
+        The loop below writes one `niche_k{k}_res0.3` column per neighborhood size `k`
+        at fixed Leiden resolution **0.3**. On this static page the columns are
+        **precomputed**; in molab, re-run the cell after you change the cache path or
+        delete the parquet file.
 
         ```python
         for k in NICHE_KS:
@@ -154,8 +151,7 @@ def niche_sweep_method(mo):
                 resolutions=list(NICHE_RESOLUTIONS),
                 rng=0,
             )
-            for r in NICHE_RESOLUTIONS:
-                adata.obs[f"niche_k{k}_res{r}"] = adata.obs[f"nhood_niche_res={r}"].astype(str)
+            adata.obs[f"niche_k{k}_res0.3"] = adata.obs["nhood_niche_res=0.3"].astype(str)
         ```
         """
     )
@@ -189,21 +185,12 @@ def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, _niche_neighborhood, adata, cache, 
 @app.cell
 def landmark_map(
     DEFAULT_NICHE_COLOR,
-    FOLLICLE_X_BOUNDS,
-    FOLLICLE_Y_BOUNDS,
     adata,
     expected,
     ml,
     mo,
 ):
-    xy = adata.obsm["spatial"]
-    fov = (
-        (xy[:, 0] >= FOLLICLE_X_BOUNDS[0])
-        & (xy[:, 0] <= FOLLICLE_X_BOUNDS[1])
-        & (xy[:, 1] >= FOLLICLE_Y_BOUNDS[0])
-        & (xy[:, 1] <= FOLLICLE_Y_BOUNDS[1])
-    )
-    adata_map = adata[fov].copy()
+    adata_map = adata.copy()
     adata_map.obs = adata_map.obs[["cell_type", *expected]].copy()
     galt_lasso_vertices = [
         [-3992.68, 1334.9],
@@ -246,8 +233,6 @@ def landmark_map(
             color=DEFAULT_NICHE_COLOR,
         )
     )
-    w.x_bounds = FOLLICLE_X_BOUNDS
-    w.y_bounds = FOLLICLE_Y_BOUNDS
     w.selections = [
         {
             "id": "galt-follicle",
@@ -256,8 +241,6 @@ def landmark_map(
             "point_indices": galt_point_indices,
         }
     ]
-    w.selected_kind = "selection"
-    w.selected_index = 0
     w
     return (w,)
 
@@ -267,8 +250,10 @@ def molab_rerun_tip(mo):
     mo.md(
         r"""
         > **molab:** Re-run **`landmark_map`** and the composition cell after you change
-        > the categorical column or draw a new lasso. The static page keeps the default
-        > **`niche_k30_res0.3`** view and tutorial lasso frozen in the export.
+        > the categorical column or draw a new lasso. The static export keeps the default
+        > **`niche_k30_res0.3`** column, full-slice fit, and the tutorial GALT lasso
+        > available without focusing it (use the layers list to focus it for a
+        > follicle crop).
         """
     )
     return

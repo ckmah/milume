@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 import { createHash } from "node:crypto";
 import { createReadStream, mkdirSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 import { chromium } from "@playwright/test";
 
 const url =
   process.argv[2] ??
   "http://127.0.0.1:8765/docs/how-to/recipes/squidpy_color/index.html";
-const outDir = "/opt/cursor/artifacts/recipe-niche-pilot";
+const _here = dirname(fileURLToPath(import.meta.url));
+const outDir = join(_here, "..", "..", "docs", "visual-acceptance", "pr-407");
 const viewport = { width: 1280, height: 800 };
 
 const outputs = [
@@ -89,10 +92,17 @@ async function scrollViewportShot(page, target, path, block = "start") {
   await viewportShot(page, path);
 }
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  args: ["--enable-webgl", "--ignore-gpu-blocklist"],
+});
 const page = await browser.newPage({ viewport });
-await page.goto(url, { waitUntil: "load", timeout: 120_000 });
-await page.locator("canvas").first().waitFor({ state: "visible", timeout: 120_000 });
+await page.goto(url, { waitUntil: "networkidle", timeout: 120_000 });
+await page
+  .locator("marimo-anywidget")
+  .locator("canvas")
+  .first()
+  .waitFor({ state: "visible", timeout: 120_000 });
 await page.waitForTimeout(1500);
 
 const introHeading = page
@@ -118,7 +128,7 @@ await wide.scrollIntoViewIfNeeded();
 await page.waitForFunction(
   () => {
     const overlay = window.__landmarksEngine?.getSelectionOverlay?.();
-    return overlay?.some((row) => row.index === 0 && row.selected && row.pointCount > 0);
+    return overlay?.some((row) => row.index === 0 && row.pointCount > 0);
   },
   { timeout: 30_000 },
 );
@@ -152,7 +162,7 @@ await page.waitForFunction(
 await page.waitForFunction(
   () => {
     const overlay = window.__landmarksEngine?.getSelectionOverlay?.();
-    return overlay?.some((row) => row.index === 0 && row.selected && row.pointCount > 0);
+    return overlay?.some((row) => row.index === 0 && row.pointCount > 0);
   },
   { timeout: 30_000 },
 );
@@ -160,7 +170,7 @@ await page.waitForFunction(
   () => {
     const root = document.querySelector("marimo-anywidget")?.shadowRoot;
     const text = root?.textContent ?? "";
-    return text.includes("galt-follicle") && /610\s+of\s+2,104/.test(text);
+    return text.includes("galt-follicle") && /2,659\s+of\s+30,332/.test(text);
   },
   { timeout: 15_000 },
 );

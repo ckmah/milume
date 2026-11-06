@@ -33,6 +33,8 @@ concurrency:
 
 env:
   MARIMO_EXPORT_REPOSITORY: ${{ github.workspace }}/.cache/marimo-export-recipes
+  MILUME_MARIMO_PREPARED_MANIFEST_BYTES: "2097152"
+  PYTHONPATH: ${{ github.workspace }}/website/scripts/marimo_export_sitecustomize
   RECIPE_NB: demos/recipes/squidpy_color.py
   RECIPE_VIEW: docs
 

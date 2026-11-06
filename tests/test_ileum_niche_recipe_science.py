@@ -47,12 +47,10 @@ def test_niche_neighborhood_helper_writes_nhood_columns(science_mod):
         groups="cell_type",
         scale=False,
         n_neighbors=15,
-        resolutions=[0.3, 0.5, 1.0],
+        resolutions=[0.3],
         rng=0,
     )
-    for r in (0.3, 0.5, 1.0):
-        col = f"nhood_niche_res={r}"
-        assert col in adata.obs.columns
+    assert "nhood_niche_res=0.3" in adata.obs.columns
 
 
 def test_format_intro_markdown_k30_share_one_decimal(science_mod):
