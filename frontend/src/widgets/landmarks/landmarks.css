@@ -2295,15 +2295,6 @@
 .landmarks.landmarks--fs .landmarks__chrome-dock,
 .landmarks--overlay-fs .landmarks__chrome-dock {
   width: var(--lm-dock-width);
-  height: min(
-    max-content,
-    calc(
-      100% - var(--lm-chrome-band) - (2 * var(--lm-chrome-gap)) - var(--lm-chrome-inset)
-    )
-  );
-  max-height: calc(
-    100% - var(--lm-chrome-band) - (2 * var(--lm-chrome-gap)) - var(--lm-chrome-inset)
-  );
 }
 
 /* Panel interior: equal inset. */
