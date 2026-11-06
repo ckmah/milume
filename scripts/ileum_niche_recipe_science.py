@@ -41,15 +41,6 @@ def niche_obs_columns() -> list[str]:
     return cols
 
 
-def _calculate_niche_neighborhood(sq, adata, **kwargs):
-    fn = getattr(sq.gr, "calculate_niche_neighborhood", None)
-    if fn is not None:
-        return fn(adata, **kwargs)
-    kw = {k: v for k, v in kwargs.items() if k != "rng"}
-    kw["random_state"] = kwargs.get("rng", 0)
-    return sq.gr.calculate_niche(adata, flavor="neighborhood", **kw)
-
-
 def attach_cached_niches(adata, cache_path: Path = CACHE_PATH) -> None:
     cached = pd.read_parquet(cache_path)
     expected = niche_obs_columns()
@@ -66,8 +57,7 @@ def compute_niche_dataframe(adata) -> pd.DataFrame:
     frames: dict[str, pd.Series] = {}
     for k in NICHE_KS:
         sq.gr.spatial_neighbors(adata, coord_type="generic", n_neighs=k)
-        _calculate_niche_neighborhood(
-            sq,
+        sq.gr.calculate_niche_neighborhood(
             adata,
             groups="cell_type",
             scale=False,
@@ -198,7 +188,7 @@ not classical B/T zones).
 
 At **`niche_k30_res0.3`**, the niche covering the tutorial lasso holds
 **{k30.lasso_cells_in_niche:,}** of those cells; that niche is
-**{k30.niche_cells:,}** cells slice-wide and **{k30_pct:.0f}%** annotated GALT
+**{k30.niche_cells:,}** cells slice-wide and **{k30_pct:.1f}%** annotated GALT
 (`anatomical_layer`). At **`niche_k15_res0.3`**, the largest GALT-majority niche
 is **{k15.niche_cells:,}** cells (**{k15_pct:.0f}%** GALT). At **`niche_k8_res0.3`**,
 the lasso maps to one **{k8.niche_cells:,}**-cell niche with only

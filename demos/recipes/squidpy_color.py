@@ -152,19 +152,11 @@ def niche_sweep_method(mo):
 
 @app.cell
 def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, adata, cache, expected, pd, sq):
-    def _calculate_niche_neighborhood(adata, **kwargs):
-        fn = getattr(sq.gr, "calculate_niche_neighborhood", None)
-        if fn is not None:
-            return fn(adata, **kwargs)
-        kw = {k: v for k, v in kwargs.items() if k != "rng"}
-        kw["random_state"] = kwargs.get("rng", 0)
-        return sq.gr.calculate_niche(adata, flavor="neighborhood", **kw)
-
     if not all(col in adata.obs for col in expected):
         frames = {}
         for k in NICHE_KS:
             sq.gr.spatial_neighbors(adata, coord_type="generic", n_neighs=k)
-            _calculate_niche_neighborhood(
+            sq.gr.calculate_niche_neighborhood(
                 adata,
                 groups="cell_type",
                 scale=False,
