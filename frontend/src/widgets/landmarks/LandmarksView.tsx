@@ -481,7 +481,6 @@ export function LandmarksView({
             settings={cube}
             patch={patchCube}
             labelsAvailable={Boolean(lm.volume?.cells)}
-            pointsAvailable={(lm.render_mode || "points") === "points"}
             cut={inspectCube.cut}
             cutRanges={inspectCube.cutRanges}
             onCutLive={inspectCube.onCutLive}
@@ -497,7 +496,6 @@ export function LandmarksView({
         {cubeOpen ? (
           <CubeImmersive
             lm={lm}
-            engine={engine}
             settings={cube}
             patch={patchCube}
             cut={inspectCube.cut}

@@ -17,8 +17,6 @@ export type CubeSettings = {
   showImage: boolean;
   /** Default on: a store with cell polygons opens showing its cells. */
   showLabels: boolean;
-  /** Scatter points from the 2D layer inside the cube. */
-  showPoints: boolean;
   render: RenderSettings;
   contrast: [number, number];
   /** X/Y relative to the inspect window, Z absolute (see cube-cut.ts). */
@@ -48,7 +46,6 @@ export function useCubeSettings(
     resetTick: 0,
     showImage: true,
     showLabels: true,
-    showPoints: false,
     render: DEFAULT_RENDER,
     contrast: initialContrast,
     cut: initialCut,
