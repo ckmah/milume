@@ -113,6 +113,10 @@ payload_pid=$!
 sleep 1
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/check_recipe_payload.py"
 
+uv run --directory "${ROOT}" python "${ROOT}/scripts/lint_recipe_prose.py"
+uv run --directory "${ROOT}" python "${ROOT}/scripts/verify_squidpy_color.py"
+node "${ROOT}/frontend/scripts/capture-recipe-shots.mjs" "http://127.0.0.1:8765" "squidpy_color"
+
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/docs_redirects.py" "${OUT}"
 
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/agent-index.py"

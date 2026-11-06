@@ -1,0 +1,14 @@
+{
+  "active_category": "nhood_niche_res=0.5",
+  "adata_n_obs": 30332,
+  "adata_n_vars": 1815,
+  "color_column_initial": "cell_type",
+  "dataset_cell_count": 30332,
+  "dataset_gene_count": 1815,
+  "niche_n_neighbors": 6,
+  "niche_obs_key_actual": "nhood_niche_res=0.5",
+  "niche_obs_key_expected": "nhood_niche_res=0.5",
+  "niche_resolution": 0.5,
+  "patch_size_um": 800,
+  "selection_count": 1
+}

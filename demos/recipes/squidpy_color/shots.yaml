@@ -1,0 +1,24 @@
+# Shot list for automated recipe capture (squidpy_color).
+# column: Landmarks color trait (obs column key).
+# selection_count: expected number of drawn selections in the widget model.
+recipe: squidpy_color
+page: /docs/how-to/recipes/squidpy_color/index.html
+shots:
+  - id: prepared-niche-default
+    theme: default
+    column: nhood_niche_res=0.5
+    selection_count: 1
+    pointer:
+      norm_x: 0.55
+      norm_y: 0.45
+    claim: >-
+      Prepared export shows one patch selection and niche colors after Squidpy.
+  - id: prepared-niche-slate
+    theme: slate
+    column: nhood_niche_res=0.5
+    selection_count: 1
+    pointer:
+      norm_x: 0.45
+      norm_y: 0.5
+    claim: >-
+      Dark palette matches Zensical slate; widget state unchanged.

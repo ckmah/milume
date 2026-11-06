@@ -13,9 +13,10 @@
 # runtimes = ["server", "zero-python"]
 #
 # [tool.marimo-studio.cells]
-# cell-1 = {ref = "cell:v1:aa87d2e9822936298d7e2f35bc1e8c2184ba1786eed083522298248311c3cf16:e4144bdbf4109bfc6800f508ebbb66b6412553693acf6e8d6e8fa73f06aac701:0"}
+# cell-1 = {ref = "cell:v1:8cb1616a5cbc282dfcbed9e229d0dd6566c77702105750b46ff19265d0b1529c:206f83756f9ae25a179491c17bdfeb1726c9d4a1ae1a555ab1b4882d58bfd09f:0"}
+# cell-2 = {ref = "cell:v1:34bf30d7c701e58e846cb3e6a3e6ef5d01f3d9b042be0a125354f994603f0129:f0caf9a8dcba3f85135816af4caf0db5fa161bdb3552eea6c45406462610f644:0"}
 # ///
-"""Squidpy niche colour recipe for docs (marimo-studio zero-python export)."""
+"""Squidpy niche color recipe for docs (marimo-studio zero-python export)."""
 
 import marimo
 
@@ -25,18 +26,21 @@ app = marimo.App(width="medium")
 
 @app.cell(hide_code=True)
 def _(mo):
+    from demos.recipes import squidpy_color_numbers as prose_nums
+
     mo.md(
-        r"""
+        f"""
         # Squidpy niche labels
 
-        Recolour Landmarks from Squidpy neighborhood niches on the Xu 2026 ileum
-        slice (`demos/data/ileum.h5ad`, 1,815-gene Xu 2026 ileum section).
+        Recolor Landmarks from Squidpy neighborhood niches on the Xu ileum
+        slice (`demos/data/ileum.h5ad`, {prose_nums.DATASET_GENE_COUNT:,d}-gene section,
+        {prose_nums.DATASET_CELL_COUNT:,d} cells).
 
         **Open in molab:**
         [squidpy_color.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py)
 
         > **Static docs view:** this page replays a **prepared** export state (fixed
-        > selection and niche colouring). To draw new selections or re-run Squidpy
+        > selection and niche coloring). To draw new selections or re-run Squidpy
         > on changed regions, use **Open in molab** above.
         """
     )
@@ -45,11 +49,9 @@ def _(mo):
 
 @app.cell(hide_code=True)
 def _(mo):
-    mo.md(
-        r"""
-        > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook. After the server connects, click **Run all** (the ▶ button at the bottom right) to run the notebook.
-        """
-    )
+    mo.md(r"""
+    > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook. After the server connects, click **Run all** (the ▶ button at the bottom right) to run the notebook.
+    """)
     return
 
 
@@ -101,12 +103,16 @@ def _(adata, docs_recipe_patch_selection, milume):
 
 
 @app.cell
-def landmark_map(adata, run_niche_recipe, w):
+def landmark_map(adata, mo, niche_obs_key, run_niche_recipe, w):
     import contextlib
     import io
+    import json
     import logging
+    import os
     import warnings
+    from pathlib import Path as _Path
 
+    from demos.recipes import squidpy_color_numbers as compute_nums
     from scipy.sparse import SparseEfficiencyWarning
 
     _loggers = [logging.getLogger(name) for name in ("scanpy", "squidpy", "leidenalg", "igraph")]
@@ -124,6 +130,32 @@ def landmark_map(adata, run_niche_recipe, w):
             lg.setLevel(level)
 
     w.color = niche_col
+
+    meta_mode = mo.app_meta().mode
+    if os.environ.get("MILUME_RECIPE_WRITE_NUMBERS", "").lower() in ("1", "true", "yes") or meta_mode == "script":
+        numbers = {
+            "dataset_gene_count": compute_nums.DATASET_GENE_COUNT,
+            "dataset_cell_count": compute_nums.DATASET_CELL_COUNT,
+            "patch_size_um": compute_nums.PATCH_SIZE_UM,
+            "niche_resolution": compute_nums.NICHE_RESOLUTION,
+            "niche_n_neighbors": compute_nums.NICHE_N_NEIGHBORS,
+            "niche_obs_key_expected": niche_obs_key(compute_nums.NICHE_RESOLUTION),
+            "niche_obs_key_actual": niche_col,
+            "selection_count": len(w.selections or []),
+            "adata_n_obs": int(adata.n_obs),
+            "adata_n_vars": int(adata.n_vars),
+            "color_column_initial": "cell_type",
+            "active_category": str(getattr(w, "active_category", "") or ""),
+        }
+        out = _Path(
+            os.environ.get(
+                "MILUME_RECIPE_NUMBERS_OUT",
+                str(_Path(__file__).resolve().parent / "squidpy_color" / "numbers.json"),
+            )
+        )
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(numbers, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
     w
     return (niche_col, w)
 

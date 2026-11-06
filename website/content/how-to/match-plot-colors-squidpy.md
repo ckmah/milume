@@ -64,6 +64,6 @@ palette = w.category_colors(niche_col)  # {label: "#rrggbb"}
 
 Landmarks points and downstream plots share the same label-to-colour mapping as the map.
 
-For a prepared studio walkthrough (fixed selection and export state), use the [Squidpy niche colour recipe](recipes/squidpy_color/) or the live [molab notebook](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py). The recipe export pipeline is unchanged; this page is the task-only steps.
+For a prepared studio walkthrough (fixed selection and export state), use the [Squidpy niche color recipe](recipes/squidpy_color/) or the live [molab notebook](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py). The recipe export pipeline is unchanged; this page is the task-only steps.
 
 Squidpy and Scanpy parameters stay in their own docs; milume traitlets are in the [LandmarksWidget API](../reference/api/landmarks.md).
