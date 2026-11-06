@@ -575,7 +575,6 @@ export function LandmarksView({
                 data-testid="info-explore-stack"
               >
                 <RightChromeStack
-                  model={model}
                   lm={lm}
                   engine={engine}
                   minimise={minimise}
@@ -653,7 +652,6 @@ export function LandmarksView({
                 data-testid="info-explore-stack"
               >
                 <RightChromeStack
-                  model={model}
                   lm={lm}
                   engine={engine}
                   minimise={minimise}

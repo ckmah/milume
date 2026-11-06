@@ -10,12 +10,12 @@ async function galtLassoViaModel(page: import("@playwright/test").Page) {
   const bounds = await page.evaluate(() => {
     const m = window.__landmarksModel;
     const eng = window.__landmarksEngine;
-    const cols = m.get("category_columns") || [];
+    const cols = m.get("_category_columns") || [];
     const colIdx = cols.findIndex((c: { name: string }) => c.name === "anatomical_layer");
     if (colIdx < 0) return null;
     const galtIdx = cols[colIdx].labels.indexOf("GALT");
     if (galtIdx < 0) return null;
-    const b64 = m.get("category_codes");
+    const b64 = m.get("_category_codes");
     const raw = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
     const codes = new Int32Array(raw.buffer, raw.byteOffset, raw.byteLength / 4);
     const pts = eng.getPoints();
@@ -36,9 +36,22 @@ async function galtLassoViaModel(page: import("@playwright/test").Page) {
     return { minX, maxX, minY, maxY, pad };
   });
   if (!bounds) throw new Error("GALT bounds not found in ileum fixture");
+  await page.evaluate(() => {
+    const m = window.__landmarksModel;
+    const cols = (m.get("_category_columns") || []) as { name: string; labels?: string[] }[];
+    const col = cols.find((c) => c.name === "cell_type");
+    const prev = (m.get("_color_state") || {}) as Record<string, unknown>;
+    m.set("active_category", "cell_type");
+    m.set("_color_state", {
+      ...prev,
+      color_mode: "categorical",
+      raster_basis: "composition",
+      legend_title: col?.name || "cell_type",
+      legend_labels: col?.labels || prev.legend_labels || [],
+    });
+    m.save_changes();
+  });
   await setModel(page, {
-    active_category: "cell_type",
-    color_mode: "categorical",
     selections: [
       {
         id: "galt-lasso",

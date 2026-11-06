@@ -34,9 +34,9 @@ def test_niche_column_recolors_widget():
     niche_col = run_niche_recipe(adata, w, "patch")
     assert niche_col == niche_obs_key()
     w.color = niche_col
-    assert w.color_mode == "categorical"
+    assert w._color_state["color_mode"] == "categorical"
     assert w.active_category == niche_col
-    assert w.legend_title == niche_col
+    assert w._color_state["legend_title"] == niche_col
 
 
 def test_moran_top_gene_recolors_widget():
@@ -45,8 +45,8 @@ def test_moran_top_gene_recolors_widget():
     top_gene = run_moran_top_gene(adata)
     assert top_gene in adata.var_names
     w.color = top_gene
-    assert w.color_mode == "continuous"
-    assert w.legend_title == top_gene
+    assert w._color_state["color_mode"] == "continuous"
+    assert w._color_state["legend_title"] == top_gene
     assert w.active_genes == [top_gene]
 
 

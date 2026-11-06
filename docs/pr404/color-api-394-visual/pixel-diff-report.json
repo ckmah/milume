@@ -1,0 +1,22 @@
+{
+  "categorical": {
+    "diff_pixels": 0,
+    "total_pixels": 4014720,
+    "note": "identical"
+  },
+  "numeric": {
+    "diff_pixels": 0,
+    "total_pixels": 4014720,
+    "note": "identical"
+  },
+  "gene-blend": {
+    "diff_pixels": 0,
+    "total_pixels": 4014720,
+    "note": "identical"
+  },
+  "embedding": {
+    "diff_pixels": 0,
+    "total_pixels": 4014720,
+    "note": "identical"
+  }
+}
