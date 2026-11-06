@@ -64,10 +64,7 @@ chmod +x "${WEBSITE}/scripts/export-recipes.sh"
 uv run --directory "${ROOT}" bash "${WEBSITE}/scripts/export-recipes.sh" prepare-for-zensical
 
 rm -rf "${WEBSITE}/dist"
-(
-  cd "${WEBSITE}"
-  zensical build --clean
-)
+uv run --directory "${ROOT}" bash -c 'cd "$1" && zensical build --clean' _ "${WEBSITE}"
 
 loaded_urls="$(mktemp)"
 preview_pid=""
@@ -82,17 +79,31 @@ free_preview_port 8766
 python3 -m http.server 8766 --bind 127.0.0.1 --directory "${WEBSITE}/dist" >/dev/null 2>&1 &
 preview_pid=$!
 sleep 1
+loaded_color="$(mktemp)"
+loaded_moran="$(mktemp)"
 node "${ROOT}/frontend/scripts/record-recipe-network.mjs" \
   "http://127.0.0.1:8766/how-to/recipes/squidpy_color/index.html" \
-  "${loaded_urls}"
+  "${loaded_color}"
+node "${ROOT}/frontend/scripts/record-recipe-network.mjs" \
+  "http://127.0.0.1:8766/how-to/recipes/squidpy_moran/index.html" \
+  "${loaded_moran}"
+python3 - <<PY
+import json
+from pathlib import Path
+color = json.loads(Path("${loaded_color}").read_text(encoding="utf-8"))
+moran = json.loads(Path("${loaded_moran}").read_text(encoding="utf-8"))
+Path("${loaded_urls}").write_text(
+    json.dumps(sorted(set(color) | set(moran)), indent=2) + "\n",
+    encoding="utf-8",
+)
+print(f"merged {len(color)} + {len(moran)} -> {len(set(color)|set(moran))} urls")
+PY
+rm -f "${loaded_color}" "${loaded_moran}"
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/prepare_recipe_studio.py" \
   --prune-shared-only --loaded-urls "${loaded_urls}"
 
 rm -rf "${WEBSITE}/dist"
-(
-  cd "${WEBSITE}"
-  zensical build --clean
-)
+uv run --directory "${ROOT}" bash -c 'cd "$1" && zensical build --clean' _ "${WEBSITE}"
 
 mkdir -p "${OUT}/docs"
 cp -a "${WEBSITE}/dist/." "${OUT}/docs/"

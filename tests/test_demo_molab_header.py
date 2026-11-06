@@ -31,7 +31,7 @@ def _notebooks_with_molab_links() -> list[Path]:
 
 def _hide_code_mo_md_bodies(src: str) -> list[str]:
     pattern = re.compile(
-        r"@app\.cell\(hide_code=True\)\s*\ndef _\(mo\):\s*(.*?)(?=\n@app\.cell|\nif __name__)",
+        r"@app\.cell\(hide_code=True\)\s*\ndef \w+\(mo\):\s*(.*?)(?=\n@app\.cell|\nif __name__)",
         re.DOTALL,
     )
     return [m.group(1) for m in pattern.finditer(src)]
@@ -47,7 +47,7 @@ def test_each_linked_notebook_has_standalone_molab_tip_with_run_all():
     for path in _notebooks_with_molab_links():
         src = path.read_text(encoding="utf-8")
         bodies = _hide_code_mo_md_bodies(src)
-        assert bodies, f"{path}: expected at least one hide_code markdown cell with def _(mo):"
+        assert bodies, f"{path}: expected at least one hide_code markdown cell with mo.md"
         matching = [b for b in bodies if tip in b]
         assert matching, (
             f"{path}: missing standalone molab tip cell with Run all "

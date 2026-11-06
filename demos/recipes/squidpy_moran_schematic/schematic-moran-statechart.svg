@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="pele pele-state" viewBox="0 0 868 601" width="868" height="601" style="max-width:100%;height:auto;--_bg:var(--pele-bg,#fff);--_fg:var(--pele-fg,#1f1f1f);--_m:var(--pele-muted,#6e6e6e);--_l:var(--pele-line,#1f1f1f);--_s:var(--pele-surface,#f3f3f3);--_a:var(--pele-surface-alt,#e6e6e6);--_b:var(--pele-border,#8a8a8a);--_c:var(--pele-accent,#5b7bd5);color:var(--_fg);--_tw:var(--pele-title-weight,bold);--_fm:var(--pele-font-mono,monospace);font:16px sans-serif;letter-spacing:normal;word-spacing:normal;text-transform:none;direction:ltr;font-family:var(--pele-font,sans-serif)" fill="var(--_fg)" role="graphics-document document" aria-roledescription="state"><style>.pele {
+  --pele-bg: #ffffff;
+  --pele-fg: #1c1c1c;
+  --pele-muted: #656565;
+  --pele-line: #808080;
+  --pele-surface: #fcfcfc;
+  --pele-surface-alt: #f1f1f1;
+  --pele-border: #c9c9c9;
+}
+.pele .blue rect { fill: #c3e0ff; }
+.pele .orange rect { fill: #f0d3bf; }
+.pele .purple rect { fill: #e3d5ff; }
+.pele .yellow rect { fill: #f0dcbf; }
+.pele .teal rect { fill: #bfe3df; }
+.pele .tan rect { fill: #e5d9ce; }
+.pele .pink rect { fill: #ffcbe6; }
+.pele .breaks rect {
+  fill: #ffecee !important;
+  stroke: #e72e3b !important;
+  stroke-width: 2.5px !important;
+}
+.pele .breaks text {
+  fill: #cd2834 !important;
+}
+.pele .mayBreak rect {
+  fill: #fff3e6 !important;
+  stroke: #e8730c !important;
+  stroke-width: 2.5px !important;
+}
+.pele .mayBreak text {
+  fill: #b85a06 !important;
+}
+.pele .bugPath rect {
+  stroke: #1680f3 !important;
+  stroke-width: 2.5px !important;
+}
+.pele .repeats rect {
+  stroke: #9b35d6 !important;
+  stroke-width: 2.5px !important;
+  stroke-dasharray: 6 3;
+}
+@media (prefers-color-scheme: dark) {
+  .pele {
+    --pele-bg: #1f1f1f;
+    --pele-fg: #f5f5f5;
+    --pele-muted: #acacac;
+    --pele-line: #939393;
+    --pele-surface: #121212;
+    --pele-surface-alt: #2c2c2c;
+    --pele-border: #4e4e4e;
+  }
+  .pele .blue rect { fill: #1b3857; }
+  .pele .orange rect { fill: #573117; }
+  .pele .purple rect { fill: #3c2e57; }
+  .pele .yellow rect { fill: #573d17; }
+  .pele .teal rect { fill: #174641; }
+  .pele .tan rect { fill: #3d3127; }
+  .pele .pink rect { fill: #57233e; }
+  .pele .breaks rect {
+    fill: #2e2021 !important;
+    stroke: #cf2b35 !important;
+  }
+  .pele .breaks text {
+    fill: #ff6463 !important;
+  }
+  .pele .mayBreak rect {
+    fill: #2e2619 !important;
+    stroke: #d0700f !important;
+  }
+  .pele .mayBreak text {
+    fill: #ffa257 !important;
+  }
+  .pele .bugPath rect {
+    stroke: #116dd2 !important;
+  }
+  .pele .repeats rect {
+    stroke: #9a3fcf !important;
+  }
+}
+</style><text class="pele-title" font-weight="var(--_tw)" text-anchor="middle" xml:space="preserve"><tspan x="434" y="25.6">Erbb3 is spatial only because epithelium sits in one place; Apob stays spatial inside enterocytes</tspan></text><g transform="translate(0,36)"><g class="pele-clusters"><g class="pele-cluster pele-state-composite" data-id="legend"><rect x="333.69" y="8" width="525.41" height="112" rx="10" fill="var(--_a)" fill-opacity="0.5" stroke="var(--_b)"/><path d="M333.69,44H859.1" fill="none" stroke="var(--_b)"/><text class="pele-cluster-label" x="596.39" y="31.6" text-anchor="middle">Legend</text></g></g><g class="pele-edges" fill="none" stroke="var(--_l)" stroke-linecap="round"><g class="pele-edge pele-transition" data-id="edge0"><path d="M286.69,120L286.69,157"/><path class="pele-marker" d="M286.69,164L283.33,156L290.05,156Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge1"><path d="M262.67,226C262.67,235.25 123.33,235.25 123.33,244.5L123.33,321"/><path class="pele-marker" d="M123.33,328L119.97,320L126.69,320Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge2"><path d="M310.7,226C310.7,235.25 450.04,235.25 450.04,244.5L450.04,321"/><path class="pele-marker" d="M450.04,328L446.68,320L453.4,320Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge3"><path d="M123.33,390L123.33,467"/><path class="pele-marker" d="M123.33,474L119.97,466L126.69,466Z" fill="var(--_l)" stroke="none"/></g><g class="pele-edge pele-transition" data-id="edge4"><path d="M450.04,390L450.04,467"/><path class="pele-marker" d="M450.04,474L446.68,466L453.4,466Z" fill="var(--_l)" stroke="none"/></g></g><g class="pele-edge-labels" font-size="14"><g class="pele-edge-label" data-id="edge1"><rect x="10" y="255.5" width="226.67" height="36" rx="3" fill="var(--_bg)"/><text text-anchor="middle" xml:space="preserve"><tspan x="123.33" y="269.4">sq.gr.spatial_neighbors_knn(adata,</tspan><tspan x="123.33" y="287.4">n_neighs=6, percentile=99)</tspan></text></g><g class="pele-edge-label" data-id="edge2"><rect x="256.67" y="246.5" width="386.76" height="54" rx="3" fill="var(--_bg)"/><text text-anchor="middle" xml:space="preserve"><tspan x="450.04" y="260.4">ent =</tspan><tspan x="450.04" y="278.4">adata[adata.obs.cell_type.str.startswith(&quot;Enterocyte&quot;)].copy(),</tspan><tspan x="450.04" y="296.4">then same call on ent</tspan></text></g><g class="pele-edge-label" data-id="edge3"><rect x="23.71" y="410.5" width="199.24" height="36" rx="3" fill="var(--_bg)"/><text text-anchor="middle" xml:space="preserve"><tspan x="123.33" y="424.4">sq.gr.spatial_autocorr(adata,</tspan><tspan x="123.33" y="442.4">mode=&quot;moran&quot;, n_perms=100)</tspan></text></g><g class="pele-edge-label" data-id="edge4"><rect x="348.6" y="410.5" width="202.88" height="36" rx="3" fill="var(--_bg)"/><text text-anchor="middle" xml:space="preserve"><tspan x="450.04" y="424.4">same call on ent, genes in ≥5%</tspan><tspan x="450.04" y="442.4">of enterocytes</tspan></text></g></g><g class="pele-nodes"><g class="pele-node pele-state tan" data-id="s0" transform="translate(286.69,195)"><rect x="-76.02" y="-31" width="152.03" height="62" rx="10" fill="var(--_s)" stroke="var(--_b)"/><text class="pele-label" text-anchor="middle" xml:space="preserve"><tspan x="0" y="-4.9">Cells in tissue,</tspan><tspan x="0" y="16.1">log-normalized X</tspan></text></g><g class="pele-node pele-state blue" data-id="s1" transform="translate(123.33,359)"><rect x="-99.58" y="-31" width="199.17" height="62" rx="10" fill="var(--_s)" stroke="var(--_b)"/><text class="pele-label" text-anchor="middle" xml:space="preserve"><tspan x="0" y="-4.9">Every cell linked to its 6</tspan><tspan x="0" y="16.1">nearest cells</tspan></text></g><g class="pele-node pele-state blue" data-id="s2" transform="translate(450.04,359)"><rect x="-105.82" y="-31" width="211.65" height="62" rx="10" fill="var(--_s)" stroke="var(--_b)"/><text class="pele-label" text-anchor="middle" xml:space="preserve"><tspan x="0" y="-4.9">Each enterocyte linked to</tspan><tspan x="0" y="16.1">its 6 nearest enterocytes</tspan></text></g><g class="pele-node pele-state purple" data-id="s3" transform="translate(123.33,505)"><rect x="-109.38" y="-31" width="218.75" height="62" rx="10" fill="var(--_s)" stroke="var(--_b)"/><text class="pele-label" text-anchor="middle" xml:space="preserve"><tspan x="0" y="-4.9">All cells: Erbb3 high, Apob</tspan><tspan x="0" y="16.1">high</tspan></text></g><g class="pele-node pele-state teal" data-id="s4" transform="translate(450.04,515.5)"><rect x="-108.46" y="-41.5" width="216.93" height="83" rx="10" fill="var(--_s)" stroke="var(--_b)"/><text class="pele-label" text-anchor="middle" xml:space="preserve"><tspan x="0" y="-15.4">Enterocytes only: Erbb3</tspan><tspan x="0" y="5.6">near zero, Apob still high</tspan><tspan x="0" y="26.6">(rises toward the villus tip)</tspan></text></g><g class="pele-node pele-state-start" data-id="root_start" transform="translate(286.69,113)"><circle r="7" fill="var(--_l)"/></g><g class="pele-node pele-state tan" data-id="lg0" transform="translate(382.58,82)"><rect x="-32.9" y="-22" width="65.79" height="44" rx="10" fill="var(--_s)" stroke="var(--_b)"/><text class="pele-label" x="0" y="5.6" text-anchor="middle">Data</text></g><g class="pele-node pele-state blue" data-id="lg1" transform="translate(507.94,82)"><rect x="-52.46" y="-22" width="104.91" height="44" rx="10" fill="var(--_s)" stroke="var(--_b)"/><text class="pele-label" x="0" y="5.6" text-anchor="middle">Neighbors</text></g><g class="pele-node pele-state purple" data-id="lg2" transform="translate(643.5,82)"><rect x="-43.11" y="-22" width="86.22" height="44" rx="10" fill="var(--_s)" stroke="var(--_b)"/><text class="pele-label" x="0" y="5.6" text-anchor="middle">All cells</text></g><g class="pele-node pele-state teal" data-id="lg3" transform="translate(784.86,82)"><rect x="-58.24" y="-22" width="116.48" height="44" rx="10" fill="var(--_s)" stroke="var(--_b)"/><text class="pele-label" x="0" y="5.6" text-anchor="middle">Enterocytes</text></g></g></g></svg>

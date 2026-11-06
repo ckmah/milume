@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: "**/hero-*.spec.ts",
+  testMatch: ["**/hero-*.spec.ts", "**/recipe-studio-*.spec.ts"],
   timeout: 60_000,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,

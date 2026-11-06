@@ -9,6 +9,7 @@ MODE="${1:?usage: export-recipes.sh prepare-for-zensical | export-recipes.sh <si
 
 RECIPES=(
   squidpy_color
+  squidpy_moran
 )
 
 (
@@ -30,10 +31,15 @@ export_one() {
   local out="$2"
   local nb="${ROOT}/demos/recipes/${slug}.py"
   rm -rf "${out}"
+  if [[ "${slug}" == "squidpy_moran" ]]; then
+    export MILUME_RECIPE_STATIC_PAGE_EXPORT=1
+  else
+    unset MILUME_RECIPE_STATIC_PAGE_EXPORT
+  fi
   uv run --directory "${ROOT}" marimo-studio view export docs \
     --target "${nb}" \
     --output "${out}" \
-    --prepare-timeout 600 \
+    --prepare-timeout 1200 \
     --force
 }
 
@@ -41,6 +47,7 @@ prepare_slug() {
   local slug="$1"
   local staging="$2"
   local loaded="${3:-}"
+  local skip_runtime="${4:-}"
   local args=(
     "${slug}"
     "${staging}/${slug}"
@@ -49,6 +56,9 @@ prepare_slug() {
   )
   if [[ -n "${loaded}" ]]; then
     args+=(--loaded-urls "${loaded}")
+  fi
+  if [[ -n "${skip_runtime}" ]]; then
+    args+=(--skip-shared-runtime)
   fi
   uv run --directory "${ROOT}" python "${WEBSITE}/scripts/prepare_recipe_studio.py" "${args[@]}"
 }
@@ -75,10 +85,11 @@ if [[ "${MODE}" == "prepare-for-zensical" ]]; then
   staging="$(mktemp -d)"
   trap 'rm -rf "${staging}"' EXIT
   for slug in "${RECIPES[@]}"; do
-    echo "export-recipes: ${slug} -> zensical content"
+    echo "export-recipes: ${slug} -> zensical content (export)"
     export_one "${slug}" "${staging}/${slug}"
-    prepare_slug "${slug}" "${staging}"
   done
+  prepare_slug "squidpy_moran" "${staging}"
+  prepare_slug "squidpy_color" "${staging}" "" "--skip-shared-runtime"
   exit 0
 fi
 
