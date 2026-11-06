@@ -41,6 +41,22 @@ def niche_obs_columns() -> list[str]:
     return cols
 
 
+def _niche_neighborhood(adata, **kwargs):
+    """Run Squidpy niche-neighborhood clustering across pinned versions.
+
+    Squidpy 1.8.4+ (Python 3.12+): ``calculate_niche_neighborhood(..., rng=...)``.
+    Squidpy 1.8.2 (Python 3.11): only ``calculate_niche(..., flavor='neighborhood', random_state=...)``.
+    """
+    import squidpy as sq
+
+    fn = getattr(sq.gr, "calculate_niche_neighborhood", None)
+    if fn is not None:
+        return fn(adata, **kwargs)
+    kw = {k: v for k, v in kwargs.items() if k != "rng"}
+    kw["random_state"] = kwargs.get("rng", 0)
+    return sq.gr.calculate_niche(adata, flavor="neighborhood", **kw)
+
+
 def attach_cached_niches(adata, cache_path: Path = CACHE_PATH) -> None:
     cached = pd.read_parquet(cache_path)
     expected = niche_obs_columns()
@@ -57,7 +73,7 @@ def compute_niche_dataframe(adata) -> pd.DataFrame:
     frames: dict[str, pd.Series] = {}
     for k in NICHE_KS:
         sq.gr.spatial_neighbors(adata, coord_type="generic", n_neighs=k)
-        sq.gr.calculate_niche_neighborhood(
+        _niche_neighborhood(
             adata,
             groups="cell_type",
             scale=False,

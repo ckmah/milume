@@ -23,6 +23,8 @@ app = marimo.App(width="medium")
 
 @app.cell(hide_code=True)
 def recipe_config():
+    import importlib.util
+    import sys
     from pathlib import Path
 
     import marimo as mo
@@ -42,6 +44,16 @@ def recipe_config():
     RECIPE_DATA_DIR = _REPO_ROOT / "demos" / "data"
     NICHE_CACHE_PATH = RECIPE_DATA_DIR / "ileum_niche_recipe_niches.parquet"
     ILEUM_H5AD = RECIPE_DATA_DIR / "ileum.h5ad"
+    _science_path = _REPO_ROOT / "scripts" / "ileum_niche_recipe_science.py"
+    if not _science_path.is_file():
+        raise FileNotFoundError(f"missing {_science_path}")
+    _spec = importlib.util.spec_from_file_location("ileum_niche_recipe_science_cfg", _science_path)
+    if _spec is None or _spec.loader is None:
+        raise ImportError(f"cannot load {_science_path}")
+    _science_mod = importlib.util.module_from_spec(_spec)
+    sys.modules[_spec.name] = _science_mod
+    _spec.loader.exec_module(_science_mod)
+    _niche_neighborhood = _science_mod._niche_neighborhood
     return (
         DEFAULT_NICHE_COLOR,
         FOLLICLE_X_BOUNDS,
@@ -53,6 +65,7 @@ def recipe_config():
         NICHE_CACHE_PATH,
         RECIPE_DATA_DIR,
         _REPO_ROOT,
+        _niche_neighborhood,
         ml,
         mo,
         np,
@@ -134,7 +147,7 @@ def niche_sweep_method(mo):
         ```python
         for k in NICHE_KS:
             sq.gr.spatial_neighbors(adata, coord_type="generic", n_neighs=k)
-            sq.gr.calculate_niche_neighborhood(
+            _niche_neighborhood(
                 adata,
                 groups="cell_type",
                 scale=False,
@@ -151,12 +164,12 @@ def niche_sweep_method(mo):
 
 
 @app.cell
-def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, adata, cache, expected, pd, sq):
+def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, _niche_neighborhood, adata, cache, expected, pd, sq):
     if not all(col in adata.obs for col in expected):
         frames = {}
         for k in NICHE_KS:
             sq.gr.spatial_neighbors(adata, coord_type="generic", n_neighs=k)
-            sq.gr.calculate_niche_neighborhood(
+            _niche_neighborhood(
                 adata,
                 groups="cell_type",
                 scale=False,
