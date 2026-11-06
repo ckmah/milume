@@ -2,7 +2,6 @@ import { useId, useLayoutEffect, useState } from "react";
 import {
   BoxIcon,
   ChevronDownIcon,
-  CircleDot,
   HandIcon,
   ImageIcon,
   RotateCcwIcon,
@@ -284,13 +283,12 @@ function LayerControl({
 
 /**
  * Context bar while Inspect has a cube open: camera, Move, Reset view, and
- * Image / Labels / Points toggles. Right-click a layer for its settings menu.
+ * Image / Labels toggles. Right-click a layer for its settings menu.
  */
 export function InspectToolbar({
   settings,
   patch,
   labelsAvailable,
-  pointsAvailable,
   cut,
   cutRanges,
   onCutLive,
@@ -300,7 +298,6 @@ export function InspectToolbar({
   settings: CubeSettings;
   patch: (p: CubeSettingsPatch) => void;
   labelsAvailable: boolean;
-  pointsAvailable: boolean;
   cut: CubeCut;
   cutRanges: { x: Range; y: Range; z: Range } | null;
   onCutLive: (cut: CubeCut) => void;
@@ -310,7 +307,6 @@ export function InspectToolbar({
   const [crossOpen, setCrossOpen] = useState(false);
   const [imageOpen, setImageOpen] = useState(false);
   const [labelsOpen, setLabelsOpen] = useState(false);
-  const [pointsOpen, setPointsOpen] = useState(false);
   const [tuning, setTuning] = useState(false);
   // Layout, not a passive effect: the listener has to be on window before this
   // gesture's pointerup, and a click can end in the same frame.
@@ -330,14 +326,13 @@ export function InspectToolbar({
       window.removeEventListener("lostpointercapture", end);
     };
   }, [tuning]);
-  const layerMenuOpen = imageOpen || labelsOpen || pointsOpen;
+  const layerMenuOpen = imageOpen || labelsOpen;
   useLayoutEffect(() => {
     if (!layerMenuOpen) return;
     const onPointerDown = (e: PointerEvent) => {
       if (pointerInLayerMenu(e)) return;
       setImageOpen(false);
       setLabelsOpen(false);
-      setPointsOpen(false);
       setTuning(false);
     };
     document.addEventListener("pointerdown", onPointerDown, true);
@@ -357,21 +352,18 @@ export function InspectToolbar({
     setCrossOpen(false);
     setImageOpen(false);
     setLabelsOpen(false);
-    setPointsOpen(false);
     setTuning(false);
   };
 
-  const openLayerPanel = (layer: "image" | "labels" | "points", open: boolean) => {
+  const openLayerPanel = (layer: "image" | "labels", open: boolean) => {
     if (!open) {
       if (layer === "image") setImageOpen(false);
       if (layer === "labels") setLabelsOpen(false);
-      if (layer === "points") setPointsOpen(false);
       return;
     }
     setCrossOpen(false);
     setImageOpen(layer === "image");
     setLabelsOpen(layer === "labels");
-    setPointsOpen(layer === "points");
   };
 
   const layerPanel = (title: string, body: React.ReactNode) => (
@@ -437,7 +429,7 @@ export function InspectToolbar({
 
   const closePanelsOnEsc = (e: React.KeyboardEvent) => {
     if (e.key !== "Escape") return;
-    if (!crossOpen && !imageOpen && !labelsOpen && !pointsOpen) return;
+    if (!crossOpen && !imageOpen && !labelsOpen) return;
     if ((e.target as Element | null)?.closest?.("[data-slot='dropdown-menu-content']")) return;
     closeInspectPanels();
   };
@@ -552,16 +544,6 @@ export function InspectToolbar({
     </AdjustSection>
   );
 
-  const pointsMenu = (
-    <AdjustSection title="Points" testId="adjust-points" onReset={() => onReset("points")}>
-      <p className={cn(TOOLBAR_CAPTION, "m-0 py-1")}>
-        {pointsAvailable
-          ? "Cell centres from the map layer."
-          : "Switch the map to points to show scatter in the cube."}
-      </p>
-    </AdjustSection>
-  );
-
   return (
     <TooltipProvider delayDuration={80} skipDelayDuration={0}>
       <div
@@ -628,17 +610,6 @@ export function InspectToolbar({
             onToggle={() => patch({ showLabels: !settings.showLabels })}
             panel={layerPanel("Labels", labelsMenu)}
           />
-          <LayerControl
-            testId="layer-toggle-points"
-            title="Points"
-            icon={<CircleDot className="size-4" />}
-            active={settings.showPoints}
-            disabled={!pointsAvailable}
-            open={pointsOpen}
-            onOpenChange={(open) => openLayerPanel("points", open)}
-            onToggle={() => patch({ showPoints: !settings.showPoints })}
-            panel={layerPanel("Points", pointsMenu)}
-          />
           <span data-inspect-panel-group="" className="contents">
             <ToolStack open={crossOpen} align="end" panel={crossPanel}>
               <IconBtn
@@ -656,7 +627,6 @@ export function InspectToolbar({
                   }
                   setImageOpen(false);
                   setLabelsOpen(false);
-                  setPointsOpen(false);
                   setCrossOpen(true);
                   setTuning(false);
                 }}
