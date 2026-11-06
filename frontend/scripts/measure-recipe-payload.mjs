@@ -8,10 +8,17 @@ const pageUrl =
   "http://127.0.0.1:8765/docs/how-to/recipes/squidpy_color/index.html";
 const outPath = process.argv[3] ?? "/opt/cursor/artifacts/recipe-payload-breakdown.json";
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({
+  headless: true,
+  args: ["--enable-webgl", "--ignore-gpu-blocklist"],
+});
 const page = await browser.newPage();
 await page.goto(pageUrl, { waitUntil: "networkidle", timeout: 120_000 });
-await page.locator("canvas").first().waitFor({ state: "visible", timeout: 120_000 });
+await page
+  .locator("marimo-anywidget")
+  .locator("canvas")
+  .first()
+  .waitFor({ state: "visible", timeout: 120_000 });
 await page.waitForTimeout(1500);
 
 const entries = await page.evaluate(() =>
