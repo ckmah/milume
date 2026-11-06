@@ -10,7 +10,8 @@ and comes back, with the tool used before Inspect checked, on leaving.
 
 **Spec:** `frontend/e2e/landmarks/landmarks.spec.ts` —
 `"toolbar: interaction order, lasso and landmark dropdowns, cube icon"`,
-`"active lasso keeps its colours on hover in dark mode"`
+`"active lasso keeps its colours on hover in dark mode"`,
+`"at 600px width the main toolbar and View CTA do not overlap"`
 
 ## Sub-features
 
@@ -21,6 +22,7 @@ and comes back, with the tool used before Inspect checked, on leaving.
 - The dropdown remembers the last-used mode per group across renders (arming Spline, switching to Select, then clicking the dropdown again re-arms Spline)
 - Active lasso (or landmark) dropdown button keeps `bg-foreground`/`text-background` on hover in dark mode — it does not fall back to the ghost variant's darker hover
 - Every toolbar (main, View CTA, context L1/L2, Inspect pill, Inspect bar) shares `TOOLBAR_CLASS` and every hit shares `chromeHitClass` (`.landmarks-hit`, on = `aria-pressed`/`data-state="on"`) — see DESIGN.md "Chrome tokens"; the hover-colour spec above proves the shared on state
+- On narrow widths (container under 640px), the main toolbar and View CTA stack so their bounding boxes do not intersect (spec `"at 600px width…"` compares `getBoundingClientRect()` for `[role="toolbar"][aria-label="Drawing tools"]` and `[data-testid="view-cta"]`)
 
 ## How to get to it (user POV)
 
