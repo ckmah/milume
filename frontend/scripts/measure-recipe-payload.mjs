@@ -11,7 +11,11 @@ const outPath = process.argv[3] ?? "/opt/cursor/artifacts/recipe-payload-breakdo
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage();
 await page.goto(pageUrl, { waitUntil: "networkidle", timeout: 120_000 });
-await page.locator("canvas").first().waitFor({ state: "visible", timeout: 120_000 });
+try {
+  await page.locator("canvas").first().waitFor({ state: "visible", timeout: 120_000 });
+} catch {
+  await page.waitForTimeout(3000);
+}
 await page.waitForTimeout(1500);
 
 const entries = await page.evaluate(() =>
