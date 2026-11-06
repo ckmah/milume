@@ -23,7 +23,7 @@ app = marimo.App(width="medium")
 
 @app.cell(hide_code=True)
 def recipe_config():
-    import importlib.util
+    import importlib
     import sys
     from pathlib import Path
 
@@ -66,12 +66,14 @@ def recipe_config():
         RECIPE_DATA_DIR,
         _REPO_ROOT,
         _niche_neighborhood,
+        importlib,
         ml,
         mo,
         np,
         pd,
         plt,
         sq,
+        sys,
     )
 
 
@@ -116,10 +118,7 @@ def load_adata(
 
 
 @app.cell(hide_code=True)
-def recipe_intro(adata, cache, mo):
-    import importlib.util
-    import sys
-
+def recipe_intro(adata, cache, importlib, mo, sys):
     repo_root = cache.resolve().parent.parent.parent
     science_path = repo_root / "scripts" / "ileum_niche_recipe_science.py"
     if not science_path.is_file():
