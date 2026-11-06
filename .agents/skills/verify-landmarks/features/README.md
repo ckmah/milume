@@ -22,7 +22,7 @@ capability** to existing Playwright coverage — not a product roadmap.
 | [landmark-undo](landmark-undo.md) | `landmarks-tools.spec.ts` — `"Mod+Z undoes the last landmark geometry edit"` | — |
 | [inspect-cube](inspect-cube.md) | `landmarks-volume.spec.ts` — `"Landmarks inspect cube"` describe block | — |
 | [inspect-history](inspect-history.md) | `landmarks-volume.spec.ts` — `"Landmarks inspect cube"` describe block | — |
-| [toolbar-layout](toolbar-layout.md) | `landmarks.spec.ts` — `"toolbar: interaction order, lasso and landmark dropdowns, cube icon"`, `"active lasso keeps its colours on hover in dark mode"` | — |
+| [toolbar-layout](toolbar-layout.md) | `landmarks.spec.ts` — `"toolbar: interaction order, lasso and landmark dropdowns, cube icon"`, `"active lasso keeps its colours on hover in dark mode"`, `"at 600px width the main toolbar and View CTA do not overlap"` | — |
 | [panel-peek](panel-peek.md) | `landmarks.spec.ts` — `"side panels collapse to a peek tab and come back"` | — |
 | [canvas-rulers](canvas-rulers.md) | `landmarks.spec.ts` — `"rulers: labels sit on the data and follow a pan; a grid line at every tick above the map"` | — |
 | [genes-on-demand](genes-on-demand.md) | `landmarks-genes-lazy.spec.ts` — `"Landmarks lazy genes"` describe block | — |
