@@ -274,7 +274,7 @@ jobs:
       github.event.pull_request.draft == false
     name: e2e-landmarks (volume-smoke)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: frontend
@@ -293,6 +293,12 @@ jobs:
           CI: true
           E2E_HARNESS: landmarks-volume
           E2E_SMOKE: "1"
+          E2E_RETRIES: "0"
+      - name: Run issue395 multichannel e2e
+        run: npx cross-env E2E_VOLUME_PROFILE=issue395-3d playwright test e2e/landmarks/landmarks-multichannel-3d-395.spec.ts
+        env:
+          CI: true
+          E2E_HARNESS: landmarks-volume
           E2E_RETRIES: "0"
 
   # Full volume spec: software-GL cube rendering, LPT-sharded on main, nightly, or `run-volume-full`.

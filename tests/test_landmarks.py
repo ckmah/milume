@@ -13,8 +13,8 @@ def test_widget_frames_the_points_and_colours_categories():
     y = np.array([0.0, 1.0, 0.0, 1.0])
     w = LandmarksWidget(adata_xy(x, y, color=["a", "b", "a", "c"]), color="label")
     assert w.mode == "select"
-    assert w.legend_labels == ["a", "b", "c"]
-    assert len(w.point_palette) == 3
+    assert w._color_state["legend_labels"] == ["a", "b", "c"]
+    assert len(w._look["point_palette"]) == 3
     assert w.x_bounds[0] < 0.0 and w.x_bounds[1] > 3.0
     assert w.y_bounds[0] < 0.0 and w.y_bounds[1] > 1.0
 
@@ -177,7 +177,7 @@ def test_category_colors_match_the_legend():
     y = [0.0, 1.0, 2.0]
     w = LandmarksWidget(adata_xy(x, y, color=["a", "b", "a"]), color="label")
     colors = w.category_colors()
-    assert colors == dict(zip(w.legend_labels, w.point_palette))
+    assert colors == dict(zip(w._color_state["legend_labels"], w._look["point_palette"]))
     assert colors == w.category_colors("label")
     with pytest.raises(KeyError):
         w.category_colors("missing")

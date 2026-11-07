@@ -96,6 +96,8 @@ def _traitlet_type_label(call: ast.Call) -> str:
     name = ""
     if isinstance(call.func, ast.Attribute):
         name = call.func.attr
+    elif isinstance(call.func, ast.Name):
+        name = call.func.id
     inner = ""
     if call.args:
         arg0 = call.args[0]
@@ -122,6 +124,8 @@ def _traitlet_type_label(call: ast.Call) -> str:
         return "bool"
     if name == "Dict":
         return "dict"
+    if name == "ColorSpec":
+        return "str | list[str]"
     return name or "traitlet"
 
 
@@ -195,9 +199,13 @@ def _parse_traitlets(source: str) -> list[TraitletRow]:
                 continue
             trait_call = _unwrap_traitlet_call(stmt.value)
             func = trait_call.func
-            if not (isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name)):
-                continue
-            if func.value.id != "traitlets":
+            is_traitlets = (
+                isinstance(func, ast.Attribute)
+                and isinstance(func.value, ast.Name)
+                and func.value.id == "traitlets"
+            )
+            is_color_spec = isinstance(func, ast.Name) and func.id == "ColorSpec"
+            if not is_traitlets and not is_color_spec:
                 continue
             name = target.id
             meaning = _line_comment(source, stmt.lineno, stmt.end_lineno)

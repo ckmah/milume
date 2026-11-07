@@ -1577,18 +1577,62 @@
   pointer-events: none;
 }
 
-/* Chrome regions */
+/* Chrome regions — top row: main toolbar (centered) + View CTA (right). */
 
-.landmarks__chrome-tools {
+.landmarks__chrome-top-row {
   position: absolute;
   top: var(--lm-chrome-inset);
-  left: 50%;
+  right: var(--lm-chrome-inset);
+  left: var(--lm-chrome-inset);
   z-index: 22;
-  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: start;
+  column-gap: var(--lm-chrome-gap);
+  pointer-events: none;
+}
+
+.landmarks__chrome-tools-slot {
+  grid-column: 2;
+  justify-self: center;
+  min-width: 0;
+  max-width: 100%;
+  pointer-events: none;
+}
+
+.landmarks__chrome-tools {
+  position: relative;
+  top: auto;
+  left: auto;
+  z-index: auto;
+  transform: none;
   pointer-events: none;
   /* The Inspect pill replaces the tool pill in the same slot; both stack while one leaves. */
   display: grid;
   place-items: start center;
+}
+
+@container (max-width: 639px) {
+  .landmarks__chrome-top-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    row-gap: var(--lm-chrome-gap);
+  }
+
+  .landmarks__chrome-tools-slot {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+  }
+
+  .landmarks__chrome-tools {
+    margin-inline: auto;
+  }
+
+  .landmarks__chrome-view {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: end;
+  }
 }
 
 .landmarks__chrome-tools > * {
@@ -1704,10 +1748,12 @@
 
 /* Soft Float View CTA — top-right icon flip, clear of context toolbar. */
 .landmarks__chrome-view {
-  position: absolute;
-  top: var(--lm-chrome-inset);
-  right: var(--lm-chrome-inset);
-  z-index: 22;
+  grid-column: 3;
+  justify-self: end;
+  position: relative;
+  top: auto;
+  right: auto;
+  z-index: auto;
   pointer-events: none;
 }
 
@@ -1835,11 +1881,12 @@
   bottom: var(--lm-chrome-inset);
 }
 
-.landmarks--fs .landmarks__chrome-view,
-.landmarks:fullscreen .landmarks__chrome-view,
-.landmarks--overlay-fs .landmarks__chrome-view {
+.landmarks--fs .landmarks__chrome-top-row,
+.landmarks:fullscreen .landmarks__chrome-top-row,
+.landmarks--overlay-fs .landmarks__chrome-top-row {
   top: var(--lm-chrome-inset);
   right: var(--lm-chrome-inset);
+  left: var(--lm-chrome-inset);
 }
 
 .landmarks__chrome-dock {
@@ -2589,6 +2636,7 @@
 
 /* Soft Float chrome shifts inward when rulers are on (cube-motion curve).
  * Context toolbar stays put — only docks / top tools / minimap make room. */
+.landmarks__chrome-top-row,
 .landmarks__chrome-tools,
 .landmarks__chrome-view,
 .landmarks__chrome-dock,
@@ -2654,11 +2702,7 @@
   z-index: 22;
 }
 
-.landmarks--rulers .landmarks__chrome-tools {
-  top: calc(var(--lm-chrome-inset) + var(--lm-ruler-band));
-}
-
-.landmarks--rulers .landmarks__chrome-view {
+.landmarks--rulers .landmarks__chrome-top-row {
   top: calc(var(--lm-chrome-inset) + var(--lm-ruler-band));
 }
 
@@ -2676,6 +2720,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .landmarks__chrome-top-row,
   .landmarks__chrome-tools,
   .landmarks__chrome-view,
   .landmarks__chrome-dock,

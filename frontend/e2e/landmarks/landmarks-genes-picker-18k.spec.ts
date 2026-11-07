@@ -25,18 +25,20 @@ async function openGenesTab(page: Page) {
 async function install18kCatalog(page: Page) {
   await page.evaluate((size) => {
     const model = (window as any).__landmarksModel;
-    const existing = ((model.get("gene_names") as { name: string }[]) ?? []).map((g) => g.name);
+    const options = (model.get("_color_options") as { genes?: { name: string }[]; obs?: object; embeddings?: object }) ?? {};
+    const existing = (options.genes ?? []).map((g) => g.name);
     const genes = Array.from({ length: size }, (_, i) => ({
       name: existing[i] ?? `SYN_${String(i).padStart(5, "0")}`,
     }));
-    model.set("gene_names", genes);
+    model.set("_color_options", { obs: options.obs ?? {}, embeddings: options.embeddings ?? {}, genes });
     model.save_changes();
   }, CATALOG_SIZE);
 }
 
 async function catalogSize(page: Page) {
   return page.evaluate(
-    () => ((window as any).__landmarksModel.get("gene_names") as { name: string }[]).length,
+    () =>
+      (((window as any).__landmarksModel.get("_color_options") as { genes?: unknown[] }).genes ?? []).length,
   );
 }
 

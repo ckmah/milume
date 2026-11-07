@@ -16,7 +16,7 @@ def test_ileum_all_genes_gzip_pack_fits_recipe_data_budget():
     adata = docs_recipe_adata()
     assert adata.n_vars == 1815
     w = LandmarksWidget(adata, color="cell_type", genes=list(adata.var_names))
-    assert w.gene_csc_codec == "gzip"
+    assert w._gene_csc_codec == "gzip"
     state = w.get_state()
-    gene_bytes = sum(len(json.dumps(state[k])) for k in state if k.startswith("gene"))
+    gene_bytes = sum(len(json.dumps(state[k])) for k in state if k.startswith("_gene_csc"))
     assert gene_bytes < 6_500_000, f"gene traits {gene_bytes:,} B, expected ~5 MiB gzip"

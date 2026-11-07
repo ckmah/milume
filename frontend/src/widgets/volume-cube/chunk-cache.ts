@@ -10,14 +10,31 @@ export const PREFETCH_CONCURRENCY = 2;
 
 const ATTACHED = Symbol("chunkCache");
 
+/** Copy decoded chunk bytes so zarr.get assembly cannot mutate a shared cache entry. */
+export function cloneZarrChunk(chunk: Chunk): Chunk {
+  const src = chunk.data as unknown as ArrayLike<number> & {
+    constructor: new (length: number) => ArrayLike<number>;
+    length: number;
+    set(arr: ArrayLike<number>): void;
+  };
+  const data = new src.constructor(src.length) as ArrayLike<number> & {
+    set(arr: ArrayLike<number>): void;
+  };
+  data.set(src);
+  return { ...chunk, data: data as Chunk["data"] };
+}
+
 /**
  * Decoded Zarr chunks shared by every cube of one widget. `attach` patches an
  * array's `getChunk`, which `zarr.get` calls per chunk, so windows and regions
- * that overlap earlier ones only copy memory. Keys are `<key>/<coords>`, so two
- * array objects opened on the same level (preview and dock) share entries.
+ * that overlap earlier ones only copy memory. Keys are `<key>/<coords>` (full
+ * mosaic tile, including all `c` planes in one chunk). Multichannel `{c:0}` and
+ * `{c:1}` selections share coords on `c` when chunk shape bundles channels; each
+ * `zarr.get` slices its channel out of a fresh clone of the cached full tile.
  */
 export class ChunkCache {
   private readonly entries = new Map<string, { chunk: Promise<Chunk>; bytes: number }>();
+  private readonly inflight = new Map<string, Promise<Chunk>>();
   private readonly queue: { arr: AnyArray; coords: number[] }[] = [];
   private running = 0;
   private pauseDepth = 0;
@@ -44,26 +61,31 @@ export class ChunkCache {
     const hit = this.entries.get(id);
     if (hit) {
       this.hits++;
-      // Re-insert: Map order is the LRU order.
       this.entries.delete(id);
       this.entries.set(id, hit);
-      return hit.chunk;
+      return hit.chunk.then(cloneZarrChunk);
     }
+    let pending = this.inflight.get(id);
+    if (pending) return pending.then(cloneZarrChunk);
+
     this.misses++;
-    const entry = { chunk: fetch(), bytes: 0 };
+    pending = fetch().then(cloneZarrChunk);
+    this.inflight.set(id, pending);
+    const entry = { chunk: pending, bytes: 0 };
     this.entries.set(id, entry);
-    entry.chunk.then(
+    pending.then(
       (chunk) => {
+        this.inflight.delete(id);
         entry.bytes = (chunk.data as { byteLength?: number }).byteLength ?? 0;
         this.bytes += entry.bytes;
         this.evict();
       },
       () => {
-        // A failed read must not poison retries.
+        this.inflight.delete(id);
         if (this.entries.get(id) === entry) this.entries.delete(id);
       },
     );
-    return entry.chunk;
+    return pending.then(cloneZarrChunk);
   }
 
   private evict(): void {
@@ -84,8 +106,6 @@ export class ChunkCache {
   pause(): void {
     this.pauseDepth++;
     this.paused = true;
-    // Drop queued prefetch. In-flight reads still finish, but a window change
-    // must not wait behind the rest of a level on a high-latency comm.
     this.clearQueue();
   }
 
@@ -93,8 +113,6 @@ export class ChunkCache {
     this.pauseDepth = Math.max(0, this.pauseDepth - 1);
     this.paused = this.pauseDepth > 0;
     if (this.paused) return;
-    // A replacement load pauses again in the same turn. Pumping now would
-    // start a prefetch chunk ahead of that load.
     queueMicrotask(() => {
       if (!this.paused) this.pump();
     });

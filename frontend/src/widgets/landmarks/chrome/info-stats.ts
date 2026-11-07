@@ -392,6 +392,7 @@ export type NumericHeatStripData = {
   /** Raw max in scope (may exceed scaleMax). */
   obsMax: number;
   capped: boolean;
+  diverging: boolean;
 };
 
 /** Binned numeric obs values in scope for the num-tab heat strip. */
@@ -401,9 +402,10 @@ export function numericHeatStripData(opts: {
   pointsDataB64: string;
   vmin: number;
   vmax: number;
+  diverging?: boolean;
   bins?: number;
 }): NumericHeatStripData | null {
-  const { n, mask, pointsDataB64, vmin, vmax, bins = INFO_HEAT_BINS } = opts;
+  const { n, mask, pointsDataB64, vmin, vmax, diverging = false, bins = INFO_HEAT_BINS } = opts;
   if (!pointsDataB64 || n <= 0 || !(vmax > vmin)) return null;
   let pts: Float32Array;
   try {
@@ -424,11 +426,20 @@ export function numericHeatStripData(opts: {
   values.sort((a, b) => a - b);
   const lo = values[0];
   const obsMax = values[values.length - 1];
-  const p99Idx = Math.min(values.length - 1, Math.floor(values.length * 0.99));
-  const p99 = values[p99Idx];
-  const scaleMax = Math.min(vmax, Math.max(p99, lo + 1e-9));
-  const hi = scaleMax;
-  const capped = obsMax > scaleMax + (hi - lo) * 1e-6;
+  let hi: number;
+  let scaleMax: number;
+  let capped: boolean;
+  if (diverging) {
+    hi = vmax;
+    scaleMax = vmax;
+    capped = obsMax > vmax + 1e-9 || lo < vmin - 1e-9;
+  } else {
+    const p99Idx = Math.min(values.length - 1, Math.floor(values.length * 0.99));
+    const p99 = values[p99Idx];
+    scaleMax = Math.min(vmax, Math.max(p99, lo + 1e-9));
+    hi = scaleMax;
+    capped = obsMax > scaleMax + (hi - lo) * 1e-6;
+  }
   const span = hi - lo || 1;
 
   const counts = new Array<number>(bins).fill(0);
@@ -441,7 +452,7 @@ export function numericHeatStripData(opts: {
     const mid = lo + ((bi + 0.5) / bins) * span;
     return (mid - vmin) / (vmax - vmin || 1);
   });
-  return { counts, hues, lo, hi, scaleMax, obsMax, capped };
+  return { counts, hues, lo, hi, scaleMax, obsMax, capped, diverging };
 }
 
 export type GeneHeatRow = {

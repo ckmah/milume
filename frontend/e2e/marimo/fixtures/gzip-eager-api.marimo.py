@@ -50,7 +50,7 @@ def _(widget):
 @app.cell
 def _(mo, w, widget):
     _ = widget.value
-    mo.md(f"gzip-probe codec={w.gene_csc_codec} n_genes={len(w.gene_names)}")
+    mo.md(f"gzip-probe codec={w._gene_csc_codec} n_genes={len(w._color_options['genes'])}")
     return
 
 

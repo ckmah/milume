@@ -205,6 +205,16 @@ function orbitViewport(view: Camera, target: readonly number[], rect: { width: n
 }
 
 /** Screen position (top-left origin) for a cut-box corner in pre-model units. */
+export function projectPreModelToViewPixel(
+  pre: Vec3,
+  view: Camera,
+  target: readonly number[],
+  rect: { width: number; height: number },
+): Pt {
+  return projectPoint(pre, view, target, rect);
+}
+
+/** Screen position (top-left origin) for a cut-box corner in pre-model units. */
 function projectPoint(pre: Vec3, view: Camera, target: readonly number[], rect: { width: number; height: number }): Pt {
   const world = postModel(pre);
   const [x, y] = orbitViewport(view, target, rect).project(world);

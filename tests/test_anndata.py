@@ -43,11 +43,11 @@ def test_constructor_uses_uns_colors_and_packs_requested_genes():
     from milume import LandmarksWidget
 
     w = LandmarksWidget(_adata(), color="cell_type", genes=["g1"])
-    assert w.legend_title == "cell_type"
-    assert w.legend_labels == ["a", "b", "c"]
-    assert w.point_palette == ["#111111", "#222222", "#333333"]
-    assert [g["name"] for g in w.gene_names] == ["g1"]
-    assert w.gene_csc_data
+    assert w._color_state["legend_title"] == "cell_type"
+    assert w._color_state["legend_labels"] == ["a", "b", "c"]
+    assert w._look["point_palette"] == ["#111111", "#222222", "#333333"]
+    assert [g["name"] for g in w._color_options["genes"]] == ["g1"]
+    assert w._gene_csc_data
 
 
 def test_rendering_controls_are_not_constructor_kwargs():

@@ -30,16 +30,16 @@ _apply_harness_chrome = _pyxa._apply_harness_chrome
 
 def _payload(widget: LandmarksWidget, *, raw_csc: bool) -> dict[str, object]:
     out = {key: getattr(widget, key) for key in FIXTURE_KEYS}
-    if not raw_csc or widget.gene_csc_codec != "gzip":
+    if not raw_csc or widget._gene_csc_codec != "gzip":
         return out
 
     def decode_trait(b64: str) -> bytes:
         return gzip.decompress(base64.b64decode(b64))
 
-    out["gene_csc_indptr"] = base64.b64encode(decode_trait(widget.gene_csc_indptr)).decode("ascii")
-    out["gene_csc_indices"] = base64.b64encode(decode_trait(widget.gene_csc_indices)).decode("ascii")
-    out["gene_csc_data"] = base64.b64encode(decode_trait(widget.gene_csc_data)).decode("ascii")
-    out["gene_csc_codec"] = ""
+    out["_gene_csc_indptr"] = base64.b64encode(decode_trait(widget._gene_csc_indptr)).decode("ascii")
+    out["_gene_csc_indices"] = base64.b64encode(decode_trait(widget._gene_csc_indices)).decode("ascii")
+    out["_gene_csc_data"] = base64.b64encode(decode_trait(widget._gene_csc_data)).decode("ascii")
+    out["_gene_csc_codec"] = ""
     return out
 
 
