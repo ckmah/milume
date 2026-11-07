@@ -428,9 +428,9 @@ export function VolumeCube({
       const width = Math.max(1, Math.round(rect.width));
       const height = Math.max(1, Math.round(rect.height));
       setBox((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
-      setViewPixelSize((prev) =>
-        prev.width === rect.width && prev.height === rect.height ? prev : { width: rect.width, height: rect.height },
-      );
+      // Same integer CSS pixels as `box`. Raw floats flutter under the mesh
+      // composite and restart the camera every frame on software GL.
+      setViewPixelSize((prev) => (prev.width === width && prev.height === height ? prev : { width, height }));
     };
     const obs = new ResizeObserver(apply);
     obs.observe(node);
