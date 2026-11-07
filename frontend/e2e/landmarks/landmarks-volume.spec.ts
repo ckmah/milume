@@ -53,24 +53,6 @@ type HitSample = {
   top: { tag: string; id: string; className: string; aria: string | null; testid: string | null } | null;
 };
 
-/** Trace only when the body throws. A passing attempt discards the trace. */
-async function withFailureTrace(page: Page, testInfo: TestInfo, name: string, body: () => Promise<void>) {
-  await page.context().tracing.start({ screenshots: true, snapshots: true });
-  try {
-    await body();
-  } catch (err) {
-    try {
-      const path = testInfo.outputPath(`${name}-trace.zip`);
-      await page.context().tracing.stop({ path });
-      await testInfo.attach(`${name}-trace`, { path, contentType: "application/zip" });
-    } catch (traceErr) {
-      console.log(`DIAG430 trace ${name} ${traceErr instanceof Error ? traceErr.message : String(traceErr)}`);
-    }
-    throw err;
-  }
-  await page.context().tracing.stop();
-}
-
 async function attachFailure(testInfo: TestInfo, name: string, value: unknown) {
   const body = JSON.stringify(value);
   console.log(`DIAG430 ${name} ${body.slice(0, 4000)}`);
@@ -1758,7 +1740,6 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("a Z-only cut leaves X and Y whole for any window, edge windows too", async ({ page }, testInfo) => {
-    await withFailureTrace(page, testInfo, "z-only", async () => {
       await openCubeAtCentre(page);
       // Python seeds a Z-only cut, then an edge window.
       await setModel(page, { volume_cut: [0, 256, 0, 256, 0, 40] });
@@ -1796,7 +1777,6 @@ test.describe("Landmarks inspect cube", () => {
       });
       await page.waitForTimeout(600); // past the cut's settle commit
       expect(await cutOf(page)).toEqual(zOnly);
-    });
   });
 
   test("leaving Inspect closes the cube and frees the map; Esc from its chrome closes it and exits", async ({ page }) => {
@@ -1878,7 +1858,6 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("peek tabs and docks float over the open cube; focusing a category there recolours it", async ({ page }, testInfo) => {
-    await withFailureTrace(page, testInfo, "peek", async () => {
     await openCubeAtCentre(page, { at: [130, 170] });
     const view = cubeWindow(page).locator(".volume-cube__view");
     const right = page.locator(".landmarks__chrome-dock--right");
@@ -1956,7 +1935,6 @@ test.describe("Landmarks inspect cube", () => {
     await expect.poll(() => getModel(page, "selected_index")).toBe(0);
     await setModel(page, { render_mode: "raster" });
     await expect(view).toHaveAttribute("data-highlight", "1");
-    });
   });
 
   test("highlight follows focus: everything, a category, a Selection", async ({ page }) => {
