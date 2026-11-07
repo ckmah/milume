@@ -1818,14 +1818,22 @@ test.describe("Landmarks inspect cube", () => {
     await expect(right).toHaveAttribute("data-collapsed", "true");
     // The first frames composite the cell meshes; wait them out before hit-testing the pill.
     await expect(view).toHaveAttribute("data-refining", "false");
-    // Both peek tabs sit over the cube, clear of the Inspect pill's Save and Exit
-    // (a click is refused when another element would receive it).
+    // Both peek tabs sit over the cube, clear of the Inspect pill's Save and Exit.
+    // Hit-test the centre: a trial click also waits for the box to stop moving, and the
+    // pill's layout keeps shifting while the cube's first frames land on software GL.
+    const receivesClick = (locator: Locator) =>
+      expect.poll(async () => locator.evaluate((el) => {
+        const r = el.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1) return false;
+        const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+        return Boolean(top && (el === top || el.contains(top)));
+      }), { timeout: 15_000 }).toBe(true);
     const actions = [
       inspectPill(page).getByRole("button", { name: "Save window" }),
       inspectPill(page).getByRole("button", { name: "Exit Inspect" }),
     ];
-    for (const a of actions) await a.click({ trial: true, timeout: 15_000 });
-    await page.getByRole("button", { name: "Show left panel" }).click({ trial: true, timeout: 15_000 });
+    for (const a of actions) await receivesClick(a);
+    await receivesClick(page.getByRole("button", { name: "Show left panel" }));
     await page.getByRole("button", { name: "Show right panel" }).click();
     await expect(right).toHaveAttribute("data-collapsed", "false");
     await expect(cubeWindow(page)).toBeVisible();
@@ -1836,7 +1844,7 @@ test.describe("Landmarks inspect cube", () => {
       [b.x + b.width / 2, b.y + Math.min(b.height / 2, 40)],
     );
     expect(onTop).toBe(true);
-    for (const a of actions) await a.click({ trial: true, timeout: 15_000 });
+    for (const a of actions) await receivesClick(a);
 
     // Focus a category in the dock (points mode UI): raster mode shows the highlight in the cube.
     await right.getByRole("button", { name: "Expand cell_type" }).click();
