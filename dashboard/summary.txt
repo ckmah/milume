@@ -1,4 +1,4 @@
-as_of: Fri Nov 6, 3:14 PM PT
+as_of: Fri Nov 6, 10:08 PM PT
 needs_you: 1
   #407 Squidpy niche recipe pilot (k-sweep, cached niches, stati... (pr)
 open_prs: 5
@@ -14,4 +14,4 @@ ci_failure_issues:
   #429 CI: Inspect cube volume e2e hard-red since #418 (meshes /...
 html: dashboard.html
 status: PUBLISH
-hash: 675b833879f7
+hash: d274bee17900
