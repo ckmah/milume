@@ -123,7 +123,6 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
   });
 
   test("per-channel contrast drag keeps map trait and cube channel state aligned", async ({ page }) => {
-    test.setTimeout(120_000);
     await openIssue395CubeAtInspectCentre(page);
     await openImagePanelInInspect(page);
     await page.getByTestId("layer-channel-row-DAPI").focus();
