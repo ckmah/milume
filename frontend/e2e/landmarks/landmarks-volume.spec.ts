@@ -58,6 +58,157 @@ async function attachFailure(testInfo: TestInfo, name: string, value: unknown) {
   console.log(`DIAG430 ${name} ${body.slice(0, 4000)}`);
   await testInfo.attach(`${name}.json`, { body, contentType: "application/json" });
 }
+
+type RenderSpan = {
+  ms: number;
+  name: string;
+  thread: string;
+  fn: string;
+  stack: string[];
+};
+
+/**
+ * Temporary. Chrome timeline for the two open volume checks. CDP Tracing, not
+ * Playwright's tracer. Removed once the CI span is read.
+ */
+async function recordRendererTrace(page: Page, testInfo: TestInfo, name: string, body: () => Promise<void>) {
+  const cdp = await page.context().newCDPSession(page);
+  const threads = new Map<number, string>();
+  const kept: { ms: number; name: string; tid: number; fn: string; stack: string[] }[] = [];
+  let readPixelsMs = 0;
+  let readPixelsN = 0;
+  let finishMs = 0;
+  let finishN = 0;
+  const consider = (ev: {
+    name?: string;
+    ph?: string;
+    dur?: number;
+    tid?: number;
+    args?: { name?: string; data?: { functionName?: string; url?: string; lineNumber?: number; stackTrace?: { functionName?: string; url?: string; lineNumber?: number }[] } };
+  }) => {
+    if (ev.ph === "M" && ev.name === "thread_name" && ev.tid != null) threads.set(ev.tid, String(ev.args?.name ?? ""));
+    if (typeof ev.dur !== "number") return;
+    const ms = Math.round(ev.dur / 1000);
+    if (ev.name === "GLES2::ReadPixels") {
+      readPixelsN += 1;
+      if (ms > readPixelsMs) readPixelsMs = ms;
+    }
+    if (ev.name === "CommandBufferHelper::Finish") {
+      finishN += 1;
+      if (ms > finishMs) finishMs = ms;
+    }
+    if (ev.dur < 50_000 || ev.ph === "M") return;
+    const data = ev.args?.data;
+    const frames = data?.stackTrace ?? [];
+    const stack = frames.slice(0, 6).map((frame) => {
+      const url = (frame.url ?? "").split("/").slice(-2).join("/");
+      return `${frame.functionName || "?"} ${url}:${frame.lineNumber ?? ""}`;
+    });
+    const url = (data?.url ?? "").split("/").slice(-2).join("/");
+    const fn = data?.functionName ? `${data.functionName} ${url}:${data.lineNumber ?? ""}` : stack[0] ?? "";
+    kept.push({ ms, name: ev.name ?? "", tid: ev.tid ?? -1, fn, stack });
+    if (kept.length > 80) {
+      kept.sort((a, b) => b.ms - a.ms);
+      const calls = kept.filter((row) => row.name === "FunctionCall" || row.name === "FireAnimationFrame").slice(0, 8);
+      const rest = kept.filter((row) => row.name !== "FunctionCall" && row.name !== "FireAnimationFrame").slice(0, 16);
+      kept.length = 0;
+      kept.push(...calls, ...rest);
+    }
+  };
+  cdp.on("Tracing.dataCollected", (payload) => {
+    for (const ev of payload.value as Parameters<typeof consider>[0][]) consider(ev);
+  });
+  let started = false;
+  try {
+    await cdp.send("Tracing.start", {
+      traceConfig: {
+        recordMode: "recordContinuously",
+        includedCategories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "disabled-by-default-devtools.timeline.stack", "gpu"],
+      },
+    });
+    started = true;
+  } catch (err) {
+    console.log(`DIAG430 trace-start ${name} ${err instanceof Error ? err.message : String(err)}`);
+  }
+  await page.evaluate(() => {
+    const src = `
+      let max = 0;
+      const slow = [];
+      onmessage = (e) => {
+        if (e.data === "report") postMessage({ max, slow });
+        else if (typeof e.data === "number") {
+          const dt = Date.now() - e.data;
+          if (dt > max) max = dt;
+          if (dt >= 500 && slow.length < 12) slow.push(dt);
+        }
+      };
+      setInterval(() => postMessage(Date.now()), 100);
+    `;
+    const worker = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+    const slot = window as unknown as { __traceWorker?: Worker; __traceLag?: { max: number; slow: number[] } };
+    slot.__traceWorker = worker;
+    worker.onmessage = (e) => {
+      if (typeof e.data === "number") worker.postMessage(e.data);
+      else slot.__traceLag = e.data;
+    };
+  }).catch((err) => console.log(`DIAG430 lag-start ${name} ${err instanceof Error ? err.message : String(err)}`));
+  let failure: unknown;
+  try {
+    await body();
+  } catch (err) {
+    failure = err;
+  }
+  try {
+    if (started) {
+      const finished = new Promise((resolve) => cdp.once("Tracing.tracingComplete", resolve));
+      await cdp.send("Tracing.end");
+      await Promise.race([finished, new Promise((resolve) => setTimeout(resolve, 5_000))]);
+    }
+    const lag = await Promise.race([
+      page.evaluate(() => new Promise((resolve) => {
+        const slot = window as unknown as { __traceWorker?: Worker; __traceLag?: { max: number; slow: number[] } };
+        if (!slot.__traceWorker) return resolve(null);
+        const timer = window.setTimeout(() => resolve(slot.__traceLag ?? null), 1_000);
+        const prior = slot.__traceWorker.onmessage;
+        slot.__traceWorker.onmessage = (e) => {
+          if (typeof e.data === "number") slot.__traceWorker?.postMessage(e.data);
+          else {
+            window.clearTimeout(timer);
+            resolve(e.data);
+          }
+          prior?.call(slot.__traceWorker!, e);
+        };
+        slot.__traceWorker.postMessage("report");
+      })),
+      new Promise((resolve) => setTimeout(() => resolve(null), 2_000)),
+    ]);
+    const ranked = kept
+      .sort((a, b) => b.ms - a.ms)
+      .map((ev) => ({ ms: ev.ms, name: ev.name, thread: threads.get(ev.tid) ?? String(ev.tid), fn: ev.fn, stack: ev.stack }));
+    const spans = ranked.slice(0, 12);
+    const main = ranked.find((ev) => ev.thread === "CrRendererMain") ?? null;
+    const call = ranked.find((ev) => ev.name === "FunctionCall" && ev.thread === "CrRendererMain") ?? null;
+    const summary = {
+      readPixelsMs,
+      readPixelsN,
+      finishMs,
+      finishN,
+      lag,
+      longestMain: main,
+      longestCall: call,
+      spans,
+    };
+    const text = JSON.stringify(summary);
+    console.log(`DIAG430 chrome ${name} ${text.slice(0, 3500)}`);
+    await testInfo.attach(`${name}-chrome-trace.json`, { body: text, contentType: "application/json" });
+  } catch (err) {
+    console.log(`DIAG430 trace-stop ${name} ${err instanceof Error ? err.message : String(err)}`);
+  }
+  try {
+    await cdp.detach();
+  } catch { /* the page may already be closed */ }
+  if (failure) throw failure;
+}
 const saveButton = (page: Page) => inspectPill(page).getByRole("button", { name: "Save window" });
 /** Inspect collapses the docks: reopen the left one (Selections) from its peek tab. It floats over the cube. */
 async function openSelectionsDock(page: Page) {
@@ -1740,6 +1891,7 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("a Z-only cut leaves X and Y whole for any window, edge windows too", async ({ page }, testInfo) => {
+    await recordRendererTrace(page, testInfo, "z-only", async () => {
       await openCubeAtCentre(page);
       // Python seeds a Z-only cut, then an edge window.
       await setModel(page, { volume_cut: [0, 256, 0, 256, 0, 40] });
@@ -1777,6 +1929,7 @@ test.describe("Landmarks inspect cube", () => {
       });
       await page.waitForTimeout(600); // past the cut's settle commit
       expect(await cutOf(page)).toEqual(zOnly);
+    });
   });
 
   test("leaving Inspect closes the cube and frees the map; Esc from its chrome closes it and exits", async ({ page }) => {
@@ -1858,6 +2011,7 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("peek tabs and docks float over the open cube; focusing a category there recolours it", async ({ page }, testInfo) => {
+    await recordRendererTrace(page, testInfo, "peek", async () => {
     await openCubeAtCentre(page, { at: [130, 170] });
     const view = cubeWindow(page).locator(".volume-cube__view");
     const right = page.locator(".landmarks__chrome-dock--right");
@@ -1935,6 +2089,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect.poll(() => getModel(page, "selected_index")).toBe(0);
     await setModel(page, { render_mode: "raster" });
     await expect(view).toHaveAttribute("data-highlight", "1");
+    });
   });
 
   test("highlight follows focus: everything, a category, a Selection", async ({ page }) => {
