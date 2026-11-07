@@ -9,11 +9,10 @@ import type { CubeCut, CubeLoadState } from "@/widgets/volume-cube/VolumeCube";
 import { PREVIEW_REGION_SCALE } from "@/widgets/volume-cube/window-source";
 
 import { decodeI32Base64 } from "../binary";
-import { INSPECT_WINDOW_UM, type EngineHandle } from "../engine";
+import { INSPECT_WINDOW_UM } from "../engine";
 import type { CubeSettings, CubeSettingsPatch } from "../use-cube-settings";
 import { inspectWindowOf } from "../use-inspect-cube";
 import type { LandmarksModel } from "../use-landmarks-model";
-import { useCubeScatterPoints } from "../use-cube-scatter-points";
 import { type ChipSnapshot, SNAPSHOT_SETTLE_MS, snapshotOf, windowKey } from "./cube-snapshots";
 import { ChromeLoadIndicator } from "./load-indicator";
 
@@ -34,7 +33,6 @@ const VOXEL_ZYX: [number, number, number] = [1, 1, 1];
  */
 export const CubeImmersive = memo(function CubeImmersive({
   lm,
-  engine,
   settings,
   patch,
   cut,
@@ -54,7 +52,6 @@ export const CubeImmersive = memo(function CubeImmersive({
   meshLook,
 }: {
   lm: LandmarksModel;
-  engine: EngineHandle | null;
   settings: CubeSettings;
   patch: (p: CubeSettingsPatch) => void;
   /** The cut inside the current window (absolute µm). */
@@ -174,8 +171,6 @@ export const CubeImmersive = memo(function CubeImmersive({
   const volume = lm.volume ?? {};
   const cellRows = useMemo(() => (lm.volume_cell_rows ? decodeI32Base64(lm.volume_cell_rows) : null), [lm.volume_cell_rows]);
   const size = lm.inspect_size_um || INSPECT_WINDOW_UM;
-  const scatterPoints = useCubeScatterPoints(engine, lm, lm.inspect_cx, lm.inspect_cy, size);
-  const drawPoints = settings.showPoints && scatterPoints.length > 0;
   const renderSettings = useMemo(
     () => (labelAlpha == null ? settings.render : { ...settings.render, cellAlpha: labelAlpha }),
     [settings.render, labelAlpha],
@@ -230,8 +225,6 @@ export const CubeImmersive = memo(function CubeImmersive({
           height="100%"
           showLegend={false}
           overlays={overlays}
-          scatterPoints={scatterPoints}
-          showPoints={drawPoints}
           coarse={{ scale: PREVIEW_REGION_SCALE, budget: budgets.preview }}
           budget={budgets.dock}
           tightenZToSignal={false}
