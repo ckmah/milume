@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 import { test } from "../fixtures";
 
@@ -40,175 +40,6 @@ const selectionsOf = async (page: Page) => (await getModel(page, "selections")) 
 /** The top pill while in Inspect (in place of the tool pill): Exit, the window's status, Save. */
 const inspectPill = (page: Page) => page.getByTestId("inspect-pill");
 
-type HitSample = {
-  t: number;
-  ok: boolean;
-  rect: { x: number; y: number; w: number; h: number };
-  disabled: boolean;
-  enabled: boolean;
-  inert: boolean;
-  pointerEvents: string;
-  offscreen: boolean;
-  refining: string | null;
-  top: { tag: string; id: string; className: string; aria: string | null; testid: string | null } | null;
-};
-
-async function attachFailure(testInfo: TestInfo, name: string, value: unknown) {
-  const body = JSON.stringify(value);
-  console.log(`DIAG430 ${name} ${body.slice(0, 4000)}`);
-  await testInfo.attach(`${name}.json`, { body, contentType: "application/json" });
-}
-
-type RenderSpan = {
-  ms: number;
-  name: string;
-  thread: string;
-  fn: string;
-  stack: string[];
-};
-
-/**
- * Temporary. Chrome timeline for the two open volume checks. CDP Tracing, not
- * Playwright's tracer. Removed once the CI span is read.
- */
-async function recordRendererTrace(page: Page, testInfo: TestInfo, name: string, body: () => Promise<void>) {
-  const cdp = await page.context().newCDPSession(page);
-  const threads = new Map<number, string>();
-  const kept: { ms: number; name: string; tid: number; fn: string; stack: string[] }[] = [];
-  let readPixelsMs = 0;
-  let readPixelsN = 0;
-  let finishMs = 0;
-  let finishN = 0;
-  const consider = (ev: {
-    name?: string;
-    ph?: string;
-    dur?: number;
-    tid?: number;
-    args?: { name?: string; data?: { functionName?: string; url?: string; lineNumber?: number; stackTrace?: { functionName?: string; url?: string; lineNumber?: number }[] } };
-  }) => {
-    if (ev.ph === "M" && ev.name === "thread_name" && ev.tid != null) threads.set(ev.tid, String(ev.args?.name ?? ""));
-    if (typeof ev.dur !== "number") return;
-    const ms = Math.round(ev.dur / 1000);
-    if (ev.name === "GLES2::ReadPixels") {
-      readPixelsN += 1;
-      if (ms > readPixelsMs) readPixelsMs = ms;
-    }
-    if (ev.name === "CommandBufferHelper::Finish") {
-      finishN += 1;
-      if (ms > finishMs) finishMs = ms;
-    }
-    if (ev.dur < 50_000 || ev.ph === "M") return;
-    const data = ev.args?.data;
-    const frames = data?.stackTrace ?? [];
-    const stack = frames.slice(0, 6).map((frame) => {
-      const url = (frame.url ?? "").split("/").slice(-2).join("/");
-      return `${frame.functionName || "?"} ${url}:${frame.lineNumber ?? ""}`;
-    });
-    const url = (data?.url ?? "").split("/").slice(-2).join("/");
-    const fn = data?.functionName ? `${data.functionName} ${url}:${data.lineNumber ?? ""}` : stack[0] ?? "";
-    kept.push({ ms, name: ev.name ?? "", tid: ev.tid ?? -1, fn, stack });
-    if (kept.length > 80) {
-      kept.sort((a, b) => b.ms - a.ms);
-      const calls = kept.filter((row) => row.name === "FunctionCall" || row.name === "FireAnimationFrame").slice(0, 8);
-      const rest = kept.filter((row) => row.name !== "FunctionCall" && row.name !== "FireAnimationFrame").slice(0, 16);
-      kept.length = 0;
-      kept.push(...calls, ...rest);
-    }
-  };
-  cdp.on("Tracing.dataCollected", (payload) => {
-    for (const ev of payload.value as Parameters<typeof consider>[0][]) consider(ev);
-  });
-  let started = false;
-  try {
-    await cdp.send("Tracing.start", {
-      traceConfig: {
-        recordMode: "recordContinuously",
-        includedCategories: ["devtools.timeline", "disabled-by-default-devtools.timeline", "disabled-by-default-devtools.timeline.stack", "gpu"],
-      },
-    });
-    started = true;
-  } catch (err) {
-    console.log(`DIAG430 trace-start ${name} ${err instanceof Error ? err.message : String(err)}`);
-  }
-  await page.evaluate(() => {
-    const src = `
-      let max = 0;
-      const slow = [];
-      onmessage = (e) => {
-        if (e.data === "report") postMessage({ max, slow });
-        else if (typeof e.data === "number") {
-          const dt = Date.now() - e.data;
-          if (dt > max) max = dt;
-          if (dt >= 500 && slow.length < 12) slow.push(dt);
-        }
-      };
-      setInterval(() => postMessage(Date.now()), 100);
-    `;
-    const worker = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
-    const slot = window as unknown as { __traceWorker?: Worker; __traceLag?: { max: number; slow: number[] } };
-    slot.__traceWorker = worker;
-    worker.onmessage = (e) => {
-      if (typeof e.data === "number") worker.postMessage(e.data);
-      else slot.__traceLag = e.data;
-    };
-  }).catch((err) => console.log(`DIAG430 lag-start ${name} ${err instanceof Error ? err.message : String(err)}`));
-  let failure: unknown;
-  try {
-    await body();
-  } catch (err) {
-    failure = err;
-  }
-  try {
-    if (started) {
-      const finished = new Promise((resolve) => cdp.once("Tracing.tracingComplete", resolve));
-      await cdp.send("Tracing.end");
-      await Promise.race([finished, new Promise((resolve) => setTimeout(resolve, 5_000))]);
-    }
-    const lag = await Promise.race([
-      page.evaluate(() => new Promise((resolve) => {
-        const slot = window as unknown as { __traceWorker?: Worker; __traceLag?: { max: number; slow: number[] } };
-        if (!slot.__traceWorker) return resolve(null);
-        const timer = window.setTimeout(() => resolve(slot.__traceLag ?? null), 1_000);
-        const prior = slot.__traceWorker.onmessage;
-        slot.__traceWorker.onmessage = (e) => {
-          if (typeof e.data === "number") slot.__traceWorker?.postMessage(e.data);
-          else {
-            window.clearTimeout(timer);
-            resolve(e.data);
-          }
-          prior?.call(slot.__traceWorker!, e);
-        };
-        slot.__traceWorker.postMessage("report");
-      })),
-      new Promise((resolve) => setTimeout(() => resolve(null), 2_000)),
-    ]);
-    const ranked = kept
-      .sort((a, b) => b.ms - a.ms)
-      .map((ev) => ({ ms: ev.ms, name: ev.name, thread: threads.get(ev.tid) ?? String(ev.tid), fn: ev.fn, stack: ev.stack }));
-    const spans = ranked.slice(0, 12);
-    const main = ranked.find((ev) => ev.thread === "CrRendererMain") ?? null;
-    const call = ranked.find((ev) => ev.name === "FunctionCall" && ev.thread === "CrRendererMain") ?? null;
-    const summary = {
-      readPixelsMs,
-      readPixelsN,
-      finishMs,
-      finishN,
-      lag,
-      longestMain: main,
-      longestCall: call,
-      spans,
-    };
-    const text = JSON.stringify(summary);
-    console.log(`DIAG430 chrome ${name} ${text.slice(0, 3500)}`);
-    await testInfo.attach(`${name}-chrome-trace.json`, { body: text, contentType: "application/json" });
-  } catch (err) {
-    console.log(`DIAG430 trace-stop ${name} ${err instanceof Error ? err.message : String(err)}`);
-  }
-  try {
-    await cdp.detach();
-  } catch { /* the page may already be closed */ }
-  if (failure) throw failure;
-}
 const saveButton = (page: Page) => inspectPill(page).getByRole("button", { name: "Save window" });
 /** Inspect collapses the docks: reopen the left one (Selections) from its peek tab. It floats over the cube. */
 async function openSelectionsDock(page: Page) {
@@ -1890,46 +1721,17 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-outside", "open");
   });
 
-  test("a Z-only cut leaves X and Y whole for any window, edge windows too", async ({ page }, testInfo) => {
-    await recordRendererTrace(page, testInfo, "z-only", async () => {
-      await openCubeAtCentre(page);
-      // Python seeds a Z-only cut, then an edge window.
-      await setModel(page, { volume_cut: [0, 256, 0, 256, 0, 40] });
-      await expect.poll(async () => (await cutOf(page))[5]).toBe(40);
-      const zOnly = await cutOf(page);
-      expect(zOnly.slice(0, 4)).toEqual([0, 256, 0, 256]);
-      await page.evaluate(() => {
-        const w = window as unknown as { __zSamples?: Record<string, string>[]; __zTimer?: number };
-        w.__zSamples = [];
-        const snap = () => {
-          const el = document.querySelector(".volume-cube__view");
-          const row: Record<string, string> = { t: String(Math.round(performance.now())) };
-          if (!el) row.missing = "1";
-          else for (const attr of el.getAttributeNames()) if (attr.startsWith("data-")) row[attr] = el.getAttribute(attr) ?? "";
-          w.__zSamples?.push(row);
-        };
-        snap();
-        w.__zTimer = window.setInterval(snap, 250);
-      });
-      await setModel(page, { inspect_cx: 20, inspect_cy: 128 });
-      try {
-        await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-refining", "false");
-      } catch (err) {
-        const dump = await page.evaluate(() => {
-          const w = window as unknown as { __zSamples?: Record<string, string>[]; __zTimer?: number };
-          if (w.__zTimer != null) window.clearInterval(w.__zTimer);
-          return w.__zSamples ?? [];
-        });
-        await attachFailure(testInfo, "z-only-samples", dump);
-        throw err;
-      }
-      await page.evaluate(() => {
-        const w = window as unknown as { __zTimer?: number };
-        if (w.__zTimer != null) window.clearInterval(w.__zTimer);
-      });
-      await page.waitForTimeout(600); // past the cut's settle commit
-      expect(await cutOf(page)).toEqual(zOnly);
-    });
+  test("a Z-only cut leaves X and Y whole for any window, edge windows too", async ({ page }) => {
+    await openCubeAtCentre(page);
+    // Python seeds a Z-only cut, then an edge window.
+    await setModel(page, { volume_cut: [0, 256, 0, 256, 0, 40] });
+    await expect.poll(async () => (await cutOf(page))[5]).toBe(40);
+    const zOnly = await cutOf(page);
+    expect(zOnly.slice(0, 4)).toEqual([0, 256, 0, 256]);
+    await setModel(page, { inspect_cx: 20, inspect_cy: 128 });
+    await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-refining", "false");
+    await page.waitForTimeout(600); // past the cut's settle commit
+    expect(await cutOf(page)).toEqual(zOnly);
   });
 
   test("leaving Inspect closes the cube and frees the map; Esc from its chrome closes it and exits", async ({ page }) => {
@@ -2010,8 +1812,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(right).toHaveAttribute("data-collapsed", "true");
   });
 
-  test("peek tabs and docks float over the open cube; focusing a category there recolours it", async ({ page }, testInfo) => {
-    await recordRendererTrace(page, testInfo, "peek", async () => {
+  test("peek tabs and docks float over the open cube; focusing a category there recolours it", async ({ page }) => {
     await openCubeAtCentre(page, { at: [130, 170] });
     const view = cubeWindow(page).locator(".volume-cube__view");
     const right = page.locator(".landmarks__chrome-dock--right");
@@ -2019,56 +1820,37 @@ test.describe("Landmarks inspect cube", () => {
     // The first frames composite the cell meshes; wait them out before hit-testing the pill.
     await expect(view).toHaveAttribute("data-refining", "false");
     // Save and Exit stay the top hit at their centers. The poll does not scroll.
-    const receivesClick = async (locator: Locator, name: string) => {
-      const samples: HitSample[] = [];
+    const receivesClick = async (locator: Locator) => {
+      let last: { rect: string; top: string } | null = null;
       try {
         await expect.poll(async () => {
-          const sample = await locator.evaluate((el): HitSample => {
+          const hit = await locator.evaluate((el) => {
             const r = el.getBoundingClientRect();
             const x = r.x + r.width / 2;
             const y = r.y + r.height / 2;
             const sized = r.width >= 1 && r.height >= 1;
-            const offscreen = sized && (x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight);
-            const top = sized && !offscreen ? document.elementFromPoint(x, y) : null;
-            const button = el as HTMLButtonElement;
-            const disabled =
-              button.disabled === true || el.hasAttribute("disabled") || el.getAttribute("aria-disabled") === "true";
+            const top = sized ? document.elementFromPoint(x, y) : null;
             return {
-              t: Math.round(performance.now()),
               ok: Boolean(top && (el === top || el.contains(top))),
-              rect: { x: r.x, y: r.y, w: r.width, h: r.height },
-              disabled,
-              enabled: !disabled,
-              inert: Boolean(el.closest("[inert]")),
-              pointerEvents: getComputedStyle(el).pointerEvents,
-              offscreen,
-              refining: document.querySelector(".volume-cube__view")?.getAttribute("data-refining") ?? null,
-              top: top
-                ? {
-                    tag: top.tagName,
-                    id: top.id,
-                    className: String(top.className).slice(0, 200),
-                    aria: top.getAttribute("aria-label"),
-                    testid: top.getAttribute("data-testid"),
-                  }
-                : null,
+              rect: `${r.x},${r.y},${r.width},${r.height}`,
+              top: top?.getAttribute("aria-label") || top?.getAttribute("data-testid") || top?.tagName || "none",
             };
           });
-          samples.push(sample);
-          return sample.ok;
+          last = { rect: hit.rect, top: hit.top };
+          return hit.ok;
         }, { timeout: 15_000 }).toBe(true);
       } catch (err) {
-        await attachFailure(testInfo, `peek-${name}`, { n: samples.length, last: samples[samples.length - 1] ?? null, samples });
-        throw err;
+        const where = last ? `last hit ${last.rect} top ${last.top}` : "no hit";
+        throw new Error(`${err instanceof Error ? err.message : String(err)} (${where})`, { cause: err });
       }
     };
     const actions = [
       inspectPill(page).getByRole("button", { name: "Save window" }),
       inspectPill(page).getByRole("button", { name: "Exit Inspect" }),
     ];
-    await receivesClick(actions[0]!, "Save");
-    await receivesClick(actions[1]!, "Exit");
-    await receivesClick(page.getByRole("button", { name: "Show left panel" }), "Show left panel");
+    await receivesClick(actions[0]!);
+    await receivesClick(actions[1]!);
+    await receivesClick(page.getByRole("button", { name: "Show left panel" }));
     await page.getByRole("button", { name: "Show right panel" }).click();
     await expect(right).toHaveAttribute("data-collapsed", "false");
     await expect(cubeWindow(page)).toBeVisible();
@@ -2079,8 +1861,8 @@ test.describe("Landmarks inspect cube", () => {
       [b.x + b.width / 2, b.y + Math.min(b.height / 2, 40)],
     );
     expect(onTop).toBe(true);
-    await receivesClick(actions[0]!, "Save after dock");
-    await receivesClick(actions[1]!, "Exit after dock");
+    await receivesClick(actions[0]!);
+    await receivesClick(actions[1]!);
 
     // Focus a category in the dock (points mode UI): raster mode shows the highlight in the cube.
     await right.getByRole("button", { name: "Expand cell_type" }).click();
@@ -2089,7 +1871,6 @@ test.describe("Landmarks inspect cube", () => {
     await expect.poll(() => getModel(page, "selected_index")).toBe(0);
     await setModel(page, { render_mode: "raster" });
     await expect(view).toHaveAttribute("data-highlight", "1");
-    });
   });
 
   test("highlight follows focus: everything, a category, a Selection", async ({ page }) => {

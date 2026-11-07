@@ -1571,15 +1571,6 @@ export function VolumeCube({
       data-level={shown?.level.index ?? -1}
       data-refining={String(refining)}
       data-settled={String(cubeSettled)}
-      data-diag-shown-box={boxDiag(shown?.box)}
-      data-diag-live-box={boxDiag(liveBox)}
-      data-diag-target-box={boxDiag(target?.box)}
-      data-diag-target-level={target ? String(target.level.index) : ""}
-      data-diag-shown-coarse={String(shownIsCoarse)}
-      data-diag-box-match={String(settled)}
-      data-diag-outside={String(outside)}
-      data-diag-image-error={imageError ? imageError.slice(0, 180) : ""}
-      data-diag-load-error={error ? error.slice(0, 180) : ""}
       data-overlays={placedOverlays?.count ?? 0}
       data-points={showPoints ? (placedScatterPoints?.length ?? 0) : 0}
       data-zoom={viewState ? viewState.zoom.toFixed(2) : ""}
@@ -1701,8 +1692,4 @@ function errorText(err: unknown): string {
 
 function sameBox(a: Box, b: Box | null): boolean {
   return b !== null && a.x0 === b.x0 && a.x1 === b.x1 && a.y0 === b.y0 && a.y1 === b.y1;
-}
-
-function boxDiag(b: Box | null | undefined): string {
-  return b ? `${b.z0},${b.z1},${b.y0},${b.y1},${b.x0},${b.x1}` : "";
 }
