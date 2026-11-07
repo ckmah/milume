@@ -1559,14 +1559,30 @@ test.describe("Landmarks inspect cube", () => {
       );
 
     // Image menu. Defaults: the volume's contrast_limits, image alpha 1, gamma 1 (0 on its log2 scale), Additive.
-    // VolumeCoerce: thin Z + single channel maps Additive to MIP in GL (`data-image-mode` is effective mode).
+    // `data-image-mode` is that selected setting. A thin single-channel slab still paints,
+    // because the ray draws MIP for it; the attribute does not report that substitute.
     await openAdjust(page);
     const panel = adjustPanel(page);
     await expect(panel.getByRole("heading")).toHaveText(["Image"]);
     const initialImage = await imageValues();
     expect(initialImage).toEqual([0, 48, 1, 0]);
     await expect(panel.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
-    await expect(view).toHaveAttribute("data-image-mode", "mip");
+    await expect(view).toHaveAttribute("data-image-mode", "additive");
+    const expectImagePaints = async () => {
+      await expect(view).toHaveAttribute("data-image-mode", "additive");
+      await expect(view).toHaveAttribute("data-labels", "off");
+      await expect(view).toHaveAttribute("data-image", "on");
+      await expect(view).toHaveAttribute("data-refining", "false");
+      const painted = await brightPixels(page, await view.screenshot());
+      await setShow(page, "image", false);
+      await expect(view).toHaveAttribute("data-image", "off");
+      const hidden = await brightPixels(page, await view.screenshot());
+      expect(painted, `image paint ${painted} vs hidden ${hidden}`).toBeGreaterThan(hidden * 4);
+    };
+    await setShow(page, "labels", false);
+    await expectImagePaints();
+    await setShow(page, "image", true);
+    await setShow(page, "labels", true);
     const widths = await widthsOf(panel);
     await nudge("Contrast", "ArrowLeft", 1);
     await nudge("Image alpha", "ArrowLeft");
@@ -1600,9 +1616,11 @@ test.describe("Landmarks inspect cube", () => {
     await setShow(page, "image", false);
     await panel.getByRole("button", { name: "Reset image" }).click();
     await expect(panel.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
-    await expect(view).toHaveAttribute("data-image-mode", "mip");
+    await expect(view).toHaveAttribute("data-image-mode", "additive");
     expect(await imageValues()).toEqual(initialImage);
     await expect(layerToggle(page, "image")).toHaveAttribute("aria-pressed", "false");
+    await setShow(page, "image", true);
+    await expectImagePaints();
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
 
