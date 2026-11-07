@@ -158,6 +158,24 @@ def _fake_prepared(adata_map, genes: list[str]):
     }
 
 
+def _asset_field(key: str) -> bool:
+    """Traits whose bytes live in the cell asset, not the prepared manifest."""
+    if key in {
+        "_esm",
+        "_css",
+        "points_data",
+        "category_codes",
+        "_category_codes",
+        "embedding_matrix",
+        "_embedding_matrix",
+        "embedding_values",
+        "_embedding_values",
+    }:
+        return True
+    bare = key[1:] if key.startswith("_") else key
+    return bare.startswith("gene_csc")
+
+
 def _slim_widget_state(widget, genes: list[str]) -> dict:
     """Drop asset-heavy fields from synced state (they live in ``*.cell.json``)."""
     state: dict = {}
@@ -165,18 +183,8 @@ def _slim_widget_state(widget, genes: list[str]) -> dict:
         if name == "layout":
             continue
         state[name] = getattr(widget, name)
-    for key in (
-        "_esm",
-        "_css",
-        "points_data",
-        "category_codes",
-        "embedding_matrix",
-        "embedding_values",
-    ):
-        if key in state:
-            state[key] = "" if not isinstance(state[key], (int, float, bool)) else state[key]
-    for key in list(state):
-        if key.startswith("gene_csc"):
+    for key, value in list(state.items()):
+        if _asset_field(key) and not isinstance(value, (int, float, bool)):
             state[key] = ""
     state["gene_names"] = [{"name": g} for g in genes]
     return state

@@ -34,6 +34,11 @@ def _map_adata_for_widget(adata):
     return adata_map
 
 
+# The static player loads the widget module from message.esm_spec, not state._esm.
+# Copying the live module source into the cell asset duplicates landmarks.mjs (~3.7 MB).
+_SKIP_STATE_KEYS = frozenset({"layout", "_esm"})
+
+
 def _full_widget_state(
     adata_map,
     *,
@@ -47,19 +52,28 @@ def _full_widget_state(
     widget = ml.peek(adata_map, color=color, genes=list(genes))
     state: dict[str, Any] = {}
     for name in widget.trait_names(sync=True):
-        if name == "layout":
+        if name in _SKIP_STATE_KEYS:
             continue
         state[name] = getattr(widget, name)
     meta, payload = pack_eager_gene_matrix(adata_map, list(genes), adata_map.n_obs)
     state["gene_names"] = meta
-    state.update(payload)
+    for key, value in payload.items():
+        # LandmarksWidget stores the pack on ``_gene_csc_*`` (see ``_map_gene_payload``).
+        dest = f"_{key}" if key.startswith("gene_csc_") else key
+        state[dest] = value
+        if dest != key:
+            state.pop(key, None)
     return state
 
 
 def _update_widget_state(state: dict[str, Any], adata_map) -> None:
     fresh = _full_widget_state(adata_map)
+    for key in list(state):
+        if key == "_esm" or key.startswith("gene_csc_"):
+            del state[key]
     for key, value in fresh.items():
         state[key] = value
+    state.pop("_esm", None)
 
 
 def _walk_notifications(cell: dict[str, Any]) -> list[dict[str, Any]]:
