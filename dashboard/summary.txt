@@ -1,9 +1,8 @@
-as_of: Sat Nov 7, 5:13 AM PT
-needs_you: 3
+as_of: Sat Nov 7, 5:32 AM PT
+needs_you: 2
   #407 Squidpy niche recipe pilot (k-sweep, cached niches, stati... (pr)
-  #427 fix(landmarks): remove Inspect cube Points control (#423) (pr)
   #428 Recipe CI gates: script verify, shot lists, assembled-pag... (pr)
-open_prs: 5
+open_prs: 4
 last_nightly: 2026-11-06 failure
 stale_prs:
   #428 cursor/recipe-ci-gates-a3c1 (failing CI)
@@ -13,4 +12,4 @@ ci_failure_issues:
   #429 CI: Inspect cube volume e2e hard-red since #418 (meshes /...
 html: dashboard.html
 status: PUBLISH
-hash: 65f859c71d7a
+hash: c0ed58e9f2fc
