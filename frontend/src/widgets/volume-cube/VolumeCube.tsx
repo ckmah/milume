@@ -928,6 +928,9 @@ export function VolumeCube({
   const cameraPreset = presetOf(viewState);
   // Additive integration is empty on Top for thin z slabs; MIP keeps tissue visible.
   // Multichannel stays on the requested mode so Oblique can integrate both channels.
+  // data-image-mode stays the setting Image Reset restores. The layer still
+  // receives renderImageMode, so a thin single-channel slab draws MIP while
+  // Additive stays selected.
   const thinZSlab = contentDepthVox > 0 && contentDepthVox <= 128;
   const renderImageMode =
     imageMode === "mip" || (thinZSlab && imageMode === "additive" && !multichannelCube)
@@ -1561,7 +1564,7 @@ export function VolumeCube({
       data-label-cells={mesh?.ids.length ?? 0}
       data-coloring={coloringState}
       data-highlight={highlighted.length}
-      data-image-mode={renderImageMode}
+      data-image-mode={imageMode}
       data-pan={`${panX},${panY}`}
       data-palette={render.palette}
       data-image-gamma={render.imageGamma}

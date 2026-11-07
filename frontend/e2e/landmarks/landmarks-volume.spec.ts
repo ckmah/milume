@@ -1862,7 +1862,8 @@ test.describe("Landmarks inspect cube", () => {
     }
     await expect(right).toHaveAttribute("data-collapsed", "false");
     await right.getByRole("tab", { name: "genes" }).click();
-    await expect(view).toHaveAttribute("data-coloring", "groups");
+    // Genes with nothing picked clear color (#404), so cells are instances until a gene is chosen.
+    await expect(view).toHaveAttribute("data-coloring", "instances");
     await expect(right.getByTestId("info-chart-well")).toContainText("Pick a gene to color cells");
 
     const genePicker = page.getByTestId("explore-color-controls").getByPlaceholder("Select genes");
@@ -2327,12 +2328,13 @@ test.describe("Landmarks inspect cube", () => {
     const flipped = (await float.boundingBox())!;
     expect(flipped.x + flipped.width).toBeLessThanOrEqual(right - half);
 
-    // The float sits under the tools (which stay above the map and the cube).
+    // The float sits under the top row (toolbar and View), which stacks above the map and the cube.
     const stack = await page.evaluate(() => {
       const z = (el: Element) => Number(getComputedStyle(el).zIndex);
       const f = document.querySelector('[data-testid="inspect-preview"]')!;
+      const row = document.querySelector(".landmarks__chrome-top-row")!;
       const tools = document.querySelector(".landmarks__chrome-tools")!;
-      return { float: z(f), tools: z(tools), pill: Boolean(tools.querySelector('[data-testid="inspect-pill"]')) };
+      return { float: z(f), tools: z(row), pill: Boolean(tools.querySelector('[data-testid="inspect-pill"]')) };
     });
     // In Inspect the top pill is the Inspect pill, in the tools' slot.
     expect(stack.pill).toBe(true);
