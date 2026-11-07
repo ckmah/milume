@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 
 import { test } from "../fixtures";
 
@@ -39,6 +39,43 @@ const cutOf = async (page: Page) => (await getModel(page, "volume_cut")) as numb
 const selectionsOf = async (page: Page) => (await getModel(page, "selections")) as any[];
 /** The top pill while in Inspect (in place of the tool pill): Exit, the window's status, Save. */
 const inspectPill = (page: Page) => page.getByTestId("inspect-pill");
+
+type HitSample = {
+  t: number;
+  ok: boolean;
+  rect: { x: number; y: number; w: number; h: number };
+  disabled: boolean;
+  enabled: boolean;
+  inert: boolean;
+  pointerEvents: string;
+  offscreen: boolean;
+  refining: string | null;
+  top: { tag: string; id: string; className: string; aria: string | null; testid: string | null } | null;
+};
+
+/** Trace only when the body throws. A passing attempt discards the trace. */
+async function withFailureTrace(page: Page, testInfo: TestInfo, name: string, body: () => Promise<void>) {
+  await page.context().tracing.start({ screenshots: true, snapshots: true });
+  try {
+    await body();
+  } catch (err) {
+    try {
+      const path = testInfo.outputPath(`${name}-trace.zip`);
+      await page.context().tracing.stop({ path });
+      await testInfo.attach(`${name}-trace`, { path, contentType: "application/zip" });
+    } catch (traceErr) {
+      console.log(`DIAG430 trace ${name} ${traceErr instanceof Error ? traceErr.message : String(traceErr)}`);
+    }
+    throw err;
+  }
+  await page.context().tracing.stop();
+}
+
+async function attachFailure(testInfo: TestInfo, name: string, value: unknown) {
+  const body = JSON.stringify(value);
+  console.log(`DIAG430 ${name} ${body.slice(0, 4000)}`);
+  await testInfo.attach(`${name}.json`, { body, contentType: "application/json" });
+}
 const saveButton = (page: Page) => inspectPill(page).getByRole("button", { name: "Save window" });
 /** Inspect collapses the docks: reopen the left one (Selections) from its peek tab. It floats over the cube. */
 async function openSelectionsDock(page: Page) {
@@ -1720,18 +1757,46 @@ test.describe("Landmarks inspect cube", () => {
     await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-outside", "open");
   });
 
-  test("a Z-only cut leaves X and Y whole for any window, edge windows too", async ({ page }) => {
-    test.slow(Boolean(process.env.CI), "edge window refines a finer level while meshes composite on software GL");
-    await openCubeAtCentre(page);
-    // Python seeds a Z-only cut, then an edge window.
-    await setModel(page, { volume_cut: [0, 256, 0, 256, 0, 40] });
-    await expect.poll(async () => (await cutOf(page))[5]).toBe(40);
-    const zOnly = await cutOf(page);
-    expect(zOnly.slice(0, 4)).toEqual([0, 256, 0, 256]);
-    await setModel(page, { inspect_cx: 20, inspect_cy: 128 });
-    await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-refining", "false");
-    await page.waitForTimeout(600); // past the cut's settle commit
-    expect(await cutOf(page)).toEqual(zOnly);
+  test("a Z-only cut leaves X and Y whole for any window, edge windows too", async ({ page }, testInfo) => {
+    await withFailureTrace(page, testInfo, "z-only", async () => {
+      await openCubeAtCentre(page);
+      // Python seeds a Z-only cut, then an edge window.
+      await setModel(page, { volume_cut: [0, 256, 0, 256, 0, 40] });
+      await expect.poll(async () => (await cutOf(page))[5]).toBe(40);
+      const zOnly = await cutOf(page);
+      expect(zOnly.slice(0, 4)).toEqual([0, 256, 0, 256]);
+      await page.evaluate(() => {
+        const w = window as unknown as { __zSamples?: Record<string, string>[]; __zTimer?: number };
+        w.__zSamples = [];
+        const snap = () => {
+          const el = document.querySelector(".volume-cube__view");
+          const row: Record<string, string> = { t: String(Math.round(performance.now())) };
+          if (!el) row.missing = "1";
+          else for (const attr of el.getAttributeNames()) if (attr.startsWith("data-")) row[attr] = el.getAttribute(attr) ?? "";
+          w.__zSamples?.push(row);
+        };
+        snap();
+        w.__zTimer = window.setInterval(snap, 250);
+      });
+      await setModel(page, { inspect_cx: 20, inspect_cy: 128 });
+      try {
+        await expect(cubeWindow(page).locator(".volume-cube__view")).toHaveAttribute("data-refining", "false");
+      } catch (err) {
+        const dump = await page.evaluate(() => {
+          const w = window as unknown as { __zSamples?: Record<string, string>[]; __zTimer?: number };
+          if (w.__zTimer != null) window.clearInterval(w.__zTimer);
+          return w.__zSamples ?? [];
+        });
+        await attachFailure(testInfo, "z-only-samples", dump);
+        throw err;
+      }
+      await page.evaluate(() => {
+        const w = window as unknown as { __zTimer?: number };
+        if (w.__zTimer != null) window.clearInterval(w.__zTimer);
+      });
+      await page.waitForTimeout(600); // past the cut's settle commit
+      expect(await cutOf(page)).toEqual(zOnly);
+    });
   });
 
   test("leaving Inspect closes the cube and frees the map; Esc from its chrome closes it and exits", async ({ page }) => {
@@ -1812,37 +1877,65 @@ test.describe("Landmarks inspect cube", () => {
     await expect(right).toHaveAttribute("data-collapsed", "true");
   });
 
-  test("peek tabs and docks float over the open cube; focusing a category there recolours it", async ({ page }) => {
+  test("peek tabs and docks float over the open cube; focusing a category there recolours it", async ({ page }, testInfo) => {
+    await withFailureTrace(page, testInfo, "peek", async () => {
     await openCubeAtCentre(page, { at: [130, 170] });
     const view = cubeWindow(page).locator(".volume-cube__view");
     const right = page.locator(".landmarks__chrome-dock--right");
     await expect(right).toHaveAttribute("data-collapsed", "true");
     // The first frames composite the cell meshes; wait them out before hit-testing the pill.
     await expect(view).toHaveAttribute("data-refining", "false");
-    // Both peek tabs sit over the cube, clear of the Inspect pill's Save and Exit.
-    // A trial click also waits for the box to stop moving; the pill keeps shifting
-    // while the cube's first mesh frames land on software GL, and focusing the
-    // canvas can scroll the pill off the viewport. Scroll it on screen, then
-    // hit-test the centre.
-    const receivesClick = (locator: Locator) =>
-      expect.poll(async () => locator.evaluate((el) => {
-        el.scrollIntoView({ block: "nearest", inline: "nearest" });
-        const r = el.getBoundingClientRect();
-        if (r.width < 1 || r.height < 1) return "empty";
-        const x = r.x + r.width / 2;
-        const y = r.y + r.height / 2;
-        if (x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight) return "offscreen";
-        const top = document.elementFromPoint(x, y);
-        if (top && (el === top || el.contains(top))) return "ok";
-        const desc = top ? `${top.tagName}.${String(top.className).slice(0, 48)}` : "null";
-        return `miss:${desc}`;
-      }), { timeout: 15_000 }).toBe("ok");
+    // Save and Exit stay the top hit at their centers. The poll does not scroll.
+    const receivesClick = async (locator: Locator, name: string) => {
+      const samples: HitSample[] = [];
+      try {
+        await expect.poll(async () => {
+          const sample = await locator.evaluate((el): HitSample => {
+            const r = el.getBoundingClientRect();
+            const x = r.x + r.width / 2;
+            const y = r.y + r.height / 2;
+            const sized = r.width >= 1 && r.height >= 1;
+            const offscreen = sized && (x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight);
+            const top = sized && !offscreen ? document.elementFromPoint(x, y) : null;
+            const button = el as HTMLButtonElement;
+            const disabled =
+              button.disabled === true || el.hasAttribute("disabled") || el.getAttribute("aria-disabled") === "true";
+            return {
+              t: Math.round(performance.now()),
+              ok: Boolean(top && (el === top || el.contains(top))),
+              rect: { x: r.x, y: r.y, w: r.width, h: r.height },
+              disabled,
+              enabled: !disabled,
+              inert: Boolean(el.closest("[inert]")),
+              pointerEvents: getComputedStyle(el).pointerEvents,
+              offscreen,
+              refining: document.querySelector(".volume-cube__view")?.getAttribute("data-refining") ?? null,
+              top: top
+                ? {
+                    tag: top.tagName,
+                    id: top.id,
+                    className: String(top.className).slice(0, 200),
+                    aria: top.getAttribute("aria-label"),
+                    testid: top.getAttribute("data-testid"),
+                  }
+                : null,
+            };
+          });
+          samples.push(sample);
+          return sample.ok;
+        }, { timeout: 15_000 }).toBe(true);
+      } catch (err) {
+        await attachFailure(testInfo, `peek-${name}`, { n: samples.length, last: samples[samples.length - 1] ?? null, samples });
+        throw err;
+      }
+    };
     const actions = [
       inspectPill(page).getByRole("button", { name: "Save window" }),
       inspectPill(page).getByRole("button", { name: "Exit Inspect" }),
     ];
-    for (const a of actions) await receivesClick(a);
-    await receivesClick(page.getByRole("button", { name: "Show left panel" }));
+    await receivesClick(actions[0]!, "Save");
+    await receivesClick(actions[1]!, "Exit");
+    await receivesClick(page.getByRole("button", { name: "Show left panel" }), "Show left panel");
     await page.getByRole("button", { name: "Show right panel" }).click();
     await expect(right).toHaveAttribute("data-collapsed", "false");
     await expect(cubeWindow(page)).toBeVisible();
@@ -1853,7 +1946,8 @@ test.describe("Landmarks inspect cube", () => {
       [b.x + b.width / 2, b.y + Math.min(b.height / 2, 40)],
     );
     expect(onTop).toBe(true);
-    for (const a of actions) await receivesClick(a);
+    await receivesClick(actions[0]!, "Save after dock");
+    await receivesClick(actions[1]!, "Exit after dock");
 
     // Focus a category in the dock (points mode UI): raster mode shows the highlight in the cube.
     await right.getByRole("button", { name: "Expand cell_type" }).click();
@@ -1862,6 +1956,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect.poll(() => getModel(page, "selected_index")).toBe(0);
     await setModel(page, { render_mode: "raster" });
     await expect(view).toHaveAttribute("data-highlight", "1");
+    });
   });
 
   test("highlight follows focus: everything, a category, a Selection", async ({ page }) => {
