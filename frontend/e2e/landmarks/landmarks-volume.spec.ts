@@ -1816,6 +1816,8 @@ test.describe("Landmarks inspect cube", () => {
     const view = cubeWindow(page).locator(".volume-cube__view");
     const right = page.locator(".landmarks__chrome-dock--right");
     await expect(right).toHaveAttribute("data-collapsed", "true");
+    // The first frames composite the cell meshes; wait them out before hit-testing the pill.
+    await expect(view).toHaveAttribute("data-refining", "false");
     // Both peek tabs sit over the cube, clear of the Inspect pill's Save and Exit
     // (a click is refused when another element would receive it).
     const actions = [
