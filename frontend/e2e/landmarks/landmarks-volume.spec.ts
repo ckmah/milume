@@ -1721,6 +1721,7 @@ test.describe("Landmarks inspect cube", () => {
   });
 
   test("a Z-only cut leaves X and Y whole for any window, edge windows too", async ({ page }) => {
+    test.slow(Boolean(process.env.CI), "edge window refines a finer level while meshes composite on software GL");
     await openCubeAtCentre(page);
     // Python seeds a Z-only cut, then an edge window.
     await setModel(page, { volume_cut: [0, 256, 0, 256, 0, 40] });
@@ -1819,15 +1820,23 @@ test.describe("Landmarks inspect cube", () => {
     // The first frames composite the cell meshes; wait them out before hit-testing the pill.
     await expect(view).toHaveAttribute("data-refining", "false");
     // Both peek tabs sit over the cube, clear of the Inspect pill's Save and Exit.
-    // Hit-test the centre: a trial click also waits for the box to stop moving, and the
-    // pill's layout keeps shifting while the cube's first frames land on software GL.
+    // A trial click also waits for the box to stop moving; the pill keeps shifting
+    // while the cube's first mesh frames land on software GL, and focusing the
+    // canvas can scroll the pill off the viewport. Scroll it on screen, then
+    // hit-test the centre.
     const receivesClick = (locator: Locator) =>
       expect.poll(async () => locator.evaluate((el) => {
+        el.scrollIntoView({ block: "nearest", inline: "nearest" });
         const r = el.getBoundingClientRect();
-        if (r.width < 1 || r.height < 1) return false;
-        const top = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-        return Boolean(top && (el === top || el.contains(top)));
-      }), { timeout: 15_000 }).toBe(true);
+        if (r.width < 1 || r.height < 1) return "empty";
+        const x = r.x + r.width / 2;
+        const y = r.y + r.height / 2;
+        if (x < 0 || y < 0 || x >= window.innerWidth || y >= window.innerHeight) return "offscreen";
+        const top = document.elementFromPoint(x, y);
+        if (top && (el === top || el.contains(top))) return "ok";
+        const desc = top ? `${top.tagName}.${String(top.className).slice(0, 48)}` : "null";
+        return `miss:${desc}`;
+      }), { timeout: 15_000 }).toBe("ok");
     const actions = [
       inspectPill(page).getByRole("button", { name: "Save window" }),
       inspectPill(page).getByRole("button", { name: "Exit Inspect" }),
