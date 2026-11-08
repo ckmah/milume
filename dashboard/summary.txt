@@ -1,9 +1,8 @@
-as_of: Sun Nov 8, 2:31 AM PT
-needs_you: 2
-  #407 Squidpy niche recipe pilot (k-sweep, cached niches, stati... (pr)
+as_of: Sun Nov 8, 8:25 AM PT
+needs_you: 1
   #428 Recipe CI gates: script verify, shot lists, assembled-pag... (pr)
-open_prs: 5
-last_nightly: 2026-11-07 failure
+open_prs: 4
+last_nightly: 2026-11-08 success
 stale_prs:
   #430 cursor/volume-e2e-429-3aa1 (failing CI)
   #428 cursor/recipe-ci-gates-a3c1 (failing CI)
@@ -11,7 +10,6 @@ red_nightlies: 2026-10-31, 2026-11-06, 2026-11-07
 last_red_nightly: 2026-11-07
 ci_failure_issues:
   #429 CI: Inspect cube volume e2e hard-red since #418 (meshes /...
-  #431 Nightly landmarks e2e failed (2026-11-07)
 html: dashboard.html
 status: PUBLISH
-hash: eeccb0c03a6b
+hash: 0f1acec895ce
