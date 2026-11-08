@@ -6,6 +6,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 WEBSITE="${ROOT}/website"
 CONTENT_RECIPES="${WEBSITE}/content/how-to/recipes"
 MODE="${1:?usage: export-recipes.sh prepare-for-zensical | export-recipes.sh <site-root>}"
+_SITE_CUSTOMIZE="${WEBSITE}/scripts/marimo_export_sitecustomize"
+export PYTHONPATH="${_SITE_CUSTOMIZE}${PYTHONPATH:+:${PYTHONPATH}}"
 
 RECIPES=(
   squidpy_color
@@ -24,6 +26,8 @@ RECIPES=(
 )
 
 export MARIMO_EXPORT_REPOSITORY="${MARIMO_EXPORT_REPOSITORY:-${ROOT}/.cache/marimo-export-recipes}"
+# LandmarksWidget full-slice state exceeds marimo_export's default 256 KiB prepared manifest cap.
+export MILUME_MARIMO_PREPARED_MANIFEST_BYTES="${MILUME_MARIMO_PREPARED_MANIFEST_BYTES:-2097152}"
 
 export_one() {
   local slug="$1"

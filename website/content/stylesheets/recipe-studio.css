@@ -7,21 +7,32 @@
   margin-top: 1.25rem;
 }
 
+.md-content:has(.milume-recipe-studio-host) {
+  flex: 1 1 auto;
+  max-width: min(61rem, calc(100vw - var(--md-sidebar-width, 12.1rem) - 2.5rem));
+}
+
+.md-main__inner.md-grid:has(.milume-recipe-studio-host) > .md-sidebar--secondary {
+  display: none;
+}
+
+.md-content:has(.milume-recipe-studio-host) .md-content__inner {
+  max-width: 100%;
+}
+
+.md-content:has(.milume-recipe-studio-host) .md-content__inner > h1:first-of-type {
+  display: none;
+}
+
 .milume-recipe-studio-prose marimo-cell {
   --marimo-cell-content-width: min(100%, 48rem);
 }
 
 .milume-recipe-studio-wide {
-  width: min(100vw - 2rem, 96rem);
-  margin-inline: calc(50% - min(50vw, 48rem));
-  max-width: none;
-}
-
-@media screen and (min-width: 76.25em) {
-  .milume-recipe-studio-wide {
-    width: calc(100vw - 19.2rem);
-    margin-inline: calc(50% - 50vw + 9.6rem);
-  }
+  width: 100%;
+  max-width: 100%;
+  margin-inline: 0;
+  overflow: hidden;
 }
 
 .milume-recipe-studio-host marimo-cell {

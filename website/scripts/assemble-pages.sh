@@ -66,7 +66,7 @@ uv run --directory "${ROOT}" bash "${WEBSITE}/scripts/export-recipes.sh" prepare
 rm -rf "${WEBSITE}/dist"
 (
   cd "${WEBSITE}"
-  zensical build --clean
+  uv run zensical build --clean
 )
 
 loaded_urls="$(mktemp)"
@@ -91,7 +91,7 @@ uv run --directory "${ROOT}" python "${WEBSITE}/scripts/prepare_recipe_studio.py
 rm -rf "${WEBSITE}/dist"
 (
   cd "${WEBSITE}"
-  zensical build --clean
+  uv run zensical build --clean
 )
 
 mkdir -p "${OUT}/docs"
