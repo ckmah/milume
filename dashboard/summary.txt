@@ -1,4 +1,4 @@
-as_of: Sat Nov 7, 11:28 AM PT
+as_of: Sat Nov 7, 4:44 PM PT
 needs_you: 2
   #407 Squidpy niche recipe pilot (k-sweep, cached niches, stati... (pr)
   #428 Recipe CI gates: script verify, shot lists, assembled-pag... (pr)
@@ -14,4 +14,4 @@ ci_failure_issues:
   #431 Nightly landmarks e2e failed (2026-11-07)
 html: dashboard.html
 status: PUBLISH
-hash: cd74f949ca6e
+hash: 5076d5fa20f1
