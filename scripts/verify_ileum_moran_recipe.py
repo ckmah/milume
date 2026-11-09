@@ -11,6 +11,8 @@ Villus axis: each enterocyte's straight-line distance (um) to the nearest Stem o
 No mucosal_pseudospace anywhere.
 Unpruned Delaunay (spatial_neighbors_delaunay, radius=None, percentile=None): longest edge
 1681 um, which the recipe prose rounds to 0.1 mm (1.7). Cell and gene counts are adata.shape.
+Committed demos/data/ileum_moran_recipe_scores.parquet matches this rerun within 1e-12.
+NaN equals NaN.
 Usage: python scripts/verify_ileum_moran_recipe.py ILEUM_H5AD OUTDIR
 """
 import hashlib
@@ -56,6 +58,30 @@ genes = list(ent.var_names[detected >= 0.05])
 sq.gr.spatial_neighbors_knn(ent, n_neighs=6, percentile=99)
 moran_ent = sq.gr.spatial_autocorr(ent, genes=genes, mode="moran", n_perms=None, copy=True)
 scores = pd.DataFrame({"moran_I_all": moran_all["I"], "moran_I_enterocyte": moran_ent["I"]})
+cache_path = Path(__file__).resolve().parents[1] / "demos" / "data" / "ileum_moran_recipe_scores.parquet"
+cached = pd.read_parquet(cache_path)
+fresh = scores[["moran_I_all", "moran_I_enterocyte"]]
+if list(cached.columns) != list(fresh.columns) or not cached.index.equals(fresh.index):
+    raise SystemExit(f"{cache_path} index or columns do not match the rerun")
+left = fresh.to_numpy(dtype=float)
+right = cached.to_numpy(dtype=float)
+both_nan = np.isnan(left) & np.isnan(right)
+nan_mismatch = np.isnan(left) ^ np.isnan(right)
+if nan_mismatch.any():
+    i, j = np.argwhere(nan_mismatch)[0]
+    raise SystemExit(f"NaN mismatch at {fresh.index[i]} {fresh.columns[j]}")
+delta = np.abs(left - right)
+delta[both_nan] = 0
+over = delta > 1e-12
+if over.any():
+    i, j = np.unravel_index(int(np.argmax(delta)), delta.shape)
+    n_rows = int(over.any(axis=1).sum())
+    raise SystemExit(
+        f"{n_rows} parquet rows differ by >1e-12 "
+        f"(max {delta[i, j]:.6g} at {fresh.index[i]} {fresh.columns[j]})"
+    )
+S["parquet_rows_matched"] = int(len(fresh))
+S["parquet_max_abs_diff"] = float(delta.max())
 S["n_enterocytes"], S["n_ent_genes"] = int(ent.n_obs), len(genes)
 for g in ("Erbb3", "Apob"):
     S[g] = {k: round(float(scores.at[g, k]), 4) for k in scores.columns}
