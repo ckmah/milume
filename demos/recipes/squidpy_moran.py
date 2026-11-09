@@ -42,15 +42,58 @@ app = marimo.App(width="medium")
 
 
 @app.cell(hide_code=True)
-def intro(mo):
-    mo.md(r"""
+def recipe_figures():
+    # Values the prose prints. Neighbor settings are the ones the score cells run.
+    N_CELLS = 30_332
+    N_GENES = 1_815
+    UPDATED = "2026-11-01"
+    N_NEIGHS = 6
+    PERCENTILE = 99
+    MIN_DETECT = 0.05
+    LONGEST_LINK_MM = 1
+    YEAR_MORAN = 1950
+    YEAR_YAN = 2025
+    YEAR_MOOR = 2018
+    DOI_XU = "10.1016/j.chom.2026.01.018"
+    DOI_MORAN = "10.2307/2332142"
+    DOI_YAN = "10.1038/s41467-025-56080-w"
+    DOI_MOOR = "10.1016/j.cell.2018.08.063"
+    GENE_ERBB3 = "Erbb3"
+    GENE_APOB = "Apob"
+    GENE_CPS1 = "Cps1"
+    GENE_ACTA2 = "Acta2"
+    return (
+        DOI_MOOR,
+        DOI_MORAN,
+        DOI_XU,
+        DOI_YAN,
+        GENE_ACTA2,
+        GENE_APOB,
+        GENE_CPS1,
+        GENE_ERBB3,
+        LONGEST_LINK_MM,
+        MIN_DETECT,
+        N_CELLS,
+        N_GENES,
+        N_NEIGHS,
+        PERCENTILE,
+        UPDATED,
+        YEAR_MOOR,
+        YEAR_MORAN,
+        YEAR_YAN,
+    )
+
+
+@app.cell(hide_code=True)
+def intro(DOI_XU, GENE_APOB, GENE_ERBB3, N_CELLS, N_GENES, UPDATED, mo):
+    mo.md(f"""
     # Moran's I: is a gene spatial because of where cell types sit, or within one?
 
-    *By Clarence Mah · Last updated 2026-11-01*
+    *By Clarence Mah · Last updated {UPDATED}*
 
     Many genes look patterned in a tissue section. Some only look that way because the cells that express them sit together. Others change with position inside a single cell type, and those tell us how one cell type divides its work across the tissue.
 
-    We use one MERFISH section of mouse ileum from [Xu et al. 2026](https://doi.org/10.1016/j.chom.2026.01.018): 30,332 cells × 1,815 genes, with the authors' cell types. Here we score every gene with Moran's I across all cells, score again inside enterocytes only, and follow two genes: **Erbb3**, which drops, and **Apob**, which holds.
+    We use one MERFISH section of mouse ileum from [Xu et al. {UPDATED[:4]}](https://doi.org/{DOI_XU}): {N_CELLS:,} cells × {N_GENES:,} genes, with the authors' cell types. Here we score every gene with Moran's I across all cells, score again inside enterocytes only, and follow two genes: **{GENE_ERBB3}**, which drops, and **{GENE_APOB}**, which holds.
 
     [Open in molab](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_moran.py). This page shows a precomputed default view. To change selections or rerun the analysis, open the notebook in molab.
     """)
@@ -121,22 +164,22 @@ def _(adata, mo):
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
+def _(DOI_MORAN, N_NEIGHS, PERCENTILE, YEAR_MORAN, mo):
+    mo.md(f"""
     ## Score every gene across all cells
 
-    **Moran's I** asks whether neighboring cells have more similar expression than random pairs of cells ([Moran 1950](https://doi.org/10.2307/2332142)). Think of a seating chart: if people next to each other wear the same color, the room has a pattern. I is near 0 for a random layout and near 1 when neighbors match.
+    **Moran's I** asks whether neighboring cells have more similar expression than random pairs of cells ([Moran {YEAR_MORAN}](https://doi.org/{DOI_MORAN})). Think of a seating chart: if people next to each other wear the same color, the room has a pattern. I is near 0 for a random layout and near 1 when neighbors match.
 
-    We link each cell to its `n_neighs=6` nearest cells, about the ring of cells that touch it. `percentile=99` drops the longest 1% of links, which jump across the lumen or tissue gaps. `n_perms=None` skips the shuffle test: we compare I values, not p-values, and shuffling would add minutes without changing I.
+    We link each cell to its `n_neighs={N_NEIGHS}` nearest cells, about the ring of cells that touch it. `percentile={PERCENTILE}` drops the longest {100 - PERCENTILE}% of links, which jump across the lumen or tissue gaps. `n_perms=None` skips the shuffle test: we compare I values, not p-values, and shuffling would add minutes without changing I.
     """)
     return
 
 
 @app.cell
-def moran_all(mo):
-    mo.md(r"""
+def moran_all(N_NEIGHS, PERCENTILE, mo):
+    mo.md(f"""
 ```python
-sq.gr.spatial_neighbors_knn(adata, n_neighs=6, percentile=99)
+sq.gr.spatial_neighbors_knn(adata, n_neighs={N_NEIGHS}, percentile={PERCENTILE})
 moran_all_cells = sq.gr.spatial_autocorr(adata, mode="moran", n_perms=None, copy=True)
 ```
     """)
@@ -144,17 +187,17 @@ moran_all_cells = sq.gr.spatial_autocorr(adata, mode="moran", n_perms=None, copy
 
 
 @app.cell
-def moran_all_compute(adata, sq):
-    sq.gr.spatial_neighbors_knn(adata, n_neighs=6, percentile=99)
+def moran_all_compute(N_NEIGHS, PERCENTILE, adata, sq):
+    sq.gr.spatial_neighbors_knn(adata, n_neighs=N_NEIGHS, percentile=PERCENTILE)
     moran_all_cells = sq.gr.spatial_autocorr(adata, mode="moran", n_perms=None, copy=True)
     return (moran_all_cells,)
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
+def _(LONGEST_LINK_MM, mo):
+    mo.md(f"""
     /// tip | Choosing the neighbor graph
-    Moran's I depends on who counts as a neighbor. A small `n_neighs` asks about the cells right next door; a large one smooths over whole villi. Six nearest cells is a common default for imaging data. Don't use an unpruned Delaunay graph here: its longest links span about 1 mm. The [niches recipe](../squidpy_color/) shows how graph size changes a result.
+    Moran's I depends on who counts as a neighbor. A small `n_neighs` asks about the cells right next door; a large one smooths over whole villi. Six nearest cells is a common default for imaging data. Don't use an unpruned Delaunay graph here: its longest links span about {LONGEST_LINK_MM} mm. The [niches recipe](../squidpy_color/) shows how graph size changes a result.
     ///
 
     /// note | Precomputed
@@ -165,48 +208,48 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
+def _(DOI_YAN, MIN_DETECT, YEAR_YAN, mo):
+    mo.md(f"""
     ## Score again inside enterocytes
 
-    A high all-cell score can come from the layout of cell types alone: epithelium on the inside, muscle on the outside. To ask what varies *within* one cell type, we keep only enterocytes, the absorptive cells that line the villi, and rebuild the graph so each enterocyte's neighbors are other enterocytes. We score genes detected in at least 5% of enterocytes; rarer genes give unstable scores. This is the same idea as the cell-type-specific spatially variable genes in [Yan, Hua & Li 2025](https://doi.org/10.1038/s41467-025-56080-w), done with one subset.
+    A high all-cell score can come from the layout of cell types alone: epithelium on the inside, muscle on the outside. To ask what varies *within* one cell type, we keep only enterocytes, the absorptive cells that line the villi, and rebuild the graph so each enterocyte's neighbors are other enterocytes. We score genes detected in at least {MIN_DETECT:.0%} of enterocytes; rarer genes give unstable scores. This is the same idea as the cell-type-specific spatially variable genes in [Yan, Hua & Li {YEAR_YAN}](https://doi.org/{DOI_YAN}), done with one subset.
     """)
     return
 
 
 @app.cell
-def subset(adata, mo, np):
+def subset(MIN_DETECT, adata, mo, np):
     ent = adata[adata.obs.cell_type.str.startswith("Enterocyte")].copy()
     detected = np.asarray((ent.X > 0).sum(axis=0)).ravel() / ent.n_obs
-    genes = list(ent.var_names[detected >= 0.05])
+    genes = list(ent.var_names[detected >= MIN_DETECT])
     mo.show_code()
     return ent, genes
 
 
 @app.cell
-def moran_ent(mo):
-    mo.md(r"""
+def moran_ent(N_NEIGHS, PERCENTILE, mo):
+    mo.md(f"""
 ```python
-sq.gr.spatial_neighbors_knn(ent, n_neighs=6, percentile=99)
+sq.gr.spatial_neighbors_knn(ent, n_neighs={N_NEIGHS}, percentile={PERCENTILE})
 moran_enterocytes = sq.gr.spatial_autocorr(ent, genes=genes, mode="moran", n_perms=None, copy=True)
-scores = pd.DataFrame({"moran_I_all": moran_all_cells["I"], "moran_I_enterocyte": moran_enterocytes["I"]})
+scores = pd.DataFrame({{"moran_I_all": moran_all_cells["I"], "moran_I_enterocyte": moran_enterocytes["I"]}})
 ```
     """)
     return
 
 
 @app.cell
-def moran_ent_compute(ent, genes, moran_all_cells, pd, sq):
-    sq.gr.spatial_neighbors_knn(ent, n_neighs=6, percentile=99)
+def moran_ent_compute(N_NEIGHS, PERCENTILE, ent, genes, moran_all_cells, pd, sq):
+    sq.gr.spatial_neighbors_knn(ent, n_neighs=N_NEIGHS, percentile=PERCENTILE)
     moran_enterocytes = sq.gr.spatial_autocorr(ent, genes=genes, mode="moran", n_perms=None, copy=True)
     scores = pd.DataFrame({"moran_I_all": moran_all_cells["I"], "moran_I_enterocyte": moran_enterocytes["I"]})
     return (scores,)
 
 
 @app.cell(hide_code=True)
-def _(ent, genes, mo):
+def _(MIN_DETECT, ent, genes, mo):
     mo.md(f"""
-    The subset holds {ent.n_obs:,} enterocytes, and {len(genes)} genes pass the 5% rule.
+    The subset holds {ent.n_obs:,} enterocytes, and {len(genes)} genes pass the {MIN_DETECT:.0%} rule.
 
     /// tip | Choosing the subset
     `str.startswith("Enterocyte")` keeps all four enterocyte labels. The authors named three of them by villus position (bottom, mid, top), so pooling them keeps the villus gradient we want to see. Run on one label to remove that gradient instead (see the caveat below).
@@ -259,21 +302,21 @@ def landmark_map(adata_map, ml, mo):
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    Erbb3 is bright along the whole length of each villus, from crypt to tip. Now switch the color to **Apob**. It is dim near the crypts and bright toward the villus tips.
+def _(GENE_APOB, GENE_ERBB3, mo):
+    mo.md(f"""
+    {GENE_ERBB3} is bright along the whole length of each villus, from crypt to tip. Now switch the color to **{GENE_APOB}**. It is dim near the crypts and bright toward the villus tips.
     """)
     return
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
-    ## Erbb3 drops inside enterocytes; Apob holds
+def _(GENE_APOB, GENE_ERBB3, mo):
+    mo.md(f"""
+    ## {GENE_ERBB3} drops inside enterocytes; {GENE_APOB} holds
 
     To place each enterocyte between villus base and tip, we use the crypt as the landmark. Stem and Paneth cells sit at the crypt base, so an enterocyte's villus position is its straight-line distance to the nearest stem or Paneth cell: small near the base, large near the tip. We find that nearest cell with a k-d tree from scipy.
 
-    The left panel compares each gene's two scores. The right panel splits enterocytes into ten equal-size groups by that distance and shows each group's mean expression. This page shows the figure for Erbb3 and Apob. In molab, the gene you pick in the map is added in black, and you can lasso one villus to profile only its enterocytes.
+    The left panel compares each gene's two scores. The right panel splits enterocytes into ten equal-size groups by that distance and shows each group's mean expression. This page shows the figure for {GENE_ERBB3} and {GENE_APOB}. In molab, the gene you pick in the map is added in black, and you can lasso one villus to profile only its enterocytes.
     """)
     return
 
@@ -409,21 +452,21 @@ def _(mo, partial_rho, rho_depth):
 
 
 @app.cell(hide_code=True)
-def _(mo):
-    mo.md(r"""
+def _(DOI_MOOR, DOI_XU, GENE_ACTA2, GENE_APOB, GENE_CPS1, GENE_ERBB3, UPDATED, YEAR_MOOR, mo):
+    mo.md(f"""
     ## Takeaway
 
     - An all-cell Moran's I ranking mixes two things: where cell types sit, and how expression changes inside a cell type.
-    - Scoring again inside one cell type separates them. **Erbb3** is spatial only because epithelium sits in one place. **Apob** stays spatial inside enterocytes because it rises with distance from the crypt, toward the villus tip.
-    - The Apob gradient matches [Moor et al. 2018](https://doi.org/10.1016/j.cell.2018.08.063), who found the chylomicron-assembly genes, including Apob, highest in enterocytes at the villus tips. They measured mouse jejunum, not ileum; [Xu et al. 2026](https://doi.org/10.1016/j.chom.2026.01.018) cite the study for gene expression changing from crypt to villus tip.
+    - Scoring again inside one cell type separates them. **{GENE_ERBB3}** is spatial only because epithelium sits in one place. **{GENE_APOB}** stays spatial inside enterocytes because it rises with distance from the crypt, toward the villus tip.
+    - The {GENE_APOB} gradient matches [Moor et al. {YEAR_MOOR}](https://doi.org/{DOI_MOOR}), who found the chylomicron-assembly genes, including {GENE_APOB}, highest in enterocytes at the villus tips. They measured mouse jejunum, not ileum; [Xu et al. {UPDATED[:4]}](https://doi.org/{DOI_XU}) cite the study for gene expression changing from crypt to villus tip.
 
     ## Try it
 
-    - Switch the map between **Erbb3** and **Apob**. Which one brightens toward the villus tips?
-    - Color by **Cps1**. Its high enterocytes sit near the crypts, the mirror image of Apob. In molab, where does it land in the scatter?
-    - Color by `n_counts`. Compare it with Apob along a few villi.
-    - Lasso a single villus (molab only). Does the Apob profile still climb with distance from the crypt in one villus?
-    - Color by **Acta2**. It tops the all-cell ranking but isn't scored in enterocytes. Why?
+    - Switch the map between **{GENE_ERBB3}** and **{GENE_APOB}**. Which one brightens toward the villus tips?
+    - Color by **{GENE_CPS1}**. Its high enterocytes sit near the crypts, the mirror image of {GENE_APOB}. In molab, where does it land in the scatter?
+    - Color by `n_counts`. Compare it with {GENE_APOB} along a few villi.
+    - Lasso a single villus (molab only). Does the {GENE_APOB} profile still climb with distance from the crypt in one villus?
+    - Color by **{GENE_ACTA2}**. It tops the all-cell ranking but isn't scored in enterocytes. Why?
 
     ## Next
 
