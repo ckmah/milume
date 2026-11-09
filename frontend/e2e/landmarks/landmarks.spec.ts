@@ -534,6 +534,36 @@ test.describe("LandmarksWidget", () => {
     expect(await lasso.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(onBg);
   });
 
+  test("at 600px width the main toolbar and View CTA do not overlap", async ({ page }) => {
+    await page.setViewportSize({ width: 600, height: 900 });
+    const widget = page.locator(".landmarks").first();
+    await expect(widget).toBeVisible();
+
+    const overlapCount = await page.evaluate(() => {
+      const root = document.querySelector(".landmarks");
+      if (!root) return -1;
+      const main = root.querySelector(
+        '[role="toolbar"][aria-label="Drawing tools"]',
+      ) as HTMLElement | null;
+      const view = root.querySelector('[data-testid="view-cta"]') as HTMLElement | null;
+      if (!main || !view) return -1;
+
+      const rects = [main.getBoundingClientRect(), view.getBoundingClientRect()];
+      let count = 0;
+      for (let i = 0; i < rects.length; i++) {
+        for (let j = i + 1; j < rects.length; j++) {
+          const a = rects[i]!;
+          const b = rects[j]!;
+          if (a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) {
+            count += 1;
+          }
+        }
+      }
+      return count;
+    });
+    expect(overlapCount).toBe(0);
+  });
+
   test("side panels collapse to a peek tab and come back", async ({ page }) => {
     // Collapse buttons sit beside their panels, not on them.
     for (const side of ["left", "right"] as const) {

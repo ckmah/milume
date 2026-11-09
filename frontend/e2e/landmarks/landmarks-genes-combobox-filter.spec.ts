@@ -92,7 +92,7 @@ test.describe("Landmarks genes combobox filter sync (#387)", () => {
   test.beforeEach(async ({ page }) => {
     await bootLandmarksHarness(page);
     await openGenesTab(page);
-    await expect.poll(() => getModel(page, "gene_names")).toEqual(
+    await expect.poll(async () => ((await getModel(page, "_color_options")) as { genes: unknown[] }).genes).toEqual(
       expect.arrayContaining([expect.objectContaining({ name: "Abtb3" })]),
     );
   });

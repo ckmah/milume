@@ -436,44 +436,60 @@ export function LandmarksView({
         )}
       </div>
       <div className="landmarks__chrome">
-        <div
-          className="landmarks__chrome-tools"
-          onMouseDown={(e) => e.stopPropagation()}
-          onWheel={(e) => e.stopPropagation()}
-        >
-          {/* One slot: the Inspect pill swaps in for the tool pill (both stack while one leaves). */}
-          <Rise ref={toolPillRef} show={!inspecting} inert={inspecting}>
-            <Topbar
-              modes={ALL_MODES}
-              mode={lm.mode}
-              onMode={(mode) => lm.setMode(mode)}
-              fullscreen={isFullscreen}
-              onToggleFullscreen={() => {
-                toggle();
-              }}
-              onZoomIn={() => engineRef.current?.zoomBy(1)}
-              onZoomOut={() => engineRef.current?.zoomBy(-1)}
-              onReset={() => engineRef.current?.resetZoom()}
+        <div className="landmarks__chrome-top-row">
+          <div
+            className="landmarks__chrome-tools-slot"
+            onMouseDown={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
+          >
+            {/* One slot: the Inspect pill swaps in for the tool pill (both stack while one leaves). */}
+            <div className="landmarks__chrome-tools">
+              <Rise ref={toolPillRef} show={!inspecting} inert={inspecting}>
+                <Topbar
+                  modes={ALL_MODES}
+                  mode={lm.mode}
+                  onMode={(mode) => lm.setMode(mode)}
+                  fullscreen={isFullscreen}
+                  onToggleFullscreen={() => {
+                    toggle();
+                  }}
+                  onZoomIn={() => engineRef.current?.zoomBy(1)}
+                  onZoomOut={() => engineRef.current?.zoomBy(-1)}
+                  onReset={() => engineRef.current?.resetZoom()}
+                />
+              </Rise>
+              <Rise ref={inspectPillRef} show={inspecting} inert={!inspecting}>
+                <InspectPill
+                  open={cubeOpen}
+                  sizeUm={lm.inspect_size_um || INSPECT_WINDOW_UM}
+                  load={toInspectLoad(cube.load, cube.loadError)}
+                  saved={isWindowSaved(lm)}
+                  canSave={lm.inspect_cx != null && lm.inspect_cy != null}
+                  fullscreen={isFullscreen}
+                  onExit={inspectCube.exitInspect}
+                  onSave={inspectCube.save}
+                  onToggleFullscreen={() => {
+                    toggle();
+                  }}
+                  onZoomIn={() => engineRef.current?.zoomBy(1)}
+                  onZoomOut={() => engineRef.current?.zoomBy(-1)}
+                  onResetZoom={() => engineRef.current?.resetZoom()}
+                />
+              </Rise>
+            </div>
+          </div>
+
+          <div
+            className="landmarks__chrome-view"
+            onMouseDown={(e) => e.stopPropagation()}
+            onWheel={(e) => e.stopPropagation()}
+          >
+            <ViewCta
+              lm={lm}
+              minimise={minimise}
+              onToggleMinimise={() => setMinimise((m) => !m)}
             />
-          </Rise>
-          <Rise ref={inspectPillRef} show={inspecting} inert={!inspecting}>
-            <InspectPill
-              open={cubeOpen}
-              sizeUm={lm.inspect_size_um || INSPECT_WINDOW_UM}
-              load={toInspectLoad(cube.load, cube.loadError)}
-              saved={isWindowSaved(lm)}
-              canSave={lm.inspect_cx != null && lm.inspect_cy != null}
-              fullscreen={isFullscreen}
-              onExit={inspectCube.exitInspect}
-              onSave={inspectCube.save}
-              onToggleFullscreen={() => {
-                toggle();
-              }}
-              onZoomIn={() => engineRef.current?.zoomBy(1)}
-              onZoomOut={() => engineRef.current?.zoomBy(-1)}
-              onResetZoom={() => engineRef.current?.resetZoom()}
-            />
-          </Rise>
+          </div>
         </div>
 
         {inspecting && hasVolume ? (
@@ -481,7 +497,6 @@ export function LandmarksView({
             settings={cube}
             patch={patchCube}
             labelsAvailable={Boolean(lm.volume?.cells)}
-            pointsAvailable={(lm.render_mode || "points") === "points"}
             cut={inspectCube.cut}
             cutRanges={inspectCube.cutRanges}
             onCutLive={inspectCube.onCutLive}
@@ -497,7 +512,6 @@ export function LandmarksView({
         {cubeOpen ? (
           <CubeImmersive
             lm={lm}
-            engine={engine}
             settings={cube}
             patch={patchCube}
             cut={inspectCube.cut}
@@ -535,18 +549,6 @@ export function LandmarksView({
           />
         ) : null}
 
-        <div
-          className="landmarks__chrome-view"
-          onMouseDown={(e) => e.stopPropagation()}
-          onWheel={(e) => e.stopPropagation()}
-        >
-          <ViewCta
-            lm={lm}
-            minimise={minimise}
-            onToggleMinimise={() => setMinimise((m) => !m)}
-          />
-        </div>
-
         {narrow ? (
           <>
             <div
@@ -571,7 +573,6 @@ export function LandmarksView({
                 data-testid="info-explore-stack"
               >
                 <RightChromeStack
-                  model={model}
                   lm={lm}
                   engine={engine}
                   minimise={minimise}
@@ -649,7 +650,6 @@ export function LandmarksView({
                 data-testid="info-explore-stack"
               >
                 <RightChromeStack
-                  model={model}
                   lm={lm}
                   engine={engine}
                   minimise={minimise}

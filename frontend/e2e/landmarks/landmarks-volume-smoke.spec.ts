@@ -12,8 +12,7 @@ import {
 
 const cubeWindow = (page: Page) => page.getByRole("dialog", { name: "Cube" });
 const cutOf = async (page: Page) => (await getModel(page, "volume_cut")) as number[];
-const layerToggle = (page: Page, layer: "image" | "labels" | "points") =>
-  page.getByTestId(`layer-toggle-${layer}`);
+const layerToggle = (page: Page, layer: "image" | "labels") => page.getByTestId(`layer-toggle-${layer}`);
 
 async function openCubeAtCentre(page: Page) {
   await page.getByRole("radio", { name: "Inspect", exact: true }).click();

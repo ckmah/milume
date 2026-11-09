@@ -1,24 +1,25 @@
-# Shot list for automated recipe capture (squidpy_color).
+# Shot list for automated recipe capture (squidpy_color niche recipe).
 # column: Landmarks color trait (obs column key).
 # selection_count: expected number of drawn selections in the widget model.
 recipe: squidpy_color
 page: /docs/how-to/recipes/squidpy_color/index.html
 shots:
-  - id: prepared-niche-default
+  - id: prepared-niche-k30-default
     theme: default
-    column: nhood_niche_res=0.5
+    column: niche_k30_res0.3
     selection_count: 1
     pointer:
-      norm_x: 0.55
-      norm_y: 0.45
+      norm_x: 0.42
+      norm_y: 0.48
     claim: >-
-      Prepared export shows one patch selection and niche colors after Squidpy.
-  - id: prepared-niche-slate
+      Prepared export colors the full ileum slice by niche_k30_res0.3 and keeps
+      one GALT follicle selection.
+  - id: prepared-niche-k30-slate
     theme: slate
-    column: nhood_niche_res=0.5
+    column: niche_k30_res0.3
     selection_count: 1
     pointer:
-      norm_x: 0.45
-      norm_y: 0.5
+      norm_x: 0.58
+      norm_y: 0.52
     claim: >-
-      Dark palette matches Zensical slate; widget state unchanged.
+      Slate theme keeps the same k30 niche column and one selection.

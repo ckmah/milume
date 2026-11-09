@@ -6,7 +6,7 @@ Needs the same optional packages as the demos (`squidpy`, `scanpy`, `leidenalg` 
 
 ## Squidpy niche color
 
-Colour Landmarks from Squidpy neighborhood niches on a masked selection, then assign `w.color` to the niche column Squidpy writes to `adata.obs`.
+Color Landmarks from Squidpy neighborhood niches on a masked selection, then assign `w.color` to the niche column Squidpy writes to `adata.obs`.
 
 | | Link |
 | --- | --- |

@@ -1,10 +1,10 @@
 # Match plot colors (squidpy)
 
-Colour the Landmarks map from Squidpy niche labels and reuse the same hex colours in Matplotlib or Scanpy plots.
+Color the Landmarks map from Squidpy niche labels and reuse the same hex colors in Matplotlib or Scanpy plots.
 
 ## Goal
 
-Run Squidpy neighborhood niches on a selection, assign `w.color` to the niche column Squidpy writes, and read colours back with `w.category_colors`.
+Run Squidpy neighborhood niches on a selection, assign `w.color` to the niche column Squidpy writes, and read colors back with `w.category_colors`.
 
 ## Steps
 
@@ -62,7 +62,7 @@ palette = w.category_colors(niche_col)  # {label: "#rrggbb"}
 
 ## Result
 
-Landmarks points and downstream plots share the same label-to-colour mapping as the map.
+Landmarks points and downstream plots share the same label-to-color mapping as the map.
 
 For a prepared studio walkthrough (fixed selection and export state), use the [Squidpy niche color recipe](recipes/squidpy_color/) or the live [molab notebook](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py). The recipe export pipeline is unchanged; this page is the task-only steps.
 

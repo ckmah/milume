@@ -30,9 +30,9 @@ _IZe_OLD = (
     "`${t} must contain a data URL.`);return n}"
 )
 _IZe_NEW = (
-    "function IZe(e,t){let n=z7(e,t);if(n.startsWith(`data:`))return n;"
-    "if(n.startsWith(`../`)||n.startsWith(`/`)||n.startsWith(`http://`)||"
-    "n.startsWith(`https://`))return n;"
+    "function IZe(e,t){let n=z7(e,t);if(n.startsWith(\"data:\"))return n;"
+    'if(n.startsWith("../")||n.startsWith("/")||n.startsWith("http://")||'
+    'n.startsWith("https://"))return n;'
     "throw TypeError(`${t} must contain a data URL or shared widget asset URL.`);"
     "return n}"
 )
@@ -43,21 +43,20 @@ _NBe_OLD = (
 )
 _NBe_NEW = (
     "function NBe(e,t=Pte()){let n=PBe(e,t);if(!n)return e;"
-    "if(!n.startsWith(`data:`))return new URL(n,document.baseURI).href;"
+    'if(!n.startsWith("data:"))return new URL(n,document.baseURI).href;'
     "let r=K1(n);return URL.createObjectURL(r)}"
 )
 
 _SIZE_CHECK_OLD = (
-    "if(r.expectedBytes!==void 0&&a!==r.expectedBytes)throw x7(i,Error("
-    "`Response size differs from descriptor`)),new m5(`integrity_failed`,"
-    "`Export file ${C7(n)} has an unexpected declared size.`,"
-    "{details:{path:S7(n),expectedSize:r.expectedBytes,observedSize:a}})"
+    "if(r.expectedBytes!==void 0&&a!==r.expectedBytes)throw x7(i,Error(`Response size differs from descriptor`)),"
+    "new m5(`integrity_failed`,`Export file ${C7(n)} has an unexpected declared size.`,"
+    "{details:{path:S7(n),expectedSize:r.expectedBytes,observedSize:a}})}"
 )
 
 _SIZE_CHECK_OLD_2 = (
     "if(r.expectedBytes!==void 0&&e.byteLength!==r.expectedBytes)throw new m5("
     "`integrity_failed`,`Export file ${C7(n)} has an unexpected size.`,"
-    "{details:{path:S7(n),expectedSize:r.expectedBytes,observedSize:e.byteLength}})"
+    "{details:{path:S7(n),expectedSize:r.expectedBytes,observedSize:e.byteLength}});"
 )
 
 _XXe_OLD = (
@@ -68,6 +67,10 @@ _XXe_OLD = (
     "{details:{expectedSha256:t.sha256,observedSha256:n}})}"
 )
 _XXe_NEW = "async function XXe(e,t){return}"
+
+# Full-slice LandmarksWidget manifests exceed the stock 256 KiB browser cap (#407).
+_S9_OLD = "S9=262144,"
+_S9_NEW = "S9=2097152,"
 
 
 @dataclass(frozen=True)
@@ -80,9 +83,11 @@ class ZeroPythonRuntimePatch:
 ZERO_PYTHON_RUNTIME_PATCHES: tuple[ZeroPythonRuntimePatch, ...] = (
     ZeroPythonRuntimePatch("shared_esm_ize", _IZe_OLD, _IZe_NEW),
     ZeroPythonRuntimePatch("shared_esm_nbe", _NBe_OLD, _NBe_NEW),
-    ZeroPythonRuntimePatch("shared_esm_size_declared", _SIZE_CHECK_OLD, ""),
+    # Removing the check entirely drops the `}` that closes `if (a !== void 0) { ... }`.
+    ZeroPythonRuntimePatch("shared_esm_size_declared", _SIZE_CHECK_OLD, "}"),
     ZeroPythonRuntimePatch("shared_esm_size_body", _SIZE_CHECK_OLD_2, ""),
     ZeroPythonRuntimePatch("shared_esm_xxe", _XXe_OLD, _XXe_NEW),
+    ZeroPythonRuntimePatch("prepared_manifest_limit", _S9_OLD, _S9_NEW),
 )
 
 FIXTURE_MARIMO_STUDIO_0_4_1_ANCHORS = (

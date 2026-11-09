@@ -68,9 +68,9 @@ async function save(page: Page) {
   await expect.poll(async () => (await selectionsOf(page)).length).toBe(before + 1);
   return Number(await getModel(page, "selected_index"));
 }
-const layerToggle = (page: Page, layer: "image" | "labels" | "points") => page.getByTestId(`layer-toggle-${layer}`);
+const layerToggle = (page: Page, layer: "image" | "labels") => page.getByTestId(`layer-toggle-${layer}`);
 /** Right-click a layer toggle to open its settings menu. */
-async function openLayerMenu(page: Page, layer: "image" | "labels" | "points") {
+async function openLayerMenu(page: Page, layer: "image" | "labels") {
   await layerToggle(page, layer).click({ button: "right" });
   await expect(page.getByTestId(`adjust-${layer}`)).toBeVisible();
 }
@@ -81,7 +81,7 @@ const openLayerMenus = (page: Page) =>
 /**
  * Put Image or Labels visibility in state `on` via the bar toggles. Idempotent.
  */
-async function setShow(page: Page, layer: "image" | "labels" | "points", on: boolean) {
+async function setShow(page: Page, layer: "image" | "labels", on: boolean) {
   const btn = layerToggle(page, layer);
   const pressed = await btn.getAttribute("aria-pressed");
   if ((pressed === "true") !== on) await btn.click();
@@ -760,9 +760,9 @@ test.describe("Landmarks inspect cube", () => {
         const engine = (window as any).__landmarksEngine;
         const model = (window as any).__landmarksModel;
         const n = engine.getPoints().length;
-        const cols = model.get("category_columns") as { name: string; labels: string[] }[];
+        const cols = model.get("_category_columns") as { name: string; labels: string[] }[];
         const ci = cols.findIndex((c) => c.name === model.get("active_category"));
-        const bytes = Uint8Array.from(atob(model.get("category_codes")), (ch) => ch.charCodeAt(0));
+        const bytes = Uint8Array.from(atob(model.get("_category_codes")), (ch) => ch.charCodeAt(0));
         const codes = new Int32Array(bytes.buffer);
         const counts = new Map<number, number>();
         for (const i of indices) counts.set(codes[ci * n + i]!, (counts.get(codes[ci * n + i]!) ?? 0) + 1);
@@ -1559,12 +1559,14 @@ test.describe("Landmarks inspect cube", () => {
       );
 
     // Image menu. Defaults: the volume's contrast_limits, image alpha 1, gamma 1 (0 on its log2 scale), Additive.
+    // VolumeCoerce: thin Z + single channel maps Additive to MIP in GL (`data-image-mode` is effective mode).
     await openAdjust(page);
     const panel = adjustPanel(page);
     await expect(panel.getByRole("heading")).toHaveText(["Image"]);
     const initialImage = await imageValues();
     expect(initialImage).toEqual([0, 48, 1, 0]);
-    await expect(view).toHaveAttribute("data-image-mode", "additive");
+    await expect(panel.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
+    await expect(view).toHaveAttribute("data-image-mode", "mip");
     const widths = await widthsOf(panel);
     await nudge("Contrast", "ArrowLeft", 1);
     await nudge("Image alpha", "ArrowLeft");
@@ -1597,19 +1599,14 @@ test.describe("Landmarks inspect cube", () => {
     expect(await imageValues()).not.toEqual(initialImage);
     await setShow(page, "image", false);
     await panel.getByRole("button", { name: "Reset image" }).click();
-    await expect(view).toHaveAttribute("data-image-mode", "additive");
+    await expect(panel.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
+    await expect(view).toHaveAttribute("data-image-mode", "mip");
     expect(await imageValues()).toEqual(initialImage);
     await expect(layerToggle(page, "image")).toHaveAttribute("aria-pressed", "false");
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
 
-    // Points only exist in points mode; their Reset restores the default (off).
     await setModel(page, { render_mode: "points" });
-    await setShow(page, "points", true);
-    await expect(view).not.toHaveAttribute("data-points", "0");
-    await openLayerMenu(page, "points");
-    await page.getByTestId("adjust-points").getByRole("button", { name: "Reset points" }).click();
-    await expect(layerToggle(page, "points")).toHaveAttribute("aria-pressed", "false");
     await expect(view).toHaveAttribute("data-points", "0");
     expect(widths[0]).toBeGreaterThanOrEqual(150);
     expect(widths[0]).toBeLessThanOrEqual(170);
@@ -2583,29 +2580,60 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-overlays", "1");
   });
 
-  test("the cube shows scatter points when the points layer is on", async ({ page }) => {
+  test("Inspect cube never draws scatter points; toolbar has no Points control", async ({ page }) => {
+    await setModel(page, { render_mode: "points" });
     await openCubeAtCentre(page, { at: [130, 170] });
+    const bar = page.getByTestId("context-inspect-toolbar");
     const view = cubeWindow(page).locator(".volume-cube__view");
     await expect(view).toHaveAttribute("data-refining", "false");
-    await expect(view).toHaveAttribute("data-points", "0");
-    await setShow(page, "points", true);
-    await expect(view).toHaveAttribute("data-points", "3");
-    await expect(view).toHaveAttribute("data-labels", "on");
-    await expect(view).toHaveAttribute("data-image", "on");
-  });
+    await expect(bar.getByTestId("layer-toggle-points")).toHaveCount(0);
+    await expect(page.getByTestId("adjust-points")).toHaveCount(0);
 
-  test("toggling to raster hides scatter points in the cube", async ({ page }) => {
-    await openCubeAtCentre(page, { at: [130, 170] });
-    const view = cubeWindow(page).locator(".volume-cube__view");
-    await setShow(page, "points", true);
-    await expect(view).toHaveAttribute("data-points", "3");
+    const assertNoScatterPoints = async () => {
+      await expect(view).toHaveAttribute("data-points", "0");
+    };
+
+    await assertNoScatterPoints();
+    await bar.getByRole("radio", { name: "Oblique view" }).click();
+    await assertNoScatterPoints();
+    await bar.getByRole("radio", { name: "Side view" }).click();
+    await assertNoScatterPoints();
+    await bar.getByRole("radio", { name: "Top view" }).click();
+    await assertNoScatterPoints();
+    await bar.getByRole("button", { name: "Move" }).click();
+    await assertNoScatterPoints();
+    await bar.getByRole("button", { name: "Move" }).click();
+    await assertNoScatterPoints();
+    await bar.getByRole("button", { name: "Reset view" }).click();
+    await assertNoScatterPoints();
+    await layerToggle(page, "image").click();
+    await assertNoScatterPoints();
+    await layerToggle(page, "image").click();
+    await assertNoScatterPoints();
+    await layerToggle(page, "labels").click();
+    await assertNoScatterPoints();
+    await layerToggle(page, "labels").click();
+    await assertNoScatterPoints();
+    await bar.getByTestId("context-cross-toggle").click();
+    await assertNoScatterPoints();
+    await bar.getByTestId("context-cross-toggle").click();
+    await assertNoScatterPoints();
+    await openAdjust(page);
+    await assertNoScatterPoints();
+    await page.keyboard.press("Escape");
+    await expect(adjustPanel(page)).toHaveCount(0);
+    await assertNoScatterPoints();
+    await openLayerMenu(page, "labels");
+    await assertNoScatterPoints();
+    await page.keyboard.press("Escape");
+    await assertNoScatterPoints();
+
     await page.getByTestId("view-cta").getByRole("switch", { name: "points/raster" }).click();
     await expect.poll(async () => await getModel(page, "render_mode")).toBe("raster");
-    await expect(view).toHaveAttribute("data-points", "0");
-    await expect(view).toHaveAttribute("data-labels", "on");
+    await assertNoScatterPoints();
     await page.getByTestId("view-cta").getByRole("switch", { name: "points/raster" }).click();
     await expect.poll(async () => await getModel(page, "render_mode")).toBe("points");
-    await expect(view).toHaveAttribute("data-points", "3");
+    await assertNoScatterPoints();
     await expect(view).toHaveAttribute("data-labels", "on");
     await expect(view).toHaveAttribute("data-image", "on");
   });

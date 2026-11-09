@@ -20,7 +20,7 @@ import type { LandmarksModel } from "./use-landmarks-model";
 type Range = [number, number];
 
 /** A section of the Inspect toolbar's panels, for its Reset: Adjust's Image and Labels, and Cross-section's cuts. */
-export type AdjustSection = "image" | "labels" | "points" | "cuts";
+export type AdjustSection = "image" | "labels" | "cuts";
 
 /** An inspect Selection's window: centre and side (µm), and its cut (absolute µm, or `[]`). */
 export type InspectWindow = { cx: number; cy: number; size_um: number; cut: number[] };
@@ -531,9 +531,6 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
       }
       if (all || section === "labels") {
         patchCube({ render: { cellAlpha: DEFAULT_RENDER.cellAlpha } });
-      }
-      if (all || section === "points") {
-        patchCube({ showPoints: false });
       }
       if (section === "cuts") {
         patchCube({ cut: OPEN_CUT });

@@ -1,3 +1,4 @@
+import { decodeF32Base64, decodeI32Base64 } from "./binary";
 import { decodeGeneCscPack } from "./gene-csc-binary";
 import { invokeCommand, type CommandModel } from "./comm-command.js";
 import { createGeneStore, type GeneSlice, type GeneStore } from "./gene-store.js";
@@ -47,6 +48,21 @@ function pointCount(model: GeneModel): number {
 
 const stores = new WeakMap<object, GeneStore>();
 
+type CatalogGene = { name: string; vmin?: number; vmax?: number };
+
+function geneCatalog(model: GeneModel): CatalogGene[] {
+  const options = model.get("_color_options") as { genes?: CatalogGene[] } | undefined;
+  return options?.genes ?? [];
+}
+
+function sameCatalog(a: CatalogGene[], b: CatalogGene[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i]?.name !== b[i]?.name || a[i]?.vmin !== b[i]?.vmin || a[i]?.vmax !== b[i]?.vmax) return false;
+  }
+  return true;
+}
+
 /**
  * The widget's one gene store, shared by the engine and the React chrome (both hold
  * the same landmarks facade, so ``active_genes`` here is what is on screen). It loads
@@ -68,35 +84,75 @@ export function geneStoreFor(model: GeneModel): GeneStore {
         : Promise.reject(new Error("widget has no kernel comm")),
   });
   const loadEager = () => {
-    const codec = String(model.get("gene_csc_codec") || "");
-    const meta =
-      (model.get("gene_names") as Array<{ name: string; vmin?: number; vmax?: number }>) ?? [];
-    void (async () => {
-      const { indptr, indices, data } = await decodeGeneCscPack(
-        String(model.get("gene_csc_indptr") || ""),
-        String(model.get("gene_csc_indices") || ""),
-        String(model.get("gene_csc_data") || ""),
-        codec,
-      );
-      store.setEager(meta, indptr.length ? indptr : null, indices, data);
-      await store.ensure(active().filter((n) => !store.error(n)));
-    })();
+    const codec = String(model.get("_gene_csc_codec") || "");
+    const meta = geneCatalog(model);
+    const indptrB64 = String(model.get("_gene_csc_indptr") || "");
+    if (!indptrB64) {
+      store.setEager(meta, null, new Int32Array(0), new Float32Array(0));
+      return;
+    }
+    if (codec === "gzip") {
+      void (async () => {
+        const { indptr, indices, data } = await decodeGeneCscPack(
+          indptrB64,
+          String(model.get("_gene_csc_indices") || ""),
+          String(model.get("_gene_csc_data") || ""),
+          codec,
+        );
+        store.setEager(meta, indptr.length ? indptr : null, indices, data);
+        await store.ensure(active().filter((n) => !store.error(n)));
+      })();
+      return;
+    }
+    const indptr = decodeI32Base64(indptrB64);
+    store.setEager(
+      meta,
+      indptr.length ? indptr : null,
+      decodeI32Base64(String(model.get("_gene_csc_indices") || "")),
+      decodeF32Base64(String(model.get("_gene_csc_data") || "")),
+    );
   };
   const fetchActive = () => {
     void store.ensure(active().filter((n) => !store.error(n)));
   };
+  let packed = {
+    genes: geneCatalog(model),
+    indptr: String(model.get("_gene_csc_indptr") || ""),
+    indices: String(model.get("_gene_csc_indices") || ""),
+    data: String(model.get("_gene_csc_data") || ""),
+    codec: String(model.get("_gene_csc_codec") || ""),
+  };
+  const reloadIfCatalogChanged = () => {
+    const next = {
+      genes: geneCatalog(model),
+      indptr: String(model.get("_gene_csc_indptr") || ""),
+      indices: String(model.get("_gene_csc_indices") || ""),
+      data: String(model.get("_gene_csc_data") || ""),
+      codec: String(model.get("_gene_csc_codec") || ""),
+    };
+    if (
+      sameCatalog(packed.genes, next.genes) &&
+      packed.indptr === next.indptr &&
+      packed.indices === next.indices &&
+      packed.data === next.data &&
+      packed.codec === next.codec
+    ) {
+      return;
+    }
+    packed = next;
+    store.clear();
+    loadEager();
+    fetchActive();
+  };
   loadEager();
   for (const key of [
-    "gene_names",
-    "gene_csc_codec",
-    "gene_csc_indptr",
-    "gene_csc_indices",
-    "gene_csc_data",
+    "_color_options",
+    "_gene_csc_codec",
+    "_gene_csc_indptr",
+    "_gene_csc_indices",
+    "_gene_csc_data",
   ]) {
-    model.on(`change:${key}`, () => {
-      store.clear();
-      loadEager();
-    });
+    model.on(`change:${key}`, reloadIfCatalogChanged);
   }
   model.on("change:points_data", () => store.dropColumns());
   model.on("change:active_genes", fetchActive);

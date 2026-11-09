@@ -1,14 +1,26 @@
 {
-  "active_category": "nhood_niche_res=0.5",
   "adata_n_obs": 30332,
   "adata_n_vars": 1815,
-  "color_column_initial": "cell_type",
-  "dataset_cell_count": 30332,
-  "dataset_gene_count": 1815,
-  "niche_n_neighbors": 6,
-  "niche_obs_key_actual": "nhood_niche_res=0.5",
-  "niche_obs_key_expected": "nhood_niche_res=0.5",
-  "niche_resolution": 0.5,
-  "patch_size_um": 800,
+  "color": "niche_k30_res0.3",
+  "default_niche_color": "niche_k30_res0.3",
+  "k30_galt_cells": 347,
+  "k30_galt_percent": "64.6",
+  "k30_lasso_cells_in_niche": 123,
+  "k30_niche_cells": 537,
+  "k30_niche_id": "2",
+  "k8_galt_cells": 281,
+  "k8_galt_percent": "9",
+  "k8_lasso_cells_in_niche": 85,
+  "k8_niche_cells": 2973,
+  "k8_niche_id": "4",
+  "niche_ks": [
+    8,
+    30
+  ],
+  "niche_n_neighbors": 15,
+  "niche_resolutions": [
+    0.3
+  ],
+  "niche_rng": 0,
   "selection_count": 1
 }

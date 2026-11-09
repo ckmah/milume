@@ -22,7 +22,8 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from milume import LandmarksWidget  # noqa: E402
-from tests.helpers import adata_xy, graph  # noqa: E402
+from milume.fixture_export import FIXTURE_SYNC_KEYS, widget_fixture_snapshot  # noqa: E402
+from tests.helpers import adata_xy  # noqa: E402
 
 # Reference cell spacing (a MERFISH tissue section): median NN ≈ 4.5 µm,
 # extent roughly x∈[2380,3910], y∈[140,1670]. Raster bin size is fixed at 8 µm.
@@ -31,66 +32,7 @@ REF_ORIGIN_X = 2400.0
 REF_ORIGIN_Y = 140.0
 
 # Keep aligned with LandmarksWidget synced traits used by the harness / engine.
-FIXTURE_KEYS = [
-    "mode",
-    "selections",
-    "landmarks",
-    "selected_kind",
-    "selected_index",
-    "category_columns",
-    "active_category",
-    "gene_names",
-    "active_genes",
-    "gene_scale_mode",
-    "gene_log1p",
-    "gene_expression_logged",
-    "color_mode",
-    "legend_labels",
-    "legend_title",
-    "type_neighborhoods",
-    "default_buffer_width",
-    "neighbor_radius_max",
-    "neighbor_k_max",
-    "gene_csc_indptr",
-    "gene_csc_indices",
-    "gene_csc_data",
-    "x_bounds",
-    "y_bounds",
-    "point_size",
-    "points_data",
-    "point_palette",
-    "category_codes",
-    "color_vmin",
-    "color_vmax",
-    "render_mode",
-    "raster_bin_size",
-    "raster_window_radius",
-    "raster_basis",
-    "raster_embedding_key",
-    "raster_embedding_keys",
-    "raster_embedding_dims",
-    "embedding_values",
-    "embedding_channel_labels",
-    "embedding_matrix",
-    "embedding_matrix_dim",
-    "raster_obs_key",
-    "raster_gene_mode",
-    "raster_origin_x",
-    "raster_origin_y",
-    "raster_n_cols",
-    "raster_n_rows",
-    "raster_n_bins",
-    "raster_bin_rows",
-    "raster_bin_cols",
-    "raster_bin_counts",
-    "raster_features",
-    "raster_feature_dim",
-    "raster_feature_labels",
-    "raster_query_bin",
-    "raster_similarity_enabled",
-    "raster_threshold",
-    "raster_status",
-]
+FIXTURE_KEYS = list(FIXTURE_SYNC_KEYS)
 
 # Domains in arbitrary layout units (rescaled to reference µm after sampling).
 # (cx, cy, sx, sy, n_core, n_halo)
@@ -243,6 +185,15 @@ def _toy_embeddings(
     return pca.astype(np.float32), umap.astype(np.float32)
 
 
+def graph(n: int, pairs: list[tuple[int, int, float]]):
+    from scipy.sparse import coo_matrix
+
+    if not pairs:
+        return coo_matrix((n, n), dtype=np.float64)
+    rows, cols, data = zip(*pairs)
+    return coo_matrix((data, (rows, cols)), shape=(n, n))
+
+
 def _neighbor_graphs(
     x: np.ndarray, y: np.ndarray, *, k: int = 12, radius: float
 ):
@@ -296,8 +247,6 @@ def main() -> None:
         color=types,
         color_key="celltype",
         genes=genes,
-        knn=knn,
-        radius=radius_g,
     )
     adata.obs["compartment"] = compartments
     pca, umap = _toy_embeddings(rng, types, domain_ids, x, y)
@@ -305,10 +254,8 @@ def main() -> None:
     adata.obsm["X_umap"] = umap
 
     widget = LandmarksWidget(adata, color="celltype", genes=GENES)
-    # Preload genes + embeddings for chrome, but start in neutral widget defaults:
-    # points view, categorical color, probe off, no pinned query bin.
-    widget.active_genes = ["Lgr5", "Cd3e", "Col1a1"]
-    widget.color_mode = "categorical"
+    widget.color = ["Lgr5", "Cd3e", "Col1a1"]
+    widget.color = "celltype"
     widget.set_render_mode("points")
     widget.selections = [
         {
@@ -354,26 +301,24 @@ def main() -> None:
     ]
     widget.selected_kind = ""
     widget.selected_index = -1
-    if widget.raster_embedding_keys:
-        widget.raster_embedding_dims = [0, 1, 2]
-        # Ensure embedding RGB + full matrix pack for harness Color → embed / raster.
-        if hasattr(widget, "_pack_embedding_values"):
-            widget._pack_embedding_values()
-        if hasattr(widget, "_pack_embedding_matrix"):
-            widget._pack_embedding_matrix()
-    # Keep composition basis aligned with categorical points boot.
-    widget.raster_basis = "composition"
+    if (widget._color_options or {}).get("embeddings"):
+        look = dict(widget._look)
+        look["raster_embedding_dims"] = [0, 1, 2]
+        widget._look = look
+        widget._pack_embedding_values()
+        widget._pack_embedding_matrix()
     widget.raster_similarity_enabled = False
     widget.raster_query_bin = -1
 
     out = Path(__file__).with_name("fixture.json")
-    payload = {key: getattr(widget, key) for key in FIXTURE_KEYS}
+    payload = widget_fixture_snapshot(widget)
     out.write_text(json.dumps(payload, indent=2) + "\n")
     xb, yb = payload["x_bounds"], payload["y_bounds"]
+    emb = (payload.get("_color_options") or {}).get("embeddings") or {}
     print(
         f"wrote {out} ({n} points, "
-        f"{len(payload.get('raster_embedding_keys') or [])} embeddings, "
-        f"embed_dim={payload.get('embedding_matrix_dim')}, "
+        f"{len(emb)} embeddings, "
+        f"embed_dim={payload.get('_embedding_matrix_dim')}, "
         f"{out.stat().st_size / 1e6:.2f} MB)"
     )
     print(
@@ -386,9 +331,10 @@ def main() -> None:
         f"y=[{yb[0]:.1f},{yb[1]:.1f}] "
         f"span={xb[1]-xb[0]:.1f}×{yb[1]-yb[0]:.1f}"
     )
-    print(f"  embeddings: {payload.get('raster_embedding_keys')}")
-    print(f"  genes: {[g['name'] for g in payload['gene_names']]}")
-    print(f"  categories: {[c['name'] for c in payload['category_columns']]}")
+    print(f"  embeddings: {list(emb.keys())}")
+    genes = (payload.get("_color_options") or {}).get("genes") or []
+    print(f"  genes: {[g['name'] for g in genes]}")
+    print(f"  categories: {[c['name'] for c in payload['_category_columns']]}")
 
 
 if __name__ == "__main__":
