@@ -17,6 +17,11 @@ def _cell_asset_digest(content: bytes) -> tuple[str, int]:
     return hashlib.sha256(content).hexdigest(), len(content)
 
 
+def _published_cell_name(path: Path) -> str:
+    """Export filename stem. ``Path.stem`` stops at ``.cell`` and drops the hash."""
+    return path.name.removesuffix(".cell.json")
+
+
 def _canonicalize_asset_files(assets_dir: Path) -> dict[str, str]:
     """Rename every ``*.cell.json`` to its content hash; drop duplicate paths."""
     renames: dict[str, str] = {}
@@ -24,8 +29,9 @@ def _canonicalize_asset_files(assets_dir: Path) -> dict[str, str]:
     for path in sorted(assets_dir.glob("*.cell.json")):
         content = path.read_bytes()
         digest, _size = _cell_asset_digest(content)
-        if path.stem != digest:
-            renames[path.stem] = digest
+        published = _published_cell_name(path)
+        if published != digest:
+            renames[published] = digest
         by_digest[digest] = content
 
     for path in assets_dir.glob("*.cell.json"):
@@ -79,7 +85,7 @@ def reindex_export_instance(instance_dir: Path, extra_renames: dict[str, str] | 
         raise RuntimeError(f"reindex-export-instance: missing assets dir {assets_dir}")
     renames = _canonicalize_asset_files(assets_dir)
     if extra_renames:
-        renames = {**renames, **extra_renames}
+        renames = {**extra_renames, **renames}
     index_path = instance_dir / "index.json"
     root = json.loads(index_path.read_text(encoding="utf-8"))
     _update_asset_refs(root, renames, assets_dir)
