@@ -64,10 +64,34 @@ async function readWidgetState(page) {
     }
     const color = m.get("color");
     const selections = m.get("selections") || [];
+    const vs = (window).__landmarksEngine?.getViewState?.() ?? null;
+    const xb = m.get("x_bounds");
+    const yb = m.get("y_bounds");
+    let view = "custom";
+    if (
+      vs &&
+      Array.isArray(vs.target) &&
+      vs.target.length >= 2 &&
+      Array.isArray(xb) &&
+      xb.length >= 2 &&
+      Array.isArray(yb) &&
+      yb.length >= 2 &&
+      Number.isFinite(Number(vs.zoom)) &&
+      Number.isFinite(Number(vs.minZoom))
+    ) {
+      const cx = (Number(xb[0]) + Number(xb[1])) / 2;
+      const cy = (Number(yb[0]) + Number(yb[1])) / 2;
+      const atCenter =
+        Math.abs(Number(vs.target[0]) - cx) < 1e-2 &&
+        Math.abs(Number(vs.target[1]) - cy) < 1e-2;
+      const atFitZoom = Math.abs(Number(vs.zoom) - (Number(vs.minZoom) + 1)) < 1e-3;
+      if (atCenter && atFitZoom) view = "fit";
+    }
     return {
       ok: true,
       color: color == null ? "" : String(color),
       selection_count: Array.isArray(selections) ? selections.length : -1,
+      view,
     };
   });
 }
@@ -110,12 +134,23 @@ for (const shot of doc.shots) {
     await browser.close();
     process.exit(1);
   }
+  if (state.view !== shot.view) {
+    console.error(
+      `capture-recipe-shots: ${shot.id} expected view=${shot.view} got ${state.view}`,
+    );
+    await browser.close();
+    process.exit(1);
+  }
+  await page.locator("canvas").first().evaluate((el) => {
+    el.scrollIntoView({ block: "center", inline: "nearest" });
+  });
+  await page.waitForTimeout(200);
   const px = shot.pointer?.norm_x ?? 0.5;
   const py = shot.pointer?.norm_y ?? 0.5;
   await placePointer(page, px, py);
   await page.waitForTimeout(200);
   const out = path.join(outDir, `recipe-${slug}-${shot.id}-${scheme}.png`);
-  await page.screenshot({ path: out, fullPage: true });
+  await page.screenshot({ path: out });
   const buf = readFileSync(out);
   const md5 = createHash("md5").update(buf).digest("hex");
   console.log(JSON.stringify({ shot: shot.id, path: out, md5 }, null, 0));

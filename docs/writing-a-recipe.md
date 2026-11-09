@@ -110,7 +110,7 @@ Ship recipe changes in one review round: headless numbers, shot-list stills, and
 | `demos/recipes/<slug>_numbers.py` (optional) | Stable integers and parameters for prose (`f`-string `mo.md` only; no raw digits in static `r"""` prose). |
 | `demos/recipes/<slug>/numbers.json` | Written when the notebook runs as a script (`python demos/recipes/<slug>.py` after `cd frontend && npm run build`). |
 | `scripts/verify_<slug>.py` | Re-runs the notebook, compares fresh `numbers.json` to the committed file. |
-| `demos/recipes/<slug>/shots.yaml` | Shot ids plus expected widget `column`, `selection_count`, optional pointer `norm_x` / `norm_y`, and light/dark `theme`. `frontend/scripts/capture-recipe-shots.mjs` asserts state and writes PNGs (used in `assemble-pages.sh` and for local capture). |
+| `demos/recipes/<slug>/shots.yaml` | Shot ids plus expected widget `column`, `selection_count`, `view` (`fit` is the bounds center at the engine fit zoom), optional pointer `norm_x` / `norm_y`, and light/dark `theme`. `frontend/scripts/capture-recipe-shots.mjs` asserts column, selection count, and view, then writes PNGs (used in `assemble-pages.sh` and for local capture). |
 | `scripts/lint_recipe_prose.py` | Fails on `mo.md("...")` prose literals that still contain digits (outside allowlists). |
 
 **Loop:** agree on the outcome and a written shot list with science sign-off, land the notebook and fixtures, run `assemble-pages.sh` locally once, post one review addressing automation output, then hand to Clarence for a single sign-off pass (no iterative guesswork on numbers or stills).

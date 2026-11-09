@@ -1,6 +1,7 @@
 # Shot list for automated recipe capture (squidpy_color niche recipe).
 # column: Landmarks color trait (obs column key).
 # selection_count: expected number of drawn selections in the widget model.
+# view: camera framing. `fit` is the bounds center at the engine fit zoom.
 recipe: squidpy_color
 page: /docs/how-to/recipes/squidpy_color/index.html
 shots:
@@ -8,6 +9,7 @@ shots:
     theme: default
     column: niche_k30_res0.3
     selection_count: 1
+    view: fit
     pointer:
       norm_x: 0.42
       norm_y: 0.48
@@ -18,6 +20,7 @@ shots:
     theme: slate
     column: niche_k30_res0.3
     selection_count: 1
+    view: fit
     pointer:
       norm_x: 0.58
       norm_y: 0.52

@@ -129,7 +129,16 @@ def load_adata(
 
 
 @app.cell(hide_code=True)
-def recipe_intro(adata, cache, importlib, mo, sys):
+def recipe_intro(
+    DEFAULT_NICHE_COLOR,
+    NICHE_KS,
+    NICHE_RESOLUTIONS,
+    adata,
+    cache,
+    importlib,
+    mo,
+    sys,
+):
     _repo_root = cache.resolve().parent.parent.parent
     _science_path = _repo_root / "scripts" / "ileum_niche_recipe_science.py"
     if not _science_path.is_file():
@@ -140,7 +149,10 @@ def recipe_intro(adata, cache, importlib, mo, sys):
     _mod = importlib.util.module_from_spec(_spec)
     sys.modules[_spec.name] = _mod
     _spec.loader.exec_module(_mod)
-    mo.md(_mod.format_intro_markdown(_mod.page_contrast_stats(adata)))
+    _resolution = NICHE_RESOLUTIONS[0]
+    mo.md(
+        f"{_mod.format_intro_markdown(_mod.page_contrast_stats(adata), default_niche_color=DEFAULT_NICHE_COLOR, niche_ks=NICHE_KS, resolution=_resolution)}"
+    )
     return
 
 

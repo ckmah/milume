@@ -79,3 +79,36 @@ def test_format_intro_markdown_k30_share_one_decimal(science_mod):
         }
     )
     assert "**64.6%** GALT" in md and "`anatomical_layer`" in md
+    res = science_mod.DEFAULT_RES
+    k_lo, k_hi = science_mod.NICHE_KS
+    assert f"`niche_k{k_hi}_res{res}`" in md
+    assert f"`niche_k{k_lo}_res{res}`" in md
+    assert f"resolution {res}" in md
+    swapped = science_mod.format_intro_markdown(
+        {
+            "k30_lasso_dominant": NicheGaltSummary(
+                k=30,
+                resolution=0.3,
+                niche_id="2",
+                niche_cells=537,
+                galt_cells=347,
+                galt_share=347 / 537,
+                lasso_cells_in_niche=123,
+            ),
+            "k8_lasso_dominant": NicheGaltSummary(
+                k=8,
+                resolution=0.3,
+                niche_id="4",
+                niche_cells=2973,
+                galt_cells=281,
+                galt_share=281 / 2973,
+                lasso_cells_in_niche=84,
+            ),
+        },
+        default_niche_color="niche_k99_res0.5",
+        niche_ks=(8, 30),
+        resolution=0.5,
+    )
+    assert "`niche_k99_res0.5`" in swapped
+    assert "niche_k30_res0.3" not in swapped
+    assert "`niche_k8_res0.5`" in swapped
