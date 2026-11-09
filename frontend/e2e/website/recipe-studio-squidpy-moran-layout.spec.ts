@@ -42,7 +42,7 @@ test.describe("recipe studio squidpy moran layout", () => {
     expect(layout!.insideViewport).toBe(true);
   });
 
-  test("static export colors Erbb3 with full gene catalog", async ({ page }) => {
+  test("static export colors Erbb3 with the static gene allowlist", async ({ page }) => {
     await page.goto(RECIPE_PATH, { waitUntil: "networkidle", timeout: 120_000 });
     await page.locator("canvas").first().waitFor({ state: "visible", timeout: 120_000 });
     await page.waitForFunction(
@@ -55,7 +55,7 @@ test.describe("recipe studio squidpy moran layout", () => {
     const geneCount = await page.evaluate(
       () => (window.__landmarksModel?.get?.("gene_names") ?? []).length,
     );
-    expect(geneCount).toBe(1815);
+    expect(geneCount).toBe(134);
   });
 });
 

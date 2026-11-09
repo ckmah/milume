@@ -64,9 +64,7 @@ jobs:
           path: |
             demos/recipes/__marimo__
             .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/recipes/squidpy_moran.py', 'demos/data/ileum.h5ad', 'uv.lock') }}
-          restore-keys: |
-            recipe-studio-
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/recipes/squidpy_moran.py', 'demos/data/ileum.h5ad', 'demos/data/ileum_niche_recipe_niches.parquet', 'uv.lock') }}
 
       - name: Assemble landing + docs
         env:
@@ -106,7 +104,7 @@ jobs:
           path: |
             demos/recipes/__marimo__
             .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/recipes/squidpy_moran.py', 'demos/data/ileum.h5ad', 'uv.lock') }}
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/recipes/squidpy_moran.py', 'demos/data/ileum.h5ad', 'demos/data/ileum_niche_recipe_niches.parquet', 'uv.lock') }}
 
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
