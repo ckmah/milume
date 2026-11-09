@@ -9,6 +9,8 @@ Reproduces every number in the recipe prose, with the recipe's own calls:
   enterocyte run scores genes detected (X > 0) in >= 5% of enterocytes.
 Villus axis: each enterocyte's straight-line distance (um) to the nearest Stem or Paneth cell.
 No mucosal_pseudospace anywhere.
+Unpruned Delaunay (spatial_neighbors_delaunay, radius=None, percentile=None): longest edge
+1681 um, which the recipe prose rounds to 0.1 mm (1.7). Cell and gene counts are adata.shape.
 Usage: python scripts/verify_ileum_moran_recipe.py ILEUM_H5AD OUTDIR
 """
 import hashlib
@@ -29,7 +31,19 @@ S = {"md5": hashlib.md5(H5.read_bytes()).hexdigest(), "squidpy": sq.__version__}
 adata = ad.read_h5ad(H5)
 adata.obs["n_counts"] = np.asarray(adata.layers["raw_counts"].sum(axis=1)).ravel()
 S["shape"] = list(adata.shape)
+S["n_cells"] = int(adata.n_obs)
+S["n_genes"] = int(adata.n_vars)
 S["X_max"] = round(float(adata.X.max()), 1)
+
+_points = ad.AnnData(obsm={"spatial": np.array(adata.obsm["spatial"], copy=True)})
+sq.gr.spatial_neighbors_delaunay(_points, radius=None, percentile=None)
+_longest_um = float(_points.obsp["spatial_distances"].data.max())
+S["longest_delaunay_edge_um"] = round(_longest_um, 3)
+S["longest_delaunay_edge_mm"] = round(_longest_um / 1000, 1)
+assert S["n_cells"] == 30_332, S["n_cells"]
+assert S["n_genes"] == 1_815, S["n_genes"]
+assert round(_longest_um) == 1_681, _longest_um
+assert S["longest_delaunay_edge_mm"] == 1.7, S["longest_delaunay_edge_mm"]
 
 # Moran's I, all cells
 sq.gr.spatial_neighbors_knn(adata, n_neighs=6, percentile=99)

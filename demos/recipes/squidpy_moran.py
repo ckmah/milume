@@ -19,7 +19,7 @@
 # cell-6 = {ref = "cell:v1:8942c9fa7e239d23b21e3ac7061199b199b6b1d3bbdcc0d83b7fc532a2730d47:bdd2e4956a518c977abd04ed66cc21412e4b5c3ae60f46a71ec6b23ed3fe2571:0"}
 # cell-8 = {ref = "cell:v1:3c0e2e94ae91a1c7dcd5581697c68afaa71b866de093c6b0ab31a5394f4e3103:eccf982ad5d7b79d40432561221ae22ab396674dfbf0ed7b4c38ca751a99e20b:0"}
 # cell-9 = {ref = "cell:v1:d4ee4357fe8f9a9ad295bac7219c47eb0d598c6a3fd50589a490ec293dc62472:b92a736e01943f271f14132044b3cc0027a8e88dad425796be034018e7d723ce:0"}
-# cell-11 = {ref = "cell:v1:70324f283e03a2b3b2e737d311d98ad95ea84c819c1ae9635a0d937cfd530eff:ef18f545514e4eb6138f05189996b88c6aa645084126b46bfba4eaf565f09e88:0"}
+# cell-11 = {ref = "cell:v1:8954d59ebad8015e6233efa26ed406a8d8a2e5901247d0c57154d92706063791:e7ebf9100354d3f80b3bc438e1f691b8323a692bad898f22d654f08a6697dc4c:0"}
 # cell-12 = {ref = "cell:v1:2ae2933424ae01305c5690043ea7b28dc6ba372df3bca74dd6482124277ec5a0:c110daf21089c53f196dceaf9cce866611d854f0aad6604d5330211f9a6f8002:0"}
 # cell-15 = {ref = "cell:v1:9d1ea0770377cc1b3d087242a44cbc81f87d69683999a7f6048c081a52e266f7:9e94f80f24d24d017a5979a9f7d254f2a3ee5ea421f22fbba23407cf2fd73fcb:0"}
 # cell-16 = {ref = "cell:v1:dc4df70a0910196bcc5aa24457a44e35ab251a369b3cd8fad051c632434fd512:7017ab7ab2fb0c80678b63832e894919b15acbb31d1877a2956274bd00503864:0"}
@@ -43,14 +43,11 @@ app = marimo.App(width="medium")
 
 @app.cell(hide_code=True)
 def recipe_figures():
-    # Values the prose prints. Neighbor settings are the ones the score cells run.
-    N_CELLS = 30_332
-    N_GENES = 1_815
+    # Parameters the prose prints. Counts and the longest Delaunay edge are read from the section.
     UPDATED = "2026-11-01"
     N_NEIGHS = 6
     PERCENTILE = 99
     MIN_DETECT = 0.05
-    LONGEST_LINK_MM = 1
     YEAR_MORAN = 1950
     YEAR_YAN = 2025
     YEAR_MOOR = 2018
@@ -71,10 +68,7 @@ def recipe_figures():
         GENE_APOB,
         GENE_CPS1,
         GENE_ERBB3,
-        LONGEST_LINK_MM,
         MIN_DETECT,
-        N_CELLS,
-        N_GENES,
         N_NEIGHS,
         PERCENTILE,
         UPDATED,
@@ -85,7 +79,7 @@ def recipe_figures():
 
 
 @app.cell(hide_code=True)
-def intro(DOI_XU, GENE_APOB, GENE_ERBB3, N_CELLS, N_GENES, UPDATED, mo):
+def intro(DOI_XU, GENE_APOB, GENE_ERBB3, UPDATED, adata, mo):
     mo.md(f"""
     # Moran's I: is a gene spatial because of where cell types sit, or within one?
 
@@ -93,7 +87,7 @@ def intro(DOI_XU, GENE_APOB, GENE_ERBB3, N_CELLS, N_GENES, UPDATED, mo):
 
     Many genes look patterned in a tissue section. Some only look that way because the cells that express them sit together. Others change with position inside a single cell type, and those tell us how one cell type divides its work across the tissue.
 
-    We use one MERFISH section of mouse ileum from [Xu et al. {UPDATED[:4]}](https://doi.org/{DOI_XU}): {N_CELLS:,} cells × {N_GENES:,} genes, with the authors' cell types. Here we score every gene with Moran's I across all cells, score again inside enterocytes only, and follow two genes: **{GENE_ERBB3}**, which drops, and **{GENE_APOB}**, which holds.
+    We use one MERFISH section of mouse ileum from [Xu et al. {UPDATED[:4]}](https://doi.org/{DOI_XU}): {adata.n_obs:,} cells × {adata.n_vars:,} genes, with the authors' cell types. Here we score every gene with Moran's I across all cells, score again inside enterocytes only, and follow two genes: **{GENE_ERBB3}**, which drops, and **{GENE_APOB}**, which holds.
 
     [Open in molab](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_moran.py). This page shows a precomputed default view. To change selections or rerun the analysis, open the notebook in molab.
     """)
@@ -194,10 +188,16 @@ def moran_all_compute(N_NEIGHS, PERCENTILE, adata, sq):
 
 
 @app.cell(hide_code=True)
-def _(LONGEST_LINK_MM, mo):
+def _(adata, mo, np, sq):
+    import anndata as ad
+
+    # Unpruned Delaunay on a coordinate-only object so this does not replace the k-NN graph.
+    _points = ad.AnnData(obsm={"spatial": np.array(adata.obsm["spatial"], copy=True)})
+    sq.gr.spatial_neighbors_delaunay(_points, radius=None, percentile=None)
+    _longest_mm = float(_points.obsp["spatial_distances"].data.max()) / 1_000
     mo.md(f"""
     /// tip | Choosing the neighbor graph
-    Moran's I depends on who counts as a neighbor. A small `n_neighs` asks about the cells right next door; a large one smooths over whole villi. Six nearest cells is a common default for imaging data. Don't use an unpruned Delaunay graph here: its longest links span about {LONGEST_LINK_MM} mm. The [niches recipe](../squidpy_color/) shows how graph size changes a result.
+    Moran's I depends on who counts as a neighbor. A small `n_neighs` asks about the cells right next door; a large one smooths over whole villi. Six nearest cells is a common default for imaging data. Don't use an unpruned Delaunay graph here: its longest links span about {_longest_mm:.1f} mm. The [niches recipe](../squidpy_color/) shows how graph size changes a result.
     ///
 
     /// note | Precomputed
