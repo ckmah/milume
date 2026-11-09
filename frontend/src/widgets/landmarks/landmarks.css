@@ -2295,14 +2295,42 @@
 .landmarks.landmarks--fs .landmarks__chrome-dock,
 .landmarks--overlay-fs .landmarks__chrome-dock {
   width: var(--lm-dock-width);
+}
+
+/*
+ * Fullscreen: repeat left/right height budgets at higher specificity than
+ * `.landmarks:fullscreen .landmarks__chrome-dock` would be if it set generic
+ * height/max-height (see #420). That generic rule would otherwise win over
+ * `.landmarks__chrome-dock--left` / `--right` and drop minimap / depth-rail
+ * subtraction.
+ */
+.landmarks:fullscreen .landmarks__chrome-dock--left,
+.landmarks.landmarks--fs .landmarks__chrome-dock--left,
+.landmarks--overlay-fs .landmarks__chrome-dock--left {
   height: min(
     max-content,
     calc(
-      100% - var(--lm-chrome-band) - (2 * var(--lm-chrome-gap)) - var(--lm-chrome-inset)
+      100% - var(--lm-chrome-band) - var(--lm-chrome-gap) - var(--lm-minimap-slot) - var(--lm-chrome-inset)
     )
   );
   max-height: calc(
-    100% - var(--lm-chrome-band) - (2 * var(--lm-chrome-gap)) - var(--lm-chrome-inset)
+    100% - var(--lm-chrome-band) - var(--lm-chrome-gap) - var(--lm-minimap-slot) - var(--lm-chrome-inset)
+  );
+}
+
+.landmarks:fullscreen .landmarks__chrome-dock--right,
+.landmarks.landmarks--fs .landmarks__chrome-dock--right,
+.landmarks--overlay-fs .landmarks__chrome-dock--right {
+  height: min(
+    max-content,
+    calc(
+      100% - var(--lm-chrome-band) - (2 * var(--lm-chrome-gap)) - var(--lm-chrome-inset) -
+        var(--lm-depth-rail-active)
+    )
+  );
+  max-height: calc(
+    100% - var(--lm-chrome-band) - (2 * var(--lm-chrome-gap)) - var(--lm-chrome-inset) -
+      var(--lm-depth-rail-active)
   );
 }
 
