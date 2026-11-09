@@ -51,7 +51,7 @@ prepare_slug() {
   local slug="$1"
   local staging="$2"
   local loaded="${3:-}"
-  local skip_runtime="${4:-}"
+  local runtime_flag="${4:-}"
   local args=(
     "${slug}"
     "${staging}/${slug}"
@@ -61,8 +61,8 @@ prepare_slug() {
   if [[ -n "${loaded}" ]]; then
     args+=(--loaded-urls "${loaded}")
   fi
-  if [[ -n "${skip_runtime}" ]]; then
-    args+=(--skip-shared-runtime)
+  if [[ -n "${runtime_flag}" ]]; then
+    args+=("${runtime_flag}")
   fi
   uv run --directory "${ROOT}" python "${WEBSITE}/scripts/prepare_recipe_studio.py" "${args[@]}"
 }
@@ -93,7 +93,7 @@ if [[ "${MODE}" == "prepare-for-zensical" ]]; then
     export_one "${slug}" "${staging}/${slug}"
   done
   prepare_slug "squidpy_moran" "${staging}"
-  prepare_slug "squidpy_color" "${staging}" "" "--skip-shared-runtime"
+  prepare_slug "squidpy_color" "${staging}" "" "--merge-shared-runtime"
   exit 0
 fi
 

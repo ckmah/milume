@@ -88,12 +88,28 @@ def extract_body_fragment(html: str) -> str:
     return "\n".join(rendered) + "\n"
 
 
-def install_shared_runtime(export_dir: Path) -> None:
+def _copy_missing(src: Path, dest: Path) -> None:
+    for path in src.rglob("*"):
+        rel = path.relative_to(src)
+        target = dest / rel
+        if path.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
+        if target.exists():
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(path, target)
+
+
+def install_shared_runtime(export_dir: Path, *, merge: bool = False) -> None:
     src_assets = export_dir / "_marimo-studio" / "assets"
     if not src_assets.is_dir():
         raise RecipeStudioExportError(f"missing studio assets dir: {src_assets}")
     SHARED_RUNTIME.mkdir(parents=True, exist_ok=True)
     dest_assets = SHARED_RUNTIME / "assets"
+    if merge and dest_assets.is_dir():
+        _copy_missing(src_assets, dest_assets)
+        return
     if dest_assets.exists():
         shutil.rmtree(dest_assets)
     shutil.copytree(src_assets, dest_assets)
@@ -138,12 +154,15 @@ def prepare(
     content_root: Path,
     loaded_urls: list[str] | None = None,
     skip_shared_runtime: bool = False,
+    merge_shared_runtime: bool = False,
 ) -> None:
     index = export_dir / "index.html"
     if not index.is_file():
         raise RecipeStudioExportError(f"prepare-recipe-studio: missing {index}")
 
-    if not skip_shared_runtime:
+    if merge_shared_runtime:
+        install_shared_runtime(export_dir, merge=True)
+    elif not skip_shared_runtime:
         install_shared_runtime(export_dir)
         patch_zero_python_runtime(SHARED_RUNTIME / "assets")
         if loaded_urls:
@@ -216,6 +235,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Do not replace shared marimo-studio-zero-python (second recipe on same runtime)",
     )
+    parser.add_argument(
+        "--merge-shared-runtime",
+        action="store_true",
+        help="Add this export's runtime files that are not already in the shared runtime",
+    )
     args = parser.parse_args(argv)
     if args.prune_shared_only:
         if not args.loaded_urls:
@@ -238,6 +262,7 @@ def main(argv: list[str] | None = None) -> int:
             content_root=args.content_root.resolve(),
             loaded_urls=loaded,
             skip_shared_runtime=args.skip_shared_runtime,
+            merge_shared_runtime=args.merge_shared_runtime,
         )
     except RecipeStudioExportError as exc:
         print(str(exc), file=sys.stderr)
