@@ -1,14 +1,14 @@
-as_of: Mon Nov 9, 4:59 AM PT
-needs_you: 1
-  #428 Recipe CI gates: script verify, shot lists, assembled-pag... (pr)
-open_prs: 3
-last_nightly: 2026-11-08 success
-stale_prs:
-  #428 cursor/recipe-ci-gates-a3c1 (no push >2d / failing CI)
-red_nightlies: 2026-10-31, 2026-11-06, 2026-11-07
-last_red_nightly: 2026-11-07
+as_of: Mon Nov 9, 11:53 AM PT
+needs_you: 0
+  (none)
+open_prs: 2
+last_nightly: 2026-11-09 failure
+stale_prs: none
+red_nightlies: 2026-10-31, 2026-11-06, 2026-11-07, 2026-11-09
+last_red_nightly: 2026-11-09
 ci_failure_issues:
+  #432 Nightly landmarks e2e failed (2026-11-09)
   #429 CI: Inspect cube volume e2e hard-red since #418 (meshes /...
 html: dashboard.html
 status: PUBLISH
-hash: 573117fd4b72
+hash: ef36c9d4b0d1
