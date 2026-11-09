@@ -34,11 +34,23 @@ def recipe_config():
     import pandas as pd
     import squidpy as sq
 
-    NICHE_KS = (8, 30)
-    NICHE_RESOLUTIONS = (0.3,)
-    DEFAULT_NICHE_COLOR = "niche_k30_res0.3"
     _PKG_ROOT = Path(ml.__file__).resolve().parent
     _REPO_ROOT = _PKG_ROOT.parent
+    _numbers_path = _REPO_ROOT / "demos" / "recipes" / "squidpy_color_numbers.py"
+    if not _numbers_path.is_file():
+        raise FileNotFoundError(f"missing {_numbers_path}")
+    _num_spec = importlib.util.spec_from_file_location("squidpy_color_numbers", _numbers_path)
+    if _num_spec is None or _num_spec.loader is None:
+        raise ImportError(f"cannot load {_numbers_path}")
+    _nums = importlib.util.module_from_spec(_num_spec)
+    sys.modules[_num_spec.name] = _nums
+    _num_spec.loader.exec_module(_nums)
+    NICHE_KS = _nums.NICHE_KS
+    NICHE_RESOLUTIONS = _nums.NICHE_RESOLUTIONS
+    DEFAULT_NICHE_COLOR = _nums.DEFAULT_NICHE_COLOR
+    NICHE_N_NEIGHBORS = _nums.NICHE_N_NEIGHBORS
+    NICHE_RNG = _nums.NICHE_RNG
+    write_recipe_numbers = _nums.write_numbers
     RECIPE_DATA_DIR = _REPO_ROOT / "demos" / "data"
     NICHE_CACHE_PATH = RECIPE_DATA_DIR / "ileum_niche_recipe_niches.parquet"
     ILEUM_H5AD = RECIPE_DATA_DIR / "ileum.h5ad"
@@ -55,8 +67,11 @@ def recipe_config():
     return (
         DEFAULT_NICHE_COLOR,
         NICHE_KS,
+        NICHE_N_NEIGHBORS,
         NICHE_RESOLUTIONS,
+        NICHE_RNG,
         Path,
+        write_recipe_numbers,
         ILEUM_H5AD,
         NICHE_CACHE_PATH,
         RECIPE_DATA_DIR,
@@ -114,7 +129,16 @@ def load_adata(
 
 
 @app.cell(hide_code=True)
-def recipe_intro(adata, cache, importlib, mo, sys):
+def recipe_intro(
+    DEFAULT_NICHE_COLOR,
+    NICHE_KS,
+    NICHE_RESOLUTIONS,
+    adata,
+    cache,
+    importlib,
+    mo,
+    sys,
+):
     _repo_root = cache.resolve().parent.parent.parent
     _science_path = _repo_root / "scripts" / "ileum_niche_recipe_science.py"
     if not _science_path.is_file():
@@ -125,18 +149,23 @@ def recipe_intro(adata, cache, importlib, mo, sys):
     _mod = importlib.util.module_from_spec(_spec)
     sys.modules[_spec.name] = _mod
     _spec.loader.exec_module(_mod)
-    mo.md(_mod.format_intro_markdown(_mod.page_contrast_stats(adata)))
+    _resolution = NICHE_RESOLUTIONS[0]
+    mo.md(
+        f"{_mod.format_intro_markdown(_mod.page_contrast_stats(adata), default_niche_color=DEFAULT_NICHE_COLOR, niche_ks=NICHE_KS, resolution=_resolution)}"
+    )
     return
 
 
 @app.cell(hide_code=True)
-def niche_sweep_method(mo):
+def niche_sweep_method(NICHE_KS, NICHE_N_NEIGHBORS, NICHE_RESOLUTIONS, NICHE_RNG, mo):
+    _k_lo, _k_hi = NICHE_KS
+    _resolution = NICHE_RESOLUTIONS[0]
     mo.md(
-        r"""
+        f"""
         ## Niche sweep (Squidpy)
 
-        The loop below writes one `niche_k{k}_res0.3` column per neighborhood size `k`
-        (**8** and **30**) at fixed Leiden resolution **0.3**. On this static page the
+        The loop below writes one `niche_k{{k}}_res{_resolution}` column per neighborhood size `k`
+        (**{_k_lo}** and **{_k_hi}**) at fixed Leiden resolution **{_resolution}**. On this static page the
         columns are **precomputed**; in molab, re-run the cell after you change the cache
         path or delete the parquet file.
 
@@ -147,11 +176,11 @@ def niche_sweep_method(mo):
                 adata,
                 groups="cell_type",
                 scale=False,
-                n_neighbors=15,
+                n_neighbors={NICHE_N_NEIGHBORS},
                 resolutions=list(NICHE_RESOLUTIONS),
-                rng=0,
+                rng={NICHE_RNG},
             )
-            adata.obs[f"niche_k{k}_res0.3"] = adata.obs["nhood_niche_res=0.3"].astype(str)
+            adata.obs[f"niche_k{{k}}_res{_resolution}"] = adata.obs["nhood_niche_res={_resolution}"].astype(str)
         ```
         """
     )
@@ -159,7 +188,18 @@ def niche_sweep_method(mo):
 
 
 @app.cell
-def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, _niche_neighborhood, adata, cache, expected, pd, sq):
+def niche_sweep(
+    NICHE_KS,
+    NICHE_N_NEIGHBORS,
+    NICHE_RESOLUTIONS,
+    NICHE_RNG,
+    _niche_neighborhood,
+    adata,
+    cache,
+    expected,
+    pd,
+    sq,
+):
     if not all(col in adata.obs for col in expected):
         frames = {}
         for k in NICHE_KS:
@@ -168,9 +208,9 @@ def niche_sweep(NICHE_KS, NICHE_RESOLUTIONS, _niche_neighborhood, adata, cache, 
                 adata,
                 groups="cell_type",
                 scale=False,
-                n_neighbors=15,
+                n_neighbors=NICHE_N_NEIGHBORS,
                 resolutions=list(NICHE_RESOLUTIONS),
-                rng=0,
+                rng=NICHE_RNG,
             )
             for r in NICHE_RESOLUTIONS:
                 src = f"nhood_niche_res={r}"
@@ -192,7 +232,10 @@ def landmark_map(
     ml,
     mo,
     sys,
+    write_recipe_numbers,
 ):
+    import os
+    from pathlib import Path as _Path
     _repo_root = cache.resolve().parent.parent.parent
     _science_path = _repo_root / "scripts" / "ileum_niche_recipe_science.py"
     if not _science_path.is_file():
@@ -223,19 +266,34 @@ def landmark_map(
             "point_indices": galt_point_indices,
         }
     ]
+    meta_mode = mo.app_meta().mode
+    if os.environ.get("MILUME_RECIPE_WRITE_NUMBERS", "").lower() in ("1", "true", "yes") or meta_mode == "script":
+        out = _Path(
+            os.environ.get(
+                "MILUME_RECIPE_NUMBERS_OUT",
+                str(cache.resolve().parent.parent / "recipes" / "squidpy_color" / "numbers.json"),
+            )
+        )
+        write_recipe_numbers(
+            adata,
+            color=w.color,
+            selection_count=len(w.selections or []),
+            path=out,
+        )
     w
     return (w,)
 
 
 @app.cell(hide_code=True)
-def molab_rerun_tip(mo):
+def molab_rerun_tip(DEFAULT_NICHE_COLOR, NICHE_KS, mo):
+    _k_hi = NICHE_KS[-1]
     mo.md(
-        r"""
+        f"""
         > **molab:** Re-run **`landmark_map`** and the composition cell after you change
         > the categorical column or draw a new lasso. The static export keeps the default
-        > **`niche_k30_res0.3`** column, full-slice fit, and the compact GALT selection
+        > **`{DEFAULT_NICHE_COLOR}`** column, full-slice fit, and the compact GALT selection
         > available without focusing it (use the layers list to focus it for a follicle
-        > crop on the orange k30 blob).
+        > crop on the orange k{_k_hi} blob).
         """
     )
     return

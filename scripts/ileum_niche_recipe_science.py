@@ -201,7 +201,17 @@ def page_contrast_stats(adata) -> dict[str, NicheGaltSummary]:
     }
 
 
-def format_intro_markdown(stats: dict[str, NicheGaltSummary]) -> str:
+def format_intro_markdown(
+    stats: dict[str, NicheGaltSummary],
+    *,
+    default_niche_color: str | None = None,
+    niche_ks: tuple[int, ...] = NICHE_KS,
+    resolution: float = DEFAULT_RES,
+) -> str:
+    k_lo = niche_ks[0]
+    k_hi = niche_ks[-1]
+    color_hi = default_niche_color or f"niche_k{k_hi}_res{resolution}"
+    color_lo = f"niche_k{k_lo}_res{resolution}"
     k30 = stats["k30_lasso_dominant"]
     k8 = stats["k8_lasso_dominant"]
     k30_pct = k30.galt_share * 100
@@ -213,10 +223,10 @@ follicle come out as its own Squidpy niche, or dissolve into lamina propria?
 with `groups="cell_type"` (cryptopatch / ILF-like cDC, ILC3, FRC aggregates,
 not classical B/T zones).
 
-The tutorial selection is a **compact `niche_k30_res0.3` blob** (follicle-like);
+The tutorial selection is a **compact `{color_hi}` blob** (follicle-like);
 that niche is **{k30.niche_cells:,}** cells slice-wide (**{k30_pct:.1f}%** GALT in
 `anatomical_layer`); **{k30.lasso_cells_in_niche:,}** of the selected cells share
-that niche label. At **`niche_k8_res0.3`**, the selection maps to one
+that niche label. At **`{color_lo}`**, the selection maps to one
 **{k8.niche_cells:,}**-cell niche with **{k8.galt_cells:,}** GALT cells
 (**{k8.galt_share * 100:.0f}%**), so the follicle read merges into lamina propria.
 
@@ -224,10 +234,10 @@ that niche label. At **`niche_k8_res0.3`**, the selection maps to one
 [squidpy_color.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py)
 
 > **Static docs view:** niches are **precomputed** and baked into the export.
-> Switch between the two **`k`** niche columns (fixed Leiden resolution 0.3) in
+> Switch between the two **`k`** niche columns (fixed Leiden resolution {resolution}) in
 > the widget categorical tab (no kernel). The map shows the full slice zoomed to fit;
 > focus the GALT selection in the layers list for a follicle crop. The composition figure matches
-> **`niche_k30_res0.3`** and that selection.
+> **`{color_hi}`** and that selection.
 """
 
 

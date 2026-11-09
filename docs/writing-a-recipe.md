@@ -9,7 +9,7 @@ Stack: marimo-studio **zero-python** export, `website/scripts/export-recipes.sh`
 | Artifact | Role |
 | --- | --- |
 | `demos/recipes/<slug>.py` | Source notebook (script header + cells) |
-| `website/content/recipes/<slug>/index.md` | Zensical page stub (`template: recipe_studio.html`) |
+| `website/content/how-to/recipes/<slug>/index.md` | Zensical page stub (`template: recipe_studio.html`) |
 | `website/scripts/export-recipes.sh` | `RECIPES=(…)` list drives export + copy into `site/` |
 | `website/scripts/check_recipe_payload.py` | `RECIPES` tuple must include your slug for CI payload gate |
 | Generated under `website/overrides/partials/` | `recipe-studio-<slug>-head.html` and `-body.html` from `prepare_recipe_studio.py` (commit after export) |
@@ -99,7 +99,23 @@ When you capture screenshots or video for a recipe page or a PR:
 - Show the **cursor** whenever the capture simulates pointer use (same bar as montage rows in `docs/montage/shot-spec.md`).
 - Ship **light and dark** stills; recipe pages follow Zensical palette toggles, and `website/content/javascripts/recipe-studio.js` mirrors `data-md-color-scheme` onto `.milume-recipe-studio-host` so the Landmarks canvas tracks slate/default.
 
-For automated light/dark checks on an assembled page, use `frontend/scripts/capture-recipe-zensical.mjs` against `http://127.0.0.1:8765/docs/recipes/<slug>/index.html`.
+For automated light/dark checks on an assembled page, use `frontend/scripts/capture-recipe-zensical.mjs` against `http://127.0.0.1:8765/docs/how-to/recipes/<slug>/index.html`.
+
+## Recipe CI gates (issue #422)
+
+Ship recipe changes in one review round: headless numbers, shot-list stills, and assembled-page checks.
+
+| Artifact | Role |
+| --- | --- |
+| `demos/recipes/<slug>_numbers.py` (optional) | Stable integers and parameters for prose (`f`-string `mo.md` only; no raw digits in static `r"""` prose). |
+| `demos/recipes/<slug>/numbers.json` | Written when the notebook runs as a script (`python demos/recipes/<slug>.py` after `cd frontend && npm run build`). |
+| `scripts/verify_<slug>.py` | Re-runs the notebook, compares fresh `numbers.json` to the committed file. |
+| `demos/recipes/<slug>/shots.yaml` | Shot ids plus expected widget `column`, `selection_count`, `view` (`fit` is the bounds center at the engine fit zoom), optional pointer `norm_x` / `norm_y`, and light/dark `theme`. `frontend/scripts/capture-recipe-shots.mjs` asserts column, selection count, and view, then writes PNGs (used in `assemble-pages.sh` and for local capture). |
+| `scripts/lint_recipe_prose.py` | Fails on `mo.md("...")` prose literals that still contain digits (outside allowlists). |
+
+**Loop:** agree on the outcome and a written shot list with science sign-off, land the notebook and fixtures, run `assemble-pages.sh` locally once, post one review addressing automation output, then hand to Clarence for a single sign-off pass (no iterative guesswork on numbers or stills).
+
+Script mode runs without a browser; interactive paths stay behind `mo.app_meta().mode` where needed. The docs page uses US spelling in visible copy; the assembled-site Playwright check (`frontend/e2e/core/hero-recipe-assembled-site.spec.ts`) rejects common British spellings in body text, enforces non-empty `marimo-cell` hosts, deduplicates shot PNGs by MD5, and reuses `measure-recipe-payload.mjs` for the data and total budgets.
 
 ## Register a new slug
 
@@ -116,7 +132,7 @@ Commit `demos/recipes/studio/toy_peek/`. Adjust `docs/index.html` if you add or 
 
 3. Append `toy_peek` to the `RECIPES` bash array in `website/scripts/export-recipes.sh`.
 4. Append `"toy_peek"` to the `RECIPES` tuple in `website/scripts/check_recipe_payload.py`.
-5. Create `website/content/recipes/toy_peek/index.md`:
+5. Create `website/content/how-to/recipes/toy_peek/index.md`:
 
 ```yaml
 ---
@@ -127,7 +143,7 @@ description: Minimal ileum peek recipe for verifying the export pipeline.
 ---
 ```
 
-6. When the recipe is ready for readers, add a nav line under **How-to guides** in `website/zensical.toml` (see `Squidpy niche colour`).
+6. When the recipe is ready for readers, add a nav line under **How-to guides** in `website/zensical.toml` (see `Squidpy niche color`).
 
 7. **Generate Zensical partials before the first full assemble.** `assemble-pages.sh` runs pytest (including a Zensical build) *before* it exports recipes. A new `recipe_studio.html` page needs the generated overrides:
 
@@ -222,7 +238,7 @@ cd frontend && npm ci && npm run build && cd ..
 uv run bash website/scripts/assemble-pages.sh
 ```
 
-`assemble-pages.sh` runs, in order: website hero build, recipe export (`export-recipes.sh prepare-for-zensical`), Zensical build, headless network recording to prune unused marimo chunks, second Zensical build, copy into `site/`, **`check_recipe_payload.py`**, redirect and agent-md checks.
+`assemble-pages.sh` runs, in order: website hero build, recipe export (`export-recipes.sh prepare-for-zensical`), Zensical build, headless network recording to prune unused marimo chunks, second Zensical build, copy into `site/`, **`check_recipe_payload.py`**, **`lint_recipe_prose.py`**, **`verify_squidpy_color.py`**, **`capture-recipe-shots.mjs`**, redirect and agent-md checks.
 
 Preview the integrated recipe:
 
@@ -230,7 +246,7 @@ Preview the integrated recipe:
 python3 -m http.server 8765 --bind 127.0.0.1 --directory site
 ```
 
-Open `http://127.0.0.1:8765/docs/recipes/toy_peek/index.html` (or your slug). Toggle light/dark in the header; the map canvas should follow (see `recipe-studio.js` and `frontend/src/hooks/notebook-theme.ts`).
+Open `http://127.0.0.1:8765/docs/how-to/recipes/toy_peek/index.html` (or your slug). Toggle light/dark in the header; the map canvas should follow (see `recipe-studio.js` and `frontend/src/hooks/notebook-theme.ts`).
 
 Payload-only rerun (site already built):
 
@@ -244,7 +260,7 @@ uv run python website/scripts/check_recipe_payload.py
 | Workflow | When it runs | What it checks |
 | --- | --- | --- |
 | `pages.yml` | `main` and PRs touching recipes, website scripts, frontend, … | Full `assemble-pages.sh` including payload budgets |
-| `recipe-studio-export.yml` | PRs touching `demos/recipes/**`, … | Cold marimo-studio preflight and warm export for `RECIPE_NB` (today `squidpy_color.py`) |
+| `recipe-studio-export.yml` | PRs touching `demos/recipes/**`, … | Cold marimo-studio preflight, warm export for `RECIPE_NB`, plus `verify_squidpy_color.py` and recipe prose lint |
 
 Required PR policy checks on `main` are listed in [AGENTS.md](../AGENTS.md).
 
