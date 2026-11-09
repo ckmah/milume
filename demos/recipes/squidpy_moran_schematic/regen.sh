@@ -7,7 +7,10 @@ ROOT=$(CDPATH= cd "$HERE/../../.." && pwd)
 cd "$HERE"
 export PATH=$HOME/.local/bin:$PATH
 SC=${STATECHART:-"$ROOT/.agents/skills/statechart/scripts/statechart.mjs"}
-PELE=${PELE:-/workspace/pele}
+if [ -z "${PELE:-}" ]; then
+  echo "Set PELE to a pele checkout that contains render.mjs and png.sh." >&2
+  exit 1
+fi
 OUT=${1:-out}
 rm -rf "$OUT"
 node "$SC" MoranContrast.tla --config MoranContrast.cfg --view view.ts --out "$OUT"

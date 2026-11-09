@@ -33,7 +33,10 @@
 # cell-26 = {ref = "cell:v1:692f798c0ce2b1f7b3753d50d51488529d662858294b3ac5b16d808442dff23b:dd0e5952b24b03666159297cac39b040600ece05438618e8b20693d2a6e31cae:0"}
 # cell-27 = {ref = "cell:v1:94cc7b4cfe0432b38b9b297c01d9ad33bf248acbf59a87aee3998db140377816:0b12a4d8747c713bed8df58999cc4b5c5096786193498f170ceb98fb2ce9bbee:0"}
 # ///
-"""Squidpy Moran's I recipe: cell-type layout vs patterns inside enterocytes (ileum)."""
+"""Squidpy Moran's I recipe: cell-type layout vs patterns inside enterocytes (ileum).
+
+The committed score cache reproduces exactly on squidpy 1.8.4 (Python >= 3.12, as uv.lock selects).
+"""
 
 import marimo
 

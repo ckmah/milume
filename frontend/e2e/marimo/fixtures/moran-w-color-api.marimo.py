@@ -3,7 +3,7 @@
 # dependencies = [
 #     "marimo>=0.25.1",
 #     "matplotlib>=3.8",
-#     "milume @ file:///workspace",
+#     "milume",
 #     "numpy>=1.26",
 #     "pandas>=2.1",
 # ]

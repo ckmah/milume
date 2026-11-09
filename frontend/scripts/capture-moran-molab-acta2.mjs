@@ -6,8 +6,11 @@ import { mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
 
 const baseUrl = process.env.MARIMO_BASE_URL ?? "http://127.0.0.1:28765";
-const outDir =
-  process.argv[2] ?? "/opt/cursor/artifacts/recipe-moran-409-molab";
+const outDir = process.env.MORAN_MOLAB_CAPTURE_OUT ?? process.argv[2];
+if (!outDir) {
+  console.error("Pass an output directory or set MORAN_MOLAB_CAPTURE_OUT.");
+  process.exit(1);
+}
 const viewport = { width: 1280, height: 900 };
 
 mkdirSync(outDir, { recursive: true });

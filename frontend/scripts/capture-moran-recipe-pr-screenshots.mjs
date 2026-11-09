@@ -10,7 +10,13 @@ const base =
 const url =
   process.argv[2] ??
   `${base}/docs/how-to/recipes/squidpy_moran/index.html`;
-const outDir = process.argv[3] ?? "/opt/cursor/artifacts/recipe-moran-409";
+const outDir = process.env.MORAN_RECIPE_CAPTURE_OUT ?? process.argv[3];
+if (!outDir) {
+  console.error(
+    "Pass an output directory as the second argument or set MORAN_RECIPE_CAPTURE_OUT.",
+  );
+  process.exit(1);
+}
 const viewport = { width: 1280, height: 900 };
 const ALL_CELLS = "30,332";
 
