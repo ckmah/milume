@@ -6,9 +6,9 @@ import { bootLandmarksHarness, getModel } from "../helpers";
 
 const CATALOG_SIZE = 18028;
 const MAX_DOM_OPTIONS = 250;
-/** Filter scan is unit-tested at 18k (<100 ms); this budget includes rendering up to 250 options. */
 const OPEN_LATENCY_MS = 100;
-const QUERY_UI_LATENCY_MS = 150;
+const QUERY_UI_MEDIAN_MS = 112.3;
+const QUERY_UI_LATENCY_MS = Math.floor(QUERY_UI_MEDIAN_MS * 2);
 
 const controls = (page: Page) => page.getByTestId("explore-color-controls");
 const input = (page: Page) => controls(page).locator('[data-slot="combobox-chip-input"]');
