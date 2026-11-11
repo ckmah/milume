@@ -1,0 +1,43 @@
+name: Genes picker query latency
+
+on:
+  pull_request:
+    paths:
+      - frontend/e2e/landmarks/landmarks-genes-picker-18k.spec.ts
+      - .github/workflows/genes-picker-query-latency.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repeat:
+    name: query budget 10x
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: ./.github/actions/node-modules
+      - uses: ./.github/actions/playwright-browser
+      - name: Repeat the search-first query budget
+        run: npx playwright test e2e/landmarks/landmarks-genes-picker-18k.spec.ts -g "search-first popup keeps a bounded option count" --repeat-each=10 --retries=0
+        env:
+          CI: "true"
+          E2E_HARNESS: landmarks
+          E2E_RETRIES: "0"
+          E2E_WORKERS: "2"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: picker-query-repeat
+          path: frontend/playwright-report/
+          retention-days: 14
+          if-no-files-found: ignore
