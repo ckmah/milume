@@ -1,4 +1,4 @@
-as_of: Tue Nov 10, 1:20 PM PT
+as_of: Wed Nov 11, 5:47 AM PT
 needs_you: 0
   (none)
 open_prs: 2
@@ -8,8 +8,7 @@ stale_prs:
 red_nightlies: 2026-10-31, 2026-11-06, 2026-11-07, 2026-11-09, 2026-11-10
 last_red_nightly: 2026-11-10
 ci_failure_issues:
-  #433 Nightly landmarks e2e failed (2026-11-10)
   #429 CI: Inspect cube volume e2e hard-red since #418 (meshes /...
 html: dashboard.html
 status: PUBLISH
-hash: 2c3206978180
+hash: 325cfe163108
