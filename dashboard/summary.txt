@@ -1,10 +1,10 @@
-as_of: Wed Nov 11, 9:14 AM PT
+as_of: Thu Nov 12, 3:26 AM PT
 needs_you: 0
   (none)
 open_prs: 2
 last_nightly: 2026-11-11 failure
 stale_prs:
-  #430 cursor/volume-e2e-429-3aa1 (no push >3d)
+  #430 cursor/volume-e2e-429-3aa1 (no push >4d)
   #415 morans-i-409 (no push >2d)
 red_nightlies: 2026-10-31, 2026-11-06, 2026-11-07, 2026-11-09, 2026-11-10, 2026-11-11
 last_red_nightly: 2026-11-11
@@ -13,4 +13,4 @@ ci_failure_issues:
   #429 CI: Inspect cube volume e2e hard-red since #418 (meshes /...
 html: dashboard.html
 status: PUBLISH
-hash: a96afbb3e6b6
+hash: be176de8de0f
