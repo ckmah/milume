@@ -14,11 +14,15 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage();
 await page.goto(pageUrl, { waitUntil: "networkidle", timeout: 120_000 });
-await page
-  .locator("marimo-anywidget")
-  .locator("canvas")
-  .first()
-  .waitFor({ state: "visible", timeout: 120_000 });
+try {
+  await page
+    .locator("marimo-anywidget")
+    .locator("canvas")
+    .first()
+    .waitFor({ state: "visible", timeout: 120_000 });
+} catch {
+  await page.waitForTimeout(3000);
+}
 await page.waitForTimeout(1500);
 
 const entries = await page.evaluate(() =>

@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Squidpy Moran · Docs</title>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@unocss/runtime@66.10.5/uno.global.js"
+      integrity="sha384-iX+gEyr2u+Tmd8XxbySu2iimH7dOfTZn9xahADx38mJHYzAI2CJUCo5+PPGOSU2b"
+      crossorigin="anonymous"
+    ></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/iconify-icon@3.0.3/dist/iconify-icon.min.js"
+      integrity="sha384-jypoV+nlFXLykSFUJkpVjPG/eid90inFxyvUI1corcUR778eMGexPBFzNC94eOc+"
+      crossorigin="anonymous"
+    ></script>
+    <style>
+      body {
+        margin: 0;
+        background: var(--background, Canvas);
+        color: var(--foreground, CanvasText);
+        font-family: var(--text-font, system-ui, sans-serif);
+      }
+
+      .view-header {
+        margin-bottom: 3rem;
+      }
+
+      .view-header p {
+        color: var(--muted-foreground, color-mix(in srgb, currentColor 66%, transparent));
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+    </style>
+  </head>
+  <body>
+    <main id="app-shell" class="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <header class="view-header">
+        <p>Squidpy Moran</p>
+        <h1>Docs</h1>
+      </header>
+      <section class="grid gap-6" aria-label="Notebook results">
+        <marimo-cell name="intro"></marimo-cell>
+        <marimo-cell name="cell-2"></marimo-cell>
+        <marimo-cell name="schematic"></marimo-cell>
+        <marimo-cell name="cell-6"></marimo-cell>
+        <marimo-cell name="load_data"></marimo-cell>
+        <marimo-cell name="cell-8"></marimo-cell>
+        <marimo-cell name="cell-9"></marimo-cell>
+        <marimo-cell name="moran_all"></marimo-cell>
+        <marimo-cell name="cell-11"></marimo-cell>
+        <marimo-cell name="cell-12"></marimo-cell>
+        <marimo-cell name="subset"></marimo-cell>
+        <marimo-cell name="moran_ent"></marimo-cell>
+        <marimo-cell name="cell-15"></marimo-cell>
+        <marimo-cell name="cell-16"></marimo-cell>
+        <marimo-cell name="landmark_map"></marimo-cell>
+        <marimo-cell name="cell-19"></marimo-cell>
+        <marimo-cell name="cell-20"></marimo-cell>
+        <marimo-cell name="villus"></marimo-cell>
+        <marimo-cell name="result_figure"></marimo-cell>
+        <marimo-cell name="cell-erbb3"></marimo-cell>
+        <marimo-cell name="cell-24"></marimo-cell>
+        <marimo-cell name="cell-tenth"></marimo-cell>
+        <marimo-cell name="cell-25"></marimo-cell>
+        <marimo-cell name="cell-depth"></marimo-cell>
+        <marimo-cell name="depth_check"></marimo-cell>
+        <marimo-cell name="cell-26"></marimo-cell>
+        <marimo-cell name="cell-27"></marimo-cell>
+      </section>
+    </main>
+    <script type="module">
+      /** Subscribe an explicit `mo-value` host to current values and later updates. */
+      const observeMarimoValue = (host, { onValue, onError = () => {} }) => {
+        const sync = (event) => onValue(event.detail.value);
+        const fail = (event) => onError(event.detail);
+        host.addEventListener("marimo-value-updated", sync);
+        host.addEventListener("marimo-value-error", fail);
+        if (host.dataset.marimoError !== undefined) {
+          onError({
+            selector: host.getAttribute("mo-value")?.trim() ?? "",
+            code: host.dataset.marimoErrorCode,
+            message: host.dataset.marimoError,
+            hint: host.dataset.marimoDiagnosticHint,
+          });
+        } else if (host.marimoValue !== undefined) {
+          onValue(host.marimoValue);
+        }
+        return () => {
+          host.removeEventListener("marimo-value-updated", sync);
+          host.removeEventListener("marimo-value-error", fail);
+        };
+      };
+
+      document.querySelector("#app-shell")?.setAttribute("data-ready", "");
+    </script>
+  </body>
+</html>
