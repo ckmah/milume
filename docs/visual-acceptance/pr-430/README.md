@@ -27,11 +27,12 @@ Same toy Inspect window (`window=100`), Labels on, Top camera, DPR 2, SwiftShade
 
 | File | SHA | Chrome | What is on screen |
 | --- | --- | --- | --- |
-| `pre418-a8730ff-*-dpr2.png` | `a8730ff` (last green volume nightly) | light and dark | Textured category meshes, one warm and one cool. Toolbar has Points. Downsampled orange count is 0; this is not the solid orange of the PR head. |
+| `pre418-a8730ff-*-dpr2.png` | `a8730ff` (last green volume nightly) | light and dark | Textured category cells, one warm and one cool. Toolbar has Points. Downsampled orange count is 0. |
 | `merge-base-510927f-*-dpr2.png` | `510927f` (PR base) | light and dark | Both cells are uncoloured white. Orange count 0. No Points control. `data-image-mode` is `mip`. |
-| `pr-c67ef6b-*-dpr2.png` | `c67ef6b` | light and dark | Solid orange and blue meshes (993 and 621 samples in a 160×120 downsample). Image and Labels, no Points. `data-image-mode` is `additive`. |
-| `pr-c67ef6b-reset-*-dpr2.png` | `c67ef6b` | light and dark | Image was set to MIP, then Reset. Additive is checked and `data-image-mode` is `additive`. Cells stay coloured. |
-| `inspect-reset-clip.mp4` | `c67ef6b` | dark | 10.48s. Pointer is visible. Meshes are orange and blue, Iso switches the camera to oblique, Image is set to MIP, Reset returns Additive. |
+| `pr-c67ef6b-*-dpr2.png` | `c67ef6b` | light and dark | Earlier head. Solid orange and blue meshes (993 and 621 samples in a 160×120 downsample). No Points. |
+| `pr-e50eb9a-*-dpr2.png` | `e50eb9a` | light and dark | Textured cells. Cube viewport pixels match `a8730ff` (0 of 1,334,967 differ). No Points control. `data-image-mode` is `additive`. Orange count 0. |
+| `pr-e50eb9a-reset-*-dpr2.png` | `e50eb9a` | light and dark | Image was set to MIP, then Reset. Additive is checked and `data-image-mode` is `additive`. Cells stay textured. Pointer is on Additive. |
+| `inspect-reset-clip.mp4` | `e50eb9a` | dark | 10.8s. Pointer is visible. Textured cells, Iso switches the camera to oblique, Image is set to MIP, Reset returns Additive. |
 
 Counts and stamp URLs are in `provenance-*.json`. The clip is a separate run of the same production preview path; its banner names `c67ef6b`.
 

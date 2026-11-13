@@ -1,0 +1,131 @@
+{
+  "label": "pr-e50eb9a",
+  "gitSha": "e50eb9aaf9c81046d7d1b4649a0e7e0e8f6b9b35",
+  "url": "http://127.0.0.1:4173",
+  "capturedAt": "2026-11-13T21:23:48.998Z",
+  "dpr": 2,
+  "viewport": {
+    "width": 1280,
+    "height": 900
+  },
+  "server": "vite preview of vite build (production harness, not the dev server)",
+  "shots": [
+    {
+      "theme": "dark",
+      "kind": "labels",
+      "labelCells": "2",
+      "imageMode": "additive",
+      "points": 0,
+      "chrome": {
+        "rgb": [
+          20,
+          20,
+          20
+        ],
+        "luminance": 20
+      },
+      "counts": {
+        "orange": 0,
+        "blue": 59,
+        "samples": 19200
+      },
+      "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/pr-e50eb9a-dark-dpr2.png",
+      "stamp": {
+        "gitSha": "e50eb9aaf9c81046d7d1b4649a0e7e0e8f6b9b35",
+        "label": "pr-e50eb9a",
+        "mode": "production",
+        "command": "vite build",
+        "serve": "vite preview",
+        "harness": "frontend/dev/landmarks-volume",
+        "builtAt": "2026-11-13T21:22:07.656Z"
+      },
+      "assets": [
+        "http://127.0.0.1:4173/assets/index-8USKivDh.js",
+        "http://127.0.0.1:4173/assets/index-d0Al0MAw.css",
+        "http://127.0.0.1:4173/assets/load-volume-pyramid-DuEoB7xA.js"
+      ]
+    },
+    {
+      "theme": "light",
+      "kind": "labels",
+      "labelCells": "2",
+      "imageMode": "additive",
+      "points": 0,
+      "chrome": {
+        "rgb": [
+          232,
+          232,
+          232
+        ],
+        "luminance": 232
+      },
+      "counts": {
+        "orange": 0,
+        "blue": 60,
+        "samples": 19200
+      },
+      "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/pr-e50eb9a-light-dpr2.png",
+      "stamp": {
+        "gitSha": "e50eb9aaf9c81046d7d1b4649a0e7e0e8f6b9b35",
+        "label": "pr-e50eb9a",
+        "mode": "production",
+        "command": "vite build",
+        "serve": "vite preview",
+        "harness": "frontend/dev/landmarks-volume",
+        "builtAt": "2026-11-13T21:22:07.656Z"
+      },
+      "assets": [
+        "http://127.0.0.1:4173/assets/index-8USKivDh.js",
+        "http://127.0.0.1:4173/assets/index-d0Al0MAw.css",
+        "http://127.0.0.1:4173/assets/load-volume-pyramid-DuEoB7xA.js"
+      ]
+    }
+  ],
+  "resets": [
+    {
+      "theme": "dark",
+      "checked": "true",
+      "mode": "additive",
+      "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/pr-e50eb9a-reset-dark-dpr2.png",
+      "state": {
+        "labelCells": "2",
+        "imageMode": "additive",
+        "points": 0,
+        "chrome": {
+          "rgb": [
+            20,
+            20,
+            20
+          ],
+          "luminance": 20
+        }
+      }
+    },
+    {
+      "theme": "light",
+      "checked": "true",
+      "mode": "additive",
+      "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/pr-e50eb9a-reset-light-dpr2.png",
+      "state": {
+        "labelCells": "2",
+        "imageMode": "additive",
+        "points": 0,
+        "chrome": {
+          "rgb": [
+            232,
+            232,
+            232
+          ],
+          "luminance": 232
+        }
+      }
+    }
+  ],
+  "clip": {
+    "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/inspect-reset-clip.mp4",
+    "seconds": 10.8,
+    "interactionSeconds": 13.75,
+    "checked": "true",
+    "mode": "additive"
+  }
+}
