@@ -1560,8 +1560,7 @@ test.describe("Landmarks inspect cube", () => {
       );
 
     // Image menu. Defaults: the volume's contrast_limits, image alpha 1, gamma 1 (0 on its log2 scale), Additive.
-    // `data-image-mode` is that selected setting. A thin single-channel slab still paints,
-    // because the ray draws MIP for it; the attribute does not report that substitute.
+    // `data-image-mode` is the mode the ray draws. A thin single-channel slab stays Additive.
     await openAdjust(page);
     const panel = adjustPanel(page);
     await expect(panel.getByRole("heading")).toHaveText(["Image"]);
