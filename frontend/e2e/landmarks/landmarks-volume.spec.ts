@@ -39,6 +39,7 @@ const cutOf = async (page: Page) => (await getModel(page, "volume_cut")) as numb
 const selectionsOf = async (page: Page) => (await getModel(page, "selections")) as any[];
 /** The top pill while in Inspect (in place of the tool pill): Exit, the window's status, Save. */
 const inspectPill = (page: Page) => page.getByTestId("inspect-pill");
+
 const saveButton = (page: Page) => inspectPill(page).getByRole("button", { name: "Save window" });
 /** Inspect collapses the docks: reopen the left one (Selections) from its peek tab. It floats over the cube. */
 async function openSelectionsDock(page: Page) {
@@ -1559,14 +1560,29 @@ test.describe("Landmarks inspect cube", () => {
       );
 
     // Image menu. Defaults: the volume's contrast_limits, image alpha 1, gamma 1 (0 on its log2 scale), Additive.
-    // VolumeCoerce: thin Z + single channel maps Additive to MIP in GL (`data-image-mode` is effective mode).
+    // `data-image-mode` is the mode the ray draws. A thin single-channel slab stays Additive.
     await openAdjust(page);
     const panel = adjustPanel(page);
     await expect(panel.getByRole("heading")).toHaveText(["Image"]);
     const initialImage = await imageValues();
     expect(initialImage).toEqual([0, 48, 1, 0]);
     await expect(panel.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
-    await expect(view).toHaveAttribute("data-image-mode", "mip");
+    await expect(view).toHaveAttribute("data-image-mode", "additive");
+    const expectImagePaints = async () => {
+      await expect(view).toHaveAttribute("data-image-mode", "additive");
+      await expect(view).toHaveAttribute("data-labels", "off");
+      await expect(view).toHaveAttribute("data-image", "on");
+      await expect(view).toHaveAttribute("data-refining", "false");
+      const painted = await brightPixels(page, await view.screenshot());
+      await setShow(page, "image", false);
+      await expect(view).toHaveAttribute("data-image", "off");
+      const hidden = await brightPixels(page, await view.screenshot());
+      expect(painted, `image paint ${painted} vs hidden ${hidden}`).toBeGreaterThan(hidden * 4);
+    };
+    await setShow(page, "labels", false);
+    await expectImagePaints();
+    await setShow(page, "image", true);
+    await setShow(page, "labels", true);
     const widths = await widthsOf(panel);
     await nudge("Contrast", "ArrowLeft", 1);
     await nudge("Image alpha", "ArrowLeft");
@@ -1600,9 +1616,11 @@ test.describe("Landmarks inspect cube", () => {
     await setShow(page, "image", false);
     await panel.getByRole("button", { name: "Reset image" }).click();
     await expect(panel.getByRole("radio", { name: "Additive" })).toHaveAttribute("aria-checked", "true");
-    await expect(view).toHaveAttribute("data-image-mode", "mip");
+    await expect(view).toHaveAttribute("data-image-mode", "additive");
     expect(await imageValues()).toEqual(initialImage);
     await expect(layerToggle(page, "image")).toHaveAttribute("aria-pressed", "false");
+    await setShow(page, "image", true);
+    await expectImagePaints();
     await page.keyboard.press("Escape");
     await expect(panel).toHaveCount(0);
 
@@ -1798,14 +1816,40 @@ test.describe("Landmarks inspect cube", () => {
     const view = cubeWindow(page).locator(".volume-cube__view");
     const right = page.locator(".landmarks__chrome-dock--right");
     await expect(right).toHaveAttribute("data-collapsed", "true");
-    // Both peek tabs sit over the cube, clear of the Inspect pill's Save and Exit
-    // (a click is refused when another element would receive it).
+    // The first frames composite the cell meshes; wait them out before hit-testing the pill.
+    await expect(view).toHaveAttribute("data-refining", "false");
+    // Save and Exit stay the top hit at their centers. The poll does not scroll.
+    const receivesClick = async (locator: Locator) => {
+      let last: { rect: string; top: string } | null = null;
+      try {
+        await expect.poll(async () => {
+          const hit = await locator.evaluate((el) => {
+            const r = el.getBoundingClientRect();
+            const x = r.x + r.width / 2;
+            const y = r.y + r.height / 2;
+            const sized = r.width >= 1 && r.height >= 1;
+            const top = sized ? document.elementFromPoint(x, y) : null;
+            return {
+              ok: Boolean(top && (el === top || el.contains(top))),
+              rect: `${r.x},${r.y},${r.width},${r.height}`,
+              top: top?.getAttribute("aria-label") || top?.getAttribute("data-testid") || top?.tagName || "none",
+            };
+          });
+          last = { rect: hit.rect, top: hit.top };
+          return hit.ok;
+        }, { timeout: 15_000 }).toBe(true);
+      } catch (err) {
+        const where = last ? `last hit ${last.rect} top ${last.top}` : "no hit";
+        throw new Error(`${err instanceof Error ? err.message : String(err)} (${where})`, { cause: err });
+      }
+    };
     const actions = [
       inspectPill(page).getByRole("button", { name: "Save window" }),
       inspectPill(page).getByRole("button", { name: "Exit Inspect" }),
     ];
-    for (const a of actions) await a.click({ trial: true, timeout: 15_000 });
-    await page.getByRole("button", { name: "Show left panel" }).click({ trial: true, timeout: 15_000 });
+    await receivesClick(actions[0]!);
+    await receivesClick(actions[1]!);
+    await receivesClick(page.getByRole("button", { name: "Show left panel" }));
     await page.getByRole("button", { name: "Show right panel" }).click();
     await expect(right).toHaveAttribute("data-collapsed", "false");
     await expect(cubeWindow(page)).toBeVisible();
@@ -1816,7 +1860,8 @@ test.describe("Landmarks inspect cube", () => {
       [b.x + b.width / 2, b.y + Math.min(b.height / 2, 40)],
     );
     expect(onTop).toBe(true);
-    for (const a of actions) await a.click({ trial: true, timeout: 15_000 });
+    await receivesClick(actions[0]!);
+    await receivesClick(actions[1]!);
 
     // Focus a category in the dock (points mode UI): raster mode shows the highlight in the cube.
     await right.getByRole("button", { name: "Expand cell_type" }).click();
@@ -1862,7 +1907,8 @@ test.describe("Landmarks inspect cube", () => {
     }
     await expect(right).toHaveAttribute("data-collapsed", "false");
     await right.getByRole("tab", { name: "genes" }).click();
-    await expect(view).toHaveAttribute("data-coloring", "groups");
+    // Genes with nothing picked clear color (#404), so cells are instances until a gene is chosen.
+    await expect(view).toHaveAttribute("data-coloring", "instances");
     await expect(right.getByTestId("info-chart-well")).toContainText("Pick a gene to color cells");
 
     const genePicker = page.getByTestId("explore-color-controls").getByPlaceholder("Select genes");
@@ -2327,12 +2373,13 @@ test.describe("Landmarks inspect cube", () => {
     const flipped = (await float.boundingBox())!;
     expect(flipped.x + flipped.width).toBeLessThanOrEqual(right - half);
 
-    // The float sits under the tools (which stay above the map and the cube).
+    // The float sits under the top row (toolbar and View), which stacks above the map and the cube.
     const stack = await page.evaluate(() => {
       const z = (el: Element) => Number(getComputedStyle(el).zIndex);
       const f = document.querySelector('[data-testid="inspect-preview"]')!;
+      const row = document.querySelector(".landmarks__chrome-top-row")!;
       const tools = document.querySelector(".landmarks__chrome-tools")!;
-      return { float: z(f), tools: z(tools), pill: Boolean(tools.querySelector('[data-testid="inspect-pill"]')) };
+      return { float: z(f), tools: z(row), pill: Boolean(tools.querySelector('[data-testid="inspect-pill"]')) };
     });
     // In Inspect the top pill is the Inspect pill, in the tools' slot.
     expect(stack.pill).toBe(true);

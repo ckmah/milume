@@ -926,13 +926,8 @@ export function VolumeCube({
   // Reported once there is a camera: a null before the first view would
   // overwrite a preset the caller asked for meanwhile.
   const cameraPreset = presetOf(viewState);
-  // Additive integration is empty on Top for thin z slabs; MIP keeps tissue visible.
-  // Multichannel stays on the requested mode so Oblique can integrate both channels.
-  const thinZSlab = contentDepthVox > 0 && contentDepthVox <= 128;
-  const renderImageMode =
-    imageMode === "mip" || (thinZSlab && imageMode === "additive" && !multichannelCube)
-      ? "mip"
-      : imageMode;
+  // The layer draws the selected mode. A thin single-channel slab stays Additive:
+  // forcing MIP there replaced the textured cells with a solid silhouette.
   const hasCamera = Boolean(viewState);
   const onPresetRef = useLatest(onPreset);
   useLayoutEffect(() => {
@@ -1168,7 +1163,7 @@ export function VolumeCube({
                   : null,
               resolution: 0,
               extensions: cubeExtensions,
-              imageMode: renderImageMode,
+              imageMode,
               onImageBound,
               imagePalette,
               channelPalettes,
@@ -1213,7 +1208,7 @@ export function VolumeCube({
       winY[1],
       stackZ[0],
       stackZ[1],
-      renderImageMode,
+      imageMode,
       onImageBound,
       imagePalette,
       channelPalettes,
@@ -1561,7 +1556,7 @@ export function VolumeCube({
       data-label-cells={mesh?.ids.length ?? 0}
       data-coloring={coloringState}
       data-highlight={highlighted.length}
-      data-image-mode={renderImageMode}
+      data-image-mode={imageMode}
       data-pan={`${panX},${panY}`}
       data-palette={render.palette}
       data-image-gamma={render.imageGamma}

@@ -96,22 +96,21 @@ export const CubeImmersive = memo(function CubeImmersive({
   const focusedWin = inspectWindowOf(focusedSel);
   const focused = focusedWin ? { id: String(focusedSel?.id), win: focusedWin } : null;
 
-  // Snapshot the live window once it is shown settled (fine level, no pan): an
-  // entry saved from it can then show its thumbnail the moment Save adds it,
-  // though deck draws no new frame then (the canvas can only be read while
-  // rendering). A focused entry at its own window also gets one, under its id.
-  // After an entry's first snapshot, settled renders replace the stored image
-  // for SNAPSHOT_SETTLE_MS. React hears about that twice (the first frame, and
-  // once when the window closes). Notifying on every frame setStates from
-  // deck's onAfterRender; the cube's layer props are new each render, so Viv
-  // redraws inside the same commit and React unmounts the widget at max depth.
+  // Snapshot the live window once it is shown settled, fine level and no pan.
+  // Save can then show that thumbnail without deck drawing another frame.
+  // The drawing buffer is preserved, so the read waits out SNAPSHOT_SETTLE_MS
+  // and runs as its own task. The first settled frame can still hold the
+  // previous textures. Reading inside onAfterRender flushes the raymarch on
+  // the renderer thread. On software GL that stall runs longer than a hit-test
+  // can wait.
   const live = useRef<ChipSnapshot | null>(null);
   const latest = useRef({ focused, cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um });
   latest.current = { focused, cx: lm.inspect_cx, cy: lm.inspect_cy, size: lm.inspect_size_um };
-  const settleTimer = useRef<number | null>(null);
+  const shotTimer = useRef<number | null>(null);
+  const shotKey = useRef<string | null>(null);
   useEffect(
     () => () => {
-      if (settleTimer.current != null) window.clearTimeout(settleTimer.current);
+      if (shotTimer.current != null) window.clearTimeout(shotTimer.current);
     },
     [],
   );
@@ -120,42 +119,40 @@ export const CubeImmersive = memo(function CubeImmersive({
       const s = loadRef.current;
       const { focused: f, cx, cy, size: sz } = latest.current;
       if (!s || s.refining || s.pan[0] !== 0 || s.pan[1] !== 0 || cx == null || cy == null) return;
-      const now = performance.now();
       const liveKey = windowKey({ cx, cy, size_um: sz });
-      const liveCur = live.current?.key === liveKey ? live.current : null;
-      const takeLive = !liveCur || now - liveCur.at <= SNAPSHOT_SETTLE_MS;
-      let entryCur: ChipSnapshot | null = null;
-      let takeEntry = false;
+      const haveLive = live.current?.key === liveKey;
+      let needEntry = false;
       if (f && f.win.cx === cx && f.win.cy === cy) {
-        const prev = snapshots.get(f.id);
-        entryCur = prev?.key === windowKey(f.win) ? prev : null;
-        takeEntry = !entryCur || now - entryCur.at <= SNAPSHOT_SETTLE_MS;
+        needEntry = snapshots.get(f.id)?.key !== windowKey(f.win);
       }
-      if (!takeLive && !takeEntry) return;
-      let url: string | null;
-      try {
-        url = snapshotOf(canvas);
-      } catch {
-        return;
-      }
-      if (!url) return;
-      if (takeLive) live.current = { key: liveKey, url, at: liveCur?.at ?? now };
-      if (takeEntry && f) {
-        const first = !entryCur;
-        snapshots.set(f.id, { key: windowKey(f.win), url, at: entryCur?.at ?? now });
-        if (!first) return;
-        onSnapshot();
-        if (settleTimer.current != null) window.clearTimeout(settleTimer.current);
-        settleTimer.current = window.setTimeout(() => {
-          settleTimer.current = null;
-          const cur = latest.current.focused;
-          if (cur) {
-            const prev = snapshots.get(cur.id);
-            if (prev) snapshots.set(cur.id, { ...prev, at: performance.now() - SNAPSHOT_SETTLE_MS - 1 });
+      if (haveLive && !needEntry) return;
+      if (shotTimer.current != null && shotKey.current === liveKey) return;
+      if (shotTimer.current != null) window.clearTimeout(shotTimer.current);
+      shotKey.current = liveKey;
+      shotTimer.current = window.setTimeout(() => {
+        shotTimer.current = null;
+        const load = loadRef.current;
+        const cur = latest.current;
+        if (!load || load.refining || load.pan[0] !== 0 || load.pan[1] !== 0 || cur.cx == null || cur.cy == null) return;
+        if (windowKey({ cx: cur.cx, cy: cur.cy, size_um: cur.size }) !== liveKey) return;
+        let url: string | null;
+        try {
+          url = snapshotOf(canvas);
+        } catch {
+          return;
+        }
+        if (!url) return;
+        const now = performance.now();
+        if (live.current?.key !== liveKey) live.current = { key: liveKey, url, at: now };
+        const foc = cur.focused;
+        if (foc && foc.win.cx === cur.cx && foc.win.cy === cur.cy) {
+          const entryKey = windowKey(foc.win);
+          if (snapshots.get(foc.id)?.key !== entryKey) {
+            snapshots.set(foc.id, { key: entryKey, url, at: now });
+            onSnapshot();
           }
-          onSnapshot();
-        }, SNAPSHOT_SETTLE_MS);
-      }
+        }
+      }, SNAPSHOT_SETTLE_MS);
     },
     [snapshots, onSnapshot],
   );

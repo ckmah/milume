@@ -1,0 +1,125 @@
+{
+  "label": "pr-c67ef6b",
+  "gitSha": "c67ef6b6606d00d4275ae998f2fa99404e31e401",
+  "url": "http://127.0.0.1:4173",
+  "capturedAt": "2026-11-08T14:29:21.956Z",
+  "dpr": 2,
+  "viewport": {
+    "width": 1280,
+    "height": 900
+  },
+  "server": "vite preview of vite build (production harness, not the dev server)",
+  "shots": [
+    {
+      "theme": "dark",
+      "kind": "labels",
+      "labelCells": "2",
+      "imageMode": "additive",
+      "points": 0,
+      "chrome": {
+        "rgb": [
+          20,
+          20,
+          20
+        ],
+        "luminance": 20
+      },
+      "counts": {
+        "orange": 993,
+        "blue": 621,
+        "samples": 19200
+      },
+      "file": "docs/visual-acceptance/pr-430/pr-c67ef6b-dark-dpr2.png",
+      "stamp": {
+        "gitSha": "c67ef6b6606d00d4275ae998f2fa99404e31e401",
+        "label": "pr-c67ef6b",
+        "mode": "production",
+        "command": "vite build",
+        "serve": "vite preview",
+        "harness": "frontend/dev/landmarks-volume",
+        "builtAt": "2026-11-08T14:28:10.212Z"
+      },
+      "assets": [
+        "http://127.0.0.1:4173/assets/index-CMdKYfo3.js",
+        "http://127.0.0.1:4173/assets/index-d0Al0MAw.css",
+        "http://127.0.0.1:4173/assets/load-volume-pyramid-xsBAfVbe.js"
+      ]
+    },
+    {
+      "theme": "light",
+      "kind": "labels",
+      "labelCells": "2",
+      "imageMode": "additive",
+      "points": 0,
+      "chrome": {
+        "rgb": [
+          232,
+          232,
+          232
+        ],
+        "luminance": 232
+      },
+      "counts": {
+        "orange": 993,
+        "blue": 621,
+        "samples": 19200
+      },
+      "file": "docs/visual-acceptance/pr-430/pr-c67ef6b-light-dpr2.png",
+      "stamp": {
+        "gitSha": "c67ef6b6606d00d4275ae998f2fa99404e31e401",
+        "label": "pr-c67ef6b",
+        "mode": "production",
+        "command": "vite build",
+        "serve": "vite preview",
+        "harness": "frontend/dev/landmarks-volume",
+        "builtAt": "2026-11-08T14:28:10.212Z"
+      },
+      "assets": [
+        "http://127.0.0.1:4173/assets/index-CMdKYfo3.js",
+        "http://127.0.0.1:4173/assets/index-d0Al0MAw.css",
+        "http://127.0.0.1:4173/assets/load-volume-pyramid-xsBAfVbe.js"
+      ]
+    }
+  ],
+  "resets": [
+    {
+      "theme": "dark",
+      "checked": "true",
+      "mode": "additive",
+      "file": "docs/visual-acceptance/pr-430/pr-c67ef6b-reset-dark-dpr2.png",
+      "state": {
+        "labelCells": "2",
+        "imageMode": "additive",
+        "points": 0,
+        "chrome": {
+          "rgb": [
+            20,
+            20,
+            20
+          ],
+          "luminance": 20
+        }
+      }
+    },
+    {
+      "theme": "light",
+      "checked": "true",
+      "mode": "additive",
+      "file": "docs/visual-acceptance/pr-430/pr-c67ef6b-reset-light-dpr2.png",
+      "state": {
+        "labelCells": "2",
+        "imageMode": "additive",
+        "points": 0,
+        "chrome": {
+          "rgb": [
+            232,
+            232,
+            232
+          ],
+          "luminance": 232
+        }
+      }
+    }
+  ],
+  "clip": null
+}

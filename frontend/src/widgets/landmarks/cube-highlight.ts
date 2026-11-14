@@ -147,7 +147,7 @@ function geneExpressionColoring(input: CubeHighlightInput): CellColoring {
  * How the cube colours the cells near the window.
  *
  * Cell ids are table row + 1 (see CellMeshData.ids). With active genes selected, cells follow the same gene blend as the 2D map.
- * Until a gene is picked, category colouring is kept even on the genes tab.
+ * The genes tab clears color until a gene is picked, so cells take their own hue.
  * Type focus uses `selected_type_indices` (multi-select union). Selection focus
  * filters cells the same way in category and gene modes.
  */

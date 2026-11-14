@@ -1,0 +1,86 @@
+{
+  "label": "merge-base-510927f",
+  "gitSha": "510927f759723552a6d88b3f8fccfec6af430fa0",
+  "url": "http://127.0.0.1:4175",
+  "capturedAt": "2026-11-08T14:28:56.352Z",
+  "dpr": 2,
+  "viewport": {
+    "width": 1280,
+    "height": 900
+  },
+  "server": "vite preview of vite build (production harness, not the dev server)",
+  "shots": [
+    {
+      "theme": "dark",
+      "kind": "labels",
+      "labelCells": "2",
+      "imageMode": "mip",
+      "points": 0,
+      "chrome": {
+        "rgb": [
+          20,
+          20,
+          20
+        ],
+        "luminance": 20
+      },
+      "counts": {
+        "orange": 0,
+        "blue": 4,
+        "samples": 19200
+      },
+      "file": "docs/visual-acceptance/pr-430/merge-base-510927f-dark-dpr2.png",
+      "stamp": {
+        "gitSha": "510927f759723552a6d88b3f8fccfec6af430fa0",
+        "label": "merge-base-510927f",
+        "mode": "production",
+        "command": "vite build",
+        "serve": "vite preview",
+        "harness": "frontend/dev/landmarks-volume",
+        "builtAt": "2026-11-08T14:28:13.444Z"
+      },
+      "assets": [
+        "http://127.0.0.1:4175/assets/index-DJCXD5JI.js",
+        "http://127.0.0.1:4175/assets/index-d0Al0MAw.css",
+        "http://127.0.0.1:4175/assets/load-volume-pyramid-CYlhJ2bJ.js"
+      ]
+    },
+    {
+      "theme": "light",
+      "kind": "labels",
+      "labelCells": "2",
+      "imageMode": "mip",
+      "points": 0,
+      "chrome": {
+        "rgb": [
+          232,
+          232,
+          232
+        ],
+        "luminance": 232
+      },
+      "counts": {
+        "orange": 0,
+        "blue": 4,
+        "samples": 19200
+      },
+      "file": "docs/visual-acceptance/pr-430/merge-base-510927f-light-dpr2.png",
+      "stamp": {
+        "gitSha": "510927f759723552a6d88b3f8fccfec6af430fa0",
+        "label": "merge-base-510927f",
+        "mode": "production",
+        "command": "vite build",
+        "serve": "vite preview",
+        "harness": "frontend/dev/landmarks-volume",
+        "builtAt": "2026-11-08T14:28:13.444Z"
+      },
+      "assets": [
+        "http://127.0.0.1:4175/assets/index-DJCXD5JI.js",
+        "http://127.0.0.1:4175/assets/index-d0Al0MAw.css",
+        "http://127.0.0.1:4175/assets/load-volume-pyramid-CYlhJ2bJ.js"
+      ]
+    }
+  ],
+  "resets": [],
+  "clip": null
+}

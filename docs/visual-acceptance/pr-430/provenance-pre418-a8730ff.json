@@ -1,0 +1,86 @@
+{
+  "label": "pre418-a8730ff",
+  "gitSha": "a8730ff4e6c65c245d477ed473816b0424abd571",
+  "url": "http://127.0.0.1:4174",
+  "capturedAt": "2026-11-08T14:28:43.677Z",
+  "dpr": 2,
+  "viewport": {
+    "width": 1280,
+    "height": 900
+  },
+  "server": "vite preview of vite build (production harness, not the dev server)",
+  "shots": [
+    {
+      "theme": "dark",
+      "kind": "labels",
+      "labelCells": "2",
+      "imageMode": "additive",
+      "points": 1,
+      "chrome": {
+        "rgb": [
+          20,
+          20,
+          20
+        ],
+        "luminance": 20
+      },
+      "counts": {
+        "orange": 0,
+        "blue": 59,
+        "samples": 19200
+      },
+      "file": "docs/visual-acceptance/pr-430/pre418-a8730ff-dark-dpr2.png",
+      "stamp": {
+        "gitSha": "a8730ff4e6c65c245d477ed473816b0424abd571",
+        "label": "pre418-a8730ff",
+        "mode": "production",
+        "command": "vite build",
+        "serve": "vite preview",
+        "harness": "frontend/dev/landmarks-volume",
+        "builtAt": "2026-11-08T14:28:12.081Z"
+      },
+      "assets": [
+        "http://127.0.0.1:4174/assets/index-GkLPBCXs.js",
+        "http://127.0.0.1:4174/assets/index-BydT30OP.css",
+        "http://127.0.0.1:4174/assets/load-volume-pyramid-Bqas2ZM2.js"
+      ]
+    },
+    {
+      "theme": "light",
+      "kind": "labels",
+      "labelCells": "2",
+      "imageMode": "additive",
+      "points": 1,
+      "chrome": {
+        "rgb": [
+          232,
+          232,
+          232
+        ],
+        "luminance": 232
+      },
+      "counts": {
+        "orange": 0,
+        "blue": 60,
+        "samples": 19200
+      },
+      "file": "docs/visual-acceptance/pr-430/pre418-a8730ff-light-dpr2.png",
+      "stamp": {
+        "gitSha": "a8730ff4e6c65c245d477ed473816b0424abd571",
+        "label": "pre418-a8730ff",
+        "mode": "production",
+        "command": "vite build",
+        "serve": "vite preview",
+        "harness": "frontend/dev/landmarks-volume",
+        "builtAt": "2026-11-08T14:28:12.081Z"
+      },
+      "assets": [
+        "http://127.0.0.1:4174/assets/index-GkLPBCXs.js",
+        "http://127.0.0.1:4174/assets/index-BydT30OP.css",
+        "http://127.0.0.1:4174/assets/load-volume-pyramid-Bqas2ZM2.js"
+      ]
+    }
+  ],
+  "resets": [],
+  "clip": null
+}

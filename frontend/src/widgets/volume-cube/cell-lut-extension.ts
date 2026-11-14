@@ -933,7 +933,6 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
     if (!model || !paletteTexture) return;
     const target = layer.props.cubeMeshTarget;
     const meshOn = Boolean(target?.drawn && target.front && target.back);
-    if (target) target.drawn = false;
     const pad = paletteTexture;
     const p1 = channelPaletteTextures?.[0] ?? pad;
     const p2 = channelPaletteTextures?.[1] ?? pad;
@@ -955,6 +954,9 @@ class CubeExtensionBase extends ColorPalette3DExtensions.BaseExtension {
       layer.props.onImageBound?.(imageFormat);
     }
     applyCubeRenderShaderUniforms(layer);
+    // Clear only after the uniforms read `drawn`. applyCubeRenderShaderUniforms
+    // samples it; clearing first forces meshOn off and the raycast drops the cells.
+    if (target) target.drawn = false;
     if (typeof globalThis.window !== "undefined") {
       const tex = layer.state.textures as { volume0?: { id?: string }; volume1?: { id?: string } } | null;
       const vol0 = tex?.volume0;
