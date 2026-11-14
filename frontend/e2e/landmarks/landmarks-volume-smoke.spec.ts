@@ -9,6 +9,7 @@ import {
   setModel,
   waitForEngine,
 } from "../helpers";
+import { cubeGlChecksum } from "../helpers/shader-and-pixels";
 
 const cubeWindow = (page: Page) => page.getByRole("dialog", { name: "Cube" });
 const cutOf = async (page: Page) => (await getModel(page, "volume_cut")) as number[];
@@ -135,6 +136,52 @@ test.describe("Landmarks volume smoke", () => {
     await expect(cubeWindow(page)).toHaveCount(0);
     await expect(page.getByTestId("inspect-pill")).toHaveCount(0);
     await expect.poll(() => page.evaluate(() => (window as any).__landmarksModel.get("inspect_open"))).toBe(false);
+  });
+
+  test("contrast drag changes the cube render", async ({ page }) => {
+    await openCubeAtCentre(page);
+    const view = cubeWindow(page).locator(".volume-cube__view");
+    await expect(view).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
+    await layerToggle(page, "image").click({ button: "right" });
+    const hi = page.getByRole("slider", { name: "Contrast, maximum" });
+    await expect(hi).toBeVisible();
+    const before = await cubeGlChecksum(page);
+    expect(before).not.toBeNull();
+    const mini = async () =>
+      page.evaluate(() => {
+        const c = document.querySelector('[data-testid="inspect-minimap-canvas"]');
+        if (!(c instanceof HTMLCanvasElement)) return null;
+        const ctx = c.getContext("2d");
+        if (!ctx) return null;
+        const data = ctx.getImageData(0, 0, c.width, c.height).data;
+        let sum = 0;
+        for (let i = 0; i < data.length; i += 16) sum += data[i]! + data[i + 1]! + data[i + 2]!;
+        return sum;
+      });
+    const beforeMini = await mini();
+    const box = await hi.boundingBox();
+    expect(box).toBeTruthy();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box!.x - 48, box!.y + box!.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect.poll(async () => cubeGlChecksum(page), { timeout: 20_000 }).not.toBe(before);
+    await expect
+      .poll(async () => {
+        const vol = (await getModel(page, "volume")) as { contrast_limits?: [number, number] };
+        return vol.contrast_limits?.[1] ?? 48;
+      })
+      .toBeLessThan(48);
+    if (beforeMini != null) {
+      await expect.poll(mini, { timeout: 20_000 }).not.toBe(beforeMini);
+    }
+    await page.getByRole("button", { name: "Reset image" }).click();
+    await expect
+      .poll(async () => {
+        const vol = (await getModel(page, "volume")) as { contrast_limits?: [number, number] };
+        return vol.contrast_limits?.join(",");
+      })
+      .toBe("0,48");
   });
 
   test("cube opens on inspect click", async ({ page }) => {

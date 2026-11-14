@@ -293,6 +293,7 @@ export function InspectToolbar({
   cutRanges,
   onCutLive,
   onCutCommit,
+  onContrastCommit,
   onReset,
 }: {
   settings: CubeSettings;
@@ -302,6 +303,7 @@ export function InspectToolbar({
   cutRanges: { x: Range; y: Range; z: Range } | null;
   onCutLive: (cut: CubeCut) => void;
   onCutCommit: (cut: CubeCut) => void;
+  onContrastCommit: (limits: Range) => void;
   onReset: (section: Section | "all") => void;
 }) {
   const [crossOpen, setCrossOpen] = useState(false);
@@ -502,6 +504,7 @@ export function InspectToolbar({
           onLive={(v) => patch({ contrast: v })}
           onCommit={(v) => {
             patch({ contrast: v });
+            onContrastCommit(v);
             setHeldContrastMax(null);
           }}
         />
