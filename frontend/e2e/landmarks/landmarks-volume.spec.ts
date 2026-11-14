@@ -1817,7 +1817,12 @@ test.describe("Landmarks inspect cube", () => {
     const right = page.locator(".landmarks__chrome-dock--right");
     await expect(right).toHaveAttribute("data-collapsed", "true");
     // The first frames composite the cell meshes; wait them out before hit-testing the pill.
+    // `data-refining` flips false while that composite still owns the page. On a
+    // software-GL runner one frame can block `elementFromPoint` for the whole
+    // 15s poll (no sample at all). The same test failed that way on the #430
+    // push and passed only on the retry. Settle, then allow that frame to finish.
     await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-settled", "true");
     // Save and Exit stay the top hit at their centers. The poll does not scroll.
     const receivesClick = async (locator: Locator) => {
       let last: { rect: string; top: string } | null = null;
@@ -1837,7 +1842,7 @@ test.describe("Landmarks inspect cube", () => {
           });
           last = { rect: hit.rect, top: hit.top };
           return hit.ok;
-        }, { timeout: 15_000 }).toBe(true);
+        }, { timeout: 45_000 }).toBe(true);
       } catch (err) {
         const where = last ? `last hit ${last.rect} top ${last.top}` : "no hit";
         throw new Error(`${err instanceof Error ? err.message : String(err)} (${where})`, { cause: err });
