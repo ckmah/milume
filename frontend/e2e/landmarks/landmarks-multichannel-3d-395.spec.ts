@@ -15,7 +15,10 @@ import {
 } from "../helpers/issue395-cube-flow";
 import {
   expectCubeFootprintChangesTopToIso,
-  expectCubeDapiContrastDimsBlueLive,
+  cubeGlChecksum,
+  cubeGlTintStats,
+  CUBE_VIEW_SEL,
+  CUBE_VOLUME_INSET,
   expectCubePanckOffDimsMagentaLive,
   expectCubeDapiOnlyShowsVolume,
   expectCubeMainViewportChangesWhenPanckToggledViaLayers,
@@ -104,10 +107,83 @@ test.describe("multichannel 3D (#395) — landmarks-volume harness", () => {
     await expectCubeDapiOnlyShowsVolume(page);
   });
 
-  test.skip("live DAPI contrast crush drops blue in cube GL without closing cube", async ({ page }) => {
-    // Live cube contrast rendering is #417; trait/state coverage is separate in this spec.
+  test("contrast drag changes cube GL readback for each channel", async ({ page }) => {
     await openIssue395CubeAtInspectCentre(page);
-    await expectCubeDapiContrastDimsBlueLive(page);
+    await page.getByRole("radio", { name: "Oblique view" }).click();
+    await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
+    await openImagePanelInInspect(page);
+
+    const before = await cubeGlChecksum(page, CUBE_VOLUME_INSET);
+    const beforeTint = await cubeGlTintStats(page, CUBE_VOLUME_INSET);
+    expect(before).not.toBeNull();
+    expect(beforeTint).toBeTruthy();
+
+    await page.getByTestId("layer-channel-row-DAPI").focus();
+    const dapiHi = page.getByRole("slider", { name: "DAPI contrast, maximum" });
+    await expect(dapiHi).toBeVisible();
+    const dapiBox = await dapiHi.boundingBox();
+    expect(dapiBox).toBeTruthy();
+    await page.mouse.move(dapiBox!.x + dapiBox!.width / 2, dapiBox!.y + dapiBox!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(dapiBox!.x - 40, dapiBox!.y + dapiBox!.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect
+      .poll(async () => {
+        const rows = (await getModel(page, "_image_channels")) as Array<{
+          name: string;
+          contrast_limits: [number, number];
+        }>;
+        return rows.find((c) => c.name === "DAPI")?.contrast_limits?.[1] ?? 0;
+      })
+      .toBeLessThan(240);
+    const afterDapi = await cubeGlChecksum(page, CUBE_VOLUME_INSET);
+    expect(afterDapi, "DAPI contrast drag changes cube GL readback").not.toBe(before);
+
+    await page.getByTestId("layer-channel-row-PanCK").focus();
+    const panckHi = page.getByRole("slider", { name: "PanCK contrast, maximum" });
+    await expect(panckHi).toBeVisible();
+    const panckBox = await panckHi.boundingBox();
+    expect(panckBox).toBeTruthy();
+    const beforePanck = await cubeGlChecksum(page, CUBE_VOLUME_INSET);
+    await page.mouse.move(panckBox!.x + panckBox!.width / 2, panckBox!.y + panckBox!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(panckBox!.x - 36, panckBox!.y + panckBox!.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await expect
+      .poll(async () => {
+        const rows = (await getModel(page, "_image_channels")) as Array<{
+          name: string;
+          contrast_limits: [number, number];
+        }>;
+        return rows.find((c) => c.name === "PanCK")?.contrast_limits?.[1] ?? 0;
+      })
+      .toBeLessThan(220);
+    const afterPanck = await cubeGlChecksum(page, CUBE_VOLUME_INSET);
+    expect(afterPanck, "PanCK contrast drag changes cube GL readback").not.toBe(beforePanck);
+
+    const lo = await page.evaluate(() => {
+      const rows = window.__landmarksModel.get("_image_channels") as Array<{
+        name: string;
+        contrast_limits: [number, number];
+      }>;
+      return rows.find((c) => c.name === "DAPI")?.contrast_limits?.[0] ?? 0;
+    });
+    await page.evaluate((min) => {
+      const model = window.__landmarksModel;
+      const apply = (rows: Array<{ name: string; contrast_limits: [number, number] }>) =>
+        rows.map((r) => (r.name === "DAPI" ? { ...r, contrast_limits: [min, min] as [number, number] } : r));
+      const rows = model.get("_image_channels") as Array<{ name: string; contrast_limits: [number, number] }>;
+      const vol = { ...(model.get("volume") as Record<string, unknown>) };
+      const volChannels = (vol.channels as typeof rows) ?? [];
+      model.set("_image_channels", apply(rows));
+      model.set("volume", { ...vol, channels: apply(volChannels) });
+      model.save_changes();
+    }, lo);
+    await expect
+      .poll(async () => (await cubeGlTintStats(page, CUBE_VOLUME_INSET))?.blueExcess ?? 0)
+      .toBeGreaterThan(beforeTint!.blueExcess);
+    await expectMapCubeImageChannelStateAligned(page);
+    await page.keyboard.press("Escape");
   });
 
   test.skip("live PanCK off drops magenta in cube GL without closing cube", async ({ page }) => {

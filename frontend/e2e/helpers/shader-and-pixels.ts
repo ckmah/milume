@@ -501,6 +501,31 @@ export async function expectCubeVolumeSurvivesMapImageHidden(page: Page) {
   });
 }
 
+export async function cubeGlChecksum(page: Page, rect: CanvasRect = CUBE_VOLUME_INSET): Promise<number | null> {
+  return page.evaluate(({ sel, r }) => {
+    const c = document.querySelector(sel) as HTMLCanvasElement | null;
+    if (!c) return null;
+    const gl = c.getContext("webgl2") || c.getContext("webgl");
+    if (!gl) return null;
+    const w = c.width;
+    const h = c.height;
+    const buf = new Uint8Array(w * h * 4);
+    gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, buf);
+    const x0 = Math.floor(w * r.x0);
+    const x1 = Math.floor(w * r.x1);
+    const y0 = Math.floor(h * r.y0);
+    const y1 = Math.floor(h * r.y1);
+    let hash = 0;
+    for (let y = y0; y < y1; y += 2) {
+      for (let x = x0; x < x1; x += 2) {
+        const i = (y * w + x) * 4;
+        hash = (hash + buf[i]! * 3 + buf[i + 1]! * 5 + buf[i + 2]! * 7) % 10000019;
+      }
+    }
+    return hash;
+  }, { sel: cubeCanvasSel, r: rect });
+}
+
 export async function expectCubeFootprintChangesTopToIso(page: Page) {
   const top = await cubeGlFootprintSample(page, "Top view");
   const iso = await cubeGlFootprintSample(page, "Oblique view");
@@ -594,75 +619,6 @@ export async function expectCubePanckOffRemovesMagenta(page: Page) {
   if (before!.magentaExcess > 300) {
     expect(after!.magentaExcess).toBeLessThan(Math.max(80, before!.magentaExcess * 0.35));
   }
-}
-
-export async function expectCubeDapiContrastDimsBlueLive(page: Page) {
-  await page.getByRole("radio", { name: "Oblique view" }).click();
-  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
-  await page.waitForTimeout(600);
-  await page.evaluate(() => {
-    const rows = window.__landmarksModel.get("_image_channels") as Array<{ name: string; visible: boolean }>;
-    const next = rows.map((r) => (r.name === "PanCK" ? { ...r, visible: false } : r));
-    window.__landmarksModel.set("_image_channels", next);
-    window.__landmarksModel.save_changes();
-  });
-  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-channels", "1", { timeout: 30_000 });
-  await page.waitForTimeout(800);
-  const beforeGl = await cubeGlTintStats(page, CUBE_VOLUME_INSET);
-  expect(beforeGl).toBeTruthy();
-  expect(beforeGl!.blueExcess, "DAPI tissue blue in cube before contrast crush").toBeGreaterThan(120);
-  const minLo = await page.evaluate(() => {
-    const rows = window.__landmarksModel.get("_image_channels") as Array<{
-      name: string;
-      contrast_limits: [number, number];
-    }>;
-    return rows.find((c) => c.name === "DAPI")?.contrast_limits?.[0] ?? 0;
-  });
-  await page.evaluate((lo) => {
-    const model = window.__landmarksModel;
-    const rows = model.get("_image_channels") as Array<{
-      name: string;
-      contrast_limits: [number, number];
-    }>;
-    const nextRows = rows.map((r) =>
-      r.name === "DAPI" ? { ...r, contrast_limits: [lo, lo] as [number, number] } : r,
-    );
-    const vol = { ...(model.get("volume") as Record<string, unknown>) };
-    const volChannels = [...((vol.channels as typeof nextRows) ?? [])];
-    const apply = (list: typeof nextRows) => {
-      const i = list.findIndex((c) => c.name === "DAPI");
-      if (i < 0) return list;
-      const out = list.slice();
-      out[i] = { ...out[i]!, contrast_limits: [lo, lo] as [number, number] };
-      return out;
-    };
-    model.set("_image_channels", nextRows);
-    model.set("volume", { ...vol, channels: apply(volChannels.length ? volChannels : nextRows) });
-    model.save_changes();
-  }, minLo);
-  await expect
-    .poll(async () => {
-      const rows = (await page.evaluate(() => window.__landmarksModel.get("_image_channels"))) as Array<{
-        name: string;
-        contrast_limits: [number, number];
-      }>;
-      const dapi = rows.find((c) => c.name === "DAPI")?.contrast_limits;
-      return dapi ? `${dapi[0]},${dapi[1]}` : "";
-    })
-    .toBe(`${minLo},${minLo}`);
-  await expect(page.locator(CUBE_VIEW_SEL)).toHaveAttribute("data-refining", "false", { timeout: 120_000 });
-  await page.waitForTimeout(600);
-  await expect
-    .poll(async () => (await cubeGlTintStats(page, CUBE_VOLUME_INSET))?.blueExcess ?? Number.MAX_SAFE_INTEGER, {
-      timeout: 15_000,
-    })
-    .toBeLessThan(Math.max(40, beforeGl!.blueExcess * 0.2));
-  const afterGl = await cubeGlTintStats(page, CUBE_VOLUME_INSET);
-  expect(afterGl).toBeTruthy();
-  expect(
-    afterGl!.blueExcess,
-    "DAPI max→min must drop blue-weighted cube GL signal at least ~80% without closing cube",
-  ).toBeLessThan(Math.max(40, beforeGl!.blueExcess * 0.2));
 }
 
 export async function expectCubePanckOffDimsMagentaLive(page: Page) {

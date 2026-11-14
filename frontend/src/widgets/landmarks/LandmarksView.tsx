@@ -501,6 +501,7 @@ export function LandmarksView({
             cutRanges={inspectCube.cutRanges}
             onCutLive={inspectCube.onCutLive}
             onCutCommit={inspectCube.onCutCommit}
+            onContrastCommit={inspectCube.onContrastCommit}
             onReset={inspectCube.resetAdjust}
           />
         ) : inspecting && !hasVolume ? (

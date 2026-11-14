@@ -81,6 +81,7 @@ export type InspectCube = {
   panWindow: (dxUm: number, dyUm: number) => void;
   /** The pan's release: save the final window. */
   panEnd: () => void;
+  onContrastCommit: (limits: [number, number]) => void;
 };
 
 /**
@@ -524,17 +525,37 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     facade.save_changes();
   }, [facade]);
 
-  const contrastLo = defaultContrast[0];
-  const contrastHi = defaultContrast[1];
+  const openedContrastRef = useRef<[number, number] | null>(null);
+  const volContrast = lm.volume?.contrast_limits;
+  if (!openedContrastRef.current && volContrast) {
+    openedContrastRef.current = [volContrast[0], volContrast[1]];
+  }
+  const contrastLo = openedContrastRef.current?.[0] ?? defaultContrast[0];
+  const contrastHi = openedContrastRef.current?.[1] ?? defaultContrast[1];
+  const onContrastCommit = useCallback(
+    (limits: [number, number]) => {
+      const rows = facade.get("_image_channels") as unknown[] | undefined;
+      if (Array.isArray(rows) && rows.length) return;
+      const vol = { ...(facade.get("volume") as Record<string, unknown> | undefined) };
+      const prev = vol.contrast_limits as [number, number] | undefined;
+      if (prev && prev[0] === limits[0] && prev[1] === limits[1]) return;
+      vol.contrast_limits = [limits[0], limits[1]];
+      facade.set("volume", vol);
+      facade.save_changes();
+    },
+    [facade],
+  );
   const resetAdjust = useCallback(
     (section: AdjustSection | "all") => {
       const all = section === "all";
       if (all || section === "image") {
+        const contrast: [number, number] = [contrastLo, contrastHi];
         patchCube({
           imageMode: "additive",
-          contrast: [contrastLo, contrastHi],
+          contrast,
           render: { imageAlpha: DEFAULT_RENDER.imageAlpha, imageGamma: DEFAULT_RENDER.imageGamma },
         });
+        onContrastCommit(contrast);
       }
       if (all || section === "labels") {
         patchCube({ render: { cellAlpha: DEFAULT_RENDER.cellAlpha } });
@@ -545,7 +566,7 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
         if (w && v) write(committedCut(OPEN_CUT, w, v));
       }
     },
-    [patchCube, write, contrastLo, contrastHi],
+    [patchCube, write, contrastLo, contrastHi, onContrastCommit],
   );
 
   return {
@@ -564,6 +585,7 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
     resetAdjust,
     panWindow,
     panEnd,
+    onContrastCommit,
   };
 }
 
