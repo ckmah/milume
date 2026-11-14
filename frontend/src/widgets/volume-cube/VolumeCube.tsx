@@ -77,6 +77,9 @@ import {
   windowBox,
 } from "./window-source";
 
+/** Missing `_image_channels` is one implicit channel. A fresh `[]` each render reloads the volume. */
+const NO_IMAGE_CHANNEL_ROWS: ImageChannelRow[] = [];
+
 /** x0, x1, y0, y1, z0, z1 in µm. */
 export type CubeCut = [number, number, number, number, number, number];
 
@@ -576,7 +579,7 @@ export function VolumeCube({
     () => (shownImageLook.gamma === imageGamma ? render : { ...render, imageGamma: shownImageLook.gamma }),
     [render, imageGamma, shownImageLook.gamma],
   );
-  const traitChannelRows = imageChannelRows ?? [];
+  const traitChannelRows = imageChannelRows ?? NO_IMAGE_CHANNEL_ROWS;
   const activeImageChannels: CubeImageChannel[] = useMemo(() => {
     const rows = traitChannelRows;
     const pyramidBase = image?.[0] ?? null;

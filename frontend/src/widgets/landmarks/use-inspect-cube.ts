@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 
 import { DEFAULT_RENDER } from "@/widgets/volume-cube/palettes";
 import type { CubeCut } from "@/widgets/volume-cube/VolumeCube";
@@ -185,14 +185,21 @@ export function useInspectCube(facade: AnyModel, lm: LandmarksModel, engine: Eng
 
   const bounds = cube.bounds;
   const origin = lm.volume?.origin_um ?? NO_ORIGIN;
-  const volume = bounds ? { x: bounds.volumeX, y: bounds.volumeY, z: bounds.stackZ } : null;
-  const win: CutWindow | null =
-    lm.inspect_cx == null || lm.inspect_cy == null
-      ? null
-      : cutWindow(lm.inspect_cx, lm.inspect_cy, lm.inspect_size_um || INSPECT_WINDOW_UM, { x: origin[2], y: origin[1] }, volume);
-  const cut: CubeCut = win
-    ? shownCut(cube.cut, win, volume?.z ?? null)
-    : [-Infinity, Infinity, -Infinity, Infinity, cube.cut.z[0], cube.cut.z[1]];
+  const volume = useMemo(
+    () => (bounds ? { x: bounds.volumeX, y: bounds.volumeY, z: bounds.stackZ } : null),
+    [bounds],
+  );
+  const sizeUm = lm.inspect_size_um || INSPECT_WINDOW_UM;
+  const win = useMemo((): CutWindow | null => {
+    if (lm.inspect_cx == null || lm.inspect_cy == null) return null;
+    return cutWindow(lm.inspect_cx, lm.inspect_cy, sizeUm, { x: origin[2], y: origin[1] }, volume);
+  }, [lm.inspect_cx, lm.inspect_cy, sizeUm, origin, volume]);
+  const cutZ0 = cube.cut.z[0];
+  const cutZ1 = cube.cut.z[1];
+  const cut = useMemo((): CubeCut => {
+    if (!win) return [-Infinity, Infinity, -Infinity, Infinity, cutZ0, cutZ1];
+    return shownCut(cube.cut, win, volume?.z ?? null);
+  }, [win, cube.cut, volume, cutZ0, cutZ1]);
   const cutRanges = win && volume ? { x: win.x, y: win.y, z: volume.z } : null;
   // The stack's Z extent outlives the open cube (`bounds` resets on close), so a
   // saved entry's cut can be told apart from the whole depth.
