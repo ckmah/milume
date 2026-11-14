@@ -36,6 +36,7 @@ if (!existsSync(viteBin)) {
 const env = {
   ...process.env,
   CAPTURE_FRONTEND: frontend,
+  CAPTURE_REPO: repo,
   CAPTURE_SHA: sha,
   CAPTURE_LABEL: label,
   CAPTURE_DIST: dist,

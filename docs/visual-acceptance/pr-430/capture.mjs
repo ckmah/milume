@@ -10,11 +10,12 @@
  */
 import { spawnSync } from "node:child_process";
 import { mkdirSync, unlinkSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 
 const here = dirname(fileURLToPath(import.meta.url));
+const repo = resolve(process.env.CAPTURE_REPO ?? resolve(here, "../../.."));
 const frontend = join(here, "../../../frontend");
 const require = createRequire(join(frontend, "package.json"));
 const { chromium } = require("@playwright/test");
@@ -26,6 +27,24 @@ const short = sha.slice(0, 7);
 const doReset = process.env.CAPTURE_RESET === "1";
 const doClip = process.env.CAPTURE_CLIP === "1";
 const font = "/usr/share/fonts/truetype/macos/Inter-Bold.ttf";
+
+function repoFile(file) {
+  if (typeof file !== "string" || !isAbsolute(file)) return file;
+  const rel = relative(repo, file);
+  if (!rel || rel.startsWith("..") || isAbsolute(rel)) return file;
+  return rel;
+}
+
+function relativizeProvenance(value) {
+  if (Array.isArray(value)) return value.map(relativizeProvenance);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => [
+      key,
+      key === "file" ? repoFile(child) : relativizeProvenance(child),
+    ]),
+  );
+}
 
 async function installCursor(page) {
   await page.evaluate(() => {
@@ -444,7 +463,7 @@ let clip = null;
 if (doClip) clip = await recordClip(browser);
 await browser.close();
 
-const provenance = {
+const provenance = relativizeProvenance({
   label,
   gitSha: sha,
   url: base,
@@ -455,6 +474,6 @@ const provenance = {
   shots,
   resets,
   clip,
-};
+});
 writeFileSync(join(here, `provenance-${label}.json`), JSON.stringify(provenance, null, 2));
 console.log(JSON.stringify({ label, sha, shots: shots.map((s) => s.file), resets: resets.map((r) => r.file), clip }, null, 2));

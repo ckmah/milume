@@ -29,7 +29,7 @@
         "blue": 59,
         "samples": 19200
       },
-      "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/pre418-a8730ff-dark-dpr2.png",
+      "file": "docs/visual-acceptance/pr-430/pre418-a8730ff-dark-dpr2.png",
       "stamp": {
         "gitSha": "a8730ff4e6c65c245d477ed473816b0424abd571",
         "label": "pre418-a8730ff",
@@ -64,7 +64,7 @@
         "blue": 60,
         "samples": 19200
       },
-      "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/pre418-a8730ff-light-dpr2.png",
+      "file": "docs/visual-acceptance/pr-430/pre418-a8730ff-light-dpr2.png",
       "stamp": {
         "gitSha": "a8730ff4e6c65c245d477ed473816b0424abd571",
         "label": "pre418-a8730ff",

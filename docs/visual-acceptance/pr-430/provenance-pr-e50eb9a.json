@@ -29,7 +29,7 @@
         "blue": 59,
         "samples": 19200
       },
-      "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/pr-e50eb9a-dark-dpr2.png",
+      "file": "docs/visual-acceptance/pr-430/pr-e50eb9a-dark-dpr2.png",
       "stamp": {
         "gitSha": "e50eb9aaf9c81046d7d1b4649a0e7e0e8f6b9b35",
         "label": "pr-e50eb9a",
@@ -64,7 +64,7 @@
         "blue": 60,
         "samples": 19200
       },
-      "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/pr-e50eb9a-light-dpr2.png",
+      "file": "docs/visual-acceptance/pr-430/pr-e50eb9a-light-dpr2.png",
       "stamp": {
         "gitSha": "e50eb9aaf9c81046d7d1b4649a0e7e0e8f6b9b35",
         "label": "pr-e50eb9a",
@@ -86,7 +86,7 @@
       "theme": "dark",
       "checked": "true",
       "mode": "additive",
-      "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/pr-e50eb9a-reset-dark-dpr2.png",
+      "file": "docs/visual-acceptance/pr-430/pr-e50eb9a-reset-dark-dpr2.png",
       "state": {
         "labelCells": "2",
         "imageMode": "additive",
@@ -105,7 +105,7 @@
       "theme": "light",
       "checked": "true",
       "mode": "additive",
-      "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/pr-e50eb9a-reset-light-dpr2.png",
+      "file": "docs/visual-acceptance/pr-430/pr-e50eb9a-reset-light-dpr2.png",
       "state": {
         "labelCells": "2",
         "imageMode": "additive",
@@ -122,7 +122,7 @@
     }
   ],
   "clip": {
-    "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/inspect-reset-clip.mp4",
+    "file": "docs/visual-acceptance/pr-430/inspect-reset-clip.mp4",
     "seconds": 10.8,
     "interactionSeconds": 13.75,
     "checked": "true",

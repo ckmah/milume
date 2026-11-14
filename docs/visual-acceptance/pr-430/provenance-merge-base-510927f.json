@@ -29,7 +29,7 @@
         "blue": 4,
         "samples": 19200
       },
-      "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/merge-base-510927f-dark-dpr2.png",
+      "file": "docs/visual-acceptance/pr-430/merge-base-510927f-dark-dpr2.png",
       "stamp": {
         "gitSha": "510927f759723552a6d88b3f8fccfec6af430fa0",
         "label": "merge-base-510927f",
@@ -64,7 +64,7 @@
         "blue": 4,
         "samples": 19200
       },
-      "file": "/agent/repos/milume/docs/visual-acceptance/pr-430/merge-base-510927f-light-dpr2.png",
+      "file": "docs/visual-acceptance/pr-430/merge-base-510927f-light-dpr2.png",
       "stamp": {
         "gitSha": "510927f759723552a6d88b3f8fccfec6af430fa0",
         "label": "merge-base-510927f",
