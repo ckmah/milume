@@ -25,6 +25,21 @@ const VolumeCube = lazy(() =>
 const ORIGIN_ZYX: [number, number, number] = [0, 0, 0];
 const VOXEL_ZYX: [number, number, number] = [1, 1, 1];
 
+/** A new model object with the same cube inputs is not a new picture. */
+function sameCubeModel(a: LandmarksModel, b: LandmarksModel): boolean {
+  return (
+    a.volume === b.volume &&
+    a.volume_cell_rows === b.volume_cell_rows &&
+    a._image_channels === b._image_channels &&
+    a.inspect_cx === b.inspect_cx &&
+    a.inspect_cy === b.inspect_cy &&
+    a.inspect_size_um === b.inspect_size_um &&
+    a.selected_kind === b.selected_kind &&
+    a.selected_index === b.selected_index &&
+    a.selections === b.selections
+  );
+}
+
 /**
  * The Inspect cube taking over the widget's plot area, full-bleed. Its load
  * status goes to the settings for the Inspect pill, which holds Save and Exit.
@@ -243,4 +258,8 @@ export const CubeImmersive = memo(function CubeImmersive({
       </Suspense>
     </section>
   );
+}, (prev, next) => {
+  if (!sameCubeModel(prev.lm, next.lm)) return false;
+  const keys = Object.keys(prev) as (keyof typeof prev)[];
+  return keys.every((key) => key === "lm" || prev[key] === next[key]);
 });

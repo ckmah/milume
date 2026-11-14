@@ -1816,8 +1816,11 @@ test.describe("Landmarks inspect cube", () => {
     const view = cubeWindow(page).locator(".volume-cube__view");
     const right = page.locator(".landmarks__chrome-dock--right");
     await expect(right).toHaveAttribute("data-collapsed", "true");
-    // The first frames composite the cell meshes; wait them out before hit-testing the pill.
+    // The first frames composite the cell meshes. `data-refining` flips false
+    // while that composite still owns the page, so `elementFromPoint` can return
+    // no sample for the whole poll. Settle first, then hit-test.
     await expect(view).toHaveAttribute("data-refining", "false");
+    await expect(view).toHaveAttribute("data-settled", "true");
     // Save and Exit stay the top hit at their centers. The poll does not scroll.
     const receivesClick = async (locator: Locator) => {
       let last: { rect: string; top: string } | null = null;
