@@ -327,18 +327,41 @@ class CellMeshLayer extends SimpleMeshLayer {
 // passes switch it on around themselves only, so the layers after keep their state.
 const GL_DEPTH_TEST = 0x0b71;
 
+const MESH_INSTANCE = [0];
+const MESH_ORIGIN: [number, number, number] = [0, 0, 0];
+const meshPosition = () => MESH_ORIGIN;
+const MESH_WHITE: [number, number, number, number] = [255, 255, 255, 255];
+const MESH_TEXTURE_PARAMETERS = { minFilter: "nearest", magFilter: "nearest", mipmapFilter: "none" };
+const MESH_PARAMETERS = { depthCompare: "less" as const, depthWriteEnabled: true, cullMode: "none" as const, blend: false };
+let materialLook: MeshLook | null = null;
+let materialCached = meshMaterial(DEFAULT_MESH_LOOK);
+
+function materialFor(look: MeshLook) {
+  if (
+    !materialLook ||
+    materialLook.fresnelMin !== look.fresnelMin ||
+    materialLook.shine !== look.shine ||
+    materialLook.flat !== look.flat
+  ) {
+    materialLook = look;
+    materialCached = meshMaterial(look);
+  }
+  return materialCached;
+}
+
 /** The meshes' offscreen pass for `target`; draw it before the image raycast that reads it. */
 export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, target: MeshTarget, viewId = "3d") {
   if (!placed) return [];
   return [
     new CellMeshLayer({
       id: `cube-cell-mesh${vivTag(viewId)}`,
-      data: [0],
+      // A fresh array here is a new `data` prop, so deck reloads the attributes on every redraw.
+      data: MESH_INSTANCE,
       mesh: placed.mesh as never,
       texture: placed.lut as never,
-      textureParameters: { minFilter: "nearest", magFilter: "nearest", mipmapFilter: "none" } as never,
-      getPosition: () => [0, 0, 0],
-      getColor: [255, 255, 255, 255],
+      textureParameters: MESH_TEXTURE_PARAMETERS as never,
+      getPosition: meshPosition,
+      getColor: MESH_WHITE,
       modelMatrix: placed.modelMatrix,
       clip: placed.clip,
       fresnelMin: placed.look.fresnelMin,
@@ -346,8 +369,8 @@ export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, target
       coordinateSystem: COORDINATE_SYSTEM.CARTESIAN,
       opacity: placed.opacity,
       pickable: false,
-      material: meshMaterial(placed.look),
-      parameters: { depthCompare: "less", depthWriteEnabled: true, cullMode: "none", blend: false },
+      material: materialFor(placed.look),
+      parameters: MESH_PARAMETERS,
     } as never),
   ];
 }

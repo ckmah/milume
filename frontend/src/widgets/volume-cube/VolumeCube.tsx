@@ -545,7 +545,15 @@ export function VolumeCube({
   );
 
   // Voxel size at the shown level, and world scale relative to X (Viv's convention).
-  const levelVoxel: [number, number, number] | null = level ? levelVoxelSize(frame, level) : null;
+  // A new array on every render rebuilt the mesh matrix, so a gamma change redrew the meshes.
+  const frameVoxel = frame.voxelSize;
+  const levelFactor = level?.factor;
+  const levelVoxel: [number, number, number] | null = useMemo(
+    () => (level && levelFactor ? levelVoxelSize(frame, level) : null),
+    // The numbers, not the level object: a render can hand the same spacing a new array.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [level ? 1 : 0, frameVoxel[0], frameVoxel[1], frameVoxel[2], levelFactor?.[0], levelFactor?.[1], levelFactor?.[2]],
+  );
   const ry = levelVoxel ? levelVoxel[1] / levelVoxel[2] : 1;
   const rz = levelVoxel ? levelVoxel[0] / levelVoxel[2] : 1;
 
@@ -570,10 +578,19 @@ export function VolumeCube({
   // Under the meshes the image draws boosted over the active contrast and gamma; the
   // settings themselves, and the 2D view, keep theirs.
   const imageGamma = render.imageGamma ?? 1;
+  // Boost changes the contrast numbers. Gamma does not. A new array on every gamma
+  // tick rebuilt the channel list, and Viv refetches the volume when that list's
+  // identity changes.
+  const shownContrast = useMemo((): [number, number] => {
+    const lo = contrast[0];
+    const hi = contrast[1];
+    if (!meshesOn) return [lo, hi];
+    return boostedImage([lo, hi], 1, look.imgBoost).contrast;
+  }, [meshesOn, contrast[0], contrast[1], look.imgBoost]);
+  const shownGamma = meshesOn ? boostedImage([contrast[0], contrast[1]], imageGamma, look.imgBoost).gamma : imageGamma;
   const shownImageLook = useMemo(
-    () => (meshesOn ? boostedImage(contrast, imageGamma, look.imgBoost) : { contrast, gamma: imageGamma }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [meshesOn, contrast[0], contrast[1], imageGamma, look.imgBoost],
+    () => ({ contrast: shownContrast, gamma: shownGamma }),
+    [shownContrast, shownGamma],
   );
   const shownRender = useMemo(
     () => (shownImageLook.gamma === imageGamma ? render : { ...render, imageGamma: shownImageLook.gamma }),
@@ -979,13 +996,15 @@ export function VolumeCube({
     () => ({ ...shownRender, traitContrast: contrastLimits }),
     [shownRender, contrastLimits],
   );
+  // Viv's VolumeLayer reloads when `selections` is a new array, even if it names
+  // the same channels. Contrast and gamma must not do that.
+  const selectionKey = activeImageChannels.map((ch) => ch.index).join(",");
+  const hasChannelAxis = Boolean(level?.source.labels?.includes("c"));
   const channelSelections = useMemo(() => {
-    const hasC = Boolean(level?.source.labels.includes("c"));
-    if (!hasC) {
-      return activeImageChannels.map(() => ({}));
-    }
-    return activeImageChannels.map((ch) => ({ c: ch.index }));
-  }, [activeImageChannels, level?.source.labels]);
+    const indexes = selectionKey === "" ? [] : selectionKey.split(",").map(Number);
+    if (!hasChannelAxis) return indexes.map(() => ({}));
+    return indexes.map((c) => ({ c }));
+  }, [selectionKey, hasChannelAxis]);
   const channelColors = useMemo(
     () => activeImageChannels.map(() => [255, 255, 255] as [number, number, number]),
     [activeImageChannels],
