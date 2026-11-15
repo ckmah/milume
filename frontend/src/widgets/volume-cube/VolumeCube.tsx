@@ -59,7 +59,7 @@ import { tintPalette } from "./tint-palette";
 import { cubeImageChannels, type CubeImageChannel } from "./image-channels";
 import type { ImageChannelRow } from "@/widgets/landmarks/use-landmarks-model";
 import { dragToWindowDelta } from "./pan";
-import { type WindowTarget, levelVoxelSize, useShownWindow } from "./use-shown-window";
+import { type WindowTarget, useShownWindow } from "./use-shown-window";
 import {
   type Box,
   type Frame,
@@ -545,15 +545,16 @@ export function VolumeCube({
   );
 
   // Voxel size at the shown level, and world scale relative to X (Viv's convention).
-  // A new array on every render rebuilt the mesh matrix, so a gamma change redrew the meshes.
-  const frameVoxel = frame.voxelSize;
-  const levelFactor = level?.factor;
-  const levelVoxel: [number, number, number] | null = useMemo(
-    () => (level && levelFactor ? levelVoxelSize(frame, level) : null),
-    // The numbers, not the level object: a render can hand the same spacing a new array.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [level ? 1 : 0, frameVoxel[0], frameVoxel[1], frameVoxel[2], levelFactor?.[0], levelFactor?.[1], levelFactor?.[2]],
-  );
+  const sz = frame.voxelSize[0];
+  const sy = frame.voxelSize[1];
+  const sx = frame.voxelSize[2];
+  const fz = level?.factor[0];
+  const fy = level?.factor[1];
+  const fx = level?.factor[2];
+  const levelVoxel: [number, number, number] | null = useMemo(() => {
+    if (fz == null || fy == null || fx == null) return null;
+    return [sz * fz, sy * fy, sx * fx];
+  }, [sz, sy, sx, fz, fy, fx]);
   const ry = levelVoxel ? levelVoxel[1] / levelVoxel[2] : 1;
   const rz = levelVoxel ? levelVoxel[0] / levelVoxel[2] : 1;
 
@@ -578,9 +579,6 @@ export function VolumeCube({
   // Under the meshes the image draws boosted over the active contrast and gamma; the
   // settings themselves, and the 2D view, keep theirs.
   const imageGamma = render.imageGamma ?? 1;
-  // Boost changes the contrast numbers. Gamma does not. A new array on every gamma
-  // tick rebuilt the channel list, and Viv refetches the volume when that list's
-  // identity changes.
   const shownContrast = useMemo((): [number, number] => {
     const lo = contrast[0];
     const hi = contrast[1];
@@ -597,22 +595,26 @@ export function VolumeCube({
     [render, imageGamma, shownImageLook.gamma],
   );
   const traitChannelRows = imageChannelRows ?? NO_IMAGE_CHANNEL_ROWS;
+  const contrastLo = contrast[0];
+  const contrastHi = contrast[1];
+  const shownLo = shownContrast[0];
+  const shownHi = shownContrast[1];
   const activeImageChannels: CubeImageChannel[] = useMemo(() => {
     const rows = traitChannelRows;
     const pyramidBase = image?.[0] ?? null;
     if (rows.length > 0) {
-      return cubeImageChannels(rows, pyramidBase, contrast);
+      return cubeImageChannels(rows, pyramidBase, [contrastLo, contrastHi]);
     }
     return [
       {
         name: "Channel 0",
         index: 0,
         visible: true,
-        contrast: [shownImageLook.contrast[0], shownImageLook.contrast[1]],
+        contrast: [shownLo, shownHi],
         tint: "#dcdce6",
       },
     ];
-  }, [traitChannelRows, image, contrast, shownImageLook.contrast]);
+  }, [traitChannelRows, image, contrastLo, contrastHi, shownLo, shownHi]);
   const expectedVolumeChannels = activeImageChannels.length;
   const onViewportLoad = useMemo(
     () =>
