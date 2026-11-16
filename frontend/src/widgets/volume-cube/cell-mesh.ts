@@ -355,6 +355,7 @@ export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, target
   return [
     new CellMeshLayer({
       id: `cube-cell-mesh${vivTag(viewId)}`,
+      // One shared array: `data` must keep a stable identity across redraws.
       data: MESH_INSTANCE,
       mesh: placed.mesh as never,
       texture: placed.lut as never,
