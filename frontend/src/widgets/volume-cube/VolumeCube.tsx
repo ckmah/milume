@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Matrix4 } from "@math.gl/core";
 import { VivViewer } from "@hms-dbmi/viv";
 import { loadVolumePyramid } from "./load-volume-pyramid";
@@ -751,6 +751,9 @@ export function VolumeCube({
     const texY = (um: number) => shownH - ((um - oyUm) / stepY - y0v);
     const texZ = (um: number) => (um - ozUm) / stepZ;
     return cutFractionsForSlices(cut, windowXSlice, windowYSlice, windowZSlice, texX, texY, texZ);
+    // winX, winY and stackZ are new arrays every render. Depending on them
+    // rebuilt this fraction (and the Viv layer) on every parent render, so the
+    // cube raymarched again for an unchanged cut. Depend on the numbers.
   }, [
     cx0,
     cx1,
@@ -760,9 +763,6 @@ export function VolumeCube({
     cz1,
     shownBox,
     levelVoxel,
-    winX,
-    winY,
-    stackZ,
     windowXSlice,
     windowYSlice,
     windowZSlice,
@@ -770,6 +770,12 @@ export function VolumeCube({
     oyUm,
     ozUm,
     shownH,
+    winX[0],
+    winX[1],
+    winY[0],
+    winY[1],
+    stackZ[0],
+    stackZ[1],
   ]);
   const outsideCut = !cutIsOpen(shownCut, winX, winY, stackZ);
   const cutZMap = useMemo(
@@ -1679,7 +1685,7 @@ type VolumeCubeDeckProps = {
 };
 
 /** Viv deck only: cut-face hover updates skip this subtree so deck does not redraw. */
-function VolumeCubeDeck({
+const VolumeCubeDeck = memo(function VolumeCubeDeck({
   deckKey,
   layerProps,
   views,
@@ -1700,7 +1706,7 @@ function VolumeCubeDeck({
       } as unknown as React.ComponentProps<typeof VivViewer>)}
     />
   );
-}
+});
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
