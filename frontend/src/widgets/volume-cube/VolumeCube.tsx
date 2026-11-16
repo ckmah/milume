@@ -751,9 +751,6 @@ export function VolumeCube({
     const texY = (um: number) => shownH - ((um - oyUm) / stepY - y0v);
     const texZ = (um: number) => (um - ozUm) / stepZ;
     return cutFractionsForSlices(cut, windowXSlice, windowYSlice, windowZSlice, texX, texY, texZ);
-    // winX, winY and stackZ are new arrays every render. Depending on them
-    // rebuilt this fraction (and the Viv layer) on every parent render, so the
-    // cube raymarched again for an unchanged cut. Depend on the numbers.
   }, [
     cx0,
     cx1,
@@ -1004,8 +1001,6 @@ export function VolumeCube({
     () => ({ ...shownRender, traitContrast: contrastLimits }),
     [shownRender, contrastLimits],
   );
-  // Viv's VolumeLayer reloads when `selections` is a new array, even if it names
-  // the same channels. Contrast and gamma must not do that.
   const selectionKey = activeImageChannels.map((ch) => ch.index).join(",");
   const hasChannelAxis = Boolean(level?.source.labels?.includes("c"));
   const channelSelections = useMemo(() => {

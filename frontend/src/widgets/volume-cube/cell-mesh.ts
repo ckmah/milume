@@ -355,7 +355,6 @@ export function cellMeshLayers(placed: PlacedCellMesh | null | undefined, target
   return [
     new CellMeshLayer({
       id: `cube-cell-mesh${vivTag(viewId)}`,
-      // A fresh array here is a new `data` prop, so deck reloads the attributes on every redraw.
       data: MESH_INSTANCE,
       mesh: placed.mesh as never,
       texture: placed.lut as never,
