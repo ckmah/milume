@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Matrix4 } from "@math.gl/core";
 import { VivViewer } from "@hms-dbmi/viv";
 import { loadVolumePyramid } from "./load-volume-pyramid";
@@ -59,7 +59,7 @@ import { tintPalette } from "./tint-palette";
 import { cubeImageChannels, type CubeImageChannel } from "./image-channels";
 import type { ImageChannelRow } from "@/widgets/landmarks/use-landmarks-model";
 import { dragToWindowDelta } from "./pan";
-import { type WindowTarget, levelVoxelSize, useShownWindow } from "./use-shown-window";
+import { type WindowTarget, useShownWindow } from "./use-shown-window";
 import {
   type Box,
   type Frame,
@@ -545,7 +545,16 @@ export function VolumeCube({
   );
 
   // Voxel size at the shown level, and world scale relative to X (Viv's convention).
-  const levelVoxel: [number, number, number] | null = level ? levelVoxelSize(frame, level) : null;
+  const sz = frame.voxelSize[0];
+  const sy = frame.voxelSize[1];
+  const sx = frame.voxelSize[2];
+  const fz = level?.factor[0];
+  const fy = level?.factor[1];
+  const fx = level?.factor[2];
+  const levelVoxel: [number, number, number] | null = useMemo(() => {
+    if (fz == null || fy == null || fx == null) return null;
+    return [sz * fz, sy * fy, sx * fx];
+  }, [sz, sy, sx, fz, fy, fx]);
   const ry = levelVoxel ? levelVoxel[1] / levelVoxel[2] : 1;
   const rz = levelVoxel ? levelVoxel[0] / levelVoxel[2] : 1;
 
@@ -570,32 +579,42 @@ export function VolumeCube({
   // Under the meshes the image draws boosted over the active contrast and gamma; the
   // settings themselves, and the 2D view, keep theirs.
   const imageGamma = render.imageGamma ?? 1;
+  const shownContrast = useMemo((): [number, number] => {
+    const lo = contrast[0];
+    const hi = contrast[1];
+    if (!meshesOn) return [lo, hi];
+    return boostedImage([lo, hi], 1, look.imgBoost).contrast;
+  }, [meshesOn, contrast[0], contrast[1], look.imgBoost]);
+  const shownGamma = meshesOn ? boostedImage([contrast[0], contrast[1]], imageGamma, look.imgBoost).gamma : imageGamma;
   const shownImageLook = useMemo(
-    () => (meshesOn ? boostedImage(contrast, imageGamma, look.imgBoost) : { contrast, gamma: imageGamma }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [meshesOn, contrast[0], contrast[1], imageGamma, look.imgBoost],
+    () => ({ contrast: shownContrast, gamma: shownGamma }),
+    [shownContrast, shownGamma],
   );
   const shownRender = useMemo(
     () => (shownImageLook.gamma === imageGamma ? render : { ...render, imageGamma: shownImageLook.gamma }),
     [render, imageGamma, shownImageLook.gamma],
   );
   const traitChannelRows = imageChannelRows ?? NO_IMAGE_CHANNEL_ROWS;
+  const contrastLo = contrast[0];
+  const contrastHi = contrast[1];
+  const shownLo = shownContrast[0];
+  const shownHi = shownContrast[1];
   const activeImageChannels: CubeImageChannel[] = useMemo(() => {
     const rows = traitChannelRows;
     const pyramidBase = image?.[0] ?? null;
     if (rows.length > 0) {
-      return cubeImageChannels(rows, pyramidBase, contrast);
+      return cubeImageChannels(rows, pyramidBase, [contrastLo, contrastHi]);
     }
     return [
       {
         name: "Channel 0",
         index: 0,
         visible: true,
-        contrast: [shownImageLook.contrast[0], shownImageLook.contrast[1]],
+        contrast: [shownLo, shownHi],
         tint: "#dcdce6",
       },
     ];
-  }, [traitChannelRows, image, contrast, shownImageLook.contrast]);
+  }, [traitChannelRows, image, contrastLo, contrastHi, shownLo, shownHi]);
   const expectedVolumeChannels = activeImageChannels.length;
   const onViewportLoad = useMemo(
     () =>
@@ -732,6 +751,8 @@ export function VolumeCube({
     const texY = (um: number) => shownH - ((um - oyUm) / stepY - y0v);
     const texZ = (um: number) => (um - ozUm) / stepZ;
     return cutFractionsForSlices(cut, windowXSlice, windowYSlice, windowZSlice, texX, texY, texZ);
+    // `winX`, `winY`, and `stackZ` are new arrays every render. Depend on the
+    // numbers so this fraction keeps a stable identity while those bounds do not change.
   }, [
     cx0,
     cx1,
@@ -741,9 +762,6 @@ export function VolumeCube({
     cz1,
     shownBox,
     levelVoxel,
-    winX,
-    winY,
-    stackZ,
     windowXSlice,
     windowYSlice,
     windowZSlice,
@@ -751,6 +769,12 @@ export function VolumeCube({
     oyUm,
     ozUm,
     shownH,
+    winX[0],
+    winX[1],
+    winY[0],
+    winY[1],
+    stackZ[0],
+    stackZ[1],
   ]);
   const outsideCut = !cutIsOpen(shownCut, winX, winY, stackZ);
   const cutZMap = useMemo(
@@ -979,13 +1003,15 @@ export function VolumeCube({
     () => ({ ...shownRender, traitContrast: contrastLimits }),
     [shownRender, contrastLimits],
   );
+  // Channel indexes only, so `channelSelections` keeps a stable identity when
+  // contrast or gamma changes.
+  const selectionKey = activeImageChannels.map((ch) => ch.index).join(",");
+  const hasChannelAxis = Boolean(level?.source.labels?.includes("c"));
   const channelSelections = useMemo(() => {
-    const hasC = Boolean(level?.source.labels.includes("c"));
-    if (!hasC) {
-      return activeImageChannels.map(() => ({}));
-    }
-    return activeImageChannels.map((ch) => ({ c: ch.index }));
-  }, [activeImageChannels, level?.source.labels]);
+    const indexes = selectionKey === "" ? [] : selectionKey.split(",").map(Number);
+    if (!hasChannelAxis) return indexes.map(() => ({}));
+    return indexes.map((c) => ({ c }));
+  }, [selectionKey, hasChannelAxis]);
   const channelColors = useMemo(
     () => activeImageChannels.map(() => [255, 255, 255] as [number, number, number]),
     [activeImageChannels],
@@ -1658,7 +1684,7 @@ type VolumeCubeDeckProps = {
 };
 
 /** Viv deck only: cut-face hover updates skip this subtree so deck does not redraw. */
-function VolumeCubeDeck({
+const VolumeCubeDeck = memo(function VolumeCubeDeck({
   deckKey,
   layerProps,
   views,
@@ -1679,7 +1705,7 @@ function VolumeCubeDeck({
       } as unknown as React.ComponentProps<typeof VivViewer>)}
     />
   );
-}
+});
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
