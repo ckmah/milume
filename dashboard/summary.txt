@@ -1,14 +1,13 @@
-as_of: Sun Nov 15, 10:43 PM PT
+as_of: Mon Nov 16, 6:36 AM PT
 needs_you: 0
   (none)
-open_prs: 2
+open_prs: 1
 last_nightly: 2026-11-15 success
 stale_prs:
-  #440 cursor/cube-volume-reload-6bf4 (failing CI)
   #415 morans-i-409 (no push >7d)
 red_nightlies: 2026-11-06, 2026-11-07, 2026-11-09, 2026-11-10, 2026-11-11, 2026-11-14
 last_red_nightly: 2026-11-14
 ci_failure_issues: none
 html: dashboard.html
 status: PUBLISH
-hash: 8c40dd90d35e
+hash: 386f40c4c0b2
