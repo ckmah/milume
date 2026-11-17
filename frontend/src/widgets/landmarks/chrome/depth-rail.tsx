@@ -162,8 +162,13 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
       const kind = dragActiveRef.current;
       if (!kind) return;
       const z = pickZ(e.clientY);
-      if (kind === "lo") pushBand({ lo: Math.min(z, bandHi - MIN_BAND_UM) });
-      else if (kind === "hi") pushBand({ hi: Math.max(z, bandLo + MIN_BAND_UM) });
+      if (kind === "lo") {
+        const lo = Math.min(z, bandHi - MIN_BAND_UM);
+        pushBand({ lo, focus: (lo + bandHi) / 2 });
+      } else if (kind === "hi") {
+        const hi = Math.max(z, bandLo + MIN_BAND_UM);
+        pushBand({ focus: (bandLo + hi) / 2, hi });
+      }
       else pushBand({ focus: z, moveBand: true });
     };
     const onUp = () => {
@@ -215,7 +220,8 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
 
   const bandTop = zToPct(bandHi, extLo, extHi);
   const bandBottom = zToPct(bandLo, extLo, extHi);
-  const focusPct = zToPct(focus, extLo, extHi);
+  const bandMid = (bandLo + bandHi) / 2;
+  const bandMidPct = zToPct(bandMid, extLo, extHi);
   const boundActive = "landmarks-depth-rail__readout-bound--active";
 
   return (
@@ -242,99 +248,119 @@ export function DepthRail({ lm }: { lm: LandmarksModel }) {
             {readout?.main}
           </span>
         </div>
-        <div className="landmarks-depth-rail__readout-sub">
-          <span className={cn(drag === "lo" && boundActive)}>{readout?.subLo}</span>
-          {"–"}
-          <span className={cn(drag === "hi" && boundActive)}>{readout?.subHi}</span>
-          {" µm"}
-        </div>
       </div>
       <div className="landmarks-depth-rail__track-wrap">
+        <span
+          className={cn(
+            "landmarks-depth-rail__bound-tag landmarks-depth-rail__bound-tag--hi",
+            drag === "hi" && boundActive,
+          )}
+          style={{ bottom: `${bandTop}%` }}
+          aria-hidden
+        >
+          {formatLegendValue(bandHi)}
+        </span>
+        <span
+          className={cn(
+            "landmarks-depth-rail__bound-tag landmarks-depth-rail__bound-tag--lo",
+            drag === "lo" && boundActive,
+          )}
+          style={{ bottom: `${bandBottom}%` }}
+          aria-hidden
+        >
+          {formatLegendValue(bandLo)}
+        </span>
         <div ref={railRef} className="landmarks-depth-rail__track">
           <div
-            className="landmarks-depth-rail__band"
+            className={cn(
+              "landmarks-depth-rail__band",
+              drag === "focus" && "landmarks-depth-rail__band--dragging",
+            )}
             style={{
               bottom: `${bandBottom}%`,
               height: `${Math.max(0, bandTop - bandBottom)}%`,
             }}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            className={cn(
-              "landmarks-depth-rail__thumb landmarks-depth-rail__thumb--lo",
-              drag === "lo" && "landmarks-depth-rail__thumb--dragging",
-            )}
-            style={{ bottom: `calc(${bandBottom}% - 2px)` }}
             role="slider"
-            aria-label="Lower z bound"
-            aria-valuemin={extLo}
-            aria-valuemax={bandHi - MIN_BAND_UM}
-            aria-valuenow={bandLo}
-            aria-valuetext={`${formatLegendValue(bandLo)} µm`}
-            tabIndex={0}
-            onKeyDown={onSliderKey("lo")}
-            onPointerDown={(e) => {
-              e.preventDefault();
-              e.currentTarget.setPointerCapture(e.pointerId);
-              beginDrag("lo");
-            }}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            className={cn(
-              "landmarks-depth-rail__thumb landmarks-depth-rail__thumb--hi",
-              drag === "hi" && "landmarks-depth-rail__thumb--dragging",
-            )}
-            style={{ bottom: `calc(${bandTop}% - 2px)` }}
-            role="slider"
-            aria-label="Upper z bound"
-            aria-valuemin={bandLo + MIN_BAND_UM}
-            aria-valuemax={extHi}
-            aria-valuenow={bandHi}
-            aria-valuetext={`${formatLegendValue(bandHi)} µm`}
-            tabIndex={0}
-            onKeyDown={onSliderKey("hi")}
-            onPointerDown={(e) => {
-              e.preventDefault();
-              e.currentTarget.setPointerCapture(e.pointerId);
-              beginDrag("hi");
-            }}
-          />
-          <Button
-            type="button"
-            variant="ghost"
-            className={cn(
-              "landmarks-depth-rail__focus",
-              drag === "focus" && "landmarks-depth-rail__focus--dragging",
-            )}
-            style={{ bottom: `calc(${focusPct}% - 2px)` }}
-            role="slider"
-            aria-label="Focus z"
+            aria-label="Focus depth band"
             aria-valuemin={extLo}
             aria-valuemax={extHi}
-            aria-valuenow={focus}
-            aria-valuetext={`${formatLegendValue(focus)} µm`}
+            aria-valuenow={bandMid}
+            aria-valuetext={`${formatLegendValue(bandMid)} µm, ${formatLegendValue(bandLo)}–${formatLegendValue(bandHi)} µm`}
             tabIndex={0}
-            onKeyDown={onSliderKey("focus")}
+            onKeyDown={(e) =>
+              onSliderKey("focus")(e as unknown as React.KeyboardEvent<HTMLButtonElement>)
+            }
             onPointerDown={(e) => {
+              if (e.button !== 0) return;
               e.preventDefault();
               e.currentTarget.setPointerCapture(e.pointerId);
               beginDrag("focus");
             }}
-          />
-        </div>
-        <div className="landmarks-depth-rail__ruler" aria-hidden>
-          {ticks.map((z) => (
+          >
+            <Button
+              type="button"
+              variant="ghost"
+              className={cn(
+                "landmarks-depth-rail__thumb landmarks-depth-rail__thumb--hi",
+                drag === "hi" && "landmarks-depth-rail__thumb--dragging",
+              )}
+              role="slider"
+              aria-label="Upper z bound"
+              aria-valuemin={bandLo + MIN_BAND_UM}
+              aria-valuemax={extHi}
+              aria-valuenow={bandHi}
+              aria-valuetext={`${formatLegendValue(bandHi)} µm`}
+              tabIndex={0}
+              onKeyDown={onSliderKey("hi")}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.currentTarget.setPointerCapture(e.pointerId);
+                beginDrag("hi");
+              }}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              className={cn(
+                "landmarks-depth-rail__thumb landmarks-depth-rail__thumb--lo",
+                drag === "lo" && "landmarks-depth-rail__thumb--dragging",
+              )}
+              role="slider"
+              aria-label="Lower z bound"
+              aria-valuemin={extLo}
+              aria-valuemax={bandHi - MIN_BAND_UM}
+              aria-valuenow={bandLo}
+              aria-valuetext={`${formatLegendValue(bandLo)} µm`}
+              tabIndex={0}
+              onKeyDown={onSliderKey("lo")}
+              onPointerDown={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.currentTarget.setPointerCapture(e.pointerId);
+                beginDrag("lo");
+              }}
+            />
             <span
-              key={z}
-              className="landmarks-depth-rail__ruler-tick"
-              style={{ bottom: `${zToPct(z, extLo, extHi)}%` }}
-            >
-              {formatLegendValue(z)}
-            </span>
-          ))}
+              className="landmarks-depth-rail__mid"
+              style={{ bottom: `${bandMidPct}%` }}
+              aria-hidden
+            />
+          </div>
+          <div className="landmarks-depth-rail__ruler" aria-hidden>
+            {ticks.map((z) => (
+              <span
+                key={z}
+                className="landmarks-depth-rail__ruler-tick"
+                style={{ bottom: `${zToPct(z, extLo, extHi)}%` }}
+              >
+                <span className="landmarks-depth-rail__ruler-tick-mark" />
+                <span className="landmarks-depth-rail__ruler-tick-label">
+                  {formatLegendValue(z)}
+                </span>
+              </span>
+            ))}
+          </div>
         </div>
       </div>
     </div>

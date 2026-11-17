@@ -203,7 +203,7 @@ function ProjectionRow({
 }
 
 const SLIDER_HIT =
-  '.landmarks-slider-control, [data-slot="slider"], [data-slot="slider-thumb"], [data-slot="slider-track"]';
+  '.landmarks-slider-control, .dialkit-root, [data-slot="slider"], [data-slot="slider-thumb"], [data-slot="slider-track"], [role="slider"]';
 
 const LAYER_MENU_HIT =
   ".landmarks-layer-panel, [data-slot='dropdown-menu-content'], [data-testid^='layer-toggle-']";

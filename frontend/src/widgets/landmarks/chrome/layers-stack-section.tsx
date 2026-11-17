@@ -1,24 +1,14 @@
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
-import { ChevronRightIcon, EyeIcon, EyeOffIcon, LayersIcon } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { ChevronRightIcon } from "lucide-react";
 
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@/components/ui/combobox";
 import { FieldDescription } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
-import type { CategoryColumn } from "../helpers";
 import type { ImageChannelRow, LandmarksModel } from "../use-landmarks-model";
-import { COMBO_INPUT, META_LINE, STACK_GAP_SM } from "./sections";
+import { META_LINE } from "./sections";
 import { SoftFloatSliderRow } from "./soft-float-slider";
-import { useWidgetPortalContainer } from "./use-widget-portal";
 
 const MAX_VISIBLE_CHANNELS = 6;
 const CHANNEL_TINTS = [
@@ -43,54 +33,6 @@ function formatImageHeaderLabel(channels: ImageChannelRow[]): string {
   if (on.length === 1) return `Image · ${on[0]!.name}`;
   if (on.length === 2) return `Image · ${on[0]!.name} + ${on[1]!.name}`;
   return `Image · ${on.length} channels`;
-}
-
-function CategoryColumnPicker({
-  columns,
-  active,
-  onPick,
-}: {
-  columns: CategoryColumn[];
-  active: string;
-  onPick: (col: CategoryColumn) => void;
-}) {
-  const [wrapRef, portalEl] = useWidgetPortalContainer();
-  if (!columns.length) {
-    return (
-      <FieldDescription>No category columns on this AnnData.</FieldDescription>
-    );
-  }
-  const value = active || columns[0]?.name || "";
-
-  return (
-    <div ref={wrapRef} className={STACK_GAP_SM}>
-      <Combobox
-        items={columns.map((c) => c.name)}
-        value={value || null}
-        onValueChange={(next) => {
-          if (typeof next !== "string" || !next) return;
-          const col = columns.find((c) => c.name === next);
-          if (col) onPick(col);
-        }}
-      >
-        <ComboboxInput
-          className={COMBO_INPUT}
-          aria-label="Cells category column"
-          readOnly
-        />
-        <ComboboxContent container={portalEl} className="text-[11px]">
-          <ComboboxEmpty className="text-[11px]">No columns</ComboboxEmpty>
-          <ComboboxList>
-            {(name) => (
-              <ComboboxItem key={String(name)} value={String(name)} className="py-1 text-[11px]">
-                {String(name)}
-              </ComboboxItem>
-            )}
-          </ComboboxList>
-        </ComboboxContent>
-      </Combobox>
-    </div>
-  );
 }
 
 function ImageChannelRowControl({
@@ -142,20 +84,51 @@ function ImageChannelRowControl({
   );
 }
 
-/** Layers accordion body — Cells (active category) and optional Image (volume). */
+function pointSizeRange(lm: LandmarksModel): { min: number; max: number } {
+  const [x0, x1] = lm.x_bounds ?? [0, 100];
+  const span = Math.max(x1 - x0, 1);
+  const base = lm.point_size || span * 0.04;
+  return { min: Math.max(0.5, span * 0.005), max: Math.max(base * 4, span * 0.15) };
+}
+
+/** Layers accordion body — Cells (map style) and optional Image (volume). */
 export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
-  const { category_columns, active_category, volume } = lm;
-  const activeCol =
-    category_columns.find((c) => c.name === active_category) ||
-    category_columns[0] ||
-    null;
+  const { category_columns, volume, active_category } = lm;
+  const [cellsOpen, setCellsOpen] = useState(true);
   const [imageOpen, setImageOpen] = useState(false);
+  const hiddenPointSizeRef = useRef<number | null>(null);
   const [channelCapHint, setChannelCapHint] = useState(false);
   const [focusedChannel, setFocusedChannel] = useState<string | null>(null);
   const hasImage = Boolean(volume?.image_url);
   const channels = lm._image_channels?.length ? lm._image_channels : volume?.channels ?? [];
   const imageVisible = lm._image_visible !== false;
   const imageAlpha = lm._image_alpha ?? 0.55;
+  const pointSize = lm.point_size ?? 1;
+  const sizeRange = useMemo(() => pointSizeRange(lm), [lm]);
+  const activeCol =
+    category_columns.find((c) => c.name === active_category) ||
+    category_columns[0] ||
+    null;
+  const cellsHeader =
+    activeCol?.name && activeCol.name !== "category"
+      ? `Cells · ${activeCol.name}`
+      : "Cells";
+  const cellsVisible = pointSize > sizeRange.min * 0.75;
+  const sizeCaption = `Size (${sizeRange.min.toFixed(1)}–${sizeRange.max.toFixed(1)})`;
+
+  const toggleCellsVisible = useCallback(
+    (next: boolean) => {
+      if (next) {
+        const restore = hiddenPointSizeRef.current ?? sizeRange.min;
+        lm.setPointSize(Math.max(sizeRange.min, restore));
+        hiddenPointSizeRef.current = null;
+        return;
+      }
+      hiddenPointSizeRef.current = pointSize;
+      lm.setPointSize(sizeRange.min * 0.25);
+    },
+    [lm, pointSize, sizeRange],
+  );
 
   const displayChannels = useMemo(
     () => channels.filter((c) => !c.constant_zero),
@@ -215,38 +188,79 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
 
   if (!category_columns.length && !hasImage) {
     return (
-      <FieldDescription className="px-2.5 pb-2">
+      <FieldDescription className="px-0 pb-2">
         No layers yet. Load category columns or a volume image in the notebook.
       </FieldDescription>
     );
   }
 
   return (
-    <div className="landmarks-layers-stack flex flex-col gap-1 pb-2">
+    <div className="landmarks-layers-stack flex flex-col gap-0.5 pb-2">
       {category_columns.length ? (
         <div className="landmarks-layers-stack__row">
           <div
             className="landmarks-layer-row justify-between text-xs text-foreground"
             data-testid="layers-cells-row"
           >
-            <span className="inline-flex min-w-0 items-center gap-1.5">
-              <LayersIcon className="landmarks-layer-icon size-[0.875rem] shrink-0 opacity-70" />
-              <span className="landmarks-layer-label truncate">
-                Cells · {activeCol?.name ?? "category"}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="landmarks-cat-chevron shrink-0"
+              aria-expanded={cellsOpen}
+              aria-label={cellsOpen ? "Collapse cells layer" : "Expand cells layer"}
+              data-testid="layers-cells-header"
+              onClick={() => setCellsOpen((v) => !v)}
+            >
+              <ChevronRightIcon
+                className={cn(
+                  "landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0 opacity-70",
+                  cellsOpen && "landmarks-cat-chevron-icon--open",
+                )}
+                aria-hidden
+              />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="landmarks-layers-image-trigger h-full min-h-0 min-w-0 flex-1 justify-start gap-1.5 px-0 text-xs font-normal text-foreground hover:bg-transparent"
+              onClick={() => setCellsOpen((v) => !v)}
+            >
+              <span className="landmarks-layer-label min-w-0 flex-1 truncate text-left">
+                {cellsHeader}
               </span>
-            </span>
-            <EyeIcon className="landmarks-layer-icon size-[0.875rem] shrink-0 opacity-70" aria-hidden />
-          </div>
-          <div className="px-2.5 pt-1">
-            <CategoryColumnPicker
-              columns={category_columns}
-              active={active_category}
-              onPick={(col) => {
-                lm.setActiveCategory(col);
-                lm.select("", -1);
-              }}
+            </Button>
+            <Switch
+              size="sm"
+              className="shrink-0"
+              checked={cellsVisible}
+              aria-label={cellsVisible ? "Hide cells layer" : "Show cells layer"}
+              data-testid="layer-toggle-cells"
+              onCheckedChange={toggleCellsVisible}
             />
           </div>
+          {cellsOpen ? (
+            <div className="landmarks-layers-stack__nested flex flex-col gap-2 pb-1">
+              <div className="landmarks-slider-stack">
+                <SoftFloatSliderRow
+                  className="landmarks-slider-row--point-size"
+                  caption={sizeCaption}
+                  aria-label="Cell point size"
+                  testId="layer-cells-point-size"
+                  min={sizeRange.min}
+                  max={sizeRange.max}
+                  step={0.25}
+                  value={[Math.max(sizeRange.min, pointSize)]}
+                  readout={pointSize.toFixed(1)}
+                  onValueChange={(v) => {
+                    const next = v[0] ?? pointSize;
+                    lm.setPointSize(next);
+                    hiddenPointSizeRef.current = null;
+                  }}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -284,24 +298,17 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                 {imageHeaderLabel}
               </span>
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              className="landmarks-layer-icon size-6 shrink-0"
+            <Switch
+              size="sm"
+              className="shrink-0"
+              checked={imageVisible}
               aria-label={imageVisible ? "Hide image layer" : "Show image layer"}
               data-testid="layer-toggle-image"
-              onClick={() => lm.setImageVisible(!imageVisible)}
-            >
-              {imageVisible ? (
-                <EyeIcon className="size-[0.875rem] opacity-70" />
-              ) : (
-                <EyeOffIcon className="size-[0.875rem] opacity-70" />
-              )}
-            </Button>
+              onCheckedChange={(next) => lm.setImageVisible(next)}
+            />
           </div>
           {imageOpen ? (
-            <div className="flex flex-col gap-2 px-2.5 pt-1.5 pb-1">
+            <div className="landmarks-layers-stack__nested flex flex-col gap-2 pb-1">
               <div className="landmarks-slider-stack landmarks-image-controls">
                 <SoftFloatSliderRow
                   className="landmarks-slider-row--contrast"

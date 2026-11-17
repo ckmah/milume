@@ -1548,16 +1548,18 @@ test.describe("Landmarks inspect cube", () => {
     const now = async (name: string, n = 0) => Number(await slider(name, n).getAttribute("aria-valuenow"));
     // Each layer's sliders live in its own menu, so each is read with that menu open.
     const imageValues = async () => [
-      await now("Contrast", 0),
-      await now("Contrast", 1),
+      await now("Contrast, minimum", 0),
+      await now("Contrast, maximum", 0),
       await now("Image alpha"),
       await now("Image gamma"),
     ];
     const labelValues = async () => [await now("Label opacity")];
     const widthsOf = (region: Locator) =>
-      region.locator(".landmarks-slider-control").evaluateAll((els) =>
-        els.map((el) => Math.round(el.getBoundingClientRect().width)),
-      );
+      region
+        .locator(".landmarks-slider-control, .dialkit-root")
+        .evaluateAll((els) =>
+          els.map((el) => Math.round(el.getBoundingClientRect().width)),
+        );
 
     // Image menu. Defaults: the volume's contrast_limits, image alpha 1, gamma 1 (0 on its log2 scale), Additive.
     // `data-image-mode` is the mode the ray draws. A thin single-channel slab stays Additive.
@@ -1584,7 +1586,7 @@ test.describe("Landmarks inspect cube", () => {
     await setShow(page, "image", true);
     await setShow(page, "labels", true);
     const widths = await widthsOf(panel);
-    await nudge("Contrast", "ArrowLeft", 1);
+    await nudge("Contrast, maximum", "ArrowLeft", 0);
     await nudge("Image alpha", "ArrowLeft");
     await nudge("Image gamma", "ArrowRight");
     await panel.getByRole("radio", { name: "MIP" }).click();
@@ -1627,7 +1629,8 @@ test.describe("Landmarks inspect cube", () => {
     await setModel(page, { render_mode: "points" });
     await expect(view).toHaveAttribute("data-points", "0");
     expect(widths[0]).toBeGreaterThanOrEqual(150);
-    expect(widths[0]).toBeLessThanOrEqual(170);
+    // DialKit slider rows are wider than the legacy Soft Float capsule.
+    expect(widths[0]).toBeLessThanOrEqual(240);
   });
 
   test("Esc closes an open layer menu, not the cube", async ({ page }) => {

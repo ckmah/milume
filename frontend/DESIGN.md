@@ -265,14 +265,13 @@ Inspect is temporary, so its chrome replaces the normal chrome rather than addin
 
 ### Compact fields
 
-`SliderRow` — single-line instrument row: left-aligned label, rounded-rect capsule whose fill denotes the value, tabular numeral inside the fill (left), thin thumb that stays quiet until hover/focus. Soft segment toggles for neighborhood/buffer.
+DialKit inline sliders (`dialkit` package, `.dialkit-root` under `.landmarks` with `--dial-*` tokens in `landmarks.css`): label, track, thumb, and live value on one row. Soft segment toggles for neighborhood/buffer.
 
-Shared Soft Float slider chrome (Impeccable extract): `chrome/soft-float-slider.tsx`
-- `SoftFloatCapsuleSlider` — unidirectional (tension, neighborhood, point buffer)
-- `SoftFloatSignedSlider` — signed / both-mode buffer (center snap mark only)
-- `SoftFloatSliderReset` — Lucide `rotate-ccw`, immediately right of the capsule
-
-Both capsule variants share `.landmarks-slider-control` CSS tokens (`--lm-slider-fill`, `--lm-slider-thumb*`, `--lm-slider-value-*`) and the same `data-slot` hooks so handle, fill, value text, and hover/press stay aligned.
+Shared slider chrome: `chrome/soft-float-slider.tsx`
+- `SoftFloatCapsuleSlider` — scalar (alpha, gamma, point size, tension, …)
+- `SoftFloatSliderRow` (length 2) — one capsule, dual thumbs, caption left (contrast, inspect ranges)
+- `SoftFloatSignedSlider` — signed buffer or 0…max when **Both** is on
+- `SoftFloatSliderReset` — Lucide `rotate-ccw`, immediately right of the row when needed
 
 ### Accordion sections
 

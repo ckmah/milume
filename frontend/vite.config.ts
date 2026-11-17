@@ -51,6 +51,7 @@ const volumeFixtureFile =
             : "landmarks-volume-fixture.json";
 const harnessRoots: Record<string, string> = {
   "landmarks-volume": path.resolve(devDir, "landmarks-volume"),
+  "design-system": path.resolve(devDir, "design-system"),
 };
 const harnessRoot = harnessRoots[devWidget ?? ""] ?? devDir;
 
@@ -155,7 +156,9 @@ export default defineConfig(({ command }) => {
         "node_modules/.vite",
         devWidget === "landmarks-volume"
           ? `landmarks-volume-${volumeProfile}`
-          : (devWidget ?? "landmarks"),
+          : devWidget === "design-system"
+            ? "design-system"
+            : (devWidget ?? "landmarks"),
       ),
       // Missing OME-Zarr keys must 404. SPA fallback serves index.html (200),
       // and zarrita then fails to parse it instead of opening the v2 store.

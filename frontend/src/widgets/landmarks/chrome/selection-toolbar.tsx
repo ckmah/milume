@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -268,17 +267,15 @@ function SignedBufferSlider({
         />
       ) : (
         <>
-          <Label className="landmarks-slider-caption">Buffer</Label>
           <SoftFloatSignedSlider
-            value={signed}
-            min={-max}
+            value={both ? Math.abs(signed) : signed}
+            min={both ? 0 : -max}
             max={max}
             both={both}
             onChange={(v) => onSigned(v, both)}
-            displayValue={display}
             aria-label="Buffer width; negative is left or in, positive is right or out"
             testId="context-buffer-width"
-            className="min-w-0 flex-1"
+            className="min-w-[12rem] flex-1"
           />
           <ToolbarDivider />
           <IconBtn
