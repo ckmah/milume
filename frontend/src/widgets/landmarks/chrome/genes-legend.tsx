@@ -64,7 +64,7 @@ function geneMatchesPickerQuery(item: string, query: string): boolean {
 }
 
 /** 4+ genes: pick how the selected genes' normalized values combine per cell. */
-function GenesAggregateControl({ lm }: { lm: LandmarksModel }) {
+export function GenesAggregateControl({ lm }: { lm: LandmarksModel }) {
   const count = lm.active_genes?.length || 0;
   if (count <= GENE_COLORS.length) return null;
   return (
@@ -90,7 +90,7 @@ function GenesAggregateControl({ lm }: { lm: LandmarksModel }) {
 }
 
 /** Loading / failure line for genes still arriving from the kernel. */
-function GenesLoadStatus({ lm }: { lm: LandmarksModel }) {
+export function GenesLoadStatus({ lm }: { lm: LandmarksModel }) {
   const selected = lm.active_genes || [];
   const pending = lm.genes.pending().filter((n) => selected.includes(n));
   const failed = selected.filter((n) => lm.genes.error(n));
@@ -103,7 +103,7 @@ function GenesLoadStatus({ lm }: { lm: LandmarksModel }) {
   );
 }
 
-function GenesScaleToggles({ lm }: { lm: LandmarksModel }) {
+export function GenesScaleToggles({ lm }: { lm: LandmarksModel }) {
   const {
     active_genes,
     gene_scale_mode,

@@ -3,6 +3,10 @@
 @source "..";
 
 @custom-variant dark (&:is(.dark *));
+/* Specimens set data-ds-force. Nothing in the widget sets it. */
+@custom-variant hover (&:hover, &[data-ds-force="hover"]);
+@custom-variant focus-visible (&:focus-visible, &[data-ds-force="focus-visible"]);
+@custom-variant active (&:active, &[data-ds-force="active"]);
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);

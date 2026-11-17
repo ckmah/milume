@@ -185,8 +185,80 @@ body {
   background: color-mix(in oklab, var(--ds-surface) 80%, transparent);
 }
 
+.ds-state-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.ds-state-label {
+  margin-bottom: 0.35rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ds-muted);
+}
+
+.ds-gap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--ds-border);
+  border-radius: 0.5rem;
+  background: var(--ds-surface);
+  font-size: 0.8125rem;
+}
+
+.ds-gap strong {
+  font-size: 0.8125rem;
+}
+
+.ds-gap span {
+  color: var(--ds-muted);
+}
+
 .ds-widget-stage .milume-widget.landmarks {
-  min-height: 12rem;
+  min-height: 0;
+}
+
+/* Same token values as landmarks.css :hover / :focus-visible, keyed off the specimen wrapper. */
+.ds-force-hover .landmarks-hit {
+  background: var(--lm-hit-hover-bg);
+  color: var(--lm-hit-hover-fg);
+}
+
+.ds-force-focus .landmarks-hit {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
+}
+
+.ds-force-active .landmarks-hit {
+  transform: scale(0.97);
+}
+
+.ds-force-hover .landmarks-layer-row {
+  background-color: var(--lm-layer-hover-bg);
+}
+
+.ds-force-hover .landmarks-slider-control [data-slot="slider-thumb"],
+.ds-force-focus .landmarks-slider-control [data-slot="slider-thumb"],
+.ds-force-active .landmarks-slider-control [data-slot="slider-thumb"] {
+  background: var(--lm-slider-thumb-on);
+  opacity: 1;
+  height: var(--lm-slider-thumb-h-active);
+}
+
+.ds-force-hover .landmarks-rgb-cube .landmarks-rgb-cube__svg,
+.ds-force-focus .landmarks-rgb-cube .landmarks-rgb-cube__svg {
+  transform: scale(1);
+}
+
+.ds-force-hover .landmarks-rgb-cube .landmarks-rgb-cube__labels,
+.ds-force-focus .landmarks-rgb-cube .landmarks-rgb-cube__labels {
+  opacity: 1;
 }
 
 .ds-float-demo {
