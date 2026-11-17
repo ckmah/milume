@@ -38,11 +38,13 @@
   --lm-space-5: 1.25rem;
   --lm-chrome-inset: var(--lm-space-2);
   --lm-chrome-gap: var(--lm-space-1);
+  --lm-panel-inset: 0.625rem;
+  --lm-stack-gap: 0.375rem;
   --lm-chrome-band: 3.75rem;
   /* Room under the left dock for the bottom-left minimap (width ≈ 11.5rem, aspect ≈ 1.35). */
   --lm-minimap-slot: calc(11.5rem / 1.35 + var(--lm-chrome-gap) + 1.75rem);
   /* Depth rail footprint (58×220) + gap when 3D z is present. */
-  --lm-depth-rail-slot: calc(3.625rem + 13.75rem + var(--lm-chrome-gap));
+  --lm-depth-rail-slot: calc(4.75rem + 13.75rem + var(--lm-chrome-gap));
   --lm-depth-rail-active: 0px;
   /* Matches `.landmarks__resize` (bottom 8px + 16px hit area). */
   --lm-resize-band: calc(8px + 16px);
@@ -84,6 +86,22 @@
   /* Outer ring on layer / colour swatches (light only: neon on white needs an edge). */
   --lm-swatch-ring: transparent;
   --lm-switch-off: color-mix(in oklab, var(--foreground) 50%, transparent);
+
+  /* DialKit inline sliders — retokened to Soft Float neutrals */
+  --dial-row-height: 2.25rem;
+  --dial-radius: var(--radius);
+  --dial-surface: color-mix(in oklab, var(--muted) 85%, transparent);
+  --dial-surface-hover: color-mix(in oklab, var(--muted) 95%, transparent);
+  --dial-surface-active: color-mix(in oklab, var(--foreground) 12%, var(--muted));
+  --dial-surface-subtle: color-mix(in oklab, var(--muted) 70%, transparent);
+  --dial-text-root: var(--foreground);
+  --dial-text-section: color-mix(in oklab, var(--foreground) 72%, transparent);
+  --dial-text-label: color-mix(in oklab, var(--foreground) 72%, transparent);
+  --dial-text-focus: var(--foreground);
+  --dial-text-primary: var(--foreground);
+  --dial-text-secondary: color-mix(in oklab, var(--foreground) 60%, transparent);
+  --dial-border: color-mix(in oklab, var(--foreground) 10%, transparent);
+  --dial-border-hover: color-mix(in oklab, var(--foreground) 22%, transparent);
 
   /* transitions.dev motion tokens — scoped to widget (Soft Float Operate) */
   --duration-stagger: 40ms;
@@ -1007,15 +1025,17 @@
 /* Left dock accordion — fixed 32px section headers (Selections / Landmarks / Layers). */
 .landmarks-panel-section-header {
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
   height: 2rem;
   min-height: 2rem;
   max-height: 2rem;
-  padding-inline: 0.625rem;
 }
 
 .landmarks-panel-section-header__main {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1fr) auto auto;
+  grid-template-columns: auto auto minmax(0, 1fr);
   width: 100%;
   height: 100%;
   min-width: 0;
@@ -1024,11 +1044,7 @@
   border-radius: calc(var(--radius) - 2px);
   text-align: left;
   color: color-mix(in oklab, var(--foreground) 78%, transparent);
-  transition: background-color var(--duration-fast) var(--ease-out);
-}
-
-.landmarks-panel-section-header__main:hover {
-  background: var(--lm-layer-hover-bg);
+  cursor: pointer;
 }
 
 .landmarks-panel-section-header--open .landmarks-panel-section-header__main {
@@ -1056,7 +1072,7 @@
 }
 
 .landmarks-panel-section-header__main:has(.landmarks-panel-section-header__pin) {
-  grid-template-columns: auto minmax(0, 3.25rem) minmax(0, 1fr) auto auto;
+  grid-template-columns: auto minmax(0, 3.25rem) minmax(0, 1fr);
 }
 
 .landmarks-panel-section-header__main:has(.landmarks-panel-section-header__pin)
@@ -1108,7 +1124,6 @@
 
 .landmarks-panel-section-header__trail {
   display: inline-flex;
-  grid-column: 4 / -1;
   flex: none;
   align-items: center;
   gap: 0.125rem;
@@ -1121,6 +1136,24 @@
   color: color-mix(in oklab, var(--foreground) 62%, transparent);
 }
 
+.landmarks-panel-section-header__toggle.landmarks-hit {
+  border-radius: var(--lm-hit-radius);
+}
+
+.landmarks-panel-section-header:has(.landmarks-panel-section-header__main:hover)
+  .landmarks-panel-section-header__toggle.landmarks-hit,
+.landmarks-panel-section-header:has(.landmarks-panel-section-header__main:focus-visible)
+  .landmarks-panel-section-header__toggle.landmarks-hit,
+.landmarks-panel-section-header__toggle.landmarks-hit:hover,
+.landmarks-panel-section-header__toggle.landmarks-hit:focus-visible {
+  background: var(--lm-hit-hover-bg);
+  color: var(--lm-hit-hover-fg);
+}
+
+.landmarks-panel-section-header__toggle.landmarks-hit:hover {
+  background: var(--lm-hit-hover-bg) !important;
+}
+
 .landmarks-panel-section-header__chevron {
   width: 0.875rem;
   height: 0.875rem;
@@ -1130,6 +1163,14 @@
 
 .landmarks-panel-section__body {
   min-width: 0;
+}
+
+.landmarks-panel-section__body--layers {
+  padding-bottom: 0;
+}
+
+.landmarks-layers-stack__nested {
+  padding-top: 0.25rem;
 }
 
 .landmarks-panel-sections .landmarks-panel-section + .landmarks-panel-section {
@@ -1373,7 +1414,106 @@
 .landmarks-slider-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: var(--lm-chrome-gap);
+}
+
+.landmarks-slider-row--dialkit {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--lm-stack-gap);
+}
+
+.landmarks-slider-row--dialkit .dialkit-root {
+  width: 100%;
+}
+
+.landmarks .dialkit-slider-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.landmarks .dialkit-slider-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--lm-caption);
+}
+
+.landmarks-dialkit-root--signed .dialkit-slider-wrapper {
+  position: relative;
+}
+
+.landmarks-dialkit-midpoint {
+  position: absolute;
+  top: 50%;
+  z-index: 4;
+  width: 1px;
+  height: calc(var(--dial-row-height, 2.25rem) - 6px);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  background: color-mix(in oklab, var(--foreground) 35%, transparent);
+}
+
+.landmarks-dialkit-range__shell {
+  position: relative;
+}
+
+.landmarks-dialkit-range__radix {
+  position: absolute !important;
+  inset: 0;
+  z-index: 6;
+  width: 100% !important;
+  height: 100% !important;
+  touch-action: none;
+}
+
+.landmarks-dialkit-range__radix [data-slot="slider-track"] {
+  height: 100%;
+  overflow: hidden;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* Match dialkit-slider-fill: flat segment, outer radius comes from .dialkit-slider clip. */
+.landmarks-dialkit-range__radix [data-slot="slider-range"] {
+  border-radius: 0;
+  background: var(--dial-surface-active);
+  transition: background 0.15s;
+}
+
+.landmarks-dialkit-range__radix [data-slot="slider-thumb"] {
+  width: 3px;
+  height: 20px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--dial-text-primary);
+  opacity: 0;
+  box-shadow: none;
+  transition:
+    opacity 0.15s ease-out,
+    transform 0.15s ease-out;
+  transform: var(--radix-slider-thumb-transform, translateX(-50%)) scaleX(0.25) !important;
+}
+
+.landmarks-dialkit-range__shell:hover .landmarks-dialkit-range__radix [data-slot="slider-thumb"],
+.landmarks-dialkit-range__shell.dialkit-slider-active .landmarks-dialkit-range__radix [data-slot="slider-thumb"],
+.landmarks-dialkit-range__radix:focus-within [data-slot="slider-thumb"] {
+  opacity: 1;
+  transform: var(--radix-slider-thumb-transform, translateX(-50%)) scaleX(1) !important;
+}
+
+.landmarks-dialkit-range__shell:has(.landmarks-dialkit-range__radix:focus-within) .dialkit-slider-value,
+.landmarks-dialkit-range__shell:hover .dialkit-slider-value,
+.landmarks-dialkit-range__shell.dialkit-slider-active .dialkit-slider-value {
+  color: var(--dial-text-focus);
+}
+
+.landmarks-dialkit-range__shell.dialkit-slider-active
+  .landmarks-dialkit-range__radix
+  [data-slot="slider-range"] {
+  background: var(--dial-border-hover);
+}
+
+.landmarks-dialkit-range__shell:hover .landmarks-dialkit-range__radix [data-slot="slider-range"] {
+  background: var(--dial-border-hover);
 }
 
 .landmarks-slider-caption {
@@ -1399,29 +1539,17 @@
   --lm-slider-caption-w: 3.5rem;
 }
 
-.landmarks-image-controls .landmarks-slider-row--contrast {
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0.25rem;
-}
-
 .landmarks-image-controls .landmarks-slider-row--contrast .landmarks-slider-caption {
-  width: auto;
-  max-width: none;
-  overflow: visible;
-  text-overflow: clip;
+  width: var(--lm-slider-caption-w);
+  max-width: var(--lm-slider-caption-w);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .landmarks-image-controls .landmarks-slider-row--alpha .landmarks-slider-caption {
   width: var(--lm-slider-caption-w);
   max-width: var(--lm-slider-caption-w);
-}
-
-.landmarks-image-controls .landmarks-slider-row--contrast .landmarks-slider-control {
-  margin-left: calc(var(--lm-slider-caption-w) + 0.5rem);
-  width: calc(100% - var(--lm-slider-caption-w) - 0.5rem);
-  align-self: stretch;
 }
 
 .landmarks-image-channel-list {
@@ -1469,8 +1597,23 @@
   padding-inline: 0 !important;
 }
 
+.landmarks-layers-stack__row + .landmarks-layers-stack__row {
+  margin-top: 0.125rem;
+  padding-top: 0.125rem;
+  border-top: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+}
+
 .landmarks-layers-stack__row > .landmarks-layer-row {
   overflow: visible;
+  padding-inline: 0;
+}
+
+.landmarks-layer-row--static {
+  cursor: default;
+}
+
+.landmarks-layer-row--static:hover {
+  background-color: transparent;
 }
 
 .landmarks-layers-stack__row .landmarks-layer-row .landmarks-layers-image-trigger:hover,
@@ -2083,7 +2226,7 @@
   right: var(--lm-chrome-inset);
   bottom: var(--lm-chrome-inset);
   z-index: 16;
-  width: 3.625rem;
+  width: 4.75rem;
   pointer-events: none;
 }
 
@@ -2095,7 +2238,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
-  width: 3.625rem;
+  width: 4.75rem;
   height: 13.75rem;
   padding: 0.375rem 0.25rem;
   box-sizing: border-box;
@@ -2138,19 +2281,7 @@
   text-overflow: clip;
 }
 
-.landmarks-depth-rail__readout-sub {
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: clip;
-}
-
 .landmarks-depth-rail__readout--dragging {
-  overflow: visible;
-}
-
-.landmarks-depth-rail__readout--dragging .landmarks-depth-rail__readout-sub {
   overflow: visible;
 }
 
@@ -2168,84 +2299,146 @@
 .landmarks-depth-rail__track-wrap {
   flex: 1;
   min-height: 0;
-  display: flex;
-  gap: 0.125rem;
-  align-items: stretch;
+  position: relative;
+  width: 100%;
   margin-top: 0.125rem;
+  padding-left: 1.625rem;
+}
+
+.landmarks-depth-rail__bound-tag {
+  position: absolute;
+  left: 0;
+  width: 1.5rem;
+  font-size: 0.5625rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
+  color: color-mix(in oklab, var(--foreground) 58%, transparent);
+  transform: translateY(50%);
+  pointer-events: none;
+  z-index: 4;
+}
+
+.landmarks-depth-rail__bound-tag.landmarks-depth-rail__readout-bound--active {
+  color: var(--foreground);
+  font-weight: 600;
 }
 
 .landmarks-depth-rail__track {
   position: relative;
   height: 100%;
+  width: 100%;
+  border-radius: 0;
+  background: transparent;
+}
+
+.landmarks-depth-rail__track::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
   width: 0.625rem;
-  margin: 0 auto;
   border-radius: min(var(--radius), 5px);
   background: color-mix(in oklab, var(--foreground) 7%, transparent);
+  pointer-events: none;
 }
 
 .landmarks-depth-rail__band {
   position: absolute;
   left: 0;
-  right: 0;
-  border-radius: inherit;
+  width: 0.625rem;
+  border-radius: min(var(--radius), 5px);
   background: color-mix(in oklab, var(--foreground) 26%, var(--card));
+  cursor: grab;
+  touch-action: none;
+  z-index: 2;
+}
+
+.landmarks-depth-rail__band--dragging {
+  cursor: grabbing;
+  background: color-mix(in oklab, var(--foreground) 34%, var(--card));
 }
 
 .landmarks-depth-rail__thumb {
   position: absolute;
   left: 50%;
-  width: 2px;
-  height: 10px;
-  margin-left: -1px;
+  width: 0.875rem;
+  height: 3px;
+  min-height: 3px;
+  margin-left: -0.4375rem;
   padding: 0;
   border: 0;
-  border-radius: 1px;
-  background: color-mix(in oklab, var(--foreground) 55%, var(--muted-foreground));
+  border-radius: 2px;
+  background: color-mix(in oklab, var(--foreground) 70%, var(--muted-foreground));
   cursor: ns-resize;
+}
+
+.landmarks-depth-rail__thumb--hi {
+  top: 0;
+  transform: translateY(-50%);
+}
+
+.landmarks-depth-rail__thumb--lo {
+  bottom: 0;
+  transform: translateY(50%);
 }
 
 .landmarks-depth-rail__thumb:hover,
 .landmarks-depth-rail__thumb:focus-visible {
-  height: 14px;
-  background: var(--foreground);
+  background-color: var(--foreground);
 }
 
 .landmarks-depth-rail__thumb--dragging {
-  height: 16px;
-  background: var(--foreground);
+  background-color: var(--foreground);
 }
 
-.landmarks-depth-rail__focus {
+.landmarks-depth-rail__mid {
   position: absolute;
   left: 50%;
   width: 4px;
   height: 4px;
   margin-left: -2px;
-  padding: 0;
-  border: 0;
   border-radius: 9999px;
   background: var(--foreground);
-  cursor: ns-resize;
+  transform: translateY(50%);
+  pointer-events: none;
+  z-index: 3;
 }
 
 .landmarks-depth-rail__ruler {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  font-size: 0.5625rem;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-  color: color-mix(in oklab, var(--foreground) 50%, transparent);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .landmarks-depth-rail__ruler-tick {
   position: absolute;
+  left: 0;
   right: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
   transform: translateY(50%);
   white-space: nowrap;
-  max-width: 2.25rem;
   overflow: hidden;
-  text-overflow: clip;
+}
+
+.landmarks-depth-rail__ruler-tick-mark {
+  flex: none;
+  width: 0.625rem;
+  height: 1px;
+  background: color-mix(in oklab, var(--foreground) 48%, transparent);
+}
+
+.landmarks-depth-rail__ruler-tick-label {
+  flex: none;
+  font-size: 0.5625rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: color-mix(in oklab, var(--foreground) 50%, transparent);
 }
 
 .landmarks--narrow .landmarks__chrome-depth-rail {

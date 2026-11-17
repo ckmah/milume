@@ -74,6 +74,7 @@ CI runs the same build; consumers never need Node.
 | Goal | Command |
 | ---- | ------- |
 | Fast UI edits | `npm run dev:landmarks` |
+| UI component harness | `npm run dev:design-system` (http://127.0.0.1:5177) |
 | Refresh mock state | `npm run dev:fixture` |
 | Design detect (source) | `.cursor/skills/impeccable/scripts/impeccable detect --json src/widgets/landmarks` |
 | Rendered design scan | dev server + `node scripts/design-scan.mjs --ci` |
@@ -90,6 +91,7 @@ CI runs the same build; consumers never need Node.
 frontend/dev/
 ├── index.html          live inject target
 ├── main.tsx            mounts HarnessShell (theme toggle + marimo preview)
+├── design-system/      UI kitchen sink (type, actions, sliders, panels)
 ├── HarnessShell.tsx    notebook context wrapper
 ├── mock-model.ts       fake traitlets model
 ├── fixture.json        generated mock state

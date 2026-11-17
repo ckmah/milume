@@ -285,6 +285,7 @@ export type LandmarksModel = Omit<LandmarksState, "color"> & {
   setZBand(patch: { focus?: number; lo?: number; hi?: number }): void;
   setImageVisible(visible: boolean): void;
   setImageAlpha(alpha: number): void;
+  setPointSize(size: number): void;
   patchImageChannel(name: string, patch: Partial<Pick<ImageChannelRow, "visible" | "contrast_limits">>): void;
   activeNeighborhood(): ReturnType<typeof neighborhoodFor>;
   selectedLandmark(): LandmarkItem | null;
@@ -503,6 +504,10 @@ export function useLandmarksModel(model: AnyModel): LandmarksModel {
     },
     setImageAlpha(alpha) {
       model.set("_image_alpha", Math.max(0, Math.min(1, alpha)));
+      model.save_changes();
+    },
+    setPointSize(size) {
+      model.set("point_size", size);
       model.save_changes();
     },
     patchImageChannel(name, patch) {

@@ -1,4 +1,5 @@
 import "@/styles/globals.css";
+import "dialkit/styles.css";
 import "./landmarks.css";
 
 import { createRoot, type Root } from "react-dom/client";

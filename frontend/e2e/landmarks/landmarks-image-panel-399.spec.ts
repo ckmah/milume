@@ -227,7 +227,9 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
 
     await expect(page.getByTestId("layers-image-header")).toContainText("Image · DAPI + PanCK");
 
-    await expect(page.locator(".landmarks-slider-caption").filter({ hasText: "DAPI contrast" })).toBeVisible();
+    await expect(
+      page.locator(".landmarks-slider-caption, .dialkit-slider-label").filter({ hasText: "DAPI contrast" }),
+    ).toBeVisible();
 
     const dapiRow = page.getByTestId("layer-channel-row-DAPI");
     const typeStyle = await dapiRow.evaluate((el) => {
@@ -247,7 +249,13 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
     );
     expect(Math.abs(cellsLeft - imageLeft)).toBeLessThan(0.5);
 
-    const tracks = page.locator(".landmarks-image-controls .landmarks-slider-control");
+    await expect(
+      page.locator(".landmarks-image-controls .landmarks-slider-row--contrast .dialkit-root"),
+    ).toHaveCount(1);
+    await expect(
+      page.locator(".landmarks-image-controls .landmarks-slider-row--alpha .dialkit-root"),
+    ).toHaveCount(1);
+    const tracks = page.locator(".landmarks-image-controls .dialkit-root");
     await expect(tracks).toHaveCount(2);
     const [a, b] = await tracks.evaluateAll((els) =>
       els.map((el) => {
@@ -259,9 +267,13 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
     expect(Math.abs(a!.width - b!.width)).toBeLessThan(0.5);
 
     await page.getByTestId("layer-channel-row-CD45").click();
-    await expect(page.locator(".landmarks-slider-caption").filter({ hasText: "CD45 contrast" })).toBeVisible();
+    await expect(
+      page.locator(".landmarks-slider-caption, .dialkit-slider-label").filter({ hasText: "CD45 contrast" }),
+    ).toBeVisible();
 
-    const panckCaption = page.locator(".landmarks-slider-caption").filter({ hasText: "PanCK contrast" });
+    const panckCaption = page
+      .locator(".landmarks-slider-caption, .dialkit-slider-label")
+      .filter({ hasText: "PanCK contrast" });
     await page.getByTestId("layer-channel-row-PanCK").focus();
     await expect(panckCaption).toBeVisible();
     const notTruncated = await panckCaption.evaluate((el) => el.scrollWidth <= el.clientWidth + 0.5);
@@ -328,7 +340,9 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
     await setModel(page, { _image_channels: makeManyChannels(18) });
     await openImagePanel(page);
     await page.getByTestId("layer-channel-row-CD45").focus();
-    await expect(page.locator(".landmarks-slider-caption").filter({ hasText: "DAPI contrast" })).toBeVisible();
+    await expect(
+      page.locator(".landmarks-slider-caption, .dialkit-slider-label").filter({ hasText: "DAPI contrast" }),
+    ).toBeVisible();
   });
 
   test("empty backdrop pixels match canvas black at the image edge", async ({ page }) => {
