@@ -49,6 +49,7 @@ import { RasterSection } from "@/widgets/landmarks/chrome/raster-section";
 import { RgbCubeLegend } from "@/widgets/landmarks/chrome/rgb-cube-legend";
 import { RightChromeStack } from "@/widgets/landmarks/chrome/right-stack";
 import { IconBtn, SelectionToolbar, ToolStack } from "@/widgets/landmarks/chrome/selection-toolbar";
+import { formatSliderReadout } from "@/widgets/landmarks/chrome/slider-readout";
 import {
   SoftFloatCapsuleSlider,
   SoftFloatSignedSlider,
@@ -263,7 +264,7 @@ export function ChromeSections() {
             max={1}
             step={0.01}
             onValueChange={setOpacity}
-            displayValue={opacity.toFixed(2)}
+            displayValue={formatSliderReadout(opacity, 0.01)}
           />
           <div className="mt-2">
             <SoftFloatSliderRow
@@ -272,7 +273,7 @@ export function ChromeSections() {
               min={0}
               max={255}
               step={1}
-              readout={`${Math.round(range[0]!)}–${Math.round(range[1]!)}`}
+              readout={`${formatSliderReadout(range[0]!, 1)}–${formatSliderReadout(range[1]!, 1)}`}
               onValueChange={setRange}
             />
           </div>

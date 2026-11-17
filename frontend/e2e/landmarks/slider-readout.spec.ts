@@ -78,6 +78,11 @@ test("default slider readouts follow the step", async ({ page }) => {
   await expect(readout("slider-readout-integer")).toHaveText("12");
   await expect(readout("slider-readout-thousandths")).toHaveText("0.500");
   await expect(readout("slider-readout-binary-step")).toHaveText("0.6");
+  await expect(page.locator("[data-slider-readout]").nth(0)).toHaveText("42");
+  await expect(page.locator("[data-slider-readout]").nth(1)).toHaveText("20–80");
+  await expect(page.getByTestId("layer-cells-point-size").locator(".dialkit-slider-value")).toHaveText(
+    "4.00",
+  );
 
   await expect(page.getByRole("slider", { name: "Opacity hundredths" })).toHaveAttribute(
     "aria-valuetext",

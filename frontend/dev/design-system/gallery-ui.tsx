@@ -51,6 +51,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
+import { formatSliderReadout } from "@/widgets/landmarks/chrome/slider-readout";
 import { SoftFloatCapsuleSlider } from "@/widgets/landmarks/chrome/soft-float-slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -67,6 +68,21 @@ import { useWidgetPortal } from "@/widgets/landmarks/chrome/widget-portal-contex
 import { DsSection, StateCell } from "./stage";
 
 const LONG = "Epithelial crypt base, a label long enough to overflow the control";
+
+function RawSliderReadout({ value, step = 1 }: { value: number[]; step?: number }) {
+  const text =
+    value.length > 1
+      ? `${formatSliderReadout(value[0] ?? 0, step)}–${formatSliderReadout(value[1] ?? 0, step)}`
+      : formatSliderReadout(value[0] ?? 0, step);
+  return (
+    <span
+      data-slider-readout=""
+      className="shrink-0 font-mono text-[13px] leading-none tabular-nums text-foreground"
+    >
+      {text}
+    </span>
+  );
+}
 
 function SliderReadoutSpecimens() {
   const [hundredths, setHundredths] = useState(0.5);
@@ -86,7 +102,7 @@ function SliderReadoutSpecimens() {
         min={0}
         max={loose}
         step={0.01}
-        displayValue={hundredths}
+        displayValue={formatSliderReadout(hundredths, 0.01)}
         onValueChange={setHundredths}
       />
       <SoftFloatCapsuleSlider
@@ -97,7 +113,7 @@ function SliderReadoutSpecimens() {
         min={0}
         max={looseInt}
         step={1}
-        displayValue={whole}
+        displayValue={formatSliderReadout(whole, 1)}
         onValueChange={setWhole}
       />
       <SoftFloatCapsuleSlider
@@ -108,7 +124,7 @@ function SliderReadoutSpecimens() {
         min={0}
         max={looseMilli}
         step={0.001}
-        displayValue={thousandths}
+        displayValue={formatSliderReadout(thousandths, 0.001)}
         onValueChange={setThousandths}
       />
       <SoftFloatCapsuleSlider
@@ -119,7 +135,7 @@ function SliderReadoutSpecimens() {
         min={0}
         max={1}
         step={0.1 + 0.2}
-        displayValue={stride}
+        displayValue={formatSliderReadout(stride, 0.1 + 0.2)}
         onValueChange={setStride}
       />
     </div>
@@ -236,26 +252,44 @@ export function UiSections() {
 
       <DsSection id="sliders" title="Sliders" note="Raw track and step readouts. Dock and layers use the same rows.">
         <StateCell state="default">
-          <Slider aria-label="Opacity" value={[42]} />
+          <div className="flex items-center gap-2">
+            <Slider aria-label="Opacity" className="min-w-0 flex-1" value={[42]} />
+            <RawSliderReadout value={[42]} />
+          </div>
         </StateCell>
         <StateCell state="active">
-          <Slider aria-label="Contrast" value={[20, 80]} />
+          <div className="flex items-center gap-2">
+            <Slider aria-label="Contrast" className="min-w-0 flex-1" value={[20, 80]} />
+            <RawSliderReadout value={[20, 80]} />
+          </div>
         </StateCell>
         <StateCell state="hover">
-          <div className="landmarks-slider-control">
-            <Slider aria-label="Opacity" value={[42]} />
+          <div className="flex items-center gap-2">
+            <div className="landmarks-slider-control min-w-0 flex-1">
+              <Slider aria-label="Opacity" value={[42]} />
+            </div>
+            <RawSliderReadout value={[42]} />
           </div>
         </StateCell>
         <StateCell state="focus-visible">
-          <div className="landmarks-slider-control">
-            <Slider aria-label="Opacity" value={[42]} {...forceAttr("focus-visible")} />
+          <div className="flex items-center gap-2">
+            <div className="landmarks-slider-control min-w-0 flex-1">
+              <Slider aria-label="Opacity" value={[42]} {...forceAttr("focus-visible")} />
+            </div>
+            <RawSliderReadout value={[42]} />
           </div>
         </StateCell>
         <StateCell state="disabled">
-          <Slider aria-label="Opacity" value={[42]} disabled />
+          <div className="flex items-center gap-2">
+            <Slider aria-label="Opacity" className="min-w-0 flex-1" value={[42]} disabled />
+            <RawSliderReadout value={[42]} />
+          </div>
         </StateCell>
         <StateCell state="empty">
-          <Slider aria-label="Opacity" value={[0]} />
+          <div className="flex items-center gap-2">
+            <Slider aria-label="Opacity" className="min-w-0 flex-1" value={[0]} />
+            <RawSliderReadout value={[0]} />
+          </div>
         </StateCell>
         <StateCell state="default">
           <SliderReadoutSpecimens />
