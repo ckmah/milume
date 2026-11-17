@@ -5,6 +5,7 @@ name: UI evidence
 
 on:
   pull_request:
+    branches: [main]
     types: [ready_for_review, labeled]
   workflow_dispatch:
     inputs:

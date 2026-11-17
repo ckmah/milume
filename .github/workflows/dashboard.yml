@@ -8,6 +8,7 @@ on:
     workflows: ["Pages"]
     types: [completed]
   pull_request:
+    branches: [main]
     paths:
       - "tools/dashboard/**"
       - ".github/workflows/dashboard.yml"
