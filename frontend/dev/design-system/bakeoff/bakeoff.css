@@ -1,5 +1,6 @@
 @import "shadcn/tailwind.css";
 @import "../../../src/styles/globals.css";
+@import "./skins.css";
 @source ".";
 
 .bakeoff-page {
@@ -25,7 +26,19 @@
   letter-spacing: 0.01em;
 }
 
+.bakeoff-page--hug {
+  width: max-content;
+}
+
 .bakeoff-stage-host {
   width: 680px;
   height: auto;
+}
+
+.bakeoff-stage-host[data-frame="full"] {
+  width: 1040px;
+}
+
+.bakeoff-stage-host[data-frame="close"] {
+  width: 820px;
 }

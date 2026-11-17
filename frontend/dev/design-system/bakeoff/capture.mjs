@@ -10,17 +10,20 @@ import { fileURLToPath } from "node:url";
 
 import { chromium } from "@playwright/test";
 
+import { GAME_SKINS } from "./skins.mjs";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const stills = path.join(here, "stills");
 const base = process.env.BAKEOFF_URL ?? "http://127.0.0.1:5177";
 const styles = ["base-nova", "base-maia", "base-luma", "base-rhea"];
 const themes = ["light", "dark"];
+const only = process.env.BAKEOFF_ONLY;
 
 fs.mkdirSync(stills, { recursive: true });
 
 const browser = await chromium.launch();
 
-for (const theme of themes) {
+if (only !== "game") for (const theme of themes) {
   const page = await browser.newPage({
     viewport: { width: 1100, height: 900 },
     deviceScaleFactor: 2,
@@ -49,7 +52,7 @@ for (const theme of themes) {
   console.log(`shipped-${theme} ${bg}`);
 }
 
-for (const style of styles) {
+if (only !== "game") for (const style of styles) {
   for (const theme of themes) {
     const page = await browser.newPage({
       viewport: { width: 1100, height: 900 },
@@ -71,6 +74,38 @@ for (const style of styles) {
     await frame.screenshot({ path: path.join(stills, `${style}-${theme}.png`) });
     await page.close();
     console.log(`${style}-${theme} track ${trackH}`);
+  }
+}
+
+if (only !== "presets") {
+  for (const style of GAME_SKINS) {
+    for (const theme of themes) {
+      for (const shot of ["full", "close"]) {
+        const page = await browser.newPage({
+          viewport: shot === "close" ? { width: 980, height: 760 } : { width: 1280, height: 1600 },
+          deviceScaleFactor: 2,
+        });
+        await page.goto(`${base}/bakeoff.html?style=${style}&theme=${theme}&shot=${shot}`, {
+          waitUntil: "networkidle",
+        });
+        await page.waitForSelector("[data-bakeoff-ready='true']", { timeout: 30000 });
+        await page.waitForSelector("html[data-bakeoff-settled='true']", { timeout: 8000 });
+        const trackH = await page.evaluate(() => {
+          if (new URLSearchParams(location.search).get("shot") === "close") return 8;
+          const track = document
+            .querySelector("[data-bakeoff-host]")
+            ?.shadowRoot?.querySelector("[data-slot=slider-track]");
+          return track ? track.getBoundingClientRect().height : 0;
+        });
+        if (trackH < 1) throw new Error(`${style} ${theme} ${shot} slider track height ${trackH}`);
+        const suffix = shot === "close" ? "-close" : "";
+        await page.locator(".bakeoff-page").screenshot({
+          path: path.join(stills, `${style}-${theme}${suffix}.png`),
+        });
+        await page.close();
+        console.log(`${style}-${theme}${suffix} track ${trackH}`);
+      }
+    }
   }
 }
 

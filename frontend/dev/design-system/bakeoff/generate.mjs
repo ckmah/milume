@@ -8,11 +8,19 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { GAME_SKINS } from "./skins.mjs";
+
 const frontend = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const outRoot = path.resolve(frontend, "dev/design-system/bakeoff/generated");
 const componentsJsonPath = path.resolve(frontend, "components.json");
 
 const STYLES = ["base-nova", "base-maia", "base-luma", "base-rhea"];
+
+const overlap = STYLES.filter((style) => GAME_SKINS.includes(style));
+if (overlap.length) {
+  throw new Error(`game skins are CSS over base-nova, not shadcn styles: ${overlap.join(", ")}`);
+}
+console.log(`game skins stay on the base-nova kit (${GAME_SKINS.join(", ")})`);
 const ITEMS = [
   "button",
   "switch",
