@@ -1,7 +1,7 @@
 // Static PR preview: default toy widget harness + design-system harness.
 // Asset URLs are rooted at /<repo>/pr/<PR_NUMBER>/ so GitHub project Pages can serve them.
 import { spawnSync } from "node:child_process";
-import { cpSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -49,11 +49,16 @@ viteBuild({ MILUME_PREVIEW_BASE: prefix, DEV_WIDGET: "" }, harnessOut);
 cpSync(path.join(frontend, "dev/fixture.json"), path.join(harnessOut, "fixture.json"));
 assertAssets(path.join(harnessOut, "index.html"), prefix);
 
-const designOut = path.join(out, "design-system");
-const designBase = `${prefix}design-system/`;
-viteBuild({ MILUME_PREVIEW_BASE: designBase, DEV_WIDGET: "design-system" }, designOut);
-assertAssets(path.join(designOut, "index.html"), designBase);
+const designRoot = path.join(frontend, "dev/design-system/index.html");
+if (existsSync(designRoot)) {
+  const designOut = path.join(out, "design-system");
+  const designBase = `${prefix}design-system/`;
+  viteBuild({ MILUME_PREVIEW_BASE: designBase, DEV_WIDGET: "design-system" }, designOut);
+  assertAssets(path.join(designOut, "index.html"), designBase);
+  console.log(`  design-system base ${designBase}`);
+} else {
+  console.log("build-preview: frontend/dev/design-system is absent; widget harness only");
+}
 
 console.log(`build-preview: wrote ${out}`);
 console.log(`  widget base ${prefix}`);
-console.log(`  design-system base ${designBase}`);

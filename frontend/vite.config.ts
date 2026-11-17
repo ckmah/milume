@@ -49,16 +49,9 @@ const volumeFixtureFile =
           : volumeProfile === "issue395-3d"
             ? "landmarks-volume-fixture.issue395-3d.json"
             : "landmarks-volume-fixture.json";
-/** Live kitchen sink when the harness is in the tree; otherwise the preview copy. */
-function designSystemRoot(): string {
-  const live = path.resolve(devDir, "design-system");
-  if (fs.existsSync(path.join(live, "index.html"))) return live;
-  return path.resolve(rootDir, "scripts/preview-design-system");
-}
-
 const harnessRoots: Record<string, string> = {
   "landmarks-volume": path.resolve(devDir, "landmarks-volume"),
-  "design-system": designSystemRoot(),
+  "design-system": path.resolve(devDir, "design-system"),
 };
 const harnessRoot = harnessRoots[devWidget ?? ""] ?? devDir;
 const previewBuild = process.env.MILUME_PREVIEW === "1";

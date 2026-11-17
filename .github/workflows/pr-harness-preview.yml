@@ -51,14 +51,12 @@ jobs:
     needs: build
     if: needs.build.result == 'success'
     runs-on: ubuntu-latest
-    # Serialize gh-pages writes with the docs deploy group so a dashboard
-    # overlay cannot publish a tree from before this preview landed.
+    # Serialize gh-pages writes with docs and dashboard publishes.
     concurrency:
       group: pages-push-refs/heads/main
       cancel-in-progress: false
     permissions:
       contents: write
-      pages: write
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
@@ -74,32 +72,6 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: bash tools/pages/publish_gh_pages.sh preview "${{ github.event.pull_request.number }}" "$GITHUB_WORKSPACE/preview-dist"
 
-      - name: Record preview metadata
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          mkdir -p preview-meta
-          printf '{"pr":"%s","sha":"%s","action":"publish"}\n' "$PR_NUMBER" "$HEAD_SHA" > preview-meta/preview.json
-
-      - name: Serve gh-pages when the token is allowed to switch Pages
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          build_type="$(gh api "repos/${GITHUB_REPOSITORY}/pages" --jq .build_type)"
-          echo "pages build_type=$build_type"
-          if [[ "$build_type" != "workflow" ]]; then
-            exit 0
-          fi
-          # pull_request refs cannot deploy the github-pages environment (policy is main only).
-          # Branch source serves /pr/<n>/ from the push above. A 403 leaves the artifact deploy in place.
-          payload='{"build_type":"legacy","source":{"branch":"gh-pages","path":"/"}}'
-          if ! printf '%s' "$payload" | gh api --method PUT "repos/${GITHUB_REPOSITORY}/pages" --input -; then
-            echo "Could not switch Pages to gh-pages; previews stay on the branch until main deploys them."
-          fi
-
       - name: Comment with preview links
         env:
           GH_TOKEN: ${{ github.token }}
@@ -107,13 +79,13 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: python3 tools/pages/pr_preview_comment.py --pr "$PR_NUMBER" --sha "$HEAD_SHA"
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: harness-preview-meta
-          path: preview-meta/preview.json
-          retention-days: 1
+        run: |
+          set -euo pipefail
+          args=(--pr "$PR_NUMBER" --sha "$HEAD_SHA")
+          if [[ ! -f preview-dist/design-system/index.html ]]; then
+            args+=(--widget-only)
+          fi
+          python3 tools/pages/pr_preview_comment.py "${args[@]}"
 
   remove:
     if: >
@@ -143,20 +115,6 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: python3 tools/pages/pr_preview_comment.py --removed --pr "$PR_NUMBER" --sha "$HEAD_SHA"
-
-      - name: Record removal metadata
-        env:
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          mkdir -p preview-meta
-          printf '{"pr":"%s","sha":"%s","action":"delete"}\n' "$PR_NUMBER" "$HEAD_SHA" > preview-meta/preview.json
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: harness-preview-meta
-          path: preview-meta/preview.json
-          retention-days: 1
 
   sweep:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

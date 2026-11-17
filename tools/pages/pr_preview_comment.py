@@ -34,7 +34,7 @@ def pages_base(pr: str) -> str:
     return f"https://{owner}.github.io/{name}/pr/{pr}/"
 
 
-def body_for(pr: str, sha: str, removed: bool) -> str:
+def body_for(pr: str, sha: str, removed: bool, widget_only: bool) -> str:
     if removed:
         return (
             f"{MARKER}\n"
@@ -42,12 +42,14 @@ def body_for(pr: str, sha: str, removed: bool) -> str:
             f"The preview for `{sha}` was removed. `/pr/{pr}/` is no longer published.\n"
         )
     base = pages_base(pr)
+    links = f"- [Widget harness]({base})\n"
+    if not widget_only:
+        links += f"- [Design system]({base}design-system/)\n"
     return (
         f"{MARKER}\n"
         "## Harness preview\n\n"
         f"Head `{sha}`\n\n"
-        f"- [Widget harness]({base})\n"
-        f"- [Design system]({base}design-system/)\n\n"
+        f"{links}\n"
         "These previews are ephemeral. Closing the PR deletes the directory.\n"
     )
 
@@ -69,11 +71,12 @@ def main() -> None:
     parser.add_argument("--pr", required=True)
     parser.add_argument("--sha", required=True)
     parser.add_argument("--removed", action="store_true")
+    parser.add_argument("--widget-only", action="store_true")
     args = parser.parse_args()
     if not args.pr.isdigit():
         sys.exit("pr_preview_comment: PR number must be digits")
     repo = os.environ.get("GITHUB_REPOSITORY", "ckmah/milume")
-    payload = json.dumps({"body": body_for(args.pr, args.sha, args.removed)})
+    payload = json.dumps({"body": body_for(args.pr, args.sha, args.removed, args.widget_only)})
     existing = comment_id(repo, args.pr)
     if existing:
         gh("api", "--method", "PATCH", f"repos/{repo}/issues/comments/{existing}", "--input", "-", input_text=payload)

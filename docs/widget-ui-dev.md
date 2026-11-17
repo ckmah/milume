@@ -112,11 +112,11 @@ cd frontend && npm run dev:landmarks-volume-xsmall
 
 ## PR previews
 
-A pull request that changes `frontend/` publishes an ephemeral static build. The default toy widget harness (no real volumes) is at `https://ckmah.github.io/milume/pr/<N>/` and the design-system harness at `https://ckmah.github.io/milume/pr/<N>/design-system/`. One sticky PR comment lists both links and the head SHA. Closing the PR deletes `/pr/<N>/`; a daily sweep deletes any `/pr/<N>/` whose PR is already closed.
+A pull request that changes `frontend/` publishes an ephemeral static build on the `gh-pages` branch, which is what GitHub Pages serves. The default toy widget harness (no real volumes) is at `https://ckmah.github.io/milume/pr/<N>/`. When `frontend/dev/design-system` is in the tree, the same preview includes it at `https://ckmah.github.io/milume/pr/<N>/design-system/`. One sticky PR comment lists the links that were built and the head SHA. Closing the PR deletes `/pr/<N>/`; a daily sweep deletes any `/pr/<N>/` whose PR is already closed.
 
-The PR job writes `/pr/<N>/` on the `gh-pages` branch. It cannot call `deploy-pages`: the github-pages environment only allows `main`, and a pull request runs as `refs/pull/<N>/merge`. When the token can switch Pages to that branch, the branch is what the site serves. While Pages is still an Actions artifact, a `workflow_run` on `main` merges `pr/` into the current site artifact and deploys it. Docs and dashboard deploys copy `pr/` back in, and they also push to `gh-pages`, so neither path drops open previews.
+Docs and dashboard publishes push to the same branch and leave `pr/` in place. The docs publish also leaves `dashboard/` in place, and the dashboard publish only writes `dashboard/`.
 
-`cd frontend && PR_NUMBER=<N> npm run build:preview` writes that tree to `frontend/dist/preview`. The design-system build uses `frontend/dev/design-system` when it is present (`npm run dev:design-system`), and `frontend/scripts/preview-design-system` otherwise.
+`cd frontend && PR_NUMBER=<N> npm run build:preview` writes that tree to `frontend/dist/preview`. `npm run dev:design-system` serves `frontend/dev/design-system` locally.
 
 ## Gotchas
 

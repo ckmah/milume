@@ -51,8 +51,8 @@ apply_changes() {
         echo "publish_gh_pages.sh: bad PR number: $pr" >&2
         return 1
       fi
-      if [[ ! -f "$src/index.html" || ! -f "$src/design-system/index.html" ]]; then
-        echo "publish_gh_pages.sh: preview dir needs index.html and design-system/index.html" >&2
+      if [[ ! -f "$src/index.html" ]]; then
+        echo "publish_gh_pages.sh: preview dir needs index.html" >&2
         return 1
       fi
       rm -rf "$work/pr/$pr"
