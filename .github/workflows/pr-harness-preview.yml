@@ -86,6 +86,83 @@ jobs:
           path: preview-meta/preview.json
           retention-days: 1
 
+  # Same-repo PRs still run as the head branch. The github-pages environment
+  # only allows main, so this job is what fails closed until that policy
+  # includes the workflow. The workflow_run deploy on main is the path that
+  # publishes once this file is on the default branch.
+  live:
+    needs: publish
+    if: needs.publish.result == 'success'
+    # The environment only allows main. A refusal here must not fail the
+    # workflow: the workflow_run listener on main is what publishes.
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages-push-refs/heads/main
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: https://ckmah.github.io/milume/pr/${{ github.event.pull_request.number }}/
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Merge pr/ into the current Pages artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq '[.artifacts[] | select(.name=="github-pages" and .expired==false)] | sort_by(.created_at) | last | .id // empty')"
+          if [[ -z "$artifact_id" ]]; then
+            echo "no github-pages artifact to merge into" >&2
+            exit 1
+          fi
+          echo "base artifact $artifact_id"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > /tmp/pages.zip
+          rm -rf pages-artifact combined
+          mkdir -p pages-artifact combined
+          unzip -q /tmp/pages.zip -d pages-artifact
+          if [[ -f pages-artifact/artifact.tar ]]; then
+            tar -xf pages-artifact/artifact.tar -C combined
+          else
+            cp -a pages-artifact/. combined/
+            rm -f combined/artifact.tar
+          fi
+          git fetch --depth 1 origin gh-pages
+          for top in pr dashboard; do
+            if git cat-file -e "origin/gh-pages:${top}" 2>/dev/null; then
+              rm -rf "combined/${top}"
+              git archive "origin/gh-pages" "$top" | tar -x -C combined
+              echo "overlaid ${top}"
+            fi
+          done
+          test -s combined/index.html
+          test -s combined/dashboard/index.html
+
+      - name: Upload combined Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: combined
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+
+      - name: Comment with preview links
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 tools/pages/pr_preview_comment.py --pr "$PR_NUMBER" --sha "$HEAD_SHA"
+
   remove:
     if: >
       github.event_name == 'pull_request'
