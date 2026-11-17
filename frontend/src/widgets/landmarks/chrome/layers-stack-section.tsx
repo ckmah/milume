@@ -11,6 +11,7 @@ import { channelDisplayColor } from "@/widgets/volume-cube/tint-palette";
 import type { ImageChannelRow, LandmarksModel } from "../use-landmarks-model";
 import { ChannelColorPicker } from "./channel-color-picker";
 import { META_LINE } from "./sections";
+import { formatSliderReadout } from "./slider-readout";
 import { SoftFloatSliderRow } from "./soft-float-slider";
 
 const MAX_VISIBLE_CHANNELS = 6;
@@ -92,6 +93,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
   const imageVisible = lm._image_visible !== false;
   const imageAlpha = lm._image_alpha ?? 0.55;
   const pointSize = lm.point_size ?? 1;
+  const pointSizeStep = 0.25;
   const sizeRange = useMemo(() => pointSizeRange(lm), [lm]);
   const activeCol =
     category_columns.find((c) => c.name === active_category) ||
@@ -102,7 +104,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
       ? `Cells · ${activeCol.name}`
       : "Cells";
   const cellsVisible = pointSize > sizeRange.min * 0.75;
-  const sizeCaption = `Size (${sizeRange.min.toFixed(1)}–${sizeRange.max.toFixed(1)})`;
+  const sizeCaption = `Size (${formatSliderReadout(sizeRange.min, pointSizeStep)}–${formatSliderReadout(sizeRange.max, pointSizeStep)})`;
 
   const toggleCellsVisible = useCallback(
     (next: boolean) => {
@@ -237,9 +239,9 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                   testId="layer-cells-point-size"
                   min={sizeRange.min}
                   max={sizeRange.max}
-                  step={0.25}
+                  step={pointSizeStep}
                   value={[Math.max(sizeRange.min, pointSize)]}
-                  readout={pointSize.toFixed(1)}
+                  readout={formatSliderReadout(pointSize, pointSizeStep)}
                   onValueChange={(v) => {
                     const next = v[0] ?? pointSize;
                     lm.setPointSize(next);
@@ -316,7 +318,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                     contrastChannel?.contrast_limits?.[0] ?? defaultContrast[0],
                     contrastChannel?.contrast_limits?.[1] ?? defaultContrast[1],
                   ]}
-                  readout={`${Math.round(contrastChannel?.contrast_limits?.[0] ?? defaultContrast[0])}–${Math.round(contrastChannel?.contrast_limits?.[1] ?? defaultContrast[1])}`}
+                  readout={`${formatSliderReadout(contrastChannel?.contrast_limits?.[0] ?? defaultContrast[0], 1)}–${formatSliderReadout(contrastChannel?.contrast_limits?.[1] ?? defaultContrast[1], 1)}`}
                   onValueChange={(v) => {
                     if (!contrastChannel) return;
                     lm.patchImageChannel(contrastChannel.name, {
@@ -332,7 +334,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                   max={1}
                   step={0.01}
                   value={[imageAlpha]}
-                  readout={imageAlpha.toFixed(2)}
+                  readout={formatSliderReadout(imageAlpha, 0.01)}
                   onValueChange={(v) => lm.setImageAlpha(v[0] ?? 0.55)}
                 />
               </div>

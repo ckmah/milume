@@ -41,9 +41,9 @@ import {
   chromeMenuClass,
 } from "./primitives";
 import { IconBtn, ToolStack } from "./selection-toolbar";
+import { formatSliderReadout } from "./slider-readout";
 import { SoftFloatCapsuleSlider, SoftFloatSliderRow } from "./soft-float-slider";
 import { useWidgetPortal } from "./widget-portal-context";
-
 
 const GAMMA_LOG2 = 2.32;
 
@@ -93,8 +93,8 @@ function RangeRow({
   onLive: (v: Range) => void;
   onCommit: (v: Range) => void;
 }) {
-  const lo = Math.round(value[0] - offset);
-  const hi = Math.round(value[1] - offset);
+  const lo = formatSliderReadout(value[0] - offset, step);
+  const hi = formatSliderReadout(value[1] - offset, step);
   return (
     <SoftFloatSliderRow
       caption={label}
@@ -516,7 +516,7 @@ export function InspectToolbar({
         max={1}
         step={0.05}
         value={render.imageAlpha}
-        displayValue={render.imageAlpha.toFixed(2)}
+        displayValue={formatSliderReadout(render.imageAlpha, 0.05)}
         onValueChange={(v) => patch({ render: { imageAlpha: v } })}
       />
       <SoftFloatCapsuleSlider
@@ -526,7 +526,7 @@ export function InspectToolbar({
         max={GAMMA_LOG2}
         step={0.05}
         value={gammaLog2}
-        displayValue={(2 ** gammaLog2).toFixed(2)}
+        displayValue={formatSliderReadout(2 ** gammaLog2, 0.05)}
         onValueChange={(v) => patch({ render: { imageGamma: 2 ** v } })}
       />
     </AdjustSection>
@@ -541,7 +541,7 @@ export function InspectToolbar({
         max={1}
         step={0.05}
         value={render.cellAlpha}
-        displayValue={render.cellAlpha.toFixed(2)}
+        displayValue={formatSliderReadout(render.cellAlpha, 0.05)}
         onValueChange={(v) => patch({ render: { cellAlpha: v } })}
       />
     </AdjustSection>

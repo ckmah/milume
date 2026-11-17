@@ -3,7 +3,7 @@
  * Range uses paired Low / High tracks; signed and symmetric buffer use DialKit
  * with appropriate min/max.
  */
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Slider as DialkitSlider } from "dialkit";
 import { RotateCcwIcon } from "lucide-react";
 
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 
 import { FIELD_CAPTION } from "./sections";
 import { ChromeTooltip, chromeHitClass } from "./primitives";
+import { formatSliderReadout } from "./slider-readout";
 
 function sliderLabel(caption: React.ReactNode, ariaLabel?: string): string {
   if (ariaLabel) return ariaLabel;
@@ -40,8 +41,20 @@ function DialkitSliderRow({
   className?: string;
   testId?: string;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const readout = formatSliderReadout(value, step);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const span = root.querySelector(".dialkit-slider-value");
+    if (span) span.textContent = readout;
+    const slider = root.querySelector("[role='slider']");
+    if (slider) slider.setAttribute("aria-valuetext", readout);
+  }, [readout, value, min, max, step]);
+
   return (
     <div
+      ref={rootRef}
       className={cn("landmarks-slider-row landmarks-slider-row--dialkit min-w-0 flex-1", className)}
       data-testid={testId}
     >
@@ -289,7 +302,7 @@ export function SoftFloatSliderRow({
     const label = sliderLabel(caption, ariaLabel);
     const inside =
       _readout ??
-      `${Math.round(value[0] ?? min)}–${Math.round(value[1] ?? max)}`;
+      `${formatSliderReadout(value[0] ?? min, stride)}–${formatSliderReadout(value[1] ?? max, stride)}`;
     const range = (
       <DialkitRangeRow
         label={label}
