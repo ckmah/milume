@@ -54,6 +54,7 @@ const harnessRoots: Record<string, string> = {
   "design-system": path.resolve(devDir, "design-system"),
 };
 const harnessRoot = harnessRoots[devWidget ?? ""] ?? devDir;
+const previewBuild = process.env.MILUME_PREVIEW === "1";
 
 // Single deck.gl / luma.gl stack for all widgets (9.2.x). npm overrides dedupe
 // Viv's nested peers to these root copies; each widget bundle still ships its own
@@ -116,6 +117,20 @@ function serveLandmarksVolumeFixture() {
  * final artifact anywidget loads (nothing tree-shakes it again), so strip whitespace
  * too (#318). Same esbuild minifier, same build target; still one file.
  */
+/** Preview builds are served under /<repo>/pr/<n>/, so the harness fixture cannot stay at the domain root. */
+function previewFixtureBase(): Plugin {
+  const base = process.env.MILUME_PREVIEW_BASE || "/";
+  const fixture = `${base.endsWith("/") ? base : `${base}/`}fixture.json`;
+  return {
+    name: "milume-preview-fixture-base",
+    apply: "build",
+    transform(code, id) {
+      if (!id.replaceAll("\\", "/").endsWith("/dev/mock-model.ts")) return null;
+      return code.replaceAll('"/fixture.json"', JSON.stringify(fixture));
+    },
+  };
+}
+
 function minifyWidgetBundle(): Plugin {
   let target: ResolvedConfig["build"]["target"] = "esnext";
   return {
@@ -146,8 +161,10 @@ function minifyWidgetBundle(): Plugin {
 const usesViv = devWidget === "landmarks-volume";
 
 export default defineConfig(({ command }) => {
-  if (command === "serve") {
+  if (command === "serve" || previewBuild) {
+    const previewBase = process.env.MILUME_PREVIEW_BASE || "/";
     return {
+      base: previewBuild ? previewBase : "/",
       root: harnessRoot,
       // One dep cache per harness: they pre-bundle different deps (Viv or not), and a
       // shared cache reused by another harness re-optimizes mid-test and reloads the page.
@@ -163,14 +180,34 @@ export default defineConfig(({ command }) => {
       // Missing OME-Zarr keys must 404. SPA fallback serves index.html (200),
       // and zarrita then fails to parse it instead of opening the v2 store.
       appType: usesViv ? "mpa" : "spa",
-      publicDir:
-        devWidget === "landmarks-volume"
+      publicDir: previewBuild
+        ? false
+        : devWidget === "landmarks-volume"
           ? path.resolve(devDir, "landmarks-volume/public")
           : undefined,
-      plugins: [react(), tailwindcss(), serveLandmarksVolumeFixture()],
+      plugins: [
+        react(),
+        tailwindcss(),
+        serveLandmarksVolumeFixture(),
+        ...(previewBuild ? [previewFixtureBase()] : []),
+      ],
       define: {
         __MILUME_VOLUME_FIXTURE_FILE__: JSON.stringify(volumeFixtureFile),
+        ...(previewBuild
+          ? {
+              "process.env.NODE_ENV": JSON.stringify("production"),
+              "process.env.POLYGON_CLIPPING_MAX_QUEUE_SIZE": "undefined",
+              "process.env.POLYGON_CLIPPING_MAX_SWEEPLINE_SEGMENTS": "undefined",
+            }
+          : {}),
       },
+      build: previewBuild
+        ? {
+            outDir: process.env.MILUME_PREVIEW_OUT,
+            emptyOutDir: true,
+            sourcemap: false,
+          }
+        : undefined,
       resolve: sharedResolve,
       // Viv harnesses need default dep optimization; landmarks excludes Viv. The scan
       // skips worker imports, so the mesh worker's deps are listed or their late

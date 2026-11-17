@@ -16,13 +16,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
+# pages.yml (every trigger), dashboard.yml, and preview publish/remove/sweep
+# share this group. cancel-in-progress is false so one writer cannot cancel another.
 concurrency:
-  group: pages-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: pages-push-refs/heads/main
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -108,19 +108,9 @@ jobs:
             .cache/marimo-export-recipes
           key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/data/ileum.h5ad', 'uv.lock') }}
 
-      - name: Upload Pages artifact
+      # Replaces the site root and leaves pr/ and dashboard/ on the branch.
+      - name: Publish site to gh-pages
         if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-
-  deploy:
-    if: github.event_name != 'pull_request'
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/deploy-pages@v4
-        id: deployment
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash tools/pages/publish_gh_pages.sh site "$GITHUB_WORKSPACE/site"

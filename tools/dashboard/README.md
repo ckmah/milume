@@ -8,9 +8,9 @@ Live URL (after the workflow has published at least once):
 
 Morning-triage summary: <https://ckmah.github.io/milume/dashboard/summary.txt>
 
-The existing docs site at <https://ckmah.github.io/milume/> is unchanged.
-This workflow overlays `dashboard/` onto the current Pages artifact and also
-pushes the generated files to the `gh-pages` branch under `dashboard/`.
+GitHub Pages serves the `gh-pages` branch. This workflow updates only
+`dashboard/` on that branch. The docs publish and harness previews live beside
+it and are left in place.
 
 ## Auth
 
@@ -18,8 +18,7 @@ pushes the generated files to the `gh-pages` branch under `dashboard/`.
 is `GITHUB_TOKEN` (set as `GH_TOKEN`). Locally, `gh auth` is enough.
 
 Permissions used by the workflow: contents (write, to update `gh-pages`),
-actions (read, workflow runs and artifacts), pull-requests (read), issues
-(read), pages (write) and id-token (write) for `deploy-pages`.
+actions (read), pull-requests (read), and issues (read).
 
 ## Local refresh
 
@@ -35,7 +34,6 @@ Writes `dashboard.html`, `summary.txt`, and `content_hash.txt`. Status is
 ## Actions
 
 `.github/workflows/dashboard.yml` runs about every 3 hours, on
-`workflow_dispatch`, and after a successful main Pages deploy (so a docs
-publish does not wipe `/dashboard/`). It skips the `gh-pages` push and the
-Pages overlay when the content hash is unchanged, except after a Pages
-deploy, when it restores `/dashboard/` even if the hash matches.
+`workflow_dispatch`, and after a successful main Pages run. It pushes
+`dashboard/` only when the content hash changes. A docs publish replaces the
+site root and leaves `dashboard/` and `pr/` alone.

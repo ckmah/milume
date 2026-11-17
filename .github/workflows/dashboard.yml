@@ -12,9 +12,10 @@ on:
       - "tools/dashboard/**"
       - ".github/workflows/dashboard.yml"
 
+# Same group as pages.yml and the preview publish/remove/sweep jobs.
 concurrency:
-  group: dashboard
-  cancel-in-progress: true
+  group: pages-push-refs/heads/main
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -32,7 +33,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       changed: ${{ steps.hash.outputs.changed }}
-      restore: ${{ steps.hash.outputs.restore }}
     permissions:
       contents: read
       actions: read
@@ -79,13 +79,8 @@ jobs:
           if [[ -z "$prev" || "$prev" != "$digest" ]]; then
             changed=true
           fi
-          restore=false
-          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
-            restore=true
-          fi
           echo "changed=$changed" >> "$GITHUB_OUTPUT"
-          echo "restore=$restore" >> "$GITHUB_OUTPUT"
-          echo "hash=${digest:0:12} prev=${prev:0:12} changed=$changed restore=$restore"
+          echo "hash=${digest:0:12} prev=${prev:0:12} changed=$changed"
 
       - name: Upload generated dashboard
         uses: actions/upload-artifact@v4
@@ -100,23 +95,11 @@ jobs:
 
   publish:
     needs: refresh
-    if: >
-      github.event_name != 'pull_request'
-      && (needs.refresh.outputs.changed == 'true' || needs.refresh.outputs.restore == 'true')
+    if: github.event_name != 'pull_request' && needs.refresh.outputs.changed == 'true'
     runs-on: ubuntu-latest
-    # Same group pages.yml uses for pushes to main, so deploy-pages cannot overlap.
-    # cancel-in-progress: false — do not cancel an in-progress docs deploy.
-    concurrency:
-      group: pages-push-refs/heads/main
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: https://ckmah.github.io/milume/dashboard/
     permissions:
       contents: write
       actions: read
-      pages: write
-      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -132,94 +115,3 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash tools/dashboard/push_gh_pages.sh tools/dashboard
-
-      - name: Skip overlay if Pages is already running
-        id: idle
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          running="$(gh run list --repo "${{ github.repository }}" --workflow pages.yml \
-            --status in_progress --limit 5 --json databaseId,event \
-            --jq '[.[] | select(.event != "pull_request")] | length')"
-          queued="$(gh run list --repo "${{ github.repository }}" --workflow pages.yml \
-            --status queued --limit 5 --json databaseId,event \
-            --jq '[.[] | select(.event != "pull_request")] | length')"
-          if [[ "$running" != "0" || "$queued" != "0" ]]; then
-            echo "Pages deploy in progress (running=$running queued=$queued); skip overlay"
-            echo "proceed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "proceed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Find latest main Pages artifact
-        if: steps.idle.outputs.proceed == 'true'
-        id: pages_run
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
-            rid="${{ github.event.workflow_run.id }}"
-          else
-            rid="$(gh run list --repo "${{ github.repository }}" --workflow pages.yml \
-              --branch main --status success --limit 1 --json databaseId \
-              --jq '.[0].databaseId // empty')"
-          fi
-          if [[ -z "$rid" ]]; then
-            echo "No successful main Pages run found; cannot overlay" >&2
-            echo "run_id=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "run_id=$rid" >> "$GITHUB_OUTPUT"
-          echo "Using Pages run $rid"
-
-      - name: Download Pages artifact
-        if: steps.idle.outputs.proceed == 'true' && steps.pages_run.outputs.run_id != ''
-        id: dl
-        continue-on-error: true
-        uses: actions/download-artifact@v4
-        with:
-          name: github-pages
-          run-id: ${{ steps.pages_run.outputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          path: pages-artifact
-
-      - name: Overlay dashboard onto Pages site
-        if: steps.idle.outputs.proceed == 'true' && steps.dl.outcome == 'success'
-        run: |
-          set -euo pipefail
-          mkdir -p combined
-          if [[ -f pages-artifact/artifact.tar ]]; then
-            tar -xf pages-artifact/artifact.tar -C combined
-          else
-            cp -a pages-artifact/. combined/
-            rm -f combined/artifact.tar
-          fi
-          mkdir -p combined/dashboard
-          cp tools/dashboard/dashboard.html combined/dashboard/index.html
-          cp tools/dashboard/summary.txt combined/dashboard/summary.txt
-          find combined -maxdepth 2 -type f | head -20
-          test -s combined/dashboard/index.html
-
-      - name: Upload combined Pages artifact
-        if: steps.idle.outputs.proceed == 'true' && steps.dl.outcome == 'success'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: combined
-
-      - name: Deploy to GitHub Pages
-        if: steps.idle.outputs.proceed == 'true' && steps.dl.outcome == 'success'
-        uses: actions/deploy-pages@v4
-
-      - name: Note when overlay could not run
-        if: >
-          steps.idle.outputs.proceed != 'true'
-          || steps.pages_run.outputs.run_id == ''
-          || steps.dl.outcome != 'success'
-        run: |
-          echo "Skipped Pages overlay (Pages busy, no artifact, or download failed)."
-          echo "Files are on the gh-pages branch if content changed."
-          echo "The next successful main Pages deploy will restore /dashboard/ via workflow_run."

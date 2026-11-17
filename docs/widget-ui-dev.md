@@ -119,6 +119,14 @@ cd frontend && npm run dev:fixture:volume-xsmall   # once: HF download, Pyxa lab
 cd frontend && npm run dev:landmarks-volume-xsmall
 ```
 
+## PR previews
+
+A pull request that changes `frontend/` publishes an ephemeral static build on the `gh-pages` branch, which is what GitHub Pages serves. The default toy widget harness (no real volumes) is at `https://ckmah.github.io/milume/pr/<N>/`. When `frontend/dev/design-system` is in the tree, the same preview includes it at `https://ckmah.github.io/milume/pr/<N>/design-system/`. One sticky PR comment lists the links that were built and the head SHA. Closing the PR deletes `/pr/<N>/`; a daily sweep deletes any `/pr/<N>/` whose PR is already closed.
+
+Docs and dashboard publishes push to the same branch and leave `pr/` in place. The docs publish also leaves `dashboard/` in place, and the dashboard publish only writes `dashboard/`. Pages (any trigger), dashboard, and preview publish, remove, and sweep share the lock `pages-push-refs/heads/main` and do not cancel each other. The sweep deletes a directory only when the API reports that PR as `CLOSED` or `MERGED`, or returns a definite 404. Any other lookup error leaves the directory in place. The publish re-checks that the PR is `OPEN` immediately before the push and skips the push otherwise.
+
+`cd frontend && PR_NUMBER=<N> npm run build:preview` writes that tree to `frontend/dist/preview`. `npm run dev:design-system` serves `frontend/dev/design-system` locally.
+
 ## Gotchas
 
 | Situation | Do |

@@ -35,15 +35,22 @@ cp "$SRC/content_hash.txt" "$WORK/dashboard/content_hash.txt"
 if [[ -f "$SRC/needs_you_history.json" ]]; then
   cp "$SRC/needs_you_history.json" "$WORK/dashboard/needs_you_history.json"
 fi
-cat > "$WORK/README.md" << 'MD'
+# The branch also holds the docs site and /pr/ previews. Do not replace a live index.
+if [[ -f "$WORK/index.html" ]]; then
+  git -C "$WORK" rm -f --ignore-unmatch README.md >/dev/null 2>&1 || true
+else
+  cat > "$WORK/README.md" << 'MD'
 Generated milume agent dashboard (`dashboard/index.html`, `dashboard/summary.txt`).
 
-Served at https://ckmah.github.io/milume/dashboard/ by overlaying these files
-onto the existing workflow-built docs site. Do not edit by hand; the Dashboard
-workflow refreshes this branch.
+Served at https://ckmah.github.io/milume/dashboard/ from this branch. Do not edit by hand;
+the Dashboard workflow refreshes this branch.
 MD
+fi
 
-git -C "$WORK" add dashboard README.md
+git -C "$WORK" add dashboard
+if [[ -f "$WORK/README.md" ]]; then
+  git -C "$WORK" add README.md
+fi
 if git -C "$WORK" diff --cached --quiet; then
   echo "gh-pages: no file changes"
   exit 0
