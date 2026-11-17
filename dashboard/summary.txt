@@ -1,13 +1,13 @@
-as_of: Tue Nov 17, 8:11 AM PT
+as_of: Tue Nov 17, 8:55 AM PT
 needs_you: 0
   (none)
-open_prs: 5
-last_nightly: 2026-11-16 success
+open_prs: 2
+last_nightly: 2026-11-17 cancelled
 stale_prs:
   #415 morans-i-409 (no push >8d)
-red_nightlies: 2026-11-06, 2026-11-07, 2026-11-09, 2026-11-10, 2026-11-11, 2026-11-14
-last_red_nightly: 2026-11-14
+red_nightlies: 2026-11-06, 2026-11-07, 2026-11-09, 2026-11-10, 2026-11-11, 2026-11-14, 2026-11-17
+last_red_nightly: 2026-11-17
 ci_failure_issues: none
 html: dashboard.html
 status: PUBLISH
-hash: 1744a05900e4
+hash: eb0a534b4421
