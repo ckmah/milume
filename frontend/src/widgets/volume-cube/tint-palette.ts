@@ -46,3 +46,27 @@ export const CHANNEL_TINTS = [
 export function defaultChannelTint(index: number): string {
   return CHANNEL_TINTS[index % CHANNEL_TINTS.length] ?? "#cccccc";
 }
+
+const HEX6 = /^#([0-9a-fA-F]{6})$/;
+
+/** `#rrggbb` or null. The only color string the map and cube accept. */
+export function parseChannelHex(raw: string): string | null {
+  const match = HEX6.exec(raw.trim());
+  if (!match) return null;
+  return `#${match[1]!.toLowerCase()}`;
+}
+
+/**
+ * Dot, map, and cube share this. An explicit hex wins. A lone visible channel
+ * with no hex stays white so a single grayscale image is not pastel-tinted.
+ */
+export function channelDisplayColor(
+  color: string | undefined,
+  index: number,
+  solo: boolean,
+): string {
+  const parsed = color ? parseChannelHex(color) : null;
+  if (parsed) return parsed;
+  if (solo) return "#ffffff";
+  return defaultChannelTint(index);
+}

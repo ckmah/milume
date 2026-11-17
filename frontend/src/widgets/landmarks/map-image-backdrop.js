@@ -1,3 +1,4 @@
+import { channelDisplayColor } from "@/widgets/volume-cube/tint-palette.ts";
 import {
   axisSize,
   fetchBox,
@@ -122,6 +123,13 @@ function maxProjectSlice(data, box, lo, hi) {
     }
   }
   return gray;
+}
+
+function displayTint(ch, entries) {
+  const index = Math.max(0, entries.findIndex((entry) => entry?.name === ch.name));
+  const visible = entries.filter((entry) => entry && entry.visible && !entry.constant_zero);
+  const solo = visible.length === 1 && visible[0].name === ch.name;
+  return channelDisplayColor(ch.color, index, solo);
 }
 
 function parseChannelTint(hex) {
@@ -269,7 +277,10 @@ export function createMapImageBackdrop({
   function fetchKey(viewState) {
     const vol = model.get("volume") || {};
     const vis = visibleChannels(model)
-      .map((c) => `${c.name}:${c.contrast_limits?.[0] ?? 0},${c.contrast_limits?.[1] ?? 1}`)
+      .map(
+        (c) =>
+          `${c.name}:${c.contrast_limits?.[0] ?? 0},${c.contrast_limits?.[1] ?? 1}:${c.color || ""}`,
+      )
       .join("|");
     const vs = viewState || lastViewState || {};
     const { width, height } = getCanvasSize();
@@ -365,7 +376,7 @@ export function createMapImageBackdrop({
       const lo = ch.contrast_limits?.[0] ?? vol.contrast_limits?.[0] ?? 0;
       const hi = ch.contrast_limits?.[1] ?? vol.contrast_limits?.[1] ?? 255;
       const gray = maxProjectSlice(chunk.data, box, lo, hi);
-      const tint = parseChannelTint(ch.color);
+      const tint = parseChannelTint(displayTint(ch, entries));
       additiveRgbFromPlane(gray, rgb, plane, tint);
     }
 

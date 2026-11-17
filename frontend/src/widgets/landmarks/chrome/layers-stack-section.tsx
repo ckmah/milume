@@ -6,26 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
+import { channelDisplayColor } from "@/widgets/volume-cube/tint-palette";
+
 import type { ImageChannelRow, LandmarksModel } from "../use-landmarks-model";
+import { ChannelColorPicker } from "./channel-color-picker";
 import { META_LINE } from "./sections";
 import { SoftFloatSliderRow } from "./soft-float-slider";
 
 const MAX_VISIBLE_CHANNELS = 6;
-const CHANNEL_TINTS = [
-  "#6eb5ff",
-  "#ff8844",
-  "#55cc88",
-  "#cc66cc",
-  "#ffdd44",
-  "#44dddd",
-  "#ff66aa",
-  "#aabb44",
-] as const;
-
-function channelTint(ch: ImageChannelRow, index: number): string {
-  if (ch.color) return ch.color;
-  return CHANNEL_TINTS[index % CHANNEL_TINTS.length] ?? "#cccccc";
-}
 
 function formatImageHeaderLabel(channels: ImageChannelRow[]): string {
   const on = channels.filter((c) => c.visible);
@@ -38,15 +26,19 @@ function formatImageHeaderLabel(channels: ImageChannelRow[]): string {
 function ImageChannelRowControl({
   ch,
   index,
+  solo,
   onFocus,
   onToggle,
+  onColor,
 }: {
   ch: ImageChannelRow;
   index: number;
+  solo: boolean;
   onFocus: () => void;
   onToggle: (next: boolean) => void;
+  onColor: (next: string | null) => void;
 }) {
-  const tint = channelTint(ch, index);
+  const tint = channelDisplayColor(ch.color, index, solo);
 
   const onRowKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "Enter" || e.key === " ") {
@@ -65,11 +57,7 @@ function ImageChannelRowControl({
       onFocus={onFocus}
       onKeyDown={onRowKey}
     >
-      <span
-        className="landmarks-layer-swatch shrink-0 rounded-full"
-        style={{ backgroundColor: tint }}
-        aria-hidden
-      />
+      <ChannelColorPicker name={ch.name} color={tint} onColorChange={onColor} />
       <span className="landmarks-image-channel-row__name">{ch.name}</span>
       <Switch
         size="sm"
@@ -360,8 +348,10 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                         key={ch.name}
                         ch={ch}
                         index={index}
+                        solo={ch.visible && visibleChannels.length === 1}
                         onFocus={() => setFocusedChannel(ch.name)}
                         onToggle={(next) => toggleChannel(ch.name, next)}
+                        onColor={(next) => lm.patchImageChannel(ch.name, { color: next })}
                       />
                     ))}
                   </div>
