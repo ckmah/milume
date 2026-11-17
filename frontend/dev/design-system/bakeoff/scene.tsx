@@ -144,6 +144,65 @@ function Readout({ children }: { children: ReactNode }) {
   return <span className="g-readout">{children}</span>;
 }
 
+const GLIDE = { type: "spring" as const, stiffness: 280, damping: 32, mass: 0.8 };
+
+function TactSwitch({ on, label }: { on: boolean; label: string }) {
+  const reduce = useReducedMotion();
+  return (
+    <span className="g-switch" role="switch" aria-checked={on} aria-label={label}>
+      <motion.span
+        className="g-glide g-switch-glide"
+        initial={false}
+        animate={{ x: on ? "0%" : "100%" }}
+        transition={reduce ? { duration: 0 } : GLIDE}
+      />
+      <span data-hot={on ? "true" : "false"}>On</span>
+      <span data-hot={on ? "false" : "true"}>Off</span>
+    </span>
+  );
+}
+
+function TactSeg({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: readonly { id: string; label: string }[];
+  onChange: (id: string) => void;
+}) {
+  const reduce = useReducedMotion();
+  const index = Math.max(0, options.findIndex((option) => option.id === value));
+  return (
+    <div
+      className="g-seg"
+      role="group"
+      aria-label={label}
+      style={{ "--g-n": options.length } as CSSProperties}
+    >
+      <motion.span
+        className="g-glide g-seg-glide"
+        initial={false}
+        animate={{ x: `${index * 100}%` }}
+        transition={reduce ? { duration: 0 } : GLIDE}
+      />
+      {options.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          className="g-seg-btn"
+          aria-pressed={option.id === value}
+          onClick={() => onChange(option.id)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function SliderRow({
   kit,
   label,
@@ -195,11 +254,13 @@ function SliderRow({
 
 function ChannelRow({
   kit,
+  skin,
   name,
   color,
   visible,
 }: {
   kit: Kit;
+  skin: GameSkin;
   name: string;
   color: string;
   visible: boolean;
@@ -207,10 +268,15 @@ function ChannelRow({
   const Switch = kit.Switch as React.ComponentType<Record<string, unknown>>;
   return (
     <div className="g-slot" style={{ "--g-accent": color } as CSSProperties}>
+      <span className="g-reticle" aria-hidden="true" />
       <span className="g-edge" aria-hidden="true" />
       <span className="g-led" data-on={visible ? "true" : "false"} aria-hidden="true" />
       <span className="g-slot-name">{name}</span>
-      <Switch checked={visible} aria-label={`Show ${name}`} />
+      {skin === "game-tact" ? (
+        <TactSwitch on={visible} label={`Show ${name}`} />
+      ) : (
+        <Switch checked={visible} aria-label={`Show ${name}`} />
+      )}
     </div>
   );
 }
@@ -296,6 +362,7 @@ export function ChromeScene({
                   aria-pressed={on}
                   aria-label={tool.label}
                 >
+                  {skin === "game-tact" && on ? <span className="g-glide" aria-hidden="true" /> : null}
                   <Icon aria-hidden="true" />
                   <span className="g-tool-label">{tool.label}</span>
                   <span className="g-hotkey">{tool.shortcut}</span>
@@ -327,8 +394,9 @@ export function ChromeScene({
                 return (
                   <Tip key={tool.id} open>
                     <TipTrigger render={button as never} />
-                    <TipContent side="top" sideOffset={8}>
+                    <TipContent side={skin === "game-tact" ? "bottom" : "top"} sideOffset={skin === "game-tact" ? 10 : 8}>
                       <Springy skin={skin} part="tooltip" parts={parts} className="g-tip">
+                        {skin === "game-tact" ? <span className="g-leader" aria-hidden="true" /> : null}
                         Zoom in
                         <span data-slot="kbd" className="g-hotkey">
                           =
@@ -359,6 +427,7 @@ export function ChromeScene({
                 </CollapseTrigger>
                 <CollapseContent className="g-section-body">
                   <div className="g-slot" style={{ "--g-accent": fx.selectionColor } as CSSProperties}>
+                    <span className="g-reticle" aria-hidden="true" />
                     <span className="g-edge" aria-hidden="true" />
                     <span className="g-slot-name">{fx.selectionId}</span>
                   </div>
@@ -372,6 +441,7 @@ export function ChromeScene({
                 </CollapseTrigger>
                 <CollapseContent className="g-section-body">
                   <div className="g-slot" style={{ "--g-accent": fx.landmarkColor } as CSSProperties}>
+                    <span className="g-reticle" aria-hidden="true" />
                     <span className="g-edge" aria-hidden="true" />
                     <span className="g-led" data-on="true" aria-hidden="true" />
                     <span className="g-slot-name">{fx.landmarkId}</span>
@@ -415,6 +485,7 @@ export function ChromeScene({
                   <div className="g-cats">
                     {fx.categories.map((cat) => (
                       <span key={cat.name} className="g-cat" style={{ "--g-accent": cat.color } as CSSProperties}>
+                        <span className="g-reticle" aria-hidden="true" />
                         <span className="g-swatch" aria-hidden="true" />
                         {cat.name}
                       </span>
@@ -427,12 +498,14 @@ export function ChromeScene({
                     max={fx.pointSizeMax}
                     step={fx.pointSizeStep}
                     value={fx.pointSize}
+                    accent={fx.categories[0]!.color}
                   />
                   <p className="g-subhead">{imageHeader}</p>
                   {fx.channels.map((channel) => (
                     <ChannelRow
                       key={channel.name}
                       kit={kit}
+                      skin={skin}
                       name={channel.name}
                       color={channel.color}
                       visible={channel.visible}
@@ -458,32 +531,58 @@ export function ChromeScene({
                   Z {readout(fx.zBand[0], 0.01)}-{readout(fx.zBand[1], 0.01)} µm
                 </Readout>
               </header>
-              <div className="g-toggle-row" role="group" aria-label="Camera">
-                {(["top", "iso", "side"] as const).map((id) => (
-                  <Btn
-                    key={id}
-                    variant="ghost"
-                    className={preset === id ? "g-choice g-choice--on" : "g-choice"}
-                    aria-pressed={preset === id}
-                    onClick={() => setPreset(id)}
-                  >
-                    {id === "iso" ? "Iso" : id[0]!.toUpperCase() + id.slice(1)}
-                  </Btn>
-                ))}
-              </div>
-              <div className="g-toggle-row" role="group" aria-label="Image projection">
-                {(["additive", "mip"] as const).map((id) => (
-                  <Btn
-                    key={id}
-                    variant="ghost"
-                    className={mode === id ? "g-choice g-choice--on" : "g-choice"}
-                    aria-pressed={mode === id}
-                    onClick={() => setMode(id)}
-                  >
-                    {id === "mip" ? "MIP" : "Additive"}
-                  </Btn>
-                ))}
-              </div>
+              {skin === "game-tact" ? (
+                <>
+                  <TactSeg
+                    label="Camera"
+                    value={preset}
+                    options={[
+                      { id: "top", label: "Top" },
+                      { id: "iso", label: "Iso" },
+                      { id: "side", label: "Side" },
+                    ]}
+                    onChange={(id) => setPreset(id as typeof preset)}
+                  />
+                  <TactSeg
+                    label="Image projection"
+                    value={mode}
+                    options={[
+                      { id: "additive", label: "Additive" },
+                      { id: "mip", label: "MIP" },
+                    ]}
+                    onChange={(id) => setMode(id as typeof mode)}
+                  />
+                </>
+              ) : (
+                <>
+                  <div className="g-toggle-row" role="group" aria-label="Camera">
+                    {(["top", "iso", "side"] as const).map((id) => (
+                      <Btn
+                        key={id}
+                        variant="ghost"
+                        className={preset === id ? "g-choice g-choice--on" : "g-choice"}
+                        aria-pressed={preset === id}
+                        onClick={() => setPreset(id)}
+                      >
+                        {id === "iso" ? "Iso" : id[0]!.toUpperCase() + id.slice(1)}
+                      </Btn>
+                    ))}
+                  </div>
+                  <div className="g-toggle-row" role="group" aria-label="Image projection">
+                    {(["additive", "mip"] as const).map((id) => (
+                      <Btn
+                        key={id}
+                        variant="ghost"
+                        className={mode === id ? "g-choice g-choice--on" : "g-choice"}
+                        aria-pressed={mode === id}
+                        onClick={() => setMode(id)}
+                      >
+                        {id === "mip" ? "MIP" : "Additive"}
+                      </Btn>
+                    ))}
+                  </div>
+                </>
+              )}
               <p className="g-subhead">Image</p>
               <SliderRow
                 kit={kit}
@@ -495,7 +594,15 @@ export function ChromeScene({
                 accent={fx.channels[0]!.color}
                 range
               />
-              <SliderRow kit={kit} label="Alpha" min={0} max={1} step={0.05} value={fx.cubeAlpha} />
+              <SliderRow
+                kit={kit}
+                label="Alpha"
+                min={0}
+                max={1}
+                step={0.05}
+                value={fx.cubeAlpha}
+                accent={fx.channels[0]!.color}
+              />
               <SliderRow
                 kit={kit}
                 label="Gamma"
