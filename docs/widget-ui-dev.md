@@ -2,6 +2,13 @@
 
 Notebook-free harness for Landmarks chrome + canvas. UI changes are verified here (including the simulated-molab harness specs); UI PRs do not require marimo. marimo e2e (`frontend/e2e/marimo/`) is only for Python API and kernel interactions.
 
+## Cloud agent modes
+
+Custom modes load from `.cursor/skills/<name>/SKILL.md`.
+
+- `custom_mode: "poteto-mode"` builds. The skill is Lauren Tan's pstack, vendored unchanged under `.cursor/skills/` (MIT, SHA in `.cursor/skills/PSTACK_VERSION`).
+- `custom_mode: "milume-review"` reviews. It scores the kickoff checklist against the diff. It does not run the suite, edit, push, or comment.
+
 ## Chrome iteration (no notebook)
 
 ```bash
