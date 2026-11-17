@@ -1,0 +1,49 @@
+/*
+ * Press and lift for controls the harness cannot hover.
+ * Button, Toggle, and ToggleGroup drive real presses with SPRING_PRESS.
+ * Icon buttons are Button plus .landmarks-hit. This file only changes
+ * transition and transform. Size, on-state color, and disabled opacity
+ * stay in landmarks.css. Ancestor .ds-force-* classes are how the
+ * icon-button specimens force hover, focus, and active.
+ */
+
+.landmarks-hit.landmarks-hit {
+  transition:
+    background-color var(--duration-quick) var(--ease-out),
+    color var(--duration-quick) var(--ease-out);
+}
+
+.landmarks-hit.landmarks-hit:is(
+    :hover,
+    :focus-visible,
+    [data-ds-force="hover"],
+    [data-ds-force="focus-visible"]
+  ):not(:disabled):not([data-disabled]),
+.ds-force-hover .landmarks-hit.landmarks-hit:not(:disabled):not([data-disabled]),
+.ds-force-focus .landmarks-hit.landmarks-hit:not(:disabled):not([data-disabled]) {
+  transform: scale(1.02);
+}
+
+.landmarks-hit.landmarks-hit:is(:active, [data-ds-force="active"]):not(:disabled):not(
+    [data-disabled]
+  ),
+.ds-force-active .landmarks-hit.landmarks-hit:not(:disabled):not([data-disabled]) {
+  transform: scale(0.93);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landmarks-hit.landmarks-hit:is(
+      :hover,
+      :active,
+      :focus-visible,
+      [data-ds-force="hover"],
+      [data-ds-force="active"],
+      [data-ds-force="focus-visible"]
+    ):not(:disabled):not([data-disabled]),
+  .ds-force-hover .landmarks-hit.landmarks-hit:not(:disabled):not([data-disabled]),
+  .ds-force-focus .landmarks-hit.landmarks-hit:not(:disabled):not([data-disabled]),
+  .ds-force-active .landmarks-hit.landmarks-hit:not(:disabled):not([data-disabled]) {
+    transform: none;
+    transition: none;
+  }
+}
