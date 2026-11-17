@@ -94,3 +94,42 @@ test("design system sections render in both themes", async ({ page }) => {
 
   expect(errors, errors.join("\n")).toEqual([]);
 });
+
+test("closing a layers section cannot take focus", async ({ page }) => {
+  const errors = listen(page);
+  await page.goto(url, { waitUntil: "networkidle" });
+  const header = page.getByTestId("layers-cells-header");
+  await header.scrollIntoViewIfNeeded();
+  const controls = await header.getAttribute("aria-controls");
+  expect(controls).toBeTruthy();
+  await expect(header).toHaveAttribute("aria-expanded", "true");
+  await expect(page.locator(`[id="${controls}"]`)).toBeAttached();
+
+  await header.click();
+  await expect(header).toHaveAttribute("aria-expanded", "false");
+
+  const duringExit = await page.evaluate((id) => {
+    const root = document.getElementById(id);
+    const slider = root?.querySelector('[data-testid="layer-cells-point-size"]');
+    if (!root || !slider) return "unmounted";
+    let node: Element | null = slider;
+    while (node && node !== root) {
+      if (node.hasAttribute("inert")) return "inert";
+      node = node.parentElement;
+    }
+    return "focusable";
+  }, controls!);
+  expect(duringExit).toBe("inert");
+
+  for (let step = 0; step < 4; step += 1) {
+    await page.keyboard.press("Tab");
+    const inside = await page.evaluate((id) => {
+      const root = document.getElementById(id);
+      const active = document.activeElement;
+      return !!(root && active && root.contains(active));
+    }, controls!);
+    expect(inside).toBe(false);
+  }
+
+  expect(errors, errors.join("\n")).toEqual([]);
+});
