@@ -51,6 +51,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
+import { SoftFloatCapsuleSlider } from "@/widgets/landmarks/chrome/soft-float-slider";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -66,6 +67,64 @@ import { useWidgetPortal } from "@/widgets/landmarks/chrome/widget-portal-contex
 import { DsSection, StateCell } from "./stage";
 
 const LONG = "Epithelial crypt base, a label long enough to overflow the control";
+
+function SliderReadoutSpecimens() {
+  const [hundredths, setHundredths] = useState(0.5);
+  const [whole, setWhole] = useState(12);
+  const [thousandths, setThousandths] = useState(0.5);
+  const [stride, setStride] = useState(0.6);
+  const loose = 0.1 + 0.2 + 0.4;
+  const looseInt = 0.14 * 100;
+  const looseMilli = 0.7 + 0.1;
+  return (
+    <div className="flex w-full flex-col gap-2">
+      <SoftFloatCapsuleSlider
+        caption="Opacity"
+        aria-label="Opacity hundredths"
+        testId="slider-readout-hundredths"
+        value={hundredths}
+        min={0}
+        max={loose}
+        step={0.01}
+        displayValue={hundredths}
+        onValueChange={setHundredths}
+      />
+      <SoftFloatCapsuleSlider
+        caption="Count"
+        aria-label="Count"
+        testId="slider-readout-integer"
+        value={whole}
+        min={0}
+        max={looseInt}
+        step={1}
+        displayValue={whole}
+        onValueChange={setWhole}
+      />
+      <SoftFloatCapsuleSlider
+        caption="Fine"
+        aria-label="Fine"
+        testId="slider-readout-thousandths"
+        value={thousandths}
+        min={0}
+        max={looseMilli}
+        step={0.001}
+        displayValue={thousandths}
+        onValueChange={setThousandths}
+      />
+      <SoftFloatCapsuleSlider
+        caption="Stride"
+        aria-label="Stride"
+        testId="slider-readout-binary-step"
+        value={stride}
+        min={0}
+        max={1}
+        step={0.1 + 0.2}
+        displayValue={stride}
+        onValueChange={setStride}
+      />
+    </div>
+  );
+}
 
 function forceAttr(state: string): { "data-ds-force"?: string } {
   if (state === "hover" || state === "focus-visible" || state === "active") {
@@ -175,7 +234,7 @@ export function UiSections() {
         </StateCell>
       </DsSection>
 
-      <DsSection id="sliders" title="Sliders" note="Raw slider. DialKit rows are in the dock and layers sections.">
+      <DsSection id="sliders" title="Sliders" note="Raw track and step readouts. Dock and layers use the same rows.">
         <StateCell state="default">
           <Slider aria-label="Opacity" value={[42]} />
         </StateCell>
@@ -197,6 +256,9 @@ export function UiSections() {
         </StateCell>
         <StateCell state="empty">
           <Slider aria-label="Opacity" value={[0]} />
+        </StateCell>
+        <StateCell state="default">
+          <SliderReadoutSpecimens />
         </StateCell>
       </DsSection>
 
