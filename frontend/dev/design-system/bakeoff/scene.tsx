@@ -281,6 +281,38 @@ function ChannelRow({
   );
 }
 
+const FIELD_COLORS = ["#3d7dff", "#ff3b3b", "#ff8a00", "#d7d7d7"] as const;
+
+function fieldRand(seed: number) {
+  let state = seed;
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+function DataField() {
+  const rand = fieldRand(460);
+  const dots = Array.from({ length: 240 }, (_, index) => ({
+    cx: rand() * 100,
+    cy: rand() * 100,
+    r: 0.28 + rand() * 0.85,
+    fill: FIELD_COLORS[index % FIELD_COLORS.length]!,
+    opacity: 0.4 + rand() * 0.6,
+  }));
+  return (
+    <svg className="g-field" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      <rect width="100" height="100" style={{ fill: "#07080c" }} />
+      <ellipse cx="30" cy="46" rx="24" ry="18" style={{ fill: "#3d7dff", opacity: 0.28 }} />
+      <ellipse cx="72" cy="62" rx="28" ry="20" style={{ fill: "#ff3b3b", opacity: 0.2 }} />
+      <ellipse cx="52" cy="28" rx="16" ry="12" style={{ fill: "#ff8a00", opacity: 0.18 }} />
+      {dots.map((dot, index) => (
+        <circle key={index} cx={dot.cx} cy={dot.cy} r={dot.r} style={{ fill: dot.fill, opacity: dot.opacity }} />
+      ))}
+    </svg>
+  );
+}
+
 function NotchFrame({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <section className={className ? `g-frame ${className}` : "g-frame"}>
@@ -297,10 +329,12 @@ export function ChromeScene({
   kit,
   skin,
   frame,
+  backdrop,
 }: {
   kit: Kit;
   skin: GameSkin;
   frame: "full" | "close";
+  backdrop?: "solid" | "translucent" | "blur";
 }) {
   const {
     Button,
@@ -349,6 +383,7 @@ export function ChromeScene({
   return (
     <TipProvider delay={0}>
       <div className={frame === "close" ? "g-chrome g-chrome--close" : "g-chrome"} data-bakeoff-scene={frame}>
+        {skin === "game-tact" && backdrop ? <DataField /> : null}
         <NotchFrame className="g-toolbar-frame">
           <div className="g-toolbar" role="toolbar" aria-label="Drawing tools" data-bakeoff-toolbar="">
             {TOOLBAR.map((tool) => {

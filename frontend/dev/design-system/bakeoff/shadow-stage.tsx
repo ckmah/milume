@@ -50,11 +50,13 @@ function WidgetTree({
   theme,
   styleId,
   frame,
+  backdrop,
   children,
 }: {
   theme: "light" | "dark";
   styleId?: string;
   frame?: "full" | "close";
+  backdrop?: "solid" | "translucent" | "blur";
   children: ReactNode;
 }) {
   const [wrapRef, portalEl] = useWidgetPortalContainer();
@@ -62,12 +64,14 @@ function WidgetTree({
   useLayoutEffect(() => {
     if (!portalEl || !styleId) return;
     portalEl.setAttribute("data-style", styleId);
-  }, [portalEl, styleId]);
+    if (backdrop) portalEl.setAttribute("data-backdrop", backdrop);
+  }, [portalEl, styleId, backdrop]);
   return (
     <div
       ref={wrapRef}
       data-bakeoff-ready={portalEl ? "true" : "false"}
       data-style={styleId}
+      data-backdrop={backdrop}
       className={cn("milume-widget landmarks relative", theme === "dark" && "dark")}
       style={{
         width: game ? (frame === "close" ? 780 : 1000) : "22rem",
@@ -88,11 +92,13 @@ export function ShadowStage({
   theme,
   styleId,
   frame,
+  backdrop,
   children,
 }: {
   theme: "light" | "dark";
   styleId?: string;
   frame?: "full" | "close";
+  backdrop?: "solid" | "translucent" | "blur";
   children: ReactNode;
 }) {
   const { hostRef, mount } = useShadowMount();
@@ -100,7 +106,7 @@ export function ShadowStage({
     <div ref={hostRef} className="bakeoff-stage-host" data-bakeoff-host data-frame={frame}>
       {mount
         ? createPortal(
-            <WidgetTree theme={theme} styleId={styleId} frame={frame}>
+            <WidgetTree theme={theme} styleId={styleId} frame={frame} backdrop={backdrop}>
               {children}
             </WidgetTree>,
             mount,

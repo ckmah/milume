@@ -20,10 +20,13 @@ const KITS = {
 
 type PresetStyle = keyof typeof KITS;
 
+type Backdrop = "solid" | "translucent" | "blur";
+
 type BakeoffQuery = {
   style: PresetStyle | GameSkin;
   theme: "light" | "dark";
   shot: "full" | "close";
+  backdrop: Backdrop | null;
 };
 
 function parseBakeoffQuery(search: string): BakeoffQuery {
@@ -33,7 +36,10 @@ function parseBakeoffQuery(search: string): BakeoffQuery {
     rawStyle in KITS || isGameSkin(rawStyle) ? rawStyle : "base-nova";
   const theme = params.get("theme") === "light" ? "light" : "dark";
   const shot = params.get("shot") === "close" ? "close" : "full";
-  return { style, theme, shot };
+  const rawBackdrop = params.get("backdrop");
+  const backdrop: Backdrop | null =
+    rawBackdrop === "solid" || rawBackdrop === "translucent" || rawBackdrop === "blur" ? rawBackdrop : null;
+  return { style, theme, shot, backdrop };
 }
 
 const query = parseBakeoffQuery(window.location.search);
@@ -52,11 +58,22 @@ function Page() {
     >
       <p className="bakeoff-caption">
         {query.style} · {query.theme}
+        {query.backdrop ? ` · ${query.backdrop}` : ""}
         {game && query.shot === "close" ? " · toolbar" : ""}
       </p>
-      <ShadowStage theme={query.theme} styleId={query.style} frame={game ? query.shot : undefined}>
+      <ShadowStage
+        theme={query.theme}
+        styleId={query.style}
+        frame={game ? query.shot : undefined}
+        backdrop={query.backdrop ?? undefined}
+      >
         {game ? (
-          <ChromeScene kit={nova as never} skin={query.style} frame={query.shot} />
+          <ChromeScene
+            kit={nova as never}
+            skin={query.style}
+            frame={query.shot}
+            backdrop={query.backdrop ?? undefined}
+          />
         ) : (
           <LayersSlice kit={KITS[preset] as never} />
         )}

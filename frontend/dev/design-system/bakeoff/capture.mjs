@@ -23,7 +23,7 @@ fs.mkdirSync(stills, { recursive: true });
 
 const browser = await chromium.launch();
 
-if (only !== "game" && only !== "tact-v2") for (const theme of themes) {
+if (only !== "game" && only !== "tact-v2" && only !== "tact-v3") for (const theme of themes) {
   const page = await browser.newPage({
     viewport: { width: 1100, height: 900 },
     deviceScaleFactor: 2,
@@ -52,7 +52,7 @@ if (only !== "game" && only !== "tact-v2") for (const theme of themes) {
   console.log(`shipped-${theme} ${bg}`);
 }
 
-if (only !== "game" && only !== "tact-v2") for (const style of styles) {
+if (only !== "game" && only !== "tact-v2" && only !== "tact-v3") for (const style of styles) {
   for (const theme of themes) {
     const page = await browser.newPage({
       viewport: { width: 1100, height: 900 },
@@ -99,7 +99,29 @@ if (only === "tact-v2") {
   }
 }
 
-if (only !== "presets" && only !== "tact-v2") {
+if (only === "tact-v3") {
+  for (const backdrop of ["solid", "translucent", "blur"]) {
+    for (const theme of themes) {
+      const page = await browser.newPage({
+        viewport: { width: 1280, height: 1600 },
+        deviceScaleFactor: 2,
+      });
+      await page.goto(
+        `${base}/bakeoff.html?style=game-tact&theme=${theme}&shot=full&backdrop=${backdrop}`,
+        { waitUntil: "networkidle" },
+      );
+      await page.waitForSelector("[data-bakeoff-ready='true']", { timeout: 30000 });
+      await page.waitForSelector("html[data-bakeoff-settled='true']", { timeout: 8000 });
+      await page.locator(".bakeoff-page").screenshot({
+        path: path.join(stills, `game-tact-v3-${backdrop}-${theme}.png`),
+      });
+      await page.close();
+      console.log(`game-tact-v3-${backdrop}-${theme}`);
+    }
+  }
+}
+
+if (only !== "presets" && only !== "tact-v2" && only !== "tact-v3") {
   for (const style of GAME_SKINS) {
     for (const theme of themes) {
       for (const shot of ["full", "close"]) {
