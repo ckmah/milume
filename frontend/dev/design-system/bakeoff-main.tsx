@@ -21,12 +21,17 @@ const KITS = {
 type PresetStyle = keyof typeof KITS;
 
 type Backdrop = "solid" | "translucent" | "blur";
+type Veil = "60" | "75" | "88";
+type Mark = "a" | "b";
 
 type BakeoffQuery = {
   style: PresetStyle | GameSkin;
   theme: "light" | "dark";
   shot: "full" | "close";
   backdrop: Backdrop | null;
+  veil: Veil | null;
+  mark: Mark | null;
+  page: "notebook" | null;
 };
 
 function parseBakeoffQuery(search: string): BakeoffQuery {
@@ -39,7 +44,12 @@ function parseBakeoffQuery(search: string): BakeoffQuery {
   const rawBackdrop = params.get("backdrop");
   const backdrop: Backdrop | null =
     rawBackdrop === "solid" || rawBackdrop === "translucent" || rawBackdrop === "blur" ? rawBackdrop : null;
-  return { style, theme, shot, backdrop };
+  const rawVeil = params.get("veil");
+  const veil: Veil | null = rawVeil === "60" || rawVeil === "75" || rawVeil === "88" ? rawVeil : null;
+  const rawMark = params.get("mark");
+  const mark: Mark | null = rawMark === "a" || rawMark === "b" ? rawMark : null;
+  const page = params.get("page") === "notebook" ? "notebook" : null;
+  return { style, theme, shot, backdrop, veil, mark, page };
 }
 
 const query = parseBakeoffQuery(window.location.search);
@@ -55,10 +65,13 @@ function Page() {
       className={game ? "bakeoff-page bakeoff-page--hug" : "bakeoff-page"}
       data-theme={query.theme}
       data-style={query.style}
+      data-page={query.page ?? undefined}
     >
       <p className="bakeoff-caption">
-        {query.style} · {query.theme}
+        {query.page === "notebook" ? "light notebook" : `${query.style} · ${query.theme}`}
         {query.backdrop ? ` · ${query.backdrop}` : ""}
+        {query.veil ? ` · ${query.veil}%` : ""}
+        {query.mark ? ` · ${query.mark.toUpperCase()}` : ""}
         {game && query.shot === "close" ? " · toolbar" : ""}
       </p>
       <ShadowStage
@@ -66,6 +79,8 @@ function Page() {
         styleId={query.style}
         frame={game ? query.shot : undefined}
         backdrop={query.backdrop ?? undefined}
+        veil={query.veil ?? undefined}
+        mark={query.mark ?? undefined}
       >
         {game ? (
           <ChromeScene

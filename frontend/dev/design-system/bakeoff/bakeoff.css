@@ -20,6 +20,11 @@
   color: #111111;
 }
 
+.bakeoff-page[data-page="notebook"] {
+  background: #ffffff;
+  color: #111111;
+}
+
 .bakeoff-caption {
   margin: 0 0 12px;
   font-size: 13px;

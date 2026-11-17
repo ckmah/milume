@@ -23,7 +23,7 @@ fs.mkdirSync(stills, { recursive: true });
 
 const browser = await chromium.launch();
 
-if (only !== "game" && only !== "tact-v2" && only !== "tact-v3") for (const theme of themes) {
+if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4") for (const theme of themes) {
   const page = await browser.newPage({
     viewport: { width: 1100, height: 900 },
     deviceScaleFactor: 2,
@@ -52,7 +52,7 @@ if (only !== "game" && only !== "tact-v2" && only !== "tact-v3") for (const them
   console.log(`shipped-${theme} ${bg}`);
 }
 
-if (only !== "game" && only !== "tact-v2" && only !== "tact-v3") for (const style of styles) {
+if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4") for (const style of styles) {
   for (const theme of themes) {
     const page = await browser.newPage({
       viewport: { width: 1100, height: 900 },
@@ -121,7 +121,43 @@ if (only === "tact-v3") {
   }
 }
 
-if (only !== "presets" && only !== "tact-v2" && only !== "tact-v3") {
+async function shootTact(page, url, file) {
+  await page.goto(url, { waitUntil: "networkidle" });
+  await page.waitForSelector("[data-bakeoff-ready='true']", { timeout: 30000 });
+  await page.waitForSelector("html[data-bakeoff-settled='true']", { timeout: 8000 });
+  const thumb = page.locator("[data-slot=slider-thumb]").first();
+  if (await thumb.count()) await thumb.hover();
+  await page.locator(".bakeoff-page").screenshot({ path: file });
+}
+
+if (only === "tact-v4") {
+  const marks = (process.env.BAKEOFF_MARK ?? "a,b").split(",");
+  const veils = (process.env.BAKEOFF_VEIL ?? "60,75,88").split(",");
+  for (const mark of marks) {
+    for (const veil of veils) {
+      const page = await browser.newPage({
+        viewport: { width: 1280, height: 1600 },
+        deviceScaleFactor: 2,
+      });
+      const notebook = process.env.BAKEOFF_PAGE === "notebook";
+      const pageQuery = notebook ? "&page=notebook" : "";
+      await shootTact(
+        page,
+        `${base}/bakeoff.html?style=game-tact&theme=dark&shot=full&backdrop=blur&veil=${veil}&mark=${mark}${pageQuery}`,
+        path.join(
+          stills,
+          notebook
+            ? "game-tact-v4-in-light-notebook.png"
+            : `game-tact-v4-${mark.toUpperCase()}-blur-${veil}.png`,
+        ),
+      );
+      await page.close();
+      console.log(notebook ? "notebook" : `game-tact-v4-${mark.toUpperCase()}-blur-${veil}`);
+    }
+  }
+}
+
+if (only !== "presets" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4") {
   for (const style of GAME_SKINS) {
     for (const theme of themes) {
       for (const shot of ["full", "close"]) {

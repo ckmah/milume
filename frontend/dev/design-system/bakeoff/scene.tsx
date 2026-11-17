@@ -281,7 +281,7 @@ function ChannelRow({
   );
 }
 
-const FIELD_COLORS = ["#3d7dff", "#ff3b3b", "#ff8a00", "#d7d7d7"] as const;
+const FIELD_COLORS = ["#3d7dff", "#ff8a00", "#ff3b3b"] as const;
 
 function fieldRand(seed: number) {
   let state = seed;
@@ -293,19 +293,23 @@ function fieldRand(seed: number) {
 
 function DataField() {
   const rand = fieldRand(460);
-  const dots = Array.from({ length: 240 }, (_, index) => ({
-    cx: rand() * 100,
-    cy: rand() * 100,
-    r: 0.28 + rand() * 0.85,
-    fill: FIELD_COLORS[index % FIELD_COLORS.length]!,
-    opacity: 0.4 + rand() * 0.6,
-  }));
+  const dots = Array.from({ length: 520 }, (_, index) => {
+    const hot = index % 4 === 0;
+    return {
+      cx: 8 + rand() * 84,
+      cy: 6 + rand() * 88,
+      r: hot ? 1.4 + rand() * 2.2 : 0.55 + rand() * 1.1,
+      fill: hot ? "#fff6ee" : FIELD_COLORS[index % FIELD_COLORS.length]!,
+      opacity: hot ? 0.92 : 0.82 + rand() * 0.18,
+    };
+  });
   return (
     <svg className="g-field" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-      <rect width="100" height="100" style={{ fill: "#07080c" }} />
-      <ellipse cx="30" cy="46" rx="24" ry="18" style={{ fill: "#3d7dff", opacity: 0.28 }} />
-      <ellipse cx="72" cy="62" rx="28" ry="20" style={{ fill: "#ff3b3b", opacity: 0.2 }} />
-      <ellipse cx="52" cy="28" rx="16" ry="12" style={{ fill: "#ff8a00", opacity: 0.18 }} />
+      <rect width="100" height="100" style={{ fill: "#3d7dff" }} />
+      <ellipse cx="46" cy="50" rx="48" ry="46" style={{ fill: "#ff8a00", opacity: 0.92 }} />
+      <ellipse cx="58" cy="42" rx="40" ry="38" style={{ fill: "#3d7dff", opacity: 0.9 }} />
+      <ellipse cx="40" cy="62" rx="36" ry="30" style={{ fill: "#ff3b3b", opacity: 0.72 }} />
+      <ellipse cx="50" cy="48" rx="28" ry="24" style={{ fill: "#fff6ee", opacity: 0.88 }} />
       {dots.map((dot, index) => (
         <circle key={index} cx={dot.cx} cy={dot.cy} r={dot.r} style={{ fill: dot.fill, opacity: dot.opacity }} />
       ))}

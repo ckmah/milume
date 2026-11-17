@@ -94,6 +94,7 @@
 
 .milume-widget.dark[data-style="game-tact"] {
   --g-ink: #f2f2f2;
+  --g-muted: #d0d0d0;
   --g-rule: rgb(242 242 242 / 78%);
 }
 
@@ -841,20 +842,10 @@
 
 .milume-widget[data-style="game-tact"] .g-reticle {
   display: block;
-  width: 9px;
-  height: 9px;
+  width: 7px;
+  height: 7px;
   flex: none;
-  background:
-    linear-gradient(var(--g-accent), var(--g-accent)) 0 0 / 3px 1px no-repeat,
-    linear-gradient(var(--g-accent), var(--g-accent)) 0 0 / 1px 3px no-repeat,
-    linear-gradient(var(--g-accent), var(--g-accent)) 100% 0 / 3px 1px no-repeat,
-    linear-gradient(var(--g-accent), var(--g-accent)) 100% 0 / 1px 3px no-repeat,
-    linear-gradient(var(--g-accent), var(--g-accent)) 0 100% / 3px 1px no-repeat,
-    linear-gradient(var(--g-accent), var(--g-accent)) 0 100% / 1px 3px no-repeat,
-    linear-gradient(var(--g-accent), var(--g-accent)) 100% 100% / 3px 1px no-repeat,
-    linear-gradient(var(--g-accent), var(--g-accent)) 100% 100% / 1px 3px no-repeat,
-    linear-gradient(var(--g-accent), var(--g-accent)) center / 3px 1px no-repeat,
-    linear-gradient(var(--g-accent), var(--g-accent)) center / 1px 3px no-repeat;
+  background: var(--g-accent);
 }
 
 .milume-widget[data-style="game-tact"] .g-slot {
@@ -869,8 +860,28 @@
   font-size: 13px;
 }
 
+.milume-widget[data-style="game-tact"] .g-cat,
+.milume-widget[data-style="game-tact"] .g-hotkey,
+.milume-widget[data-style="game-tact"] .g-more {
+  border: 1px solid #c8c8c8;
+  background: #141414;
+  color: var(--g-ink);
+}
+
 .milume-widget[data-style="game-tact"] .g-cat {
-  gap: 8px;
+  gap: 6px;
+  padding: 2px 7px 2px 6px;
+}
+
+.milume-widget[data-style="game-tact"] .g-hotkey {
+  padding: 2px 4px;
+}
+
+.milume-widget[data-style="game-tact"] .g-more {
+  min-width: 28px;
+  height: 22px !important;
+  padding: 0 6px !important;
+  border-radius: 2px !important;
 }
 
 .milume-widget[data-style="game-tact"] .g-slider-meta,
@@ -887,9 +898,9 @@
 }
 
 .milume-widget[data-style="game-tact"] [data-slot="slider-track"] {
-  height: 2px !important;
+  height: 5px !important;
   border-radius: 0 !important;
-  background: var(--g-rule) !important;
+  background: rgb(242 242 242 / 28%) !important;
 }
 
 .milume-widget[data-style="game-tact"] [data-slot="slider-range"] {
@@ -897,15 +908,25 @@
 }
 
 .milume-widget[data-style="game-tact"] [data-slot="slider-thumb"] {
-  width: 16px !important;
-  height: 16px !important;
+  width: 14px !important;
+  height: 14px !important;
   border: 0 !important;
-  border-radius: 0 !important;
-  background:
-    linear-gradient(var(--g-accent), var(--g-accent)) center / 2px 14px no-repeat,
-    linear-gradient(var(--g-accent), var(--g-accent)) center / 14px 2px no-repeat !important;
+  border-radius: 2px !important;
+  background: var(--g-accent) !important;
   clip-path: none !important;
   box-shadow: none !important;
+}
+
+.milume-widget[data-style="game-tact"] [data-slot="slider-thumb"]::after {
+  inset: -5px;
+}
+
+.milume-widget[data-style="game-tact"] [data-slot="slider-thumb"]:hover,
+.milume-widget[data-style="game-tact"] [data-slot="slider-thumb"]:focus-visible,
+.milume-widget[data-style="game-tact"] [data-slot="slider-thumb"]:active {
+  height: 20px !important;
+  background: var(--g-ink) !important;
+  box-shadow: 0 0 0 1px var(--g-accent) !important;
 }
 
 .milume-widget[data-style="game-tact"] .g-switch {
@@ -950,15 +971,27 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background:
-    linear-gradient(var(--g-select), var(--g-select)) 0 0 / 7px 1px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) 0 0 / 1px 7px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) 100% 0 / 7px 1px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) 100% 0 / 1px 7px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) 0 100% / 7px 1px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) 0 100% / 1px 7px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) 100% 100% / 7px 1px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) 100% 100% / 1px 7px no-repeat;
+  background: rgb(242 242 242 / 16%);
+  border-radius: 2px;
+}
+
+.milume-widget[data-style="game-tact"][data-mark="a"] .g-tool .g-glide {
+  display: none;
+}
+
+.milume-widget[data-style="game-tact"][data-mark="a"] .g-tool--on::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 3px;
+  background: var(--g-select);
+}
+
+.milume-widget[data-style="game-tact"][data-mark="b"] .g-tool--on,
+.milume-widget[data-style="game-tact"][data-mark="b"] .g-tool--on .g-hotkey {
+  color: var(--g-select) !important;
 }
 
 .milume-widget[data-style="game-tact"] .g-seg {
@@ -997,9 +1030,21 @@
   color: var(--g-ink);
 }
 
-.milume-widget[data-style="game-tact"] .g-menu-popup,
-.milume-widget[data-style="game-tact"] .g-popover,
+.milume-widget[data-style="game-tact"][data-mark="b"] .g-seg-btn[aria-pressed="true"],
+.milume-widget[data-style="game-tact"][data-mark="b"] .g-switch span[data-hot="true"] {
+  color: var(--g-select);
+}
+
 .milume-widget[data-style="game-tact"] [data-slot="tooltip-content"] {
+  border-radius: 0 !important;
+  background: var(--background) !important;
+  color: var(--g-ink) !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.milume-widget[data-style="game-tact"] .g-menu-popup,
+.milume-widget[data-style="game-tact"] .g-popover {
   border-radius: 0 !important;
   background: var(--background) !important;
   color: var(--g-ink) !important;
@@ -1072,17 +1117,13 @@
   justify-self: end;
 }
 
-.milume-widget[data-style="game-tact"] .g-pop-row[data-current="true"] {
-  box-shadow: none;
-  background:
-    linear-gradient(var(--g-select), var(--g-select)) 4px 2px / 6px 1px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) 4px 2px / 1px 6px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) right 4px top 2px / 6px 1px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) right 4px top 2px / 1px 6px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) 4px calc(100% - 2px) / 6px 1px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) 4px calc(100% - 2px) / 1px 6px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) right 4px bottom 2px / 6px 1px no-repeat,
-    linear-gradient(var(--g-select), var(--g-select)) right 4px bottom 2px / 1px 6px no-repeat;
+.milume-widget[data-style="game-tact"][data-mark="a"] .g-pop-row[data-current="true"] {
+  box-shadow: inset 3px 0 0 var(--g-select);
+}
+
+.milume-widget[data-style="game-tact"][data-mark="b"] .g-pop-row[data-current="true"] {
+  background: rgb(242 242 242 / 14%);
+  color: var(--g-select);
 }
 
 .milume-widget[data-style="game-tact"] [data-slot="tooltip-content"] {
@@ -1141,6 +1182,18 @@
 
 .milume-widget[data-style="game-tact"][data-backdrop="translucent"],
 .milume-widget[data-style="game-tact"][data-backdrop="blur"] {
+  --g-veil: color-mix(in srgb, var(--background) 88%, transparent);
+}
+
+.milume-widget[data-style="game-tact"][data-backdrop="blur"][data-veil="60"] {
+  --g-veil: color-mix(in srgb, var(--background) 60%, transparent);
+}
+
+.milume-widget[data-style="game-tact"][data-backdrop="blur"][data-veil="75"] {
+  --g-veil: color-mix(in srgb, var(--background) 75%, transparent);
+}
+
+.milume-widget[data-style="game-tact"][data-backdrop="blur"][data-veil="88"] {
   --g-veil: color-mix(in srgb, var(--background) 88%, transparent);
 }
 

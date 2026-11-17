@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "side-tab",
+        "value": "*",
+        "files": [
+          "frontend/dev/design-system/bakeoff/skins.css"
+        ],
+        "createdAt": "2026-11-17T23:13:37.497Z",
+        "reason": "Clarence asked for a 2-3px accent left tick on the active tool and row in treatment A."
+      }
+    ]
+  }
+}
