@@ -20,7 +20,7 @@ Read a leaf skill only when the diff touches the case named below. Do not restat
 2. Tests. When the diff changes a test, read `../principle-test-behavior-not-implementation/SKILL.md`. Fail a test that still passes when the behavior breaks, or that fails when only the internals change.
 3. Blast radius. When the diff touches a workflow, a shared helper, or the public API, read `../blast-radius/SKILL.md`. Fail a break a user would hit from that path at this head.
 4. Evidence. When the PR claims evidence, read `../principle-prove-it-works/SKILL.md`. Fail a claim that does not match the artifact.
-5. Prose. When the PR body or docs prose changes, read `../unslop/SKILL.md`. Fail prose the leaf skill would cut.
+5. Prose. When the PR body or docs prose changes, read `../unslop/SKILL.md`. Keep the check `pass`. Name the cut in the reason. A prose cut is not a failing run and not a bug a user would hit.
 6. User bug. Fail a bug a user would hit at this head that the diff introduces and that checks 1-5 do not already fail.
 
 A check with nothing in the diff passes. Say so in the reason.
