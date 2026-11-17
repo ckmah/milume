@@ -1,7 +1,7 @@
 import type { ImageChannelRow } from "@/widgets/landmarks/use-landmarks-model";
 
 import { axisSize, type ZarrSource } from "./window-source";
-import { defaultChannelTint } from "./tint-palette";
+import { channelDisplayColor } from "./tint-palette";
 
 export const MAX_CUBE_IMAGE_CHANNELS = 4;
 
@@ -33,6 +33,7 @@ export function cubeImageChannels(
   const ci = source ? channelAxisIndex(source) : -1;
   const fromSource = source && ci >= 0 ? axisSize(source, "c") : 0;
   const channelCount = Math.max(fromSource, Math.min(entries.length, MAX_CUBE_IMAGE_CHANNELS));
+  const visibleCount = entries.filter((row) => row.visible && !row.constant_zero).length;
   const out: CubeImageChannel[] = [];
   entries.forEach((row, i) => {
     if (!row.visible || row.constant_zero) return;
@@ -43,7 +44,7 @@ export function cubeImageChannels(
       index,
       visible: true,
       contrast: row.contrast_limits ?? fallbackContrast,
-      tint: row.color ?? defaultChannelTint(i),
+      tint: channelDisplayColor(row.color, i, visibleCount === 1),
     });
   });
   return out.slice(0, MAX_CUBE_IMAGE_CHANNELS);

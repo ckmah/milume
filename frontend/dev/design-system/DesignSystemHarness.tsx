@@ -11,6 +11,7 @@ import {
   PILL_TABS_TRIGGER,
   STACK_GAP_SM,
 } from "@/widgets/landmarks/chrome/sections";
+import { ChannelColorPicker } from "@/widgets/landmarks/chrome/channel-color-picker";
 import { SoftFloatSlidingTabsList } from "@/widgets/landmarks/chrome/sliding-tabs";
 import {
   SoftFloatCapsuleSlider,
@@ -57,6 +58,7 @@ export function DesignSystemHarness() {
   const [signed, setSigned] = useState(-0.15);
   const [pillTab, setPillTab] = useState("categories");
   const [layersOpen, setLayersOpen] = useState(true);
+  const [channelColor, setChannelColor] = useState("#ff3df0");
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, widgetTheme);
@@ -131,6 +133,29 @@ export function DesignSystemHarness() {
               </div>
             ) : null}
           </WidgetStage>
+        </section>
+
+        <section className="ds-section" id="channel-color">
+          <h2 className="ds-section-title">Channel color</h2>
+          <div className="flex flex-wrap gap-6">
+            <WidgetStage theme={widgetTheme}>
+              <p className="m-0 mb-2 text-xs opacity-70">Closed</p>
+              <ChannelColorPicker
+                name="PanCK"
+                color={channelColor}
+                onColorChange={(next) => setChannelColor(next ?? "#ff3df0")}
+              />
+            </WidgetStage>
+            <WidgetStage theme={widgetTheme}>
+              <p className="m-0 mb-2 text-xs opacity-70">Open</p>
+              <ChannelColorPicker
+                name="DAPI"
+                color="#3d7dff"
+                defaultOpen
+                onColorChange={() => {}}
+              />
+            </WidgetStage>
+          </div>
         </section>
 
         <section className="ds-section" id="tabs">

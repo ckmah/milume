@@ -1585,6 +1585,10 @@
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 45%, transparent);
 }
 
+.landmarks-channel-color-dot {
+  flex: 0 0 1.5rem;
+}
+
 .landmarks-image-channel-row__name {
   min-width: 0;
   flex: 1 1 auto;

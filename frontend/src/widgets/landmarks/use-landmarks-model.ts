@@ -286,7 +286,13 @@ export type LandmarksModel = Omit<LandmarksState, "color"> & {
   setImageVisible(visible: boolean): void;
   setImageAlpha(alpha: number): void;
   setPointSize(size: number): void;
-  patchImageChannel(name: string, patch: Partial<Pick<ImageChannelRow, "visible" | "contrast_limits">>): void;
+  patchImageChannel(
+    name: string,
+    patch: Partial<Pick<ImageChannelRow, "visible" | "contrast_limits">> & {
+      /** `null` clears a picked color and restores the display default. */
+      color?: string | null;
+    },
+  ): void;
   activeNeighborhood(): ReturnType<typeof neighborhoodFor>;
   selectedLandmark(): LandmarkItem | null;
 };
@@ -517,7 +523,10 @@ export function useLandmarksModel(model: AnyModel): LandmarksModel {
       const apply = (list: ImageChannelRow[]) => {
         const i = list.findIndex((c) => c.name === name);
         if (i < 0) return list;
-        const next = { ...list[i], ...patch };
+        const next: ImageChannelRow = { ...list[i] };
+        if (patch.visible !== undefined) next.visible = patch.visible;
+        if (patch.color === null) delete next.color;
+        else if (typeof patch.color === "string") next.color = patch.color;
         if (patch.contrast_limits) {
           next.contrast_limits = [
             patch.contrast_limits[0],
