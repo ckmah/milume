@@ -76,8 +76,12 @@ apply_changes() {
           [[ -d "$dir" ]] || continue
           n="$(basename "$dir")"
           [[ "$n" =~ ^[0-9]+$ ]] || continue
-          state="$(gh pr view "$n" --repo "$REPO" --json state --jq .state 2>/dev/null || echo MISSING)"
-          if [[ "$state" != "OPEN" ]]; then
+          # A failed lookup is not a closed PR. Only a reported CLOSED state is deleted.
+          if ! state="$(gh pr view "$n" --repo "$REPO" --json state --jq .state)"; then
+            echo "publish_gh_pages.sh: leave pr/$n (PR state unavailable)" >&2
+            continue
+          fi
+          if [[ "$state" == "CLOSED" ]]; then
             rm -rf "$dir"
             printf '%s\n' "$n" >> "$SWEEP_LIST"
           fi
@@ -112,8 +116,27 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# A publish queued behind close must not recreate pr/<n>/. Re-check on each
+# attempt so a close during a rejected push is observed before the next commit.
+preview_still_open() {
+  [[ "$MODE" == "preview" ]] || return 0
+  local pr="$1" state
+  if ! state="$(gh pr view "$pr" --repo "$REPO" --json state --jq .state)"; then
+    echo "publish_gh_pages.sh: could not read state of PR $pr" >&2
+    exit 1
+  fi
+  if [[ "$state" != "OPEN" ]]; then
+    echo "publish_gh_pages.sh: PR $pr is ${state}; skip publish"
+    if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+      echo "published=false" >> "$GITHUB_OUTPUT"
+    fi
+    exit 0
+  fi
+}
+
 attempt=1
 while [[ "$attempt" -le 5 ]]; do
+  preview_still_open "${2:-}"
   cleanup
   WORK="$(mktemp -d)"
   if ! git fetch --depth 1 origin gh-pages; then
@@ -139,6 +162,10 @@ done
 if [[ "$attempt" -gt 5 ]]; then
   echo "publish_gh_pages.sh: push failed after retries" >&2
   exit 1
+fi
+
+if [[ "$MODE" == "preview" && -n "${GITHUB_OUTPUT:-}" ]]; then
+  echo "published=true" >> "$GITHUB_OUTPUT"
 fi
 
 if [[ "$MODE" == "sweep" && -s "$SWEEP_LIST" ]]; then

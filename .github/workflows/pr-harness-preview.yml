@@ -68,11 +68,15 @@ jobs:
           path: preview-dist
 
       - name: Publish /pr/<n>/ on gh-pages
+        id: publish
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: bash tools/pages/publish_gh_pages.sh preview "${{ github.event.pull_request.number }}" "$GITHUB_WORKSPACE/preview-dist"
 
       - name: Comment with preview links
+        if: steps.publish.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}

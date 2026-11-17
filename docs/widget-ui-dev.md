@@ -114,7 +114,7 @@ cd frontend && npm run dev:landmarks-volume-xsmall
 
 A pull request that changes `frontend/` publishes an ephemeral static build on the `gh-pages` branch, which is what GitHub Pages serves. The default toy widget harness (no real volumes) is at `https://ckmah.github.io/milume/pr/<N>/`. When `frontend/dev/design-system` is in the tree, the same preview includes it at `https://ckmah.github.io/milume/pr/<N>/design-system/`. One sticky PR comment lists the links that were built and the head SHA. Closing the PR deletes `/pr/<N>/`; a daily sweep deletes any `/pr/<N>/` whose PR is already closed.
 
-Docs and dashboard publishes push to the same branch and leave `pr/` in place. The docs publish also leaves `dashboard/` in place, and the dashboard publish only writes `dashboard/`.
+Docs and dashboard publishes push to the same branch and leave `pr/` in place. The docs publish also leaves `dashboard/` in place, and the dashboard publish only writes `dashboard/`. A docs run, including `workflow_dispatch`, takes that same lock and does not cancel an in-progress preview push. The sweep deletes a directory only when `gh` reports that PR as `CLOSED`. A publish still in flight after the PR closes checks the state again and does not recreate the directory.
 
 `cd frontend && PR_NUMBER=<N> npm run build:preview` writes that tree to `frontend/dist/preview`. `npm run dev:design-system` serves `frontend/dev/design-system` locally.
 
