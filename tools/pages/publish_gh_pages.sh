@@ -22,6 +22,60 @@ fi
 SWEEP_LIST="$(mktemp)"
 trap 'rm -f "$SWEEP_LIST"' EXIT
 
+# OPEN, CLOSED, or MERGED from a 200 body. MISSING on HTTP 404.
+# Returns 1 for any other response after logging it. Never treats a failure as missing.
+pr_sweep_state() {
+  local n="$1" raw state err
+  err="$(mktemp)"
+  # Keep the header/body break. gh prints the status line with LF and the rest with CRLF.
+  raw="$(gh api -i "repos/${REPO}/pulls/${n}" 2>"$err" || true)"
+  state="$(printf '%s' "$raw" | python3 -c 'import json, sys
+raw = sys.stdin.buffer.read()
+sep = b"\r\n\r\n"
+if sep not in raw:
+    print("ERROR no-http-response")
+    sys.exit(0)
+head, body = raw.split(sep, 1)
+status = ""
+for line in head.splitlines():
+    if line.startswith(b"HTTP/"):
+        parts = line.split()
+        if len(parts) > 1:
+            status = parts[1].decode()
+if status == "404":
+    print("MISSING")
+elif status == "200":
+    try:
+        data = json.loads(body.decode())
+    except json.JSONDecodeError:
+        print("ERROR bad-json")
+    else:
+        if data.get("merged") is True:
+            print("MERGED")
+        elif data.get("state") == "closed":
+            print("CLOSED")
+        elif data.get("state") == "open":
+            print("OPEN")
+        else:
+            print("ERROR unrecognized")
+elif status:
+    print("ERROR http-" + status)
+else:
+    print("ERROR no-status")
+')"
+  case "$state" in
+    OPEN | CLOSED | MERGED | MISSING)
+      rm -f "$err"
+      printf '%s' "$state"
+      ;;
+    *)
+      echo "publish_gh_pages.sh: skip pr/$n (${state:-empty}; $(tr '\n' ' ' < "$err"))" >&2
+      rm -f "$err"
+      return 1
+      ;;
+  esac
+}
+
 apply_changes() {
   local work="$1"
   touch "$work/.nojekyll"
@@ -76,12 +130,12 @@ apply_changes() {
           [[ -d "$dir" ]] || continue
           n="$(basename "$dir")"
           [[ "$n" =~ ^[0-9]+$ ]] || continue
-          # A failed lookup is not a closed PR. Only a reported CLOSED state is deleted.
-          if ! state="$(gh pr view "$n" --repo "$REPO" --json state --jq .state)"; then
-            echo "publish_gh_pages.sh: leave pr/$n (PR state unavailable)" >&2
+          # Delete only on a positive CLOSED/MERGED payload, or HTTP 404.
+          # Any other failure leaves the directory and is logged.
+          if ! state="$(pr_sweep_state "$n")"; then
             continue
           fi
-          if [[ "$state" == "CLOSED" ]]; then
+          if [[ "$state" == "CLOSED" || "$state" == "MERGED" || "$state" == "MISSING" ]]; then
             rm -rf "$dir"
             printf '%s\n' "$n" >> "$SWEEP_LIST"
           fi
@@ -116,8 +170,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# A publish queued behind close must not recreate pr/<n>/. Re-check on each
-# attempt so a close during a rejected push is observed before the next commit.
+# Called immediately before git push, while the Actions job holds the shared
+# gh-pages concurrency group. A close that arrived after the job started must
+# not recreate pr/<n>/.
 preview_still_open() {
   [[ "$MODE" == "preview" ]] || return 0
   local pr="$1" state
@@ -136,7 +191,6 @@ preview_still_open() {
 
 attempt=1
 while [[ "$attempt" -le 5 ]]; do
-  preview_still_open "${2:-}"
   cleanup
   WORK="$(mktemp -d)"
   if ! git fetch --depth 1 origin gh-pages; then
@@ -151,6 +205,7 @@ while [[ "$attempt" -le 5 ]]; do
     break
   fi
   git -C "$WORK" "${GIT_AUTHOR[@]}" commit -m "$msg"
+  preview_still_open "${2:-}"
   if git -C "$WORK" push origin HEAD:gh-pages; then
     echo "gh-pages: pushed ($msg)"
     break

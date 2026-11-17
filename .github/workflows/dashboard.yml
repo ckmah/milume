@@ -12,9 +12,10 @@ on:
       - "tools/dashboard/**"
       - ".github/workflows/dashboard.yml"
 
+# Same group as pages.yml and the preview publish/remove/sweep jobs.
 concurrency:
-  group: dashboard
-  cancel-in-progress: true
+  group: pages-push-refs/heads/main
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -96,11 +97,6 @@ jobs:
     needs: refresh
     if: github.event_name != 'pull_request' && needs.refresh.outputs.changed == 'true'
     runs-on: ubuntu-latest
-    # Same group pages.yml uses for pushes to main, so gh-pages writes do not overlap.
-    # cancel-in-progress: false — do not cancel an in-progress docs deploy.
-    concurrency:
-      group: pages-push-refs/heads/main
-      cancel-in-progress: false
     permissions:
       contents: write
       actions: read

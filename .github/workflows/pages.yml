@@ -18,12 +18,11 @@ on:
 permissions:
   contents: write
 
-# Push and workflow_dispatch share the gh-pages lock with preview and dashboard
-# publishes. cancel-in-progress stays false so a docs run does not cancel them.
-# Pull-request builds do not push, so they keep their own group and may cancel.
+# pages.yml (every trigger), dashboard.yml, and preview publish/remove/sweep
+# share this group. cancel-in-progress is false so one writer cannot cancel another.
 concurrency:
-  group: ${{ github.event_name == 'pull_request' && format('pages-pr-{0}', github.ref) || 'pages-push-refs/heads/main' }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: pages-push-refs/heads/main
+  cancel-in-progress: false
 
 jobs:
   build:
