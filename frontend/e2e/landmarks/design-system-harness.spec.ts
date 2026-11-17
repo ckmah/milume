@@ -4,6 +4,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { DESIGN_SYSTEM_SECTIONS } from "../../dev/design-system/sections";
+import { stabilizeUi } from "../helpers";
+import { dockCardOverflows, expectSharedPanelInset } from "./panel-edges";
 
 const frontend = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const worker = Number(process.env.TEST_PARALLEL_INDEX ?? 0);
@@ -132,4 +134,27 @@ test("closing a layers section cannot take focus", async ({ page }) => {
   }
 
   expect(errors, errors.join("\n")).toEqual([]);
+});
+
+async function setTheme(page: Page, theme: "light" | "dark") {
+  const current = await page.locator("html").getAttribute("data-ds-theme");
+  if (current !== theme) await page.getByTestId("ds-theme-toggle").click();
+  await expect(page.locator("html")).toHaveAttribute("data-ds-theme", theme);
+}
+
+test("dock specimens fit their cards in light and dark", async ({ page }) => {
+  await page.goto(url, { waitUntil: "networkidle" });
+  for (const theme of ["dark", "light"] as const) {
+    await setTheme(page, theme);
+    const overflows = await dockCardOverflows(page);
+    expect(overflows, `${theme}\n${JSON.stringify(overflows, null, 2)}`).toEqual([]);
+  }
+});
+
+test("assembled layers panel shares one content inset", async ({ page }) => {
+  await stabilizeUi(page);
+  await page.goto(url, { waitUntil: "networkidle" });
+  const panel = page.locator(".landmarks__layers-panel");
+  await expect(panel).toBeVisible();
+  await expectSharedPanelInset(panel);
 });
