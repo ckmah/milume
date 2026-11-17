@@ -6,20 +6,12 @@ alwaysApply: true
 # `inherit-parent` or `auto` as a value: the role runs on the parent chat model (omit Task `model`). Alias entries in a panel list still count toward its fan-out.
 # defaults: 3
 # budget: small (medium)
-feature, refactoring: grok-4.7-medium-fast
-bug-fix: grok-4.7-medium-fast
-perf-issue: grok-4.7-medium-fast
-hillclimb: grok-4.7-medium-fast
-judgment and prose: grok-4.7-medium-fast
-hardest tasks: grok-4.7-medium-fast
-how explorer: grok-4.7-medium-fast
-how explainer: grok-4.7-medium-fast
-why investigators: grok-4.7-medium-fast
-why synthesizer: grok-4.7-medium-fast
-reflect tooling: grok-4.7-medium-fast
-reflect judgment, divergent, synthesizer: grok-4.7-medium-fast
-arena runners: grok-4.7-medium-fast, grok-4.7-medium-fast
+feature, refactoring: grok-4.7-medium
+bug-fix: grok-4.7-medium
+perf-issue: grok-4.7-medium
+hillclimb: grok-4.7-medium
+judgment and prose: grok-4.7-medium
+arena runners: grok-4.7-medium, grok-4.7-medium
 arena cross-judge pool: composer-2.5, composer-2.5
-swarm workers: grok-4.7-medium-fast
-architect runners: grok-4.7-medium-fast, grok-4.7-medium-fast
+swarm workers: grok-4.7-medium
 interrogate reviewers: composer-2.5, composer-2.5
