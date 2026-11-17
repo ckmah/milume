@@ -9,8 +9,8 @@ export type PanelSectionId =
 export const GAP_CHROME = "gap-1";
 /** 8px — chrome band inset (`--lm-chrome-inset`). */
 export const CHROME_INSET = "px-2";
-/** Horizontal inset on float panel bodies (10px / `--lm-panel-inset`). */
-export const PANEL_INSET = "px-2.5";
+/** Horizontal inset on float panel bodies (`--lm-panel-inset`). */
+export const PANEL_INSET = "landmarks-panel-inset";
 /** Vertical padding paired with panel bodies when needed (6px). */
 export const PANEL_INSET_Y = "py-1.5";
 /** 8px — nested layer rows (`landmarks-layers-stack__nested`). */

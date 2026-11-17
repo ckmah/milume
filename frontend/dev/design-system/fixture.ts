@@ -5,6 +5,9 @@ import type { LandmarksModel } from "@/widgets/landmarks/use-landmarks-model";
 /** One XY point at z = 12 µm, float32 little-endian. */
 export const ONE_POINT_B64 = "AAAAAAAAAAAAAAAAAABAQQ==";
 
+/** Two points, z = 0 µm and z = 12 µm. */
+export const DEPTH_SPAN_B64 = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQEE=";
+
 const noop = () => {};
 
 function geneStore(partial: Partial<GeneStore> = {}): GeneStore {

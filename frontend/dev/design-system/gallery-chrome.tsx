@@ -60,7 +60,7 @@ import { ViewCta } from "@/widgets/landmarks/chrome/view-cta";
 import { INFO_HEAT_BINS } from "@/widgets/landmarks/chrome/info-stats";
 
 import { DESIGN_SYSTEM_GAPS } from "./sections";
-import { harnessModel, ONE_POINT_B64 } from "./fixture";
+import { DEPTH_SPAN_B64, harnessModel, ONE_POINT_B64 } from "./fixture";
 import { DsSection, StateCell } from "./stage";
 
 const noop = () => {};
@@ -136,7 +136,7 @@ export function ChromeSections() {
     point_palette: ["#1a1a1a", "#3d7dff", "#ffd60a", "#ff3b3b"],
   });
   const depth = harnessModel({
-    points_data: ONE_POINT_B64,
+    points_data: DEPTH_SPAN_B64,
     z_band_lo_um: 2,
     z_band_hi_um: 10,
     z_focus_um: 6,
@@ -202,7 +202,7 @@ export function ChromeSections() {
       </DsSection>
 
       <DsSection id="dock" title="Dock">
-        <StateCell state="default" stageClassName="overflow-x-auto">
+        <StateCell state="default">
           <Topbar
             modes={["select", "lasso", "inspect"]}
             mode={mode}
@@ -236,7 +236,7 @@ export function ChromeSections() {
             onToggleMinimise={noop}
           />
         </StateCell>
-        <StateCell state="default" stageClassName="h-16">
+        <StateCell state="default">
           <PanelCollapseButton side="left" onCollapse={noop} />
           <PanelPeekTab side="right" onExpand={noop} />
         </StateCell>
@@ -246,13 +246,13 @@ export function ChromeSections() {
         <StateCell state="empty" stageClassName="h-24">
           <CanvasRulers lm={harnessModel({ show_rulers: false })} engine={null} />
         </StateCell>
-        <StateCell state="default" stageClassName="h-36">
+        <StateCell state="default">
           <MinimapPanel lm={harnessModel({ points_data: ONE_POINT_B64 })} engine={null} />
         </StateCell>
-        <StateCell state="default" stageClassName="h-48 overflow-hidden">
+        <StateCell state="default">
           <DepthRail lm={depth} />
         </StateCell>
-        <StateCell state="empty" stageClassName="h-24 overflow-hidden">
+        <StateCell state="empty" stageClassName="h-24">
           <DepthRail lm={base} />
         </StateCell>
         <StateCell state="default">
@@ -283,7 +283,7 @@ export function ChromeSections() {
         <StateCell state="disabled">
           <SoftFloatSliderReset title="Reset opacity" disabled onClick={noop} />
         </StateCell>
-        <StateCell state="default" stageClassName="overflow-x-auto">
+        <StateCell state="default">
           <InspectToolbar
             settings={cubeSettings}
             patch={noop}
@@ -296,7 +296,7 @@ export function ChromeSections() {
             onReset={noop}
           />
         </StateCell>
-        <StateCell state="disabled" stageClassName="overflow-x-auto">
+        <StateCell state="disabled">
           <InspectToolbar
             settings={{ ...cubeSettings, showLabels: false }}
             patch={noop}

@@ -2165,9 +2165,22 @@
   overflow: visible;
 }
 
+.landmarks__layers-panel .landmarks-layer-row,
+.landmarks__layers-panel .landmarks-image-channel-row {
+  padding-inline-end: 0;
+}
+
+.landmarks__layers-panel .landmarks-slider-stack {
+  padding-inline: 0;
+}
+
+.landmarks-panel-inset {
+  padding-inline: var(--lm-panel-inset);
+}
+
 /* Soft Float overlay scroll — paints over content, no layout gutter shift */
 .landmarks-overlay-scroll {
-  --lm-overlay-inset-x: 0.625rem; /* match PANEL_INSET px-2.5 */
+  --lm-overlay-inset-x: var(--lm-panel-inset);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;

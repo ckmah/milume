@@ -114,7 +114,7 @@ export function LayersPanel({
           <div
             className={cn(
               "landmarks-panel-sections flex min-h-0 flex-1 flex-col",
-              !minimise && "landmarks-overlay-scroll py-0",
+              minimise ? "landmarks-panel-inset" : "landmarks-overlay-scroll py-0",
             )}
           >
             <section

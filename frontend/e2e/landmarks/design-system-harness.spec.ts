@@ -143,6 +143,7 @@ async function setTheme(page: Page, theme: "light" | "dark") {
 }
 
 test("dock specimens fit their cards in light and dark", async ({ page }) => {
+  await stabilizeUi(page);
   await page.goto(url, { waitUntil: "networkidle" });
   for (const theme of ["dark", "light"] as const) {
     await setTheme(page, theme);

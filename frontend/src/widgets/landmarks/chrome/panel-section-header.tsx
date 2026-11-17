@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { chromeHitClass } from "./primitives";
-import { PANEL_INSET } from "./sections";
 
 export type PanelSectionPin = {
   label: string;
@@ -44,7 +43,6 @@ export function PanelSectionHeader({
     <div
       className={cn(
         "landmarks-panel-section-header",
-        PANEL_INSET,
         open && "landmarks-panel-section-header--open",
       )}
       data-testid={testId}
