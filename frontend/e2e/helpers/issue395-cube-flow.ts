@@ -52,7 +52,8 @@ export async function hideLandmarksVolumeHarnessChrome(page: Page) {
       .landmarks-volume-harness__banner,
       .landmarks-volume-harness__controls,
       [data-dialkit-panel],
-      .dialkit-root,
+      /* Widget sliders are .dialkit-root inside .landmarks; hide the harness panel only. */
+      .dialkit-root:not(.landmarks .dialkit-root),
       .deckgl-error-overlay { display: none !important; }
       button pre { display: none !important; pointer-events: none !important; }
     `,

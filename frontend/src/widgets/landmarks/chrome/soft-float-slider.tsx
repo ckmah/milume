@@ -299,7 +299,7 @@ export function SoftFloatSliderRow({
         step={stride}
         onValueChange={onValueChange}
         onValueCommit={onValueCommit}
-        aria-label={ariaLabel ?? `${label}, minimum`}
+        aria-label={ariaLabel ?? label}
         testId={testId}
         readout={inside}
         className={className}
