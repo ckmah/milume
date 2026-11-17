@@ -1,0 +1,15 @@
+{
+ "dataset": "colon A2",
+ "seed": null,
+ "milume": "6a9640d",
+ "note": "cursor overlay, points OFF, labels fill 0.4 (default, read back); 1440x900 @ 30fps; dark-only",
+ "render": "1440:900",
+ "dark": {
+  "seamless": "ping-pong cut slider; wrap-twin RMSE 0.0, webm first->last 0.005",
+  "bytes": {
+   "webm": 1281338,
+   "mp4": 357788,
+   "poster": 62960
+  }
+ }
+}

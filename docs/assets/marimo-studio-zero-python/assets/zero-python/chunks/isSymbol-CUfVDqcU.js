@@ -1,0 +1,1 @@
+import{A as e,j as t}from"./isArrayLikeObject-CkH5jlRu.js";var n=`[object Symbol]`;function r(r){return typeof r==`symbol`||e(r)&&t(r)==n}export{r as t};

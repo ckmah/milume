@@ -1,0 +1,71 @@
+# milume
+> Interactive notebook widgets for spatial omics (LandmarksWidget).
+
+## Site
+- [Landing](https://ckmah.github.io/milume/)
+- [Docs home](https://ckmah.github.io/milume/docs/)
+- [llms-full.txt](https://ckmah.github.io/milume/llms-full.txt)
+
+## Docs (markdown)
+- [Data Model Coordinates](https://ckmah.github.io/milume/docs/concepts/data-model-coordinates.md)
+- [Design Principles](https://ckmah.github.io/milume/docs/concepts/design-principles.md)
+- [Rendering](https://ckmah.github.io/milume/docs/concepts/rendering.md)
+- [Install](https://ckmah.github.io/milume/docs/get-started/install.md)
+- [Tutorial Explore Cells 2D](https://ckmah.github.io/milume/docs/get-started/tutorial-explore-cells-2d.md)
+- [Tutorial Spatialdata 3D](https://ckmah.github.io/milume/docs/get-started/tutorial-spatialdata-3d.md)
+- [Draw Export Landmarks](https://ckmah.github.io/milume/docs/how-to/draw-export-landmarks.md)
+- [Load Anndata Spatialdata](https://ckmah.github.io/milume/docs/how-to/load-anndata-spatialdata.md)
+- [Match Plot Colors Squidpy](https://ckmah.github.io/milume/docs/how-to/match-plot-colors-squidpy.md)
+- [Index](https://ckmah.github.io/milume/docs/how-to/recipes/index.md)
+- [Index](https://ckmah.github.io/milume/docs/how-to/recipes/squidpy_color/index.md)
+- [Use Selections Downstream](https://ckmah.github.io/milume/docs/how-to/use-selections-downstream.md)
+- [Use With Ai Agents](https://ckmah.github.io/milume/docs/how-to/use-with-ai-agents.md)
+- [Index](https://ckmah.github.io/milume/docs/index.md)
+- [Datasets](https://ckmah.github.io/milume/docs/reference/api/datasets.md)
+- [Landmarks](https://ckmah.github.io/milume/docs/reference/api/landmarks.md)
+- [Measure](https://ckmah.github.io/milume/docs/reference/api/measure.md)
+- [Peek](https://ckmah.github.io/milume/docs/reference/api/peek.md)
+- [Changelog](https://ckmah.github.io/milume/docs/reference/changelog.md)
+- [Datasets](https://ckmah.github.io/milume/docs/reference/datasets.md)
+- [Keyboard Shortcuts](https://ckmah.github.io/milume/docs/reference/keyboard-shortcuts.md)
+- [Color Layers](https://ckmah.github.io/milume/docs/reference/ui/color-layers.md)
+- [Index](https://ckmah.github.io/milume/docs/reference/ui/index.md)
+- [Inspect 3D](https://ckmah.github.io/milume/docs/reference/ui/inspect-3d.md)
+- [Landmarks](https://ckmah.github.io/milume/docs/reference/ui/landmarks.md)
+- [Navigate](https://ckmah.github.io/milume/docs/reference/ui/navigate.md)
+- [Probe](https://ckmah.github.io/milume/docs/reference/ui/probe.md)
+- [Select Regions](https://ckmah.github.io/milume/docs/reference/ui/select-regions.md)
+
+## Public API (LandmarksWidget)
+- Full reference: https://ckmah.github.io/milume/docs/reference/api/landmarks.md
+- `color`: obs column, gene, gene list (blend), or obsm embedding key; assign to recolour (raises ColorKeyError / ColorValueError).
+- `selections`: Drawn selections as dicts with id, name, geometry and point indices.
+- `landmarks`: Drawn landmarks (points, lines, splines, shapes) as dicts.
+- `selected_kind`: Kind of the focused item: selection, landmark, type, or empty.
+- `selected_index`: Index of the focused item within its kind, or -1.
+- `selected_type_indices`: Focused category label indices when selected_kind is type.
+- `inspect_cx`: Inspect window centre x in spatial units, or None before placement; set it to move the window and the open cube.
+- `inspect_cy`: Inspect window centre y in spatial units, or None before placement; set it to move the window and the open cube.
+- `inspect_size_um`: Inspect window side length in µm.
+- `inspect_open`: Whether the Inspect cube is open; True opens it at inspect_cx/cy, or at the volume centre when no window is placed; False closes it and exits Inspect. ValueError without a 3D image.
+- `volume`: The 3D image behind the Inspect cube (image path, cell polygons path and size, voxel size, origin, contrast); {} without one. Read it, don't set it.
+- `volume_cut`: Cube cut box [x0, x1, y0, y1, z0, z1] in µm; the browser writes it on slider release, assign it to cut from Python.
+- `active_category`: Deprecated: derived from color; removed in 3.0.
+- `active_genes`: Deprecated: derived from color; removed in 3.0.
+- `category_colors`: Label to hex colour map of a categorical column as drawn.
+- `clear_selections`: Remove every selection.
+- `clear_landmarks`: Remove every landmark.
+- `clear`: Remove all selections and landmarks.
+- `select_type`: Focus one category group of the active column.
+- `get_obs_names`: pd.Index of obs_names in a selection id or 'focus'; KeyError on unknown ids.
+- `set_points`: Move the scatter points to new x/y; colour is set with color.
+- `set_expression`: Replace the gene catalogue from a table.
+- `set_render_mode`: Switch between points and raster bins.
+- `set_raster_basis`: Pick the raster aggregation basis: genes, embedding or composition.
+- `clear_raster_query`: Clear the pinned raster similarity query.
+
+## Agent skill
+- [use-milume](https://github.com/ckmah/milume/blob/main/skills/use-milume/SKILL.md) — notebook workflows and LandmarksWidget API for coding agents
+
+## Landing (markdown)
+- [index.md](https://ckmah.github.io/milume/index.md)

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>milume: explore spatial biology in your notebook</title>
+    <meta
+      name="description"
+      content="Layer images, cells, and transcripts in 3D, in one reactive widget."
+    />
+    <link rel="canonical" href="https://ckmah.github.io/milume/" />
+    <!-- Link previews (Open Graph + Twitter/X). Absolute URLs: crawlers don't resolve relative paths. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="milume" />
+    <meta property="og:title" content="milume: Explore spatial biology in your notebook." />
+    <meta
+      property="og:description"
+      content="Layer images, cells, and transcripts in 3D, in one reactive widget."
+    />
+    <meta property="og:url" content="https://ckmah.github.io/milume/" />
+    <meta property="og:image" content="https://ckmah.github.io/milume/assets/milume-social-card-v8.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="milume Inspect cube in an oblique view, in dark mode: 3D cell meshes colored by cell type set inside a dimmed image of a crypt-rich colon tissue window, with the milume wordmark"
+    />
+    <meta property="og:video" content="https://ckmah.github.io/milume/assets/milume-montage-web.mp4" />
+    <meta property="og:video:secure_url" content="https://ckmah.github.io/milume/assets/milume-montage-web.mp4" />
+    <meta property="og:video:type" content="video/mp4" />
+    <meta property="og:video:width" content="1280" />
+    <meta property="og:video:height" content="720" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="milume: Explore spatial biology in your notebook." />
+    <meta
+      name="twitter:description"
+      content="Layer images, cells, and transcripts in 3D, in one reactive widget."
+    />
+    <meta name="twitter:image" content="https://ckmah.github.io/milume/assets/milume-social-card-v8.png" />
+    <meta
+      name="twitter:image:alt"
+      content="milume Inspect cube in an oblique view, in dark mode: 3D cell meshes colored by cell type set inside a dimmed image of a crypt-rich colon tissue window, with the milume wordmark"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cabin+Sketch:wght@700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="icon" href="assets/logo/favicon.ico" sizes="any" />
+    <link rel="icon" href="assets/logo/favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <a class="wordmark" href="./">
+        <img
+          class="wordmark-img"
+          src="assets/logo/wordmark-dark.svg"
+          alt="milume"
+          width="112"
+          height="28"
+        />
+      </a>
+      <nav class="site-nav" aria-label="Primary">
+        <a href="docs/">Docs</a>
+        <a href="llms.txt">llms.txt</a>
+        <a href="https://github.com/ckmah/milume" aria-label="Star milume on GitHub">&#9733; Star on GitHub</a>
+      </nav>
+    </header>
+
+    <main id="main">
+      <section class="hero" aria-label="Introduction">
+        <div class="hero-plane" aria-hidden="true">
+          <div class="milume-hero" data-milume-hero data-assets-base="assets/">
+            <canvas class="milume-hero__canvas" width="1600" height="900"></canvas>
+            <img
+              class="milume-hero__poster"
+              src="assets/hero-poster.png"
+              alt=""
+              width="1600"
+              height="900"
+              fetchpriority="high"
+              decoding="async"
+            />
+          </div>
+          <div class="hero-veil"></div>
+        </div>
+
+        <div class="hero-copy">
+          <p class="brand">
+            <img
+              class="brand-wordmark"
+              src="assets/logo/wordmark-dark.svg"
+              alt="milume"
+              width="280"
+              height="69"
+            />
+          </p>
+          <h1>Explore spatial biology in your notebook.</h1>
+          <div class="cta-group">
+            <div class="install" role="group" aria-label="Install command">
+              <code id="install-cmd">pip install milume</code>
+              <button type="button" class="copy-btn" data-copy="#install-cmd">
+                Copy
+              </button>
+            </div>
+            <a class="btn btn-primary" href="docs/install/">Docs</a>
+            <a
+              class="btn btn-ghost"
+              href="https://molab.marimo.io/github/ckmah/milume/blob/main/demos/landmarks.py"
+              >Open demo</a
+            >
+          </div>
+        </div>
+
+        <div class="hero-media" data-state="idle">
+          <video
+            class="hero-media__video"
+            src="assets/milume-montage-web.mp4"
+            poster="assets/hero-video-poster.jpg"
+            preload="metadata"
+            muted
+            playsinline
+            controls
+            width="1280"
+            height="720"
+            aria-label="milume product montage, 43 seconds, no audio"
+          >
+            <track kind="captions" />
+          </video>
+          <button type="button" class="hero-media__play" hidden>
+            <span class="visually-hidden">Play the milume montage (43 s, no audio)</span>
+          </button>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        <a class="wordmark" href="./">
+          <img
+            class="wordmark-img wordmark-img--footer"
+            src="assets/logo/wordmark-dark.svg"
+            alt="milume"
+            width="84"
+            height="21"
+          />
+        </a>
+        · MIT ·
+        <a href="docs/">Documentation</a>
+        ·
+        <a href="index.md">index.md</a>
+      </p>
+    </footer>
+
+    <script src="assets/hero-renderer.js" defer></script>
+    <script src="main.js" defer></script>
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token":"8a6f9f11e9df491ba8da3fb213958cf2"}'></script>
+  </body>
+</html>

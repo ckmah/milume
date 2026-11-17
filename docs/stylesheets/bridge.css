@@ -1,0 +1,94 @@
+/* Thin brand bridge only — accent + wordmark link feel. Docs stay Read-mode. */
+:root {
+  --srx-phosphor: #5ec4a8;
+  --srx-phosphor-ink: #06241c;
+  --milume-display: "Cabin Sketch", "Segoe UI", sans-serif;
+}
+
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #0f766e;
+  --md-accent-fg-color: #0f766e;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: var(--srx-phosphor);
+  --md-accent-fg-color: var(--srx-phosphor);
+}
+
+.md-header__topic .md-ellipsis,
+.md-nav__title .md-ellipsis {
+  font-family: var(--milume-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Docs home: product name + tagline (skip link is first child of .md-typeset). */
+.md-content__inner.md-typeset > h1#milume {
+  font-family: var(--milume-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.md-content__inner.md-typeset > h1#milume + p > strong {
+  font-family: var(--milume-display);
+  font-weight: 700;
+}
+
+/* API traitlet tables: fit content width on desktop; scroll only on narrow viewports. */
+.md-typeset .milume-api-traitlet-table {
+  max-width: 100%;
+  margin: 1em 0;
+  overflow-x: visible;
+}
+
+.md-typeset .milume-api-traitlet-table table {
+  font-size: 0.85rem;
+  width: 100%;
+  table-layout: auto;
+}
+
+.md-typeset .milume-api-traitlet-table th:nth-child(1),
+.md-typeset .milume-api-traitlet-table td:nth-child(1),
+.md-typeset .milume-api-traitlet-table th:nth-child(2),
+.md-typeset .milume-api-traitlet-table td:nth-child(2),
+.md-typeset .milume-api-traitlet-table th:nth-child(3),
+.md-typeset .milume-api-traitlet-table td:nth-child(3) {
+  white-space: nowrap;
+  width: 1%;
+  vertical-align: top;
+}
+
+.md-typeset .milume-api-traitlet-table th:nth-child(4),
+.md-typeset .milume-api-traitlet-table td:nth-child(4) {
+  white-space: normal;
+  overflow-wrap: normal;
+  vertical-align: top;
+}
+
+@media screen and (max-width: 48em) {
+  .md-typeset .milume-api-traitlet-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .md-typeset .milume-api-traitlet-table table {
+    table-layout: auto;
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .md-typeset .milume-api-traitlet-table th:nth-child(1),
+  .md-typeset .milume-api-traitlet-table td:nth-child(1),
+  .md-typeset .milume-api-traitlet-table th:nth-child(2),
+  .md-typeset .milume-api-traitlet-table td:nth-child(2),
+  .md-typeset .milume-api-traitlet-table th:nth-child(3),
+  .md-typeset .milume-api-traitlet-table td:nth-child(3) {
+    width: auto;
+    min-width: max-content;
+  }
+
+  .md-typeset .milume-api-traitlet-table th:nth-child(4),
+  .md-typeset .milume-api-traitlet-table td:nth-child(4) {
+    min-width: 12rem;
+  }
+}
