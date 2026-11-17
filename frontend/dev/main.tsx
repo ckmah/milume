@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 
 import "@/styles/globals.css";
+import "dialkit/styles.css";
 import "@/widgets/landmarks/landmarks.css";
 
 import { HarnessShell } from "./HarnessShell";

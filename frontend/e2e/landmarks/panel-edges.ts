@@ -203,6 +203,10 @@ export async function expectSharedPanelInset(panel: Locator) {
     await panel.getByTestId("layers-cells-header").click();
   }
   await expect(slider).toBeVisible();
+  const track = slider.locator(".dialkit-slider");
+  await expect(track).toBeVisible();
+  const trackBox = await track.boundingBox();
+  expect(trackBox?.height ?? 0).toBeGreaterThan(16);
   edges = await panel.evaluate(panelEdges);
   bad = edges.filter(
     (edge) => !Number.isFinite(edge.delta) || Math.abs(edge.delta) > TOL,
