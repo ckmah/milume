@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import { SpringCollapse } from "@/components/ui/spring-collapse";
@@ -207,6 +207,7 @@ function CategoryCollapsibleRow({
   selected_type_indices: number[];
 }) {
   const [open, setOpen] = useState(false);
+  const listId = useId();
   const isShown = signal === "categories" && col.name === active_category;
 
   const activate = () => {
@@ -227,6 +228,7 @@ function CategoryCollapsibleRow({
           className="landmarks-cat-chevron"
           aria-label={open ? `Collapse ${col.name}` : `Expand ${col.name}`}
           aria-expanded={open}
+          aria-controls={listId}
           onClick={(e) => {
             e.stopPropagation();
             setOpen((v) => !v);
@@ -262,7 +264,7 @@ function CategoryCollapsibleRow({
           <SubcategoryAvatars col={col} />
         </span>
       </div>
-      <SpringCollapse open={open}>
+      <SpringCollapse id={listId} open={open}>
         <div className="landmarks-cat-sublist overflow-hidden pl-4">
           <div className="landmarks-cat-sublist-inner">
             <ItemGroup className="gap-0 p-0">

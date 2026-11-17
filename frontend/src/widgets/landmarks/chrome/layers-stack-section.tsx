@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { ChevronRightIcon } from "lucide-react";
 
 import { FieldDescription } from "@/components/ui/field";
@@ -85,6 +85,8 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
   const { category_columns, volume, active_category } = lm;
   const [cellsOpen, setCellsOpen] = useState(true);
   const [imageOpen, setImageOpen] = useState(false);
+  const cellsId = useId();
+  const imageId = useId();
   const hiddenPointSizeRef = useRef<number | null>(null);
   const [channelCapHint, setChannelCapHint] = useState(false);
   const [focusedChannel, setFocusedChannel] = useState<string | null>(null);
@@ -197,6 +199,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
               size="icon-sm"
               className="landmarks-cat-chevron shrink-0"
               aria-expanded={cellsOpen}
+              aria-controls={cellsId}
               aria-label={cellsOpen ? "Collapse cells layer" : "Expand cells layer"}
               data-testid="layers-cells-header"
               onClick={() => setCellsOpen((v) => !v)}
@@ -228,7 +231,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
               onCheckedChange={toggleCellsVisible}
             />
           </div>
-          <SpringCollapse open={cellsOpen}>
+          <SpringCollapse id={cellsId} open={cellsOpen}>
             <div className="landmarks-layers-stack__nested flex flex-col gap-2 pb-1">
               <div className="landmarks-slider-stack">
                 <SoftFloatSliderRow
@@ -265,6 +268,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
               size="icon-sm"
               className="landmarks-cat-chevron shrink-0"
               aria-expanded={imageOpen}
+              aria-controls={imageId}
               aria-label={imageOpen ? "Collapse image layer" : "Expand image layer"}
               data-testid="layers-image-row"
               onClick={() => setImageOpen((v) => !v)}
@@ -296,7 +300,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
               onCheckedChange={(next) => lm.setImageVisible(next)}
             />
           </div>
-          <SpringCollapse open={imageOpen}>
+          <SpringCollapse id={imageId} open={imageOpen}>
             <div className="landmarks-layers-stack__nested flex flex-col gap-2 pb-1">
               <div className="landmarks-slider-stack landmarks-image-controls">
                 <SoftFloatSliderRow

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { LassoIcon, LayersIcon, SplineIcon } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
@@ -47,6 +47,9 @@ export function LayersPanel({
 }) {
   const { selections, landmarks, selected_kind, selected_index } = lm;
   const [openSection, setOpenSection] = useState<DockSection | null>("selections");
+  const selectionsId = useId();
+  const landmarksId = useId();
+  const layersBodyId = useId();
 
   useEffect(() => {
     if (minimise) setOpenSection(null);
@@ -128,9 +131,11 @@ export function LayersPanel({
                 onToggle={() => toggleSection("selections")}
                 pin={selectionPin}
                 testId="panel-section-selections"
+                controlsId={selectionsId}
                 minimise={minimise}
               />
               <SpringCollapse
+                id={selectionsId}
                 open={sectionOpen("selections")}
                 className="landmarks-panel-section__body"
               >
@@ -190,9 +195,11 @@ export function LayersPanel({
                 onToggle={() => toggleSection("landmarks")}
                 pin={landmarkPin}
                 testId="panel-section-landmarks"
+                controlsId={landmarksId}
                 minimise={minimise}
               />
               <SpringCollapse
+                id={landmarksId}
                 open={sectionOpen("landmarks")}
                 className="landmarks-panel-section__body"
               >
@@ -240,9 +247,10 @@ export function LayersPanel({
                 open={sectionOpen("layers")}
                 onToggle={() => toggleSection("layers")}
                 testId="panel-section-layers"
+                controlsId={layersBodyId}
                 minimise={minimise}
               />
-              <SpringCollapse open={sectionOpen("layers")} className="landmarks-panel-section__body">
+              <SpringCollapse id={layersBodyId} open={sectionOpen("layers")} className="landmarks-panel-section__body">
                 <LayersStackSection lm={lm} />
               </SpringCollapse>
             </section>

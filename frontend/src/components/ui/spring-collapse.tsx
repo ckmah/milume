@@ -2,7 +2,7 @@
 // Height uses SPRING_PANEL. Row and dock layout read the CSS variables installed
 // from SPRING_LAYOUT. No second stiffness.
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react";
 import { type ReactNode, useLayoutEffect } from "react";
 
 import { MOTION_OFF, SPRING_LAYOUT, SPRING_PANEL } from "@/lib/motion-springs";
@@ -67,15 +67,44 @@ export function installLayoutSpring(): void {
 
 installLayoutSpring();
 
+function CollapseBody({
+  className,
+  reduce,
+  children,
+}: {
+  className?: string;
+  reduce: boolean;
+  children: ReactNode;
+}) {
+  // False for the whole exit, while AnimatePresence still has this subtree mounted.
+  const present = useIsPresent();
+  return (
+    <motion.div
+      className={className}
+      inert={!present}
+      initial={reduce ? false : { height: 0 }}
+      animate={{ height: "auto" }}
+      exit={{ height: 0 }}
+      transition={reduce ? MOTION_OFF : SPRING_PANEL}
+      style={{ overflow: "hidden", transformOrigin: "top center" }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
 /**
  * Height reveal for a section body that is already open or closed.
  * Padding and margins belong on the child so a closed height of 0 hides them.
+ * `id` stays on the wrapper so aria-controls still resolves after the body leaves.
  */
 export function SpringCollapse({
+  id,
   open,
   className,
   children,
 }: {
+  id: string;
   open: boolean;
   className?: string;
   children: ReactNode;
@@ -92,20 +121,14 @@ export function SpringCollapse({
   }, []);
 
   return (
-    <AnimatePresence initial={false}>
-      {open ? (
-        <motion.div
-          key="open"
-          className={className}
-          initial={reduce ? false : { height: 0 }}
-          animate={{ height: "auto" }}
-          exit={{ height: 0 }}
-          transition={reduce ? MOTION_OFF : SPRING_PANEL}
-          style={{ overflow: "hidden", transformOrigin: "top center" }}
-        >
-          {children}
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+    <div id={id}>
+      <AnimatePresence initial={false}>
+        {open ? (
+          <CollapseBody key="open" className={className} reduce={reduce}>
+            {children}
+          </CollapseBody>
+        ) : null}
+      </AnimatePresence>
+    </div>
   );
 }

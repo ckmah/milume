@@ -24,6 +24,7 @@ export function PanelSectionHeader({
   onToggle,
   pin,
   testId,
+  controlsId,
   minimise = false,
 }: {
   icon: LucideIcon;
@@ -33,6 +34,8 @@ export function PanelSectionHeader({
   onToggle: () => void;
   pin?: PanelSectionPin | null;
   testId?: string;
+  /** Id of the SpringCollapse this header opens. */
+  controlsId?: string;
   minimise?: boolean;
 }) {
   const Chevron = open ? ChevronDownIcon : ChevronRightIcon;
@@ -52,6 +55,7 @@ export function PanelSectionHeader({
         open={open}
         pin={pin}
         minimise={minimise}
+        controlsId={controlsId}
         onToggle={onToggle}
       />
       <div className="landmarks-panel-section-header__trail">
@@ -65,6 +69,7 @@ export function PanelSectionHeader({
             chromeHitClass,
           )}
           aria-expanded={open}
+          aria-controls={controlsId}
           aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
           onClick={onToggle}
         >
@@ -81,6 +86,7 @@ function PanelSectionHeaderMain({
   open,
   pin,
   minimise,
+  controlsId,
   onToggle,
 }: {
   Icon: LucideIcon;
@@ -88,6 +94,7 @@ function PanelSectionHeaderMain({
   open: boolean;
   pin?: PanelSectionPin | null;
   minimise?: boolean;
+  controlsId?: string;
   onToggle: () => void;
 }) {
   return (
@@ -96,6 +103,7 @@ function PanelSectionHeaderMain({
       tabIndex={0}
       className="landmarks-panel-section-header__main min-w-0 flex-1"
       aria-expanded={open}
+      aria-controls={controlsId}
       onClick={onToggle}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
