@@ -93,10 +93,11 @@ apply_changes() {
 }
 
 message_for() {
+  # $1 is the PR number for preview/delete. Script args are not in scope here.
   case "$MODE" in
     site) echo "chore(pages): publish site" ;;
-    preview) echo "chore(pages): preview pr $2" ;;
-    delete) echo "chore(pages): remove preview pr $2" ;;
+    preview) echo "chore(pages): preview pr $1" ;;
+    delete) echo "chore(pages): remove preview pr $1" ;;
     sweep) echo "chore(pages): sweep closed PR previews" ;;
   esac
 }
