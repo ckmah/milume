@@ -1,0 +1,120 @@
+/* Presence hold for Radix and Base UI. They unmount a closing panel when
+   animation-name is none. The hold is invisible; motion/react runs SPRING_PANEL.
+   600ms is that spring's time-to-rest (stiffness 420, damping 40, mass 0.5). */
+@property --milume-overlay-hold {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 0;
+}
+
+@keyframes milume-overlay-hold {
+  from {
+    --milume-overlay-hold: 0;
+  }
+  to {
+    --milume-overlay-hold: 1;
+  }
+}
+
+.milume-overlay-panel[data-state="closed"],
+.milume-overlay-panel[data-closed] {
+  animation: milume-overlay-hold 600ms linear;
+  pointer-events: none;
+}
+
+/* Chrome tooltips keep their keyframes in landmarks.css. This curve is the
+   same SPRING_PANEL sample: scale and fade, no slide. */
+@keyframes milume-tooltip-in {
+  from {
+    opacity: 0;
+    scale: 0.94;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes milume-tooltip-out {
+  from {
+    opacity: 1;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 0.96;
+  }
+}
+
+/* Doubled class so this wins over landmarks.css regardless of bundle order.
+   No !important: Radix sets an inline animation:none until the tip is placed. */
+.landmarks-tooltip.landmarks-tooltip[data-state="delayed-open"],
+.landmarks-tooltip.landmarks-tooltip[data-state="instant-open"] {
+  animation: milume-tooltip-in 600ms
+    linear(
+      0,
+      0.1991,
+      0.4443,
+      0.623,
+      0.7452,
+      0.8279,
+      0.8838,
+      0.9215,
+      0.947,
+      0.9642,
+      0.9758,
+      0.9837,
+      0.989,
+      0.9926,
+      0.995,
+      0.9966,
+      0.9977,
+      0.9985,
+      0.999,
+      1
+    )
+    both;
+}
+
+.landmarks-tooltip.landmarks-tooltip[data-state="closed"] {
+  animation: milume-tooltip-out 600ms
+    linear(
+      0,
+      0.1991,
+      0.4443,
+      0.623,
+      0.7452,
+      0.8279,
+      0.8838,
+      0.9215,
+      0.947,
+      0.9642,
+      0.9758,
+      0.9837,
+      0.989,
+      0.9926,
+      0.995,
+      0.9966,
+      0.9977,
+      0.9985,
+      0.999,
+      1
+    )
+    both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .milume-overlay-panel[data-state="closed"],
+  .milume-overlay-panel[data-closed] {
+    animation: none;
+  }
+
+  .landmarks-tooltip.landmarks-tooltip,
+  .landmarks-tooltip.landmarks-tooltip[data-state="delayed-open"],
+  .landmarks-tooltip.landmarks-tooltip[data-state="instant-open"],
+  .landmarks-tooltip.landmarks-tooltip[data-state="closed"] {
+    animation: none !important;
+    opacity: 1 !important;
+    scale: 1 !important;
+  }
+}
