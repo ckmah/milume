@@ -2,8 +2,10 @@
 
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
+import { motion } from "motion/react"
 import { Toggle as TogglePrimitive } from "radix-ui"
 
+import { usePressMotion } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 const toggleVariants = cva(
@@ -32,15 +34,26 @@ function Toggle({
   className,
   variant,
   size,
+  disabled,
+  children,
+  "data-ds-force": force,
   ...props
 }: React.ComponentProps<typeof TogglePrimitive.Root> &
-  VariantProps<typeof toggleVariants>) {
+  VariantProps<typeof toggleVariants> & {
+    "data-ds-force"?: string
+  }) {
+  const press = usePressMotion(disabled, force)
   return (
     <TogglePrimitive.Root
       data-slot="toggle"
+      data-ds-force={force}
       className={cn(toggleVariants({ variant, size, className }))}
+      disabled={disabled}
+      asChild
       {...props}
-    />
+    >
+      <motion.button {...press}>{children}</motion.button>
+    </TogglePrimitive.Root>
   )
 }
 
