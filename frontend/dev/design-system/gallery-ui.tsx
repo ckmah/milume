@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,31 @@ function forceAttr(state: string): { "data-ds-force"?: string } {
   return {};
 }
 
+function WithPortal({
+  children,
+}: {
+  children: (portal: HTMLElement | null) => ReactNode;
+}) {
+  return children(useWidgetPortal());
+}
+
+function ClosedShapeMenu() {
+  const [open, setOpen] = useState(false);
+  const portal = useWidgetPortal();
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" size="sm" variant="outline">
+          Shape
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent container={portal}>
+        <DropdownMenuItem>Lasso</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function PopoverSpecimen({ open }: { open: boolean }) {
   const anchorRef = useRef<HTMLButtonElement>(null);
   const portal = useWidgetPortal();
@@ -87,7 +112,12 @@ function PopoverSpecimen({ open }: { open: boolean }) {
         onOpenChange={() => {}}
         portal={portal}
         anchorRef={anchorRef}
-        place={() => ({ left: 8, top: 44, origin: "top left" })}
+        className="rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md"
+        place={(anchor) => ({
+          left: anchor.left,
+          top: anchor.bottom + 6,
+          origin: "top left",
+        })}
       >
         <p className="m-0 text-xs">Spring popover</p>
       </SpringPopover>
@@ -214,7 +244,11 @@ export function UiSections() {
                 Hover card
               </Button>
             </HoverCardTrigger>
-            <HoverCardContent>Selection summary</HoverCardContent>
+            <WithPortal>
+              {(portal) => (
+                <HoverCardContent container={portal}>Selection summary</HoverCardContent>
+              )}
+            </WithPortal>
           </HoverCard>
         </StateCell>
         <StateCell state="closed">
@@ -224,23 +258,18 @@ export function UiSections() {
                 Hover card
               </Button>
             </HoverCardTrigger>
-            <HoverCardContent>Selection summary</HoverCardContent>
+            <WithPortal>
+              {(portal) => (
+                <HoverCardContent container={portal}>Selection summary</HoverCardContent>
+              )}
+            </WithPortal>
           </HoverCard>
         </StateCell>
       </DsSection>
 
       <DsSection id="menus" title="Menus">
         <StateCell state="closed">
-          <DropdownMenu open={false} modal={false}>
-            <DropdownMenuTrigger asChild>
-              <Button type="button" size="sm" variant="outline">
-                Shape
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem>Lasso</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ClosedShapeMenu />
         </StateCell>
         <StateCell state="open" stageClassName="min-h-36">
           <DropdownMenu open modal={false}>
@@ -249,55 +278,71 @@ export function UiSections() {
                 Shape
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem>Lasso</DropdownMenuItem>
-              <DropdownMenuItem disabled>Polygon</DropdownMenuItem>
-              <DropdownMenuItem>{LONG}</DropdownMenuItem>
-            </DropdownMenuContent>
+            <WithPortal>
+              {(portal) => (
+                <DropdownMenuContent container={portal}>
+                  <DropdownMenuItem>Lasso</DropdownMenuItem>
+                  <DropdownMenuItem disabled>Polygon</DropdownMenuItem>
+                  <DropdownMenuItem>{LONG}</DropdownMenuItem>
+                </DropdownMenuContent>
+              )}
+            </WithPortal>
           </DropdownMenu>
         </StateCell>
         <StateCell state="empty" stageClassName="min-h-28">
           <Combobox items={[]} inputValue="zzzz">
             <ComboboxInput aria-label="Genes" placeholder="Search genes" />
-            <ComboboxContent>
-              <ComboboxEmpty>No genes</ComboboxEmpty>
-              <ComboboxList>
-                {(item: string) => (
-                  <ComboboxItem key={item} value={item}>
-                    {item}
-                  </ComboboxItem>
-                )}
-              </ComboboxList>
-            </ComboboxContent>
+            <WithPortal>
+              {(portal) => (
+                <ComboboxContent container={portal}>
+                  <ComboboxEmpty>No genes</ComboboxEmpty>
+                  <ComboboxList>
+                    {(item: string) => (
+                      <ComboboxItem key={item} value={item}>
+                        {item}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              )}
+            </WithPortal>
           </Combobox>
         </StateCell>
         <StateCell state="open" stageClassName="min-h-36">
           <Combobox items={["Epcam", "Col1a1"]}>
             <ComboboxInput aria-label="Genes" placeholder="Search genes" />
-            <ComboboxContent>
-              <ComboboxEmpty>No genes</ComboboxEmpty>
-              <ComboboxList>
-                {(item: string) => (
-                  <ComboboxItem key={item} value={item}>
-                    {item}
-                  </ComboboxItem>
-                )}
-              </ComboboxList>
-            </ComboboxContent>
+            <WithPortal>
+              {(portal) => (
+                <ComboboxContent container={portal}>
+                  <ComboboxEmpty>No genes</ComboboxEmpty>
+                  <ComboboxList>
+                    {(item: string) => (
+                      <ComboboxItem key={item} value={item}>
+                        {item}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              )}
+            </WithPortal>
           </Combobox>
         </StateCell>
         <StateCell state="disabled">
           <Combobox items={["Epcam"]} disabled>
             <ComboboxInput aria-label="Genes" disabled placeholder="Search genes" />
-            <ComboboxContent>
-              <ComboboxList>
-                {(item: string) => (
-                  <ComboboxItem key={item} value={item}>
-                    {item}
-                  </ComboboxItem>
-                )}
-              </ComboboxList>
-            </ComboboxContent>
+            <WithPortal>
+              {(portal) => (
+                <ComboboxContent container={portal}>
+                  <ComboboxList>
+                    {(item: string) => (
+                      <ComboboxItem key={item} value={item}>
+                        {item}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxContent>
+              )}
+            </WithPortal>
           </Combobox>
         </StateCell>
       </DsSection>
@@ -351,28 +396,49 @@ export function UiSections() {
                 Closed
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Hidden tip</TooltipContent>
+            <WithPortal>
+              {(portal) => <TooltipContent container={portal}>Hidden tip</TooltipContent>}
+            </WithPortal>
           </Tooltip>
         </StateCell>
-        <StateCell state="open" stageClassName="min-h-20">
+        <StateCell state="open" stageClassName="min-h-28">
           <Tooltip open>
             <TooltipTrigger asChild>
               <Button type="button" size="sm" variant="outline">
                 Open
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Probe the point under the cursor</TooltipContent>
+            <WithPortal>
+              {(portal) => (
+                <TooltipContent container={portal} side="bottom" sideOffset={6}>
+                  Probe the point under the cursor
+                </TooltipContent>
+              )}
+            </WithPortal>
           </Tooltip>
+          <div aria-hidden="true" style={{ height: "2.75rem" }} />
         </StateCell>
-        <StateCell state="overflow" stageClassName="min-h-24">
+        <StateCell state="overflow" stageClassName="min-h-36">
           <Tooltip open>
             <TooltipTrigger asChild>
               <Button type="button" size="sm" variant="outline">
                 Long
               </Button>
             </TooltipTrigger>
-            <TooltipContent className="max-w-[12rem]">{LONG}</TooltipContent>
+            <WithPortal>
+              {(portal) => (
+                <TooltipContent
+                  container={portal}
+                  side="bottom"
+                  sideOffset={6}
+                  className="max-w-[12rem]"
+                >
+                  {LONG}
+                </TooltipContent>
+              )}
+            </WithPortal>
           </Tooltip>
+          <div aria-hidden="true" style={{ height: "5.5rem" }} />
         </StateCell>
       </DsSection>
 

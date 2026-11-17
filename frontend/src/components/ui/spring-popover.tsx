@@ -4,6 +4,8 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import {
+  forwardRef,
+  type ComponentPropsWithoutRef,
   type ReactNode,
   type RefObject,
   useEffect,
@@ -15,6 +17,55 @@ import { createPortal } from "react-dom";
 
 import { MOTION_OFF, SPRING_PANEL } from "@/lib/motion-springs";
 import { cn } from "@/lib/utils";
+
+import "./motion-overlays.css";
+
+type SpringPanelProps = ComponentPropsWithoutRef<"div"> & {
+  /** Scale the panel grows from. Tooltip uses 0.94; panels use 0.92. */
+  enterScale?: number;
+  /** Scale the panel leaves toward. */
+  exitScale?: number;
+};
+
+function panelClosed(props: object) {
+  const record = props as Record<string, unknown>;
+  return (
+    record["data-state"] === "closed" ||
+    record["data-closed"] !== undefined ||
+    record["data-ending-style"] !== undefined
+  );
+}
+
+/** Shared open and close for portaled Radix and Base UI panels. */
+export const SpringPanel = forwardRef<HTMLDivElement, SpringPanelProps>(
+  function SpringPanel(
+    { className, style, children, enterScale = 0.92, exitScale = 0.96, ...props },
+    ref,
+  ) {
+    const reduce = useReducedMotion() ?? false;
+    const closed = panelClosed(props);
+    const motionProps = props as ComponentPropsWithoutRef<typeof motion.div>;
+    return (
+      <motion.div
+        ref={ref}
+        {...motionProps}
+        style={style}
+        className={cn("milume-overlay-panel", className)}
+        initial={reduce ? false : { opacity: 0, scale: enterScale }}
+        animate={
+          closed
+            ? reduce
+              ? { opacity: 0 }
+              : { opacity: 0, scale: exitScale }
+            : { opacity: 1, scale: 1 }
+        }
+        transition={reduce ? MOTION_OFF : SPRING_PANEL}
+      >
+        {children}
+      </motion.div>
+    );
+  },
+);
 
 export type PopoverBox = {
   left: number;
@@ -109,8 +160,8 @@ export function SpringPopover({
           data-testid={testId}
           initial={reduce ? false : { opacity: 0, scale: 0.92 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={reduce ? { opacity: 0 } : { opacity: 0, scale: 0.96 }}
           transition={reduce ? MOTION_OFF : SPRING_PANEL}
+          {...(reduce ? {} : { exit: { opacity: 0, scale: 0.96 } })}
           style={{
             position: "fixed",
             left: box?.left ?? 0,
