@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+
 import { SIMILARITY_LEGEND_CSS } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { META_LINE, STACK_GAP_SM } from "./sections";
@@ -29,7 +31,7 @@ export function RasterSection({ lm }: { lm: LandmarksModel }) {
 
   return (
     <div
-      className={STACK_GAP_SM}
+      className={cn(STACK_GAP_SM, "landmarks-motion-reveal")}
       data-testid="raster-section"
       data-testid-legend="raster-legend"
     >

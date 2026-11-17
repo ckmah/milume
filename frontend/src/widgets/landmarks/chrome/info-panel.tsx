@@ -539,7 +539,7 @@ export function InfoPanel({
   }
 
   return (
-    <Card className={FLOAT_PANEL} data-testid="info-panel">
+    <Card className={cn(FLOAT_PANEL, "landmarks-motion-float")} data-testid="info-panel">
       <div className={FLOAT_PANEL_CLIP}>
         <CardHeader className="sr-only">
           <CardDescription>

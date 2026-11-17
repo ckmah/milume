@@ -30,7 +30,7 @@ export function PanelCollapseButton({
           data-testid={`panel-collapse-caret-${side}`}
           onClick={onCollapse}
           className={cn(
-            "landmarks-panel-collapse-caret landmarks-float pointer-events-auto absolute top-0 z-[17] tabular-nums",
+            "landmarks-panel-collapse-caret landmarks-motion-dock landmarks-float pointer-events-auto absolute top-0 z-[17] tabular-nums",
             chromeHitClass,
             side === "left" ? "left-[calc(100%+0.375rem)]" : "right-[calc(100%+0.375rem)]",
           )}
@@ -67,7 +67,7 @@ export function PanelPeekTab({
           data-testid={`panel-peek-tab-${side}`}
           onClick={onExpand}
           className={cn(
-            "landmarks-float landmarks__peek-tab pointer-events-auto tabular-nums",
+            "landmarks-float landmarks-motion-dock landmarks__peek-tab pointer-events-auto tabular-nums",
             chromeHitClass,
             side === "left" ? "landmarks__peek-tab--left" : "landmarks__peek-tab--right",
           )}

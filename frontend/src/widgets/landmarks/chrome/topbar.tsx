@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { installLayoutSpring } from "@/components/ui/spring-collapse";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 import {
@@ -23,6 +24,9 @@ import {
   ToolbarDivider,
   chromeHitClass,
 } from "./primitives";
+import "./motion-surfaces.css";
+
+installLayoutSpring();
 
 export function Topbar({
   modes,
@@ -53,7 +57,7 @@ export function Topbar({
   return (
     <TooltipProvider delayDuration={80} skipDelayDuration={0}>
       <div
-        className={TOOLBAR_CLASS}
+        className={`${TOOLBAR_CLASS} landmarks-motion-dock`}
         role="toolbar"
         aria-label="Drawing tools"
         onMouseDown={(e) => e.stopPropagation()}

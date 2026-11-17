@@ -40,7 +40,7 @@ export function ViewCta({
   return (
     <TooltipProvider delayDuration={80} skipDelayDuration={0}>
       <div
-        className={TOOLBAR_CLASS}
+        className={cn(TOOLBAR_CLASS, "landmarks-motion-dock")}
         data-testid="view-cta"
       >
         <ChromeTooltip label="Canvas rulers">

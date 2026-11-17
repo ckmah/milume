@@ -81,7 +81,7 @@ export function RightChromeStack({
     >
       <div
         className={cn(
-          "landmarks__chrome-stack landmarks-float-clip flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden",
+          "landmarks__chrome-stack landmarks-motion-dock landmarks-float-clip flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden",
           // Top inset on the stack; bottom inset is a shrink-0 spacer below the
           // scrollport so it never steals height from the controls.
           "pt-1.5",

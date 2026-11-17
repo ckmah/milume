@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-} from "@/components/ui/collapsible";
+import { SpringCollapse } from "@/components/ui/spring-collapse";
 import {
   Combobox,
   ComboboxContent,
@@ -218,7 +215,7 @@ function CategoryCollapsibleRow({
   };
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="group/cat">
+    <div>
       <div
         className={cn(
           "landmarks-cat-trigger text-xs font-medium text-foreground/70",
@@ -265,32 +262,34 @@ function CategoryCollapsibleRow({
           <SubcategoryAvatars col={col} />
         </span>
       </div>
-      <CollapsibleContent className="landmarks-cat-sublist overflow-hidden pl-4">
-        <div className="landmarks-cat-sublist-inner">
-          <ItemGroup className="gap-0 p-0">
-            {(col.labels || []).map((label, i) => (
-              <LayerRow
-                key={`${col.name}-${label}`}
-                active={isTypeRowActive(i, {
-                  selected_kind,
-                  selected_index,
-                  selected_type_indices,
-                  active_category,
-                  columnName: col.name,
-                })}
-                color={
-                  (col.palette || [])[
-                    i % Math.max((col.palette || []).length, 1)
-                  ]
-                }
-                label={label}
-                onSelect={(e) => lm.selectType(col, i, e)}
-              />
-            ))}
-          </ItemGroup>
+      <SpringCollapse open={open}>
+        <div className="landmarks-cat-sublist overflow-hidden pl-4">
+          <div className="landmarks-cat-sublist-inner">
+            <ItemGroup className="gap-0 p-0">
+              {(col.labels || []).map((label, i) => (
+                <LayerRow
+                  key={`${col.name}-${label}`}
+                  active={isTypeRowActive(i, {
+                    selected_kind,
+                    selected_index,
+                    selected_type_indices,
+                    active_category,
+                    columnName: col.name,
+                  })}
+                  color={
+                    (col.palette || [])[
+                      i % Math.max((col.palette || []).length, 1)
+                    ]
+                  }
+                  label={label}
+                  onSelect={(e) => lm.selectType(col, i, e)}
+                />
+              ))}
+            </ItemGroup>
+          </div>
         </div>
-      </CollapsibleContent>
-    </Collapsible>
+      </SpringCollapse>
+    </div>
   );
 }
 
@@ -505,7 +504,7 @@ export function ExplorePanel({
 
   return (
     <div className="landmarks__explore-panel">
-      <Card className={FLOAT_PANEL} data-testid="explore-panel">
+      <Card className={cn(FLOAT_PANEL, "landmarks-motion-float")} data-testid="explore-panel">
         <div className={FLOAT_PANEL_CLIP}>
           <CardContent
             className={            cn(

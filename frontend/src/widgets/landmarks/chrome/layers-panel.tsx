@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { LassoIcon, LayersIcon, SplineIcon } from "lucide-react";
 
 import { Card } from "@/components/ui/card";
+import { SpringCollapse } from "@/components/ui/spring-collapse";
 import { FieldDescription } from "@/components/ui/field";
 import { ItemGroup } from "@/components/ui/item";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ import { LayerRow } from "./primitives";
 import { useWidgetPortal } from "./widget-portal-context";
 import { SelectionCard } from "./selection-card";
 import { FLOAT_PANEL, FLOAT_PANEL_CLIP } from "./sections";
+import "./motion-surfaces.css";
 
 const NO_SNAPSHOTS = new Map<string, ChipSnapshot>();
 
@@ -104,7 +106,7 @@ export function LayersPanel({
         minimise && "landmarks__layers-panel--minimise",
       )}
     >
-      <Card className={cn(FLOAT_PANEL, "flex h-full min-h-0 flex-1 flex-col")}>
+      <Card className={cn(FLOAT_PANEL, "landmarks-motion-float flex h-full min-h-0 flex-1 flex-col")}>
         <div className={cn(FLOAT_PANEL_CLIP, "flex h-full min-h-0 flex-1 flex-col")}>
           <div
             className={cn(
@@ -128,8 +130,11 @@ export function LayersPanel({
                 testId="panel-section-selections"
                 minimise={minimise}
               />
-              {sectionOpen("selections") ? (
-                <div className="landmarks-panel-section__body px-0 pb-1.5">
+              <SpringCollapse
+                open={sectionOpen("selections")}
+                className="landmarks-panel-section__body"
+              >
+                <div className="px-0 pb-1.5">
                   {selections.length ? (
                     <ItemGroup className="gap-0.5">
                       {selections.map((sel, i) => (
@@ -168,7 +173,7 @@ export function LayersPanel({
                     <FieldDescription>No selections yet.</FieldDescription>
                   )}
                 </div>
-              ) : null}
+              </SpringCollapse>
             </section>
 
             <section
@@ -187,8 +192,11 @@ export function LayersPanel({
                 testId="panel-section-landmarks"
                 minimise={minimise}
               />
-              {sectionOpen("landmarks") ? (
-                <div className="landmarks-panel-section__body px-0 pb-1.5">
+              <SpringCollapse
+                open={sectionOpen("landmarks")}
+                className="landmarks-panel-section__body"
+              >
+                <div className="px-0 pb-1.5">
                   {landmarks.length ? (
                     <ItemGroup className="gap-0.5">
                       {landmarks.map((lmItem, i) => {
@@ -216,7 +224,7 @@ export function LayersPanel({
                     <FieldDescription>No landmarks yet.</FieldDescription>
                   )}
                 </div>
-              ) : null}
+              </SpringCollapse>
             </section>
 
             <section
@@ -234,11 +242,9 @@ export function LayersPanel({
                 testId="panel-section-layers"
                 minimise={minimise}
               />
-              {sectionOpen("layers") ? (
-                <div className="landmarks-panel-section__body">
-                  <LayersStackSection lm={lm} />
-                </div>
-              ) : null}
+              <SpringCollapse open={sectionOpen("layers")} className="landmarks-panel-section__body">
+                <LayersStackSection lm={lm} />
+              </SpringCollapse>
             </section>
           </div>
         </div>

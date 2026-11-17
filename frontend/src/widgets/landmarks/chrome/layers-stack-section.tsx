@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent }
 import { ChevronRightIcon } from "lucide-react";
 
 import { FieldDescription } from "@/components/ui/field";
+import { SpringCollapse } from "@/components/ui/spring-collapse";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -227,7 +228,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
               onCheckedChange={toggleCellsVisible}
             />
           </div>
-          {cellsOpen ? (
+          <SpringCollapse open={cellsOpen}>
             <div className="landmarks-layers-stack__nested flex flex-col gap-2 pb-1">
               <div className="landmarks-slider-stack">
                 <SoftFloatSliderRow
@@ -248,7 +249,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                 />
               </div>
             </div>
-          ) : null}
+          </SpringCollapse>
         </div>
       ) : null}
 
@@ -295,7 +296,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
               onCheckedChange={(next) => lm.setImageVisible(next)}
             />
           </div>
-          {imageOpen ? (
+          <SpringCollapse open={imageOpen}>
             <div className="landmarks-layers-stack__nested flex flex-col gap-2 pb-1">
               <div className="landmarks-slider-stack landmarks-image-controls">
                 <SoftFloatSliderRow
@@ -363,7 +364,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                 </div>
               ) : null}
             </div>
-          ) : null}
+          </SpringCollapse>
         </div>
       ) : null}
     </div>
