@@ -10,7 +10,7 @@ Agent workflow:
 
 ```
 frontend/                          npm package (UI source of truth)
-├── components.json                shadcn CLI config (+ @reui registry)
+├── components.json                shadcn CLI config (`style` selects the library)
 ├── src/
 │   ├── styles/globals.css         theme tokens + Tailwind
 │   ├── components/ui/             `npx shadcn@latest add …`
@@ -28,22 +28,7 @@ Build: `cd frontend && npm install && npm run build`.
 
 ### Registries
 
-`components.json` includes the [ReUI](https://reui.io/docs/registry) namespace:
-
-```json
-"registries": {
-  "@reui": "https://reui.io/r/{style}/{name}.json"
-}
-```
-
-From `frontend/`:
-
-```bash
-npx shadcn@latest search @reui
-npx shadcn@latest add @reui/c-alert-1
-```
-
-Free ReUI components use the `c-*` prefix.
+`npx shadcn@latest info --json` in `frontend/` reports the library in `config.base`. On 2026-11-17 that value is `radix` because `style` is `new-york`. The `@shadcn` registry URL is `https://ui.shadcn.com/r/styles/{style}/{name}.json`, so a `base-*` style is what makes `shadcn add` emit Base UI. Agent steps are in [`.agents/skills/base-ui/SKILL.md`](../.agents/skills/base-ui/SKILL.md).
 
 Widget authoring loops: [widget-ui-dev.md](./widget-ui-dev.md).
 
