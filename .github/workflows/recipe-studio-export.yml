@@ -3,6 +3,7 @@ name: Recipe studio export
 
 on:
   pull_request:
+    branches: [main]
     paths:
       - "demos/recipes/**"
       - "website/scripts/export-recipes.sh"

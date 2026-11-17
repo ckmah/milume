@@ -259,8 +259,8 @@ uv run python website/scripts/check_recipe_payload.py
 
 | Workflow | When it runs | What it checks |
 | --- | --- | --- |
-| `pages.yml` | `main` and PRs touching recipes, website scripts, frontend, … | Full `assemble-pages.sh` including payload budgets |
-| `recipe-studio-export.yml` | PRs touching `demos/recipes/**`, … | Cold marimo-studio preflight, warm export for `RECIPE_NB`, plus `verify_squidpy_color.py` and recipe prose lint |
+| `pages.yml` | `main`, and pull requests that target `main` and touch recipes, website scripts, frontend, … | Full `assemble-pages.sh` including payload budgets |
+| `recipe-studio-export.yml` | `main`, and pull requests that target `main` and touch `demos/recipes/**`, … | Cold marimo-studio preflight, warm export for `RECIPE_NB`, plus `verify_squidpy_color.py` and recipe prose lint |
 
 Required PR policy checks on `main` are listed in [AGENTS.md](../AGENTS.md).
 
