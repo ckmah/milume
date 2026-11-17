@@ -41,7 +41,7 @@ function WidgetStage({
       <div
         className={cn(
           "milume-widget landmarks w-[14rem] rounded-[var(--radius)] p-2.5",
-          theme === "dark" && "dark",
+          theme === "dark" ? "dark landmarks--dark" : "landmarks--light",
         )}
         style={{ background: "var(--background)" }}
       >
@@ -146,8 +146,8 @@ export function DesignSystemHarness() {
                 onColorChange={(next) => setChannelColor(next ?? "#ff3df0")}
               />
             </WidgetStage>
-            <WidgetStage theme={widgetTheme}>
-              <p className="m-0 mb-2 text-xs opacity-70">Open</p>
+            <WidgetStage theme={widgetTheme} className="bg-black">
+              <p className="m-0 mb-2 text-xs text-white opacity-70">Open</p>
               <ChannelColorPicker
                 name="DAPI"
                 color="#3d7dff"

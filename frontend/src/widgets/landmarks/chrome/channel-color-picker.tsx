@@ -142,7 +142,7 @@ export function ChannelColorPicker({
         anchorRef={anchorRef}
         place={place}
         testId={`channel-color-picker-${name}`}
-        className="landmarks-float landmarks-float--panel w-44 rounded-[var(--radius)] p-2.5"
+        className="landmarks-float landmarks-float--panel w-44 p-2.5"
       >
         <div className="flex items-center gap-2">
           <span

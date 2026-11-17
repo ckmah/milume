@@ -1,6 +1,15 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
+const PORTAL_THEME = ["dark", "landmarks--light", "landmarks--dark", "landmarks--image"] as const;
+
+function portalClassName(widget: HTMLElement) {
+  return cn(
+    "milume-widget pointer-events-none fixed inset-0 z-50",
+    PORTAL_THEME.filter((name) => widget.classList.contains(name)),
+  );
+}
+
 /** Fixed portal host in the widget shadow root so popups keep widget theme tokens. */
 export function useWidgetPortalContainer() {
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -25,11 +34,14 @@ export function useWidgetPortalContainer() {
       host.setAttribute("data-milume-portal", "");
       parent.appendChild(host);
     }
-    host.className = cn(
-      "milume-widget pointer-events-none fixed inset-0 z-50",
-      widget.classList.contains("dark") && "dark",
-    );
+    const apply = () => {
+      host.className = portalClassName(widget);
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(widget, { attributes: true, attributeFilter: ["class"] });
     setPortalEl(host);
+    return () => observer.disconnect();
   }, []);
 
   return [wrapRef, portalEl] as const;
