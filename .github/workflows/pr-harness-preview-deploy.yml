@@ -29,6 +29,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Pages source
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          t="$(gh api "repos/${{ github.repository }}/pages" --jq .build_type)"
+          echo "build_type=$t" >> "$GITHUB_OUTPUT"
+          echo "build_type=$t"
+
       - name: Download preview metadata
         id: meta
         continue-on-error: true
@@ -40,6 +50,7 @@ jobs:
           path: preview-meta
 
       - name: Merge pr/ into the current Pages artifact
+        if: steps.source.outputs.build_type == 'workflow'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_TOKEN: ${{ github.token }}
@@ -74,11 +85,13 @@ jobs:
           test -s combined/dashboard/index.html
 
       - name: Upload combined Pages artifact
+        if: steps.source.outputs.build_type == 'workflow'
         uses: actions/upload-pages-artifact@v3
         with:
           path: combined
 
       - name: Deploy to GitHub Pages
+        if: steps.source.outputs.build_type == 'workflow'
         id: deployment
         uses: actions/deploy-pages@v4
 

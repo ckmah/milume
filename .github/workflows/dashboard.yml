@@ -212,14 +212,31 @@ jobs:
           find combined -maxdepth 2 -type f | head -20
           test -s combined/dashboard/index.html
 
-      - name: Upload combined Pages artifact
+      - name: Pages source
+        id: source
         if: steps.idle.outputs.proceed == 'true' && steps.dl.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          t="$(gh api "repos/${{ github.repository }}/pages" --jq .build_type)"
+          echo "build_type=$t" >> "$GITHUB_OUTPUT"
+          echo "build_type=$t"
+
+      - name: Upload combined Pages artifact
+        if: >
+          steps.idle.outputs.proceed == 'true'
+          && steps.dl.outcome == 'success'
+          && steps.source.outputs.build_type == 'workflow'
         uses: actions/upload-pages-artifact@v3
         with:
           path: combined
 
       - name: Deploy to GitHub Pages
-        if: steps.idle.outputs.proceed == 'true' && steps.dl.outcome == 'success'
+        if: >
+          steps.idle.outputs.proceed == 'true'
+          && steps.dl.outcome == 'success'
+          && steps.source.outputs.build_type == 'workflow'
         uses: actions/deploy-pages@v4
 
       - name: Note when overlay could not run

@@ -26,6 +26,8 @@ concurrency:
 
 jobs:
   build:
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -133,6 +135,15 @@ jobs:
         with:
           path: site
 
+      # Mirror the site onto gh-pages (keeps pr/ and dashboard/). When Pages is a
+      # branch deploy, this push is what publishes. The artifact deploy below still
+      # runs while the source is the Actions workflow.
+      - name: Publish site to gh-pages
+        if: github.event_name != 'pull_request'
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash tools/pages/publish_gh_pages.sh site "$GITHUB_WORKSPACE/site"
+
   deploy:
     if: github.event_name != 'pull_request'
     needs: build
@@ -141,8 +152,20 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     permissions:
+      contents: read
       pages: write
       id-token: write
     steps:
-      - uses: actions/deploy-pages@v4
+      - name: Pages source
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          t="$(gh api "repos/${{ github.repository }}/pages" --jq .build_type)"
+          echo "build_type=$t" >> "$GITHUB_OUTPUT"
+          echo "build_type=$t"
+
+      - name: Deploy to GitHub Pages
+        if: steps.source.outputs.build_type == 'workflow'
+        uses: actions/deploy-pages@v4
         id: deployment

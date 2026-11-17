@@ -114,7 +114,7 @@ cd frontend && npm run dev:landmarks-volume-xsmall
 
 A pull request that changes `frontend/` publishes an ephemeral static build. The default toy widget harness (no real volumes) is at `https://ckmah.github.io/milume/pr/<N>/` and the design-system harness at `https://ckmah.github.io/milume/pr/<N>/design-system/`. One sticky PR comment lists both links and the head SHA. Closing the PR deletes `/pr/<N>/`; a daily sweep deletes any `/pr/<N>/` whose PR is already closed.
 
-Pages is an Actions artifact deploy, and only `main` may publish that environment, so the PR job writes `/pr/<N>/` to the `gh-pages` branch and a `workflow_run` on `main` merges that tree into the current site artifact. Docs and dashboard deploys copy `pr/` back in so they do not drop open previews.
+The PR job writes `/pr/<N>/` on the `gh-pages` branch. It cannot call `deploy-pages`: the github-pages environment only allows `main`, and a pull request runs as `refs/pull/<N>/merge`. When the token can switch Pages to that branch, the branch is what the site serves. While Pages is still an Actions artifact, a `workflow_run` on `main` merges `pr/` into the current site artifact and deploys it. Docs and dashboard deploys copy `pr/` back in, and they also push to `gh-pages`, so neither path drops open previews.
 
 `cd frontend && PR_NUMBER=<N> npm run build:preview` writes that tree to `frontend/dist/preview`. The design-system build uses `frontend/dev/design-system` when it is present (`npm run dev:design-system`), and `frontend/scripts/preview-design-system` otherwise.
 
