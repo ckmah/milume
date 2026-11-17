@@ -201,6 +201,14 @@ jobs:
           mkdir -p combined/dashboard
           cp tools/dashboard/dashboard.html combined/dashboard/index.html
           cp tools/dashboard/summary.txt combined/dashboard/summary.txt
+          # Open harness previews live on gh-pages under pr/. Keep them in this deploy.
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            git fetch --depth 1 origin gh-pages
+            if git cat-file -e "origin/gh-pages:pr" 2>/dev/null; then
+              rm -rf combined/pr
+              git archive origin/gh-pages pr | tar -x -C combined
+            fi
+          fi
           find combined -maxdepth 2 -type f | head -20
           test -s combined/dashboard/index.html
 

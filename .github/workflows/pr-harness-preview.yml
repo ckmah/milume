@@ -1,0 +1,139 @@
+name: PR harness preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/pr-harness-preview.yml"
+      - "tools/pages/**"
+  schedule:
+    # Sweep /pr/<n>/ directories whose PRs are already closed.
+    - cron: "41 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: >
+      github.event_name == 'pull_request'
+      && github.event.action != 'closed'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: ./.github/actions/node-modules
+
+      - name: Build harness previews
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: cd frontend && npm run build:preview
+
+      - name: Upload preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: harness-preview
+          path: frontend/dist/preview
+          include-hidden-files: true
+          retention-days: 1
+
+  publish:
+    needs: build
+    if: needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    # Serialize gh-pages writes with the docs deploy group so a dashboard
+    # overlay cannot publish a tree from before this preview landed.
+    concurrency:
+      group: pages-push-refs/heads/main
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download preview
+        uses: actions/download-artifact@v4
+        with:
+          name: harness-preview
+          path: preview-dist
+
+      - name: Publish /pr/<n>/ on gh-pages
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash tools/pages/publish_gh_pages.sh preview "${{ github.event.pull_request.number }}" "$GITHUB_WORKSPACE/preview-dist"
+
+      - name: Record preview metadata
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p preview-meta
+          printf '{"pr":"%s","sha":"%s","action":"publish"}\n' "$PR_NUMBER" "$HEAD_SHA" > preview-meta/preview.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: harness-preview-meta
+          path: preview-meta/preview.json
+          retention-days: 1
+
+  remove:
+    if: >
+      github.event_name == 'pull_request'
+      && github.event.action == 'closed'
+      && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages-push-refs/heads/main
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Delete /pr/<n>/
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash tools/pages/publish_gh_pages.sh delete "${{ github.event.pull_request.number }}"
+
+      - name: Record removal metadata
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          mkdir -p preview-meta
+          printf '{"pr":"%s","sha":"%s","action":"delete"}\n' "$PR_NUMBER" "$HEAD_SHA" > preview-meta/preview.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: harness-preview-meta
+          path: preview-meta/preview.json
+          retention-days: 1
+
+  sweep:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages-push-refs/heads/main
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Delete previews for closed PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash tools/pages/publish_gh_pages.sh sweep

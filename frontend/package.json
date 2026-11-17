@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "build": "cross-env MILUME_BUILD_WIDGET=landmarks vite build",
+    "build:preview": "node scripts/build-preview.mjs",
     "dev:landmarks": "vite",
+    "dev:design-system": "cross-env DEV_WIDGET=design-system vite --host 127.0.0.1 --port 5177 --strictPort",
     "dev:fixture": "uv run --group demo --directory .. python frontend/dev/export-pyxa-harness-fixture.py --profile xsmall",
     "dev:fixture:ileum": "uv run --group demo --directory .. python scripts/export-ileum-harness-fixture.py --max-cells 8000",
     "dev:fixture:ileum-docs": "uv run --group demo --directory .. python scripts/export-ileum-docs-base.py",

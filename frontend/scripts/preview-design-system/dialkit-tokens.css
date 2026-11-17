@@ -1,0 +1,25 @@
+/**
+ * Map DialKit control chrome onto milume widget neutrals inside the kitchen sink.
+ * Full dialkit/styles.css still required for layout; this only retokens the slider row.
+ */
+.milume-widget .dialkit-root {
+  --dial-row-height: 2.25rem;
+  --dial-radius: calc(var(--radius) + 0.15rem);
+  --dial-surface: color-mix(in oklab, var(--muted) 85%, transparent);
+  --dial-surface-hover: color-mix(in oklab, var(--muted) 95%, transparent);
+  --dial-surface-active: color-mix(in oklab, var(--foreground) 12%, var(--muted));
+  --dial-surface-subtle: color-mix(in oklab, var(--muted) 70%, transparent);
+  --dial-text-root: var(--foreground);
+  --dial-text-section: color-mix(in oklab, var(--foreground) 72%, transparent);
+  --dial-text-label: color-mix(in oklab, var(--foreground) 72%, transparent);
+  --dial-text-focus: var(--foreground);
+  --dial-text-primary: var(--foreground);
+  --dial-text-secondary: color-mix(in oklab, var(--foreground) 60%, transparent);
+  --dial-border: color-mix(in oklab, var(--foreground) 10%, transparent);
+  --dial-border-hover: color-mix(in oklab, var(--foreground) 22%, transparent);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+.milume-widget .dialkit-slider-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}

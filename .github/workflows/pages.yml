@@ -108,6 +108,25 @@ jobs:
             .cache/marimo-export-recipes
           key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/data/ileum.h5ad', 'uv.lock') }}
 
+      # gh-pages holds dashboard/ and pr/<n>/ between deploys. Copy them in so a docs
+      # publish does not drop the dashboard or open harness previews.
+      - name: Keep dashboard and PR previews
+        if: github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          if ! git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            echo "no gh-pages branch"
+            exit 0
+          fi
+          git fetch --depth 1 origin gh-pages
+          for top in pr dashboard; do
+            if git cat-file -e "origin/gh-pages:${top}" 2>/dev/null; then
+              rm -rf "site/${top}"
+              git archive "origin/gh-pages" "$top" | tar -x -C site
+              echo "kept ${top}"
+            fi
+          done
+
       - name: Upload Pages artifact
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
@@ -121,6 +140,9 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
     steps:
       - uses: actions/deploy-pages@v4
         id: deployment

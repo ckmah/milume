@@ -1,0 +1,117 @@
+# Runs on the default branch so it can publish the github-pages environment
+# (branch policy allows main only). Triggered after "PR harness preview".
+name: PR harness preview deploy
+
+on:
+  workflow_run:
+    workflows: ["PR harness preview"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+  pull-requests: write
+
+jobs:
+  deploy:
+    if: >
+      github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pages-push-refs/heads/main
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: https://ckmah.github.io/milume/
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download preview metadata
+        id: meta
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: harness-preview-meta
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: preview-meta
+
+      - name: Merge pr/ into the current Pages artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          artifact_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq '[.artifacts[] | select(.name=="github-pages" and .expired==false)] | sort_by(.created_at) | last | .id // empty')"
+          if [[ -z "$artifact_id" ]]; then
+            echo "no github-pages artifact to merge into" >&2
+            exit 1
+          fi
+          echo "base artifact $artifact_id"
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts/${artifact_id}/zip" > /tmp/pages.zip
+          rm -rf pages-artifact combined
+          mkdir -p pages-artifact combined
+          unzip -q /tmp/pages.zip -d pages-artifact
+          if [[ -f pages-artifact/artifact.tar ]]; then
+            tar -xf pages-artifact/artifact.tar -C combined
+          else
+            cp -a pages-artifact/. combined/
+            rm -f combined/artifact.tar
+          fi
+          git fetch --depth 1 origin gh-pages
+          for top in pr dashboard; do
+            if git cat-file -e "origin/gh-pages:${top}" 2>/dev/null; then
+              rm -rf "combined/${top}"
+              git archive "origin/gh-pages" "$top" | tar -x -C combined
+              echo "overlaid ${top}"
+            fi
+          done
+          test -s combined/index.html
+          test -s combined/dashboard/index.html
+
+      - name: Upload combined Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: combined
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Update the sticky preview comment
+        if: steps.meta.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          action="$(jq -r .action preview-meta/preview.json)"
+          pr="$(jq -r .pr preview-meta/preview.json)"
+          sha="$(jq -r .sha preview-meta/preview.json)"
+          [[ "$pr" =~ ^[0-9]+$ ]]
+          owner="${GITHUB_REPOSITORY%%/*}"
+          name="${GITHUB_REPOSITORY#*/}"
+          base="https://${owner}.github.io/${name}/pr/${pr}/"
+          marker="<!-- milume-pr-preview -->"
+          if [[ "$action" == "delete" ]]; then
+            body=$(printf '%s\n' "$marker" "" "## Harness preview" "" "The preview for \`${sha}\` was removed. \`/pr/${pr}/\` is no longer published." "")
+          else
+            body=$(printf '%s\n' \
+              "$marker" "" "## Harness preview" "" "Head \`${sha}\`" "" \
+              "- [Widget harness](${base})" \
+              "- [Design system](${base}design-system/)" "" \
+              "These previews are ephemeral. Closing the PR deletes the directory." "")
+          fi
+          id="$(gh api --paginate "repos/${GITHUB_REPOSITORY}/issues/${pr}/comments" \
+            --jq ".[] | select(.body | contains(\"${marker}\")) | .id" | head -1)"
+          jq -n --arg body "$body" '{body:$body}' > /tmp/comment.json
+          if [[ -n "$id" ]]; then
+            gh api --method PATCH "repos/${GITHUB_REPOSITORY}/issues/comments/${id}" --input /tmp/comment.json
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/issues/${pr}/comments" --input /tmp/comment.json
+          fi
