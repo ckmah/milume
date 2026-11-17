@@ -1,13 +1,14 @@
-as_of: Mon Nov 16, 11:41 AM PT
+as_of: Mon Nov 16, 7:57 PM PT
 needs_you: 0
   (none)
-open_prs: 1
+open_prs: 2
 last_nightly: 2026-11-16 success
 stale_prs:
+  #441 dialkit-sliders-ds (failing CI)
   #415 morans-i-409 (no push >7d)
 red_nightlies: 2026-11-06, 2026-11-07, 2026-11-09, 2026-11-10, 2026-11-11, 2026-11-14
 last_red_nightly: 2026-11-14
 ci_failure_issues: none
 html: dashboard.html
 status: PUBLISH
-hash: 2b372d0b9eac
+hash: 649fa360bb68
