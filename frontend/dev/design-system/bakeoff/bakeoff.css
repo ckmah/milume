@@ -1,0 +1,31 @@
+@import "shadcn/tailwind.css";
+@import "../../../src/styles/globals.css";
+@source ".";
+
+.bakeoff-page {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 16px 24px 32px;
+  font-family: system-ui, sans-serif;
+}
+
+.bakeoff-page[data-theme="dark"] {
+  background: #0a0a0a;
+  color: #f5f5f5;
+}
+
+.bakeoff-page[data-theme="light"] {
+  background: #d4d4d4;
+  color: #111111;
+}
+
+.bakeoff-caption {
+  margin: 0 0 12px;
+  font-size: 13px;
+  letter-spacing: 0.01em;
+}
+
+.bakeoff-stage-host {
+  width: 680px;
+  height: auto;
+}
