@@ -129,6 +129,8 @@ components:
 
 ## Overview
 
+Visual direction is pending a redesign issue. The chrome rebuild uses Base UI (`@base-ui/react`), shadcn components generated for Base UI, Tailwind 4, and Motion. The notes below describe the chrome that is shipped.
+
 **Creative North Star: Soft Float + Glass**
 
 milume widgets keep the plot as the specimen and float shadcn chrome above it. Surfaces are Framer-style achromatic neutrals (no blue tint). Docks, sheets, and toolbars share one translucent glass float material (`landmarks-float` + `--lm-float-*` tokens) so the tissue stays visible underneath. A centered icon pill carries draw modes, zoom, and fullscreen. Chrome stays compact in notebook cells; below 640px the layers and info panels stack in one top-left dock (no side rail).

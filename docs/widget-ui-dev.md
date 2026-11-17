@@ -27,7 +27,7 @@ cd frontend && npm run dev:fixture
 
 ## Widget UI design loop (impeccable)
 
-Authority: `frontend/PRODUCT.md`, `frontend/DESIGN.md`, and `frontend/.impeccable/surfaces/landmarks-chrome.md`.
+Authority: `frontend/PRODUCT.md`, `frontend/DESIGN.md`, and `frontend/.impeccable/surfaces/landmarks-chrome.md`. Visual direction is pending a redesign issue. Chrome rebuild work follows `.cursor/skills/base-ui/SKILL.md`.
 
 ```bash
 cd frontend && npm run dev:landmarks

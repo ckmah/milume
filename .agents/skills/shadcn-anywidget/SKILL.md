@@ -2,8 +2,8 @@
 name: shadcn-anywidget
 description: >-
   Integrates shadcn/ui into milume anywidgets via the bundled React frontend.
-  Always prefer shadcn components (@/components/ui/*) for widget chrome. Use when
-  adding or changing a React/shadcn anywidget, fixing stale widget UI / HMR /
+  Widget chrome is shadcn generated for Base UI, Tailwind 4, and Motion.
+  Use when adding or changing a React anywidget, fixing stale widget UI / HMR /
   hot-reload in marimo, running shadcn CLI from frontend/, wiring Vite widget
   entries, or pointing Python at bundled assets.
 ---
@@ -18,18 +18,15 @@ engine stays in `milume/static/landmarks.js` (`mountEngine`) and is imported
 by the landmarks Vite entry. Chrome reads/writes via `useLandmarksModel` (not
 raw `model.set`); shared write recipes live in `milume/static/landmarks_state.js`.
 
-## UI components (required)
+## UI components
 
-**Always prefer shadcn/ui** for widget chrome in this repo.
+Widget chrome follows [../base-ui/SKILL.md](../base-ui/SKILL.md). The stack is shadcn components generated for Base UI, Tailwind 4, Base UI, and Motion.
 
-1. Import from `@/components/ui/*` (`Button`, `Card`, `Slider`, `Field`, `Accordion`,
-   `ToggleGroup`, `Separator`, etc.) or install from `@reui/*` when ReUI has a fit.
-2. Before writing custom markup, run `npx shadcn@latest search` or
-   `npx shadcn@latest docs <component>` from `frontend/` (include `@reui` in search).
-3. If a primitive is missing, add it: `npx shadcn@latest add <component>` or
-   `npx shadcn@latest add @reui/c-<name>` — do not copy registry source by hand.
-4. Follow composition rules in [../shadcn/SKILL.md](../shadcn/SKILL.md): built-in
-   variants, semantic tokens, `Field`/`FieldGroup` for forms, full `Card` structure.
+1. Import from `@/components/ui/*`.
+2. From `frontend/`, run `npx shadcn@latest search @shadcn` and `npx shadcn@latest docs <component>` before you write a component.
+3. Run `npx shadcn@latest add <component>` only when `npx shadcn@latest info --json` reports `"base": "base"`. Copying registry JSON by hand is not the install path.
+4. A custom component is allowed only when the catalog has no part that fits. Name the gap and the reason in the PR. Known gaps are in the base-ui skill map.
+5. Follow composition in [../shadcn/SKILL.md](../shadcn/SKILL.md) and [../shadcn/rules/base-vs-radix.md](../shadcn/rules/base-vs-radix.md). On Base UI, compose with `render`.
 
 | Prefer | Avoid |
 | --- | --- |
@@ -41,25 +38,14 @@ raw `model.set`); shared write recipes live in `milume/static/landmarks_state.js
 | `Accordion` for collapsible sections | Custom show/hide state + styled headers |
 
 Exceptions: canvas/WebGL hosts (`plot-host`, deck mount nodes), layout wrappers with
-no shadcn equivalent, and CSS in `landmarks.css` for engine-adjacent layout (resize
-handles, fullscreen shell). Even then, keep interactive controls on shadcn.
-
-### ReUI registry (`@reui`)
-
-Configured in `frontend/components.json`. Search and install from `frontend/`:
-
-```bash
-cd frontend
-npx shadcn@latest search @reui
-npx shadcn@latest add @reui/c-alert-1
-```
-
-Free components use the `c-*` prefix (`npx shadcn@latest add @reui/c-alert-1`).
+no catalog equivalent, and CSS in `landmarks.css` for engine-adjacent layout (resize
+handles, fullscreen shell). Keep interactive controls on catalog components.
 
 shadcn APIs: [../shadcn/SKILL.md](../shadcn/SKILL.md) (CLI from `frontend/`).
-Humans: [../../docs/shadcn-frontend.md](../../docs/shadcn-frontend.md),
-[../../docs/widget-packaging.md](../../docs/widget-packaging.md).
-Domain: [../../CONTEXT.md](../../CONTEXT.md).
+Base UI, portal, theme, and motion: [../base-ui/SKILL.md](../base-ui/SKILL.md).
+Humans: [../../../docs/shadcn-frontend.md](../../../docs/shadcn-frontend.md),
+[../../../docs/widget-packaging.md](../../../docs/widget-packaging.md).
+Domain: [../../../CONTEXT.md](../../../CONTEXT.md).
 
 ## Reload contract (file-watch HMR)
 
@@ -89,7 +75,7 @@ Stale-UI triage (in order):
 3. Confirm Vite `--watch` is rewriting the bundle (mtime moves on save).
 4. Confirm `watchfiles` is installed.
 
-Longer rationale and packaging roles: [widget-packaging.md](../../docs/widget-packaging.md).
+Longer rationale and packaging roles: [widget-packaging.md](../../../docs/widget-packaging.md).
 
 ## Reference
 
@@ -123,7 +109,7 @@ Complete every step.
    and a `watch:<kebab-name>` script in `frontend/package.json`, and the bundle
    name in `tests/test_assets.py` / `tests/test_widget_bundles.py`.
 
-3. **Add shadcn components** from `frontend/` (if needed):
+3. **Add shadcn components** from `frontend/` when `npx shadcn@latest info` reports `"base": "base"`:
 
    ```bash
    cd frontend
@@ -133,7 +119,7 @@ Complete every step.
 4. **Implement `<Name>View.tsx`** — presentation only; read via `useModel(model,
    [/* spec traitlet names */])`; on user action `model.set(...)` then
    `model.save_changes()`. Wrap in `useNotebookTheme(hostEl.parentElement)`.
-   Build UI with shadcn components only (see [UI components](#ui-components-required)).
+   Build UI from the catalog (see [UI components](#ui-components)).
 
 5. **Implement Python validation** in `__init__` if needed.
 
@@ -149,14 +135,14 @@ Complete every step.
 
 7. **Do not commit** `milume/static/bundled/`: it is gitignored, and CI and
    the publish workflows run `npm run build` before building the wheel. See
-   [widget packaging](../../docs/widget-packaging.md).
+   [widget packaging](../../../docs/widget-packaging.md).
 
 ## Do / don't
 
 | Do | Don't |
 | --- | --- |
-| shadcn `@/components/ui/*` for all widget chrome | Hand-rolled buttons, inputs, panels, toggles |
-| `npx shadcn@latest add` when a primitive is missing | Styled `div`/`span` substitutes for components |
+| shadcn `@/components/ui/*` for widget chrome | Hand-rolled buttons, inputs, panels, toggles |
+| `npx shadcn@latest add` once `info` reports `"base": "base"` | A styled `div` or `span` where a catalog component fits |
 | `Path` `_esm` + `npm run watch:<name>` + `ANYWIDGET_HMR=1` | Point `_esm` at `localhost:5173`, use `npm run dev`, or add `@anywidget/vite` for the normal loop |
 | `widget_esm` / `widget_css` returning `Path` | `_esm = path.read_text()` (kills watching) |
 | `npx shadcn@latest add` from `frontend/` | Copy registry JSON from GitHub |
@@ -169,7 +155,7 @@ Complete every step.
 
 Follow the [shadcn skill](../shadcn/SKILL.md), especially:
 
-- **shadcn first** — search/add components before writing custom UI
+- **Catalog first.** Search `@shadcn` before a custom component. Record a gap in the PR. Portal, theme, and motion rules are in [../base-ui/SKILL.md](../base-ui/SKILL.md).
 - Built-in variants before custom `className` styling
 - Semantic tokens (`bg-muted`, `text-muted-foreground`), not raw colors
 - `flex` + `gap-*`, not `space-x-*` / `space-y-*`
