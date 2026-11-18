@@ -19,7 +19,7 @@ const OUTER_R = 82;
 const ACTIVE_OUTER_DELTA = 10;
 
 const TOOLTIP_CLASS =
-  "pointer-events-none grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl";
+  "pointer-events-none grid min-w-[8rem] items-start gap-1.5 border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl";
 
 const TOOLTIP_OFFSET = 12;
 const TOOLTIP_MARGIN = 4;

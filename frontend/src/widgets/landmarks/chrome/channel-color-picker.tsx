@@ -112,7 +112,7 @@ export function ChannelColorPicker({
         variant="ghost"
         size="icon-xs"
         className={cn(
-          "landmarks-channel-color-dot rounded-full p-0",
+          "landmarks-channel-color-dot p-0",
           "hover:bg-[var(--lm-hit-hover-bg)] data-[state=open]:bg-[var(--lm-hit-hover-bg)]",
         )}
         data-testid={`channel-color-${name}`}

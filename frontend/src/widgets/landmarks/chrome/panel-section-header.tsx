@@ -61,7 +61,7 @@ export function PanelSectionHeader({
           variant="ghost"
           size="icon-sm"
           className={cn(
-            "landmarks-panel-section-header__toggle shrink-0 rounded-full hover:bg-transparent",
+            "landmarks-panel-section-header__toggle shrink-0 hover:bg-transparent",
             chromeHitClass,
           )}
           aria-expanded={open}

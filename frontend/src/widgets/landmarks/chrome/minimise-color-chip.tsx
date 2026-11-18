@@ -61,7 +61,7 @@ export function MinimiseColorChip({
         type="button"
         variant="ghost"
         className={cn(
-          "landmarks-minimise-color-chip__btn h-8 w-full justify-between gap-1 rounded-md px-2 font-normal text-foreground",
+          "landmarks-minimise-color-chip__btn h-8 w-full justify-between gap-1 px-2 font-normal text-foreground",
         )}
         aria-expanded={false}
         aria-label="Expand color card"

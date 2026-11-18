@@ -66,7 +66,7 @@ export function SubcategoryAvatars({ col }: { col: CategoryColumn }) {
         <span
           key={`${col.name}-${label}`}
           title={label}
-          className="size-2.5 rounded-full ring-1 ring-background"
+          className="landmarks-subcat-avatar size-2.5 ring-1 ring-background"
           style={{
             background:
               palette[i % Math.max(palette.length, 1)] ||

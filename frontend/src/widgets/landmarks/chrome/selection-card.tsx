@@ -117,7 +117,7 @@ export function SelectionCard({
   return (
     <div className="flex flex-col gap-1.5">
       {snapshot ? (
-        <img src={snapshot.url} alt="" className="landmarks__selection-card-thumb w-full rounded-md" />
+        <img src={snapshot.url} alt="" className="landmarks__selection-card-thumb w-full" />
       ) : null}
       <div className="flex flex-col gap-0.5">
         <p className="m-0 truncate text-xs font-medium text-foreground" title={sel.id}>
@@ -146,10 +146,10 @@ export function SelectionCard({
                 <span className="w-16 shrink-0 truncate" title={s.label}>
                   {s.label}
                 </span>
-                <span className="landmarks__selection-card-track relative h-1.5 min-w-0 flex-1 overflow-hidden rounded-full">
+                <span className="landmarks__selection-card-track relative h-1.5 min-w-0 flex-1 overflow-hidden">
                   <span
                     data-testid="selection-card-bar"
-                    className="block h-full rounded-full"
+                    className="block h-full"
                     style={{ width: `${pct}%`, background: s.fill }}
                   />
                 </span>

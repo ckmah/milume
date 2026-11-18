@@ -220,13 +220,13 @@ export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
             ref={anchor}
             className={cn(
               MUTED_CONTROL,
-              "min-w-0 w-full flex-wrap rounded-md px-1.5 py-1",
+              "min-w-0 w-full flex-wrap px-1.5 py-1",
               selected.length > 0 && "pr-8",
             )}
           >
             <ComboboxValue>
               {selected.map((name, i) => (
-                <ComboboxChip key={name} className={cn(CHIP_CLASS, "max-w-full gap-1 truncate rounded-md text-[11px]")}>
+                <ComboboxChip key={name} className={cn(CHIP_CLASS, "max-w-full gap-1 truncate text-[11px]")}>
                   <ColorSwatch color={geneSwatch(i, selected.length)} />
                   {name}
                 </ComboboxChip>

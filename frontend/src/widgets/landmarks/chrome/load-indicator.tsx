@@ -52,10 +52,10 @@ export function ChromeLoadIndicator({
         </p>
         {loading ? (
           <div
-            className="landmarks__progress h-1 w-full overflow-hidden rounded-full bg-muted"
+            className="landmarks__progress h-1 w-full overflow-hidden bg-muted"
             aria-hidden
           >
-            <div className="landmarks__progress-bar h-full w-2/5 rounded-full bg-foreground/35" />
+            <div className="landmarks__progress-bar h-full w-2/5 bg-foreground/35" />
           </div>
         ) : null}
       </div>

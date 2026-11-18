@@ -304,7 +304,7 @@ export function MinimapPanel({
     <div ref={frameRef} className="w-full">
       <canvas
         ref={canvasRef}
-        className="w-full cursor-grab active:cursor-grabbing rounded-[var(--lm-float-radius)]"
+        className="w-full cursor-grab active:cursor-grabbing"
         style={{ aspectRatio: `${MINIMAP_ASPECT} / 1` }}
         data-testid="landmarks-minimap"
         onPointerDown={onPointerDown}

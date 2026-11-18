@@ -11,16 +11,19 @@
 
 .milume-widget,
 [data-milume-portal] {
-  --tact-ink: #f2f2f2;
-  --tact-muted: #d0d0d0;
-  --tact-tone: rgba(242, 242, 242, 0.16);
+  /* Light is the unmarked mode. #d6d6d6 at 90% composites to rgb(218,218,218)
+     on white, edge 1.40:1. #f2f2f2 at 90% composites to 243 and the edge
+     falls to 1.11:1, which disappears on a white page. */
+  --tact-ink: #1a1a1a;
+  --tact-muted: #3a3a3a;
+  --tact-tone: rgba(26, 26, 26, 0.1);
   --tact-accent: #3d7dff;
-  --tact-track: rgba(242, 242, 242, 0.28);
-  --tact-rule: rgba(242, 242, 242, 0.78);
-  /* One opaque surface. #3a3a3a is the plot border, light enough to read
-     against #111 and #1e1e1e, dark enough that #d0d0d0 stays above 7:1. */
-  --tact-surface: #3a3a3a;
+  --tact-track: rgba(26, 26, 26, 0.28);
+  --tact-range: rgba(26, 26, 26, 0.62);
+  --tact-rule: rgba(26, 26, 26, 0.78);
+  --tact-surface: rgb(214 214 214 / 90%);
   --tact-veil: var(--tact-surface);
+  --tact-blur: blur(10px);
   --tact-mono: "IBM Plex Mono", ui-monospace, monospace;
   --foreground: var(--tact-ink);
   --muted-foreground: var(--tact-muted);
@@ -28,7 +31,7 @@
   --popover: var(--tact-surface);
   --popover-foreground: var(--tact-ink);
   --primary: var(--tact-ink);
-  --primary-foreground: #141414;
+  --primary-foreground: #f2f2f2;
   --accent: var(--tact-tone);
   --accent-foreground: var(--tact-ink);
   --border: transparent;
@@ -36,7 +39,7 @@
   --lm-text: var(--tact-ink);
   --lm-text-muted: var(--tact-muted);
   --lm-float-bg: var(--tact-surface);
-  --lm-float-blur: none;
+  --lm-float-blur: var(--tact-blur);
   --lm-float-radius: 0px;
   --lm-float-shadow: none;
   --lm-dock-width: 17rem;
@@ -51,27 +54,31 @@
   --lm-layer-active-bg: var(--tact-tone);
   --lm-layer-active-hover-bg: var(--tact-tone);
   color: var(--tact-ink);
-  color-scheme: dark;
+  color-scheme: light;
 }
 
-/* The dark theme sets these on `.milume-widget.dark` (two classes).
-   That wins over the block above and puts shortcuts back on #999. */
+/* Dark notebook. Same names as the light block, so components do not branch. */
 .milume-widget.dark,
-.milume-widget.light,
+.milume-widget.landmarks--dark,
 .dark .milume-widget,
-.light .milume-widget,
+.dark-theme .milume-widget,
+[data-theme="dark"] .milume-widget,
+[data-mode="dark"] .milume-widget,
+[data-milume-portal].dark,
+[data-milume-portal].landmarks--dark,
 .dark [data-milume-portal],
-.light [data-milume-portal] {
-  --foreground: var(--tact-ink);
-  --muted-foreground: var(--tact-muted);
-  --card-foreground: var(--tact-ink);
-  --popover: var(--tact-surface);
-  --popover-foreground: var(--tact-ink);
-  --primary: var(--tact-ink);
+.dark-theme [data-milume-portal],
+[data-theme="dark"] [data-milume-portal],
+[data-mode="dark"] [data-milume-portal] {
+  --tact-ink: #f2f2f2;
+  --tact-muted: #d0d0d0;
+  --tact-tone: rgba(242, 242, 242, 0.16);
+  --tact-track: rgba(242, 242, 242, 0.28);
+  --tact-range: rgba(242, 242, 242, 0.62);
+  --tact-rule: rgba(242, 242, 242, 0.78);
+  --tact-surface: rgb(58 58 58 / 90%);
   --primary-foreground: #141414;
-  --accent: var(--tact-tone);
-  --accent-foreground: var(--tact-ink);
-  --ring: var(--tact-ink);
+  color-scheme: dark;
 }
 
 .tact-label,
@@ -125,23 +132,30 @@
     100% 100%, 100% 100% !important;
   background-repeat: no-repeat !important;
   box-shadow: none !important;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
+  -webkit-backdrop-filter: var(--tact-blur);
+  backdrop-filter: var(--tact-blur);
   color: var(--tact-ink);
 }
 
 .tact-tooltip,
 .milume-widget .landmarks-tooltip,
-[data-milume-portal] .landmarks-tooltip {
+[data-milume-portal] .landmarks-tooltip,
+.milume-widget .landmarks-menu,
+[data-milume-portal] .landmarks-menu {
   border-radius: 0 !important;
   background: var(--tact-surface) !important;
   color: var(--tact-ink) !important;
   box-shadow: none !important;
   border-color: transparent !important;
+  -webkit-backdrop-filter: var(--tact-blur) !important;
+  backdrop-filter: var(--tact-blur) !important;
+}
+
+.tact-tooltip,
+.milume-widget .landmarks-tooltip,
+[data-milume-portal] .landmarks-tooltip {
   padding: 4px 8px;
   font-size: 11px;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
 }
 
 .landmarks-tooltip-arrow,
@@ -181,8 +195,8 @@
 }
 
 .tact-hotkey {
-  border: 1px solid #c8c8c8;
-  background: #141414;
+  border: 1px solid var(--tact-rule);
+  background: var(--tact-tone);
   color: var(--tact-ink);
   padding: 2px 4px;
   font-size: 10px;
@@ -271,6 +285,8 @@
 .milume-widget .landmarks-panel-collapse-caret {
   background-color: var(--tact-surface) !important;
   color: var(--tact-muted) !important;
+  -webkit-backdrop-filter: var(--tact-blur);
+  backdrop-filter: var(--tact-blur);
 }
 
 .milume-widget .landmarks__peek-tab:hover,
@@ -328,7 +344,7 @@
 
 .tact-button[data-size="icon-xs"]:not(.landmarks-trail-hit),
 .tact-button[data-size="xs"]:not(.landmarks-trail-hit) {
-  border-radius: 2px !important;
+  border-radius: 0 !important;
 }
 
 .tact-switch {
@@ -361,7 +377,7 @@
   left: 0;
   width: 50%;
   height: auto;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--tact-tone);
   pointer-events: none;
 }
@@ -413,7 +429,7 @@
 
 .landmarks-sliding-tabs__pill {
   background: var(--tact-tone) !important;
-  border-radius: 2px !important;
+  border-radius: 0 !important;
 }
 
 .tact-slider {
@@ -444,7 +460,7 @@
 .tact-slider-range {
   position: absolute;
   height: 100%;
-  background: rgba(242, 242, 242, 0.62);
+  background: var(--tact-range);
 }
 
 .tact-slider-thumb {
@@ -472,9 +488,9 @@
 .milume-widget [data-slot="textarea"],
 [data-milume-portal] [data-slot="input"],
 [data-milume-portal] [data-slot="textarea"] {
-  border-radius: 2px;
-  border: 1px solid rgba(242, 242, 242, 0.28);
-  background: rgba(242, 242, 242, 0.06);
+  border-radius: 0;
+  border: 1px solid var(--tact-track);
+  background: var(--tact-tone);
   color: var(--tact-ink);
   font-family: var(--tact-mono);
   font-size: 12px;
@@ -507,7 +523,7 @@
 }
 
 .landmarks {
-  scrollbar-color: rgba(242, 242, 242, 0.35) transparent;
+  scrollbar-color: var(--tact-track) transparent;
 }
 
 .landmarks-image-channel-row__name,
@@ -530,7 +546,7 @@
 .milume-widget [data-slot="input"] {
   height: 28px;
   border: 0;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--tact-tone);
   color: var(--tact-ink);
   font-size: 12px;
@@ -625,6 +641,21 @@
   box-shadow: inset 3px 0 0 var(--tact-accent);
 }
 
+.milume-widget .landmarks-chip,
+.milume-widget .landmarks-layer-swatch,
+.milume-widget .landmarks-layer-thumb,
+.milume-widget .landmarks-subcat-avatar,
+.milume-widget .landmarks-channel-color-dot,
+.milume-widget .landmarks-menu,
+.milume-widget [data-slot="combobox-chip"],
+.milume-widget [data-slot="combobox-chips"],
+[data-milume-portal] .landmarks-chip,
+[data-milume-portal] .landmarks-layer-swatch,
+[data-milume-portal] .landmarks-menu,
+[data-milume-portal] [data-slot="combobox-chip"] {
+  border-radius: 0 !important;
+}
+
 .landmarks-channel-color-swatch,
 .landmarks-channel-color-dot .landmarks-layer-swatch,
 .landmarks-channel-color-header-swatch {
@@ -715,6 +746,8 @@
   background-color: var(--tact-veil);
   color: var(--tact-ink);
   box-shadow: none;
+  -webkit-backdrop-filter: var(--tact-blur);
+  backdrop-filter: var(--tact-blur);
 }
 
 .landmarks-load-card[data-phase="error"] {
@@ -724,7 +757,7 @@
 .landmarks-load-card[data-phase="loading"] .landmarks__progress {
   height: 2px;
   border-radius: 0;
-  background: rgba(242, 242, 242, 0.28);
+  background: var(--tact-track);
 }
 
 .landmarks-load-card[data-phase="loading"] .landmarks__progress-bar {

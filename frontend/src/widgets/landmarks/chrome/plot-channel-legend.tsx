@@ -55,7 +55,7 @@ function VerticalChannelBar({ colors }: { colors: string[] }) {
 
   return (
     <div
-      className="h-10 w-2.5 rounded-full"
+      className="h-10 w-2.5"
       style={{ background: gradient }}
       role="img"
       aria-label="Expression scale"
