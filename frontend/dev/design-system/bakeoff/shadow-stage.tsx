@@ -57,7 +57,7 @@ function WidgetTree({
 }: {
   theme: "light" | "dark";
   styleId?: string;
-  frame?: "full" | "close";
+  frame?: "full" | "close" | "sliders";
   backdrop?: "solid" | "translucent" | "blur";
   veil?: "60" | "75" | "88";
   mark?: "a" | "b";
@@ -82,7 +82,7 @@ function WidgetTree({
       data-mark={mark}
       className={cn("milume-widget landmarks relative", theme === "dark" && "dark")}
       style={{
-        width: game ? (frame === "close" ? 780 : 1000) : "22rem",
+        width: game ? (frame === "close" ? 780 : frame === "sliders" ? 560 : 1000) : "22rem",
         marginLeft: game ? 0 : 16,
         marginBottom: game ? 12 : 80,
         background: "var(--background)",
@@ -103,14 +103,16 @@ export function ShadowStage({
   backdrop,
   veil,
   mark,
+  slider,
   children,
 }: {
   theme: "light" | "dark";
   styleId?: string;
-  frame?: "full" | "close";
+  frame?: "full" | "close" | "sliders";
   backdrop?: "solid" | "translucent" | "blur";
   veil?: "60" | "75" | "88";
   mark?: "a" | "b";
+  slider?: "a" | "b" | "c";
   children: ReactNode;
 }) {
   const { hostRef, mount } = useShadowMount();
@@ -118,7 +120,14 @@ export function ShadowStage({
     <div ref={hostRef} className="bakeoff-stage-host" data-bakeoff-host data-frame={frame}>
       {mount
         ? createPortal(
-            <WidgetTree theme={theme} styleId={styleId} frame={frame} backdrop={backdrop} veil={veil} mark={mark}>
+            <WidgetTree
+              theme={theme}
+              styleId={styleId}
+              frame={frame}
+              backdrop={backdrop}
+              veil={veil}
+              mark={mark}
+            >
               {children}
             </WidgetTree>,
             mount,

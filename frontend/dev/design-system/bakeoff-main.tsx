@@ -27,7 +27,8 @@ type Mark = "a" | "b";
 type BakeoffQuery = {
   style: PresetStyle | GameSkin;
   theme: "light" | "dark";
-  shot: "full" | "close";
+  shot: "full" | "close" | "sliders";
+  slider: "a" | "b" | "c";
   backdrop: Backdrop | null;
   veil: Veil | null;
   mark: Mark | null;
@@ -40,7 +41,10 @@ function parseBakeoffQuery(search: string): BakeoffQuery {
   const style: PresetStyle | GameSkin =
     rawStyle in KITS || isGameSkin(rawStyle) ? rawStyle : "base-nova";
   const theme = params.get("theme") === "light" ? "light" : "dark";
-  const shot = params.get("shot") === "close" ? "close" : "full";
+  const rawShot = params.get("shot");
+  const shot = rawShot === "close" || rawShot === "sliders" ? rawShot : "full";
+  const rawSlider = params.get("slider");
+  const slider = rawSlider === "b" || rawSlider === "c" ? rawSlider : "a";
   const rawBackdrop = params.get("backdrop");
   const backdrop: Backdrop | null =
     rawBackdrop === "solid" || rawBackdrop === "translucent" || rawBackdrop === "blur" ? rawBackdrop : null;
@@ -49,7 +53,7 @@ function parseBakeoffQuery(search: string): BakeoffQuery {
   const rawMark = params.get("mark");
   const mark: Mark | null = rawMark === "a" || rawMark === "b" ? rawMark : null;
   const page = params.get("page") === "notebook" ? "notebook" : null;
-  return { style, theme, shot, backdrop, veil, mark, page };
+  return { style, theme, shot, slider, backdrop, veil, mark, page };
 }
 
 const query = parseBakeoffQuery(window.location.search);
@@ -78,6 +82,7 @@ function Page() {
         theme={query.theme}
         styleId={query.style}
         frame={game ? query.shot : undefined}
+        slider={query.slider}
         backdrop={query.backdrop ?? undefined}
         veil={query.veil ?? undefined}
         mark={query.mark ?? undefined}
@@ -87,6 +92,7 @@ function Page() {
             kit={nova as never}
             skin={query.style}
             frame={query.shot}
+            slider={query.slider}
             backdrop={query.backdrop ?? undefined}
           />
         ) : (

@@ -23,7 +23,7 @@ fs.mkdirSync(stills, { recursive: true });
 
 const browser = await chromium.launch();
 
-if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5") for (const theme of themes) {
+if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5" && only !== "tact-v6") for (const theme of themes) {
   const page = await browser.newPage({
     viewport: { width: 1100, height: 900 },
     deviceScaleFactor: 2,
@@ -52,7 +52,7 @@ if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tac
   console.log(`shipped-${theme} ${bg}`);
 }
 
-if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5") for (const style of styles) {
+if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5" && only !== "tact-v6") for (const style of styles) {
   for (const theme of themes) {
     const page = await browser.newPage({
       viewport: { width: 1100, height: 900 },
@@ -179,7 +179,33 @@ if (only === "tact-v5") {
   console.log("game-tact-v5-A-75-close");
 }
 
-if (only !== "presets" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5") {
+if (only === "tact-v6") {
+  const board = await browser.newPage({
+    viewport: { width: 900, height: 1400 },
+    deviceScaleFactor: 2,
+  });
+  await shootTact(
+    board,
+    `${base}/bakeoff.html?style=game-tact&theme=dark&shot=sliders&backdrop=blur&veil=75&mark=a`,
+    path.join(stills, "game-tact-v6-sliders.png"),
+  );
+  await board.close();
+  console.log("game-tact-v6-sliders");
+  const picked = process.env.BAKEOFF_SLIDER ?? "a";
+  const full = await browser.newPage({
+    viewport: { width: 1280, height: 1600 },
+    deviceScaleFactor: 2,
+  });
+  await shootTact(
+    full,
+    `${base}/bakeoff.html?style=game-tact&theme=dark&shot=full&backdrop=blur&veil=75&mark=a&slider=${picked}`,
+    path.join(stills, "game-tact-v6-A-75.png"),
+  );
+  await full.close();
+  console.log("game-tact-v6-A-75");
+}
+
+if (only !== "presets" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5" && only !== "tact-v6") {
   for (const style of GAME_SKINS) {
     for (const theme of themes) {
       for (const shot of ["full", "close"]) {

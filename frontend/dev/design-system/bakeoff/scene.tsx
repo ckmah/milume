@@ -317,9 +317,17 @@ function DataField() {
   );
 }
 
-function NotchFrame({ children, className }: { children: ReactNode; className?: string }) {
+function NotchFrame({
+  children,
+  className,
+  slider,
+}: {
+  children: ReactNode;
+  className?: string;
+  slider?: "a" | "b" | "c";
+}) {
   return (
-    <section className={className ? `g-frame ${className}` : "g-frame"}>
+    <section className={className ? `g-frame ${className}` : "g-frame"} data-slider={slider}>
       <span className="g-notch g-notch--nw" aria-hidden="true" />
       <span className="g-notch g-notch--ne" aria-hidden="true" />
       <span className="g-notch g-notch--sw" aria-hidden="true" />
@@ -333,11 +341,13 @@ export function ChromeScene({
   kit,
   skin,
   frame,
+  slider = "a",
   backdrop,
 }: {
   kit: Kit;
   skin: GameSkin;
-  frame: "full" | "close";
+  frame: "full" | "close" | "sliders";
+  slider?: "a" | "b" | "c";
   backdrop?: "solid" | "translucent" | "blur";
 }) {
   const {
@@ -371,7 +381,12 @@ export function ChromeScene({
     CHROME_FIXTURE.preset,
   );
   const [mode, setMode] = useState<(typeof CHROME_FIXTURE.imageMode) | "mip">(CHROME_FIXTURE.imageMode);
-  const parts = frame === "close" ? (["popover", "tooltip"] as const) : (["menu", "popover", "tooltip"] as const);
+  const parts =
+    frame === "sliders"
+      ? (["sliders"] as const)
+      : frame === "close"
+        ? (["popover", "tooltip"] as const)
+        : (["menu", "popover", "tooltip"] as const);
   const fx = CHROME_FIXTURE;
   const imageHeader = "Image · DAPI";
 
@@ -384,9 +399,47 @@ export function ChromeScene({
     return () => window.clearTimeout(id);
   }, [skin, frame]);
 
+  if (frame === "sliders") {
+    const samples = [
+      ["a", "A  bar"],
+      ["b", "B  fill"],
+      ["c", "C  notch"],
+    ] as const;
+    return (
+      <div className="g-chrome g-slider-board" data-bakeoff-scene="sliders">
+        {skin === "game-tact" && backdrop ? <DataField /> : null}
+        {samples.map(([id, label]) => (
+          <NotchFrame key={id} className="g-slider-sample" slider={id}>
+            <p className="g-subhead">{label}</p>
+            <SliderRow
+              kit={kit}
+              label="Size"
+              min={fx.pointSizeMin}
+              max={fx.pointSizeMax}
+              step={fx.pointSizeStep}
+              value={fx.pointSize}
+            />
+            <SliderRow
+              kit={kit}
+              label="Contrast"
+              min={0}
+              max={255}
+              step={1}
+              value={fx.contrast}
+            />
+          </NotchFrame>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <TipProvider delay={0}>
-      <div className={frame === "close" ? "g-chrome g-chrome--close" : "g-chrome"} data-bakeoff-scene={frame}>
+      <div
+        className={frame === "close" ? "g-chrome g-chrome--close" : "g-chrome"}
+        data-bakeoff-scene={frame}
+        data-slider={slider}
+      >
         {skin === "game-tact" && backdrop ? <DataField /> : null}
         <NotchFrame className="g-toolbar-frame">
           <div className="g-toolbar" role="toolbar" aria-label="Drawing tools" data-bakeoff-toolbar="">
