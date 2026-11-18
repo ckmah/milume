@@ -1,13 +1,14 @@
-as_of: Tue Nov 17, 5:00 PM PT
+as_of: Tue Nov 17, 9:28 PM PT
 needs_you: 0
   (none)
 open_prs: 2
 last_nightly: 2026-11-17 cancelled
 stale_prs:
-  #415 morans-i-409 (no push >8d)
+  #462 cursor/tactical-widget-states-2c86 (failing CI)
+  #415 morans-i-409 (no push >9d)
 red_nightlies: 2026-11-06, 2026-11-07, 2026-11-09, 2026-11-10, 2026-11-11, 2026-11-14, 2026-11-17
 last_red_nightly: 2026-11-17
 ci_failure_issues: none
 html: dashboard.html
 status: PUBLISH
-hash: a2c5f643c3dd
+hash: 67cf79690a79
