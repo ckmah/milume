@@ -23,7 +23,7 @@ fs.mkdirSync(stills, { recursive: true });
 
 const browser = await chromium.launch();
 
-if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4") for (const theme of themes) {
+if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5") for (const theme of themes) {
   const page = await browser.newPage({
     viewport: { width: 1100, height: 900 },
     deviceScaleFactor: 2,
@@ -52,7 +52,7 @@ if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tac
   console.log(`shipped-${theme} ${bg}`);
 }
 
-if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4") for (const style of styles) {
+if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5") for (const style of styles) {
   for (const theme of themes) {
     const page = await browser.newPage({
       viewport: { width: 1100, height: 900 },
@@ -121,12 +121,14 @@ if (only === "tact-v3") {
   }
 }
 
-async function shootTact(page, url, file) {
+async function shootTact(page, url, file, { hoverThumb = false } = {}) {
   await page.goto(url, { waitUntil: "networkidle" });
   await page.waitForSelector("[data-bakeoff-ready='true']", { timeout: 30000 });
   await page.waitForSelector("html[data-bakeoff-settled='true']", { timeout: 8000 });
-  const thumb = page.locator("[data-slot=slider-thumb]").first();
-  if (await thumb.count()) await thumb.hover();
+  if (hoverThumb) {
+    const thumb = page.locator(".g-close-slider [data-slot=slider-thumb]").first();
+    if (await thumb.count()) await thumb.hover();
+  }
   await page.locator(".bakeoff-page").screenshot({ path: file });
 }
 
@@ -157,7 +159,27 @@ if (only === "tact-v4") {
   }
 }
 
-if (only !== "presets" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4") {
+if (only === "tact-v5") {
+  const baseQuery = `${base}/bakeoff.html?style=game-tact&theme=dark&backdrop=blur&veil=75&mark=a`;
+  const full = await browser.newPage({
+    viewport: { width: 1280, height: 1600 },
+    deviceScaleFactor: 2,
+  });
+  await shootTact(full, `${baseQuery}&shot=full`, path.join(stills, "game-tact-v5-A-75.png"));
+  await full.close();
+  console.log("game-tact-v5-A-75");
+  const close = await browser.newPage({
+    viewport: { width: 980, height: 760 },
+    deviceScaleFactor: 2,
+  });
+  await shootTact(close, `${baseQuery}&shot=close`, path.join(stills, "game-tact-v5-A-75-close.png"), {
+    hoverThumb: true,
+  });
+  await close.close();
+  console.log("game-tact-v5-A-75-close");
+}
+
+if (only !== "presets" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5") {
   for (const style of GAME_SKINS) {
     for (const theme of themes) {
       for (const shot of ["full", "close"]) {

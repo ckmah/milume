@@ -433,9 +433,8 @@ export function ChromeScene({
                 return (
                   <Tip key={tool.id} open>
                     <TipTrigger render={button as never} />
-                    <TipContent side={skin === "game-tact" ? "bottom" : "top"} sideOffset={skin === "game-tact" ? 10 : 8}>
+                    <TipContent side={skin === "game-tact" ? "bottom" : "top"} sideOffset={8}>
                       <Springy skin={skin} part="tooltip" parts={parts} className="g-tip">
-                        {skin === "game-tact" ? <span className="g-leader" aria-hidden="true" /> : null}
                         Zoom in
                         <span data-slot="kbd" className="g-hotkey">
                           =
@@ -449,6 +448,20 @@ export function ChromeScene({
             })}
           </div>
         </NotchFrame>
+
+        {frame === "close" && skin === "game-tact" ? (
+          <div className="g-close-slider">
+            <SliderRow
+              kit={kit}
+              label="Size"
+              min={fx.pointSizeMin}
+              max={fx.pointSizeMax}
+              step={fx.pointSizeStep}
+              value={fx.pointSize}
+              accent={fx.categories[0]!.color}
+            />
+          </div>
+        ) : null}
 
         {frame === "full" ? (
           <div className="g-body">
@@ -650,6 +663,7 @@ export function ChromeScene({
                 step={0.05}
                 value={0}
                 text="1.00"
+                accent={fx.channels[0]!.color}
               />
               <p className="g-subhead">Labels</p>
               <SliderRow

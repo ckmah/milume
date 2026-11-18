@@ -861,8 +861,7 @@
 }
 
 .milume-widget[data-style="game-tact"] .g-cat,
-.milume-widget[data-style="game-tact"] .g-hotkey,
-.milume-widget[data-style="game-tact"] .g-more {
+.milume-widget[data-style="game-tact"] .g-hotkey {
   border: 1px solid #c8c8c8;
   background: #141414;
   color: var(--g-ink);
@@ -881,7 +880,16 @@
   min-width: 28px;
   height: 22px !important;
   padding: 0 6px !important;
+  border: 0 !important;
   border-radius: 2px !important;
+  background: #b4b4b4 !important;
+  color: #1c1c1c !important;
+}
+
+.milume-widget[data-style="game-tact"] .g-close-slider {
+  width: 280px;
+  margin-top: 36px;
+  margin-left: auto;
 }
 
 .milume-widget[data-style="game-tact"] .g-slider-meta,
@@ -1137,26 +1145,6 @@
 
 .milume-widget[data-style="game-tact"] .g-tip {
   position: relative;
-}
-
-.milume-widget[data-style="game-tact"] .g-leader {
-  position: absolute;
-  top: -9px;
-  left: 50%;
-  width: 1px;
-  height: 9px;
-  background: var(--g-select);
-}
-
-.milume-widget[data-style="game-tact"] .g-leader::before {
-  content: "";
-  position: absolute;
-  top: -4px;
-  left: -3px;
-  width: 7px;
-  height: 4px;
-  border-top: 1px solid var(--g-select);
-  border-left: 1px solid var(--g-select);
 }
 
 .milume-widget[data-style="game-tact"][data-backdrop]:not([data-milume-portal]) {
