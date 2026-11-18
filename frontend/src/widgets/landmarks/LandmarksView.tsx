@@ -34,6 +34,7 @@ import {
 } from "./chrome";
 import type { ChipSnapshot } from "./chrome/cube-snapshots";
 import { FLOAT_PANEL } from "./chrome/sections";
+import { ToolbarMarks } from "./chrome/toolbar-mark";
 import { WidgetPortalContext } from "./chrome/widget-portal-context";
 import { cubeCellColoring } from "./cube-highlight";
 import { INSPECT_WINDOW_UM, mountEngine, type EngineHandle } from "./engine";
@@ -710,6 +711,7 @@ export function LandmarksView({
           </>
         )}
         <LandmarkCanvasMenu lm={lm} engine={engine} rootEl={rootEl} />
+        <ToolbarMarks root={rootEl} />
       </div>
     </div>
     </WidgetPortalContext.Provider>

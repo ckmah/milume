@@ -2,6 +2,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { ToolbarMarks } from "@/widgets/landmarks/chrome/toolbar-mark";
 import { WidgetPortalContext } from "@/widgets/landmarks/chrome/widget-portal-context";
 
 export type HarnessTheme = "light" | "dark";
@@ -44,6 +45,7 @@ export function WidgetStage({
           style={{ background: "var(--background)" }}
         >
           <TooltipProvider delayDuration={0}>{children}</TooltipProvider>
+          <ToolbarMarks root={portal} />
         </div>
       </WidgetPortalContext.Provider>
     </div>

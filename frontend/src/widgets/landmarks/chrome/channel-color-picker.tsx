@@ -146,7 +146,7 @@ export function ChannelColorPicker({
       >
         <div className="flex items-center gap-2">
           <span
-            className="landmarks-layer-swatch shrink-0 rounded-full"
+            className="landmarks-channel-color-header-swatch shrink-0"
             style={{ backgroundColor: color }}
             aria-hidden
           />

@@ -17,12 +17,15 @@
   --tact-accent: #3d7dff;
   --tact-track: rgba(242, 242, 242, 0.28);
   --tact-rule: rgba(242, 242, 242, 0.78);
-  --tact-veil: color-mix(in srgb, #141414 75%, transparent);
+  /* One opaque surface. #3a3a3a is the plot border, light enough to read
+     against #111 and #1e1e1e, dark enough that #d0d0d0 stays above 7:1. */
+  --tact-surface: #3a3a3a;
+  --tact-veil: var(--tact-surface);
   --tact-mono: "IBM Plex Mono", ui-monospace, monospace;
   --foreground: var(--tact-ink);
   --muted-foreground: var(--tact-muted);
   --card-foreground: var(--tact-ink);
-  --popover: var(--tact-veil);
+  --popover: var(--tact-surface);
   --popover-foreground: var(--tact-ink);
   --primary: var(--tact-ink);
   --primary-foreground: #141414;
@@ -32,11 +35,15 @@
   --ring: var(--tact-ink);
   --lm-text: var(--tact-ink);
   --lm-text-muted: var(--tact-muted);
-  --lm-float-bg: var(--tact-veil);
-  --lm-float-blur: blur(10px);
+  --lm-float-bg: var(--tact-surface);
+  --lm-float-blur: none;
   --lm-float-radius: 0px;
   --lm-float-shadow: none;
-  --lm-dock-width: 22rem;
+  --lm-dock-width: 17rem;
+  --lm-hit-radius: 0px;
+  --lm-panel-pad: 10px;
+  --lm-lead: 28px;
+  --lm-panel-nest: calc(var(--lm-lead) + 8px);
   --lm-hit-on-bg: transparent;
   --lm-hit-on-fg: var(--tact-ink);
   --lm-layer-radius: 0px;
@@ -58,7 +65,7 @@
   --foreground: var(--tact-ink);
   --muted-foreground: var(--tact-muted);
   --card-foreground: var(--tact-ink);
-  --popover: var(--tact-veil);
+  --popover: var(--tact-surface);
   --popover-foreground: var(--tact-ink);
   --primary: var(--tact-ink);
   --primary-foreground: #141414;
@@ -118,20 +125,23 @@
     100% 100%, 100% 100% !important;
   background-repeat: no-repeat !important;
   box-shadow: none !important;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   color: var(--tact-ink);
 }
 
-.tact-tooltip {
-  border-radius: 0;
-  background: var(--tact-veil);
-  color: var(--tact-ink);
-  box-shadow: none;
+.tact-tooltip,
+.milume-widget .landmarks-tooltip,
+[data-milume-portal] .landmarks-tooltip {
+  border-radius: 0 !important;
+  background: var(--tact-surface) !important;
+  color: var(--tact-ink) !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
   padding: 4px 8px;
   font-size: 11px;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 
 .landmarks-tooltip-arrow,
@@ -188,6 +198,87 @@
   background: transparent !important;
   color: var(--tact-ink) !important;
   box-shadow: inset 3px 0 0 var(--tact-accent) !important;
+}
+
+.milume-widget .landmarks-toolbar .landmarks-hit,
+.milume-widget .landmarks-toolbar .landmarks-hit:hover,
+.milume-widget .landmarks-toolbar .landmarks-hit:active,
+.milume-widget .landmarks-toolbar .landmarks-hit[aria-pressed="true"],
+.milume-widget .landmarks-toolbar .landmarks-hit[data-state="on"],
+.milume-widget .landmarks-toolbar .landmarks-hit[data-pressed],
+.milume-widget .landmarks-toolbar .landmarks-hit.landmarks-hit--on,
+.milume-widget .landmarks-toolbar .tact-toggle {
+  border-radius: 0 !important;
+}
+
+.milume-widget .landmarks-toolbar .landmarks-hit:hover {
+  background: var(--tact-tone) !important;
+  color: var(--tact-ink) !important;
+}
+
+.milume-widget .landmarks-toolbar .landmarks-hit[aria-pressed="true"],
+.milume-widget .landmarks-toolbar .landmarks-hit[data-state="on"],
+.milume-widget .landmarks-toolbar .landmarks-hit[data-pressed],
+.milume-widget .landmarks-toolbar .landmarks-hit.landmarks-hit--on,
+.milume-widget .landmarks-toolbar .tact-toggle[aria-pressed="true"],
+.milume-widget .landmarks-toolbar .tact-toggle[data-pressed] {
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--tact-ink) !important;
+  box-shadow: none !important;
+}
+
+.milume-widget .landmarks-toolbar .landmarks-hit[aria-pressed="true"]:hover,
+.milume-widget .landmarks-toolbar .landmarks-hit[data-state="on"]:hover,
+.milume-widget .landmarks-toolbar .landmarks-hit.landmarks-hit--on:hover {
+  background: var(--tact-tone) !important;
+  box-shadow: none !important;
+}
+
+.milume-widget .landmarks-toolbar {
+  position: relative;
+}
+
+.tact-toolbar-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.tact-toolbar-mark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 14px;
+  height: 2px;
+  background: var(--tact-ink);
+  border-radius: 0;
+}
+
+.milume-widget .landmarks__peek-tab,
+.milume-widget .landmarks-panel-collapse-caret,
+.milume-widget .landmarks__peek-tab:hover,
+.milume-widget .landmarks-panel-collapse-caret:hover,
+.milume-widget .landmarks__peek-tab:active,
+.milume-widget .landmarks-panel-collapse-caret:active {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+.milume-widget .landmarks__peek-tab,
+.milume-widget .landmarks-panel-collapse-caret {
+  background-color: var(--tact-surface) !important;
+  color: var(--tact-muted) !important;
+}
+
+.milume-widget .landmarks__peek-tab:hover,
+.milume-widget .landmarks-panel-collapse-caret:hover,
+.milume-widget .landmarks__peek-tab:active,
+.milume-widget .landmarks-panel-collapse-caret:active {
+  background-color: var(--tact-tone) !important;
+  color: var(--tact-ink) !important;
 }
 
 .milume-widget .landmarks-layer-row,
@@ -535,11 +626,75 @@
 }
 
 .landmarks-channel-color-swatch,
-.landmarks-channel-color-dot .landmarks-layer-swatch {
+.landmarks-channel-color-dot .landmarks-layer-swatch,
+.landmarks-channel-color-header-swatch {
   width: 10px;
   height: 10px;
   min-width: 10px;
   border-radius: 0;
+}
+
+.landmarks-channel-color-header-swatch {
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  min-height: 14px;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-section-header {
+  padding-left: var(--lm-panel-pad) !important;
+  padding-right: var(--lm-panel-pad) !important;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-section-header__main {
+  grid-template-columns: var(--lm-lead) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-section-header__main:has(.landmarks-panel-section-header__pin) {
+  grid-template-columns: var(--lm-lead) auto minmax(0, 1fr);
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-section-header__icon {
+  justify-self: center;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-layer-row,
+.milume-widget .landmarks__layers-panel .landmarks-cat-trigger,
+.milume-widget .landmarks__layers-panel .landmarks-image-channel-row {
+  display: grid;
+  grid-template-columns: var(--lm-lead) minmax(0, 1fr) auto;
+  column-gap: 8px;
+  align-items: center;
+  padding-left: var(--lm-panel-pad) !important;
+  padding-right: var(--lm-panel-pad) !important;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-layer-row > :first-child,
+.milume-widget .landmarks__layers-panel .landmarks-image-channel-row > :first-child {
+  justify-self: center;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-section-header__trail,
+.milume-widget .landmarks__layers-panel .landmarks-trail {
+  justify-content: flex-end;
+  margin-left: 0;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-layers-stack__nested,
+.milume-widget .landmarks__layers-panel .landmarks-cat-sublist {
+  padding-left: var(--lm-panel-nest);
+  padding-right: 0;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-slider-stack {
+  padding: 0.125rem 0 !important;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-layers-stack__nested .landmarks-slider-row,
+.milume-widget .landmarks__layers-panel .landmarks-panel-section__body > [data-slot="field-description"] {
+  padding-left: var(--lm-panel-pad);
+  padding-right: var(--lm-panel-pad);
 }
 
 .landmarks-palette-ramp {
@@ -553,10 +708,6 @@
   font-family: var(--tact-mono);
   color: var(--tact-muted);
   font-size: 11px;
-}
-
-.milume-widget .landmarks-layers-stack__nested {
-  padding-left: 20px;
 }
 
 .landmarks-load-card {
@@ -585,9 +736,11 @@
   .milume-widget .tact-switch-glide,
   .milume-widget .landmarks-sliding-tabs__pill,
   .milume-widget .landmarks-cat-sublist,
+  .milume-widget .tact-toolbar-mark,
   [data-milume-portal] .tact-popup,
   [data-milume-portal] .tact-tooltip {
     transition: none !important;
     animation: none !important;
   }
 }
+
