@@ -36,9 +36,10 @@ export function ChromeLoadIndicator({
       )}
     >
       <div
+        data-phase={phase}
         className={cn(
           FLOAT_PANEL,
-          "flex max-w-[min(18rem,90%)] flex-col gap-2 px-4 py-3 text-center shadow-md",
+          "landmarks-load-card flex max-w-[min(18rem,90%)] flex-col gap-2 px-4 py-3 text-center",
         )}
       >
         <p

@@ -429,233 +429,156 @@
   line-height: 16px;
 }
 
-/* Signed-off v7 specimens. Same tokens as the chrome. */
-.tact-v7 {
-  display: grid;
-  gap: 16px;
-}
+/* Real widget controls. The design-system page mounts these same components. */
 
-.tact-v7-swatch {
-  display: block;
-  width: 8px;
-  height: 8px;
-  flex: none;
-}
-
-.tact-v7-frame {
-  display: grid;
-  gap: 12px;
-  min-width: 16rem;
-  padding: 14px 16px 16px;
-}
-
-.tact-v7-split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.tact-v7-color,
-.tact-v7-row,
-.tact-v7-palette,
-.tact-v7-layer,
-.tact-v7-group-trigger,
-.tact-v7-gene {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.tact-v7-swatches,
-.tact-v7-menu,
-.tact-v7-fields,
-.tact-v7-group-body {
-  display: grid;
-  gap: 8px;
-}
-
-.tact-v7-swatches {
-  grid-template-columns: 1fr 1fr;
-}
-
-.tact-v7-row,
-.tact-v7-palette,
-.tact-v7-key,
-.tact-v7-group-trigger {
-  position: relative;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--tact-ink);
+.milume-widget [data-slot="input"],
+.milume-widget .tact-readout {
   font-family: var(--tact-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-align: left;
-  text-transform: uppercase;
 }
 
-.tact-v7-on {
-  background: var(--tact-tone);
-}
-
-.tact-v7-on::before {
-  content: "";
-  position: absolute;
-  top: 3px;
-  bottom: 3px;
-  left: 0;
-  width: 3px;
-  background: var(--tact-accent);
-}
-
-.tact-v7-field {
-  display: grid;
-  gap: 4px;
-}
-
-.tact-v7-input,
-.tact-v7-key {
+.milume-widget [data-slot="input"] {
   height: 28px;
-  padding: 0 8px;
   border: 0;
   border-radius: 2px;
   background: var(--tact-tone);
   color: var(--tact-ink);
-  font-family: var(--tact-mono);
   font-size: 12px;
-  letter-spacing: 0;
-  text-transform: none;
+  box-shadow: none;
 }
 
-.tact-v7-input[aria-invalid="true"] {
+.milume-widget [data-slot="input"][aria-invalid="true"] {
   box-shadow: inset 0 0 0 1px var(--destructive);
 }
 
-.tact-v7-input:disabled {
+.milume-widget [data-slot="input"]:disabled {
   color: var(--tact-muted);
   opacity: 0.45;
 }
 
-.tact-v7-input[data-focus="true"],
-.tact-v7-key[data-focus="true"] {
+.milume-widget :focus-visible {
   outline: 1px solid var(--tact-ink);
   outline-offset: 3px;
 }
 
-.tact-v7-hit {
-  color: var(--tact-ink);
-  background: var(--tact-tone);
-}
-
-.tact-v7-gene {
-  display: block;
-  height: 22px;
-  line-height: 22px;
-  color: var(--tact-muted);
-  font-family: var(--tact-mono);
-  font-size: 12px;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.tact-v7-scroll {
-  height: 168px;
-}
-
-.tact-v7-scroll-view {
-  height: 168px;
-  overflow: auto;
+.milume-widget.landmarks,
+.milume-widget.landmarks * {
   scrollbar-color: var(--tact-ink) transparent;
 }
 
-.tact-v7-scrollbar {
-  display: flex;
-  justify-content: center;
+.milume-widget.landmarks ::-webkit-scrollbar {
   width: 10px;
-  padding: 2px;
-  background: rgba(242, 242, 242, 0.12);
+  height: 10px;
 }
 
-.tact-v7-scroll-thumb {
-  width: 4px;
+.milume-widget.landmarks ::-webkit-scrollbar-thumb {
   border-radius: 0;
   background: var(--tact-ink);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
-.tact-v7-ramp {
+.milume-widget [data-slot="combobox-content"],
+.milume-widget [data-slot="combobox-item"],
+.milume-widget [data-slot="combobox-empty"],
+.milume-widget [data-slot="field-description"],
+.milume-widget .landmarks-layer-label,
+.milume-widget .landmarks-image-channel-row__name,
+.landmarks-channel-color-picker {
+  font-family: var(--tact-mono);
+}
+
+.milume-widget [data-slot="combobox-item"] {
+  border-radius: 0;
+  color: var(--tact-muted);
+  font-size: 12px;
+  background: transparent;
+}
+
+.milume-widget [data-slot="combobox-item"][data-highlighted] {
+  color: var(--tact-ink);
+  background: transparent;
+  box-shadow: inset 3px 0 0 var(--tact-accent);
+}
+
+.milume-widget [data-slot="combobox-empty"],
+.milume-widget [data-slot="field-description"] {
+  color: var(--tact-muted);
+  font-size: 12px;
+}
+
+.tact-gene-hit {
+  background: var(--tact-tone);
+  color: var(--tact-ink);
+}
+
+.landmarks-channel-color-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.landmarks-channel-color-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 22px;
+  border-radius: 0;
+  color: var(--tact-muted);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+}
+
+.landmarks-channel-color-option[data-checked="true"] {
+  color: var(--tact-ink);
+  box-shadow: inset 3px 0 0 var(--tact-accent);
+}
+
+.landmarks-channel-color-swatch,
+.landmarks-channel-color-dot .landmarks-layer-swatch {
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
+  border-radius: 0;
+}
+
+.landmarks-palette-ramp {
   width: 72px;
   height: 8px;
+  border-radius: 0;
   background-size: 100% 100%;
 }
 
-.tact-v7-legend {
-  display: flex;
-  gap: 8px;
-  height: 96px;
-}
-
-.tact-v7-legend-scale {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  color: var(--tact-muted);
+.milume-widget [data-testid="num-heat-strip"] [data-legend-tick] {
   font-family: var(--tact-mono);
+  color: var(--tact-muted);
   font-size: 11px;
 }
 
-.tact-v7-legend-bar {
-  width: 10px;
-  background-size: 100% 100%;
-}
-
-.tact-v7-empty,
-.tact-v7-note,
-.tact-v7-label {
-  margin: 0;
-  color: var(--tact-muted);
-  font-family: var(--tact-mono);
-  font-size: 12px;
-}
-
-.tact-v7-error {
-  margin: 0;
-  color: var(--destructive);
-  font-family: var(--tact-mono);
-  font-size: 12px;
-}
-
-.tact-v7-loading {
-  height: 2px;
-  background: linear-gradient(90deg, var(--tact-ink) 35%, rgba(242, 242, 242, 0.28) 35%);
-}
-
-.tact-v7-group-trigger svg {
-  width: 12px;
-  height: 12px;
-}
-
-.tact-v7-group-body {
+.milume-widget .landmarks-layers-stack__nested {
   padding-left: 20px;
 }
 
-.tact-v7-drop {
-  height: 2px;
-  background: var(--tact-ink);
-}
-
-.tact-v7-ghost {
-  background: var(--tact-tone);
-  margin-left: 12px;
-}
-
-.tact-v7-toast-title {
-  margin: 0;
+.landmarks-load-card {
+  border-radius: 0;
+  background-color: var(--tact-veil);
   color: var(--tact-ink);
-  font-family: var(--tact-mono);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  box-shadow: none;
+}
+
+.landmarks-load-card[data-phase="error"] {
+  color: var(--destructive);
+}
+
+.landmarks-load-card[data-phase="loading"] .landmarks__progress {
+  height: 2px;
+  border-radius: 0;
+  background: rgba(242, 242, 242, 0.28);
+}
+
+.landmarks-load-card[data-phase="loading"] .landmarks__progress-bar {
+  border-radius: 0;
+  background: var(--tact-ink);
 }
 
 @media (prefers-reduced-motion: reduce) {
