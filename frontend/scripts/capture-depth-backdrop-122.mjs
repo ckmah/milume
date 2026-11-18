@@ -17,13 +17,6 @@ const ILEUM = "/e2e-galt-lasso-fixture.json";
 
 mkdirSync(outDir, { recursive: true });
 
-function withNoDialkit(pathQuery) {
-  if (!pathQuery || pathQuery === "/") return "/?noDialkit=1";
-  return pathQuery.includes("noDialkit=1")
-    ? pathQuery
-    : `${pathQuery}${pathQuery.includes("?") ? "&" : "?"}noDialkit=1`;
-}
-
 async function hideHarnessBanner(page) {
   await page.addStyleTag({
     content: `[data-testid="harness-banner"], .harness-banner { display: none !important; }`,
@@ -175,7 +168,7 @@ async function captureWidget(page, name) {
 }
 
 async function load(page, pathQuery = "/", requireBackdrop = true) {
-  await page.goto(`${base}${withNoDialkit(pathQuery)}`, { waitUntil: "networkidle" });
+  await page.goto(`${base}${pathQuery}`, { waitUntil: "networkidle" });
   await waitEngine(page, requireBackdrop);
 }
 

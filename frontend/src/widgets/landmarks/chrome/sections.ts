@@ -45,7 +45,7 @@ export const COMBO_INPUT =
   `h-7 w-full rounded-[var(--radius)] ${MUTED_CONTROL} [&_input]:h-7 [&_input]:min-h-0 [&_input]:text-[11px] [&_input]:md:text-[11px] [&_input]:placeholder:text-[11px]`;
 /**
  * Soft Float sliding pill Tabs — rounded track + sliding active pill
- * (transitions.dev tabs-sliding). Pair with SoftFloatSlidingTabs.
+ * (transitions.dev tabs-sliding). Pair with TactSlidingTabsList.
  */
 export const PILL_TABS_LIST =
   "landmarks-sliding-tabs relative h-8 w-full gap-0 rounded-[var(--lm-float-radius)] p-0.5";

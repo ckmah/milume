@@ -87,22 +87,6 @@
   --lm-swatch-ring: transparent;
   --lm-switch-off: color-mix(in oklab, var(--foreground) 50%, transparent);
 
-  /* DialKit inline sliders — retokened to Soft Float neutrals */
-  --dial-row-height: 2.25rem;
-  --dial-radius: var(--radius);
-  --dial-surface: color-mix(in oklab, var(--muted) 85%, transparent);
-  --dial-surface-hover: color-mix(in oklab, var(--muted) 95%, transparent);
-  --dial-surface-active: color-mix(in oklab, var(--foreground) 12%, var(--muted));
-  --dial-surface-subtle: color-mix(in oklab, var(--muted) 70%, transparent);
-  --dial-text-root: var(--foreground);
-  --dial-text-section: color-mix(in oklab, var(--foreground) 72%, transparent);
-  --dial-text-label: color-mix(in oklab, var(--foreground) 72%, transparent);
-  --dial-text-focus: var(--foreground);
-  --dial-text-primary: var(--foreground);
-  --dial-text-secondary: color-mix(in oklab, var(--foreground) 60%, transparent);
-  --dial-border: color-mix(in oklab, var(--foreground) 10%, transparent);
-  --dial-border-hover: color-mix(in oklab, var(--foreground) 22%, transparent);
-
   /* transitions.dev motion tokens — scoped to widget (Soft Float Operate) */
   --duration-stagger: 40ms;
   --duration-micro: 80ms;
@@ -1238,7 +1222,7 @@
 }
 
 /*
- * Soft Float SliderRow tokens — shared by SoftFloatCapsuleSlider + SoftFloatSignedSlider.
+ * Slider row tokens — shared by TactCapsuleSlider + TactSignedSlider.
  * Keep regular + bidirectional visually in sync; do not fork thumb/fill/value here.
  */
 .landmarks-slider-control {

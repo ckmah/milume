@@ -51,16 +51,13 @@ export async function hideLandmarksVolumeHarnessChrome(page: Page) {
       .harness-banner,
       .landmarks-volume-harness__banner,
       .landmarks-volume-harness__controls,
-      [data-dialkit-panel],
-      /* Widget sliders are .dialkit-root inside .landmarks; hide the harness panel only. */
-      .dialkit-root:not(.landmarks .dialkit-root),
       .deckgl-error-overlay { display: none !important; }
       button pre { display: none !important; pointer-events: none !important; }
     `,
   });
 }
 
-export async function bootIssue395LandmarksVolume(page: Page, query = "noDialkit=1") {
+export async function bootIssue395LandmarksVolume(page: Page, query = "") {
   await bootLandmarksVolumeHarness(page, query);
   await hideLandmarksVolumeHarnessChrome(page);
   await hideMapPointsForImageAssert(page);

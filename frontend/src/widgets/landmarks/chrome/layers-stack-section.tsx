@@ -12,7 +12,7 @@ import type { ImageChannelRow, LandmarksModel } from "../use-landmarks-model";
 import { ChannelColorPicker } from "./channel-color-picker";
 import { META_LINE } from "./sections";
 import { formatSliderReadout } from "./slider-readout";
-import { SoftFloatSliderRow } from "./slider-row";
+import { TactSliderRow } from "./slider-row";
 
 const MAX_VISIBLE_CHANNELS = 6;
 
@@ -232,7 +232,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
           {cellsOpen ? (
             <div className="landmarks-layers-stack__nested flex flex-col gap-2 pb-1">
               <div className="landmarks-slider-stack">
-                <SoftFloatSliderRow
+                <TactSliderRow
                   className="landmarks-slider-row--point-size"
                   caption={sizeCaption}
                   aria-label="Cell point size"
@@ -300,7 +300,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
           {imageOpen ? (
             <div className="landmarks-layers-stack__nested flex flex-col gap-2 pb-1">
               <div className="landmarks-slider-stack landmarks-image-controls">
-                <SoftFloatSliderRow
+                <TactSliderRow
                   className="landmarks-slider-row--contrast"
                   caption={
                     contrastChannel ? `${contrastChannel.name} contrast` : "Contrast"
@@ -326,7 +326,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                     });
                   }}
                 />
-                <SoftFloatSliderRow
+                <TactSliderRow
                   className="landmarks-slider-row--alpha"
                   caption="Alpha"
                   aria-label="Image alpha"

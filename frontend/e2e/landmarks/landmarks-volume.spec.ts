@@ -1629,7 +1629,6 @@ test.describe("Landmarks inspect cube", () => {
     await setModel(page, { render_mode: "points" });
     await expect(view).toHaveAttribute("data-points", "0");
     expect(widths[0]).toBeGreaterThanOrEqual(150);
-    // DialKit slider rows are wider than the legacy Soft Float capsule.
     expect(widths[0]).toBeLessThanOrEqual(240);
   });
 
@@ -2445,28 +2444,18 @@ test.describe("Landmarks inspect cube", () => {
     // pinned to the top edge and within the widget's width.
     await page.setViewportSize({ width: 560, height: 900 });
     await bootLandmarksVolumeHarness(page);
-    // The harness's DialKit panel (bottom-left, harness only) covers the resize handle at this
-    // width: hide it for this test (the page is shared, so restore it after).
-    const dialkit = page.locator(".dialkit-root");
-    const hideDialkit = (hidden: boolean) =>
-      dialkit.evaluateAll((els, hidden) => els.forEach((el) => ((el as HTMLElement).style.visibility = hidden ? "hidden" : "")), hidden);
-    await hideDialkit(true);
-    try {
-      const handle = (await page.getByRole("button", { name: "Resize height" }).boundingBox())!;
-      await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(handle.x + handle.width / 2, 0, { steps: 4 });
-      await page.mouse.up();
-      await expect.poll(async () => (await page.locator(".landmarks").first().boundingBox())!.height).toBeLessThan(420);
-      await expectFloatClearOfCursor(page, [
-        [0.5, 0.5],
-        [0.45, 0.45],
-        [0.55, 0.55],
-        [0.5, 0.3],
-      ], "pinned");
-    } finally {
-      await hideDialkit(false);
-    }
+    const handle = (await page.getByRole("button", { name: "Resize height" }).boundingBox())!;
+    await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(handle.x + handle.width / 2, 0, { steps: 4 });
+    await page.mouse.up();
+    await expect.poll(async () => (await page.locator(".landmarks").first().boundingBox())!.height).toBeLessThan(420);
+    await expectFloatClearOfCursor(page, [
+      [0.5, 0.5],
+      [0.45, 0.45],
+      [0.55, 0.55],
+      [0.5, 0.3],
+    ], "pinned");
   });
 
   test("the preview is frameless: no panel chrome, a transparent cube", async ({ page }) => {

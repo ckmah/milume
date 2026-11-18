@@ -21,7 +21,6 @@ import { chromium } from "@playwright/test";
 import {
   VIEWPORT,
   applyDocsHarnessTheme,
-  hideDocsHarnessChrome,
   installDocsCaptureChrome,
   milumeSidecarSha,
   screenshotLandmarks,
@@ -46,7 +45,6 @@ async function setModel(page, patch) {
 async function screenshotInspectCube(page, path) {
   const dialog = page.getByRole("dialog", { name: "Cube" });
   await dialog.waitFor({ state: "visible", timeout: 120_000 });
-  await hideDocsHarnessChrome(page);
   await dialog.screenshot({ path });
 }
 

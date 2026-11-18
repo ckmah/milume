@@ -158,7 +158,7 @@ test.describe("depth backdrop (#122) — 2D multichannel fixture", () => {
   });
 
   test("map backdrop pick reports a pyramid level", async ({ page }) => {
-    await bootLandmarksVolumeHarness(page, "noDialkit=1");
+    await bootLandmarksVolumeHarness(page, "");
     await expect
       .poll(async () => page.evaluate(() => (window as any).__landmarksEngine?.getBackdropPick?.()?.level))
       .not.toBeNull();
@@ -179,7 +179,7 @@ test.describe("depth backdrop (#122) — 2D multichannel fixture", () => {
   });
 
   test("issue122 image bounds cover scatter extent", async ({ page }) => {
-    await bootLandmarksVolumeHarness(page, "noDialkit=1");
+    await bootLandmarksVolumeHarness(page, "");
     await expect
       .poll(async () => page.evaluate(() => (window as any).__landmarksEngine?.getBackdropPick?.()?.level))
       .not.toBeNull();
@@ -249,7 +249,7 @@ test.describe("depth backdrop (#122) — colon 3D volume", () => {
   test.skip(!volumeHarness || !colonProfile, "requires E2E_HARNESS=landmarks-volume and E2E_VOLUME_PROFILE=colon");
 
   test.beforeEach(async ({ page }) => {
-    await bootLandmarksVolumeHarness(page, "noDialkit=1");
+    await bootLandmarksVolumeHarness(page, "");
   });
 
   test("Escape during lower bound drag reverts z_band_lo_um", async ({ page }) => {

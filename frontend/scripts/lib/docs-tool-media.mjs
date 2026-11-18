@@ -28,7 +28,6 @@ export async function installDocsCaptureChrome(page, theme) {
     style.id = "docs-tool-capture-chrome";
     style.textContent = `
       .harness-toolbar { display: none !important; }
-      .dialkit-root, [class*='dialkit'] { display: none !important; }
       .harness-cell-output { padding: 0 !important; }
       .harness-shell { min-height: 0 !important; }
       #docs-capture-cursor {
@@ -39,17 +38,6 @@ export async function installDocsCaptureChrome(page, theme) {
       }
     `;
     document.documentElement.appendChild(style);
-
-    const hideDialkit = () => {
-      document.querySelectorAll(".dialkit-root, [class*='dialkit']").forEach((el) => {
-        el.style.setProperty("display", "none", "important");
-      });
-    };
-    hideDialkit();
-    new MutationObserver(hideDialkit).observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-    });
 
     const attachCursor = () => {
       const lm = document.querySelector(".landmarks");
@@ -172,15 +160,6 @@ export async function fitDenseTissueView(page) {
   await page.waitForTimeout(450);
 }
 
-export async function hideDocsHarnessChrome(page) {
-  await page.evaluate(() => {
-    document.querySelectorAll(".dialkit-root, [class*='dialkit']").forEach((el) => {
-      el.style.setProperty("display", "none", "important");
-    });
-  });
-}
-
 export async function screenshotLandmarks(page, path) {
-  await hideDocsHarnessChrome(page);
   await page.locator(".landmarks").first().screenshot({ path });
 }

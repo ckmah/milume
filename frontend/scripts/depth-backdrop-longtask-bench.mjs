@@ -82,7 +82,7 @@ async function measurePan(page, durationMs = 2000) {
 async function runLabel(revTag, channelMode = "default") {
   const browser = await chromium.launch({ args: LAUNCH_ARGS });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  await page.goto(`http://127.0.0.1:${port}/?noDialkit=1`, { waitUntil: "networkidle" });
+  await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "networkidle" });
   await page.waitForFunction(() => window.__landmarksEngine?.getBackdropPick?.()?.level != null, null, {
     timeout: 120_000,
   });

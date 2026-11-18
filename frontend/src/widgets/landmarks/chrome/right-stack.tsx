@@ -25,7 +25,7 @@ import { InfoPanel } from "./info-panel";
 import { MinimiseColorChip } from "./minimise-color-chip";
 import { RasterSection } from "./raster-section";
 import { EMBEDDED_PANEL, PANEL_INSET, PILL_TABS_TRIGGER, STACK_GAP_SM } from "./sections";
-import { SoftFloatSlidingTabsList } from "./sliding-tabs";
+import { TactSlidingTabsList } from "./sliding-tabs";
 
 /**
  * Soft Float right dock: pinned color pills + info plot; overlay-scroll
@@ -103,7 +103,7 @@ export function RightChromeStack({
           data-testid="explore-color-by"
         >
           <div className={cn("shrink-0", PANEL_INSET)}>
-            <SoftFloatSlidingTabsList value={colorBy} aria-label="Color">
+            <TactSlidingTabsList value={colorBy} aria-label="Color">
               {(lm.category_columns?.length ?? 0) > 0 ? (
                 <TabsTrigger value="categories" className={PILL_TABS_TRIGGER}>
                   cat
@@ -118,7 +118,7 @@ export function RightChromeStack({
               <TabsTrigger value="embedding" className={PILL_TABS_TRIGGER}>
                 embed
               </TabsTrigger>
-            </SoftFloatSlidingTabsList>
+            </TactSlidingTabsList>
           </div>
           <span className="sr-only absolute" data-testid="explore-coloring-by">
             {detail}

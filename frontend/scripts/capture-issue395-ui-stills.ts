@@ -25,7 +25,7 @@ import { bootLandmarksVolumeHarness, stabilizeUi } from "../e2e/helpers.ts";
 import { hideMapPointsForImageAssert } from "../e2e/helpers/shader-and-pixels.ts";
 
 const outDir = join(process.cwd(), "..", "docs/visual-acceptance/issue395");
-const base = process.env.CAPTURE_BASE ?? "http://127.0.0.1:5173/?noDialkit=1";
+const base = process.env.CAPTURE_BASE ?? "http://127.0.0.1:5173/";
 
 await mkdir(outDir, { recursive: true });
 
@@ -41,7 +41,7 @@ async function captureTheme(theme: "light" | "dark") {
     window.localStorage.setItem("milume-harness-theme", t);
   }, theme);
   await page.goto(base, { waitUntil: "domcontentloaded" });
-  await bootLandmarksVolumeHarness(page, "noDialkit=1");
+  await bootLandmarksVolumeHarness(page, "");
   await applyIssue395CaptureChromeTheme(page, theme);
   await assertIssue395HarnessTheme(page, theme);
   await hideLandmarksVolumeHarnessChrome(page);
@@ -76,7 +76,7 @@ async function captureMapBand() {
     deviceScaleFactor: 2,
     baseURL: new URL(base).origin,
   });
-  await bootLandmarksVolumeHarness(page, "noDialkit=1");
+  await bootLandmarksVolumeHarness(page, "");
   await applyIssue395CaptureChromeTheme(page, "dark");
   await hideLandmarksVolumeHarnessChrome(page);
   await hideMapPointsForImageAssert(page);

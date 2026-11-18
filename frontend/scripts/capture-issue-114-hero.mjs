@@ -27,7 +27,6 @@ const VIEWPORT = { width: 1600, height: 900 };
 const DPR = 2;
 
 const HIDE_CHROME = `
-  .dialkit-root, [class*='dialkit'] { display: none !important; }
   .landmarks__chrome-minimap { display: none !important; }
 `;
 

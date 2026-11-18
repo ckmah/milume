@@ -27,14 +27,15 @@ type BisectMode = "merge" | "ch0" | "ch1";
 type Preset = "Top view" | "Oblique view";
 
 function queryFor(mode: BisectMode) {
-  if (mode === "ch0") return "noDialkit=1&cubeDebugDualBisect=ch0";
-  if (mode === "ch1") return "noDialkit=1&cubeDebugDualBisect=ch1";
-  return "noDialkit=1";
+  if (mode === "ch0") return "cubeDebugDualBisect=ch0";
+  if (mode === "ch1") return "cubeDebugDualBisect=ch1";
+  return "";
 }
 
 async function bootDualCube(page: import("@playwright/test").Page, mode: BisectMode) {
   const q = queryFor(mode);
-  await page.goto(`${base}/?${q}&_=${Date.now()}`, { waitUntil: "domcontentloaded" });
+  const stamp = `_=${Date.now()}`;
+  await page.goto(`${base}/?${q ? `${q}&` : ""}${stamp}`, { waitUntil: "domcontentloaded" });
   await bootIssue395LandmarksVolume(page, q);
   await openIssue395CubeAtInspectCentre(page);
   await expectPanckVisible(page, true);

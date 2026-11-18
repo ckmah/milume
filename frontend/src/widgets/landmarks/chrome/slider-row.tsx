@@ -112,7 +112,7 @@ function RangeRow({
 }
 
 /** Reset control — Lucide rotate-ccw, placed immediately right of a slider row. */
-export function SoftFloatSliderReset({
+export function TactSliderReset({
   title,
   onClick,
   testId,
@@ -145,7 +145,7 @@ export function SoftFloatSliderReset({
 }
 
 /** Pair of Low / High rows (contrast windows, inspect ranges). */
-export function SoftFloatRangeSlider({
+export function TactRangeSlider({
   caption,
   value,
   min,
@@ -219,7 +219,7 @@ export function SoftFloatRangeSlider({
 /**
  * Scalar or range row.
  */
-export function SoftFloatSliderRow({
+export function TactSliderRow({
   caption,
   value,
   min,
@@ -305,7 +305,7 @@ export function SoftFloatSliderRow({
 }
 
 /** Unidirectional slider (opacity, point size, tension, …). */
-export function SoftFloatCapsuleSlider({
+export function TactCapsuleSlider({
   value,
   min,
   max,
@@ -352,7 +352,7 @@ export function SoftFloatCapsuleSlider({
         testId={testId}
       />
       {onReset ? (
-        <SoftFloatSliderReset
+        <TactSliderReset
           title={resetTitle}
           testId={resetTestId}
           onClick={onReset}
@@ -366,7 +366,7 @@ export function SoftFloatCapsuleSlider({
 /**
  * Signed or symmetric buffer. Signed min/max, or 0..max when `both`.
  */
-export function SoftFloatSignedSlider({
+export function TactSignedSlider({
   value,
   min = -1,
   max = 1,

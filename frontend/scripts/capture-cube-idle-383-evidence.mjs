@@ -3,7 +3,7 @@
  * Usage: node scripts/capture-cube-idle-383-evidence.mjs
  * Requires dev:landmarks-volume on :5173 (restart after harness changes).
  *
- * Query: ?window=100&cubeRenderOverlay=1&noDialkit=1 — shipped mesh opacity (DEFAULT_RENDER.cellAlpha), no DialKit chrome.
+ * Query: ?window=100&cubeRenderOverlay=1 — shipped mesh opacity (DEFAULT_RENDER.cellAlpha).
  */
 import { copyFileSync, mkdirSync } from "node:fs";
 import { chromium } from "@playwright/test";
@@ -70,7 +70,7 @@ const context = await browser.newContext({
 const page = await context.newPage();
 await page.addInitScript(CURSOR_INIT);
 
-await page.goto("http://127.0.0.1:5173/?window=100&cubeRenderOverlay=1&noDialkit=1", {
+await page.goto("http://127.0.0.1:5173/?window=100&cubeRenderOverlay=1", {
   waitUntil: "networkidle",
 });
 await page.waitForFunction(() => Boolean(window.__landmarksEngine?.getViewState?.()));

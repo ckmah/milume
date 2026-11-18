@@ -346,7 +346,7 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
   });
 
   test("empty backdrop pixels match canvas black at the image edge", async ({ page }) => {
-    await page.goto("/?noDialkit=1", { waitUntil: "networkidle" });
+    await page.goto("/", { waitUntil: "networkidle" });
     await waitForEngine(page);
     await expect
       .poll(
@@ -413,7 +413,7 @@ test.describe("image panel polish (#399) — colon depth rail", () => {
   test.skip(!volumeHarness || !colonProfile, "requires landmarks-volume colon profile");
 
   test.beforeEach(async ({ page }) => {
-    await bootLandmarksVolumeHarness(page, "noDialkit=1");
+    await bootLandmarksVolumeHarness(page, "");
   });
 
   test("rail readout stays 11px while dragging lower bound", async ({ page }) => {

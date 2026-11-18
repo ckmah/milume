@@ -30,9 +30,9 @@ import {
 } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
 import {
-  SoftFloatCapsuleSlider,
-  SoftFloatSignedSlider,
-  SoftFloatSliderReset,
+  TactCapsuleSlider,
+  TactSignedSlider,
+  TactSliderReset,
 } from "./slider-row";
 import {
   CHIP_CLASS,
@@ -250,7 +250,7 @@ function SignedBufferSlider({
       }
     >
       {isPoint ? (
-        <SoftFloatCapsuleSlider
+        <TactCapsuleSlider
           value={Math.abs(signed)}
           min={0}
           max={max}
@@ -267,7 +267,7 @@ function SignedBufferSlider({
         />
       ) : (
         <>
-          <SoftFloatSignedSlider
+          <TactSignedSlider
             value={both ? Math.abs(signed) : signed}
             min={both ? 0 : -max}
             max={max}
@@ -286,7 +286,7 @@ function SignedBufferSlider({
           >
             <ChevronsLeftRightIcon className="size-4" />
           </IconBtn>
-          <SoftFloatSliderReset
+          <TactSliderReset
             title="Reset buffer"
             testId="context-buffer-reset"
             onClick={onReset}
@@ -459,7 +459,7 @@ export function SelectionToolbar({
                         className="flex min-w-[15rem] px-0.5"
                         data-testid="context-tension"
                       >
-                        <SoftFloatCapsuleSlider
+                        <TactCapsuleSlider
                           caption="Tension"
                           value={Number(selectedLm?.tension ?? 0)}
                           min={0}
@@ -664,7 +664,7 @@ export function SelectionToolbar({
                   <ToolbarDivider />
                   <div className="flex min-w-[13rem] items-center gap-1.5 px-0.5">
                     {hoodMode === "radius" ? (
-                      <SoftFloatCapsuleSlider
+                      <TactCapsuleSlider
                         caption="r"
                         testId="context-hood-radius"
                         value={Math.min(
@@ -698,7 +698,7 @@ export function SelectionToolbar({
                         resetTestId="context-hood-radius-reset"
                       />
                     ) : (
-                      <SoftFloatCapsuleSlider
+                      <TactCapsuleSlider
                         caption="k"
                         testId="context-hood-k"
                         value={Math.min(

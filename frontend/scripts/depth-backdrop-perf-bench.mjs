@@ -88,7 +88,7 @@ async function measureScenario(page, kind) {
 async function runBench(revTag, channelMode = "default") {
   const browser = await chromium.launch({ args: LAUNCH_ARGS });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-  await page.goto(`http://127.0.0.1:${port}/?noDialkit=1&_bench=${revTag}`, {
+  await page.goto(`http://127.0.0.1:${port}/?_bench=${revTag}`, {
     waitUntil: "networkidle",
   });
   await page.waitForFunction(() => Boolean(window.__landmarksEngine?.getViewState?.()));
