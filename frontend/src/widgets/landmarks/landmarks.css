@@ -1231,9 +1231,9 @@
   --lm-slider-value-weight: 500;
   --lm-slider-thumb-w: 4px;
   --lm-slider-thumb-h: 16px;
-  --lm-slider-fill: rgba(242, 242, 242, 0.62);
-  --lm-slider-thumb: #f2f2f2;
-  --lm-slider-thumb-on: #f2f2f2;
+  --lm-slider-fill: var(--tact-range);
+  --lm-slider-thumb: var(--tact-ink);
+  --lm-slider-thumb-on: var(--tact-ink);
   --lm-slider-value-color: var(--foreground);
 
   position: relative;
@@ -1269,7 +1269,7 @@
 .landmarks-slider-control [data-slot="slider-track"] {
   height: 2px;
   border-radius: 0;
-  background: rgba(242, 242, 242, 0.28);
+  background: var(--tact-track);
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
