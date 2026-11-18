@@ -135,12 +135,14 @@ function DropdownMenuRadioGroup({ ...props }: MenuPrimitive.RadioGroup.Props) {
 function DropdownMenuRadioItem({
   className,
   children,
+  closeOnClick = true,
   ...props
 }: MenuPrimitive.RadioItem.Props) {
   return (
     <MenuPrimitive.RadioItem
       data-slot="dropdown-menu-radio-item"
       className={cn(itemClass, className)}
+      closeOnClick={closeOnClick}
       {...props}
     >
       {children}
