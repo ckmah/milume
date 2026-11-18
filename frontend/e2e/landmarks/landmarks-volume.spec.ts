@@ -1021,6 +1021,9 @@ test.describe("Landmarks inspect cube", () => {
     await openAdjust(page);
     await adjustPanel(page).getByRole("button", { name: "Palette" }).click();
     await page.getByRole("menuitemradio", { name: "viridis" }).click();
+    // The pick dismisses the menu. Wait for that before Escape, or the key
+    // still lands in the menu and Adjust stays open.
+    await expect(page.getByRole("menu")).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(adjustPanel(page)).toHaveCount(0);
 
