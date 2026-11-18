@@ -42,7 +42,7 @@ import {
 } from "./primitives";
 import { IconBtn, ToolStack } from "./selection-toolbar";
 import { formatSliderReadout } from "./slider-readout";
-import { SoftFloatCapsuleSlider, SoftFloatSliderRow } from "./soft-float-slider";
+import { SoftFloatCapsuleSlider, SoftFloatSliderRow } from "./slider-row";
 import { useWidgetPortal } from "./widget-portal-context";
 
 const GAMMA_LOG2 = 2.32;
@@ -203,7 +203,7 @@ function ProjectionRow({
 }
 
 const SLIDER_HIT =
-  '.landmarks-slider-control, .dialkit-root, [data-slot="slider"], [data-slot="slider-thumb"], [data-slot="slider-track"], [role="slider"]';
+  '.landmarks-slider-control, [data-slot="slider"], [data-slot="slider-thumb"], [data-slot="slider-track"], [role="slider"]';
 
 const LAYER_MENU_HIT =
   ".landmarks-layer-panel, [data-slot='dropdown-menu-content'], [data-testid^='layer-toggle-']";

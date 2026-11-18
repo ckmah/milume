@@ -12,7 +12,7 @@ import type { ImageChannelRow, LandmarksModel } from "../use-landmarks-model";
 import { ChannelColorPicker } from "./channel-color-picker";
 import { META_LINE } from "./sections";
 import { formatSliderReadout } from "./slider-readout";
-import { SoftFloatSliderRow } from "./soft-float-slider";
+import { SoftFloatSliderRow } from "./slider-row";
 
 const MAX_VISIBLE_CHANNELS = 6;
 

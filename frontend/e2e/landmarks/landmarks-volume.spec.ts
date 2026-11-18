@@ -1556,7 +1556,7 @@ test.describe("Landmarks inspect cube", () => {
     const labelValues = async () => [await now("Label opacity")];
     const widthsOf = (region: Locator) =>
       region
-        .locator(".landmarks-slider-control, .dialkit-root")
+        .locator(".landmarks-slider-control")
         .evaluateAll((els) =>
           els.map((el) => Math.round(el.getBoundingClientRect().width)),
         );

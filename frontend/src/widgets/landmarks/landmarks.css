@@ -1358,112 +1358,13 @@
 /*
  * One slider row for every slider in the chrome (single, range, signed):
  * caption · capsule (readout inside, left) · optional trailing actions.
- * `SoftFloatSliderRow` in chrome/soft-float-slider.tsx.
+ * `SliderRow` in chrome/slider-row.tsx.
  */
 .landmarks-slider-row {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: var(--lm-stack-gap);
-}
-
-.landmarks-slider-row--dialkit {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--lm-stack-gap);
-}
-
-.landmarks-slider-row--dialkit .dialkit-root {
-  width: 100%;
-}
-
-.landmarks .dialkit-slider-value {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-
-.landmarks .dialkit-slider-label {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  color: var(--lm-caption);
-}
-
-.landmarks-dialkit-root--signed .dialkit-slider-wrapper {
-  position: relative;
-}
-
-.landmarks-dialkit-midpoint {
-  position: absolute;
-  top: 50%;
-  z-index: 4;
-  width: 1px;
-  height: calc(var(--dial-row-height, 2.25rem) - 6px);
-  pointer-events: none;
-  transform: translate(-50%, -50%);
-  background: color-mix(in oklab, var(--foreground) 35%, transparent);
-}
-
-.landmarks-dialkit-range__shell {
-  position: relative;
-}
-
-.landmarks-dialkit-range__radix {
-  position: absolute !important;
-  inset: 0;
-  z-index: 6;
-  width: 100% !important;
-  height: 100% !important;
-  touch-action: none;
-}
-
-.landmarks-dialkit-range__radix [data-slot="slider-track"] {
-  height: 100%;
-  overflow: hidden;
-  border-radius: 0;
-  background: transparent;
-}
-
-/* Match dialkit-slider-fill: flat segment, outer radius comes from .dialkit-slider clip. */
-.landmarks-dialkit-range__radix [data-slot="slider-range"] {
-  border-radius: 0;
-  background: var(--dial-surface-active);
-  transition: background 0.15s;
-}
-
-.landmarks-dialkit-range__radix [data-slot="slider-thumb"] {
-  width: 3px;
-  height: 20px;
-  border-radius: 999px;
-  border: 0;
-  background: var(--dial-text-primary);
-  opacity: 0;
-  box-shadow: none;
-  transition:
-    opacity 0.15s ease-out,
-    transform 0.15s ease-out;
-  transform: var(--radix-slider-thumb-transform, translateX(-50%)) scaleX(0.25) !important;
-}
-
-.landmarks-dialkit-range__shell:hover .landmarks-dialkit-range__radix [data-slot="slider-thumb"],
-.landmarks-dialkit-range__shell.dialkit-slider-active .landmarks-dialkit-range__radix [data-slot="slider-thumb"],
-.landmarks-dialkit-range__radix:focus-within [data-slot="slider-thumb"] {
-  opacity: 1;
-  transform: var(--radix-slider-thumb-transform, translateX(-50%)) scaleX(1) !important;
-}
-
-.landmarks-dialkit-range__shell:has(.landmarks-dialkit-range__radix:focus-within) .dialkit-slider-value,
-.landmarks-dialkit-range__shell:hover .dialkit-slider-value,
-.landmarks-dialkit-range__shell.dialkit-slider-active .dialkit-slider-value {
-  color: var(--dial-text-focus);
-}
-
-.landmarks-dialkit-range__shell.dialkit-slider-active
-  .landmarks-dialkit-range__radix
-  [data-slot="slider-range"] {
-  background: var(--dial-border-hover);
-}
-
-.landmarks-dialkit-range__shell:hover .landmarks-dialkit-range__radix [data-slot="slider-range"] {
-  background: var(--dial-border-hover);
 }
 
 .landmarks-slider-caption {

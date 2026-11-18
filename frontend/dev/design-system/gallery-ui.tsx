@@ -52,7 +52,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { formatSliderReadout } from "@/widgets/landmarks/chrome/slider-readout";
-import { SoftFloatCapsuleSlider } from "@/widgets/landmarks/chrome/soft-float-slider";
+import { SoftFloatCapsuleSlider } from "@/widgets/landmarks/chrome/slider-row";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";

@@ -55,7 +55,7 @@ import {
   SoftFloatSignedSlider,
   SoftFloatSliderReset,
   SoftFloatSliderRow,
-} from "@/widgets/landmarks/chrome/soft-float-slider";
+} from "@/widgets/landmarks/chrome/slider-row";
 import { FullscreenButton, Topbar, ZoomControls } from "@/widgets/landmarks/chrome/topbar";
 import { ViewCta } from "@/widgets/landmarks/chrome/view-cta";
 import { INFO_HEAT_BINS } from "@/widgets/landmarks/chrome/info-stats";

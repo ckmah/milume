@@ -33,7 +33,7 @@ import {
   SoftFloatCapsuleSlider,
   SoftFloatSignedSlider,
   SoftFloatSliderReset,
-} from "./soft-float-slider";
+} from "./slider-row";
 import {
   CHIP_CLASS,
   ChromeTooltip,

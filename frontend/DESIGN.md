@@ -269,7 +269,7 @@ Inspect is temporary, so its chrome replaces the normal chrome rather than addin
 
 DialKit inline sliders (`dialkit` package, `.dialkit-root` under `.landmarks` with `--dial-*` tokens in `landmarks.css`): label, track, thumb, and live value on one row. Soft segment toggles for neighborhood/buffer.
 
-Shared slider chrome: `chrome/soft-float-slider.tsx`
+Shared slider chrome: `chrome/slider-row.tsx`
 - `SoftFloatCapsuleSlider` — scalar (alpha, gamma, point size, tension, …)
 - `SoftFloatSliderRow` (length 2) — one capsule, dual thumbs, caption left (contrast, inspect ranges)
 - `SoftFloatSignedSlider` — signed buffer or 0…max when **Both** is on

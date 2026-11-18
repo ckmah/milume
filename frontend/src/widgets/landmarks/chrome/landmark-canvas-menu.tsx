@@ -16,7 +16,6 @@ import { cn } from "@/lib/utils";
 import type { EngineHandle } from "../engine";
 import { NODE_EDITABLE } from "../helpers";
 import type { LandmarksModel } from "../use-landmarks-model";
-import { chromeMenuClass } from "./primitives";
 
 type MenuState = {
   index: number;
@@ -163,7 +162,7 @@ export function LandmarkCanvasMenu({
     <Rise
       id="landmarks-canvas-menu"
       role="menu"
-      className={cn(chromeMenuClass, "absolute z-[80] min-w-[10rem] p-1")}
+      className="tact-popup tact-menu absolute z-[80] min-w-[10rem] p-1"
       style={{ left: menu.x, top: menu.y }}
       data-testid="landmarks-canvas-menu"
     >

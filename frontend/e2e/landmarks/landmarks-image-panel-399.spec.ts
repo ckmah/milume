@@ -228,7 +228,7 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
     await expect(page.getByTestId("layers-image-header")).toContainText("Image · DAPI + PanCK");
 
     await expect(
-      page.locator(".landmarks-slider-caption, .dialkit-slider-label").filter({ hasText: "DAPI contrast" }),
+      page.locator(".landmarks-slider-caption").filter({ hasText: "DAPI contrast" }),
     ).toBeVisible();
 
     const dapiRow = page.getByTestId("layer-channel-row-DAPI");
@@ -268,11 +268,11 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
 
     await page.getByTestId("layer-channel-row-CD45").click();
     await expect(
-      page.locator(".landmarks-slider-caption, .dialkit-slider-label").filter({ hasText: "CD45 contrast" }),
+      page.locator(".landmarks-slider-caption").filter({ hasText: "CD45 contrast" }),
     ).toBeVisible();
 
     const panckCaption = page
-      .locator(".landmarks-slider-caption, .dialkit-slider-label")
+      .locator(".landmarks-slider-caption")
       .filter({ hasText: "PanCK contrast" });
     await page.getByTestId("layer-channel-row-PanCK").focus();
     await expect(panckCaption).toBeVisible();
@@ -341,7 +341,7 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
     await openImagePanel(page);
     await page.getByTestId("layer-channel-row-CD45").focus();
     await expect(
-      page.locator(".landmarks-slider-caption, .dialkit-slider-label").filter({ hasText: "DAPI contrast" }),
+      page.locator(".landmarks-slider-caption").filter({ hasText: "DAPI contrast" }),
     ).toBeVisible();
   });
 

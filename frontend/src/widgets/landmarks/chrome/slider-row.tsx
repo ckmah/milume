@@ -18,7 +18,7 @@ function sliderLabel(caption: React.ReactNode, ariaLabel?: string): string {
   return "Value";
 }
 
-function DialkitSliderRow({
+function SliderRow({
   label,
   value,
   min,
@@ -62,7 +62,7 @@ function DialkitSliderRow({
   );
 }
 
-function DialkitRangeRow({
+function RangeRow({
   label,
   value,
   min,
@@ -144,7 +144,7 @@ export function SoftFloatSliderReset({
   );
 }
 
-/** Pair of Low / High DialKit rows (contrast windows, inspect ranges). */
+/** Pair of Low / High rows (contrast windows, inspect ranges). */
 export function SoftFloatRangeSlider({
   caption,
   value,
@@ -196,7 +196,7 @@ export function SoftFloatRangeSlider({
       {caption != null ? (
         <p className={cn(FIELD_CAPTION, "landmarks-slider-caption", "m-0 px-0.5")}>{caption}</p>
       ) : null}
-      <DialkitSliderRow
+      <SliderRow
         label={lowLabel}
         value={lo}
         min={min}
@@ -204,7 +204,7 @@ export function SoftFloatRangeSlider({
         step={stride}
         onChange={(v) => push([Math.min(v, hi), hi])}
       />
-      <DialkitSliderRow
+      <SliderRow
         label={highLabel}
         value={hi}
         min={min}
@@ -217,7 +217,7 @@ export function SoftFloatRangeSlider({
 }
 
 /**
- * Scalar or range row — DialKit only.
+ * Scalar or range row.
  */
 export function SoftFloatSliderRow({
   caption,
@@ -258,7 +258,7 @@ export function SoftFloatSliderRow({
       _readout ??
       `${formatSliderReadout(value[0] ?? min, stride)}–${formatSliderReadout(value[1] ?? max, stride)}`;
     const range = (
-      <DialkitRangeRow
+      <RangeRow
         label={label}
         value={[value[0] ?? min, value[1] ?? max]}
         min={min}
@@ -287,7 +287,7 @@ export function SoftFloatSliderRow({
 
   return (
     <div className={cn("flex min-w-0 flex-1 items-center gap-1", className)}>
-      <DialkitSliderRow
+      <SliderRow
         label={label}
         value={value[0] ?? min}
         min={min}
@@ -304,7 +304,7 @@ export function SoftFloatSliderRow({
   );
 }
 
-/** Unidirectional DialKit slider (opacity, point size, tension, …). */
+/** Unidirectional slider (opacity, point size, tension, …). */
 export function SoftFloatCapsuleSlider({
   value,
   min,
@@ -342,7 +342,7 @@ export function SoftFloatCapsuleSlider({
 
   return (
     <div className={cn("flex min-w-0 flex-1 items-center gap-1", className)}>
-      <DialkitSliderRow
+      <SliderRow
         label={label}
         value={value}
         min={min}
@@ -364,7 +364,7 @@ export function SoftFloatCapsuleSlider({
 }
 
 /**
- * Signed or symmetric buffer — DialKit with signed min/max, or 0..max when `both`.
+ * Signed or symmetric buffer. Signed min/max, or 0..max when `both`.
  */
 export function SoftFloatSignedSlider({
   value,
@@ -395,7 +395,7 @@ export function SoftFloatSignedSlider({
   if (both || min >= 0) {
     const stride = Math.max(max - (min >= 0 ? min : 0), 1e-9) / 200 || 0.01;
     return (
-      <DialkitSliderRow
+      <SliderRow
         label={label}
         value={Math.abs(value)}
         min={0}
@@ -412,7 +412,7 @@ export function SoftFloatSignedSlider({
   const stride = span / 200 || 0.01;
 
   return (
-    <DialkitSliderRow
+    <SliderRow
       label={label}
       value={value}
       min={min}
