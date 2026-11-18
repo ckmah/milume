@@ -5,7 +5,7 @@ import { LayoutGroup, motion, useReducedMotion } from "motion/react";
 import { type ComponentPropsWithRef, createContext, useContext, useId, useState } from "react";
 
 import { cn } from "@/lib/utils";
-import { SPRING_LAYOUT, SPRING_PRESS } from "@/lib/motion-springs";
+import { SPRING_PRESS } from "@/lib/motion-springs";
 
 type ColorSelectorContextValue = {
   value: string;
@@ -55,7 +55,12 @@ export function ColorSelector({
 }
 
 export function ColorSelectorList({ className, ...props }: ComponentPropsWithRef<"div">) {
-  return <div {...props} className={cn("grid grid-cols-4 gap-2 p-0.5", className)} />;
+  return (
+    <div
+      {...props}
+      className={cn("landmarks-channel-color-list", className)}
+    />
+  );
 }
 
 export function ColorSelectorItem({
@@ -79,10 +84,11 @@ export function ColorSelectorItem({
   return (
     <motion.label
       tabIndex={-1}
-      whileTap={reduce || unavailable ? undefined : { scale: 0.94 }}
+      data-checked={selected ? "true" : "false"}
+      whileTap={reduce || unavailable ? undefined : { scale: 0.98 }}
       transition={SPRING_PRESS}
       className={cn(
-        "relative inline-flex size-7 shrink-0 justify-self-center rounded-full",
+        "landmarks-channel-color-option relative",
         unavailable ? "cursor-not-allowed opacity-40" : "cursor-pointer",
       )}
     >
@@ -102,25 +108,10 @@ export function ColorSelectorItem({
       />
       <span
         aria-hidden
-        className={cn(
-          "pointer-events-none relative flex size-full items-center justify-center rounded-full border border-foreground/10",
-          "peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring",
-          className,
-        )}
-      >
-        {selected ? (
-          <motion.span
-            layoutId={reduce ? undefined : "color-selection"}
-            initial={false}
-            transition={reduce ? { duration: 0 } : SPRING_LAYOUT}
-            className="pointer-events-none absolute -inset-0.5 rounded-full border-2 border-foreground"
-          />
-        ) : null}
-        <span
-          className="pointer-events-none size-4 rounded-full border border-black/10"
-          style={{ backgroundColor: color }}
-        />
-      </span>
+        className={cn("landmarks-channel-color-swatch", className)}
+        style={{ backgroundColor: color }}
+      />
+      <span className="min-w-0 truncate">{label}</span>
     </motion.label>
   );
 }

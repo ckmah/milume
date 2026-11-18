@@ -17,7 +17,6 @@ export const DESIGN_SYSTEM_SECTIONS = [
   ["badges", "Badges"],
   ["panels", "Panels"],
   ["empty-loading", "Empty and loading"],
-  ["signed-off", "Signed-off states"],
   ["gaps", "Gaps"],
 ] as const;
 

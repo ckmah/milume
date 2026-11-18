@@ -24,7 +24,7 @@ function StackedBarTrack({
 
   return (
     <div
-      className={cn("flex w-full gap-px overflow-hidden rounded-[var(--radius)]", className)}
+      className={cn("flex w-full gap-px overflow-hidden", className)}
       role="img"
       aria-label="Category composition"
       data-testid={testId}

@@ -31,7 +31,6 @@ import type { CubeCut } from "@/widgets/volume-cube/VolumeCube";
 import type { CubeSettings, CubeSettingsPatch } from "../use-cube-settings";
 import type { AdjustSection as Section } from "../use-inspect-cube";
 import {
-  CHIP_CLASS,
   TOOLBAR_CAPTION,
   TOOLBAR_CLASS,
   ToolbarDivider,
@@ -60,7 +59,7 @@ function PaletteSwatch({ name }: { name: PaletteName }) {
   return (
     <span
       aria-hidden
-      className={cn(CHIP_CLASS, "h-2.5 w-8 shrink-0 rounded-full")}
+      className="landmarks-palette-ramp shrink-0"
       style={{ backgroundImage: gradientCss(name) }}
     />
   );

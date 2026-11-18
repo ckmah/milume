@@ -158,7 +158,7 @@ function ColorControl({
           <span
             className={cn(
               CHIP_CLASS,
-              "flex size-4 items-center justify-center rounded-full border-dashed text-[10px] font-semibold leading-none",
+              "flex size-4 items-center justify-center border-dashed text-[10px] font-semibold leading-none",
             )}
           >
             +

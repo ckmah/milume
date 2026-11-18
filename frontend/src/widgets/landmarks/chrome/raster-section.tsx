@@ -35,7 +35,7 @@ export function RasterSection({ lm }: { lm: LandmarksModel }) {
     >
       <p className="m-0 text-[11px] font-medium text-foreground">Similarity</p>
       <div
-        className="h-2.5 w-full rounded-sm"
+        className="h-2.5 w-full"
         style={{ background: SIMILARITY_LEGEND_CSS }}
         role="img"
         aria-label="Similarity to hovered or pinned cell"

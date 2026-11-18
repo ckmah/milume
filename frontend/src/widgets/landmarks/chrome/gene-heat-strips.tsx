@@ -9,7 +9,7 @@ function GeneHeatStripRow({ row }: { row: GeneHeatRow }) {
     <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2" data-testid="gene-heat-row">
       <div className="flex min-w-0 items-center gap-1.5">
         <span
-          className="size-2 shrink-0 rounded-sm"
+          className="landmarks-layer-swatch size-2 shrink-0"
           style={{ background: row.color }}
           aria-hidden
         />
@@ -17,7 +17,7 @@ function GeneHeatStripRow({ row }: { row: GeneHeatRow }) {
           {row.name}
         </span>
         <div
-          className="flex h-5 min-w-0 flex-1 gap-px overflow-hidden rounded-[calc(var(--radius)-2px)]"
+          className="flex h-5 min-w-0 flex-1 gap-px overflow-hidden"
           role="img"
           aria-label={`${row.name} expression bins`}
         >
@@ -59,7 +59,7 @@ export function GeneHeatStrips({
       <div className="flex items-center gap-2">
         <span className={CHART_CAPTION}>expression</span>
         <span className={CHART_CAPTION}>0</span>
-        <div className="h-1.5 min-w-0 flex-1 rounded-full bg-gradient-to-r from-background via-foreground/20 to-foreground/70" />
+        <div className="h-1.5 min-w-0 flex-1 bg-gradient-to-r from-background via-foreground/20 to-foreground/70" />
         <span className={cn(CHART_CAPTION, "tabular-nums")}>{formatLegendValue(xMax)}</span>
       </div>
       <div className="flex items-center gap-2">
@@ -68,7 +68,7 @@ export function GeneHeatStrips({
           {[0.25, 0.5, 0.75, 1].map((t) => (
             <div
               key={t}
-              className="h-2 flex-1 rounded-sm bg-foreground/15"
+              className="h-2 flex-1 bg-foreground/15"
               style={{ opacity: HEAT_BIN_COUNT_FLOOR + (1 - HEAT_BIN_COUNT_FLOOR) * t }}
             />
           ))}

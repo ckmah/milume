@@ -61,7 +61,7 @@ export function NumHeatStrip({
         </p>
       ) : null}
       <div
-        className="flex h-6 w-full gap-px overflow-hidden rounded-[var(--radius)]"
+        className="flex h-6 w-full gap-px overflow-hidden"
         role="img"
         aria-label={`${title || "Numeric column"} distribution`}
       >
@@ -132,7 +132,7 @@ export function NumHeatStrip({
           {[0.25, 0.5, 0.75, 1].map((t) => (
             <div
               key={t}
-              className="h-2 flex-1 rounded-sm bg-foreground/15"
+              className="h-2 flex-1 bg-foreground/15"
               style={{ opacity: HEAT_BIN_COUNT_FLOOR + (1 - HEAT_BIN_COUNT_FLOOR) * t }}
             />
           ))}

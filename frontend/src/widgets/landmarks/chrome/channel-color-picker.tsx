@@ -112,7 +112,7 @@ export function ChannelColorPicker({
         variant="ghost"
         size="icon-xs"
         className={cn(
-          "landmarks-channel-color-dot rounded-full p-0",
+          "landmarks-channel-color-dot p-0",
           "hover:bg-[var(--lm-hit-hover-bg)] data-[state=open]:bg-[var(--lm-hit-hover-bg)]",
         )}
         data-testid={`channel-color-${name}`}
@@ -130,7 +130,7 @@ export function ChannelColorPicker({
         }}
       >
         <span
-          className="landmarks-layer-swatch pointer-events-none rounded-full"
+          className="landmarks-layer-swatch landmarks-channel-color-swatch pointer-events-none"
           style={{ backgroundColor: color }}
           aria-hidden
         />
@@ -142,11 +142,11 @@ export function ChannelColorPicker({
         anchorRef={anchorRef}
         place={place}
         testId={`channel-color-picker-${name}`}
-        className="landmarks-float landmarks-float--panel w-44 p-2.5"
+        className="landmarks-float landmarks-float--panel tact-popup landmarks-channel-color-picker w-44 p-2.5"
       >
         <div className="flex items-center gap-2">
           <span
-            className="landmarks-layer-swatch shrink-0 rounded-full"
+            className="landmarks-channel-color-header-swatch shrink-0"
             style={{ backgroundColor: color }}
             aria-hidden
           />

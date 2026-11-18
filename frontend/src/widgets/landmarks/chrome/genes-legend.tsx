@@ -52,6 +52,19 @@ function geneSwatch(index: number, count: number): string | undefined {
   return index < 0 ? undefined : geneColor(index, count);
 }
 
+function GeneQueryName({ name, query }: { name: string; query: string }) {
+  const q = query.trim();
+  const index = q ? name.toLocaleLowerCase().indexOf(q.toLocaleLowerCase()) : -1;
+  if (index < 0) return name;
+  return (
+    <>
+      {name.slice(0, index)}
+      <span className="tact-gene-hit">{name.slice(index, index + q.length)}</span>
+      {name.slice(index + q.length)}
+    </>
+  );
+}
+
 const AGGREGATE_LABEL: Record<GeneAggregate, string> = { mean: "Mean", median: "Median", max: "Max" };
 
 /** Forces Base UI to run `filter` instead of showing the first `limit` items on an empty query. */
@@ -207,13 +220,13 @@ export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
             ref={anchor}
             className={cn(
               MUTED_CONTROL,
-              "min-w-0 w-full flex-wrap rounded-md px-1.5 py-1",
+              "min-w-0 w-full flex-wrap px-1.5 py-1",
               selected.length > 0 && "pr-8",
             )}
           >
             <ComboboxValue>
               {selected.map((name, i) => (
-                <ComboboxChip key={name} className={cn(CHIP_CLASS, "max-w-full gap-1 truncate rounded-md text-[11px]")}>
+                <ComboboxChip key={name} className={cn(CHIP_CLASS, "max-w-full gap-1 truncate text-[11px]")}>
                   <ColorSwatch color={geneSwatch(i, selected.length)} />
                   {name}
                 </ComboboxChip>
@@ -243,7 +256,9 @@ export function GenesCombobox({ lm }: { lm: LandmarksModel }) {
                   className="py-1 text-xs"
                 >
                   <ColorSwatch color={geneSwatch(selIdx, selected.length)} />
-                  {name}
+                  <span className="min-w-0 truncate">
+                    <GeneQueryName name={name} query={trimmedInput} />
+                  </span>
                 </ComboboxItem>
               );
             }}

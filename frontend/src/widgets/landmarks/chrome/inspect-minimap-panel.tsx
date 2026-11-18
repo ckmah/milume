@@ -306,7 +306,7 @@ export function InspectMinimapPanel({
     <div ref={frameRef} className="w-full" style={{ width: `${WIDTH_REM}rem` }}>
       <canvas
         ref={canvasRef}
-        className="w-full cursor-grab active:cursor-grabbing rounded-[var(--lm-float-radius)] landmarks__inspect-minimap-canvas"
+        className="w-full cursor-grab active:cursor-grabbing landmarks__inspect-minimap-canvas"
         style={{ height: `${heightRem}rem` }}
         data-testid="inspect-minimap-canvas"
         onPointerDown={onPointerDown}

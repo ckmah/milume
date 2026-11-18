@@ -1,4 +1,4 @@
-/* Tactical chrome. One dark veil in light and dark notebooks.
+/* Tactical chrome. Light and dark each set one surface token.
    IBM Plex Mono is OFL. The file is latin 400. */
 
 @font-face {
@@ -11,32 +11,42 @@
 
 .milume-widget,
 [data-milume-portal] {
-  --tact-ink: #f2f2f2;
-  --tact-muted: #d0d0d0;
-  --tact-tone: rgba(242, 242, 242, 0.16);
+  /* Light is the unmarked mode. #d6d6d6 at 90% composites to rgb(218,218,218)
+     on white, edge 1.40:1. #f2f2f2 at 90% composites to 243 and the edge
+     falls to 1.11:1, which disappears on a white page. */
+  --tact-ink: #1a1a1a;
+  --tact-muted: #3a3a3a;
+  --tact-tone: rgba(26, 26, 26, 0.1);
   --tact-accent: #3d7dff;
-  --tact-track: rgba(242, 242, 242, 0.28);
-  --tact-rule: rgba(242, 242, 242, 0.78);
-  --tact-veil: color-mix(in srgb, #141414 75%, transparent);
+  --tact-track: rgba(26, 26, 26, 0.28);
+  --tact-range: rgba(26, 26, 26, 0.62);
+  --tact-rule: rgba(26, 26, 26, 0.78);
+  --tact-surface: rgb(214 214 214 / 90%);
+  --tact-veil: var(--tact-surface);
+  --tact-blur: blur(10px);
   --tact-mono: "IBM Plex Mono", ui-monospace, monospace;
   --foreground: var(--tact-ink);
   --muted-foreground: var(--tact-muted);
   --card-foreground: var(--tact-ink);
-  --popover: var(--tact-veil);
+  --popover: var(--tact-surface);
   --popover-foreground: var(--tact-ink);
   --primary: var(--tact-ink);
-  --primary-foreground: #141414;
+  --primary-foreground: #f2f2f2;
   --accent: var(--tact-tone);
   --accent-foreground: var(--tact-ink);
   --border: transparent;
   --ring: var(--tact-ink);
   --lm-text: var(--tact-ink);
   --lm-text-muted: var(--tact-muted);
-  --lm-float-bg: var(--tact-veil);
-  --lm-float-blur: blur(10px);
+  --lm-float-bg: var(--tact-surface);
+  --lm-float-blur: var(--tact-blur);
   --lm-float-radius: 0px;
   --lm-float-shadow: none;
-  --lm-dock-width: 22rem;
+  --lm-dock-width: 17rem;
+  --lm-hit-radius: 0px;
+  --lm-panel-pad: 10px;
+  --lm-lead: 28px;
+  --lm-panel-nest: calc(var(--lm-lead) + 8px);
   --lm-hit-on-bg: transparent;
   --lm-hit-on-fg: var(--tact-ink);
   --lm-layer-radius: 0px;
@@ -44,27 +54,31 @@
   --lm-layer-active-bg: var(--tact-tone);
   --lm-layer-active-hover-bg: var(--tact-tone);
   color: var(--tact-ink);
-  color-scheme: dark;
+  color-scheme: light;
 }
 
-/* The dark theme sets these on `.milume-widget.dark` (two classes).
-   That wins over the block above and puts shortcuts back on #999. */
+/* Dark notebook. Same names as the light block, so components do not branch. */
 .milume-widget.dark,
-.milume-widget.light,
+.milume-widget.landmarks--dark,
 .dark .milume-widget,
-.light .milume-widget,
+.dark-theme .milume-widget,
+[data-theme="dark"] .milume-widget,
+[data-mode="dark"] .milume-widget,
+[data-milume-portal].dark,
+[data-milume-portal].landmarks--dark,
 .dark [data-milume-portal],
-.light [data-milume-portal] {
-  --foreground: var(--tact-ink);
-  --muted-foreground: var(--tact-muted);
-  --card-foreground: var(--tact-ink);
-  --popover: var(--tact-veil);
-  --popover-foreground: var(--tact-ink);
-  --primary: var(--tact-ink);
+.dark-theme [data-milume-portal],
+[data-theme="dark"] [data-milume-portal],
+[data-mode="dark"] [data-milume-portal] {
+  --tact-ink: #f2f2f2;
+  --tact-muted: #d0d0d0;
+  --tact-tone: rgba(242, 242, 242, 0.16);
+  --tact-track: rgba(242, 242, 242, 0.28);
+  --tact-range: rgba(242, 242, 242, 0.62);
+  --tact-rule: rgba(242, 242, 242, 0.78);
+  --tact-surface: rgb(58 58 58 / 90%);
   --primary-foreground: #141414;
-  --accent: var(--tact-tone);
-  --accent-foreground: var(--tact-ink);
-  --ring: var(--tact-ink);
+  color-scheme: dark;
 }
 
 .tact-label,
@@ -118,20 +132,30 @@
     100% 100%, 100% 100% !important;
   background-repeat: no-repeat !important;
   box-shadow: none !important;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: var(--tact-blur);
+  backdrop-filter: var(--tact-blur);
   color: var(--tact-ink);
 }
 
-.tact-tooltip {
-  border-radius: 0;
-  background: var(--tact-veil);
-  color: var(--tact-ink);
-  box-shadow: none;
+.tact-tooltip,
+.milume-widget .landmarks-tooltip,
+[data-milume-portal] .landmarks-tooltip,
+.milume-widget .landmarks-menu,
+[data-milume-portal] .landmarks-menu {
+  border-radius: 0 !important;
+  background: var(--tact-surface) !important;
+  color: var(--tact-ink) !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+  -webkit-backdrop-filter: var(--tact-blur) !important;
+  backdrop-filter: var(--tact-blur) !important;
+}
+
+.tact-tooltip,
+.milume-widget .landmarks-tooltip,
+[data-milume-portal] .landmarks-tooltip {
   padding: 4px 8px;
   font-size: 11px;
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
 }
 
 .landmarks-tooltip-arrow,
@@ -171,8 +195,8 @@
 }
 
 .tact-hotkey {
-  border: 1px solid #c8c8c8;
-  background: #141414;
+  border: 1px solid var(--tact-rule);
+  background: var(--tact-tone);
   color: var(--tact-ink);
   padding: 2px 4px;
   font-size: 10px;
@@ -188,6 +212,89 @@
   background: transparent !important;
   color: var(--tact-ink) !important;
   box-shadow: inset 3px 0 0 var(--tact-accent) !important;
+}
+
+.milume-widget .landmarks-toolbar .landmarks-hit,
+.milume-widget .landmarks-toolbar .landmarks-hit:hover,
+.milume-widget .landmarks-toolbar .landmarks-hit:active,
+.milume-widget .landmarks-toolbar .landmarks-hit[aria-pressed="true"],
+.milume-widget .landmarks-toolbar .landmarks-hit[data-state="on"],
+.milume-widget .landmarks-toolbar .landmarks-hit[data-pressed],
+.milume-widget .landmarks-toolbar .landmarks-hit.landmarks-hit--on,
+.milume-widget .landmarks-toolbar .tact-toggle {
+  border-radius: 0 !important;
+}
+
+.milume-widget .landmarks-toolbar .landmarks-hit:hover:not(.landmarks-view-minimise-toggle) {
+  background: var(--tact-tone) !important;
+  color: var(--tact-ink) !important;
+}
+
+.milume-widget .landmarks-toolbar .landmarks-hit[aria-pressed="true"],
+.milume-widget .landmarks-toolbar .landmarks-hit[data-state="on"],
+.milume-widget .landmarks-toolbar .landmarks-hit[data-pressed],
+.milume-widget .landmarks-toolbar .landmarks-hit.landmarks-hit--on,
+.milume-widget .landmarks-toolbar .tact-toggle[aria-pressed="true"],
+.milume-widget .landmarks-toolbar .tact-toggle[data-pressed] {
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--tact-ink) !important;
+  box-shadow: none !important;
+}
+
+.milume-widget .landmarks-toolbar .landmarks-hit[aria-pressed="true"]:hover,
+.milume-widget .landmarks-toolbar .landmarks-hit[data-state="on"]:hover,
+.milume-widget .landmarks-toolbar .landmarks-hit.landmarks-hit--on:hover {
+  background: var(--tact-tone) !important;
+  box-shadow: none !important;
+}
+
+.milume-widget .landmarks-toolbar {
+  position: relative;
+}
+
+.tact-toolbar-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.tact-toolbar-mark {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 14px;
+  height: 2px;
+  background: var(--tact-ink);
+  border-radius: 0;
+}
+
+.milume-widget .landmarks__peek-tab,
+.milume-widget .landmarks-panel-collapse-caret,
+.milume-widget .landmarks__peek-tab:hover,
+.milume-widget .landmarks-panel-collapse-caret:hover,
+.milume-widget .landmarks__peek-tab:active,
+.milume-widget .landmarks-panel-collapse-caret:active {
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background-image: none !important;
+}
+
+.milume-widget .landmarks__peek-tab,
+.milume-widget .landmarks-panel-collapse-caret {
+  background-color: var(--tact-surface) !important;
+  color: var(--tact-muted) !important;
+  -webkit-backdrop-filter: var(--tact-blur);
+  backdrop-filter: var(--tact-blur);
+}
+
+.milume-widget .landmarks__peek-tab:hover,
+.milume-widget .landmarks-panel-collapse-caret:hover,
+.milume-widget .landmarks__peek-tab:active,
+.milume-widget .landmarks-panel-collapse-caret:active {
+  background-color: var(--tact-tone) !important;
+  color: var(--tact-ink) !important;
 }
 
 .milume-widget .landmarks-layer-row,
@@ -237,7 +344,7 @@
 
 .tact-button[data-size="icon-xs"]:not(.landmarks-trail-hit),
 .tact-button[data-size="xs"]:not(.landmarks-trail-hit) {
-  border-radius: 2px !important;
+  border-radius: 0 !important;
 }
 
 .tact-switch {
@@ -270,7 +377,7 @@
   left: 0;
   width: 50%;
   height: auto;
-  border-radius: 2px;
+  border-radius: 0;
   background: var(--tact-tone);
   pointer-events: none;
 }
@@ -322,7 +429,7 @@
 
 .landmarks-sliding-tabs__pill {
   background: var(--tact-tone) !important;
-  border-radius: 2px !important;
+  border-radius: 0 !important;
 }
 
 .tact-slider {
@@ -353,7 +460,7 @@
 .tact-slider-range {
   position: absolute;
   height: 100%;
-  background: rgba(242, 242, 242, 0.62);
+  background: var(--tact-range);
 }
 
 .tact-slider-thumb {
@@ -381,9 +488,9 @@
 .milume-widget [data-slot="textarea"],
 [data-milume-portal] [data-slot="input"],
 [data-milume-portal] [data-slot="textarea"] {
-  border-radius: 2px;
-  border: 1px solid rgba(242, 242, 242, 0.28);
-  background: rgba(242, 242, 242, 0.06);
+  border-radius: 0;
+  border: 1px solid var(--tact-track);
+  background: var(--tact-tone);
   color: var(--tact-ink);
   font-family: var(--tact-mono);
   font-size: 12px;
@@ -416,7 +523,7 @@
 }
 
 .landmarks {
-  scrollbar-color: rgba(242, 242, 242, 0.35) transparent;
+  scrollbar-color: var(--tact-track) transparent;
 }
 
 .landmarks-image-channel-row__name,
@@ -429,242 +536,244 @@
   line-height: 16px;
 }
 
-/* Signed-off v7 specimens. Same tokens as the chrome. */
-.tact-v7 {
-  display: grid;
-  gap: 16px;
+/* Real widget controls. The design-system page mounts these same components. */
+
+.milume-widget [data-slot="input"],
+.milume-widget .tact-readout {
+  font-family: var(--tact-mono);
 }
 
-.tact-v7-swatch {
-  display: block;
-  width: 8px;
-  height: 8px;
-  flex: none;
-}
-
-.tact-v7-frame {
-  display: grid;
-  gap: 12px;
-  min-width: 16rem;
-  padding: 14px 16px 16px;
-}
-
-.tact-v7-split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.tact-v7-color,
-.tact-v7-row,
-.tact-v7-palette,
-.tact-v7-layer,
-.tact-v7-group-trigger,
-.tact-v7-gene {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.tact-v7-swatches,
-.tact-v7-menu,
-.tact-v7-fields,
-.tact-v7-group-body {
-  display: grid;
-  gap: 8px;
-}
-
-.tact-v7-swatches {
-  grid-template-columns: 1fr 1fr;
-}
-
-.tact-v7-row,
-.tact-v7-palette,
-.tact-v7-key,
-.tact-v7-group-trigger {
-  position: relative;
+.milume-widget [data-slot="input"] {
+  height: 28px;
   border: 0;
   border-radius: 0;
-  background: transparent;
-  color: var(--tact-ink);
-  font-family: var(--tact-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-align: left;
-  text-transform: uppercase;
-}
-
-.tact-v7-on {
-  background: var(--tact-tone);
-}
-
-.tact-v7-on::before {
-  content: "";
-  position: absolute;
-  top: 3px;
-  bottom: 3px;
-  left: 0;
-  width: 3px;
-  background: var(--tact-accent);
-}
-
-.tact-v7-field {
-  display: grid;
-  gap: 4px;
-}
-
-.tact-v7-input,
-.tact-v7-key {
-  height: 28px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 2px;
   background: var(--tact-tone);
   color: var(--tact-ink);
-  font-family: var(--tact-mono);
   font-size: 12px;
-  letter-spacing: 0;
-  text-transform: none;
+  box-shadow: none;
 }
 
-.tact-v7-input[aria-invalid="true"] {
+.milume-widget [data-slot="input"][aria-invalid="true"] {
   box-shadow: inset 0 0 0 1px var(--destructive);
 }
 
-.tact-v7-input:disabled {
+.milume-widget [data-slot="input"]:disabled {
   color: var(--tact-muted);
   opacity: 0.45;
 }
 
-.tact-v7-input[data-focus="true"],
-.tact-v7-key[data-focus="true"] {
+.milume-widget :focus-visible {
   outline: 1px solid var(--tact-ink);
   outline-offset: 3px;
 }
 
-.tact-v7-hit {
-  color: var(--tact-ink);
-  background: var(--tact-tone);
-}
-
-.tact-v7-gene {
-  display: block;
-  height: 22px;
-  line-height: 22px;
-  color: var(--tact-muted);
-  font-family: var(--tact-mono);
-  font-size: 12px;
-  letter-spacing: 0;
-  text-transform: none;
-}
-
-.tact-v7-scroll {
-  height: 168px;
-}
-
-.tact-v7-scroll-view {
-  height: 168px;
-  overflow: auto;
+.milume-widget.landmarks,
+.milume-widget.landmarks * {
   scrollbar-color: var(--tact-ink) transparent;
 }
 
-.tact-v7-scrollbar {
-  display: flex;
-  justify-content: center;
+.milume-widget.landmarks ::-webkit-scrollbar {
   width: 10px;
-  padding: 2px;
-  background: rgba(242, 242, 242, 0.12);
+  height: 10px;
 }
 
-.tact-v7-scroll-thumb {
-  width: 4px;
+.milume-widget.landmarks ::-webkit-scrollbar-thumb {
   border-radius: 0;
   background: var(--tact-ink);
+  border: 2px solid transparent;
+  background-clip: padding-box;
 }
 
-.tact-v7-ramp {
+.milume-widget [data-slot="combobox-content"],
+.milume-widget [data-slot="combobox-item"],
+.milume-widget [data-slot="combobox-empty"],
+.milume-widget [data-slot="field-description"],
+.milume-widget .landmarks-layer-label,
+.milume-widget .landmarks-image-channel-row__name,
+.landmarks-channel-color-picker {
+  font-family: var(--tact-mono);
+}
+
+.milume-widget [data-slot="combobox-item"] {
+  border-radius: 0;
+  color: var(--tact-muted);
+  font-size: 12px;
+  background: transparent;
+}
+
+.milume-widget [data-slot="combobox-item"][data-highlighted] {
+  color: var(--tact-ink);
+  background: transparent;
+  box-shadow: inset 3px 0 0 var(--tact-accent);
+}
+
+.milume-widget [data-slot="combobox-empty"],
+.milume-widget [data-slot="field-description"] {
+  color: var(--tact-muted);
+  font-size: 12px;
+}
+
+.tact-gene-hit {
+  background: var(--tact-tone);
+  color: var(--tact-ink);
+}
+
+.landmarks-channel-color-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.landmarks-channel-color-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 22px;
+  border-radius: 0;
+  color: var(--tact-muted);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+}
+
+.landmarks-channel-color-option[data-checked="true"] {
+  color: var(--tact-ink);
+  box-shadow: inset 3px 0 0 var(--tact-accent);
+}
+
+.milume-widget .landmarks-chip,
+.milume-widget .landmarks-layer-swatch,
+.milume-widget .landmarks-layer-thumb,
+.milume-widget .landmarks-subcat-avatar,
+.milume-widget .landmarks-channel-color-dot,
+.milume-widget .landmarks-menu,
+.milume-widget [data-slot="combobox-chip"],
+.milume-widget [data-slot="combobox-chips"],
+[data-milume-portal] .landmarks-chip,
+[data-milume-portal] .landmarks-layer-swatch,
+[data-milume-portal] .landmarks-menu,
+[data-milume-portal] [data-slot="combobox-chip"] {
+  border-radius: 0 !important;
+}
+
+.landmarks-channel-color-swatch,
+.landmarks-channel-color-dot .landmarks-layer-swatch,
+.landmarks-channel-color-header-swatch {
+  width: 10px;
+  height: 10px;
+  min-width: 10px;
+  border-radius: 0;
+}
+
+.landmarks-channel-color-header-swatch {
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  min-height: 14px;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-section-header {
+  padding-left: var(--lm-panel-pad) !important;
+  padding-right: var(--lm-panel-pad) !important;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-section-header__main {
+  grid-template-columns: var(--lm-lead) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-section-header__main:has(.landmarks-panel-section-header__pin) {
+  grid-template-columns: var(--lm-lead) auto minmax(0, 1fr);
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-section-header__icon {
+  justify-self: center;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-layer-row,
+.milume-widget .landmarks__layers-panel .landmarks-cat-trigger,
+.milume-widget .landmarks__layers-panel .landmarks-image-channel-row {
+  display: grid;
+  grid-template-columns: var(--lm-lead) minmax(0, 1fr) auto;
+  column-gap: 8px;
+  align-items: center;
+  padding-left: var(--lm-panel-pad) !important;
+  padding-right: var(--lm-panel-pad) !important;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-layer-row > :first-child,
+.milume-widget .landmarks__layers-panel .landmarks-image-channel-row > :first-child {
+  justify-self: center;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-section-header__trail,
+.milume-widget .landmarks__layers-panel .landmarks-trail {
+  justify-content: flex-end;
+  margin-left: 0;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-layers-stack__nested,
+.milume-widget .landmarks__layers-panel .landmarks-cat-sublist {
+  padding-left: var(--lm-panel-nest);
+  padding-right: 0;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-slider-stack {
+  padding: 0.125rem 0 !important;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-layers-stack__nested .landmarks-slider-row,
+.milume-widget .landmarks__layers-panel .landmarks-panel-section__body > [data-slot="field-description"] {
+  padding-left: var(--lm-panel-pad);
+  padding-right: var(--lm-panel-pad);
+}
+
+.landmarks-palette-ramp {
   width: 72px;
   height: 8px;
+  border-radius: 0;
   background-size: 100% 100%;
 }
 
-.tact-v7-legend {
-  display: flex;
-  gap: 8px;
-  height: 96px;
-}
-
-.tact-v7-legend-scale {
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  color: var(--tact-muted);
+.milume-widget [data-testid="num-heat-strip"] [data-legend-tick] {
   font-family: var(--tact-mono);
+  color: var(--tact-muted);
   font-size: 11px;
 }
 
-.tact-v7-legend-bar {
-  width: 10px;
-  background-size: 100% 100%;
-}
-
-.tact-v7-empty,
-.tact-v7-note,
-.tact-v7-label {
-  margin: 0;
-  color: var(--tact-muted);
-  font-family: var(--tact-mono);
-  font-size: 12px;
-}
-
-.tact-v7-error {
-  margin: 0;
-  color: var(--destructive);
-  font-family: var(--tact-mono);
-  font-size: 12px;
-}
-
-.tact-v7-loading {
-  height: 2px;
-  background: linear-gradient(90deg, var(--tact-ink) 35%, rgba(242, 242, 242, 0.28) 35%);
-}
-
-.tact-v7-group-trigger svg {
-  width: 12px;
-  height: 12px;
-}
-
-.tact-v7-group-body {
-  padding-left: 20px;
-}
-
-.tact-v7-drop {
-  height: 2px;
-  background: var(--tact-ink);
-}
-
-.tact-v7-ghost {
-  background: var(--tact-tone);
-  margin-left: 12px;
-}
-
-.tact-v7-toast-title {
-  margin: 0;
+.landmarks-load-card {
+  border-radius: 0;
+  background-color: var(--tact-veil);
   color: var(--tact-ink);
-  font-family: var(--tact-mono);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  box-shadow: none;
+  -webkit-backdrop-filter: var(--tact-blur);
+  backdrop-filter: var(--tact-blur);
+}
+
+.landmarks-load-card[data-phase="error"] {
+  color: var(--destructive);
+}
+
+.landmarks-load-card[data-phase="loading"] .landmarks__progress {
+  height: 2px;
+  border-radius: 0;
+  background: var(--tact-track);
+}
+
+.landmarks-load-card[data-phase="loading"] .landmarks__progress-bar {
+  border-radius: 0;
+  background: var(--tact-ink);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .milume-widget .tact-switch-glide,
   .milume-widget .landmarks-sliding-tabs__pill,
   .milume-widget .landmarks-cat-sublist,
+  .milume-widget .tact-toolbar-mark,
   [data-milume-portal] .tact-popup,
   [data-milume-portal] .tact-tooltip {
     transition: none !important;
     animation: none !important;
   }
 }
+

@@ -101,11 +101,11 @@ export const TOOLBAR_CAPTION = "landmarks-toolbar-caption";
 
 /** Inverted chrome tooltip (opposite of theme surface). */
 const chromeTooltipClass =
-  "landmarks-tooltip z-50 w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md border border-transparent px-2.5 py-1 text-xs font-medium text-balance shadow-md";
+  "landmarks-tooltip z-50 w-fit origin-(--radix-tooltip-content-transform-origin) border border-transparent px-2.5 py-1 text-xs font-medium text-balance shadow-md";
 
 /** Soft float popover — selection dropdown, layer menus, canvas context. */
 export const chromeMenuClass =
-  "landmarks-menu z-50 min-w-[9rem] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md";
+  "landmarks-menu z-50 min-w-[9rem] overflow-hidden border border-border bg-popover p-1 text-popover-foreground shadow-md";
 
 export function ToolbarDivider() {
   return <span className="landmarks-toolbar-divider inline-block w-2 shrink-0" aria-hidden />;
@@ -161,7 +161,7 @@ export function ColorSwatch({
     return (
       <span
         className={cn(
-          "landmarks-layer-swatch landmarks-layer-swatch--landmark inline-block shrink-0 rounded-full",
+          "landmarks-layer-swatch landmarks-layer-swatch--landmark inline-block shrink-0",
           !color && "border-border",
           className,
         )}
@@ -181,7 +181,7 @@ export function ColorSwatch({
     return (
       <span
         className={cn(
-          "landmarks-layer-swatch landmarks-layer-swatch--selection inline-block shrink-0 rounded-full",
+          "landmarks-layer-swatch landmarks-layer-swatch--selection inline-block shrink-0",
           !color && "border-border",
           className,
         )}
@@ -193,7 +193,7 @@ export function ColorSwatch({
   return (
     <span
       className={cn(
-        "landmarks-layer-swatch inline-block shrink-0 rounded-full ring-1 ring-border",
+        "landmarks-layer-swatch inline-block shrink-0 ring-1 ring-border",
         !color && "bg-muted-foreground/40",
         className,
       )}
@@ -324,7 +324,7 @@ export function LayerRow({
           data-testid="selection-thumb"
           src={thumbnail}
           alt=""
-          className="landmarks-layer-thumb size-7 shrink-0 rounded-sm object-cover"
+          className="landmarks-layer-thumb size-7 shrink-0 object-cover"
           style={color ? { borderColor: color } : undefined}
         />
       ) : (

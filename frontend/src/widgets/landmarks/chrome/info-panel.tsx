@@ -107,12 +107,12 @@ function InfoChartWell({
   return (
     <div
       className={cn(
-        "landmarks-info-chart relative flex w-full shrink-0 items-stretch justify-stretch rounded-[var(--radius)]",
+        "landmarks-info-chart relative flex w-full shrink-0 items-stretch justify-stretch",
         compact ? "min-h-0 py-1" : "h-44",
       )}
       data-testid="info-chart-well"
     >
-      <div className="relative flex w-full flex-col justify-center overflow-hidden rounded-[inherit]">
+      <div className="relative flex w-full flex-col justify-center overflow-hidden">
         {children}
       </div>
       {legend}

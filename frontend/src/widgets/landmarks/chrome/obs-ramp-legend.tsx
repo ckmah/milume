@@ -46,7 +46,7 @@ export function ObsRampLegend({
           <span data-testid="obs-ramp-vmin">{formatLegendValue(vmin)}</span>
         </div>
         <div
-          className="h-10 w-2.5 shrink-0 rounded-full border border-border/60"
+          className="h-10 w-2.5 shrink-0 border border-border/60"
           style={{ background: obsPaletteGradient(palette) }}
           role="img"
           aria-label={`${title || "Observation"} scale`}
