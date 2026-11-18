@@ -291,7 +291,7 @@ function fieldRand(seed: number) {
   };
 }
 
-function DataField() {
+export function DataField() {
   const rand = fieldRand(460);
   const dots = Array.from({ length: 520 }, (_, index) => {
     const hot = index % 4 === 0;

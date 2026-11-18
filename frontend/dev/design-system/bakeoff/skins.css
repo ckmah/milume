@@ -1283,3 +1283,232 @@
     transform: none;
   }
 }
+
+.milume-widget[data-style="game-tact"] .g-v7 {
+  position: relative;
+  display: grid;
+  gap: 16px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7 .g-swatch {
+  display: block;
+  width: 8px;
+  height: 8px;
+  flex: none;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-frame,
+.milume-widget[data-style="game-tact"] .g-toast {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px 16px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-frame .g-subhead,
+.milume-widget[data-style="game-tact"] .g-v7-note,
+.milume-widget[data-style="game-tact"] .g-v7-empty {
+  margin: 0;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-color,
+.milume-widget[data-style="game-tact"] .g-v7-swatch,
+.milume-widget[data-style="game-tact"] .g-v7-palette,
+.milume-widget[data-style="game-tact"] .g-v7-layer,
+.milume-widget[data-style="game-tact"] .g-v7-group-trigger,
+.milume-widget[data-style="game-tact"] .g-v7-gene {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-swatches,
+.milume-widget[data-style="game-tact"] .g-v7-menu,
+.milume-widget[data-style="game-tact"] .g-v7-fields,
+.milume-widget[data-style="game-tact"] .g-v7-group-body {
+  display: grid;
+  gap: 8px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-swatches {
+  grid-template-columns: 1fr 1fr;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-swatch,
+.milume-widget[data-style="game-tact"] .g-v7-palette,
+.milume-widget[data-style="game-tact"] .g-v7-key,
+.milume-widget[data-style="game-tact"] .g-v7-group-trigger {
+  position: relative;
+  border: 0;
+  background: transparent;
+  color: var(--g-ink);
+  font-family: var(--g-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-on {
+  background: rgb(242 242 242 / 16%);
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-on::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 3px;
+  background: var(--g-select);
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-field {
+  display: grid;
+  gap: 4px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-input,
+.milume-widget[data-style="game-tact"] .g-v7-key {
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 2px;
+  background: rgb(242 242 242 / 16%);
+  color: var(--g-ink);
+  font-family: var(--g-mono);
+  font-size: 12px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-input[aria-invalid="true"] {
+  box-shadow: inset 0 0 0 1px var(--destructive);
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-input:disabled {
+  color: var(--g-muted);
+  opacity: 0.45;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-input[data-focus="true"],
+.milume-widget[data-style="game-tact"] .g-v7-key[data-focus="true"] {
+  outline: 1px solid var(--g-ink);
+  outline-offset: 3px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-hit {
+  color: var(--g-ink);
+  background: rgb(242 242 242 / 16%);
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-gene {
+  display: block;
+  height: 22px;
+  line-height: 22px;
+  color: var(--g-muted);
+  font-family: var(--g-mono);
+  font-size: 12px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-scroll {
+  height: 168px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-scroll-view {
+  height: 168px;
+  overflow: auto;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-scrollbar {
+  display: flex !important;
+  justify-content: center;
+  width: 10px;
+  padding: 2px;
+  opacity: 1 !important;
+  background: rgb(242 242 242 / 12%);
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-scroll-thumb {
+  width: 4px;
+  border-radius: 0;
+  background: var(--g-ink);
+  opacity: 1 !important;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-ramp {
+  width: 72px;
+  height: 8px;
+  background-size: 100% 100%;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-legend {
+  display: flex;
+  gap: 8px;
+  height: 96px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-legend-scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--g-muted);
+  font-family: var(--g-mono);
+  font-size: 11px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-legend-bar {
+  width: 10px;
+  background-size: 100% 100%;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-empty,
+.milume-widget[data-style="game-tact"] .g-v7-note {
+  color: var(--g-muted);
+  font-family: var(--g-mono);
+  font-size: 12px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-error {
+  margin: 0;
+  color: var(--destructive);
+  font-family: var(--g-mono);
+  font-size: 12px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-loading {
+  height: 2px;
+  background: linear-gradient(90deg, var(--g-ink) 35%, rgb(242 242 242 / 28%) 35%);
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-group-trigger svg {
+  width: 12px;
+  height: 12px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-group-body {
+  padding-left: 20px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-drop {
+  height: 2px;
+  background: var(--g-ink);
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-ghost {
+  background: rgb(242 242 242 / 16%);
+  margin-left: 12px;
+}
+
+.milume-widget[data-style="game-tact"] .g-v7-toast-title {
+  margin: 0;
+  color: var(--g-ink);
+  font-family: var(--g-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

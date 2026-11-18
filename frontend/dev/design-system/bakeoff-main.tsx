@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 
 import { LayersSlice } from "./bakeoff/panel";
 import { ChromeScene, type GameSkin } from "./bakeoff/scene";
+import { V7Part, type V7PartName } from "./bakeoff/v7-parts";
 import { ShadowStage } from "./bakeoff/shadow-stage";
 import { isGameSkin } from "./bakeoff/skins.mjs";
 import "./bakeoff/bakeoff.css";
@@ -27,7 +28,8 @@ type Mark = "a" | "b";
 type BakeoffQuery = {
   style: PresetStyle | GameSkin;
   theme: "light" | "dark";
-  shot: "full" | "close" | "sliders";
+  shot: "full" | "close" | "sliders" | "v7";
+  part: V7PartName | null;
   slider: "a" | "b" | "c";
   backdrop: Backdrop | null;
   veil: Veil | null;
@@ -42,7 +44,18 @@ function parseBakeoffQuery(search: string): BakeoffQuery {
     rawStyle in KITS || isGameSkin(rawStyle) ? rawStyle : "base-nova";
   const theme = params.get("theme") === "light" ? "light" : "dark";
   const rawShot = params.get("shot");
-  const shot = rawShot === "close" || rawShot === "sliders" ? rawShot : "full";
+  const shot = rawShot === "close" || rawShot === "sliders" || rawShot === "v7" ? rawShot : "full";
+  const rawPart = params.get("part");
+  const part: V7PartName | null =
+    rawPart === "color" ||
+    rawPart === "genes" ||
+    rawPart === "colormap" ||
+    rawPart === "inputs" ||
+    rawPart === "layers" ||
+    rawPart === "feedback" ||
+    rawPart === "focus"
+      ? rawPart
+      : null;
   const rawSlider = params.get("slider");
   const slider = rawSlider === "b" || rawSlider === "c" ? rawSlider : "a";
   const rawBackdrop = params.get("backdrop");
@@ -53,7 +66,7 @@ function parseBakeoffQuery(search: string): BakeoffQuery {
   const rawMark = params.get("mark");
   const mark: Mark | null = rawMark === "a" || rawMark === "b" ? rawMark : null;
   const page = params.get("page") === "notebook" ? "notebook" : null;
-  return { style, theme, shot, slider, backdrop, veil, mark, page };
+  return { style, theme, shot, slider, part, backdrop, veil, mark, page };
 }
 
 const query = parseBakeoffQuery(window.location.search);
@@ -87,11 +100,13 @@ function Page() {
         veil={query.veil ?? undefined}
         mark={query.mark ?? undefined}
       >
-        {game ? (
+        {game && query.shot === "v7" && query.part ? (
+          <V7Part part={query.part} kit={nova as never} />
+        ) : game ? (
           <ChromeScene
             kit={nova as never}
             skin={query.style}
-            frame={query.shot}
+            frame={query.shot === "v7" ? "full" : query.shot}
             slider={query.slider}
             backdrop={query.backdrop ?? undefined}
           />

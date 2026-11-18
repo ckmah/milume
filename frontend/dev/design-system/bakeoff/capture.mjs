@@ -23,7 +23,7 @@ fs.mkdirSync(stills, { recursive: true });
 
 const browser = await chromium.launch();
 
-if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5" && only !== "tact-v6") for (const theme of themes) {
+if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5" && only !== "tact-v6" && only !== "tact-v7") for (const theme of themes) {
   const page = await browser.newPage({
     viewport: { width: 1100, height: 900 },
     deviceScaleFactor: 2,
@@ -52,7 +52,7 @@ if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tac
   console.log(`shipped-${theme} ${bg}`);
 }
 
-if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5" && only !== "tact-v6") for (const style of styles) {
+if (only !== "game" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5" && only !== "tact-v6" && only !== "tact-v7") for (const style of styles) {
   for (const theme of themes) {
     const page = await browser.newPage({
       viewport: { width: 1100, height: 900 },
@@ -205,7 +205,24 @@ if (only === "tact-v6") {
   console.log("game-tact-v6-A-75");
 }
 
-if (only !== "presets" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5" && only !== "tact-v6") {
+if (only === "tact-v7") {
+  const parts = ["color", "genes", "colormap", "inputs", "layers", "feedback", "focus"];
+  for (const part of parts) {
+    const page = await browser.newPage({
+      viewport: { width: 1100, height: 900 },
+      deviceScaleFactor: 2,
+    });
+    await shootTact(
+      page,
+      `${base}/bakeoff.html?style=game-tact&theme=dark&shot=v7&part=${part}&backdrop=blur&veil=75&mark=a&slider=a`,
+      path.join(stills, `game-tact-v7-${part}.png`),
+    );
+    await page.close();
+    console.log(`game-tact-v7-${part}`);
+  }
+}
+
+if (only !== "presets" && only !== "tact-v2" && only !== "tact-v3" && only !== "tact-v4" && only !== "tact-v5" && only !== "tact-v6" && only !== "tact-v7") {
   for (const style of GAME_SKINS) {
     for (const theme of themes) {
       for (const shot of ["full", "close"]) {

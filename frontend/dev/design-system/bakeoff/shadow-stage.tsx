@@ -57,7 +57,7 @@ function WidgetTree({
 }: {
   theme: "light" | "dark";
   styleId?: string;
-  frame?: "full" | "close" | "sliders";
+  frame?: "full" | "close" | "sliders" | "v7";
   backdrop?: "solid" | "translucent" | "blur";
   veil?: "60" | "75" | "88";
   mark?: "a" | "b";
@@ -82,7 +82,7 @@ function WidgetTree({
       data-mark={mark}
       className={cn("milume-widget landmarks relative", theme === "dark" && "dark")}
       style={{
-        width: game ? (frame === "close" ? 780 : frame === "sliders" ? 560 : 1000) : "22rem",
+        width: game ? (frame === "close" ? 780 : frame === "sliders" ? 560 : frame === "v7" ? 920 : 1000) : "22rem",
         marginLeft: game ? 0 : 16,
         marginBottom: game ? 12 : 80,
         background: "var(--background)",
@@ -108,7 +108,7 @@ export function ShadowStage({
 }: {
   theme: "light" | "dark";
   styleId?: string;
-  frame?: "full" | "close" | "sliders";
+  frame?: "full" | "close" | "sliders" | "v7";
   backdrop?: "solid" | "translucent" | "blur";
   veil?: "60" | "75" | "88";
   mark?: "a" | "b";
