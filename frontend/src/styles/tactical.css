@@ -46,6 +46,26 @@
   color-scheme: dark;
 }
 
+/* The dark theme sets these on `.milume-widget.dark` (two classes).
+   That wins over the block above and puts shortcuts back on #999. */
+.milume-widget.dark,
+.milume-widget.light,
+.dark .milume-widget,
+.light .milume-widget,
+.dark [data-milume-portal],
+.light [data-milume-portal] {
+  --foreground: var(--tact-ink);
+  --muted-foreground: var(--tact-muted);
+  --card-foreground: var(--tact-ink);
+  --popover: var(--tact-veil);
+  --popover-foreground: var(--tact-ink);
+  --primary: var(--tact-ink);
+  --primary-foreground: #141414;
+  --accent: var(--tact-tone);
+  --accent-foreground: var(--tact-ink);
+  --ring: var(--tact-ink);
+}
+
 .tact-label,
 .landmarks-section-label,
 .landmarks-toolbar-caption,

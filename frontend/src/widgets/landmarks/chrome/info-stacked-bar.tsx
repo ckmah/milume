@@ -16,6 +16,11 @@ function StackedBarTrack({
 }) {
   const total = slices.reduce((acc, s) => acc + s.value, 0);
   if (!total) return null;
+  const painted = slices.filter((slice) => slice.value > 0);
+  /* One category fills the track. A full-width palette bar reads as a channel
+     color. The category stays on the legend dot. Two or more slices keep
+     their colors so the split is readable. */
+  const sole = painted.length < 2;
 
   return (
     <div
@@ -39,7 +44,7 @@ function StackedBarTrack({
             style={{
               flexGrow: slice.value,
               flexBasis: 0,
-              background: slice.fill,
+              background: sole ? "var(--tact-track)" : slice.fill,
             }}
             title={`${slice.label}: ${slice.value.toLocaleString()} cells`}
           />
