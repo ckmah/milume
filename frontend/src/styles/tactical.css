@@ -39,9 +39,10 @@
   --lm-dock-width: 22rem;
   --lm-hit-on-bg: transparent;
   --lm-hit-on-fg: var(--tact-ink);
+  --lm-layer-radius: 0px;
   --lm-layer-hover-bg: transparent;
-  --lm-layer-active-bg: transparent;
-  --lm-layer-active-hover-bg: transparent;
+  --lm-layer-active-bg: var(--tact-tone);
+  --lm-layer-active-hover-bg: var(--tact-tone);
   color: var(--tact-ink);
   color-scheme: dark;
 }
@@ -155,6 +156,7 @@
 .tact-menu-item[data-highlighted],
 .tact-menu-item:focus,
 .tact-menu-item[data-checked] {
+  border-radius: 0;
   box-shadow: inset 3px 0 0 var(--tact-accent);
   background: transparent;
 }
@@ -182,24 +184,60 @@
 .landmarks-hit.landmarks-hit--on,
 .tact-toggle[aria-pressed="true"],
 .tact-toggle[data-pressed] {
+  border-radius: 0 !important;
   background: transparent !important;
   color: var(--tact-ink) !important;
   box-shadow: inset 3px 0 0 var(--tact-accent) !important;
 }
 
-.landmarks-layer-row--active,
-.landmarks-cat-trigger--active {
-  background-color: transparent !important;
-  box-shadow: inset 3px 0 0 var(--tact-accent);
+.milume-widget .landmarks-layer-row,
+.milume-widget .landmarks-cat-trigger {
+  border-radius: 0 !important;
+  color: var(--tact-muted);
+}
+
+.milume-widget .landmarks-layer-row--active,
+.milume-widget .landmarks-layer-row--active:hover,
+.milume-widget .landmarks-cat-trigger--active,
+.milume-widget .landmarks-cat-trigger--active:hover {
+  border-radius: 0 !important;
+  background-color: var(--tact-tone) !important;
+  box-shadow: none !important;
+  color: var(--tact-ink) !important;
+}
+
+.milume-widget .landmarks-panel-section-header__main,
+.milume-widget .landmarks-panel-section-header__toggle.landmarks-hit,
+.milume-widget .landmarks-trail-hit,
+.milume-widget .landmarks-cat-chevron,
+.milume-widget .landmarks-image-channel-row {
+  border-radius: 0 !important;
+}
+
+.milume-widget .landmarks-panel-section-header__main {
+  color: var(--tact-muted) !important;
+}
+
+.milume-widget .landmarks-panel-section-header--open .landmarks-panel-section-header__main {
+  color: var(--tact-ink) !important;
+  background: transparent;
 }
 
 .landmarks-trail-hit,
 .tact-button[data-size="icon-xs"],
 .tact-button[data-size="xs"] {
   border: 0 !important;
-  border-radius: 2px !important;
   background: var(--tact-tone) !important;
   color: var(--tact-ink) !important;
+}
+
+.landmarks-trail-hit {
+  border-radius: 0 !important;
+}
+
+.tact-button[data-size="icon-xs"]:not(.landmarks-trail-hit),
+.tact-button[data-size="xs"]:not(.landmarks-trail-hit) {
+  border-radius: 2px !important;
 }
 
 .tact-switch {
@@ -447,6 +485,7 @@
 .tact-v7-group-trigger {
   position: relative;
   border: 0;
+  border-radius: 0;
   background: transparent;
   color: var(--tact-ink);
   font-family: var(--tact-mono);
