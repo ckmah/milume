@@ -202,20 +202,26 @@
   height: 20px;
 }
 
-.tact-switch-glide {
+/* The glide is a span. A bare `> span` rule would win on position and put
+   the block back in the grid, stacking Off under On with no wash. */
+.tact-switch > .tact-switch-glide {
   position: absolute;
+  z-index: 0;
   top: 0;
   bottom: 0;
   left: 0;
   width: 50%;
+  height: auto;
   border-radius: 2px;
   background: var(--tact-tone);
+  pointer-events: none;
 }
 
-.tact-switch > span {
+.tact-switch > span:not(.tact-switch-glide) {
   position: relative;
   z-index: 1;
   text-align: center;
+  white-space: nowrap;
 }
 
 .tact-switch > span[data-hot="true"] {
@@ -363,6 +369,234 @@
 .landmarks-image-channel-row__name {
   font-size: 12px;
   line-height: 16px;
+}
+
+/* Signed-off v7 specimens. Same tokens as the chrome. */
+.tact-v7 {
+  display: grid;
+  gap: 16px;
+}
+
+.tact-v7-swatch {
+  display: block;
+  width: 8px;
+  height: 8px;
+  flex: none;
+}
+
+.tact-v7-frame {
+  display: grid;
+  gap: 12px;
+  min-width: 16rem;
+  padding: 14px 16px 16px;
+}
+
+.tact-v7-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.tact-v7-color,
+.tact-v7-row,
+.tact-v7-palette,
+.tact-v7-layer,
+.tact-v7-group-trigger,
+.tact-v7-gene {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tact-v7-swatches,
+.tact-v7-menu,
+.tact-v7-fields,
+.tact-v7-group-body {
+  display: grid;
+  gap: 8px;
+}
+
+.tact-v7-swatches {
+  grid-template-columns: 1fr 1fr;
+}
+
+.tact-v7-row,
+.tact-v7-palette,
+.tact-v7-key,
+.tact-v7-group-trigger {
+  position: relative;
+  border: 0;
+  background: transparent;
+  color: var(--tact-ink);
+  font-family: var(--tact-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.tact-v7-on {
+  background: var(--tact-tone);
+}
+
+.tact-v7-on::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 3px;
+  background: var(--tact-accent);
+}
+
+.tact-v7-field {
+  display: grid;
+  gap: 4px;
+}
+
+.tact-v7-input,
+.tact-v7-key {
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--tact-tone);
+  color: var(--tact-ink);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.tact-v7-input[aria-invalid="true"] {
+  box-shadow: inset 0 0 0 1px var(--destructive);
+}
+
+.tact-v7-input:disabled {
+  color: var(--tact-muted);
+  opacity: 0.45;
+}
+
+.tact-v7-input[data-focus="true"],
+.tact-v7-key[data-focus="true"] {
+  outline: 1px solid var(--tact-ink);
+  outline-offset: 3px;
+}
+
+.tact-v7-hit {
+  color: var(--tact-ink);
+  background: var(--tact-tone);
+}
+
+.tact-v7-gene {
+  display: block;
+  height: 22px;
+  line-height: 22px;
+  color: var(--tact-muted);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.tact-v7-scroll {
+  height: 168px;
+}
+
+.tact-v7-scroll-view {
+  height: 168px;
+  overflow: auto;
+  scrollbar-color: var(--tact-ink) transparent;
+}
+
+.tact-v7-scrollbar {
+  display: flex;
+  justify-content: center;
+  width: 10px;
+  padding: 2px;
+  background: rgba(242, 242, 242, 0.12);
+}
+
+.tact-v7-scroll-thumb {
+  width: 4px;
+  border-radius: 0;
+  background: var(--tact-ink);
+}
+
+.tact-v7-ramp {
+  width: 72px;
+  height: 8px;
+  background-size: 100% 100%;
+}
+
+.tact-v7-legend {
+  display: flex;
+  gap: 8px;
+  height: 96px;
+}
+
+.tact-v7-legend-scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--tact-muted);
+  font-family: var(--tact-mono);
+  font-size: 11px;
+}
+
+.tact-v7-legend-bar {
+  width: 10px;
+  background-size: 100% 100%;
+}
+
+.tact-v7-empty,
+.tact-v7-note,
+.tact-v7-label {
+  margin: 0;
+  color: var(--tact-muted);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+}
+
+.tact-v7-error {
+  margin: 0;
+  color: var(--destructive);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+}
+
+.tact-v7-loading {
+  height: 2px;
+  background: linear-gradient(90deg, var(--tact-ink) 35%, rgba(242, 242, 242, 0.28) 35%);
+}
+
+.tact-v7-group-trigger svg {
+  width: 12px;
+  height: 12px;
+}
+
+.tact-v7-group-body {
+  padding-left: 20px;
+}
+
+.tact-v7-drop {
+  height: 2px;
+  background: var(--tact-ink);
+}
+
+.tact-v7-ghost {
+  background: var(--tact-tone);
+  margin-left: 12px;
+}
+
+.tact-v7-toast-title {
+  margin: 0;
+  color: var(--tact-ink);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -4,8 +4,9 @@ import { Button } from "@/components/ui/button";
 
 import { ChromeSections } from "./gallery-chrome";
 import { UiSections } from "./gallery-ui";
+import { V7States } from "./v7-states";
 import { DESIGN_SYSTEM_SECTIONS } from "./sections";
-import { HarnessThemeProvider, type HarnessTheme } from "./stage";
+import { DsSection, HarnessThemeProvider, type HarnessTheme } from "./stage";
 
 const STORAGE_KEY = "milume-harness-theme";
 
@@ -54,6 +55,13 @@ export function DesignSystemHarness() {
             </Button>
           </header>
           <UiSections />
+          <DsSection
+            id="signed-off"
+            title="Signed-off states"
+            note="Channel color, genes, colormap, inputs, layer drag, feedback, focus, and the scrollbar."
+          >
+            <V7States />
+          </DsSection>
           <ChromeSections />
         </main>
       </div>

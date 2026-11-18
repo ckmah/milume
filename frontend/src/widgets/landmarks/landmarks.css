@@ -550,7 +550,9 @@
 /* Beat shadcn Card opaque bg/radius so glass corners don't flash black. */
 .landmarks-float[data-slot="card"],
 .landmarks-float.bg-card {
-  background: var(--lm-float-bg) !important;
+  /* background-color only. The shorthand resets background-image and
+     wipes the corner brackets on the Layers card. */
+  background-color: var(--lm-float-bg) !important;
   border-color: transparent !important;
   box-shadow: var(--lm-float-shadow) !important;
 }
