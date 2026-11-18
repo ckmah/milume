@@ -30,7 +30,7 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 
-await page.goto("/?noDialkit=1", { waitUntil: "networkidle" });
+await page.goto("/", { waitUntil: "networkidle" });
 await waitForEngine(page);
 await stabilizeUi(page);
 

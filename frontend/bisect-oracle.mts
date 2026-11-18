@@ -21,8 +21,8 @@ async function main() {
 
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 }, baseURL: base });
-  await page.goto(`${base}/?noDialkit=1&_=${Date.now()}`, { waitUntil: "domcontentloaded" });
-  await bootIssue395LandmarksVolume(page, "noDialkit=1");
+  await page.goto(`${base}/?_=${Date.now()}`, { waitUntil: "domcontentloaded" });
+  await bootIssue395LandmarksVolume(page, "");
   await openIssue395CubeAtInspectCentre(page);
   await prepareIssue395DapiOnlyObliqueView(page);
   await waitReady(page);

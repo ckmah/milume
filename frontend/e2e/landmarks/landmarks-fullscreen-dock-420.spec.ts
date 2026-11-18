@@ -65,7 +65,7 @@ test.describe("fullscreen dock chrome (#420)", () => {
     async ({ page }) => {
       test.skip(!volumeHarness || !issue3953d, "requires E2E_HARNESS=landmarks-volume and E2E_VOLUME_PROFILE=issue395-3d");
 
-      await page.goto("/?noDialkit=1", { waitUntil: "networkidle" });
+      await page.goto("/", { waitUntil: "networkidle" });
       await waitForEngine(page);
       await stabilizeUi(page);
 

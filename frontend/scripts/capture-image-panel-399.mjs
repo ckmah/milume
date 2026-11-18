@@ -1,5 +1,5 @@
 /**
- * Visual acceptance captures for #399 (1280×800, 2× DPR, harness banner hidden, no DialKit).
+ * Visual acceptance captures for #399 (1280×800, 2× DPR, harness banner hidden).
  * After shots: current branch with landmarks-volume harness (issue122-2d + colon).
  * Before shots: run against main @ 71ef685 on CAPTURE_BEFORE_URL (separate worktree + dev server).
  */
@@ -19,16 +19,9 @@ const railOnly = process.argv.includes("--rail-only");
 
 mkdirSync(outDir, { recursive: true });
 
-function withNoDialkit(pathQuery) {
-  if (!pathQuery || pathQuery === "/") return "/?noDialkit=1";
-  return pathQuery.includes("noDialkit=1")
-    ? pathQuery
-    : `${pathQuery}${pathQuery.includes("?") ? "&" : "?"}noDialkit=1`;
-}
-
 async function hideHarnessBanner(page) {
   await page.addStyleTag({
-    content: `[data-testid="harness-banner"], .harness-banner, [data-dialkit-panel] { display: none !important; }`,
+    content: `[data-testid="harness-banner"], .harness-banner { display: none !important; }`,
   });
 }
 
@@ -104,12 +97,12 @@ async function captureWidget(page, name, clip) {
 }
 
 async function loadIssue122(page, base) {
-  await page.goto(`${base}${withNoDialkit("/")}`, { waitUntil: "networkidle" });
+  await page.goto(`${base}/`, { waitUntil: "networkidle" });
   await waitEngine(page);
 }
 
 async function loadColon(page, base) {
-  await page.goto(`${base}${withNoDialkit("/")}`, { waitUntil: "domcontentloaded", timeout: 120_000 });
+  await page.goto(`${base}/`, { waitUntil: "domcontentloaded", timeout: 120_000 });
   await waitEngine(page);
 }
 

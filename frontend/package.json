@@ -91,8 +91,6 @@
     "@thi.ng/geom-accel": "^4.2.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "cube-motion": "^0.1.0",
-    "dialkit": "^2.0.2",
     "earcut": "^2.2.4",
     "hyparquet": "^1.31.5",
     "lucide-react": "^1.37.0",

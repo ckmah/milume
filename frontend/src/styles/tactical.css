@@ -1,0 +1,670 @@
+/* Tactical chrome. One dark veil in light and dark notebooks.
+   IBM Plex Mono is OFL. The file is latin 400. */
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+}
+
+.milume-widget,
+[data-milume-portal] {
+  --tact-ink: #f2f2f2;
+  --tact-muted: #d0d0d0;
+  --tact-tone: rgba(242, 242, 242, 0.16);
+  --tact-accent: #3d7dff;
+  --tact-track: rgba(242, 242, 242, 0.28);
+  --tact-rule: rgba(242, 242, 242, 0.78);
+  --tact-veil: color-mix(in srgb, #141414 75%, transparent);
+  --tact-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --foreground: var(--tact-ink);
+  --muted-foreground: var(--tact-muted);
+  --card-foreground: var(--tact-ink);
+  --popover: var(--tact-veil);
+  --popover-foreground: var(--tact-ink);
+  --primary: var(--tact-ink);
+  --primary-foreground: #141414;
+  --accent: var(--tact-tone);
+  --accent-foreground: var(--tact-ink);
+  --border: transparent;
+  --ring: var(--tact-ink);
+  --lm-text: var(--tact-ink);
+  --lm-text-muted: var(--tact-muted);
+  --lm-float-bg: var(--tact-veil);
+  --lm-float-blur: blur(10px);
+  --lm-float-radius: 0px;
+  --lm-float-shadow: none;
+  --lm-dock-width: 22rem;
+  --lm-hit-on-bg: transparent;
+  --lm-hit-on-fg: var(--tact-ink);
+  --lm-layer-radius: 0px;
+  --lm-layer-hover-bg: transparent;
+  --lm-layer-active-bg: var(--tact-tone);
+  --lm-layer-active-hover-bg: var(--tact-tone);
+  color: var(--tact-ink);
+  color-scheme: dark;
+}
+
+/* The dark theme sets these on `.milume-widget.dark` (two classes).
+   That wins over the block above and puts shortcuts back on #999. */
+.milume-widget.dark,
+.milume-widget.light,
+.dark .milume-widget,
+.light .milume-widget,
+.dark [data-milume-portal],
+.light [data-milume-portal] {
+  --foreground: var(--tact-ink);
+  --muted-foreground: var(--tact-muted);
+  --card-foreground: var(--tact-ink);
+  --popover: var(--tact-veil);
+  --popover-foreground: var(--tact-ink);
+  --primary: var(--tact-ink);
+  --primary-foreground: #141414;
+  --accent: var(--tact-tone);
+  --accent-foreground: var(--tact-ink);
+  --ring: var(--tact-ink);
+}
+
+.tact-label,
+.landmarks-section-label,
+.landmarks-toolbar-caption,
+.landmarks-field-caption,
+.landmarks-slider-caption,
+.landmarks-meta,
+.tact-hotkey,
+.tact-readout,
+.tact-tooltip,
+.tact-tab,
+.tact-switch,
+[data-slot="dropdown-menu-shortcut"] {
+  font-family: var(--tact-mono);
+}
+
+.tact-label,
+.landmarks-section-label,
+.landmarks-toolbar-caption {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tact-muted);
+}
+
+/* Corner brackets on top-level surfaces only. */
+.landmarks-float--panel,
+.landmarks-float--toolbar,
+.tact-popup {
+  border-radius: 0 !important;
+  background-color: var(--tact-veil) !important;
+  background-image:
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)) !important;
+  background-size:
+    10px 1px, 1px 10px,
+    10px 1px, 1px 10px,
+    10px 1px, 1px 10px,
+    10px 1px, 1px 10px !important;
+  background-position:
+    0 0, 0 0,
+    100% 0, 100% 0,
+    0 100%, 0 100%,
+    100% 100%, 100% 100% !important;
+  background-repeat: no-repeat !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: var(--tact-ink);
+}
+
+.tact-tooltip {
+  border-radius: 0;
+  background: var(--tact-veil);
+  color: var(--tact-ink);
+  box-shadow: none;
+  padding: 4px 8px;
+  font-size: 11px;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.landmarks-tooltip-arrow,
+[data-slot="tooltip-content"] > .rotate-45 {
+  display: none !important;
+}
+
+.tact-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 13rem;
+  padding: 8px 6px;
+}
+
+.tact-menu-item {
+  border-radius: 0;
+  color: var(--tact-ink);
+  background: transparent;
+}
+
+.tact-menu-item[data-highlighted],
+.tact-menu-item:focus,
+.tact-menu-item[data-checked] {
+  border-radius: 0;
+  box-shadow: inset 3px 0 0 var(--tact-accent);
+  background: transparent;
+}
+
+.tact-menu-item--destructive {
+  margin-top: 10px;
+  color: var(--destructive);
+}
+
+.tact-menu-gap {
+  height: 10px;
+}
+
+.tact-hotkey {
+  border: 1px solid #c8c8c8;
+  background: #141414;
+  color: var(--tact-ink);
+  padding: 2px 4px;
+  font-size: 10px;
+}
+
+.landmarks-hit[aria-pressed="true"],
+.landmarks-hit[data-state="on"],
+.landmarks-hit[data-pressed],
+.landmarks-hit.landmarks-hit--on,
+.tact-toggle[aria-pressed="true"],
+.tact-toggle[data-pressed] {
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--tact-ink) !important;
+  box-shadow: inset 3px 0 0 var(--tact-accent) !important;
+}
+
+.milume-widget .landmarks-layer-row,
+.milume-widget .landmarks-cat-trigger {
+  border-radius: 0 !important;
+  color: var(--tact-muted);
+}
+
+.milume-widget .landmarks-layer-row--active,
+.milume-widget .landmarks-layer-row--active:hover,
+.milume-widget .landmarks-cat-trigger--active,
+.milume-widget .landmarks-cat-trigger--active:hover {
+  border-radius: 0 !important;
+  background-color: var(--tact-tone) !important;
+  box-shadow: none !important;
+  color: var(--tact-ink) !important;
+}
+
+.milume-widget .landmarks-panel-section-header__main,
+.milume-widget .landmarks-panel-section-header__toggle.landmarks-hit,
+.milume-widget .landmarks-trail-hit,
+.milume-widget .landmarks-cat-chevron,
+.milume-widget .landmarks-image-channel-row {
+  border-radius: 0 !important;
+}
+
+.milume-widget .landmarks-panel-section-header__main {
+  color: var(--tact-muted) !important;
+}
+
+.milume-widget .landmarks-panel-section-header--open .landmarks-panel-section-header__main {
+  color: var(--tact-ink) !important;
+  background: transparent;
+}
+
+.landmarks-trail-hit,
+.tact-button[data-size="icon-xs"],
+.tact-button[data-size="xs"] {
+  border: 0 !important;
+  background: var(--tact-tone) !important;
+  color: var(--tact-ink) !important;
+}
+
+.landmarks-trail-hit {
+  border-radius: 0 !important;
+}
+
+.tact-button[data-size="icon-xs"]:not(.landmarks-trail-hit),
+.tact-button[data-size="xs"]:not(.landmarks-trail-hit) {
+  border-radius: 2px !important;
+}
+
+.tact-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  width: 4.75rem;
+  height: 22px;
+  border: 0;
+  background: transparent;
+  color: var(--tact-muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tact-switch--sm {
+  width: 4.25rem;
+  height: 20px;
+}
+
+/* The glide is a span. A bare `> span` rule would win on position and put
+   the block back in the grid, stacking Off under On with no wash. */
+.tact-switch > .tact-switch-glide {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  height: auto;
+  border-radius: 2px;
+  background: var(--tact-tone);
+  pointer-events: none;
+}
+
+.tact-switch > span:not(.tact-switch-glide) {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.tact-switch > span[data-hot="true"] {
+  color: var(--tact-ink);
+}
+
+.tact-tabs,
+.landmarks-sliding-tabs {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  height: 32px;
+  gap: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.tact-tab,
+.landmarks-sliding-tab {
+  position: relative;
+  z-index: 1;
+  height: 28px;
+  border: 0;
+  background: transparent !important;
+  color: var(--tact-muted) !important;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: none !important;
+}
+
+.tact-tab[aria-selected="true"],
+.tact-tab[data-active],
+.landmarks-sliding-tab[data-state="active"],
+.landmarks-sliding-tab[aria-selected="true"] {
+  color: var(--tact-ink) !important;
+}
+
+.landmarks-sliding-tabs__pill {
+  background: var(--tact-tone) !important;
+  border-radius: 2px !important;
+}
+
+.tact-slider {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  height: 24px;
+}
+
+.tact-slider-control {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  height: 24px;
+}
+
+.tact-slider-track {
+  position: relative;
+  height: 2px;
+  width: 100%;
+  overflow: visible;
+  border-radius: 0;
+  background: var(--tact-track);
+}
+
+.tact-slider-range {
+  position: absolute;
+  height: 100%;
+  background: rgba(242, 242, 242, 0.62);
+}
+
+.tact-slider-thumb {
+  position: absolute;
+  width: 4px;
+  height: 16px;
+  border: 0;
+  border-radius: 0;
+  background: var(--tact-ink);
+  box-shadow: none;
+}
+
+.tact-slider-thumb::after {
+  content: "";
+  position: absolute;
+  inset: -4px -10px;
+}
+
+.tact-readout {
+  font-size: 11px;
+  color: var(--tact-muted);
+}
+
+.milume-widget [data-slot="input"],
+.milume-widget [data-slot="textarea"],
+[data-milume-portal] [data-slot="input"],
+[data-milume-portal] [data-slot="textarea"] {
+  border-radius: 2px;
+  border: 1px solid rgba(242, 242, 242, 0.28);
+  background: rgba(242, 242, 242, 0.06);
+  color: var(--tact-ink);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+}
+
+.tact-radio {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--tact-muted);
+  background: transparent;
+}
+
+.tact-radio[data-checked] .tact-radio-ind,
+.tact-radio[aria-checked="true"] .tact-radio-ind {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--tact-tone);
+}
+
+.landmarks-panel-sections .landmarks-panel-section + .landmarks-panel-section,
+.landmarks-layers-stack__row + .landmarks-layers-stack__row {
+  border-top: 0;
+}
+
+.landmarks-toolbar-divider,
+.tact-separator {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.landmarks {
+  scrollbar-color: rgba(242, 242, 242, 0.35) transparent;
+}
+
+.landmarks-image-channel-row__name,
+.landmarks-layer-label {
+  font-family: var(--tact-mono);
+}
+
+.landmarks-image-channel-row__name {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* Signed-off v7 specimens. Same tokens as the chrome. */
+.tact-v7 {
+  display: grid;
+  gap: 16px;
+}
+
+.tact-v7-swatch {
+  display: block;
+  width: 8px;
+  height: 8px;
+  flex: none;
+}
+
+.tact-v7-frame {
+  display: grid;
+  gap: 12px;
+  min-width: 16rem;
+  padding: 14px 16px 16px;
+}
+
+.tact-v7-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.tact-v7-color,
+.tact-v7-row,
+.tact-v7-palette,
+.tact-v7-layer,
+.tact-v7-group-trigger,
+.tact-v7-gene {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tact-v7-swatches,
+.tact-v7-menu,
+.tact-v7-fields,
+.tact-v7-group-body {
+  display: grid;
+  gap: 8px;
+}
+
+.tact-v7-swatches {
+  grid-template-columns: 1fr 1fr;
+}
+
+.tact-v7-row,
+.tact-v7-palette,
+.tact-v7-key,
+.tact-v7-group-trigger {
+  position: relative;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--tact-ink);
+  font-family: var(--tact-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.tact-v7-on {
+  background: var(--tact-tone);
+}
+
+.tact-v7-on::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 3px;
+  background: var(--tact-accent);
+}
+
+.tact-v7-field {
+  display: grid;
+  gap: 4px;
+}
+
+.tact-v7-input,
+.tact-v7-key {
+  height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 2px;
+  background: var(--tact-tone);
+  color: var(--tact-ink);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.tact-v7-input[aria-invalid="true"] {
+  box-shadow: inset 0 0 0 1px var(--destructive);
+}
+
+.tact-v7-input:disabled {
+  color: var(--tact-muted);
+  opacity: 0.45;
+}
+
+.tact-v7-input[data-focus="true"],
+.tact-v7-key[data-focus="true"] {
+  outline: 1px solid var(--tact-ink);
+  outline-offset: 3px;
+}
+
+.tact-v7-hit {
+  color: var(--tact-ink);
+  background: var(--tact-tone);
+}
+
+.tact-v7-gene {
+  display: block;
+  height: 22px;
+  line-height: 22px;
+  color: var(--tact-muted);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.tact-v7-scroll {
+  height: 168px;
+}
+
+.tact-v7-scroll-view {
+  height: 168px;
+  overflow: auto;
+  scrollbar-color: var(--tact-ink) transparent;
+}
+
+.tact-v7-scrollbar {
+  display: flex;
+  justify-content: center;
+  width: 10px;
+  padding: 2px;
+  background: rgba(242, 242, 242, 0.12);
+}
+
+.tact-v7-scroll-thumb {
+  width: 4px;
+  border-radius: 0;
+  background: var(--tact-ink);
+}
+
+.tact-v7-ramp {
+  width: 72px;
+  height: 8px;
+  background-size: 100% 100%;
+}
+
+.tact-v7-legend {
+  display: flex;
+  gap: 8px;
+  height: 96px;
+}
+
+.tact-v7-legend-scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: var(--tact-muted);
+  font-family: var(--tact-mono);
+  font-size: 11px;
+}
+
+.tact-v7-legend-bar {
+  width: 10px;
+  background-size: 100% 100%;
+}
+
+.tact-v7-empty,
+.tact-v7-note,
+.tact-v7-label {
+  margin: 0;
+  color: var(--tact-muted);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+}
+
+.tact-v7-error {
+  margin: 0;
+  color: var(--destructive);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+}
+
+.tact-v7-loading {
+  height: 2px;
+  background: linear-gradient(90deg, var(--tact-ink) 35%, rgba(242, 242, 242, 0.28) 35%);
+}
+
+.tact-v7-group-trigger svg {
+  width: 12px;
+  height: 12px;
+}
+
+.tact-v7-group-body {
+  padding-left: 20px;
+}
+
+.tact-v7-drop {
+  height: 2px;
+  background: var(--tact-ink);
+}
+
+.tact-v7-ghost {
+  background: var(--tact-tone);
+  margin-left: 12px;
+}
+
+.tact-v7-toast-title {
+  margin: 0;
+  color: var(--tact-ink);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .milume-widget .tact-switch-glide,
+  .milume-widget .landmarks-sliding-tabs__pill,
+  .milume-widget .landmarks-cat-sublist,
+  [data-milume-portal] .tact-popup,
+  [data-milume-portal] .tact-tooltip {
+    transition: none !important;
+    animation: none !important;
+  }
+}

@@ -52,7 +52,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { formatSliderReadout } from "@/widgets/landmarks/chrome/slider-readout";
-import { SoftFloatCapsuleSlider } from "@/widgets/landmarks/chrome/soft-float-slider";
+import { TactCapsuleSlider } from "@/widgets/landmarks/chrome/slider-row";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -94,7 +94,7 @@ function SliderReadoutSpecimens() {
   const looseMilli = 0.7 + 0.1;
   return (
     <div className="flex w-full flex-col gap-2">
-      <SoftFloatCapsuleSlider
+      <TactCapsuleSlider
         caption="Opacity"
         aria-label="Opacity hundredths"
         testId="slider-readout-hundredths"
@@ -105,7 +105,7 @@ function SliderReadoutSpecimens() {
         displayValue={formatSliderReadout(hundredths, 0.01)}
         onValueChange={setHundredths}
       />
-      <SoftFloatCapsuleSlider
+      <TactCapsuleSlider
         caption="Count"
         aria-label="Count"
         testId="slider-readout-integer"
@@ -116,7 +116,7 @@ function SliderReadoutSpecimens() {
         displayValue={formatSliderReadout(whole, 1)}
         onValueChange={setWhole}
       />
-      <SoftFloatCapsuleSlider
+      <TactCapsuleSlider
         caption="Fine"
         aria-label="Fine"
         testId="slider-readout-thousandths"
@@ -127,7 +127,7 @@ function SliderReadoutSpecimens() {
         displayValue={formatSliderReadout(thousandths, 0.001)}
         onValueChange={setThousandths}
       />
-      <SoftFloatCapsuleSlider
+      <TactCapsuleSlider
         caption="Stride"
         aria-label="Stride"
         testId="slider-readout-binary-step"

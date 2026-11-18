@@ -1,13 +1,13 @@
 /**
  * Record #395 visual acceptance: full-widget PNGs (Top + Iso) and channel-toggle webm.
  * Run with dev or preview on MILUME_VOLUME_PROFILE=issue395-3d.
- * CAPTURE_BASE=http://127.0.0.1:5173/?noDialkit=1
+ * CAPTURE_BASE=http://127.0.0.1:5173/
  */
 import { chromium } from "@playwright/test";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
-const base = process.env.CAPTURE_BASE ?? "http://127.0.0.1:5173/?noDialkit=1";
+const base = process.env.CAPTURE_BASE ?? "http://127.0.0.1:5173/";
 const outDir = process.env.CAPTURE_OUT ?? "/opt/cursor/artifacts/issue395";
 const skipVideo = process.env.CAPTURE_NO_VIDEO === "1";
 const videoTmp = join(outDir, "_video_tmp");
@@ -32,8 +32,6 @@ async function hideHarnessChrome() {
       .harness-banner,
       .landmarks-volume-harness__banner,
       .landmarks-volume-harness__controls,
-      [data-dialkit-panel],
-      .dialkit-root,
       .deckgl-error-overlay { display: none !important; }
     `,
   });

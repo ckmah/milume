@@ -10,7 +10,6 @@ import { chromium } from "@playwright/test";
 
 import {
   applyDocsHarnessTheme,
-  hideDocsHarnessChrome,
   installDocsCaptureChrome,
   gotoDocsFixture,
   waitForLandmarks,
@@ -106,7 +105,6 @@ async function captureAggregate(page, which, outName) {
   await waitForLandmarks(page);
   await fitPolygonView(page, verts, 280);
   await page.mouse.move(640, 400);
-  await hideDocsHarnessChrome(page);
   const out = join(outDir, outName);
   await page.locator(".landmarks").first().screenshot({ path: out });
   console.log("wrote", out);

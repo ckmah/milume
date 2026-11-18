@@ -18,7 +18,7 @@ import {
 } from "../e2e/helpers/issue395-cube-flow.ts";
 
 const outDir = process.env.CAPTURE_OUT ?? "/opt/cursor/artifacts/issue395";
-const base = process.env.CAPTURE_BASE ?? "http://127.0.0.1:5173/?noDialkit=1";
+const base = process.env.CAPTURE_BASE ?? "http://127.0.0.1:5173/";
 const cubeViewSel = '[role="dialog"][aria-label="Cube"] .volume-cube__view';
 
 await mkdir(outDir, { recursive: true });

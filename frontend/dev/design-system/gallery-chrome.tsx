@@ -51,11 +51,11 @@ import { RightChromeStack } from "@/widgets/landmarks/chrome/right-stack";
 import { IconBtn, SelectionToolbar, ToolStack } from "@/widgets/landmarks/chrome/selection-toolbar";
 import { formatSliderReadout } from "@/widgets/landmarks/chrome/slider-readout";
 import {
-  SoftFloatCapsuleSlider,
-  SoftFloatSignedSlider,
-  SoftFloatSliderReset,
-  SoftFloatSliderRow,
-} from "@/widgets/landmarks/chrome/soft-float-slider";
+  TactCapsuleSlider,
+  TactSignedSlider,
+  TactSliderReset,
+  TactSliderRow,
+} from "@/widgets/landmarks/chrome/slider-row";
 import { FullscreenButton, Topbar, ZoomControls } from "@/widgets/landmarks/chrome/topbar";
 import { ViewCta } from "@/widgets/landmarks/chrome/view-cta";
 import { INFO_HEAT_BINS } from "@/widgets/landmarks/chrome/info-stats";
@@ -183,7 +183,7 @@ export function ChromeSections() {
             <IconBtn title="Hide" disabled onClick={noop}>
               <EyeIcon />
             </IconBtn>
-            <SoftFloatSliderReset title="Reset opacity" disabled onClick={noop} />
+            <TactSliderReset title="Reset opacity" disabled onClick={noop} />
           </div>
         </StateCell>
         <StateCell state="open">
@@ -257,7 +257,7 @@ export function ChromeSections() {
           <DepthRail lm={base} />
         </StateCell>
         <StateCell state="default">
-          <SoftFloatCapsuleSlider
+          <TactCapsuleSlider
             caption="Opacity"
             value={opacity}
             min={0}
@@ -267,7 +267,7 @@ export function ChromeSections() {
             displayValue={formatSliderReadout(opacity, 0.01)}
           />
           <div className="mt-2">
-            <SoftFloatSliderRow
+            <TactSliderRow
               caption="Contrast"
               value={range}
               min={0}
@@ -278,11 +278,11 @@ export function ChromeSections() {
             />
           </div>
           <div className="mt-2">
-            <SoftFloatSignedSlider value={signed} min={-1} max={1} onChange={setSigned} />
+            <TactSignedSlider value={signed} min={-1} max={1} onChange={setSigned} />
           </div>
         </StateCell>
         <StateCell state="disabled">
-          <SoftFloatSliderReset title="Reset opacity" disabled onClick={noop} />
+          <TactSliderReset title="Reset opacity" disabled onClick={noop} />
         </StateCell>
         <StateCell state="default" stageClassName="overflow-x-auto">
           <InspectToolbar

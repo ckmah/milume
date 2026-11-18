@@ -135,7 +135,7 @@ for (const shot of shots) {
   console.log(shot, "before", hb, "after", ha, "diffPx", diffPx);
   report.push({ shot, before: hb, after: ha, diffPx });
   if (shot === "uncut-top" && diffPx > 800) {
-    console.warn(`WARN: uncut-top differs from main (diffPx ${diffPx}); check harness dialkit labelAlpha and stacked PR chrome`);
+    console.warn(`WARN: uncut-top differs from main (diffPx ${diffPx}); check harness labelAlpha and stacked PR chrome`);
   }
   if (shot === "zcut-side" && diffPx < 200) {
     console.error(`FAIL: zcut-side before/after pixel diff too low (${diffPx})`);

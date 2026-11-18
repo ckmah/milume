@@ -24,4 +24,11 @@ export const SPRING_LAYOUT = {
   mass: 0.6,
 } as const;
 
+/** Tonal block, active tick, and popup rise. Signed-off stiffness and damping. */
+export const SPRING_GLIDE = {
+  type: "spring",
+  stiffness: 280,
+  damping: 32,
+} as const;
+
 export const MOTION_OFF = { duration: 0 } as const;

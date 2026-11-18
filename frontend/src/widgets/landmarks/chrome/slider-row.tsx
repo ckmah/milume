@@ -1,10 +1,6 @@
 /**
- * Slider chrome — DialKit inline rows for all scalar and range controls.
- * Range uses paired Low / High tracks; signed and symmetric buffer use DialKit
- * with appropriate min/max.
+ * Slider rows for scalar and range controls. The track is the neutral ink bar.
  */
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Slider as DialkitSlider } from "dialkit";
 import { RotateCcwIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,7 +18,7 @@ function sliderLabel(caption: React.ReactNode, ariaLabel?: string): string {
   return "Value";
 }
 
-function DialkitSliderRow({
+function SliderRow({
   label,
   value,
   min,
@@ -41,53 +37,32 @@ function DialkitSliderRow({
   className?: string;
   testId?: string;
 }) {
-  const rootRef = useRef<HTMLDivElement>(null);
   const readout = formatSliderReadout(value, step);
-  useLayoutEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    const span = root.querySelector(".dialkit-slider-value");
-    if (span) span.textContent = readout;
-    const slider = root.querySelector("[role='slider']");
-    if (slider) slider.setAttribute("aria-valuetext", readout);
-  }, [readout, value, min, max, step]);
-
   return (
     <div
-      ref={rootRef}
-      className={cn("landmarks-slider-row landmarks-slider-row--dialkit min-w-0 flex-1", className)}
+      className={cn("landmarks-slider-row min-w-0 flex-1", className)}
       data-testid={testId}
     >
-      <div className="dialkit-root w-full">
-        <DialkitSlider
-          label={label}
-          value={value}
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="landmarks-slider-caption">{label}</span>
+        <span className="tact-readout">{readout}</span>
+      </div>
+      <div className="landmarks-slider-control w-full">
+        <Slider
+          aria-label={label}
           min={min}
           max={max}
           step={step}
-          onChange={onChange}
+          value={[value]}
+          getAriaValueText={(next) => formatSliderReadout(next, step)}
+          onValueChange={(next) => onChange(next[0] ?? value)}
         />
       </div>
     </div>
   );
 }
 
-function DialkitHashmarks() {
-  const marks = useMemo(
-    () =>
-      Array.from({ length: 11 }, (_, i) => (
-        <div
-          key={i}
-          className="dialkit-slider-hashmark"
-          style={{ left: `${i * 10}%` }}
-        />
-      )),
-    [],
-  );
-  return <>{marks}</>;
-}
-
-function DialkitRangeRow({
+function RangeRow({
   label,
   value,
   min,
@@ -112,53 +87,32 @@ function DialkitRangeRow({
   readout: React.ReactNode;
   className?: string;
 }) {
-  const [hovered, setHovered] = useState(false);
-  const [focused, setFocused] = useState(false);
-  const active = hovered || focused;
-
   return (
-    <div
-      className={cn("landmarks-slider-row landmarks-slider-row--dialkit min-w-0 flex-1", className)}
-      data-testid={testId}
-    >
-      <div className="dialkit-root w-full">
-        <div className="dialkit-slider-wrapper landmarks-dialkit-range">
-          <div
-            className={cn("dialkit-slider landmarks-dialkit-range__shell", active && "dialkit-slider-active")}
-            onMouseEnter={() => setHovered(true)}
-            onMouseLeave={() => setHovered(false)}
-            onFocusCapture={() => setFocused(true)}
-            onBlurCapture={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFocused(false);
-            }}
-          >
-            <div className="dialkit-slider-hashmarks">
-              <DialkitHashmarks />
-            </div>
-            <span className="dialkit-slider-label">{label}</span>
-            <span className="dialkit-slider-value" aria-hidden>
-              {readout}
-            </span>
-            <Slider
-              className="landmarks-dialkit-range__radix"
-              min={min}
-              max={max}
-              step={step}
-              value={value}
-              minStepsBetweenThumbs={0}
-              onValueChange={onValueChange}
-              onValueCommit={onValueCommit}
-              aria-label={ariaLabel ?? label}
-            />
-          </div>
-        </div>
+    <div className={cn("landmarks-slider-row min-w-0 flex-1", className)} data-testid={testId}>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="landmarks-slider-caption">{label}</span>
+        <span className="tact-readout">{readout}</span>
+      </div>
+      <div className="landmarks-slider-control w-full">
+        <Slider
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          minStepsBetweenThumbs={0}
+          getAriaValueText={(next) => formatSliderReadout(next, step)}
+          thumbLabel={(index) => `${ariaLabel ?? label}, ${index === 0 ? "minimum" : "maximum"}`}
+          onValueChange={onValueChange}
+          onValueCommit={onValueCommit}
+          aria-label={ariaLabel ?? label}
+        />
       </div>
     </div>
   );
 }
 
 /** Reset control — Lucide rotate-ccw, placed immediately right of a slider row. */
-export function SoftFloatSliderReset({
+export function TactSliderReset({
   title,
   onClick,
   testId,
@@ -190,8 +144,8 @@ export function SoftFloatSliderReset({
   );
 }
 
-/** Pair of Low / High DialKit rows (contrast windows, inspect ranges). */
-export function SoftFloatRangeSlider({
+/** Pair of Low / High rows (contrast windows, inspect ranges). */
+export function TactRangeSlider({
   caption,
   value,
   min,
@@ -242,7 +196,7 @@ export function SoftFloatRangeSlider({
       {caption != null ? (
         <p className={cn(FIELD_CAPTION, "landmarks-slider-caption", "m-0 px-0.5")}>{caption}</p>
       ) : null}
-      <DialkitSliderRow
+      <SliderRow
         label={lowLabel}
         value={lo}
         min={min}
@@ -250,7 +204,7 @@ export function SoftFloatRangeSlider({
         step={stride}
         onChange={(v) => push([Math.min(v, hi), hi])}
       />
-      <DialkitSliderRow
+      <SliderRow
         label={highLabel}
         value={hi}
         min={min}
@@ -263,9 +217,9 @@ export function SoftFloatRangeSlider({
 }
 
 /**
- * Scalar or range row — DialKit only.
+ * Scalar or range row.
  */
-export function SoftFloatSliderRow({
+export function TactSliderRow({
   caption,
   value,
   min,
@@ -304,7 +258,7 @@ export function SoftFloatSliderRow({
       _readout ??
       `${formatSliderReadout(value[0] ?? min, stride)}–${formatSliderReadout(value[1] ?? max, stride)}`;
     const range = (
-      <DialkitRangeRow
+      <RangeRow
         label={label}
         value={[value[0] ?? min, value[1] ?? max]}
         min={min}
@@ -333,7 +287,7 @@ export function SoftFloatSliderRow({
 
   return (
     <div className={cn("flex min-w-0 flex-1 items-center gap-1", className)}>
-      <DialkitSliderRow
+      <SliderRow
         label={label}
         value={value[0] ?? min}
         min={min}
@@ -350,8 +304,8 @@ export function SoftFloatSliderRow({
   );
 }
 
-/** Unidirectional DialKit slider (opacity, point size, tension, …). */
-export function SoftFloatCapsuleSlider({
+/** Unidirectional slider (opacity, point size, tension, …). */
+export function TactCapsuleSlider({
   value,
   min,
   max,
@@ -388,7 +342,7 @@ export function SoftFloatCapsuleSlider({
 
   return (
     <div className={cn("flex min-w-0 flex-1 items-center gap-1", className)}>
-      <DialkitSliderRow
+      <SliderRow
         label={label}
         value={value}
         min={min}
@@ -398,7 +352,7 @@ export function SoftFloatCapsuleSlider({
         testId={testId}
       />
       {onReset ? (
-        <SoftFloatSliderReset
+        <TactSliderReset
           title={resetTitle}
           testId={resetTestId}
           onClick={onReset}
@@ -410,9 +364,9 @@ export function SoftFloatCapsuleSlider({
 }
 
 /**
- * Signed or symmetric buffer — DialKit with signed min/max, or 0..max when `both`.
+ * Signed or symmetric buffer. Signed min/max, or 0..max when `both`.
  */
-export function SoftFloatSignedSlider({
+export function TactSignedSlider({
   value,
   min = -1,
   max = 1,
@@ -441,7 +395,7 @@ export function SoftFloatSignedSlider({
   if (both || min >= 0) {
     const stride = Math.max(max - (min >= 0 ? min : 0), 1e-9) / 200 || 0.01;
     return (
-      <DialkitSliderRow
+      <SliderRow
         label={label}
         value={Math.abs(value)}
         min={0}
@@ -458,7 +412,7 @@ export function SoftFloatSignedSlider({
   const stride = span / 200 || 0.01;
 
   return (
-    <DialkitSliderRow
+    <SliderRow
       label={label}
       value={value}
       min={min}

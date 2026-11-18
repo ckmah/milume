@@ -1,5 +1,3 @@
-import { useState } from "react";
-import { Morph } from "cube-motion/react";
 import { CircleDot, Grid2x2, Ruler, SquareMinus, SquarePlus } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -28,17 +26,14 @@ export function ViewCta({
 }) {
   const rasterOn = (lm.render_mode || "points") === "raster";
   const rulersOn = !!lm.show_rulers;
-  const [popNonce, setPopNonce] = useState(0);
-
   const onToggle = () => {
     lm.setRenderMode(rasterOn ? "points" : "raster");
-    setPopNonce((n) => n + 1);
   };
 
   const minimiseLabel = minimise ? "Show panels" : "Minimize panels";
 
   return (
-    <TooltipProvider delayDuration={80} skipDelayDuration={0}>
+    <TooltipProvider delayDuration={80}>
       <div
         className={TOOLBAR_CLASS}
         data-testid="view-cta"
@@ -69,13 +64,13 @@ export function ViewCta({
             onClick={onToggle}
             className={cn(chromeHitClass, "landmarks-view-cta")}
           >
-            <Morph
-              key={popNonce || "idle"}
-              active={rasterOn}
-              className="inline-flex size-4 items-center justify-center"
-              off={<CircleDot className="size-4" data-testid="view-cta-icon-points" />}
-              on={<Grid2x2 className="size-4" data-testid="view-cta-icon" />}
-            />
+            <span className="inline-flex size-4 items-center justify-center">
+              {rasterOn ? (
+                <Grid2x2 className="size-4" data-testid="view-cta-icon" />
+              ) : (
+                <CircleDot className="size-4" data-testid="view-cta-icon-points" />
+              )}
+            </span>
           </Button>
         </ChromeTooltip>
         <ChromeTooltip label={minimiseLabel} shortcut="Shift+\\">

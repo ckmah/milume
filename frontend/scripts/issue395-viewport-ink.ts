@@ -33,7 +33,7 @@ const mode = (process.argv[2] ?? "dual") as Mode;
 const debugAccCh1 = process.argv.includes("--debug-acc-ch1");
 
 async function boot(page: import("@playwright/test").Page) {
-  const q = debugAccCh1 ? "noDialkit=1&cubeDebugAccCh1=1" : "noDialkit=1";
+  const q = debugAccCh1 ? "cubeDebugAccCh1=1" : "";
   await bootIssue395LandmarksVolume(page, q);
 }
 

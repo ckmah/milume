@@ -1,65 +1,75 @@
-import * as React from "react"
-import { Tooltip as TooltipPrimitive } from "radix-ui"
+import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
+import * as React from "react";
 
-import { SpringPanel } from "@/components/ui/spring-popover"
-import { cn } from "@/lib/utils"
+import { SpringPanel } from "@/components/ui/spring-popover";
+import { cn } from "@/lib/utils";
 
-import "./motion-overlays.css"
+import "./motion-overlays.css";
 
 function TooltipProvider({
   delayDuration = 0,
+  delay,
+  skipDelayDuration: _skipDelayDuration,
+  children,
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
+}: TooltipPrimitive.Provider.Props & { delayDuration?: number; skipDelayDuration?: number }) {
   return (
-    <TooltipPrimitive.Provider
-      data-slot="tooltip-provider"
-      delayDuration={delayDuration}
-      {...props}
-    />
-  )
+    <TooltipPrimitive.Provider delay={delay ?? delayDuration} {...props}>
+      {children}
+    </TooltipPrimitive.Provider>
+  );
 }
 
-function Tooltip({
-  ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />
+function Tooltip({ ...props }: TooltipPrimitive.Root.Props) {
+  return <TooltipPrimitive.Root data-slot="tooltip" {...props} />;
 }
 
 function TooltipTrigger({
+  asChild,
+  children,
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Trigger>) {
-  return <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props} />
+}: TooltipPrimitive.Trigger.Props & { asChild?: boolean }) {
+  if (asChild && React.isValidElement(children)) {
+    return (
+      <TooltipPrimitive.Trigger
+        data-slot="tooltip-trigger"
+        {...props}
+        render={children}
+      />
+    );
+  }
+  return (
+    <TooltipPrimitive.Trigger data-slot="tooltip-trigger" {...props}>
+      {children}
+    </TooltipPrimitive.Trigger>
+  );
 }
 
 function TooltipContent({
   className,
-  sideOffset = 0,
+  sideOffset = 8,
   container,
   children,
+  side = "bottom",
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Content> & {
-  /** Portal target; widgets pass their root so scoped styles apply. */
-  container?: HTMLElement | null
-}) {
+}: TooltipPrimitive.Popup.Props &
+  Pick<TooltipPrimitive.Positioner.Props, "side" | "sideOffset"> & {
+    container?: HTMLElement | null;
+  }) {
   return (
     <TooltipPrimitive.Portal container={container ?? undefined}>
-      <TooltipPrimitive.Content
-        data-slot="tooltip-content"
-        sideOffset={sideOffset}
-        className={cn(
-          "z-50 w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md bg-foreground px-3 py-1.5 text-xs text-balance text-background",
-          className
-        )}
-        {...props}
-        asChild
-      >
-        <SpringPanel enterScale={0.94} exitScale={0.96}>
+      <TooltipPrimitive.Positioner side={side} sideOffset={sideOffset} className="isolate z-50">
+        <TooltipPrimitive.Popup
+          data-slot="tooltip-content"
+          className={cn("tact-tooltip", className)}
+          render={<SpringPanel />}
+          {...props}
+        >
           {children}
-          <TooltipPrimitive.Arrow className="landmarks-tooltip-arrow z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px] bg-foreground fill-foreground" />
-        </SpringPanel>
-      </TooltipPrimitive.Content>
+        </TooltipPrimitive.Popup>
+      </TooltipPrimitive.Positioner>
     </TooltipPrimitive.Portal>
-  )
+  );
 }
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };

@@ -1,5 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
-import { Rise } from "cube-motion/react";
+import { Rise } from "@/components/ui/rise";
 
 import { useNotebookTheme } from "@/hooks/use-notebook-theme";
 import { cn } from "@/lib/utils";
@@ -84,9 +84,9 @@ export function LandmarksView({
   cubeBudgets?: { preview: number; dock: number };
   /** Harness only: the Inspect window's side (µm); the toy volume is smaller than the default 300. */
   inspectWindowUm?: number;
-  /** Harness only: live mesh opacity from DialKit. */
+  /** Harness only: live mesh opacity. */
   labelAlpha?: number;
-  /** Harness only: the rest of the live mesh look from DialKit. */
+  /** Harness only: the rest of the live mesh look. */
   meshLook?: Partial<MeshLook>;
 }) {
   const dark = useNotebookTheme(hostEl.parentElement);

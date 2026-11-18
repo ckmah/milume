@@ -49,7 +49,7 @@ import {
   COMBO_INPUT,
   STACK_GAP_SM,
 } from "./sections";
-import { SoftFloatSlidingTabsList } from "./sliding-tabs";
+import { TactSlidingTabsList } from "./sliding-tabs";
 import { useWidgetPortalContainer } from "./use-widget-portal";
 import { isTypeRowActive } from "../type-focus";
 
@@ -435,7 +435,7 @@ export function ExplorePanel({
         className={STACK_GAP_SM}
         data-testid="explore-color-by"
       >
-        <SoftFloatSlidingTabsList value={colorBy} aria-label="Color">
+        <TactSlidingTabsList value={colorBy} aria-label="Color">
           {(lm.category_columns?.length ?? 0) > 0 ? (
             <TabsTrigger value="categories" className={PILL_TABS_TRIGGER}>
               cat
@@ -450,7 +450,7 @@ export function ExplorePanel({
           <TabsTrigger value="embedding" className={PILL_TABS_TRIGGER}>
             embed
           </TabsTrigger>
-        </SoftFloatSlidingTabsList>
+        </TactSlidingTabsList>
         <span className="sr-only" data-testid="explore-coloring-by">
           {detail}
         </span>

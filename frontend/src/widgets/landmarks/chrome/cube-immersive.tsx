@@ -91,9 +91,9 @@ export const CubeImmersive = memo(function CubeImmersive({
   /** A drag on a volume face, live, then committed on release. */
   onCutLive: (cut: CubeCut) => void;
   onCutCommit: (cut: CubeCut) => void;
-  /** Harness DialKit. Omitted: the Labels opacity slider in cube settings. */
+  /** Harness mesh opacity. Omitted: the Labels opacity slider in cube settings. */
   labelAlpha?: number;
-  /** Harness DialKit: the rest of the meshes' look. */
+  /** Harness: the rest of the meshes' look. */
   meshLook?: Partial<MeshLook>;
 }) {
   const loadRef = useRef<CubeLoadState | null>(null);

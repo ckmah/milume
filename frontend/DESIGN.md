@@ -267,13 +267,11 @@ Inspect is temporary, so its chrome replaces the normal chrome rather than addin
 
 ### Compact fields
 
-DialKit inline sliders (`dialkit` package, `.dialkit-root` under `.landmarks` with `--dial-*` tokens in `landmarks.css`): label, track, thumb, and live value on one row. Soft segment toggles for neighborhood/buffer.
-
-Shared slider chrome: `chrome/soft-float-slider.tsx`
-- `SoftFloatCapsuleSlider` — scalar (alpha, gamma, point size, tension, …)
-- `SoftFloatSliderRow` (length 2) — one capsule, dual thumbs, caption left (contrast, inspect ranges)
-- `SoftFloatSignedSlider` — signed buffer or 0…max when **Both** is on
-- `SoftFloatSliderReset` — Lucide `rotate-ccw`, immediately right of the row when needed
+Slider rows (`chrome/slider-row.tsx`): label, track, thumb, and live value on one row. Segment toggles for neighborhood/buffer.
+- `TactCapsuleSlider` — scalar (alpha, gamma, point size, tension, …)
+- `TactSliderRow` (length 2) — one capsule, dual thumbs, caption left (contrast, inspect ranges)
+- `TactSignedSlider` — signed buffer or 0…max when **Both** is on
+- `TactSliderReset` — Lucide `rotate-ccw`, immediately right of the row when needed
 
 ### Accordion sections
 
@@ -311,7 +309,7 @@ One set for the main tool pill, View CTA, context L1/L2, Inspect pill, Inspect b
 | Toolbar surface | `TOOLBAR_CLASS` (`landmarks-float--toolbar landmarks-toolbar`) | `--lm-toolbar-h` 2.5rem, `--lm-toolbar-pad` / `--lm-toolbar-gap` 0.25rem, `--lm-toolbar-divider` (fg 22%) |
 | Icon hit / toggle item | `chromeHitClass` (`landmarks-hit`), `--wide`, `--text` | `--lm-hit-size` 2rem, full radius, idle `--lm-hit-fg` (fg 72%), hover `--lm-hit-hover-bg` (fg 9%), disabled 0.4 |
 | On state | `aria-pressed="true"`, `data-state="on"`, or `chromeHitOnClass` | `--lm-hit-on-bg` foreground / `--lm-hit-on-fg` background, kept on hover (sliding Explore tabs use it too) |
-| Slider row | `SoftFloatSliderRow` / `SoftFloatCapsuleSlider` / `SoftFloatSignedSlider` | caption (`--lm-caption`) · 1.75rem capsule, readout inside left, neutral `--lm-slider-fill`; ranges are the same capsule with two thumbs |
+| Slider row | `TactSliderRow` / `TactCapsuleSlider` / `TactSignedSlider` | caption (`--lm-caption`) · 1.75rem capsule, readout inside left, neutral `--lm-slider-fill`; ranges are the same capsule with two thumbs |
 | Chip / badge | `CHIP_CLASS` (`landmarks-chip`) | `--lm-chip-bg` card, `--lm-chip-fg` foreground, `--lm-chip-border` (fg 50% into card, ≥3:1 on glass and muted trays) |
 | Swatch edge | `.landmarks-layer-swatch` | `--lm-swatch-ring` (light only, fg 55%) |
 

@@ -1,47 +1,10 @@
-import * as React from "react"
+import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
-import { motion, useReducedMotion } from "motion/react"
-import { Slot } from "radix-ui"
+import * as React from "react"
 
-import { MOTION_OFF, SPRING_PRESS } from "@/lib/motion-springs"
 import { cn } from "@/lib/utils"
 
 import "./motion-controls.css"
-
-const PRESS_SCALE = 0.93
-const HOVER_SCALE = 1.02
-
-function useHoverCapable() {
-  const [canHover, setCanHover] = React.useState(false)
-  React.useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return
-    const query = window.matchMedia("(hover: hover) and (pointer: fine)")
-    const update = () => setCanHover(query.matches)
-    update()
-    query.addEventListener("change", update)
-    return () => query.removeEventListener("change", update)
-  }, [])
-  return canHover
-}
-
-/** Shared press for Button, Toggle, and ToggleGroupItem. Resting scale stays 1. */
-export function usePressMotion(disabled?: boolean, force?: string) {
-  const reduce = useReducedMotion() === true
-  const canHover = useHoverCapable()
-  if (reduce || disabled) return { transition: MOTION_OFF }
-  const forced =
-    force === "active"
-      ? { scale: PRESS_SCALE }
-      : force === "hover"
-        ? { scale: HOVER_SCALE }
-        : undefined
-  return {
-    whileTap: { scale: PRESS_SCALE },
-    ...(canHover ? { whileHover: { scale: HOVER_SCALE } } : {}),
-    ...(forced ? { animate: forced, initial: false as const } : {}),
-    transition: SPRING_PRESS,
-  }
-}
 
 const buttonVariants = cva(
   "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap transition-[color,background-color,border-color,box-shadow,opacity,outline-color] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
@@ -77,41 +40,39 @@ const buttonVariants = cva(
   }
 )
 
-function Button({
-  className,
-  variant = "default",
-  size = "default",
-  asChild = false,
-  disabled,
-  "data-ds-force": force,
-  ...props
-}: React.ComponentProps<"button"> &
-  VariantProps<typeof buttonVariants> & {
-    asChild?: boolean
-    "data-ds-force"?: string
-  }) {
-  const press = usePressMotion(disabled, force)
-  const classes = cn(buttonVariants({ variant, size, className }))
+const Button = React.forwardRef<
+  HTMLButtonElement,
+  React.ComponentProps<"button"> &
+    VariantProps<typeof buttonVariants> & {
+      asChild?: boolean
+      "data-ds-force"?: string
+    }
+>(function Button(
+  {
+    className,
+    variant = "default",
+    size = "default",
+    asChild = false,
+    children,
+    "data-ds-force": force,
+    ...props
+  },
+  ref,
+) {
+  const classes = cn(buttonVariants({ variant, size, className }), "tact-button")
   const shared = {
+    ref,
     "data-slot": "button",
     "data-variant": variant,
     "data-size": size,
     "data-ds-force": force,
     className: classes,
-    disabled,
     ...props,
   }
-
-  if (asChild) {
-    return <Slot.Root {...(shared as React.ComponentProps<typeof Slot.Root>)} />
+  if (asChild && React.isValidElement(children)) {
+    return <ButtonPrimitive {...shared} render={children} />
   }
-
-  return (
-    <motion.button
-      {...press}
-      {...(shared as React.ComponentProps<typeof motion.button>)}
-    />
-  )
-}
+  return <ButtonPrimitive {...shared}>{children}</ButtonPrimitive>
+})
 
 export { Button, buttonVariants }

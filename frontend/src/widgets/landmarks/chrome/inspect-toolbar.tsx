@@ -42,7 +42,7 @@ import {
 } from "./primitives";
 import { IconBtn, ToolStack } from "./selection-toolbar";
 import { formatSliderReadout } from "./slider-readout";
-import { SoftFloatCapsuleSlider, SoftFloatSliderRow } from "./soft-float-slider";
+import { TactCapsuleSlider, TactSliderRow } from "./slider-row";
 import { useWidgetPortal } from "./widget-portal-context";
 
 const GAMMA_LOG2 = 2.32;
@@ -96,7 +96,7 @@ function RangeRow({
   const lo = formatSliderReadout(value[0] - offset, step);
   const hi = formatSliderReadout(value[1] - offset, step);
   return (
-    <SoftFloatSliderRow
+    <TactSliderRow
       caption={label}
       aria-label={label}
       min={min}
@@ -203,7 +203,7 @@ function ProjectionRow({
 }
 
 const SLIDER_HIT =
-  '.landmarks-slider-control, .dialkit-root, [data-slot="slider"], [data-slot="slider-thumb"], [data-slot="slider-track"], [role="slider"]';
+  '.landmarks-slider-control, [data-slot="slider"], [data-slot="slider-thumb"], [data-slot="slider-track"], [role="slider"]';
 
 const LAYER_MENU_HIT =
   ".landmarks-layer-panel, [data-slot='dropdown-menu-content'], [data-testid^='layer-toggle-']";
@@ -509,7 +509,7 @@ export function InspectToolbar({
           }}
         />
       </div>
-      <SoftFloatCapsuleSlider
+      <TactCapsuleSlider
         aria-label="Image alpha"
         caption="Alpha"
         min={0}
@@ -519,7 +519,7 @@ export function InspectToolbar({
         displayValue={formatSliderReadout(render.imageAlpha, 0.05)}
         onValueChange={(v) => patch({ render: { imageAlpha: v } })}
       />
-      <SoftFloatCapsuleSlider
+      <TactCapsuleSlider
         aria-label="Image gamma"
         caption="Gamma"
         min={-GAMMA_LOG2}
@@ -534,7 +534,7 @@ export function InspectToolbar({
 
   const labelsMenu = (
     <AdjustSection title="Labels" testId="adjust-labels" onReset={() => onReset("labels")}>
-      <SoftFloatCapsuleSlider
+      <TactCapsuleSlider
         aria-label="Label opacity"
         caption="Opacity"
         min={0}

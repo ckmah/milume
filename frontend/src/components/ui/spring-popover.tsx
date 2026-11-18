@@ -15,7 +15,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { MOTION_OFF, SPRING_PANEL } from "@/lib/motion-springs";
+import { MOTION_OFF, SPRING_GLIDE } from "@/lib/motion-springs";
 import { cn } from "@/lib/utils";
 
 import "./motion-overlays.css";
@@ -39,7 +39,7 @@ function panelClosed(props: object) {
 /** Shared open and close for portaled Radix and Base UI panels. */
 export const SpringPanel = forwardRef<HTMLDivElement, SpringPanelProps>(
   function SpringPanel(
-    { className, style, children, enterScale = 0.92, exitScale = 0.96, ...props },
+    { className, style, children, enterScale: _enterScale = 0.92, exitScale: _exitScale = 0.96, ...props },
     ref,
   ) {
     const reduce = useReducedMotion() ?? false;
@@ -51,15 +51,13 @@ export const SpringPanel = forwardRef<HTMLDivElement, SpringPanelProps>(
         {...motionProps}
         style={style}
         className={cn("milume-overlay-panel", className)}
-        initial={reduce ? false : { opacity: 0, scale: enterScale }}
+        initial={reduce ? false : { opacity: 0, y: 8 }}
         animate={
           closed
-            ? reduce
-              ? { opacity: 0 }
-              : { opacity: 0, scale: exitScale }
-            : { opacity: 1, scale: 1 }
+            ? { opacity: 0, y: reduce ? 0 : 8 }
+            : { opacity: 1, y: 0 }
         }
-        transition={reduce ? MOTION_OFF : SPRING_PANEL}
+        transition={reduce ? MOTION_OFF : SPRING_GLIDE}
       >
         {children}
       </motion.div>
@@ -158,10 +156,10 @@ export function SpringPopover({
           ref={panelRef}
           role="dialog"
           data-testid={testId}
-          initial={reduce ? false : { opacity: 0, scale: 0.92 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={reduce ? MOTION_OFF : SPRING_PANEL}
-          {...(reduce ? {} : { exit: { opacity: 0, scale: 0.96 } })}
+          initial={reduce ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={reduce ? MOTION_OFF : SPRING_GLIDE}
+          {...(reduce ? {} : { exit: { opacity: 0, y: 8 } })}
           style={{
             position: "fixed",
             left: box?.left ?? 0,

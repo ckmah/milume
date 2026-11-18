@@ -40,7 +40,7 @@ async function waitEngine(page) {
 
 async function hideBanner(page) {
   await page.addStyleTag({
-    content: `[data-testid="harness-banner"], .harness-banner, [data-dialkit-panel] { display: none !important; }`,
+    content: `[data-testid="harness-banner"], .harness-banner { display: none !important; }`,
   });
 }
 
@@ -196,8 +196,7 @@ async function scanFrame(frame, cdp, baseUrl) {
       colorScheme: "dark",
     });
     await hideBanner(page);
-    const q = baseUrl.includes("?") ? "&" : "?";
-    await page.goto(`${baseUrl}${q}noDialkit=1`, { waitUntil: "networkidle" });
+    await page.goto(baseUrl, { waitUntil: "networkidle" });
     await waitEngine(page);
     await frame.prep(page);
     await hideBanner(page);

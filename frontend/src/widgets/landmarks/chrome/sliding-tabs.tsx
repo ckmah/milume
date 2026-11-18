@@ -16,7 +16,7 @@ import { PILL_TABS_LIST } from "./sections";
  * Soft Float sliding-pill TabsList (transitions.dev tabs-sliding).
  * Measures the active trigger and tweens a background pill under it.
  */
-export function SoftFloatSlidingTabsList({
+export function TactSlidingTabsList({
   value,
   className,
   children,
