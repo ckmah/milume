@@ -2,7 +2,6 @@ import { createRoot } from "react-dom/client";
 
 import "@/styles/globals.css";
 import "@/widgets/landmarks/landmarks.css";
-import "dialkit/styles.css";
 import "./design-system.css";
 
 import { DesignSystemHarness } from "./DesignSystemHarness";

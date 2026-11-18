@@ -1,54 +1,65 @@
-import * as React from "react"
-import { HoverCard as HoverCardPrimitive } from "radix-ui"
+import { PreviewCard } from "@base-ui/react/preview-card";
+import * as React from "react";
 
-import { SpringPanel } from "@/components/ui/spring-popover"
-import { cn } from "@/lib/utils"
+import { SpringPanel } from "@/components/ui/spring-popover";
+import { cn } from "@/lib/utils";
 
 function HoverCard({
+  openDelay: _openDelay,
+  closeDelay: _closeDelay,
   ...props
-}: React.ComponentProps<typeof HoverCardPrimitive.Root>) {
-  return <HoverCardPrimitive.Root data-slot="hover-card" {...props} />
+}: PreviewCard.Root.Props & { openDelay?: number; closeDelay?: number }) {
+  return <PreviewCard.Root data-slot="hover-card" {...props} />;
 }
 
 function HoverCardTrigger({
+  asChild,
+  children,
   ...props
-}: React.ComponentProps<typeof HoverCardPrimitive.Trigger>) {
+}: PreviewCard.Trigger.Props & { asChild?: boolean }) {
+  if (asChild && React.isValidElement(children)) {
+    return <PreviewCard.Trigger data-slot="hover-card-trigger" {...props} render={children} />;
+  }
   return (
-    <HoverCardPrimitive.Trigger data-slot="hover-card-trigger" {...props} />
-  )
+    <PreviewCard.Trigger data-slot="hover-card-trigger" {...props}>
+      {children}
+    </PreviewCard.Trigger>
+  );
 }
 
 function HoverCardContent({
   className,
   align = "center",
-  sideOffset = 4,
+  sideOffset = 8,
+  side = "bottom",
   container,
   children,
+  collisionPadding: _collisionPadding,
   ...props
-}: React.ComponentProps<typeof HoverCardPrimitive.Content> & {
-  /** Portal target; widgets pass their root so scoped styles apply. */
-  container?: HTMLElement | null
-}) {
+}: PreviewCard.Popup.Props &
+  Pick<PreviewCard.Positioner.Props, "align" | "side" | "sideOffset"> & {
+    container?: HTMLElement | null;
+    collisionPadding?: number;
+  }) {
   return (
-    <HoverCardPrimitive.Portal
-      data-slot="hover-card-portal"
-      container={container ?? undefined}
-    >
-      <HoverCardPrimitive.Content
-        data-slot="hover-card-content"
+    <PreviewCard.Portal container={container ?? undefined}>
+      <PreviewCard.Positioner
+        className="isolate z-50"
         align={align}
+        side={side}
         sideOffset={sideOffset}
-        className={cn(
-          "z-50 w-64 origin-(--radix-hover-card-content-transform-origin) rounded-md border bg-popover p-4 text-popover-foreground shadow-md outline-hidden",
-          className
-        )}
-        {...props}
-        asChild
       >
-        <SpringPanel>{children}</SpringPanel>
-      </HoverCardPrimitive.Content>
-    </HoverCardPrimitive.Portal>
-  )
+        <PreviewCard.Popup
+          data-slot="hover-card-content"
+          className={cn("tact-popup", className)}
+          render={<SpringPanel />}
+          {...props}
+        >
+          {children}
+        </PreviewCard.Popup>
+      </PreviewCard.Positioner>
+    </PreviewCard.Portal>
+  );
 }
 
-export { HoverCard, HoverCardTrigger, HoverCardContent }
+export { HoverCard, HoverCardTrigger, HoverCardContent };

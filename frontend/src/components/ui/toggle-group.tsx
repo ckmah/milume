@@ -1,53 +1,62 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { type VariantProps } from "class-variance-authority"
-import { motion } from "motion/react"
-import { ToggleGroup as ToggleGroupPrimitive } from "radix-ui"
+import { Toggle as TogglePrimitive } from "@base-ui/react/toggle";
+import { ToggleGroup as ToggleGroupPrimitive } from "@base-ui/react/toggle-group";
+import { type VariantProps } from "class-variance-authority";
+import * as React from "react";
 
-import { usePressMotion } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import { toggleVariants } from "@/components/ui/toggle"
+import { toggleVariants } from "@/components/ui/toggle";
+import { cn } from "@/lib/utils";
 
 const ToggleGroupContext = React.createContext<
-  VariantProps<typeof toggleVariants> & {
-    spacing?: number
-  }
->({
-  size: "default",
-  variant: "default",
-  spacing: 0,
-})
+  VariantProps<typeof toggleVariants> & { multiple: boolean }
+>({ size: "default", variant: "default", multiple: false });
+
+function toArray(value: unknown): string[] | undefined {
+  if (value == null) return undefined;
+  return Array.isArray(value) ? value.map(String) : [String(value)];
+}
 
 function ToggleGroup({
   className,
   variant,
   size,
-  spacing = 0,
+  spacing: _spacing,
+  type,
+  multiple,
+  value,
+  defaultValue,
+  onValueChange,
   children,
   ...props
-}: React.ComponentProps<typeof ToggleGroupPrimitive.Root> &
+}: Omit<ToggleGroupPrimitive.Props<string>, "value" | "defaultValue" | "onValueChange" | "multiple"> &
   VariantProps<typeof toggleVariants> & {
-    spacing?: number
+    type?: "single" | "multiple";
+    spacing?: number;
+    multiple?: boolean;
+    value?: string | readonly string[];
+    defaultValue?: string | readonly string[];
+    onValueChange?: (value: string | string[]) => void;
   }) {
+  const isMulti = multiple ?? type === "multiple";
   return (
-    <ToggleGroupPrimitive.Root
+    <ToggleGroupPrimitive
       data-slot="toggle-group"
-      data-variant={variant}
-      data-size={size}
-      data-spacing={spacing}
-      style={{ "--gap": spacing } as React.CSSProperties}
-      className={cn(
-        "group/toggle-group flex w-fit items-center gap-[--spacing(var(--gap))] rounded-md data-[spacing=default]:data-[variant=outline]:shadow-xs",
-        className
-      )}
+      role={isMulti ? "group" : "radiogroup"}
+      multiple={isMulti}
+      value={toArray(value)}
+      defaultValue={toArray(defaultValue)}
+      onValueChange={(next) => {
+        onValueChange?.(isMulti ? next : (next[0] ?? ""));
+      }}
+      className={cn("tact-toggle-group flex items-center", className)}
       {...props}
     >
-      <ToggleGroupContext.Provider value={{ variant, size, spacing }}>
+      <ToggleGroupContext.Provider value={{ variant, size, multiple: isMulti }}>
         {children}
       </ToggleGroupContext.Provider>
-    </ToggleGroupPrimitive.Root>
-  )
+    </ToggleGroupPrimitive>
+  );
 }
 
 function ToggleGroupItem({
@@ -55,39 +64,30 @@ function ToggleGroupItem({
   children,
   variant,
   size,
-  disabled,
-  "data-ds-force": force,
   ...props
-}: React.ComponentProps<typeof ToggleGroupPrimitive.Item> &
-  VariantProps<typeof toggleVariants> & {
-    "data-ds-force"?: string
-  }) {
-  const context = React.useContext(ToggleGroupContext)
-  const press = usePressMotion(disabled, force)
-
+}: TogglePrimitive.Props & VariantProps<typeof toggleVariants>) {
+  const ctx = React.useContext(ToggleGroupContext);
   return (
-    <ToggleGroupPrimitive.Item
+    <TogglePrimitive
       data-slot="toggle-group-item"
-      data-variant={context.variant || variant}
-      data-size={context.size || size}
-      data-spacing={context.spacing}
-      data-ds-force={force}
-      disabled={disabled}
-      asChild
       className={cn(
-        toggleVariants({
-          variant: context.variant || variant,
-          size: context.size || size,
-        }),
-        "w-auto min-w-0 shrink-0 px-3 focus:z-10 focus-visible:z-10",
-        "data-[spacing=0]:rounded-none data-[spacing=0]:shadow-none data-[spacing=0]:first:rounded-l-md data-[spacing=0]:last:rounded-r-md data-[spacing=0]:data-[variant=outline]:border-l-0 data-[spacing=0]:data-[variant=outline]:first:border-l",
-        className
+        toggleVariants({ variant: variant ?? ctx.variant, size: size ?? ctx.size }),
+        "tact-toggle",
+        className,
       )}
       {...props}
-    >
-      <motion.button {...press}>{children}</motion.button>
-    </ToggleGroupPrimitive.Item>
-  )
+      render={(renderProps, state) => (
+        <button
+          {...renderProps}
+          role={ctx.multiple ? renderProps.role : "radio"}
+          aria-checked={state.pressed}
+          data-state={state.pressed ? "on" : "off"}
+        >
+          {children}
+        </button>
+      )}
+    />
+  );
 }
 
-export { ToggleGroup, ToggleGroupItem }
+export { ToggleGroup, ToggleGroupItem };

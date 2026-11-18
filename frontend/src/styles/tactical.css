@@ -1,0 +1,377 @@
+/* Tactical chrome. One dark veil in light and dark notebooks.
+   IBM Plex Mono is OFL. The file is latin 400. */
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");
+}
+
+.milume-widget,
+[data-milume-portal] {
+  --tact-ink: #f2f2f2;
+  --tact-muted: #d0d0d0;
+  --tact-tone: rgba(242, 242, 242, 0.16);
+  --tact-accent: #3d7dff;
+  --tact-track: rgba(242, 242, 242, 0.28);
+  --tact-rule: rgba(242, 242, 242, 0.78);
+  --tact-veil: color-mix(in srgb, #141414 75%, transparent);
+  --tact-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --foreground: var(--tact-ink);
+  --muted-foreground: var(--tact-muted);
+  --card-foreground: var(--tact-ink);
+  --popover: var(--tact-veil);
+  --popover-foreground: var(--tact-ink);
+  --primary: var(--tact-ink);
+  --primary-foreground: #141414;
+  --accent: var(--tact-tone);
+  --accent-foreground: var(--tact-ink);
+  --border: transparent;
+  --ring: var(--tact-ink);
+  --lm-text: var(--tact-ink);
+  --lm-text-muted: var(--tact-muted);
+  --lm-float-bg: var(--tact-veil);
+  --lm-float-blur: blur(10px);
+  --lm-float-radius: 0px;
+  --lm-float-shadow: none;
+  --lm-dock-width: 22rem;
+  --lm-hit-on-bg: transparent;
+  --lm-hit-on-fg: var(--tact-ink);
+  --lm-layer-hover-bg: transparent;
+  --lm-layer-active-bg: transparent;
+  --lm-layer-active-hover-bg: transparent;
+  color: var(--tact-ink);
+  color-scheme: dark;
+}
+
+.tact-label,
+.landmarks-section-label,
+.landmarks-toolbar-caption,
+.landmarks-field-caption,
+.landmarks-slider-caption,
+.landmarks-meta,
+.tact-hotkey,
+.tact-readout,
+.tact-tooltip,
+.tact-tab,
+.tact-switch,
+[data-slot="dropdown-menu-shortcut"] {
+  font-family: var(--tact-mono);
+}
+
+.tact-label,
+.landmarks-section-label,
+.landmarks-toolbar-caption {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tact-muted);
+}
+
+/* Corner brackets on top-level surfaces only. */
+.landmarks-float--panel,
+.landmarks-float--toolbar,
+.tact-popup {
+  border-radius: 0 !important;
+  background-color: var(--tact-veil) !important;
+  background-image:
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)) !important;
+  background-size:
+    10px 1px, 1px 10px,
+    10px 1px, 1px 10px,
+    10px 1px, 1px 10px,
+    10px 1px, 1px 10px !important;
+  background-position:
+    0 0, 0 0,
+    100% 0, 100% 0,
+    0 100%, 0 100%,
+    100% 100%, 100% 100% !important;
+  background-repeat: no-repeat !important;
+  box-shadow: none !important;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: var(--tact-ink);
+}
+
+.tact-tooltip {
+  border-radius: 0;
+  background: var(--tact-veil);
+  color: var(--tact-ink);
+  box-shadow: none;
+  padding: 4px 8px;
+  font-size: 11px;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.landmarks-tooltip-arrow,
+[data-slot="tooltip-content"] > .rotate-45 {
+  display: none !important;
+}
+
+.tact-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 13rem;
+  padding: 8px 6px;
+}
+
+.tact-menu-item {
+  border-radius: 0;
+  color: var(--tact-ink);
+  background: transparent;
+}
+
+.tact-menu-item[data-highlighted],
+.tact-menu-item:focus,
+.tact-menu-item[data-checked] {
+  box-shadow: inset 3px 0 0 var(--tact-accent);
+  background: transparent;
+}
+
+.tact-menu-item--destructive {
+  margin-top: 10px;
+  color: var(--destructive);
+}
+
+.tact-menu-gap {
+  height: 10px;
+}
+
+.tact-hotkey {
+  border: 1px solid #c8c8c8;
+  background: #141414;
+  color: var(--tact-ink);
+  padding: 2px 4px;
+  font-size: 10px;
+}
+
+.landmarks-hit[aria-pressed="true"],
+.landmarks-hit[data-state="on"],
+.landmarks-hit[data-pressed],
+.landmarks-hit.landmarks-hit--on,
+.tact-toggle[aria-pressed="true"],
+.tact-toggle[data-pressed] {
+  background: transparent !important;
+  color: var(--tact-ink) !important;
+  box-shadow: inset 3px 0 0 var(--tact-accent) !important;
+}
+
+.landmarks-layer-row--active,
+.landmarks-cat-trigger--active {
+  background-color: transparent !important;
+  box-shadow: inset 3px 0 0 var(--tact-accent);
+}
+
+.landmarks-trail-hit,
+.tact-button[data-size="icon-xs"],
+.tact-button[data-size="xs"] {
+  border: 0 !important;
+  border-radius: 2px !important;
+  background: var(--tact-tone) !important;
+  color: var(--tact-ink) !important;
+}
+
+.tact-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  width: 4.75rem;
+  height: 22px;
+  border: 0;
+  background: transparent;
+  color: var(--tact-muted);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tact-switch--sm {
+  width: 4.25rem;
+  height: 20px;
+}
+
+.tact-switch-glide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 50%;
+  border-radius: 2px;
+  background: var(--tact-tone);
+}
+
+.tact-switch > span {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+
+.tact-switch > span[data-hot="true"] {
+  color: var(--tact-ink);
+}
+
+.tact-tabs,
+.landmarks-sliding-tabs {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  height: 32px;
+  gap: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.tact-tab,
+.landmarks-sliding-tab {
+  position: relative;
+  z-index: 1;
+  height: 28px;
+  border: 0;
+  background: transparent !important;
+  color: var(--tact-muted) !important;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  box-shadow: none !important;
+}
+
+.tact-tab[aria-selected="true"],
+.tact-tab[data-active],
+.landmarks-sliding-tab[data-state="active"],
+.landmarks-sliding-tab[aria-selected="true"] {
+  color: var(--tact-ink) !important;
+}
+
+.landmarks-sliding-tabs__pill {
+  background: var(--tact-tone) !important;
+  border-radius: 2px !important;
+}
+
+.tact-slider {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  height: 24px;
+}
+
+.tact-slider-control {
+  position: relative;
+  display: flex;
+  width: 100%;
+  align-items: center;
+  height: 24px;
+}
+
+.tact-slider-track {
+  position: relative;
+  height: 2px;
+  width: 100%;
+  overflow: visible;
+  border-radius: 0;
+  background: var(--tact-track);
+}
+
+.tact-slider-range {
+  position: absolute;
+  height: 100%;
+  background: rgba(242, 242, 242, 0.62);
+}
+
+.tact-slider-thumb {
+  position: absolute;
+  width: 4px;
+  height: 16px;
+  border: 0;
+  border-radius: 0;
+  background: var(--tact-ink);
+  box-shadow: none;
+}
+
+.tact-slider-thumb::after {
+  content: "";
+  position: absolute;
+  inset: -4px -10px;
+}
+
+.tact-readout {
+  font-size: 11px;
+  color: var(--tact-muted);
+}
+
+.milume-widget [data-slot="input"],
+.milume-widget [data-slot="textarea"],
+[data-milume-portal] [data-slot="input"],
+[data-milume-portal] [data-slot="textarea"] {
+  border-radius: 2px;
+  border: 1px solid rgba(242, 242, 242, 0.28);
+  background: rgba(242, 242, 242, 0.06);
+  color: var(--tact-ink);
+  font-family: var(--tact-mono);
+  font-size: 12px;
+}
+
+.tact-radio {
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--tact-muted);
+  background: transparent;
+}
+
+.tact-radio[data-checked] .tact-radio-ind,
+.tact-radio[aria-checked="true"] .tact-radio-ind {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--tact-tone);
+}
+
+.landmarks-panel-sections .landmarks-panel-section + .landmarks-panel-section,
+.landmarks-layers-stack__row + .landmarks-layers-stack__row {
+  border-top: 0;
+}
+
+.landmarks-toolbar-divider,
+.tact-separator {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.landmarks {
+  scrollbar-color: rgba(242, 242, 242, 0.35) transparent;
+}
+
+.landmarks-image-channel-row__name,
+.landmarks-layer-label {
+  font-family: var(--tact-mono);
+}
+
+.landmarks-image-channel-row__name {
+  font-size: 12px;
+  line-height: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .milume-widget .tact-switch-glide,
+  .milume-widget .landmarks-sliding-tabs__pill,
+  .milume-widget .landmarks-cat-sublist,
+  [data-milume-portal] .tact-popup,
+  [data-milume-portal] .tact-tooltip {
+    transition: none !important;
+    animation: none !important;
+  }
+}

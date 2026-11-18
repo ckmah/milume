@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Rise } from "cube-motion/react";
+import { Rise } from "@/components/ui/rise";
 
 import type { EngineHandle } from "../engine";
 import type { LandmarksModel } from "../use-landmarks-model";

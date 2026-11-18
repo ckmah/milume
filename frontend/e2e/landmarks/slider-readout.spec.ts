@@ -72,7 +72,7 @@ test("default slider readouts follow the step", async ({ page }) => {
   await page.goto(url, { waitUntil: "domcontentloaded" });
 
   const readout = (testId: string) =>
-    page.getByTestId(testId).locator(".dialkit-slider-value");
+    page.getByTestId(testId).locator(".tact-readout");
 
   await expect(readout("slider-readout-hundredths")).toHaveText("0.50");
   await expect(readout("slider-readout-integer")).toHaveText("12");
@@ -80,7 +80,7 @@ test("default slider readouts follow the step", async ({ page }) => {
   await expect(readout("slider-readout-binary-step")).toHaveText("0.6");
   await expect(page.locator("[data-slider-readout]").nth(0)).toHaveText("42");
   await expect(page.locator("[data-slider-readout]").nth(1)).toHaveText("20–80");
-  await expect(page.getByTestId("layer-cells-point-size").locator(".dialkit-slider-value")).toHaveText(
+  await expect(page.getByTestId("layer-cells-point-size").locator(".tact-readout")).toHaveText(
     "4.00",
   );
 

@@ -1,15 +1,10 @@
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { DialRoot, useDialKit } from "dialkit";
-import "dialkit/styles.css";
-
 import "@/styles/globals.css";
 import "@/widgets/landmarks/landmarks.css";
 import type { AnyModel } from "@/widgets/landmarks/helpers";
 import { resetModeDropdownMemory } from "@/widgets/landmarks/chrome/mode-dropdown";
 import { LandmarksView } from "@/widgets/landmarks/LandmarksView";
-import { DEFAULT_MESH_LOOK } from "@/widgets/volume-cube/cell-mesh";
-import { DEFAULT_RENDER } from "@/widgets/volume-cube/palettes";
 
 import { loadFixtureModel } from "../mock-model";
 
@@ -22,12 +17,10 @@ function optionsFrom(search: string) {
   const params = new URLSearchParams(search);
   const [preview, dock] = (params.get("budgets") ?? "").split(",").map(Number);
   const meshOpacity = Number(params.get("meshOpacity"));
-  const noDialkit = params.get("noDialkit") === "1";
   return {
     cubeBudgets: preview && dock ? { preview, dock } : undefined,
     inspectWindowUm: Number(params.get("window")) || undefined,
     meshOpacity: Number.isFinite(meshOpacity) && meshOpacity > 0 ? meshOpacity : undefined,
-    noDialkit,
   };
 }
 
@@ -40,15 +33,6 @@ function LandmarksVolumeHarness() {
   const [model, setModel] = useState<AnyModel | null>(null);
   const [loadError, setLoadError] = useState("");
   const [options, setOptions] = useState(() => optionsFrom(location.search));
-  const hideDialkit = options.noDialkit;
-  // Live: every value is a uniform or layer prop, so a drag never rebuilds the meshes.
-  const mesh = useDialKit("Mesh", {
-    opacity: [options.meshOpacity ?? DEFAULT_RENDER.cellAlpha, 0, 1, 0.05],
-    fresnelMin: [DEFAULT_MESH_LOOK.fresnelMin, 0, 1, 0.01],
-    shine: [DEFAULT_MESH_LOOK.shine, 0, 1, 0.05],
-    flat: [DEFAULT_MESH_LOOK.flat, 0, 1, 0.05],
-    imgBoost: [DEFAULT_MESH_LOOK.imgBoost, 0, 1, 0.05],
-  });
 
   useEffect(() => {
     let cancelled = false;
@@ -99,14 +83,12 @@ function LandmarksVolumeHarness() {
             defaultHeight={820}
             cubeBudgets={options.cubeBudgets}
             inspectWindowUm={options.inspectWindowUm}
-            labelAlpha={hideDialkit ? undefined : mesh.opacity}
-            meshLook={hideDialkit ? undefined : mesh}
+            labelAlpha={options.meshOpacity}
           />
         ) : (
           <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>
         )}
       </div>
-      {hideDialkit ? null : <DialRoot position="bottom-left" theme="dark" />}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Rise } from "cube-motion/react";
+import { Rise } from "@/components/ui/rise";
 import {
   ArrowLeftRightIcon,
   ChevronDownIcon,

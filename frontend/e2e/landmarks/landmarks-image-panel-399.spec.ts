@@ -250,12 +250,12 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
     expect(Math.abs(cellsLeft - imageLeft)).toBeLessThan(0.5);
 
     await expect(
-      page.locator(".landmarks-image-controls .landmarks-slider-row--contrast .dialkit-root"),
+      page.locator(".landmarks-image-controls .landmarks-slider-row--contrast .landmarks-slider-control"),
     ).toHaveCount(1);
     await expect(
-      page.locator(".landmarks-image-controls .landmarks-slider-row--alpha .dialkit-root"),
+      page.locator(".landmarks-image-controls .landmarks-slider-row--alpha .landmarks-slider-control"),
     ).toHaveCount(1);
-    const tracks = page.locator(".landmarks-image-controls .dialkit-root");
+    const tracks = page.locator(".landmarks-image-controls .landmarks-slider-control");
     await expect(tracks).toHaveCount(2);
     const [a, b] = await tracks.evaluateAll((els) =>
       els.map((el) => {

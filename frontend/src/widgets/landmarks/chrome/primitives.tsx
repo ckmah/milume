@@ -24,11 +24,10 @@ import {
   Trash2Icon,
   type LucideProps,
 } from "lucide-react";
-import { Tooltip as TooltipPrimitive } from "radix-ui";
+import "@/styles/tactical.css";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,7 +40,7 @@ import {
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
-import { Tooltip, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 import { MODE_LABELS, MODE_SHORTCUTS } from "../helpers";
@@ -109,13 +108,7 @@ export const chromeMenuClass =
   "landmarks-menu z-50 min-w-[9rem] overflow-hidden rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md";
 
 export function ToolbarDivider() {
-  return (
-    <Separator
-      orientation="vertical"
-      decorative
-      className="landmarks-toolbar-divider"
-    />
-  );
+  return <span className="landmarks-toolbar-divider inline-block w-2 shrink-0" aria-hidden />;
 }
 
 import { useWidgetPortal } from "./widget-portal-context";
@@ -135,25 +128,17 @@ export function ChromeTooltip({
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipPrimitive.Portal container={container ?? undefined}>
-        <TooltipPrimitive.Content
-          data-slot="tooltip-content"
-          side="bottom"
-          sideOffset={6}
-          className={cn(
-            chromeTooltipClass,
-            shortcut && "flex items-center gap-3",
-          )}
-        >
-          <span>{label}</span>
-          {shortcut ? (
-            <span className="landmarks-tooltip-shortcut font-normal tabular-nums">
-              {shortcut}
-            </span>
-          ) : null}
-          <TooltipPrimitive.Arrow className="landmarks-tooltip-arrow z-50 size-2.5 translate-y-[calc(-50%_-_2px)] rotate-45 rounded-[2px]" />
-        </TooltipPrimitive.Content>
-      </TooltipPrimitive.Portal>
+      <TooltipContent
+        container={container}
+        side="bottom"
+        sideOffset={8}
+        className={cn(chromeTooltipClass, shortcut && "flex items-center gap-3")}
+      >
+        <span>{label}</span>
+        {shortcut ? (
+          <span className="landmarks-tooltip-shortcut tact-hotkey font-normal">{shortcut}</span>
+        ) : null}
+      </TooltipContent>
     </Tooltip>
   );
 }
@@ -237,7 +222,8 @@ export function ModeToggle({
       value={value || undefined}
       className="landmarks-mode-toggle gap-1"
       onValueChange={(next) => {
-        if (next) onChange(next);
+        const value = Array.isArray(next) ? next[0] : next;
+        if (value) onChange(value);
       }}
     >
       {modes.map((mode) => {

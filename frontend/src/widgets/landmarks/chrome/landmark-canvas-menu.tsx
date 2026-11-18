@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Rise } from "cube-motion/react";
+import { Rise } from "@/components/ui/rise";
 import {
   CircleMinusIcon,
   CopyPlusIcon,

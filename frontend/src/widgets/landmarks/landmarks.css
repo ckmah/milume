@@ -861,61 +861,11 @@
   margin: 0;
 }
 
-/* Category disclosure: height (Radix measure) + soft content reveal. */
-@keyframes landmarks-collapsible-down {
-  from {
-    height: 0;
-  }
-  to {
-    height: var(--radix-collapsible-content-height);
-  }
-}
-
-@keyframes landmarks-collapsible-up {
-  from {
-    height: var(--radix-collapsible-content-height);
-  }
-  to {
-    height: 0;
-  }
-}
-
-@keyframes landmarks-cat-reveal {
-  from {
-    opacity: 0;
-    filter: blur(var(--blur-small));
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
-  }
-}
-
-@keyframes landmarks-cat-conceal {
-  from {
-    opacity: 1;
-    filter: blur(0);
-  }
-  to {
-    opacity: 0;
-    filter: blur(var(--blur-small));
-  }
-}
-
-.landmarks-cat-sublist[data-state="open"] {
-  animation: landmarks-collapsible-down var(--duration-fast) var(--ease-smooth-out);
-}
-
-.landmarks-cat-sublist[data-state="closed"] {
-  animation: landmarks-collapsible-up var(--duration-quick) var(--ease-smooth-out);
-}
-
-.landmarks-cat-sublist[data-state="open"] .landmarks-cat-sublist-inner {
-  animation: landmarks-cat-reveal var(--duration-fast) var(--ease-smooth-out) both;
-}
-
-.landmarks-cat-sublist[data-state="closed"] .landmarks-cat-sublist-inner {
-  animation: landmarks-cat-conceal var(--duration-quick) var(--ease-smooth-out) both;
+/* Category disclosure: height follows Base UI's measured panel variable. */
+.landmarks-cat-sublist {
+  height: var(--collapsible-panel-height);
+  overflow: hidden;
+  transition: height var(--duration-fast) var(--ease-smooth-out);
 }
 
 .landmarks-cat-chevron-icon {
@@ -929,11 +879,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .landmarks-cat-sublist[data-state="open"],
-  .landmarks-cat-sublist[data-state="closed"],
-  .landmarks-cat-sublist[data-state="open"] .landmarks-cat-sublist-inner,
-  .landmarks-cat-sublist[data-state="closed"] .landmarks-cat-sublist-inner {
-    animation: none !important;
+  .landmarks-cat-sublist {
+    transition: none;
   }
 
   .landmarks-cat-chevron-icon {
@@ -1293,16 +1240,14 @@
  * Keep regular + bidirectional visually in sync; do not fork thumb/fill/value here.
  */
 .landmarks-slider-control {
-  --lm-slider-height: 1.75rem;
+  --lm-slider-height: 24px;
   --lm-slider-value-size: 0.6875rem;
   --lm-slider-value-weight: 500;
-  --lm-slider-thumb-w: 0.125rem; /* 2px — matches Slider thumb w-0.5 */
-  --lm-slider-thumb-h: 0.625rem; /* h-2.5 */
-  --lm-slider-thumb-h-active: 0.875rem; /* ~h-3.5 on hover/focus */
-  --lm-slider-thumb-h-press: 1rem; /* h-4 while active */
-  --lm-slider-fill: color-mix(in oklab, var(--card) 82%, var(--foreground));
-  --lm-slider-thumb: color-mix(in oklab, var(--foreground) 55%, var(--muted-foreground));
-  --lm-slider-thumb-on: var(--foreground);
+  --lm-slider-thumb-w: 4px;
+  --lm-slider-thumb-h: 16px;
+  --lm-slider-fill: rgba(242, 242, 242, 0.62);
+  --lm-slider-thumb: #f2f2f2;
+  --lm-slider-thumb-on: #f2f2f2;
   --lm-slider-value-color: var(--foreground);
 
   position: relative;
@@ -1310,12 +1255,10 @@
   box-sizing: border-box;
   height: var(--lm-slider-height);
   min-height: var(--lm-slider-height);
-  /* flex: none was forcing signed rows to ignore flex-1 and overflow Both/reset. */
   flex: 1 1 auto;
   padding: 0;
-  border-radius: var(--radius);
-  /* Outer capsule — fill only; no inset ring (Soft Float elevation is shadow-only). */
-  background: color-mix(in oklab, var(--muted) 55%, transparent);
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -1326,16 +1269,9 @@
   min-width: 11rem;
 }
 
-.landmarks--dark .landmarks-slider-control {
-  /* Empty track must read against dark glass (muted alone is ~1.1:1). */
-  background: color-mix(in oklab, var(--foreground) 10%, transparent);
-  --lm-slider-fill: color-mix(in oklab, var(--foreground) 26%, var(--card));
-  --lm-slider-thumb: color-mix(in oklab, var(--foreground) 70%, var(--muted-foreground));
-}
-
+.landmarks--dark .landmarks-slider-control,
 .landmarks--light .landmarks-slider-control {
-  background: color-mix(in oklab, var(--muted) 65%, transparent);
-  --lm-slider-fill: color-mix(in oklab, var(--popover) 80%, var(--foreground));
+  background: transparent;
 }
 
 /* Capsule value slider — inner track fills the control; range flush to track. */
@@ -1345,33 +1281,27 @@
 }
 
 .landmarks-slider-control [data-slot="slider-track"] {
-  height: 100%;
-  border-radius: var(--radius);
-  background: transparent;
+  height: 2px;
+  border-radius: 0;
+  background: rgba(242, 242, 242, 0.28);
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
 .landmarks-slider-control [data-slot="slider-range"] {
-  border-radius: var(--radius);
+  border-radius: 0;
   background: var(--lm-slider-fill);
   box-shadow: none;
 }
 
 .landmarks-slider-control [data-slot="slider-thumb"],
 .landmarks-slider-control .landmarks-slider-thumb-mark {
-  /* Hidden until hover/focus — fill encodes value; thumb is a grab affordance. */
   width: var(--lm-slider-thumb-w);
   height: var(--lm-slider-thumb-h);
-  border-radius: 9999px;
-  opacity: 0;
-  pointer-events: none;
+  border-radius: 0;
+  opacity: 1;
   background: var(--lm-slider-thumb);
-  transition:
-    opacity var(--duration-quick) var(--ease-out),
-    height var(--duration-quick) var(--ease-out),
-    background-color var(--duration-quick) var(--ease-out);
 }
 
 /* Radix thumbs: compose onto centering — never replace -50% or tracking breaks. */
@@ -1380,22 +1310,9 @@
   transform: var(--radix-slider-thumb-transform, translateX(-50%)) translateX(-2px);
 }
 
-.landmarks-slider-control:hover [data-slot="slider-thumb"],
-.landmarks-slider-control:hover .landmarks-slider-thumb-mark,
-.landmarks-slider-control:focus-within [data-slot="slider-thumb"],
-.landmarks-slider-control:focus-within .landmarks-slider-thumb-mark,
-.landmarks-slider-control [data-slot="slider"]:hover [data-slot="slider-thumb"],
-.landmarks-slider-control [data-slot="slider"]:focus-within [data-slot="slider-thumb"],
 .landmarks-slider-control [data-slot="slider-thumb"]:active,
 .landmarks-slider-control .landmarks-slider-thumb-mark:active {
   background: var(--lm-slider-thumb-on);
-  opacity: 1;
-  height: var(--lm-slider-thumb-h-active);
-}
-
-.landmarks-slider-control [data-slot="slider-thumb"]:active,
-.landmarks-slider-control .landmarks-slider-thumb-mark:active {
-  height: var(--lm-slider-thumb-h-press);
 }
 
 /* Value overlays the left of the fill (DESIGN SliderRow). */
@@ -1443,8 +1360,9 @@
  */
 .landmarks-slider-row {
   display: flex;
-  align-items: center;
-  gap: var(--lm-chrome-gap);
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--lm-stack-gap);
 }
 
 .landmarks-slider-row--dialkit {
@@ -1569,17 +1487,11 @@
   --lm-slider-caption-w: 3.5rem;
 }
 
-.landmarks-image-controls .landmarks-slider-row--contrast .landmarks-slider-caption {
-  width: var(--lm-slider-caption-w);
-  max-width: var(--lm-slider-caption-w);
+.landmarks-image-controls .landmarks-slider-caption {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.landmarks-image-controls .landmarks-slider-row--alpha .landmarks-slider-caption {
-  width: var(--lm-slider-caption-w);
-  max-width: var(--lm-slider-caption-w);
 }
 
 .landmarks-image-channel-list {
