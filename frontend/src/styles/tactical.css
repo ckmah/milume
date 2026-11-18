@@ -211,7 +211,7 @@
   border-radius: 0 !important;
 }
 
-.milume-widget .landmarks-toolbar .landmarks-hit:hover {
+.milume-widget .landmarks-toolbar .landmarks-hit:hover:not(.landmarks-view-minimise-toggle) {
   background: var(--tact-tone) !important;
   color: var(--tact-ink) !important;
 }
