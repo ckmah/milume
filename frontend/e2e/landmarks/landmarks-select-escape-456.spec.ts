@@ -22,6 +22,36 @@ test.describe("Select mode Escape", () => {
     expect(await getModel(page, "mode")).toBe("select");
   });
 
+  test("closes the landmark menu and a selection-row menu the same way", async ({ page }) => {
+    const bar = page.getByRole("toolbar", { name: "Drawing tools" });
+    await bar.getByRole("button", { name: /Right-click for landmark menu/ }).click({ button: "right" });
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    expect(await getModel(page, "selected_kind")).toBe("molecule");
+
+    await setModel(page, {
+      landmarks: [
+        {
+          id: "lm-point",
+          type: "point",
+          vertices: [[2500, 800]],
+          color: "#00e5ff",
+        },
+      ],
+      selected_kind: "landmark",
+      selected_index: 0,
+      mode: "select",
+    });
+    await page.getByRole("button", { name: "Layer actions" }).first().click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toHaveCount(0);
+    expect(await getModel(page, "selected_kind")).toBe("landmark");
+    expect(await getModel(page, "selected_index")).toBe(0);
+    expect(await getModel(page, "mode")).toBe("select");
+  });
+
   test("clears the canvas selection when no menu is open", async ({ page }) => {
     await expect(page.getByRole("menu")).toHaveCount(0);
     await page.locator("canvas.landmarks__webgl").first().focus();
