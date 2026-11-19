@@ -1,13 +1,13 @@
-as_of: Thu Nov 19, 5:14 AM PT
+as_of: Thu Nov 19, 12:45 PM PT
 needs_you: 0
   (none)
 open_prs: 1
-last_nightly: 2026-11-18 success
+last_nightly: 2026-11-19 success
 stale_prs:
-  #415 morans-i-409 (no push >10d)
+  #415 morans-i-409 (failing CI)
 red_nightlies: 2026-11-06, 2026-11-07, 2026-11-09, 2026-11-10, 2026-11-11, 2026-11-14, 2026-11-17
 last_red_nightly: 2026-11-17
 ci_failure_issues: none
 html: dashboard.html
 status: PUBLISH
-hash: 36e2f0c4daef
+hash: 9f079f5fc4f6
