@@ -6291,9 +6291,7 @@ export function mountEngine({
       finishVertexDraft();
       return;
     }
-    // Esc in an open menu belongs to the menu (it closes itself): in Inspect
-    // it never closes the cube or leaves the mode.
-    if (key === "Escape" && currentMode === "inspect" && eventInMenu(event)) return;
+    if (key === "Escape" && eventInMenu(event)) return;
     if (key === "Escape") {
       event.preventDefault();
       event.stopPropagation();
