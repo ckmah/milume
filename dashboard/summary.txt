@@ -1,13 +1,14 @@
-as_of: Thu Nov 19, 12:45 PM PT
+as_of: Thu Nov 19, 7:17 PM PT
 needs_you: 0
   (none)
-open_prs: 1
+open_prs: 3
 last_nightly: 2026-11-19 success
 stale_prs:
-  #415 morans-i-409 (failing CI)
+  #472 prototype-transect-471 (failing CI)
+  #470 tactical-refine-468 (failing CI)
 red_nightlies: 2026-11-06, 2026-11-07, 2026-11-09, 2026-11-10, 2026-11-11, 2026-11-14, 2026-11-17
 last_red_nightly: 2026-11-17
 ci_failure_issues: none
 html: dashboard.html
 status: PUBLISH
-hash: 9f079f5fc4f6
+hash: c85b887b37b6
