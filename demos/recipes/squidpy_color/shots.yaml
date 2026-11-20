@@ -1,28 +1,25 @@
 # Shot list for automated recipe capture (squidpy_color niche recipe).
-# column: Landmarks color trait (obs column key).
-# selection_count: expected number of drawn selections in the widget model.
-# view: camera framing. `fit` is the bounds center at the engine fit zoom.
 recipe: squidpy_color
 page: /docs/how-to/recipes/squidpy_color/index.html
 shots:
-  - id: prepared-niche-k30-default
+  - id: prepared-galt-composition-default
     theme: default
-    column: niche_k30_res0.3
-    selection_count: 1
+    column: niche_k64
+    selection_count: 3
     view: fit
     pointer:
       norm_x: 0.42
       norm_y: 0.48
     claim: >-
-      Prepared export colors the full ileum slice by niche_k30_res0.3 and keeps
-      one GALT follicle selection.
-  - id: prepared-niche-k30-slate
+      Default docs view colors niche_k64, shows three GALT patch polygons, and
+      three pre-rendered spatial-domain composition panels.
+  - id: prepared-galt-composition-slate
     theme: slate
-    column: niche_k30_res0.3
-    selection_count: 1
+    column: niche_k64
+    selection_count: 3
     view: fit
     pointer:
       norm_x: 0.58
       norm_y: 0.52
     claim: >-
-      Slate theme keeps the same k30 niche column and one selection.
+      Slate theme keeps the three GALT polygons and composition panels.

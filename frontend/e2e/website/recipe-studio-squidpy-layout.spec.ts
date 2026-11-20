@@ -61,20 +61,19 @@ test.describe("recipe studio squidpy layout", () => {
     expect(layout!.insideViewport).toBe(true);
   });
 
-  test("static page shows Squidpy sweep code without an empty niche_sweep shell", async ({ page }) => {
+  test("static page runs niche sweep without an empty niche_sweep shell", async ({ page }) => {
     await page.goto(RECIPE_PATH, { waitUntil: "networkidle", timeout: 120_000 });
-    await expect(page.locator('marimo-cell[name="niche_sweep"]')).toHaveCount(0);
-
-    const method = page.locator('marimo-cell[name="niche_sweep_method"]');
-    const code = method.locator("pre code");
-    await expect(code).toBeVisible();
-    await expect(code).toContainText("sq.gr.spatial_neighbors");
-    await expect(code).toContainText("_niche_neighborhood");
-    const box = await method.boundingBox();
+    const sweep = page.locator('marimo-cell[name="niche_sweep"]');
+    await expect(sweep).toHaveCount(1);
+    await expect(page.locator('marimo-cell[name="niche_sweep_method"]')).toHaveCount(0);
+    const stdout = sweep.locator(".stdout");
+    await expect(stdout).toBeVisible();
+    await expect(stdout).toContainText("Creating graph");
+    const box = await sweep.boundingBox();
     expect(box?.height ?? 0).toBeGreaterThan(40);
   });
 
-  test("default export keeps galt-follicle selection geometry on the map", async ({ page }) => {
+  test("default export keeps three GALT patch polygons on the map", async ({ page }) => {
     await page.goto(RECIPE_PATH, { waitUntil: "networkidle", timeout: 120_000 });
     await page
       .locator("marimo-anywidget")
@@ -84,8 +83,10 @@ test.describe("recipe studio squidpy layout", () => {
     await page.waitForFunction(
       () => {
         const overlay = window.__landmarksEngine?.getSelectionOverlay?.();
-        return overlay?.some((row: { index: number; pointCount: number }) =>
-          row.index === 0 && row.pointCount > 0,
+        return (
+          Array.isArray(overlay) &&
+          overlay.length >= 3 &&
+          overlay.slice(0, 3).every((row: { pointCount: number }) => row.pointCount > 0)
         );
       },
       { timeout: 30_000 },
