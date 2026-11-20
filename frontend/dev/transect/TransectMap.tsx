@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { pointOnPath, tColor } from "./geometry";
 import type { CellField, Field, Scene, Stop } from "./types";
@@ -74,6 +74,14 @@ function isoline(
 export function TransectMap({ scene, ordered, field, shade, probeT = null, onPointer }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<Frame | null>(null);
+  const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
+
+  useEffect(() => {
+    const sync = () => setDark(document.documentElement.classList.contains("dark"));
+    const observer = new MutationObserver(sync);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const canvas = ref.current;
@@ -168,7 +176,7 @@ export function TransectMap({ scene, ordered, field, shade, probeT = null, onPoi
     const observer = new ResizeObserver(draw);
     observer.observe(parent);
     return () => observer.disconnect();
-  }, [scene, ordered, field, shade, probeT]);
+  }, [scene, ordered, field, shade, probeT, dark]);
 
   return (
     <canvas
