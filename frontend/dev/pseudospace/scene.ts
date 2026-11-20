@@ -1,6 +1,6 @@
 import { decodeF32Base64, decodeI32Base64 } from "@/widgets/landmarks/binary";
 
-import { landmarkId, type Band, type Cell, type Landmark, type LandmarkKind, type Scene } from "./types";
+import { landmarkId, type Band, type Cell, type GeneColumn, type Landmark, type LandmarkKind, type Scene } from "./types";
 
 type LandmarkRaw = {
   id?: unknown;
@@ -155,6 +155,10 @@ export function sceneFromState(state: Record<string, unknown>): Scene {
     }
   }
 
+  const genes: GeneColumn[] = geneNames.map((name, index) => ({
+    name,
+    values: geneVector(indptr, indices, data, index, nObs),
+  }));
   const bands = tertile(values);
   const cells: Cell[] = [];
   let x0 = Infinity;
@@ -193,6 +197,7 @@ export function sceneFromState(state: Record<string, unknown>): Scene {
   return {
     cells,
     landmarks,
+    genes,
     geneName,
     categoryName,
     compositionNote: oneLabel

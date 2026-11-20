@@ -1,17 +1,20 @@
 # Pseudospace sketch
 
-Not a public API. The harness options only choose an ordered landmark id list and read this field back.
+Not a public API. Nothing here is added to `milume.__all__`.
 
 ```python
-w.pseudospaces.add(["harness-shape", "harness-line"], id="axis-1")
-
-s = w.get_pseudospace("axis-1")
-d = w.get_pseudospace_distances("axis-1")
-
-adata.obs["pseudospace"] = s
-adata.obs[d.columns] = d
+frame = w.get_pseudospace("axis-1")
+profile = w.get_pseudospace_profile("axis-1", gene="Apob")
 ```
 
-`s` is a Series. A cell between landmarks `L_k` and `L_k+1` has value `(k-1) + d_k / (d_k + d_k+1)`, and it belongs to the consecutive pair with the smallest `d_k + d_k+1`. `d` is a DataFrame, one geodesic distance column per landmark in the order. There is no side or left/right offset.
+`frame` is a DataFrame with one row per cell.
 
-The prototype method name is `knn-graph`: distance to each landmark's geometry on an 8-nearest-neighbor cell graph, edge weights in micrometers. Cells before the first landmark or past the last stay inside `[0, n-1]` because every cell is assigned to a pair.
+| column | meaning |
+| --- | --- |
+| `pseudospace` | `(k-1) + d_k / (d_k + d_k+1)` for the closest consecutive pair |
+| `pair` | 0-based index of that pair |
+| `d_<landmark>` | geodesic distance in µm to that landmark's geometry |
+
+`profile` is a DataFrame of bins along pseudospace. A gene bin has `mean`, `lo`, `hi`, and the Spearman rho of the gene against pseudospace. A category bin has one proportion column per label.
+
+The ileum notebook in this directory is the showcase. It is not a recipe and it does not ship.

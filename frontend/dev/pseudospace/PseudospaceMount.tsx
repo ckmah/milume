@@ -4,16 +4,14 @@ import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import type { AnyModel } from "@/widgets/landmarks/helpers";
 
-import { OptionA } from "./options/a";
-import { OptionB } from "./options/b";
-import { OptionC } from "./options/c";
+import { PseudospaceView } from "./options/view";
 import { sceneFromModel, sceneFromState } from "./scene";
 import type { PseudospaceOptionId, Scene } from "./types";
 
 const OPTIONS: Record<PseudospaceOptionId, (props: { scene: Scene }) => ReactElement> = {
-  a: OptionA,
-  b: OptionB,
-  c: OptionC,
+  a: PseudospaceView,
+  b: PseudospaceView,
+  c: PseudospaceView,
 };
 
 function Cursor() {
@@ -49,10 +47,10 @@ function Cursor() {
 
 export function PseudospaceMount({
   model,
-  option,
+  option = "a",
 }: {
   model: AnyModel;
-  option: PseudospaceOptionId;
+  option?: PseudospaceOptionId;
 }) {
   const [plot, setPlot] = useState<HTMLElement | null>(null);
   const [root, setRoot] = useState<HTMLElement | null>(null);
