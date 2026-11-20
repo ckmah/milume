@@ -51,7 +51,7 @@ export function OptionB({ scene }: OptionProps) {
       if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
       if (event.key === "Enter") {
         event.preventDefault();
-        setDone(true);
+        if (ids.length >= 2) setDone(true);
       } else if (event.key === "Escape") {
         event.preventDefault();
         setIds([]);
@@ -63,7 +63,7 @@ export function OptionB({ scene }: OptionProps) {
     };
     window.addEventListener("keydown", onKey, true);
     return () => window.removeEventListener("keydown", onKey, true);
-  }, [done]);
+  }, [done, ids]);
 
   return (
     <div data-testid="transect-option-b" data-count={ordered.length} data-done={done ? "yes" : "no"} className="relative h-full w-full">
