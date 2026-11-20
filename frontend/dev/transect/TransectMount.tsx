@@ -7,7 +7,7 @@ import type { AnyModel } from "@/widgets/landmarks/helpers";
 import { OptionA } from "./options/a";
 import { OptionB } from "./options/b";
 import { OptionC } from "./options/c";
-import { sceneFromModel } from "./scene";
+import { sceneFromModel, sceneFromState } from "./scene";
 import type { Scene, TransectOptionId } from "./types";
 
 const OPTIONS: Record<TransectOptionId, (props: { scene: Scene }) => ReactElement> = {
@@ -60,13 +60,30 @@ export function TransectMount({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      setScene(sceneFromModel(model));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    }
+    let cancel = false;
+    const load = async () => {
+      try {
+        const fromModel = sceneFromModel(model);
+        if (fromModel.cells.some((cell) => cell.gene > 0)) {
+          if (!cancel) setScene(fromModel);
+          return;
+        }
+        // The harness drops the gene matrix unless ?eagerGenes=1. The fixture file still has it.
+        const url = new URLSearchParams(window.location.search).get("fixture") || "/fixture.json";
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`transect fixture ${url}: ${res.status}`);
+        const raw = (await res.json()) as Record<string, unknown>;
+        if (!cancel) setScene(sceneFromState(raw));
+      } catch (err) {
+        if (!cancel) setError(err instanceof Error ? err.message : String(err));
+      }
+    };
+    void load();
     model.set("show_rulers", false);
     model.save_changes();
+    return () => {
+      cancel = true;
+    };
   }, [model]);
 
   useEffect(() => {
