@@ -27,9 +27,16 @@ Main notebook entry point for interactive landmarks. Constructs
 
 The widget keeps a reference to `adata` (no `obs.copy()`, no full-`X`
 densify at construct). Chrome follows the notebook cell width; height starts
-at 720px and is resizable. Marker radius comes from median nearest-neighbor
-distance. Neighbourhood expand runs in the browser from coordinates; no
-`obsp` graphs are required.
+at 720px and is resizable. `point_size` is the marker radius in the same
+units as `obsm` x/y (not a visibility flag). It is seeded at 0.4 times the
+median nearest-neighbor distance. `_cells_visible` hides the dots and
+restores that same radius. When a micrometre scale is known (`_um_per_unit`,
+from a SpatialData coordinate system in micrometres, an AnnData
+`uns['spatial']` scale factor, or `uns['spatial_units']`), the Layers
+slider edits dot diameter from 1 to 50 µm and the seeded radius is clamped
+into that range. With no scale, `point_size` stays in raw coordinate units
+and the slider labels them px. Neighbourhood expand runs in the browser from
+coordinates; no `obsp` graphs are required.
 
 UI chrome (mode, neighbourhoods, raster controls) stays in the browser and
 is not part of the notebook API. Raster bins and probe scores are built
@@ -65,9 +72,16 @@ w = milume.peek(sdata)  # table, image, cell polygons inferred
 
 The widget keeps a reference to `adata` (no `obs.copy()`, no full-`X`
 densify at construct). Chrome follows the notebook cell width; height starts
-at 720px and is resizable. Marker radius comes from median nearest-neighbor
-distance. Neighbourhood expand runs in the browser from coordinates; no
-`obsp` graphs are required.
+at 720px and is resizable. `point_size` is the marker radius in the same
+units as `obsm` x/y (not a visibility flag). It is seeded at 0.4 times the
+median nearest-neighbor distance. `_cells_visible` hides the dots and
+restores that same radius. When a micrometre scale is known (`_um_per_unit`,
+from a SpatialData coordinate system in micrometres, an AnnData
+`uns['spatial']` scale factor, or `uns['spatial_units']`), the Layers
+slider edits dot diameter from 1 to 50 µm and the seeded radius is clamped
+into that range. With no scale, `point_size` stays in raw coordinate units
+and the slider labels them px. Neighbourhood expand runs in the browser from
+coordinates; no `obsp` graphs are required.
 
 UI chrome (mode, neighbourhoods, raster controls) stays in the browser and
 is not part of the notebook API. Raster bins and probe scores are built
