@@ -209,17 +209,63 @@ def niche_composition(GALT_POLYGONS, adata_map, mo, np, pd, plt, w):
 
     def _composition_figure():
         _regions_list = _regions()
-        type_counts: dict[str, int] = {}
+        _min_share = 0.01
+        _other = "Other"
+        _totals: dict[str, int] = {}
+        _shown: set[str] = set()
         for _, _obs in _regions_list:
-            _sub = adata_map.obs.loc[_obs, ["cell_type", _niche_col]]
-            for _ct, _n in _sub["cell_type"].value_counts().items():
-                type_counts[str(_ct)] = type_counts.get(str(_ct), 0) + int(_n)
-        top_types = [
-            k
-            for k, _ in sorted(type_counts.items(), key=lambda kv: kv[1], reverse=True)[:12]
+            _counts = adata_map.obs.loc[_obs, "cell_type"].astype(str).value_counts()
+            _n = len(_obs)
+            for _ct, _n_ct in _counts.items():
+                _name = str(_ct)
+                _totals[_name] = _totals.get(_name, 0) + int(_n_ct)
+                if _n and int(_n_ct) / _n >= _min_share:
+                    _shown.add(_name)
+        shown_types = [
+            name
+            for name, _ in sorted(_totals.items(), key=lambda kv: kv[1], reverse=True)
+            if name in _shown
         ]
-        _palette = plt.cm.tab20(np.linspace(0, 1, len(top_types)))
-        _type_colors = {ct: _palette[j] for j, ct in enumerate(top_types)}
+        _uns = getattr(adata_map, "uns", {}) or {}
+        _raw = _uns.get("cell_type_colors")
+        _cats = getattr(
+            getattr(adata_map.obs["cell_type"], "cat", None), "categories", None
+        )
+        _uns_colors = {}
+        if _raw is not None and _cats is not None:
+            _uns_colors = {
+                str(cat): str(_raw[i]) for i, cat in enumerate(_cats) if i < len(_raw)
+            }
+        _to_hex = plt.matplotlib.colors.to_hex
+        _pool = [
+            _to_hex(_cm(i)).lower()
+            for _cm in (plt.cm.tab20, plt.cm.tab20b, plt.cm.tab20c)
+            for i in range(_cm.N)
+        ]
+        _used = {"#9e9e9e"}
+        _fi = 0
+
+        def _fresh() -> str:
+            nonlocal _fi
+            while _fi < len(_pool) and _pool[_fi] in _used:
+                _fi += 1
+            if _fi < len(_pool):
+                _fi += 1
+                return _pool[_fi - 1]
+            _k = len(_used)
+            while True:
+                _color = _to_hex(plt.cm.hsv(_k / (len(shown_types) + 2))).lower()
+                _k += 1
+                if _color not in _used:
+                    return _color
+
+        _type_colors = {_other: "#9e9e9e"}
+        for name in shown_types:
+            _color = _to_hex(_uns_colors[name]).lower() if name in _uns_colors else ""
+            if not _color or _color in _used:
+                _color = _fresh()
+            _type_colors[name] = _color
+            _used.add(_color)
 
         n_sel = len(_regions_list)
         fig, axes = plt.subplots(
@@ -229,13 +275,30 @@ def niche_composition(GALT_POLYGONS, adata_map, mo, np, pd, plt, w):
             squeeze=False,
         )
         for _ax, (_label, _obs) in zip(axes[:, 0], _regions_list):
-            _sub = adata_map.obs.loc[_obs, ["cell_type", _niche_col]]
-            _ct = pd.crosstab(_sub[_niche_col], _sub["cell_type"])
-            _ct = _ct.reindex(columns=top_types, fill_value=0)
+            _sub = adata_map.obs.loc[_obs, ["cell_type", _niche_col]].copy()
+            _sub["cell_type"] = _sub["cell_type"].astype(str)
+            _sub[_niche_col] = _sub[_niche_col].astype(str)
+            _sub["segment"] = np.where(
+                _sub["cell_type"].isin(shown_types), _sub["cell_type"], _other
+            )
+            _ct = pd.crosstab(_sub[_niche_col], _sub["segment"])
+            _ct = _ct.reindex(columns=[*shown_types, _other], fill_value=0)
             _ct = _ct.loc[_ct.sum(axis=1).sort_values(ascending=False).index]
+            _got = _ct.sum(axis=1).to_numpy(dtype=int)
+            _domain_n = (
+                _sub.groupby(_niche_col)
+                .size()
+                .reindex(_ct.index)
+                .fillna(0)
+                .to_numpy(dtype=int)
+            )
+            if int(_got.sum()) != len(_obs) or not np.array_equal(_got, _domain_n):
+                raise RuntimeError(
+                    f"{_label} composition bars sum to {int(_got.sum())}, n={len(_obs)}"
+                )
             _y = np.arange(len(_ct))
             _left = np.zeros(len(_ct))
-            for _cell_type in top_types:
+            for _cell_type in _ct.columns:
                 _vals = _ct[_cell_type].to_numpy()
                 _ax.barh(_y, _vals, left=_left, color=_type_colors[_cell_type])
                 _left = _left + _vals
@@ -245,7 +308,8 @@ def niche_composition(GALT_POLYGONS, adata_map, mo, np, pd, plt, w):
             _ax.set_title(f"{_label} — cell-type mix by {_niche_col} domain (n={len(_obs):,})")
 
         handles = [
-            plt.matplotlib.patches.Patch(color=_type_colors[ct], label=ct) for ct in top_types
+            plt.matplotlib.patches.Patch(color=_type_colors[name], label=name)
+            for name in [*shown_types, _other]
         ]
         fig.legend(handles=handles, bbox_to_anchor=(1.02, 0.5), loc="center left", fontsize=8)
         fig.suptitle("Cell-type composition within each spatial domain", y=1.01)
