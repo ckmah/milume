@@ -15,7 +15,7 @@ Color Landmarks from Squidpy neighborhood niches on a masked selection, then ass
 
 ## Gene pattern or cell layout
 
-One Moran's I, asked three ways. All cells, leftover expression after each cell's own type and its neighbors' types, and one cell type.
+One Moran's I, asked three ways. All cells, leftover expression after each cell's own type and its spatial domain, and one cell type.
 
 | | Link |
 | --- | --- |
