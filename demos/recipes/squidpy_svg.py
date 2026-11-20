@@ -51,20 +51,10 @@ def imports():
 
 @app.cell(hide_code=True)
 def run_on_server_tip(mo):
-    run_s = 40
-    mo.vstack(
-        [
-            mo.md(
-                r"""
-                > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook. After the server connects, click **Run all** (the ▶ button at the bottom right) to run the notebook.
-                """
-            ),
-            mo.md(
-                f"""
-                This run takes about **{run_s} seconds**. The slow step is the spatial domain clustering.
-                """
-            ),
-        ]
+    mo.md(
+        r"""
+        > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook. After the server connects, click **Run all** (the ▶ button at the bottom right) to run the notebook.
+        """
     )
     return
 
@@ -78,6 +68,9 @@ def load_adata(ml):
 
 @app.cell
 def analysis(adata, np, pd, sc, sq):
+    import time
+
+    started = time.perf_counter()
     N_NEIGHS = 6
     PERCENTILE = 99
     MIN_DETECT = 0.01
@@ -197,9 +190,11 @@ def analysis(adata, np, pd, sc, sq):
     s0 = float(graph.sum())
     il22_i_all = adata.n_obs / s0 * float(z_all @ (graph @ z_all)) / float(z_all @ z_all)
     il22_i_resid = adata.n_obs / s0 * float(z_left @ (graph @ z_left)) / float(z_left @ z_left)
+    run_s = int(round(time.perf_counter() - started))
 
     return (
         MIN_DETECT,
+        N_NEIGHS,
         TOP_N,
         acta2,
         apob,
@@ -223,6 +218,7 @@ def analysis(adata, np, pd, sc, sq):
         nt5e_high,
         nt5e_low,
         nt5e_rho,
+        run_s,
         scores,
         top_resid_row,
     )
@@ -247,9 +243,11 @@ def intro(
     il22_n,
     mo,
     n_cells,
+    N_NEIGHS,
     n_domains,
     n_scored,
     n_within,
+    run_s,
     nt5e_high,
     nt5e_low,
     nt5e_rho,
@@ -264,7 +262,7 @@ def intro(
     [Yan, Hua & Li (2025)](https://doi.org/10.1038/s41467-025-56080-w) sort spatially variable genes into kinds, including **overall** and **cell-type-specific**. You don't need a different method for each kind. You need one test, fed three different things.
     ///
 
-    We use one mouse ileum slice from [Xu et al. (2026)](https://doi.org/10.1016/j.chom.2026.01.018) (MERFISH, {n_cells} cells). All-cell and leftover scores use the {n_scored} genes detected in at least {floor} of all cells. Within a cell type, the floor is {floor} of the cells in that selection. The pooled enterocytes clear {n_within} genes.
+    We use one mouse ileum slice from [Xu et al. (2026)](https://doi.org/10.1016/j.chom.2026.01.018) (MERFISH, {n_cells} cells). This run takes about **{run_s} seconds**. The slow step is the spatial domain clustering. All-cell and leftover scores use the {n_scored} genes detected in at least {floor} of all cells. Within a cell type, the floor is {floor} of the cells in that selection. The pooled enterocytes clear {n_within} genes.
 
     The test is **Moran's I** ([Moran 1950](https://doi.org/10.2307/2332142), via [Squidpy](https://doi.org/10.1038/s41592-021-01346-7)). It asks whether neighboring cells have similar expression. Think of a seating chart. Moran's I is high when people who sit together wear the same color. We ask it three ways:
 
@@ -295,7 +293,7 @@ def intro(
     ///
 
     /// warning | Caveat
-    Moran's I sees one scale, set by 6 neighbors, and rare cell types give small, noisy subsets. When you need a proper statistical test, use a dedicated method like nnSVG or SPARK.
+    Moran's I sees one scale, set by {N_NEIGHS} neighbors, and rare cell types give small, noisy subsets. When you need a proper statistical test, use a dedicated method like nnSVG or SPARK.
     ///
 
     [![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_svg.py)
