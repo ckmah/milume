@@ -8,9 +8,9 @@ import { OptionA } from "./options/a";
 import { OptionB } from "./options/b";
 import { OptionC } from "./options/c";
 import { sceneFromModel, sceneFromState } from "./scene";
-import type { Scene, TransectOptionId } from "./types";
+import type { PseudospaceOptionId, Scene } from "./types";
 
-const OPTIONS: Record<TransectOptionId, (props: { scene: Scene }) => ReactElement> = {
+const OPTIONS: Record<PseudospaceOptionId, (props: { scene: Scene }) => ReactElement> = {
   a: OptionA,
   b: OptionB,
   c: OptionC,
@@ -29,7 +29,7 @@ function Cursor() {
   }, []);
   return (
     <svg
-      data-testid="transect-cursor"
+      data-testid="pseudospace-cursor"
       aria-hidden
       width="18"
       height="18"
@@ -47,12 +47,12 @@ function Cursor() {
   );
 }
 
-export function TransectMount({
+export function PseudospaceMount({
   model,
   option,
 }: {
   model: AnyModel;
-  option: TransectOptionId;
+  option: PseudospaceOptionId;
 }) {
   const [plot, setPlot] = useState<HTMLElement | null>(null);
   const [root, setRoot] = useState<HTMLElement | null>(null);
@@ -71,7 +71,7 @@ export function TransectMount({
         // The harness drops the gene matrix unless ?eagerGenes=1. The fixture file still has it.
         const url = new URLSearchParams(window.location.search).get("fixture") || "/fixture.json";
         const res = await fetch(url);
-        if (!res.ok) throw new Error(`transect fixture ${url}: ${res.status}`);
+        if (!res.ok) throw new Error(`pseudospace fixture ${url}: ${res.status}`);
         const raw = (await res.json()) as Record<string, unknown>;
         if (!cancel) setScene(sceneFromState(raw));
       } catch (err) {
@@ -122,7 +122,7 @@ export function TransectMount({
   return (
     <>
       {createPortal(
-        <div className="pointer-events-none absolute inset-0 z-10" data-transect-map-slot={option}>
+        <div className="pointer-events-none absolute inset-0 z-10" data-pseudospace-slot={option}>
           <div className="pointer-events-auto absolute inset-0">
             <View scene={scene} />
           </div>
@@ -134,15 +134,15 @@ export function TransectMount({
   );
 }
 
-export function TransectSwitcher({
+export function PseudospaceSwitcher({
   option,
   onChange,
 }: {
-  option: TransectOptionId;
-  onChange: (next: TransectOptionId) => void;
+  option: PseudospaceOptionId;
+  onChange: (next: PseudospaceOptionId) => void;
 }) {
   return (
-    <div className="milume-widget inline-flex items-center gap-1" role="group" aria-label="Transect prototype">
+    <div className="milume-widget inline-flex items-center gap-1" role="group" aria-label="Pseudospace prototype">
       {(["a", "b", "c"] as const).map((id) => (
         <Button
           key={id}
