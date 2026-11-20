@@ -18,6 +18,7 @@ import subprocess
 import sys
 import tarfile
 import time
+import urllib.request
 import zipfile
 from pathlib import Path
 
@@ -455,9 +456,19 @@ def _github_json(url: str, token: str) -> object:
         raise
 
 
+class _DropAuthOnRedirect(urllib.request.HTTPRedirectHandler):
+    """Artifact downloads redirect to blob storage. That host rejects the GitHub token."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        redirected = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if redirected is not None:
+            redirected.remove_header("Authorization")
+        return redirected
+
+
 def _download_zip(url: str, token: str, dest: Path) -> None:
     from urllib.error import HTTPError
-    from urllib.request import Request, urlopen
+    from urllib.request import Request, build_opener
 
     req = Request(
         url,
@@ -469,7 +480,7 @@ def _download_zip(url: str, token: str, dest: Path) -> None:
     )
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with urlopen(req, timeout=120) as resp, dest.open("wb") as out:
+        with build_opener(_DropAuthOnRedirect).open(req, timeout=120) as resp, dest.open("wb") as out:
             shutil.copyfileobj(resp, out)
     except HTTPError as exc:
         if exc.code == 403:
