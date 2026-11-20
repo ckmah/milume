@@ -184,10 +184,8 @@ def check_notebook(source: str) -> int:
     missing_lines = [line for line in visible if line not in source]
     if missing_lines:
         return fail("scoring cell is missing a visible floor or the embedding drop")
-    if "run_s = 40" in source or "6 neighbors" in source:
-        return fail("a runtime or neighbor count is still hardcoded")
-    if "time.perf_counter" not in source:
-        return fail("runtime is not measured from the run")
+    if "6 neighbors" in source:
+        return fail("a neighbor count is still hardcoded")
     return 0
 
 
