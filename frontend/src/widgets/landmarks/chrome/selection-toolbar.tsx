@@ -229,25 +229,11 @@ function SignedBufferSlider({
   onBoth: (next: boolean) => void;
   onReset: () => void;
 }) {
-  // Signed: − left of center, + right of center.
-  const display = isPoint
-    ? formatParam(Math.abs(signed), "0")
-    : both
-      ? formatParam(Math.abs(signed), "0")
-      : signed === 0
-        ? "0"
-        : `${signed < 0 ? "−" : "+"}${formatParam(Math.abs(signed), "0")}`;
+  const signHint = "Negative is left or in, positive is right or out.";
   return (
     <div
-      // Wide enough for signed capsule + Both + Reset so actions stay inside
-      // the Soft Float `landmarks-float--toolbar` pill (not floating beside it).
-      className="landmarks-slider-row min-w-[22rem] px-0.5"
+      className="flex w-[15rem] max-w-full items-end gap-1 px-0.5"
       data-testid="context-buffer-panel"
-      title={
-        isPoint
-          ? "Buffer radius"
-          : "Signed buffer: − = left/in, + = right/out; snap to center for 0"
-      }
     >
       {isPoint ? (
         <TactCapsuleSlider
@@ -256,11 +242,11 @@ function SignedBufferSlider({
           max={max}
           step={max / 200 || 0.01}
           onValueChange={(v) => onSigned(v, both)}
-          displayValue={display}
+          displayValue={formatParam(Math.abs(signed), "0")}
           caption="Buffer"
           aria-label="Buffer radius"
           testId="context-buffer-width"
-          className="min-w-[15rem]"
+          className="min-w-0 flex-1"
           onReset={onReset}
           resetTitle="Reset buffer"
           resetTestId="context-buffer-reset"
@@ -273,11 +259,13 @@ function SignedBufferSlider({
             max={max}
             both={both}
             onChange={(v) => onSigned(v, both)}
-            aria-label="Buffer width; negative is left or in, positive is right or out"
+            caption="Buffer"
+            aria-label={both ? "Buffer width" : `Buffer. ${signHint}`}
+            hint={both ? undefined : signHint}
+            ends={!both}
             testId="context-buffer-width"
-            className="min-w-[12rem] flex-1"
+            className="min-w-0 flex-1"
           />
-          <ToolbarDivider />
           <IconBtn
             title="Both sides"
             testId="context-buffer-both"

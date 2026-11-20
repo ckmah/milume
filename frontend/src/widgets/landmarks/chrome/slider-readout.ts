@@ -12,6 +12,17 @@ function sliderStepDigits(step: number): number {
   return MAX_STEP_DIGITS;
 }
 
+/** A 1-2-5 step near span/200, so a readout stays a short decimal. */
+export function decimalStep(span: number): number {
+  if (!Number.isFinite(span) || span <= 0) return 0.01;
+  const raw = span / 200;
+  const exp = Math.floor(Math.log10(raw));
+  const base = 10 ** exp;
+  const n = raw / base;
+  const mult = n >= 5 ? 5 : n >= 2 ? 2 : 1;
+  return Number((mult * base).toPrecision(12));
+}
+
 /** Display text for a slider value at the precision of its step. */
 export function formatSliderReadout(value: number, step: number): string {
   if (!Number.isFinite(value)) return "";

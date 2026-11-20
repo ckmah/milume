@@ -1352,8 +1352,10 @@
 }
 
 .landmarks-slider-caption {
-  flex: none;
-  min-width: var(--lm-slider-caption-w, auto);
+  flex: 1 1 auto;
+  min-width: var(--lm-slider-caption-w, 0px);
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 0.6875rem;
   font-weight: 500;
   line-height: 1;

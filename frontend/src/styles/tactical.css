@@ -11,9 +11,9 @@
 
 .milume-widget,
 [data-milume-portal] {
-  /* Light is the unmarked mode. #d6d6d6 at 90% composites to rgb(218,218,218)
-     on white, edge 1.40:1. #f2f2f2 at 90% composites to 243 and the edge
-     falls to 1.11:1, which disappears on a white page. */
+  /* Light is the unmarked mode. #d6d6d6 at 97% composites to #d7d7d7
+     on white, edge 1.44:1. Ink #1a1a1a on that composite is 12.09:1.
+     Muted #3a3a3a on it is 7.90:1. */
   --tact-ink: #1a1a1a;
   --tact-muted: #3a3a3a;
   --tact-tone: rgba(26, 26, 26, 0.1);
@@ -21,9 +21,9 @@
   --tact-track: rgba(26, 26, 26, 0.28);
   --tact-range: rgba(26, 26, 26, 0.62);
   --tact-rule: rgba(26, 26, 26, 0.78);
-  --tact-surface: rgb(214 214 214 / 90%);
+  --tact-surface: rgb(214 214 214 / 97%);
   --tact-veil: var(--tact-surface);
-  --tact-blur: blur(10px);
+  --tact-blur: blur(5px);
   --tact-mono: "IBM Plex Mono", ui-monospace, monospace;
   --foreground: var(--tact-ink);
   --muted-foreground: var(--tact-muted);
@@ -76,7 +76,9 @@
   --tact-track: rgba(242, 242, 242, 0.28);
   --tact-range: rgba(242, 242, 242, 0.62);
   --tact-rule: rgba(242, 242, 242, 0.78);
-  --tact-surface: rgb(58 58 58 / 90%);
+  /* #3a3a3a at 97% composites to #383838 on black, edge 1.79:1.
+     Ink #f2f2f2 on that composite is 10.47:1. Muted #d0d0d0 is 7.60:1. */
+  --tact-surface: rgb(58 58 58 / 97%);
   --primary-foreground: #141414;
   color-scheme: dark;
 }
@@ -108,6 +110,8 @@
 /* Corner brackets on top-level surfaces only. */
 .landmarks-float--panel,
 .landmarks-float--toolbar,
+.landmarks__peek-tab,
+.landmarks-panel-collapse-caret,
 .tact-popup {
   border-radius: 0 !important;
   background-color: var(--tact-veil) !important;
@@ -264,7 +268,6 @@
   position: absolute;
   left: 0;
   top: 0;
-  width: 14px;
   height: 2px;
   background: var(--tact-ink);
   border-radius: 0;
@@ -278,7 +281,6 @@
 .milume-widget .landmarks-panel-collapse-caret:active {
   border-radius: 0 !important;
   box-shadow: none !important;
-  background-image: none !important;
 }
 
 .milume-widget .landmarks__peek-tab,
@@ -461,6 +463,20 @@
   position: absolute;
   height: 100%;
   background: var(--tact-range);
+}
+
+.landmarks-slider-ends {
+  position: absolute;
+  z-index: 1;
+  inset-inline: 0;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  font-family: var(--tact-mono);
+  font-size: 10px;
+  line-height: 10px;
+  color: var(--tact-muted);
 }
 
 .tact-slider-thumb {

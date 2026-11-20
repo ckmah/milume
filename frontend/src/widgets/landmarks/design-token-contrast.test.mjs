@@ -1,8 +1,17 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { BANNED_WIDGET_COLOR_LITERALS } from "../../../scripts/check-widget-design-tokens.mjs";
 import { contrastRatio } from "../../../scripts/lib/wcag-contrast.mjs";
+
+function composite(surface, page, alpha) {
+  return Math.round(surface * alpha + page * (1 - alpha));
+}
+
+function hex(channel) {
+  return `#${channel.toString(16).padStart(2, "0").repeat(3)}`;
+}
 
 test("banned token list covers Tailwind slate and cyan fallback", () => {
   for (const hex of [
@@ -20,6 +29,22 @@ test("banned token list covers Tailwind slate and cyan fallback", () => {
       hex,
     );
   }
+});
+
+test("tactical surface is 97% opaque with a 5px blur", () => {
+  const css = readFileSync(new URL("../../styles/tactical.css", import.meta.url), "utf8");
+  assert.match(css, /--tact-surface: rgb\(214 214 214 \/ 97%\)/);
+  assert.match(css, /--tact-surface: rgb\(58 58 58 \/ 97%\)/);
+  assert.match(css, /--tact-blur: blur\(5px\)/);
+
+  const lightOnWhite = hex(composite(214, 255, 0.97));
+  const darkOnBlack = hex(composite(58, 0, 0.97));
+  assert.ok(contrastRatio("#1a1a1a", lightOnWhite) >= 4.5, lightOnWhite);
+  assert.ok(contrastRatio("#3a3a3a", lightOnWhite) >= 4.5, "light muted");
+  assert.ok(contrastRatio("#f2f2f2", darkOnBlack) >= 4.5, darkOnBlack);
+  assert.ok(contrastRatio("#d0d0d0", darkOnBlack) >= 4.5, "dark muted");
+  assert.ok(contrastRatio(lightOnWhite, "#ffffff") >= 1.3, "light edge");
+  assert.ok(contrastRatio(darkOnBlack, "#000000") >= 1.3, "dark edge");
 });
 
 test("lm-caption proxy meets 4.5:1 on glass panel fill", () => {
