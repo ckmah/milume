@@ -9,6 +9,7 @@ import type { LandmarksModel } from "../use-landmarks-model";
 import { type ChipSnapshot, windowKey } from "./cube-snapshots";
 import { LayersStackSection, layersStackCount } from "./layers-stack-section";
 import { PanelSectionHeader } from "./panel-section-header";
+import { usePseudospaceSlot } from "./pseudospace-slot";
 import { LayerRow, PanelBand } from "./primitives";
 import { useWidgetPortal } from "./widget-portal-context";
 import { SelectionCard } from "./selection-card";
@@ -116,10 +117,17 @@ export function LayersPanel({
     () => new Set(DOCK_SECTIONS),
   );
   const [minimisePeek, setMinimisePeek] = useState<DockSection | null>(null);
+  const pseudospace = usePseudospaceSlot();
+  const grouping = pseudospace != null;
 
   useEffect(() => {
     if (minimise) setMinimisePeek(null);
   }, [minimise]);
+
+  useEffect(() => {
+    if (!grouping || minimise) return;
+    setOpenSections((prev) => (prev.has("landmarks") ? prev : new Set([...prev, "landmarks"])));
+  }, [grouping, minimise]);
 
   const thumbs = useMemo(
     () =>
@@ -249,10 +257,11 @@ export function LayersPanel({
             >
               <PanelSectionHeader
                 label="Landmarks"
-                count={landmarks.length}
+                count={pseudospace?.count ?? landmarks.length}
                 open={sectionOpen("landmarks")}
                 onToggle={() => toggleSection("landmarks")}
                 pin={landmarkPin}
+                action={pseudospace?.action}
                 testId="panel-section-landmarks"
                 minimise={minimise}
               />
@@ -260,7 +269,9 @@ export function LayersPanel({
                 open={sectionOpen("landmarks")}
                 className="landmarks-panel-section__body flex flex-col gap-0.5 px-0 pb-1.5"
               >
-                {landmarks.length ? (
+                {pseudospace ? (
+                  pseudospace.body
+                ) : landmarks.length ? (
                   landmarks.map((lmItem, i) => {
                     const color = landmarkColor(lmItem, i);
                     return (

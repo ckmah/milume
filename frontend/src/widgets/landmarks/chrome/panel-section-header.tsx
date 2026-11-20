@@ -1,4 +1,5 @@
 import { ChevronRightIcon, XIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { GroupChevron } from "@/components/ui/group-rise";
@@ -22,6 +23,7 @@ export function PanelSectionHeader({
   open,
   onToggle,
   pin,
+  action,
   testId,
   minimise = false,
 }: {
@@ -30,6 +32,7 @@ export function PanelSectionHeader({
   open: boolean;
   onToggle: () => void;
   pin?: PanelSectionPin | null;
+  action?: ReactNode;
   testId?: string;
   minimise?: boolean;
 }) {
@@ -61,7 +64,12 @@ export function PanelSectionHeader({
           </GroupChevron>
         </Button>
       }
-      end={<span className="landmarks-panel-count landmarks-panel-section-header__count">{count}</span>}
+      end={
+        <>
+          {action}
+          <span className="landmarks-panel-count landmarks-panel-section-header__count">{count}</span>
+        </>
+      }
     >
       <PanelSectionHeaderMain
         label={label}

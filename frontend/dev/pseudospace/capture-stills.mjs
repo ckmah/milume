@@ -10,8 +10,6 @@ const bounds = {
   y0: -5139.789521620431,
   y1: -5040.1346413607735,
 };
-const shape = { x: 915, y: -5091.5 };
-const spline = { x: 988, y: -5100 };
 const between = { x: 950, y: -5090 };
 
 function screenOf(box, x, y) {
@@ -44,30 +42,20 @@ async function shot(page, name) {
   console.log("wrote", name, Math.round(clip.width), Math.round(clip.height));
 }
 
-async function ready(page, testId) {
-  await page.getByTestId(testId).waitFor();
-  await page.getByTestId("pseudospace-map").waitFor();
-  await page.waitForTimeout(400);
+async function drag(page, fromBox, toX, toY) {
+  await page.mouse.move(fromBox.x + fromBox.width / 2, fromBox.y + fromBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(toX, toY, { steps: 16 });
 }
 
-async function buildA(page) {
-  await page.goto("http://127.0.0.1:5173/?pseudospace=a", { waitUntil: "networkidle" });
-  await ready(page, "pseudospace-option-a");
-  await page.getByTestId("include-harness-shape").click();
-  await page.getByTestId("include-harness-spline").click();
-  await page.getByTestId("pseudospace-make").click();
-  const canvas = await page.getByTestId("pseudospace-map").boundingBox();
-  const at = screenOf(canvas, between.x, between.y);
-  await page.mouse.move(at.x, at.y);
-  await page.getByTestId("pseudospace-readout").waitFor();
-}
-
-async function pair(page, name, build) {
-  await build(page);
-  await shot(page, `${name}-dark`);
-  await page.getByRole("button", { name: "Switch to light" }).click();
-  await page.waitForTimeout(250);
-  await shot(page, `${name}-light`);
+async function dropOn(page, id, into) {
+  const row = await page.getByTestId(`pseudospace-row-${id}`).boundingBox();
+  const group = await page.getByTestId(into).boundingBox();
+  if (!row || !group) throw new Error(`missing box for ${id}`);
+  await drag(page, row, group.x + group.width / 2, group.y + group.height - 8);
+  await page.getByTestId("pseudospace-dragging").waitFor();
+  await page.mouse.up();
+  await page.getByTestId(`pseudospace-handle-${id}`).waitFor();
 }
 
 const browser = await chromium.launch();
@@ -80,37 +68,56 @@ await context.addInitScript(() => localStorage.setItem("milume-harness-theme", "
 const page = await context.newPage();
 page.on("pageerror", (err) => pageErrors.push(String(err)));
 try {
-  if (process.env.ONLY_MOBILE !== "1") {
-    await pair(page, "a", buildA);
-  }
+  await page.goto("http://127.0.0.1:5173/?pseudospace=a", { waitUntil: "networkidle" });
+  await page.getByTestId("pseudospace-sparkle").waitFor();
+  await page.getByTestId("pseudospace-map").waitFor();
+  await page.waitForTimeout(400);
+  await shot(page, "panel-off-dark");
+  await page.getByRole("button", { name: "Switch to light" }).click();
+  await page.waitForTimeout(250);
+  await shot(page, "panel-off-light");
+  await page.getByRole("button", { name: "Switch to dark" }).click();
+  await page.waitForTimeout(250);
 
-  const mobile = await browser.newContext({
-    viewport: { width: 390, height: 844 },
-    deviceScaleFactor: 2,
-  });
-  await mobile.addInitScript(() => localStorage.setItem("milume-harness-theme", "dark"));
-  const phone = await mobile.newPage();
-  await phone.goto("http://127.0.0.1:5173/?pseudospace=a", { waitUntil: "domcontentloaded" });
-  await phone.addStyleTag({
-    content:
-      ".harness-toolbar{display:none !important}.landmarks__chrome-view,.landmarks__peek-tab{display:none !important}.landmarks__body{height:844px !important}",
-  });
-  await ready(phone, "pseudospace-option-a");
-  await phone.getByTestId("include-harness-shape").click();
-  await phone.getByTestId("include-harness-spline").click();
-  await phone.getByTestId("pseudospace-make").click();
-  const make = await phone.getByTestId("pseudospace-make").boundingBox();
-  await phone.mouse.move(make.x + make.width / 2, make.y + make.height / 2);
-  await phone.screenshot({ path: `${outDir}/a-mobile-dark.png` });
-  await phone.evaluate(() => {
-    localStorage.setItem("milume-harness-theme", "light");
-    document.documentElement.classList.remove("dark", "dark-theme");
-    document.documentElement.classList.add("light", "light-theme");
-  });
-  await phone.waitForTimeout(300);
-  await phone.screenshot({ path: `${outDir}/a-mobile-light.png` });
-  console.log("wrote mobile viewport", phone.viewportSize());
-  await mobile.close();
+  await page.getByTestId("pseudospace-sparkle").click();
+  await page.getByTestId("pseudospace-group").waitFor();
+  await dropOn(page, "harness-shape", "pseudospace-group");
+  await dropOn(page, "harness-spline", "pseudospace-group");
+  await shot(page, "panel-group-dark");
+  await page.getByRole("button", { name: "Switch to light" }).click();
+  await page.waitForTimeout(250);
+  await shot(page, "panel-group-light");
+  await page.getByRole("button", { name: "Switch to dark" }).click();
+  await page.waitForTimeout(250);
+
+  const handle = await page.getByTestId("pseudospace-handle-harness-spline").boundingBox();
+  const shape = await page.getByTestId("pseudospace-row-harness-shape").boundingBox();
+  if (!handle || !shape) throw new Error("reorder boxes missing");
+  await drag(page, handle, shape.x + shape.width / 2, shape.y + 6);
+  await page.getByTestId("pseudospace-dragging").waitFor();
+  await shot(page, "panel-drag-dark");
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2, { steps: 8 });
+  await page.mouse.up();
+  await page.getByRole("button", { name: "Switch to light" }).click();
+  await page.waitForTimeout(250);
+  const handleLight = await page.getByTestId("pseudospace-handle-harness-spline").boundingBox();
+  const shapeLight = await page.getByTestId("pseudospace-row-harness-shape").boundingBox();
+  if (!handleLight || !shapeLight) throw new Error("light reorder boxes missing");
+  await drag(page, handleLight, shapeLight.x + shapeLight.width / 2, shapeLight.y + 6);
+  await page.getByTestId("pseudospace-dragging").waitFor();
+  await shot(page, "panel-drag-light");
+  await page.mouse.move(handleLight.x + handleLight.width / 2, handleLight.y + handleLight.height / 2, { steps: 8 });
+  await page.mouse.up();
+
+  const canvas = await page.getByTestId("pseudospace-map").boundingBox();
+  const at = screenOf(canvas, between.x, between.y);
+  await page.mouse.move(at.x, at.y);
+  await page.getByTestId("pseudospace-readout").waitFor();
+  await shot(page, "a-light");
+  await page.getByRole("button", { name: "Switch to dark" }).click();
+  await page.waitForTimeout(300);
+  await page.mouse.move(at.x, at.y);
+  await shot(page, "a-dark");
 } finally {
   console.log("PAGE_ERRORS", pageErrors.join("\n") || "none");
   await browser.close();
