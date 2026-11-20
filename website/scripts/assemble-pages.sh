@@ -85,6 +85,21 @@ sleep 1
 node "${ROOT}/frontend/scripts/record-recipe-network.mjs" \
   "http://127.0.0.1:8766/how-to/recipes/squidpy_color/index.html" \
   "${loaded_urls}"
+loaded_svg="$(mktemp)"
+node "${ROOT}/frontend/scripts/record-recipe-network.mjs" \
+  "http://127.0.0.1:8766/how-to/recipes/squidpy_svg/index.html" \
+  "${loaded_svg}"
+uv run --directory "${ROOT}" python - "${loaded_urls}" "${loaded_svg}" << 'PY'
+import json
+import sys
+from pathlib import Path
+
+color, svg = sys.argv[1:]
+merged = sorted(set(json.loads(Path(color).read_text())) | set(json.loads(Path(svg).read_text())))
+Path(color).write_text(json.dumps(merged, indent=2) + "\n")
+print(f"assemble-pages: {len(merged)} recipe urls")
+PY
+rm -f "${loaded_svg}"
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/prepare_recipe_studio.py" \
   --prune-shared-only --loaded-urls "${loaded_urls}"
 
@@ -115,7 +130,9 @@ uv run --directory "${ROOT}" python "${WEBSITE}/scripts/check_recipe_payload.py"
 
 uv run --directory "${ROOT}" python "${ROOT}/scripts/lint_recipe_prose.py"
 uv run --directory "${ROOT}" python "${ROOT}/scripts/verify_squidpy_color.py"
+uv run --directory "${ROOT}" python "${ROOT}/scripts/verify_squidpy_svg.py"
 node "${ROOT}/frontend/scripts/capture-recipe-shots.mjs" "http://127.0.0.1:8765" "squidpy_color"
+node "${ROOT}/frontend/scripts/capture-recipe-shots.mjs" "http://127.0.0.1:8765" "squidpy_svg"
 
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/docs_redirects.py" "${OUT}"
 

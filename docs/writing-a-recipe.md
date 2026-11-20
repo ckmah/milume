@@ -238,7 +238,7 @@ cd frontend && npm ci && npm run build && cd ..
 uv run bash website/scripts/assemble-pages.sh
 ```
 
-`assemble-pages.sh` runs, in order: website hero build, recipe export (`export-recipes.sh prepare-for-zensical`), Zensical build, headless network recording to prune unused marimo chunks, second Zensical build, copy into `site/`, **`check_recipe_payload.py`**, **`lint_recipe_prose.py`**, **`verify_squidpy_color.py`**, **`capture-recipe-shots.mjs`**, redirect and agent-md checks.
+`assemble-pages.sh` runs, in order: website hero build, recipe export (`export-recipes.sh prepare-for-zensical`), Zensical build, headless network recording of each recipe page to prune unused marimo chunks, second Zensical build, copy into `site/`, **`check_recipe_payload.py`**, **`lint_recipe_prose.py`**, **`verify_squidpy_color.py`**, **`verify_squidpy_svg.py`**, **`capture-recipe-shots.mjs`** for each recipe, redirect and agent-md checks.
 
 Preview the integrated recipe:
 

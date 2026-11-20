@@ -1,0 +1,27 @@
+# Shot list for the prepared squidpy_svg page.
+# column: Landmarks color trait. selection_count: drawn selections.
+# view: `fit` is the bounds center at the engine fit zoom.
+recipe: squidpy_svg
+page: /docs/how-to/recipes/squidpy_svg/index.html
+shots:
+  - id: prepared-cell-type-default
+    theme: default
+    column: cell_type
+    selection_count: 0
+    view: fit
+    pointer:
+      norm_x: 0.42
+      norm_y: 0.48
+    claim: >-
+      Prepared export colors the ileum slice by cell_type, with no lasso, so
+      the result cell shows the draw-a-lasso line.
+  - id: prepared-cell-type-slate
+    theme: slate
+    column: cell_type
+    selection_count: 0
+    view: fit
+    pointer:
+      norm_x: 0.58
+      norm_y: 0.52
+    claim: >-
+      Slate theme keeps cell_type coloring and no selection.
