@@ -140,6 +140,23 @@ def test_packing_twice_keeps_one_stamp(tmp_path: Path):
     assert cache.read_stamp(root) == cache.cache_key(root)
 
 
+def test_wait_queries_the_pull_request_head_not_the_merge_commit(monkeypatch, tmp_path):
+    seen: list[str] = []
+
+    def fake(url, token):
+        seen.append(url)
+        raise SystemExit("stop")
+
+    monkeypatch.setenv("GITHUB_REPOSITORY", "ckmah/milume")
+    monkeypatch.setenv("GITHUB_SHA", "mergesha")
+    monkeypatch.setenv("RECIPE_HEAD_SHA", "headsha")
+    monkeypatch.setenv("GH_TOKEN", "t")
+    monkeypatch.setattr(cache, "_github_json", fake)
+    with pytest.raises(SystemExit, match="stop"):
+        cache.wait_for_producer(tmp_path, attempts=1, pause_s=0)
+    assert "head_sha=headsha" in seen[0]
+
+
 def test_classify_runs_waits_fails_or_downloads_newest_success():
     assert cache.classify_runs([]) == ("wait", None)
     queued = {"status": "queued", "conclusion": None, "created_at": "1", "id": 1}

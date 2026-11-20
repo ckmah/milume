@@ -492,9 +492,13 @@ def _extract_zip(zip_path: Path, root: Path) -> None:
         zf.extractall(root)
 
 
+def producer_sha() -> str:
+    return os.environ.get("RECIPE_HEAD_SHA") or os.environ["GITHUB_SHA"]
+
+
 def wait_for_producer(root: Path, *, attempts: int = 80, pause_s: float = 15) -> None:
     repo = os.environ["GITHUB_REPOSITORY"]
-    sha = os.environ["GITHUB_SHA"]
+    sha = producer_sha()
     token = os.environ["GH_TOKEN"]
     api = f"https://api.github.com/repos/{repo}"
     for attempt in range(1, attempts + 1):
