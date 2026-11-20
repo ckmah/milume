@@ -157,10 +157,12 @@ def check_notebook(source: str) -> int:
         "{cps1_high:.2f}",
         "{cps1_rho:.2f}",
         "{il22_n}",
+        "{il22_ent_n}",
         "{il22_i_all:.2f}",
         "{il22_i_resid:.2f}",
         "{n_cells}",
         "{n_scored}",
+        "{n_within}",
         "{n_domains}",
         "{n_drop}",
         "{TOP_N}",
@@ -170,6 +172,16 @@ def check_notebook(source: str) -> int:
     missing = [item for item in required if item not in source]
     if missing:
         return fail("prose is missing computed placeholders: " + ", ".join(missing))
+    visible = [
+        "keep_all = np.asarray((adata.X > 0).mean(axis=0)).ravel() >= MIN_DETECT",
+        "keep_resid = keep_all",
+        "keep_within = np.asarray((enterocytes.X > 0).mean(axis=0)).ravel() >= MIN_DETECT",
+        "keep_selected = np.asarray((selected.X > 0).mean(axis=0)).ravel() >= MIN_DETECT",
+        'del adata.obsm["niche_embedding"]',
+    ]
+    missing_lines = [line for line in visible if line not in source]
+    if missing_lines:
+        return fail("scoring cell is missing a visible floor or the embedding drop")
     return 0
 
 
@@ -197,11 +209,14 @@ def main() -> int:
             return fail(f"{label} was merged out of the own-type block")
 
     sq.gr.spatial_neighbors_knn(adata, n_neighs=N_NEIGHS, percentile=PERCENTILE)
-    detected = np.asarray((adata.X > 0).mean(axis=0)).ravel() >= MIN_DETECT
+    keep_all = np.asarray((adata.X > 0).mean(axis=0)).ravel() >= MIN_DETECT
+    keep_resid = keep_all
     genes = adata.var_names.astype(str)
-    if "Il12b" in set(genes[detected]):
-        return fail("Il12b passed the 1% detection floor")
-    scored = adata[:, detected].copy()
+    if "Il12b" in set(genes[keep_all]):
+        return fail("Il12b passed the all-cell 1% floor")
+    if not np.array_equal(keep_resid, keep_all):
+        return fail("leftover floor is not the all-cell floor")
+    scored = adata[:, keep_all].copy()
     values = dense(scored.X)
     i_formula = morans_i(scored.obsp["spatial_connectivities"], values)
     moran_all = sq.gr.spatial_autocorr(scored, mode="moran", n_perms=None, copy=True)
@@ -223,8 +238,8 @@ def main() -> int:
 
     enterocytes = adata[adata.obs["cell_type"].isin(ENTEROCYTE)].copy()
     sq.gr.spatial_neighbors_knn(enterocytes, n_neighs=N_NEIGHS, percentile=PERCENTILE)
-    ent_keep = np.asarray((enterocytes.X > 0).mean(axis=0)).ravel() >= MIN_DETECT
-    ent_scored = enterocytes[:, ent_keep].copy()
+    keep_within = np.asarray((enterocytes.X > 0).mean(axis=0)).ravel() >= MIN_DETECT
+    ent_scored = enterocytes[:, keep_within].copy()
     i_within_formula = morans_i(
         ent_scored.obsp["spatial_connectivities"], dense(ent_scored.X)
     )
@@ -260,6 +275,17 @@ def main() -> int:
         return scores.loc[scores["gene"] == gene].iloc[0]
 
     acta2, apob, dhx58 = one("Acta2"), one("Apob"), one("Dhx58")
+    within_i = pd.Series(i_within_sq, index=ent_scored.var_names.astype(str))
+    rank_within = within_i.rank(ascending=False, method="min")
+    rank_within_allcell = within_i[within_i.index.isin(scores["gene"])].rank(
+        ascending=False, method="min"
+    )
+    within_only = sorted(set(within_i.index) - set(scores["gene"]))
+    moved = [
+        gene
+        for gene in rank_within_allcell.index
+        if int(rank_within[gene]) != int(rank_within_allcell[gene])
+    ]
     apob_rho, apob_low, apob_high = zonation(enterocytes, "Apob")
     nt5e_rho, nt5e_low, nt5e_high = zonation(enterocytes, "Nt5e")
     cps1_rho, cps1_low, cps1_high = zonation(enterocytes, "Cps1")
@@ -267,6 +293,9 @@ def main() -> int:
 
     il22_expr = dense(adata[:, "Il22ra2"].X).ravel()
     il22_n = int((il22_expr > 0).sum())
+    il22_ent_n = int((dense(enterocytes[:, "Il22ra2"].X).ravel() > 0).sum())
+    if il22_n / adata.n_obs >= MIN_DETECT or il22_ent_n / enterocytes.n_obs >= MIN_DETECT:
+        return fail("Il22ra2 passed a floor the prose says it fails")
     graph = row_normalize(adata.obsp["spatial_connectivities"])
     il22_left = leftover_matrix(il22_expr.reshape(-1, 1), covariates).ravel()
     il22_i_all = float(morans_i(graph, il22_expr.reshape(-1, 1))[0])
@@ -284,7 +313,8 @@ def main() -> int:
     lines = [
         f"n_cells={adata.n_obs:,}",
         f"min_detect={floor}",
-        f"n_scored={scored.n_vars}",
+        f"n_scored={int(keep_all.sum())}",
+        f"n_scored_within={int(keep_within.sum())}",
         f"n_domains={adata.obs['spatial domain'].nunique()}",
         f"n_enterocytes={enterocytes.n_obs}",
         f"acta2_rank_all={int(acta2['rank_all'])}",
@@ -305,6 +335,19 @@ def main() -> int:
         f"cps1_high={cps1_high:.2f}",
         f"cps1_rho={cps1_rho:.2f}",
         f"il22ra2_n={il22_n}",
+        f"il22ra2_n_enterocytes={il22_ent_n}",
+        f"within_only={len(within_only)}:{','.join(within_only)}",
+        f"within_rank_moved={len(moved)}",
+        f"acta2_rank_within={int(rank_within['Acta2'])}",
+        f"acta2_rank_within_on_allcell_genes={int(rank_within_allcell['Acta2'])}",
+        f"apob_rank_within={int(rank_within['Apob'])}",
+        f"apob_rank_within_on_allcell_genes={int(rank_within_allcell['Apob'])}",
+        f"dhx58_rank_within={int(rank_within['Dhx58'])}",
+        f"dhx58_rank_within_on_allcell_genes={int(rank_within_allcell['Dhx58'])}",
+        f"nt5e_rank_within={int(rank_within['Nt5e'])}",
+        f"nt5e_rank_within_on_allcell_genes={int(rank_within_allcell['Nt5e'])}",
+        f"cps1_rank_within={int(rank_within['Cps1'])}",
+        f"cps1_rank_within_on_allcell_genes={int(rank_within_allcell['Cps1'])}",
         f"il22ra2_I_all={il22_i_all:.2f}",
         f"il22ra2_I_resid={il22_i_resid:.2f}",
         f"n_drop={n_drop}",

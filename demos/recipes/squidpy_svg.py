@@ -110,10 +110,12 @@ def analysis(adata, np, pd, sc, sq):
     niche_col = f"nhood_niche_res={DOMAIN_RES}"
     adata.obs["spatial domain"] = adata.obs[niche_col].astype(str)
     adata.obs.drop(columns=[niche_col], inplace=True)
+    # The widget syncs every obsm matrix. This profile is 78 columns.
+    del adata.obsm["niche_embedding"]
 
     sq.gr.spatial_neighbors_knn(adata, n_neighs=N_NEIGHS, percentile=PERCENTILE)
-    detected = np.asarray((adata.X > 0).mean(axis=0)).ravel() >= MIN_DETECT
-    scored = adata[:, detected].copy()
+    keep_all = np.asarray((adata.X > 0).mean(axis=0)).ravel() >= MIN_DETECT
+    scored = adata[:, keep_all].copy()
     moran_all = sq.gr.spatial_autocorr(scored, mode="moran", n_perms=None, copy=True)
 
     # One level out of each block, or the own-type and domain blocks are singular.
@@ -123,15 +125,16 @@ def analysis(adata, np, pd, sc, sq):
     domain = domain.drop(columns=[domain.sum().idxmax()]).add_prefix("domain_")
     covariates = pd.concat([own, domain], axis=1)
 
-    resid = scored.copy()
+    keep_resid = keep_all
+    resid = adata[:, keep_resid].copy()
     resid.obs = pd.concat([resid.obs, covariates], axis=1)
     sc.pp.regress_out(resid, list(covariates.columns))
     moran_resid = sq.gr.spatial_autocorr(resid, mode="moran", n_perms=None, copy=True)
 
     enterocytes = adata[adata.obs["cell_type"].isin(ENTEROCYTE)].copy()
     sq.gr.spatial_neighbors_knn(enterocytes, n_neighs=N_NEIGHS, percentile=PERCENTILE)
-    ent_detect = np.asarray((enterocytes.X > 0).mean(axis=0)).ravel() >= MIN_DETECT
-    enterocytes_scored = enterocytes[:, ent_detect].copy()
+    keep_within = np.asarray((enterocytes.X > 0).mean(axis=0)).ravel() >= MIN_DETECT
+    enterocytes_scored = enterocytes[:, keep_within].copy()
     moran_within = sq.gr.spatial_autocorr(
         enterocytes_scored, mode="moran", n_perms=None, copy=True
     )
@@ -150,7 +153,8 @@ def analysis(adata, np, pd, sc, sq):
     n_drop = int((top["I_resid"] < 0.5 * top["I_all"]).sum())
     top_resid_row = top.sort_values("I_resid", ascending=False).iloc[0]
     n_cells = f"{adata.n_obs:,}"
-    n_scored = int(scored.n_vars)
+    n_scored = int(keep_all.sum())
+    n_within = int(keep_within.sum())
     n_domains = int(adata.obs["spatial domain"].nunique())
 
     def row(gene):
@@ -177,6 +181,9 @@ def analysis(adata, np, pd, sc, sq):
     il22 = adata[:, "Il22ra2"].X
     il22_expr = np.asarray(il22.toarray() if hasattr(il22, "toarray") else il22).ravel()
     il22_n = int((il22_expr > 0).sum())
+    il22_ent = enterocytes[:, "Il22ra2"].X
+    il22_ent_expr = np.asarray(il22_ent.toarray() if hasattr(il22_ent, "toarray") else il22_ent).ravel()
+    il22_ent_n = int((il22_ent_expr > 0).sum())
     graph = adata.obsp["spatial_connectivities"].tocsr().astype(np.float64)
     row_sum = np.asarray(graph.sum(axis=1)).ravel()
     scale = np.where(row_sum == 0, 1.0, row_sum)
@@ -205,12 +212,14 @@ def analysis(adata, np, pd, sc, sq):
         dhx58,
         dhx58_rho,
         il22_i_all,
+        il22_ent_n,
         il22_i_resid,
         il22_n,
         n_cells,
         n_domains,
         n_drop,
         n_scored,
+        n_within,
         nt5e_high,
         nt5e_low,
         nt5e_rho,
@@ -232,6 +241,7 @@ def intro(
     cps1_rho,
     dhx58,
     dhx58_rho,
+    il22_ent_n,
     il22_i_all,
     il22_i_resid,
     il22_n,
@@ -239,6 +249,7 @@ def intro(
     n_cells,
     n_domains,
     n_scored,
+    n_within,
     nt5e_high,
     nt5e_low,
     nt5e_rho,
@@ -253,7 +264,7 @@ def intro(
     [Yan, Hua & Li (2025)](https://doi.org/10.1038/s41467-025-56080-w) sort spatially variable genes into kinds, including **overall** and **cell-type-specific**. You don't need a different method for each kind. You need one test, fed three different things.
     ///
 
-    We use one mouse ileum slice from [Xu et al. (2026)](https://doi.org/10.1016/j.chom.2026.01.018) (MERFISH, {n_cells} cells). Scores use the {n_scored} genes detected in at least {floor} of cells.
+    We use one mouse ileum slice from [Xu et al. (2026)](https://doi.org/10.1016/j.chom.2026.01.018) (MERFISH, {n_cells} cells). All-cell and leftover scores use the {n_scored} genes detected in at least {floor} of all cells. Within a cell type, the floor is {floor} of the cells in that selection. The pooled enterocytes clear {n_within} genes.
 
     The test is **Moran's I** ([Moran 1950](https://doi.org/10.2307/2332142), via [Squidpy](https://doi.org/10.1038/s41592-021-01346-7)). It asks whether neighboring cells have similar expression. Think of a seating chart. Moran's I is high when people who sit together wear the same color. We ask it three ways:
 
@@ -280,7 +291,7 @@ def intro(
 
     **Zonation trio in enterocytes.** Apob rises toward the tip. Nt5e (Cd73) switches on at the extreme tip (mean {nt5e_low:.2f} in the bottom fifth, {nt5e_high:.2f} in the top fifth, Spearman {nt5e_rho:.2f}). Cps1 falls toward the tip (mean {cps1_low:.2f} to {cps1_high:.2f}, Spearman {cps1_rho:.2f}).
 
-    **Il22ra2** is the rare marker the floor is for. It is detected in {il22_n} cells, under {floor}, so it is not ranked. All-cell I is {il22_i_all:.2f}. Leftover I, after own type and spatial domain, is {il22_i_resid:.2f}.
+    **Il22ra2** is the rare marker the floor is for. It is detected in {il22_n} cells, under {floor} of all cells, so all-cell and leftover scores do not rank it. It is detected in {il22_ent_n} pooled enterocytes, under {floor} of those cells, so the within-enterocyte score does not rank it either. All-cell I is {il22_i_all:.2f}. Leftover I, after own type and spatial domain, is {il22_i_resid:.2f}.
     ///
 
     /// warning | Caveat
@@ -293,24 +304,34 @@ def intro(
 
 
 @app.cell
-def landmark_map(adata, ml, mo):
-    w = mo.ui.anywidget(ml.peek(adata, color="cell_type"))
+def landmark_map(adata, ml, mo, n_domains):
+    shown = adata.copy()
+    shown.obs = shown.obs[["cell_type", "spatial domain"]].copy()
+    if int(shown.obs["spatial domain"].nunique()) != int(n_domains):
+        raise RuntimeError("spatial domain column does not match the analysis")
+    w = mo.ui.anywidget(ml.peek(shown, color="cell_type"))
     w
     return (w,)
 
 
 @app.cell
-def result(adata, mo, np, plt, scores, w):
+def result(MIN_DETECT, adata, mo, np, plt, scores, w):
     color = str(w.color)
     gene = color if color in set(scores["gene"]) else None
+    named = color if color in set(map(str, adata.var_names)) else None
     selections = list(w.selections or [])
     focused = str(w.selected_kind) == "type"
+    focus_names = list(w.get_obs_names("focus")) if focused else []
+    keep_selected = None
+    if focus_names:
+        selected = adata[focus_names]
+        keep_selected = np.asarray((selected.X > 0).mean(axis=0)).ravel() >= MIN_DETECT
 
     def _values(names):
         sub = adata[list(names)]
-        if gene is None or sub.n_obs == 0 or gene not in sub.var_names:
+        if named is None or sub.n_obs == 0 or named not in sub.var_names:
             return sub, np.asarray([], dtype=float)
-        raw = sub[:, gene].X
+        raw = sub[:, named].X
         expr = np.asarray(raw.toarray() if hasattr(raw, "toarray") else raw).ravel()
         return sub, expr
 
@@ -352,19 +373,24 @@ def result(adata, mo, np, plt, scores, w):
             last = ax.scatter(xy[:, 0], xy[:, 1], c=expr, s=8, cmap="viridis", vmin=vmin, vmax=vmax, linewidths=0)
             ax.set_aspect("equal")
             ax.set_title(f"{label}\nn={expr.size}")
-        fig.colorbar(last, ax=axes[0].tolist(), label=gene, shrink=0.8)
+        fig.colorbar(last, ax=axes[0].tolist(), label=named, shrink=0.8)
         return fig
 
     blocks = []
     if gene is not None:
         blocks.append(_scatter())
-    elif color in set(adata.var_names):
-        blocks.append(mo.md(f"{color} is under the detection floor, so it is not on the scatter."))
+    elif named is not None:
+        blocks.append(mo.md(f"{named} is detected in under {MIN_DETECT:.0%} of all cells, so it is not on the all-cell or leftover scatter."))
+    below_selection = False
+    if named is not None and keep_selected is not None:
+        below_selection = not bool(keep_selected[list(adata.var_names).index(named)])
 
     groups = []
     quiet = []
-    if selections:
-        focus = set(w.get_obs_names("focus")) if focused else None
+    if below_selection:
+        blocks.append(mo.md(f"{named} is detected in under {MIN_DETECT:.0%} of the selected cells, so the within-type panel is omitted."))
+    elif named is not None and selections:
+        focus = set(focus_names) if focused else None
         for sel in selections:
             sel_id = str(sel["id"])
             label = str(sel.get("name") or sel_id)
@@ -373,12 +399,12 @@ def result(adata, mo, np, plt, scores, w):
                 names = [name for name in names if name in focus]
             sub, expr = _values(names)
             xy = np.asarray(sub.obsm["spatial"]) if sub.n_obs else np.empty((0, 2))
-            if gene is not None and _detected(expr):
+            if _detected(expr):
                 groups.append((label, xy, expr))
-            elif gene is not None:
+            else:
                 quiet.append(label)
-    elif focused and gene is not None:
-        sub, expr = _values(w.get_obs_names("focus"))
+    elif named is not None and focused:
+        sub, expr = _values(focus_names)
         xy = np.asarray(sub.obsm["spatial"]) if sub.n_obs else np.empty((0, 2))
         if _detected(expr):
             groups.append(("selected cell type", xy, expr))
@@ -389,7 +415,7 @@ def result(adata, mo, np, plt, scores, w):
     if panel is not None:
         blocks.append(panel)
     for label in quiet:
-        blocks.append(mo.md(f"{gene} is not detected in {label}, so that panel is omitted."))
+        blocks.append(mo.md(f"{named} is not detected in {label}, so that panel is omitted."))
     if not blocks:
         blocks.append(mo.md("Select a cell type in the widget, then color a gene. Draw a lasso to compare regions."))
     mo.vstack(blocks) if len(blocks) > 1 else blocks[0]
