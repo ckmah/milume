@@ -101,9 +101,7 @@ export function PseudospaceMount({
       });
     };
     hideMinimap();
-    const left = document.querySelector<HTMLElement>('[data-testid="panel-collapse-caret-left"]');
     const right = document.querySelector<HTMLElement>('[data-testid="panel-collapse-caret-right"]');
-    left?.click();
     right?.click();
     const timer = window.setTimeout(hideMinimap, 400);
     return () => {
