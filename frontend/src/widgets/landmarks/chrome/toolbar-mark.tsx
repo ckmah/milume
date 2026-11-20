@@ -1,12 +1,11 @@
 import { useEffect } from "react";
 
 const ACTIVE = "[aria-pressed='true'], [data-state='on'], [aria-checked='true'], .landmarks-hit--on";
-const MARK_W = 14;
 
 type MarkState = { x: number; v: number; node: HTMLSpanElement };
 
 /**
- * One short ink line per active toolbar item. A new active item springs
+ * One ink line per active toolbar item, as wide as that button. A new active item springs
  * from the item it replaced. Top and side toolbars draw the line under the
  * item. A toolbar in the lower part of the widget draws it over the item,
  * on the edge that faces the canvas.
@@ -63,10 +62,10 @@ function actives(bar: HTMLElement, host: HTMLElement): HTMLElement[] {
   });
 }
 
-function centerX(bar: HTMLElement, el: HTMLElement): number {
+function markBox(bar: HTMLElement, el: HTMLElement): { x: number; w: number } {
   const barBox = bar.getBoundingClientRect();
   const box = el.getBoundingClientRect();
-  return box.left - barBox.left + box.width / 2 - MARK_W / 2;
+  return { x: box.left - barBox.left, w: box.width };
 }
 
 function edgeY(bar: HTMLElement, el: HTMLElement, edge: "over" | "under"): number {
@@ -105,13 +104,13 @@ function runMarks(bar: HTMLElement, host: HTMLElement): () => void {
 
     for (const el of next) {
       if (states.has(el)) continue;
-      const target = centerX(bar, el);
-      let from = target;
+      const target = markBox(bar, el);
+      let from = target.x;
       if (!reduce && leaving.length) {
         let best = 0;
         let bestDist = Infinity;
         leaving.forEach((old, index) => {
-          const dist = Math.abs(states.get(old)!.x - target);
+          const dist = Math.abs(states.get(old)!.x - target.x);
           if (dist < bestDist) {
             bestDist = dist;
             best = index;
@@ -137,22 +136,23 @@ function runMarks(bar: HTMLElement, host: HTMLElement): () => void {
     for (const el of next) {
       const state = states.get(el);
       if (!state) continue;
-      const target = centerX(bar, el);
+      const target = markBox(bar, el);
       if (reduce || dt === 0) {
-        state.x = target;
+        state.x = target.x;
         state.v = 0;
       } else {
         const stiffness = 380;
         const damping = 28;
-        const accel = -stiffness * (state.x - target) - damping * state.v;
+        const accel = -stiffness * (state.x - target.x) - damping * state.v;
         state.v += accel * dt;
         state.x += state.v * dt;
-        if (Math.abs(state.x - target) > 0.4 || Math.abs(state.v) > 8) moving = true;
+        if (Math.abs(state.x - target.x) > 0.4 || Math.abs(state.v) > 8) moving = true;
         else {
-          state.x = target;
+          state.x = target.x;
           state.v = 0;
         }
       }
+      state.node.style.width = `${target.w}px`;
       state.node.style.transform = `translateX(${state.x}px)`;
       state.node.style.top = `${edgeY(bar, el, edge)}px`;
     }

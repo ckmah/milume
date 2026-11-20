@@ -7,19 +7,34 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 
+import { TooltipProvider } from "@/components/ui/tooltip";
+
 import { FIELD_CAPTION } from "./sections";
 import { ChromeTooltip, chromeHitClass } from "./primitives";
-import { formatSliderReadout } from "./slider-readout";
+import { decimalStep, formatSliderReadout } from "./slider-readout";
 
 function sliderLabel(caption: React.ReactNode, ariaLabel?: string): string {
+  if (typeof caption === "string" && caption.trim()) return caption;
+  if (typeof caption === "number") return String(caption);
   if (ariaLabel) return ariaLabel;
-  if (caption == null || caption === "") return "Value";
-  if (typeof caption === "string" || typeof caption === "number") return String(caption);
   return "Value";
+}
+
+function SliderCaption({ text, hint }: { text: string; hint?: string }) {
+  const caption = <span className="landmarks-slider-caption">{text}</span>;
+  if (!hint) return caption;
+  return (
+    <TooltipProvider delay={80}>
+      <ChromeTooltip label={hint}>{caption}</ChromeTooltip>
+    </TooltipProvider>
+  );
 }
 
 function SliderRow({
   label,
+  ariaLabel,
+  hint,
+  ends = false,
   value,
   min,
   max,
@@ -29,6 +44,10 @@ function SliderRow({
   testId,
 }: {
   label: string;
+  ariaLabel?: string;
+  hint?: string;
+  /** Minus and plus marks at the ends of a signed track. */
+  ends?: boolean;
   value: number;
   min: number;
   max: number;
@@ -38,22 +57,30 @@ function SliderRow({
   testId?: string;
 }) {
   const readout = formatSliderReadout(value, step);
+  const bipolar = min < 0 && max > 0;
   return (
     <div
       className={cn("landmarks-slider-row min-w-0 flex-1", className)}
       data-testid={testId}
     >
       <div className="flex items-baseline justify-between gap-3">
-        <span className="landmarks-slider-caption">{label}</span>
-        <span className="tact-readout">{readout}</span>
+        <SliderCaption text={label} hint={hint} />
+        <span className="tact-readout shrink-0">{readout}</span>
       </div>
-      <div className="landmarks-slider-control w-full">
+      <div className="landmarks-slider-control relative w-full">
+        {ends && bipolar ? (
+          <span className="landmarks-slider-ends" aria-hidden>
+            <span>−</span>
+            <span>+</span>
+          </span>
+        ) : null}
         <Slider
-          aria-label={label}
+          aria-label={ariaLabel ?? label}
           min={min}
           max={max}
           step={step}
           value={[value]}
+          fillFrom={bipolar ? 0 : undefined}
           getAriaValueText={(next) => formatSliderReadout(next, step)}
           onValueChange={(next) => onChange(next[0] ?? value)}
         />
@@ -91,7 +118,7 @@ function RangeRow({
     <div className={cn("landmarks-slider-row min-w-0 flex-1", className)} data-testid={testId}>
       <div className="flex items-baseline justify-between gap-3">
         <span className="landmarks-slider-caption">{label}</span>
-        <span className="tact-readout">{readout}</span>
+        <span className="tact-readout shrink-0">{readout}</span>
       </div>
       <div className="landmarks-slider-control w-full">
         <Slider
@@ -289,6 +316,7 @@ export function TactSliderRow({
     <div className={cn("flex min-w-0 flex-1 items-center gap-1", className)}>
       <SliderRow
         label={label}
+        ariaLabel={ariaLabel}
         value={value[0] ?? min}
         min={min}
         max={max}
@@ -344,6 +372,7 @@ export function TactCapsuleSlider({
     <div className={cn("flex min-w-0 flex-1 items-center gap-1", className)}>
       <SliderRow
         label={label}
+        ariaLabel={ariaLabel}
         value={value}
         min={min}
         max={max}
@@ -378,6 +407,8 @@ export function TactSignedSlider({
   className,
   showEnds: _showEnds,
   caption = "Buffer",
+  hint,
+  ends = false,
 }: {
   value: number;
   min?: number;
@@ -390,13 +421,19 @@ export function TactSignedSlider({
   className?: string;
   showEnds?: boolean;
   caption?: string;
+  /** Sign explanation. Shown on the short caption, not in the caption text. */
+  hint?: string;
+  /** Minus and plus marks at the track ends. */
+  ends?: boolean;
 }) {
   const label = sliderLabel(caption, ariaLabel);
   if (both || min >= 0) {
-    const stride = Math.max(max - (min >= 0 ? min : 0), 1e-9) / 200 || 0.01;
+    const lo = min >= 0 ? min : 0;
+    const stride = decimalStep(Math.max(max - lo, 1e-9));
     return (
       <SliderRow
         label={label}
+        ariaLabel={ariaLabel}
         value={Math.abs(value)}
         min={0}
         max={max}
@@ -408,12 +445,14 @@ export function TactSignedSlider({
     );
   }
 
-  const span = Math.max(max - min, 1e-9);
-  const stride = span / 200 || 0.01;
+  const stride = decimalStep(Math.max(max - min, 1e-9));
 
   return (
     <SliderRow
       label={label}
+      ariaLabel={ariaLabel}
+      hint={hint}
+      ends={ends}
       value={value}
       min={min}
       max={max}
