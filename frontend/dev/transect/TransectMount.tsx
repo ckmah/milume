@@ -19,9 +19,13 @@ const OPTIONS: Record<TransectOptionId, (props: { scene: Scene }) => ReactElemen
 function Cursor() {
   const [at, setAt] = useState({ x: -40, y: -40 });
   useEffect(() => {
-    const move = (event: PointerEvent) => setAt({ x: event.clientX, y: event.clientY });
+    const move = (event: PointerEvent | MouseEvent) => setAt({ x: event.clientX, y: event.clientY });
     window.addEventListener("pointermove", move);
-    return () => window.removeEventListener("pointermove", move);
+    window.addEventListener("mousemove", move);
+    return () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("mousemove", move);
+    };
   }, []);
   return (
     <svg
@@ -76,12 +80,20 @@ export function TransectMount({
       if (!plotHost || !widget) requestAnimationFrame(look);
     };
     look();
+    const hideMinimap = () => {
+      document.querySelectorAll<HTMLElement>(".landmarks__chrome-minimap").forEach((el) => {
+        el.style.visibility = "hidden";
+      });
+    };
+    hideMinimap();
     const left = document.querySelector<HTMLElement>('[data-testid="panel-collapse-caret-left"]');
     const right = document.querySelector<HTMLElement>('[data-testid="panel-collapse-caret-right"]');
     left?.click();
     right?.click();
+    const timer = window.setTimeout(hideMinimap, 400);
     return () => {
       stop = true;
+      window.clearTimeout(timer);
     };
   }, [option]);
 
@@ -93,7 +105,7 @@ export function TransectMount({
   return (
     <>
       {createPortal(
-        <div className="pointer-events-none absolute inset-0" data-transect-map-slot={option}>
+        <div className="pointer-events-none absolute inset-0 z-10" data-transect-map-slot={option}>
           <div className="pointer-events-auto absolute inset-0">
             <View scene={scene} />
           </div>

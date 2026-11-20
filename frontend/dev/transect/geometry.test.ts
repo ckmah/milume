@@ -4,14 +4,10 @@ import test from "node:test";
 
 import { orderStops, profileBins, projectPoint, transectField } from "./geometry.ts";
 import { sceneFromState } from "./scene.ts";
-import { stopId, type Cell, type Stop } from "./types.ts";
+import { stopId, type Stop } from "./types.ts";
 
 function stop(id: string, x: number, y: number): Stop {
   return { id: stopId(id), label: id, x, y, landmarkId: id, vertexIndex: 0 };
-}
-
-function cell(index: number, x: number, y: number, gene = 0): Cell {
-  return { index, x, y, category: "region", band: "low", gene };
 }
 
 test("midpoint of one segment is t=0.5 and offset 0", () => {
