@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 
-import { divergingRgb, hitsLandmark, landmarkCentroid, tissueRaster } from "./geometry";
+import { divergingRgb, hitsLandmark, landmarkCentroid } from "./geometry";
 import type { Field, Landmark, Scene } from "./types";
 
 export type MapPointer = {
@@ -12,7 +12,6 @@ type Props = {
   scene: Scene;
   ordered: readonly Landmark[];
   field: Field | null;
-  showField: boolean;
   probeCell?: number | null;
   onPick?: (hit: MapPointer) => void;
   onHover?: (hit: MapPointer) => void;
@@ -60,7 +59,7 @@ function strokeLandmark(ctx: CanvasRenderingContext2D, frame: Frame, landmark: L
   ctx.stroke();
 }
 
-export function PseudospaceMap({ scene, ordered, field, showField, probeCell = null, onPick, onHover }: Props) {
+export function PseudospaceMap({ scene, ordered, field, probeCell = null, onPick, onHover }: Props) {
   const ref = useRef<HTMLCanvasElement>(null);
   const frameRef = useRef<Frame | null>(null);
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
@@ -93,53 +92,16 @@ export function PseudospaceMap({ scene, ordered, field, showField, probeCell = n
       ctx.fillStyle = isDark ? "#141414" : "#e8e8e8";
       ctx.fillRect(0, 0, width, height);
 
-      if (showField && field) {
-        const values = scene.cells.map((cell) => field.byIndex[cell.index]?.value ?? 0);
-        const raster = tissueRaster(scene.cells, values, scene.bounds);
-        const image = ctx.createImageData(raster.nx, raster.ny);
-        for (let p = 0; p < raster.values.length; p++) {
-          const value = raster.values[p] ?? Number.NaN;
-          const o = p * 4;
-          if (!Number.isFinite(value)) continue;
-          const [r, g, b] = divergingRgb(value, field.valueMax);
-          image.data[o] = r;
-          image.data[o + 1] = g;
-          image.data[o + 2] = b;
-          image.data[o + 3] = 235;
-        }
-        const blob = document.createElement("canvas");
-        blob.width = raster.nx;
-        blob.height = raster.ny;
-        blob.getContext("2d")?.putImageData(image, 0, 0);
-        const [x0, yTop] = toScreen(frame, raster.x0, raster.y0 + raster.dy * raster.ny);
-        const [x1, yBot] = toScreen(frame, raster.x0 + raster.dx * raster.nx, raster.y0);
-        ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(blob, x0, yTop, x1 - x0, yBot - yTop);
-        const level = field.valueMax * 0.5;
-        ctx.strokeStyle = isDark ? "rgba(20,20,20,0.45)" : "rgba(255,255,255,0.7)";
-        ctx.lineWidth = 1;
-        for (let j = 0; j < raster.ny; j++) {
-          for (let i = 0; i < raster.nx - 1; i++) {
-            const a = raster.values[j * raster.nx + i];
-            const b = raster.values[j * raster.nx + i + 1];
-            if (a == null || b == null || !Number.isFinite(a) || !Number.isFinite(b)) continue;
-            if ((a - level) * (b - level) > 0) continue;
-            const y = raster.y0 + (j + 0.5) * raster.dy;
-            const xa = raster.x0 + (i + 0.5) * raster.dx;
-            const xb = raster.x0 + (i + 1.5) * raster.dx;
-            const [sx, sy] = toScreen(frame, (xa + xb) / 2, y);
-            ctx.beginPath();
-            ctx.moveTo(sx - 2, sy);
-            ctx.lineTo(sx + 2, sy);
-            ctx.stroke();
-          }
-        }
-      }
-
       for (const cell of scene.cells) {
+        const pos = field?.byIndex[cell.index];
         const [sx, sy] = toScreen(frame, cell.x, cell.y);
-        ctx.fillStyle = isDark ? "rgba(242,242,242,0.85)" : "rgba(26,26,26,0.8)";
-        ctx.fillRect(sx - 1.5, sy - 1.5, 3, 3);
+        if (field && pos && Number.isFinite(pos.value)) {
+          const [r, g, b] = divergingRgb(pos.value, field.valueMax);
+          ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+        } else {
+          ctx.fillStyle = isDark ? "#8a8a8a" : "#5c5c5c";
+        }
+        ctx.fillRect(sx - 2.5, sy - 2.5, 5, 5);
       }
 
       const chosen = new Set(ordered.map((landmark) => landmark.id));
@@ -177,7 +139,7 @@ export function PseudospaceMap({ scene, ordered, field, showField, probeCell = n
     const observer = new ResizeObserver(draw);
     observer.observe(parent);
     return () => observer.disconnect();
-  }, [scene, ordered, field, showField, probeCell, dark]);
+  }, [scene, ordered, field, probeCell, dark]);
 
   const hit = (event: PointerEvent<HTMLCanvasElement>): MapPointer => {
     const canvas = ref.current;

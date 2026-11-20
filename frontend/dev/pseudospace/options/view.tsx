@@ -7,7 +7,6 @@ import { FLOAT_PANEL } from "@/widgets/landmarks/chrome/sections";
 import { orderLandmarks, pseudospaceField } from "../geometry";
 import { PseudospaceMap } from "../PseudospaceMap";
 import type { OptionProps } from "./types";
-import { Measure } from "./measure";
 
 function moveId(ids: string[], id: string, dir: -1 | 1) {
   const index = ids.indexOf(id);
@@ -23,10 +22,7 @@ function moveId(ids: string[], id: string, dir: -1 | 1) {
 export function PseudospaceView({ scene }: OptionProps) {
   const [ids, setIds] = useState<string[]>([]);
   const [made, setMade] = useState(false);
-  const [layer, setLayer] = useState(true);
   const [hover, setHover] = useState<number | null>(null);
-  const [mode, setMode] = useState<"gene" | "category">("gene");
-  const [geneName, setGeneName] = useState(scene.geneName);
   const ordered = useMemo(() => orderLandmarks(scene.landmarks, ids), [scene.landmarks, ids]);
   const field = made && ordered.length >= 2 ? pseudospaceField(scene.cells, ordered) : null;
   const pos = hover == null ? null : field?.byIndex[hover];
@@ -38,29 +34,15 @@ export function PseudospaceView({ scene }: OptionProps) {
         scene={scene}
         ordered={ordered}
         field={field}
-        showField={layer && field != null}
         probeCell={hover}
         onHover={(hit) => {
           if (hit.cellIndex != null) setHover(hit.cellIndex);
         }}
       />
       <aside className={cn(FLOAT_PANEL, "absolute left-8 top-16 z-10 w-[calc(100%-2.5rem)] min-[700px]:top-14 min-[700px]:w-72")}>
-        <div className="flex items-start justify-between gap-2 px-3 pt-3">
-          <div>
-            <p className="tact-label">Pseudospace</p>
-            <p className="font-[family-name:var(--tact-mono)] text-[10px] text-[var(--tact-muted)]">knn graph</p>
-          </div>
-          <Button
-            type="button"
-            size="sm"
-            variant={layer ? "default" : "outline"}
-            className="rounded-none"
-            aria-pressed={layer}
-            data-testid="pseudospace-layer"
-            onClick={() => setLayer((on) => !on)}
-          >
-            Layer
-          </Button>
+        <div className="px-3 pt-3">
+          <p className="tact-label">Pseudospace</p>
+          <p className="font-[family-name:var(--tact-mono)] text-[10px] text-[var(--tact-muted)]">knn graph</p>
         </div>
         <ul className="mt-2 max-h-40 overflow-auto">
           {[
@@ -116,7 +98,6 @@ export function PseudospaceView({ scene }: OptionProps) {
           </dl>
         </aside>
       ) : null}
-      {field ? <Measure scene={scene} field={field} geneName={geneName} mode={mode} onGene={setGeneName} onMode={setMode} /> : null}
     </div>
   );
 }

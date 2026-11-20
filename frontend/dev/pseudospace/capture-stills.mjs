@@ -56,8 +56,6 @@ async function buildA(page) {
   await page.getByTestId("include-harness-shape").click();
   await page.getByTestId("include-harness-spline").click();
   await page.getByTestId("pseudospace-make").click();
-  await page.getByTestId("pseudospace-measure").waitFor();
-  await page.getByTestId("pseudospace-rho").waitFor();
   const canvas = await page.getByTestId("pseudospace-map").boundingBox();
   const at = screenOf(canvas, between.x, between.y);
   await page.mouse.move(at.x, at.y);
@@ -101,7 +99,6 @@ try {
   await phone.getByTestId("include-harness-shape").click();
   await phone.getByTestId("include-harness-spline").click();
   await phone.getByTestId("pseudospace-make").click();
-  await phone.getByTestId("pseudospace-measure").waitFor();
   const make = await phone.getByTestId("pseudospace-make").boundingBox();
   await phone.mouse.move(make.x + make.width / 2, make.y + make.height / 2);
   await phone.screenshot({ path: `${outDir}/a-mobile-dark.png` });
