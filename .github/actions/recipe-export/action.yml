@@ -1,0 +1,54 @@
+name: Recipe export
+description: >-
+  Restore the shared squidpy recipe export, or produce it once and publish the
+  artifact other workflows download. The cache key is the input hash from
+  scripts/recipe_export_cache.py.
+
+inputs:
+  mode:
+    description: produce (run export and verify on a miss) or consume (download that artifact)
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      run: echo "key=$(python3 scripts/recipe_export_cache.py key)" >> "$GITHUB_OUTPUT"
+
+    # Exact key only. A prefix restore would reuse another commit's export.
+    - id: cache
+      uses: actions/cache/restore@v4
+      with:
+        path: website/.cache/recipe-export
+        key: recipe-export-v1-${{ runner.os }}-${{ steps.key.outputs.key }}
+
+    - shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+        CACHE_KEY: ${{ steps.key.outputs.key }}
+        GH_TOKEN: ${{ github.token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        # pull_request sets github.sha to the merge commit. The Actions API
+        # lists runs by the head commit, so querying github.sha misses the
+        # producer that already finished for this head.
+        GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      run: bash scripts/recipe_export_fetch.sh
+
+    - if: inputs.mode == 'produce' && steps.cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      continue-on-error: true
+      with:
+        path: website/.cache/recipe-export
+        key: recipe-export-v1-${{ runner.os }}-${{ steps.key.outputs.key }}
+
+    # .cache is a hidden path segment. Without this flag the artifact is empty
+    # and every consumer fails the stamp check.
+    - uses: actions/upload-artifact@v4
+      with:
+        name: recipe-export
+        path: website/.cache/recipe-export
+        retention-days: 3
+        if-no-files-found: error
+        include-hidden-files: true

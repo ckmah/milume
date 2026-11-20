@@ -50,6 +50,13 @@ cp -a "${WEBSITE}/landing/." "${OUT}/"
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/cf_beacon.py" --landing "${OUT}/index.html"
 touch "${OUT}/.nojekyll"
 
+# zensical build --clean deletes website/.cache, and the beacon tests below
+# run that before the docs build. Extract the stamped export first or the
+# stamp is gone by the time we skip the squidpy recompute.
+if [[ "${MILUME_RECIPE_EXPORT_READY:-}" == "1" ]]; then
+  MILUME_RECIPE_ROOT="${ROOT}" python3 "${ROOT}/scripts/recipe_export_cache.py" check
+fi
+
 uv run --directory "${ROOT}" python -m pytest \
   "${WEBSITE}/scripts/test_agent_md_format.py" \
   "${WEBSITE}/scripts/test_api_reference_codegen.py" \
@@ -61,7 +68,11 @@ uv run --directory "${ROOT}" python -m pytest \
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/sync-api-docs.py"
 
 chmod +x "${WEBSITE}/scripts/export-recipes.sh"
-uv run --directory "${ROOT}" bash "${WEBSITE}/scripts/export-recipes.sh" prepare-for-zensical
+if [[ "${MILUME_RECIPE_EXPORT_READY:-}" == "1" ]]; then
+  echo "export-recipes: skipped, recipe export reused (no squidpy recompute)"
+else
+  uv run --directory "${ROOT}" bash "${WEBSITE}/scripts/export-recipes.sh" prepare-for-zensical
+fi
 
 rm -rf "${WEBSITE}/dist"
 (
@@ -129,8 +140,14 @@ sleep 1
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/check_recipe_payload.py"
 
 uv run --directory "${ROOT}" python "${ROOT}/scripts/lint_recipe_prose.py"
-uv run --directory "${ROOT}" python "${ROOT}/scripts/verify_squidpy_color.py"
-uv run --directory "${ROOT}" python "${ROOT}/scripts/verify_squidpy_svg.py"
+if [[ "${MILUME_RECIPE_EXPORT_READY:-}" == "1" ]]; then
+  recipe_key="$(uv run --directory "${ROOT}" python "${ROOT}/scripts/recipe_export_cache.py" key)"
+  echo "verify-squidpy-color: skip recompute, export ${recipe_key}"
+  echo "verify-squidpy-svg: skip recompute, export ${recipe_key}"
+else
+  uv run --directory "${ROOT}" python "${ROOT}/scripts/verify_squidpy_color.py"
+  uv run --directory "${ROOT}" python "${ROOT}/scripts/verify_squidpy_svg.py"
+fi
 node "${ROOT}/frontend/scripts/capture-recipe-shots.mjs" "http://127.0.0.1:8765" "squidpy_color"
 node "${ROOT}/frontend/scripts/capture-recipe-shots.mjs" "http://127.0.0.1:8765" "squidpy_svg"
 

@@ -1,0 +1,48 @@
+# One squidpy export + verify per input hash. e2e-core, Pages, and recipe studio
+# restore this artifact instead of running the notebooks again.
+name: Recipe compute
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: recipe-compute-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  compute:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install Python deps
+        run: uv sync --group dev
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: ./.github/actions/node-modules
+        with:
+          dir: frontend
+
+      - uses: ./.github/actions/recipe-export
+        with:
+          mode: produce
