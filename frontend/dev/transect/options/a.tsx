@@ -146,7 +146,7 @@ export function OptionA({ scene }: OptionProps) {
   return (
     <div data-testid="transect-option-a" className="relative h-full w-full">
       <TransectMap scene={scene} ordered={ordered} field={field} shade={field ? "both" : "off"} />
-      <aside className={cn(FLOAT_PANEL, "absolute left-2 top-16 z-10 w-[calc(100%-1rem)] min-[700px]:left-3 min-[700px]:top-14 min-[700px]:w-64")}>
+      <aside className={cn(FLOAT_PANEL, "absolute left-8 top-16 z-10 w-[calc(100%-2.5rem)] min-[700px]:top-14 min-[700px]:w-64")}>
         <div className="flex flex-col gap-2 p-3">
           <div>
             <p className="tact-label">Transect</p>
