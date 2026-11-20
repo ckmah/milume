@@ -42,6 +42,20 @@ def test_real_repo_key_covers_recipe_inputs_and_ignores_shot_lists():
     assert not any("_marimo-studio" in rel or ".test." in rel for rel in rels)
 
 
+def test_find_repo_uses_cwd_when_the_script_copy_is_outside_the_checkout(
+    tmp_path: Path,
+):
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    (checkout / "pyproject.toml").write_text("[project]\nname='x'\n", encoding="utf-8")
+    (checkout / "uv.lock").write_text("lock\n", encoding="utf-8")
+    copy = tmp_path / "uv-copy" / "recipe_export_cache.py"
+    copy.parent.mkdir()
+    copy.write_text("x\n", encoding="utf-8")
+    assert cache.find_repo(copy.parent, checkout) == checkout
+    assert cache.find_repo(ROOT / "scripts", Path("/tmp")) == ROOT
+
+
 def test_check_fails_closed_without_a_stamp():
     with pytest.raises(SystemExit, match="does not match inputs"):
         cache.check(ROOT)

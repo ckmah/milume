@@ -77,9 +77,25 @@ PREPARED_RE = re.compile(r"Prepared (reused|committed)")
 BUNDLE_NAME = Path("website/.cache/recipe-export")
 
 
+def find_repo(start: Path, cwd: Path) -> Path:
+    """The checkout that holds this script.
+
+    `uv run` can execute a copy of the file, so `__file__` may sit outside the
+    repo. The process cwd is the checkout when assemble passes `--directory`.
+    """
+    for candidate in (start, *start.parents, cwd, *cwd.parents):
+        if (candidate / "pyproject.toml").is_file() and (
+            candidate / "uv.lock"
+        ).is_file():
+            return candidate
+    raise SystemExit(f"recipe-compute: no checkout found from {start} or {cwd}")
+
+
 def repo_root() -> Path:
     override = os.environ.get("MILUME_RECIPE_ROOT")
-    return Path(override).resolve() if override else ROOT
+    if override:
+        return Path(override).resolve()
+    return find_repo(Path(__file__).resolve().parent, Path.cwd())
 
 
 def bundle_dir(root: Path) -> Path:
