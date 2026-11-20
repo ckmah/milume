@@ -86,13 +86,19 @@ def test_stamp_restores_outputs_until_a_recipe_input_changes(tmp_path: Path):
     root = _fixture(tmp_path)
     _write_outputs(root)
     key = cache.cache_key(root)
-    cache.pack(root, key, "Prepared committed\nPrepared reused\n")
+    cache.pack(
+        root, key, "Prepared committed\nPrepared reused\n", cache.hash_manifest(root)
+    )
     marker = root / "website/content/how-to/recipes/squidpy_color/_marimo-studio"
     shutil.rmtree(marker)
     cache.check(root)
     assert (marker / "marker.txt").read_text(encoding="utf-8") == "ok\n"
     shots = root / "demos/recipes/squidpy_color/shots.yaml"
     shots.write_text("shots: [one]\n", encoding="utf-8")
+    cache.check(root)
+    generated = root / "demos/recipes/__marimo__/cache.py"
+    generated.parent.mkdir()
+    generated.write_text("generated during export\n", encoding="utf-8")
     cache.check(root)
     (root / "demos/recipes/squidpy_color.py").write_text(
         "color changed\n", encoding="utf-8"
@@ -104,8 +110,18 @@ def test_stamp_restores_outputs_until_a_recipe_input_changes(tmp_path: Path):
 def test_packing_twice_keeps_one_stamp(tmp_path: Path):
     root = _fixture(tmp_path)
     _write_outputs(root)
-    cache.pack(root, cache.cache_key(root), "Prepared committed\nPrepared committed\n")
-    cache.pack(root, cache.cache_key(root), "Prepared committed\nPrepared committed\n")
+    cache.pack(
+        root,
+        cache.cache_key(root),
+        "Prepared committed\nPrepared committed\n",
+        cache.hash_manifest(root),
+    )
+    cache.pack(
+        root,
+        cache.cache_key(root),
+        "Prepared committed\nPrepared committed\n",
+        cache.hash_manifest(root),
+    )
     assert cache.outputs_match(root)
     assert cache.read_stamp(root) == cache.cache_key(root)
 

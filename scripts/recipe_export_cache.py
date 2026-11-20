@@ -89,8 +89,12 @@ def bundle_dir(root: Path) -> Path:
 def _skip_key_path(path: Path) -> bool:
     if ".test." in path.name:
         return True
+    # __marimo__ is the export cache. It appears during compute, so hashing it
+    # makes the post-export tree disagree with a clean checkout.
     return any(
-        part in {"__pycache__", "_marimo-studio", "node_modules"} for part in path.parts
+        part
+        in {"__pycache__", "__marimo__", "_marimo-studio", "node_modules", ".cache"}
+        for part in path.parts
     )
 
 
@@ -119,13 +123,20 @@ def key_files(root: Path) -> list[Path]:
 
 def cache_key(root: Path) -> str:
     digest = hashlib.sha256()
-    for path in key_files(root):
-        rel = path.relative_to(root).as_posix().encode()
-        digest.update(rel)
+    for rel, file_hash in hash_manifest(root):
+        digest.update(rel.encode())
         digest.update(b"\0")
-        digest.update(path.read_bytes())
+        digest.update(file_hash.encode())
         digest.update(b"\0")
     return digest.hexdigest()
+
+
+def hash_manifest(root: Path) -> list[tuple[str, str]]:
+    rows: list[tuple[str, str]] = []
+    for path in key_files(root):
+        rel = path.relative_to(root).as_posix()
+        rows.append((rel, hashlib.sha256(path.read_bytes()).hexdigest()))
+    return rows
 
 
 def _safe_members(tar: tarfile.TarFile, root: Path) -> list[tarfile.TarInfo]:
@@ -204,7 +215,7 @@ def outputs_match(root: Path) -> bool:
     return bool(stamped) and stamped == cache_key(root) and outputs_present(root)
 
 
-def pack(root: Path, key: str, log: str) -> None:
+def pack(root: Path, key: str, log: str, manifest: list[tuple[str, str]]) -> None:
     bundle = bundle_dir(root)
     bundle.mkdir(parents=True, exist_ok=True)
     missing = [rel for rel in OUTPUTS if not (root / rel).exists()]
@@ -226,6 +237,12 @@ def pack(root: Path, key: str, log: str) -> None:
     key_tmp = bundle / "key.tmp"
     key_tmp.write_text(key + "\n", encoding="utf-8")
     key_tmp.replace(bundle / "key")
+    manifest_tmp = bundle / "manifest.txt.tmp"
+    manifest_tmp.write_text(
+        "".join(f"{file_hash} {rel}\n" for rel, file_hash in manifest),
+        encoding="utf-8",
+    )
+    manifest_tmp.replace(bundle / "manifest.txt")
 
 
 def _run(cmd: list[str], root: Path) -> str:
@@ -309,6 +326,7 @@ def _initial_color_column(raw: str) -> str:
 
 
 def compute(root: Path) -> None:
+    manifest = hash_manifest(root)
     key = cache_key(root)
     if outputs_match(root):
         print(f"recipe-compute: export already stamped {key}", flush=True)
@@ -330,8 +348,34 @@ def compute(root: Path) -> None:
         f"recipe-compute: verify {time.perf_counter() - verify_started:.0f}s",
         flush=True,
     )
-    pack(root, key, log)
+    pack(root, key, log, manifest)
     print(f"recipe-compute: packed {key}", flush=True)
+
+
+def explain_stamp_mismatch(root: Path, stamped: str, key: str) -> str:
+    manifest_path = bundle_dir(root) / "manifest.txt"
+    if not manifest_path.is_file():
+        return f"recipe-compute: stamp {stamped or '(missing)'} does not match inputs {key}"
+    saved = {}
+    for line in manifest_path.read_text(encoding="utf-8").splitlines():
+        file_hash, _, rel = line.partition(" ")
+        if rel:
+            saved[rel] = file_hash
+    current = dict(hash_manifest(root))
+    added = sorted(set(current) - set(saved))
+    removed = sorted(set(saved) - set(current))
+    changed = sorted(
+        rel for rel in set(saved) & set(current) if saved[rel] != current[rel]
+    )
+    detail = []
+    if added:
+        detail.append("added " + ", ".join(added[:20]))
+    if removed:
+        detail.append("removed " + ", ".join(removed[:20]))
+    if changed:
+        detail.append("changed " + ", ".join(changed[:20]))
+    extra = "; ".join(detail) if detail else "no path diff"
+    return f"recipe-compute: stamp {stamped or '(missing)'} does not match inputs {key} ({extra})"
 
 
 def check(root: Path) -> None:
@@ -339,9 +383,7 @@ def check(root: Path) -> None:
     key = cache_key(root)
     stamped = read_stamp(root)
     if stamped != key:
-        raise SystemExit(
-            f"recipe-compute: stamp {stamped or '(missing)'} does not match inputs {key}"
-        )
+        raise SystemExit(explain_stamp_mismatch(root, stamped, key))
     apply_tar(root)
     if not outputs_present(root):
         missing = [rel for rel in OUTPUTS if not (root / rel).exists()]
