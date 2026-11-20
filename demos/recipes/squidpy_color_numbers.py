@@ -1,5 +1,3 @@
-"""Pinned parameters and CI numbers for the squidpy_color recipe (not imported by the notebook)."""
-
 from __future__ import annotations
 
 import json
@@ -65,7 +63,6 @@ GALT_POLYGONS: dict[str, tuple[tuple[float, float], ...]] = {
 
 
 def run_recipe_niches(adata) -> None:
-    """Match ``niche_sweep`` in ``demos/recipes/squidpy_color.py``."""
     import squidpy as sq
 
     for k in NICHE_KS:

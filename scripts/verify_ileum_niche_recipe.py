@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Recompute ileum niche columns and assert stable recipe parameters."""
 
 from __future__ import annotations
 
