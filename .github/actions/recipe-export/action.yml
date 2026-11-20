@@ -30,7 +30,10 @@ runs:
         CACHE_KEY: ${{ steps.key.outputs.key }}
         GH_TOKEN: ${{ github.token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
-        GITHUB_SHA: ${{ github.sha }}
+        # pull_request sets github.sha to the merge commit. The Actions API
+        # lists runs by the head commit, so querying github.sha misses the
+        # producer that already finished for this head.
+        GITHUB_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       run: bash scripts/recipe_export_fetch.sh
 
     - if: inputs.mode == 'produce' && steps.cache.outputs.cache-hit != 'true'
