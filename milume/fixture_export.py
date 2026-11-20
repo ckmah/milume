@@ -69,6 +69,9 @@ FIXTURE_SYNC_KEYS: tuple[str, ...] = (
     "_image_channels",
     "_image_visible",
     "_image_alpha",
+    "_cells_visible",
+    "_cells_opacity",
+    "_um_per_unit",
 )
 
 

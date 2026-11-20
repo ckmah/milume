@@ -60,6 +60,8 @@ Replace `<name>` with `active_category` or `active_genes`.
 
 ### Changed
 
+- **Layers cell size and visibility.** `point_size` stays the marker radius in `obsm` units. Cells on/off is `_cells_visible` and does not change that radius. When SpatialData or AnnData yields a micrometre scale (`_um_per_unit`), the Layers slider is dot diameter from 1 to 50 µm and the seeded radius is clamped into that range. Otherwise the slider keeps raw units and labels them px ([#473](https://github.com/ckmah/milume/issues/473)).
+
 - **`color` is a `ColorSpec`.** Assign an obs column, a gene name, a gene list (blend), or an `obsm` key. Colour mode, legend, palette, category columns, the gene catalogue, and embedding packs sync as private traits (`_color_state`, `_look`, `_color_options`, `_category_columns`, `_category_codes`, `_embedding_*`, `_gene_csc_*`) instead of top-level `color_mode`, `legend_*`, `category_columns`, `gene_names`, `raster_basis`, and `raster_embedding_key` ([#394](https://github.com/ckmah/milume/issues/394)).
 
 - **Map panel layout (option 1).** Left dock accordion (Selections · Landmarks · Layers), right data card tabs (cat · num · genes · embed), a reserved depth-rail chrome slot (behaviour in [#122](https://github.com/ckmah/milume/issues/122)), minimise mode (Shift+\\), and Spline as the default landmark tool ([#393](https://github.com/ckmah/milume/issues/393)).

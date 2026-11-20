@@ -200,6 +200,137 @@ def _coordinate_system_for_obsm(
     return None
 
 
+def _positive_float(value: Any) -> float | None:
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    if number > 0 and number == number and number != float("inf"):
+        return number
+    return None
+
+
+_UM_SCALE_KEYS = (
+    "microns_per_pixel",
+    "micron_per_pixel",
+    "um_per_pixel",
+    "µm_per_pixel",
+    "microns_per_unit",
+    "um_per_unit",
+)
+
+
+def _um_scale_in_mapping(node: Any, *, depth: int = 0) -> float | None:
+    """``microns_per_pixel`` (and the same idea under a few names) inside ``uns['spatial']``."""
+    if depth > 3 or not isinstance(node, dict):
+        return None
+    for key in _UM_SCALE_KEYS:
+        if key in node:
+            found = _positive_float(node[key])
+            if found is not None:
+                return found
+    for nested_key in ("scalefactors", "scale_factors"):
+        nested = node.get(nested_key)
+        found = _um_scale_in_mapping(nested, depth=depth + 1)
+        if found is not None:
+            return found
+    # One library-id level: ``uns['spatial'][library]['scalefactors']``.
+    if depth == 0:
+        for value in node.values():
+            found = _um_scale_in_mapping(value, depth=depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+def _um_scale_from_transformation(transformation: Any) -> float | None:
+    """Mean positive scale of a transform whose output axes are micrometres."""
+    steps = getattr(transformation, "transformations", None)
+    if isinstance(steps, (list, tuple)) and steps and not hasattr(transformation, "scale"):
+        for step in reversed(steps):
+            found = _um_scale_from_transformation(step)
+            if found is not None:
+                return found
+        return None
+    if _output_units_from_transformation(transformation) != "micrometer":
+        return None
+    scale = getattr(transformation, "scale", None)
+    if scale is None:
+        return None
+    try:
+        values = [_positive_float(v) for v in list(scale)]
+    except TypeError:
+        values = [_positive_float(scale)]
+    present = [v for v in values if v is not None]
+    if not present:
+        return None
+    return float(sum(present) / len(present))
+
+
+def _um_per_pixel_from_sdata(sdata: Any, adata: AnnData) -> float | None:
+    """Image-pixel scale into a micrometre coordinate system, when cells are stored in pixels."""
+    from spatialdata.transformations import get_transformation
+
+    linked = _linked_spatial_element(sdata, adata)
+    elements: list[Any] = []
+    if linked is not None:
+        elements.append(linked[2])
+    images = getattr(sdata, "images", None)
+    if images is not None:
+        try:
+            elements.extend(images.values())
+        except Exception:
+            pass
+    systems = list(getattr(sdata, "coordinate_systems", []) or [])
+    if "global" not in systems:
+        systems.append("global")
+    seen: set[int] = set()
+    for element in elements:
+        mark = id(element)
+        if mark in seen:
+            continue
+        seen.add(mark)
+        for cs in systems:
+            try:
+                transformation = get_transformation(element, to_coordinate_system=cs)
+            except Exception:
+                continue
+            found = _um_scale_from_transformation(transformation)
+            if found is not None:
+                return found
+    return None
+
+
+def infer_um_per_unit(
+    adata: AnnData,
+    *,
+    spatial_key: str = "spatial",
+    sdata: Any | None = None,
+) -> float | None:
+    """Micrometres per unit of ``obsm`` x/y, or ``None`` when the scale is unknown.
+
+    Coordinate systems already in micrometres are ``1``. AnnData
+    ``uns['spatial']`` scale factors (``microns_per_pixel`` and the same quantity
+    under a few names) and ``uns['spatial_units']`` are next. A SpatialData image
+    whose transform lands in a micrometre system supplies microns per pixel only
+    when the table coordinates themselves are pixels.
+    """
+    units = infer_obsm_spatial_units(adata, spatial_key=spatial_key, sdata=sdata)
+    if units == "micrometer":
+        return 1.0
+    uns = getattr(adata, "uns", None)
+    if isinstance(uns, dict):
+        found = _um_scale_in_mapping(uns.get("spatial"))
+        if found is not None:
+            return found
+        token = uns.get("spatial_units")
+        if _normalize_unit_token(token if isinstance(token, str) else None) == "micrometer":
+            return 1.0
+    if units == "pixel" and sdata is not None:
+        return _um_per_pixel_from_sdata(sdata, adata)
+    return None
+
+
 def infer_obsm_spatial_units(
     adata: AnnData,
     *,
