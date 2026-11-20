@@ -204,7 +204,7 @@ export function ToolStack({
           )}
           data-testid="context-l2-anchor"
         >
-          <div className={TOOLBAR_CLASS}>{panel}</div>
+          <div className={cn(TOOLBAR_CLASS, "landmarks-toolbar--popup")}>{panel}</div>
         </Rise>
       ) : null}
       {children}
