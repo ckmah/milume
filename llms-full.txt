@@ -648,6 +648,15 @@ Color Landmarks from Squidpy neighborhood niches on a masked selection, then ass
 | Docs (prepared studio view) | [Squidpy niche color](squidpy_color/) |
 | molab (live kernel) | [squidpy_color.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py) |
 
+## Gene pattern or cell layout
+
+One Moran's I, asked three ways. All cells, leftover expression after each cell's own type and its spatial domain, and one cell type.
+
+| | Link |
+| --- | --- |
+| Docs (prepared studio view) | [Gene pattern or cell layout](squidpy_svg/) |
+| molab (live kernel) | [squidpy_svg.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_svg.py) |
+
 # https://ckmah.github.io/milume/docs/how-to/recipes/squidpy_color/index.md
 
 ---
@@ -655,6 +664,15 @@ template: recipe_studio.html
 recipe_studio: squidpy_color
 title: Squidpy niche color
 description: Color Landmarks from Squidpy neighborhood niches on a masked selection.
+---
+
+# https://ckmah.github.io/milume/docs/how-to/recipes/squidpy_svg/index.md
+
+---
+template: recipe_studio.html
+recipe_studio: squidpy_svg
+title: Is this gene patterned, or are its cells?
+description: One Moran's I on all cells, on leftover expression after own cell type and spatial domain, and inside one cell type.
 ---
 
 # https://ckmah.github.io/milume/docs/how-to/use-selections-downstream.md

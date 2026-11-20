@@ -18,6 +18,7 @@
 - [Match Plot Colors Squidpy](https://ckmah.github.io/milume/docs/how-to/match-plot-colors-squidpy.md)
 - [Index](https://ckmah.github.io/milume/docs/how-to/recipes/index.md)
 - [Index](https://ckmah.github.io/milume/docs/how-to/recipes/squidpy_color/index.md)
+- [Index](https://ckmah.github.io/milume/docs/how-to/recipes/squidpy_svg/index.md)
 - [Use Selections Downstream](https://ckmah.github.io/milume/docs/how-to/use-selections-downstream.md)
 - [Use With Ai Agents](https://ckmah.github.io/milume/docs/how-to/use-with-ai-agents.md)
 - [Index](https://ckmah.github.io/milume/docs/index.md)
