@@ -45,7 +45,16 @@ def test_extract_body_fragment_missing_cells_raises() -> None:
         extract_body_fragment("<html><body></body></html>")
 
 
-def test_prepare_raises_when_runtime_patch_anchor_missing(tmp_path: Path) -> None:
+def test_prepare_raises_when_runtime_patch_anchor_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # prepare() installs the shared runtime at the module global. Point that at
+    # the tmp dir so a docs build that already extracted the real export is left
+    # in place. Assemble runs this file before it can re-export.
+    monkeypatch.setattr(
+        "prepare_recipe_studio.SHARED_RUNTIME",
+        tmp_path / "shared-runtime",
+    )
     export_dir = tmp_path / "export"
     assets = export_dir / "_marimo-studio" / "assets" / "zero-python"
     assets.mkdir(parents=True)
