@@ -7,16 +7,13 @@ import { resetModeDropdownMemory } from "@/widgets/landmarks/chrome/mode-dropdow
 import { LandmarksView } from "@/widgets/landmarks/LandmarksView";
 
 import { loadFixtureModel } from "./mock-model";
-import { PseudospaceMount, PseudospaceSwitcher } from "./pseudospace/PseudospaceMount";
-import type { PseudospaceOptionId } from "./pseudospace/types";
+import { PseudospaceMount } from "./pseudospace/PseudospaceMount";
 
 type HarnessTheme = "light" | "dark";
 
-function readPseudospaceOption(): PseudospaceOptionId | null {
-  if (typeof window === "undefined") return null;
-  const value = new URLSearchParams(window.location.search).get("pseudospace");
-  if (value === "a" || value === "b" || value === "c") return value;
-  return null;
+function readPseudospace(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).has("pseudospace");
 }
 
 const STORAGE_KEY = "milume-harness-theme";
@@ -46,14 +43,7 @@ export function HarnessShell() {
   const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
   const [model, setModel] = useState<AnyModel | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [pseudospace, setPseudospace] = useState<PseudospaceOptionId | null>(() => readPseudospaceOption());
-
-  const choosePseudospace = (next: PseudospaceOptionId) => {
-    const url = new URL(window.location.href);
-    url.searchParams.set("pseudospace", next);
-    window.history.replaceState(null, "", url);
-    setPseudospace(next);
-  };
+  const [pseudospace] = useState(() => readPseudospace());
 
   useEffect(() => {
     applyHarnessTheme(theme);
@@ -114,7 +104,6 @@ export function HarnessShell() {
           >
             {theme === "dark" ? "Switch to light" : "Switch to dark"}
           </Button>
-          {pseudospace ? <PseudospaceSwitcher option={pseudospace} onChange={choosePseudospace} /> : null}
         </div>
       </div>
       <div className="harness-cell-output">
@@ -129,7 +118,7 @@ export function HarnessShell() {
                   hostEl={hostEl}
                   defaultHeight={devShellHeight()}
                 />
-                {pseudospace ? <PseudospaceMount model={model} option={pseudospace} /> : null}
+                {pseudospace ? <PseudospaceMount model={model} /> : null}
               </>
             ) : (
               <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>

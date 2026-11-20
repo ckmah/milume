@@ -32,9 +32,15 @@ export type Cell = {
   gene: number;
 };
 
+export type GeneColumn = {
+  name: string;
+  values: Float32Array;
+};
+
 export type Scene = {
   cells: Cell[];
   landmarks: Landmark[];
+  genes: GeneColumn[];
   geneName: string;
   categoryName: string;
   /** Why `band` is not the obs category. */

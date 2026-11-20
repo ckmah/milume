@@ -56,36 +56,12 @@ async function buildA(page) {
   await page.getByTestId("include-harness-shape").click();
   await page.getByTestId("include-harness-spline").click();
   await page.getByTestId("pseudospace-make").click();
-  await page.getByTestId("pseudospace-profile").waitFor();
-  const make = await page.getByTestId("pseudospace-make").boundingBox();
-  await page.mouse.move(make.x + make.width / 2, make.y + make.height / 2);
-}
-
-async function buildB(page) {
-  await page.goto("http://127.0.0.1:5173/?pseudospace=b", { waitUntil: "networkidle" });
-  await ready(page, "pseudospace-option-b");
-  const canvas = await page.getByTestId("pseudospace-map").boundingBox();
-  for (const at of [shape, spline]) {
-    const hit = screenOf(canvas, at.x, at.y);
-    await page.mouse.click(hit.x, hit.y);
-    console.log("b count", await page.getByTestId("pseudospace-option-b").getAttribute("data-count"));
-  }
-  await page.keyboard.press("Enter");
-  await page.waitForTimeout(200);
-  console.log("b done", await page.getByTestId("pseudospace-option-b").getAttribute("data-done"));
-  await page.getByTestId("pseudospace-profile").waitFor();
-  const last = screenOf(canvas, spline.x, spline.y);
-  await page.mouse.move(last.x, last.y);
-}
-
-async function buildC(page) {
-  await page.goto("http://127.0.0.1:5173/?pseudospace=c", { waitUntil: "networkidle" });
-  await ready(page, "pseudospace-option-c");
-  await page.getByTestId("pseudospace-readout").waitFor();
+  await page.getByTestId("pseudospace-measure").waitFor();
+  await page.getByTestId("pseudospace-rho").waitFor();
   const canvas = await page.getByTestId("pseudospace-map").boundingBox();
   const at = screenOf(canvas, between.x, between.y);
   await page.mouse.move(at.x, at.y);
-  await page.waitForTimeout(200);
+  await page.getByTestId("pseudospace-readout").waitFor();
 }
 
 async function pair(page, name, build) {
@@ -108,8 +84,6 @@ page.on("pageerror", (err) => pageErrors.push(String(err)));
 try {
   if (process.env.ONLY_MOBILE !== "1") {
     await pair(page, "a", buildA);
-    await pair(page, "b", buildB);
-    await pair(page, "c", buildC);
   }
 
   const mobile = await browser.newContext({
@@ -127,7 +101,7 @@ try {
   await phone.getByTestId("include-harness-shape").click();
   await phone.getByTestId("include-harness-spline").click();
   await phone.getByTestId("pseudospace-make").click();
-  await phone.getByTestId("pseudospace-profile").waitFor();
+  await phone.getByTestId("pseudospace-measure").waitFor();
   const make = await phone.getByTestId("pseudospace-make").boundingBox();
   await phone.mouse.move(make.x + make.width / 2, make.y + make.height / 2);
   await phone.screenshot({ path: `${outDir}/a-mobile-dark.png` });

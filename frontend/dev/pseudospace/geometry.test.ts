@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { distanceToGeometry, orderLandmarks, profileBins, pseudospaceField } from "./geometry.ts";
+import { distanceToGeometry, divergingRgb, geneProfile, orderLandmarks, profileBins, pseudospaceField, spearman, tissueRaster } from "./geometry.ts";
 import { sceneFromState } from "./scene.ts";
 import { landmarkId, type Cell, type Landmark } from "./types.ts";
 
@@ -76,4 +76,20 @@ test("fixture scene shades a shape and a line with real Aldoc", () => {
   );
   assert.ok(bins.some((bin) => bin.geneMean > 0));
   assert.equal(scene.geneName, "Aldoc");
+  const raster = tissueRaster(scene.cells, field.byIndex.map((cell) => cell.value), scene.bounds);
+  const finite = Array.from(raster.values).filter((value) => Number.isFinite(value));
+  assert.ok(finite.length > 20);
+  assert.ok(Math.min(...finite) < 0.35);
+  assert.ok(Math.max(...finite) > 0.65);
+  const red = divergingRgb(0, 1);
+  const mid = divergingRgb(0.5, 1);
+  const blue = divergingRgb(1, 1);
+  assert.ok(red[0] > red[2]);
+  assert.ok(mid[0] > 200 && mid[2] > 200);
+  assert.ok(blue[2] > blue[0]);
+  const aldoc = scene.genes.find((gene) => gene.name === "Aldoc");
+  assert.ok(aldoc);
+  const measured = geneProfile(scene.cells, field, aldoc.values);
+  assert.equal(measured.bins.reduce((sum, bin) => sum + bin.n, 0), scene.cells.length);
+  assert.ok(Math.abs(spearman([1, 2, 3, 4], [1, 2, 3, 4]) - 1) < 1e-6);
 });
