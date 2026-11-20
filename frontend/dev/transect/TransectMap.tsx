@@ -119,6 +119,15 @@ export function TransectMap({ scene, ordered, field, shade, probeT = null, onPoi
         ctx.setLineDash([]);
       }
 
+      const chosen = new Set(ordered.map((stop) => stop.id));
+      for (const stop of scene.stops) {
+        if (chosen.has(stop.id)) continue;
+        const [sx, sy] = toScreen(frame, stop.x, stop.y);
+        ctx.strokeStyle = dark ? "rgba(242,242,242,0.55)" : "rgba(26,26,26,0.45)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(sx - 7, sy - 7, 14, 14);
+      }
+
       if (ordered.length >= 2) {
         ctx.beginPath();
         ordered.forEach((stop, i) => {
@@ -172,13 +181,13 @@ export function TransectMap({ scene, ordered, field, shade, probeT = null, onPoi
         if (!canvas || !frame || !onPointer) return;
         const rect = canvas.getBoundingClientRect();
         const [x, y] = fromScreen(frame, event.clientX - rect.left, event.clientY - rect.top);
-        let stopId: string | null = null;
+        let stopHit: string | null = null;
         let best = 14 / frame.s;
-        for (const stop of ordered.length ? ordered : scene.stops) {
+        for (const stop of scene.stops) {
           const d = Math.hypot(stop.x - x, stop.y - y);
           if (d < best) {
             best = d;
-            stopId = stop.id;
+            stopHit = stop.id;
           }
         }
         let t: number | null = null;
@@ -193,7 +202,7 @@ export function TransectMap({ scene, ordered, field, shade, probeT = null, onPoi
             }
           }
         }
-        onPointer({ x, y, stopId, t });
+        onPointer({ x, y, stopId: stopHit, t });
       }}
     />
   );
