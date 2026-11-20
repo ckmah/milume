@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LassoIcon, LayersIcon, SplineIcon } from "lucide-react";
-
 import { Card } from "@/components/ui/card";
 import { FieldDescription } from "@/components/ui/field";
 import { ItemGroup } from "@/components/ui/item";
@@ -119,7 +117,6 @@ export function LayersPanel({
               )}
             >
               <PanelSectionHeader
-                icon={LassoIcon}
                 label="Selections"
                 count={selections.length}
                 open={sectionOpen("selections")}
@@ -178,7 +175,6 @@ export function LayersPanel({
               )}
             >
               <PanelSectionHeader
-                icon={SplineIcon}
                 label="Landmarks"
                 count={landmarks.length}
                 open={sectionOpen("landmarks")}
@@ -226,7 +222,6 @@ export function LayersPanel({
               )}
             >
               <PanelSectionHeader
-                icon={LayersIcon}
                 label="Layers"
                 count={layersCount}
                 open={sectionOpen("layers")}

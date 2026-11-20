@@ -344,7 +344,16 @@ export function mountEngine({
   const legend = document.createElement("div");
   legend.className = "landmarks__legend";
   legend.hidden = true;
-  plotStack.append(webglCanvas, legend);
+  const scaleBar = document.createElement("div");
+  scaleBar.className = "landmarks-scale-bar";
+  scaleBar.dataset.testid = "map-scale-bar";
+  scaleBar.hidden = true;
+  const scaleRule = document.createElement("div");
+  scaleRule.className = "landmarks-scale-bar__rule";
+  const scaleLabel = document.createElement("div");
+  scaleLabel.className = "landmarks-scale-bar__label";
+  scaleBar.append(scaleRule, scaleLabel);
+  plotStack.append(webglCanvas, legend, scaleBar);
   host.append(plotStack);
 
   // React owns theme class apply (dark / landmarks--dark / landmarks--light).
@@ -471,6 +480,7 @@ export function mountEngine({
   let viewStateListeners = [];
   viewStateListeners.push(() => {
     mapImageBackdrop.noteViewChange?.();
+    updateScaleBar();
   });
   /** `loading` until deck's first fit; `error` on init failure or timeout. */
   let plotBootstrap = { state: "loading" };
@@ -701,6 +711,7 @@ export function mountEngine({
     if (!pointRoleMode || !pointRoles) {
       scatterDisplayColors.set(base);
       scatterDisplayRadii.fill(size);
+      applyCellsOpacity(scatterDisplayColors);
       scatterRoleRevision++;
       return;
     }
@@ -722,6 +733,7 @@ export function mountEngine({
         scatterDisplayRadii[i] = size * OTHER_SIZE_SCALE;
       }
     }
+    applyCellsOpacity(scatterDisplayColors);
     scatterRoleRevision++;
   }
 
@@ -2094,8 +2106,11 @@ export function mountEngine({
     });
   }
 
+  let publishedLayerIds = [];
+
   function publishDeckLayers(layers) {
     const list = (layers || []).filter(Boolean);
+    publishedLayerIds = list.map((layer) => layer.id);
     probeBaseLayers = list.filter((layer) => !isProbeWindowLayer(layer));
     applyDeckProps({ layers: list });
   }
@@ -2445,7 +2460,26 @@ export function mountEngine({
     };
   }
 
+  function cellsVisible() {
+    return model.get("_cells_visible") !== false;
+  }
+
+  function cellsOpacity() {
+    const value = Number(model.get("_cells_opacity"));
+    if (!Number.isFinite(value)) return POINT_OPACITY;
+    return Math.max(0, Math.min(1, value));
+  }
+
+  function applyCellsOpacity(colors) {
+    const factor = cellsOpacity() / POINT_OPACITY;
+    if (factor === 1) return;
+    for (let i = 3; i < colors.length; i += 4) {
+      colors[i] = Math.max(0, Math.min(255, Math.round(colors[i] * factor)));
+    }
+  }
+
   function buildRasterLayers() {
+    if (!cellsVisible()) return [];
     if (!deckModules || !isRasterMode()) return [];
     if ((model.get("raster_status") || "") === "computing") return [];
     const baked = buildRasterTexture();
@@ -3133,6 +3167,7 @@ export function mountEngine({
   }
 
   function buildPointsLayer() {
+    if (!cellsVisible()) return [];
     if (!deckModules) return [];
     // Hold points until the raster bitmap is ready — avoids a blank clear frame
     // while Python rebuilds bins / texture on points → raster.
@@ -4412,12 +4447,49 @@ export function mountEngine({
     });
   }
 
+  function niceScaleLength(pxPerDisplay) {
+    const raw = 88 / pxPerDisplay;
+    if (!Number.isFinite(raw) || raw <= 0) return null;
+    const exp = Math.floor(Math.log10(raw));
+    const base = raw / 10 ** exp;
+    const nice = base < 1.5 ? 1 : base < 3.5 ? 2 : base < 7.5 ? 5 : 10;
+    return nice * 10 ** exp;
+  }
+
+  function formatScaleLength(n) {
+    const rounded = Math.round(n * 1000) / 1000;
+    return String(rounded);
+  }
+
+  function updateScaleBar() {
+    const vp = deckgl?.getViewports?.()[0];
+    if (!vp?.project) {
+      scaleBar.hidden = true;
+      return;
+    }
+    const origin = vp.project([0, 0, 0]);
+    const one = vp.project([1, 0, 0]);
+    const pxPerWorld = Math.hypot(one[0] - origin[0], one[1] - origin[1]);
+    const um = Number(model.get("_um_per_unit"));
+    const known = Number.isFinite(um) && um > 0;
+    const pxPerDisplay = known ? pxPerWorld / um : pxPerWorld;
+    const length = niceScaleLength(pxPerDisplay);
+    if (!length || !(pxPerDisplay > 0)) {
+      scaleBar.hidden = true;
+      return;
+    }
+    scaleBar.hidden = false;
+    scaleRule.style.width = `${length * pxPerDisplay}px`;
+    scaleLabel.textContent = `${formatScaleLength(length)} ${known ? "µm" : "px"}`;
+  }
+
   function setDeckLayers() {
     if (!deckgl || !deckModules) return;
     if (layerRaf) return;
     layerRaf = requestAnimationFrame(() => {
       layerRaf = 0;
       publishDeckLayers(buildDeckLayers());
+      updateScaleBar();
       maybePulsePendingViewTransition();
     });
   }
@@ -6775,7 +6847,7 @@ export function mountEngine({
     }
     updatePointLegend();
   });
-  ["point_size", ...COLOR_DERIVED_WATCH_KEYS].forEach((k) => {
+  ["point_size", "_cells_visible", "_cells_opacity", ...COLOR_DERIVED_WATCH_KEYS].forEach((k) => {
     onChange(k, () => {
       if (k === "_color_state") {
         pendingViewPulse = true;
@@ -6852,6 +6924,9 @@ export function mountEngine({
       schedulePointFillColorsBuild();
       setDeckLayers();
     });
+  });
+  onChange("_um_per_unit", () => {
+    updateScaleBar();
   });
   ["volume", "_image_channels", "_image_visible", "_image_alpha"].forEach((k) => {
     onChange(k, () => {
@@ -7026,6 +7101,7 @@ export function mountEngine({
     getNodeInsertArmed: () => nodeInsertArmed,
     getActiveVertexIndex: () => activeVertexIndex,
     getViewState: () => (currentViewState ? { ...currentViewState } : null),
+    getLayerIds: () => publishedLayerIds.slice(),
     setViewState: (partial, opts) => setViewState(partial, opts),
     subscribeViewState: (fn) => {
       if (typeof fn !== "function") return () => {};

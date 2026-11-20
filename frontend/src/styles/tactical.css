@@ -694,12 +694,12 @@
 }
 
 .milume-widget .landmarks__layers-panel .landmarks-panel-section-header__main {
-  grid-template-columns: var(--lm-lead) minmax(0, 1fr);
+  display: flex;
   gap: 8px;
 }
 
 .milume-widget .landmarks__layers-panel .landmarks-panel-section-header__main:has(.landmarks-panel-section-header__pin) {
-  grid-template-columns: var(--lm-lead) auto minmax(0, 1fr);
+  display: flex;
 }
 
 .milume-widget .landmarks__layers-panel .landmarks-panel-section-header__icon {

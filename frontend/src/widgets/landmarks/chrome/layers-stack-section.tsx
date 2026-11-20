@@ -11,6 +11,7 @@ import { channelDisplayColor } from "@/widgets/volume-cube/tint-palette";
 import type { ImageChannelRow, LandmarksModel } from "../use-landmarks-model";
 import { ChannelColorPicker } from "./channel-color-picker";
 import { META_LINE } from "./sections";
+import { cellSizeControl, knownUmPerUnit } from "./layers-size";
 import { formatSliderReadout } from "./slider-readout";
 import { TactSliderRow } from "./slider-row";
 
@@ -73,19 +74,12 @@ function ImageChannelRowControl({
   );
 }
 
-function pointSizeRange(lm: LandmarksModel): { min: number; max: number } {
-  const [x0, x1] = lm.x_bounds ?? [0, 100];
-  const span = Math.max(x1 - x0, 1);
-  const base = lm.point_size || span * 0.04;
-  return { min: Math.max(0.5, span * 0.005), max: Math.max(base * 4, span * 0.15) };
-}
-
 /** Layers accordion body — Cells (map style) and optional Image (volume). */
 export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
   const { category_columns, volume, active_category } = lm;
   const [cellsOpen, setCellsOpen] = useState(true);
   const [imageOpen, setImageOpen] = useState(false);
-  const hiddenPointSizeRef = useRef<number | null>(null);
+  const contrastDomain = useRef(new Map<string, number>());
   const [channelCapHint, setChannelCapHint] = useState(false);
   const [focusedChannel, setFocusedChannel] = useState<string | null>(null);
   const hasImage = Boolean(volume?.image_url);
@@ -93,8 +87,13 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
   const imageVisible = lm._image_visible !== false;
   const imageAlpha = lm._image_alpha ?? 0.55;
   const pointSize = lm.point_size ?? 1;
-  const pointSizeStep = 0.25;
-  const sizeRange = useMemo(() => pointSizeRange(lm), [lm]);
+  const cellsVisible = lm._cells_visible !== false;
+  const cellsOpacity = lm._cells_opacity ?? 0.8;
+  const umPerUnit = knownUmPerUnit(lm._um_per_unit);
+  const sizeControl = useMemo(
+    () => cellSizeControl(pointSize, umPerUnit, lm.x_bounds),
+    [lm.x_bounds, pointSize, umPerUnit],
+  );
   const activeCol =
     category_columns.find((c) => c.name === active_category) ||
     category_columns[0] ||
@@ -103,23 +102,6 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
     activeCol?.name && activeCol.name !== "category"
       ? `Cells · ${activeCol.name}`
       : "Cells";
-  const cellsVisible = pointSize > sizeRange.min * 0.75;
-  const sizeCaption = `Size (${formatSliderReadout(sizeRange.min, pointSizeStep)}–${formatSliderReadout(sizeRange.max, pointSizeStep)})`;
-
-  const toggleCellsVisible = useCallback(
-    (next: boolean) => {
-      if (next) {
-        const restore = hiddenPointSizeRef.current ?? sizeRange.min;
-        lm.setPointSize(Math.max(sizeRange.min, restore));
-        hiddenPointSizeRef.current = null;
-        return;
-      }
-      hiddenPointSizeRef.current = pointSize;
-      lm.setPointSize(sizeRange.min * 0.25);
-    },
-    [lm, pointSize, sizeRange],
-  );
-
   const displayChannels = useMemo(
     () => channels.filter((c) => !c.constant_zero),
     [channels],
@@ -151,6 +133,15 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
 
   const defaultContrast = contrastChannel?.contrast_limits ??
     volume?.contrast_limits ?? [0, 255];
+  const contrastMax = useMemo(() => {
+    const name = contrastChannel?.name ?? "image";
+    const hi = defaultContrast[1] ?? 255;
+    const seeded = contrastDomain.current.get(name);
+    if (seeded != null) return seeded;
+    const next = Math.max(255, Math.ceil(hi * 4));
+    contrastDomain.current.set(name, next);
+    return next;
+  }, [contrastChannel?.name, defaultContrast]);
 
   const toggleChannel = useCallback(
     (name: string, next: boolean) => {
@@ -216,7 +207,12 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
               className="landmarks-layers-image-trigger h-full min-h-0 min-w-0 flex-1 justify-start gap-1.5 px-0 text-xs font-normal text-foreground hover:bg-transparent"
               onClick={() => setCellsOpen((v) => !v)}
             >
-              <span className="landmarks-layer-label min-w-0 flex-1 truncate text-left">
+              <span
+                className={cn(
+                  "landmarks-layer-label min-w-0 flex-1 truncate text-left",
+                  !cellsVisible && "opacity-45",
+                )}
+              >
                 {cellsHeader}
               </span>
             </Button>
@@ -226,7 +222,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
               checked={cellsVisible}
               aria-label={cellsVisible ? "Hide cells layer" : "Show cells layer"}
               data-testid="layer-toggle-cells"
-              onCheckedChange={toggleCellsVisible}
+              onCheckedChange={(next) => lm.setCellsVisible(next)}
             />
           </div>
           {cellsOpen ? (
@@ -234,19 +230,31 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
               <div className="landmarks-slider-stack">
                 <TactSliderRow
                   className="landmarks-slider-row--point-size"
-                  caption={sizeCaption}
-                  aria-label="Cell point size"
+                  caption={sizeControl.caption}
+                  aria-label={umPerUnit != null ? "Cell dot diameter" : "Cell point size"}
                   testId="layer-cells-point-size"
-                  min={sizeRange.min}
-                  max={sizeRange.max}
-                  step={pointSizeStep}
-                  value={[Math.max(sizeRange.min, pointSize)]}
-                  readout={formatSliderReadout(pointSize, pointSizeStep)}
+                  min={sizeControl.min}
+                  max={sizeControl.max}
+                  step={sizeControl.step}
+                  disabled={!cellsVisible}
+                  value={[sizeControl.value]}
+                  formatValue={(v) => `${formatSliderReadout(v, sizeControl.step)} ${sizeControl.unit}`}
                   onValueChange={(v) => {
-                    const next = v[0] ?? pointSize;
-                    lm.setPointSize(next);
-                    hiddenPointSizeRef.current = null;
+                    const next = v[0];
+                    if (next == null || !cellsVisible) return;
+                    lm.setPointSize(sizeControl.toPointSize(next));
                   }}
+                />
+                <TactSliderRow
+                  className="landmarks-slider-row--cells-opacity"
+                  caption="Opacity"
+                  aria-label="Cells opacity"
+                  testId="layer-cells-opacity"
+                  min={0}
+                  max={1}
+                  step={0.01}
+                  value={[cellsOpacity]}
+                  onValueChange={(v) => lm.setCellsOpacity(v[0] ?? cellsOpacity)}
                 />
               </div>
             </div>
@@ -311,8 +319,8 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                       : "Image contrast"
                   }
                   testId="layer-image-contrast"
-                  min={defaultContrast[0]}
-                  max={defaultContrast[1]}
+                  min={0}
+                  max={contrastMax}
                   step={1}
                   value={[
                     contrastChannel?.contrast_limits?.[0] ?? defaultContrast[0],
@@ -328,8 +336,9 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                 />
                 <TactSliderRow
                   className="landmarks-slider-row--alpha"
-                  caption="Alpha"
-                  aria-label="Image alpha"
+                  caption="Opacity"
+                  aria-label="Image opacity"
+                  testId="layer-image-opacity"
                   min={0}
                   max={1}
                   step={0.01}

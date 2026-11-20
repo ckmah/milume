@@ -42,6 +42,7 @@ export type EngineHandle = {
   setNodeInsertArmed(armed: boolean): void;
   getNodeInsertArmed(): boolean;
   getActiveVertexIndex(): number;
+  getLayerIds(): string[];
   getViewState(): {
     target?: number[];
     zoom?: number;
