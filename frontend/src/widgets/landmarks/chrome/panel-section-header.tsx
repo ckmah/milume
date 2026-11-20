@@ -1,4 +1,5 @@
 import { ChevronDownIcon, ChevronRightIcon, XIcon, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,7 @@ export function PanelSectionHeader({
   open,
   onToggle,
   pin,
+  action,
   testId,
   minimise = false,
 }: {
@@ -32,6 +34,7 @@ export function PanelSectionHeader({
   open: boolean;
   onToggle: () => void;
   pin?: PanelSectionPin | null;
+  action?: ReactNode;
   testId?: string;
   minimise?: boolean;
 }) {
@@ -55,6 +58,7 @@ export function PanelSectionHeader({
         onToggle={onToggle}
       />
       <div className="landmarks-panel-section-header__trail">
+        {action}
         <span className="landmarks-panel-section-header__count">{count}</span>
         <Button
           type="button"
