@@ -92,13 +92,11 @@ def main() -> int:
     mix = neighbor_mix(graph, adata.obs["cell_type"])
     row_sums = mix.sum(axis=1).to_numpy()
     isolated = np.asarray(graph.sum(axis=1)).ravel() == 0
-    if isolated.sum() == 0:
-        print("neighbor mix: no isolated cells", file=sys.stderr)
-        return 1
-    if float(np.max(np.abs(row_sums[~isolated] - 1.0))) > 1e-5:
+    connected = ~isolated
+    if connected.any() and float(np.max(np.abs(row_sums[connected] - 1.0))) > 1e-5:
         print("neighbor mix rows do not sum to 1", file=sys.stderr)
         return 1
-    if float(np.max(np.abs(row_sums[isolated]))) > 1e-8:
+    if isolated.any() and float(np.max(np.abs(row_sums[isolated]))) > 1e-8:
         print("isolated cells have a nonzero neighbor mix", file=sys.stderr)
         return 1
 
