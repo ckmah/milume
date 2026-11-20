@@ -32,6 +32,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pull-requests: write
 
 concurrency:
@@ -100,8 +101,29 @@ jobs:
             echo "run=false" >> "$GITHUB_OUTPUT"
           fi
 
-  e2e-core:
+  # Copies the core leg into an output whose name is not changes.outputs.*, so
+  # recipe-fetch can follow core without becoming a leg in e2e-tiers.json.
+  core-flag:
     needs: changes
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ needs.changes.outputs.core }}
+    steps:
+      - run: echo "core=${{ needs.changes.outputs.core }}"
+
+  recipe-fetch:
+    needs: core-flag
+    if: needs.core-flag.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/recipe-export
+        with:
+          mode: consume
+
+  e2e-core:
+    needs: [changes, recipe-fetch]
     if: needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -110,6 +132,13 @@ jobs:
         working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: recipe-export
+          path: website/.cache/recipe-export
+      - name: Require stamped recipe export
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/recipe_export_cache.py check
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -131,12 +160,14 @@ jobs:
         run: npm run test:e2e:core
         env:
           CI: true
+          MILUME_RECIPE_EXPORT_READY: "1"
       - name: Update core snapshots
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.update_snapshots == true }}
         run: npm run test:e2e:core -- --update-snapshots=all
         env:
           CI: true
           E2E_SCREENSHOTS: "1"
+          MILUME_RECIPE_EXPORT_READY: "1"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -432,7 +463,7 @@ jobs:
         run: node frontend/scripts/post-pr-playwright-comment.mjs
 
   gate:
-    needs: [pr-mergeable, changes, e2e-core, e2e-landmarks-default, e2e-landmarks-volume-smoke, e2e-landmarks-volume, e2e-marimo-api, post-ui-evidence-comment]
+    needs: [pr-mergeable, changes, core-flag, recipe-fetch, e2e-core, e2e-landmarks-default, e2e-landmarks-volume-smoke, e2e-landmarks-volume, e2e-marimo-api, post-ui-evidence-comment]
     if: always()
     runs-on: ubuntu-latest
     steps:

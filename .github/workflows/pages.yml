@@ -18,6 +18,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 # pages.yml (every trigger), dashboard.yml, and preview publish/remove/sweep
 # share this group. cancel-in-progress is false so one writer cannot cancel another.
@@ -26,10 +27,28 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  recipe-fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/recipe-export
+        with:
+          mode: consume
+
   build:
+    needs: recipe-fetch
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: recipe-export
+          path: website/.cache/recipe-export
+
+      - name: Require stamped recipe export
+        run: python3 scripts/recipe_export_cache.py check
 
       - uses: astral-sh/setup-uv@v5
         with:
@@ -59,19 +78,10 @@ jobs:
       - name: Playwright browser (recipe export prune + payload check)
         uses: ./.github/actions/playwright-browser
 
-      - name: Restore marimo recipe export cache
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            demos/recipes/__marimo__
-            .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/recipes/squidpy_svg.py', 'demos/data/ileum.h5ad', 'uv.lock') }}
-          restore-keys: |
-            recipe-studio-
-
       - name: Assemble landing + docs
         env:
           CF_BEACON_TOKEN: ${{ vars.CF_BEACON_TOKEN }}
+          MILUME_RECIPE_EXPORT_READY: "1"
         run: uv run bash website/scripts/assemble-pages.sh
 
       - name: Check links in built site
@@ -99,15 +109,6 @@ jobs:
       - name: Hero WebGL Playwright
         if: github.event_name == 'pull_request'
         run: cd frontend && npx playwright test --config=playwright.website.config.ts
-
-      - name: Save marimo recipe export cache
-        if: github.ref == 'refs/heads/main'
-        uses: actions/cache/save@v4
-        with:
-          path: |
-            demos/recipes/__marimo__
-            .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/recipes/squidpy_svg.py', 'demos/data/ileum.h5ad', 'uv.lock') }}
 
       # Replaces the site root and leaves pr/ and dashboard/ on the branch.
       - name: Publish site to gh-pages
