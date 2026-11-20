@@ -2,14 +2,14 @@ import { useEffect } from "react";
 
 const ACTIVE = "[aria-pressed='true'], [data-state='on'], [aria-checked='true'], .landmarks-hit--on";
 const MARK_W = 14;
+const MARK_H = 2;
 
 type MarkState = { x: number; v: number; node: HTMLSpanElement };
 
 /**
- * One short ink line per active toolbar item. A new active item springs
- * from the item it replaced. Top and side toolbars draw the line under the
- * item. A toolbar in the lower part of the widget draws it over the item,
- * on the edge that faces the canvas.
+ * One ink line per active toolbar item. A new active item springs from the
+ * item it replaced. The main bars keep a short line on the edge that faces
+ * the canvas. A popup bar draws a full-width line on the bottom of the button.
  */
 export function ToolbarMarks({ root }: { root: HTMLElement | null }) {
   useEffect(() => {
@@ -63,16 +63,26 @@ function actives(bar: HTMLElement, host: HTMLElement): HTMLElement[] {
   });
 }
 
-function centerX(bar: HTMLElement, el: HTMLElement): number {
-  const barBox = bar.getBoundingClientRect();
-  const box = el.getBoundingClientRect();
-  return box.left - barBox.left + box.width / 2 - MARK_W / 2;
+function popupBar(bar: HTMLElement): boolean {
+  return bar.classList.contains("landmarks-toolbar--popup");
 }
 
-function edgeY(bar: HTMLElement, el: HTMLElement, edge: "over" | "under"): number {
+/** Primary bars keep the short mark. Popup bars use the button's full width on its bottom edge. */
+function markBox(bar: HTMLElement, el: HTMLElement, edge: "over" | "under"): { x: number; y: number; w: number } {
   const barBox = bar.getBoundingClientRect();
   const box = el.getBoundingClientRect();
-  return edge === "over" ? box.top - barBox.top - 2 : box.bottom - barBox.top;
+  if (popupBar(bar)) {
+    return {
+      x: box.left - barBox.left,
+      y: box.bottom - barBox.top - MARK_H,
+      w: box.width,
+    };
+  }
+  return {
+    x: box.left - barBox.left + box.width / 2 - MARK_W / 2,
+    y: edge === "over" ? box.top - barBox.top - MARK_H : box.bottom - barBox.top,
+    w: MARK_W,
+  };
 }
 
 function runMarks(bar: HTMLElement, host: HTMLElement): () => void {
@@ -97,7 +107,7 @@ function runMarks(bar: HTMLElement, host: HTMLElement): () => void {
     const dt = last === 0 ? 0.016 : Math.min(0.032, (now - last) / 1000);
     last = now;
     const reduce = motion.matches;
-    const edge = edgeOf(bar);
+    const edge = popupBar(bar) ? "under" : edgeOf(bar);
     host.dataset.edge = edge;
     const next = actives(bar, host);
     const nextSet = new Set(next);
@@ -105,7 +115,7 @@ function runMarks(bar: HTMLElement, host: HTMLElement): () => void {
 
     for (const el of next) {
       if (states.has(el)) continue;
-      const target = centerX(bar, el);
+      const target = markBox(bar, el, edge).x;
       let from = target;
       if (!reduce && leaving.length) {
         let best = 0;
@@ -137,7 +147,8 @@ function runMarks(bar: HTMLElement, host: HTMLElement): () => void {
     for (const el of next) {
       const state = states.get(el);
       if (!state) continue;
-      const target = centerX(bar, el);
+      const placed = markBox(bar, el, edge);
+      const target = placed.x;
       if (reduce || dt === 0) {
         state.x = target;
         state.v = 0;
@@ -154,7 +165,8 @@ function runMarks(bar: HTMLElement, host: HTMLElement): () => void {
         }
       }
       state.node.style.transform = `translateX(${state.x}px)`;
-      state.node.style.top = `${edgeY(bar, el, edge)}px`;
+      state.node.style.top = `${placed.y}px`;
+      state.node.style.width = `${placed.w}px`;
     }
 
     if (moving) raf = requestAnimationFrame(frame);

@@ -439,7 +439,22 @@ test.describe("LandmarksWidget", () => {
 
     await page.getByTestId("context-buffer-toggle").click();
     await expect(page.getByTestId("context-buffer-panel")).toBeVisible();
-    await page.getByTestId("context-buffer-both").click();
+    const both = page.getByTestId("context-buffer-both");
+    await expect(both).toHaveAttribute("aria-pressed", "true");
+    await expect
+      .poll(async () =>
+        page.evaluate(() => {
+          const btn = document.querySelector("[data-testid='context-buffer-both']");
+          const mark = document.querySelector("[data-testid='context-l2-anchor'] .tact-toolbar-mark");
+          if (!(btn instanceof HTMLElement) || !(mark instanceof HTMLElement)) return false;
+          const bb = btn.getBoundingClientRect();
+          const mb = mark.getBoundingClientRect();
+          return Math.abs(mb.width - bb.width) < 1.5 && Math.abs(mb.bottom - bb.bottom) < 1.5 && Math.abs(mb.left - bb.left) < 1.5;
+        }),
+      )
+      .toBe(true);
+    await shot(page, "context-buffer-both", page.getByTestId("context-l2-anchor"));
+    await both.click();
     await expect.poll(async () => (await first()).buffer_side).toBe("right");
   });
 

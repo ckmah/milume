@@ -122,7 +122,7 @@ export function PseudospaceMap({ scene, ordered, field, probeCell = null, onPick
         ctx.font = "11px IBM Plex Mono, ui-monospace, monospace";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(String(i + 1), sx, sy + 0.5);
+        ctx.fillText(String(i), sx, sy + 0.5);
       });
 
       if (probeCell != null) {
