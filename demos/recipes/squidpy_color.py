@@ -42,6 +42,7 @@ def run_on_server_tip(mo):
 
 @app.cell
 def load_adata(ml):
+    # Your data: sc.read_h5ad("slice.h5ad")  # needs obsm["spatial"] and a cell-type column.
     adata = ml.ds.ileum_merfish_xu2026()
     return (adata,)
 
@@ -111,6 +112,7 @@ def intro(LEIDEN_RES, N_NEIGHBORS, NICHE_KS, adata, mo, niche_levels):
 
 @app.cell
 def galt_region():
+    # Tight convex hull per annotated GALT patch (DBSCAN clusters), no extra buffer (slice coordinates).
     GALT_POLYGONS = {
         "GALT 1": [
             (-3620.2, -125.98),
