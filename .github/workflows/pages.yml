@@ -65,7 +65,7 @@ jobs:
           path: |
             demos/recipes/__marimo__
             .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/data/ileum.h5ad', 'uv.lock') }}
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/recipes/squidpy_svg.py', 'demos/data/ileum.h5ad', 'uv.lock') }}
           restore-keys: |
             recipe-studio-
 
@@ -107,7 +107,7 @@ jobs:
           path: |
             demos/recipes/__marimo__
             .cache/marimo-export-recipes
-          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/data/ileum.h5ad', 'uv.lock') }}
+          key: recipe-studio-${{ hashFiles('demos/recipes/squidpy_color.py', 'demos/recipes/squidpy_svg.py', 'demos/data/ileum.h5ad', 'uv.lock') }}
 
       # Replaces the site root and leaves pr/ and dashboard/ on the branch.
       - name: Publish site to gh-pages

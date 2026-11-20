@@ -12,3 +12,12 @@ Color Landmarks from Squidpy neighborhood niches on a masked selection, then ass
 | --- | --- |
 | Docs (prepared studio view) | [Squidpy niche color](squidpy_color/) |
 | molab (live kernel) | [squidpy_color.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py) |
+
+## Gene pattern or cell layout
+
+One Moran's I, asked three ways. All cells, leftover expression after each cell's own type and its neighbors' types, and one cell type.
+
+| | Link |
+| --- | --- |
+| Docs (prepared studio view) | [Gene pattern or cell layout](squidpy_svg/) |
+| molab (live kernel) | [squidpy_svg.py](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_svg.py) |
