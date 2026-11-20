@@ -5,10 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,6 +16,30 @@ COMMITTED = ROOT / "demos" / "recipes" / "squidpy_color" / "numbers.json"
 
 def _load_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _generate_numbers() -> dict:
+    sys.path.insert(0, str(ROOT))
+    import milume as ml
+
+    from demos.recipes.squidpy_color_numbers import (
+        DEFAULT_NICHE_COLOR,
+        run_recipe_niches,
+        rendered_numbers,
+    )
+
+    ileum = ROOT / "demos" / "data" / "ileum.h5ad"
+    adata = ml.ds.ileum_merfish_xu2026(path=ileum if ileum.is_file() else None)
+    run_recipe_niches(adata)
+    payload = rendered_numbers(adata)
+    for k in payload["niche_ks"]:
+        col = f"niche_k{k}"
+        n_levels = int(adata.obs[col].nunique())
+        if n_levels > 128:
+            raise SystemExit(f"{col} has {n_levels} levels; widget cap is 128")
+    if DEFAULT_NICHE_COLOR not in adata.obs:
+        raise SystemExit(f"missing default color column {DEFAULT_NICHE_COLOR!r}")
+    return payload
 
 
 def main() -> int:
@@ -33,19 +55,9 @@ def main() -> int:
         print(f"missing recipe {RECIPE}", file=sys.stderr)
         return 1
 
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        suffix=".json",
-        delete=False,
-        encoding="utf-8",
-    ) as tmp:
-        tmp_path = Path(tmp.name)
-
-    env = {**os.environ, "MILUME_RECIPE_NUMBERS_OUT": str(tmp_path), "MILUME_RECIPE_WRITE_NUMBERS": "1"}
     proc = subprocess.run(
         [sys.executable, str(RECIPE)],
         cwd=ROOT,
-        env=env,
         capture_output=True,
         text=True,
     )
@@ -54,12 +66,7 @@ def main() -> int:
         print(proc.stderr, file=sys.stderr)
         return proc.returncode or 1
 
-    if not tmp_path.is_file():
-        print("verify-squidpy-color: no numbers file was written", file=sys.stderr)
-        return 1
-
-    generated = _load_json(tmp_path)
-    tmp_path.unlink(missing_ok=True)
+    generated = _generate_numbers()
 
     if args.regen:
         print(json.dumps(generated, indent=2, sort_keys=True))

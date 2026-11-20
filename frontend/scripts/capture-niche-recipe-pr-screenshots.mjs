@@ -15,8 +15,8 @@ const viewport = { width: 1280, height: 800 };
 const outputs = [
   `${outDir}/01-intro-and-squidpy-cell.png`,
   `${outDir}/02-niche-sweep-cell.png`,
-  `${outDir}/03-widget-default-niche-k30-res0.3.png`,
-  `${outDir}/04-widget-niche-k8-res0.3-column.png`,
+  `${outDir}/03-widget-default-niche-k50.png`,
+  `${outDir}/04-widget-niche-k30-column.png`,
   `${outDir}/05-galt-follicle-selection-focused.png`,
   `${outDir}/06-composition-and-molab-link.png`,
   `${outDir}/07-full-page-static-chrome.png`,
@@ -142,19 +142,19 @@ await page.evaluate(() => {
     .find((b) => b.textContent?.trim() === "cat")
     ?.click();
   const row = [...(root?.querySelectorAll("button") ?? [])].find((b) =>
-    b.textContent?.includes("niche_k8_res0.3"),
+    b.textContent?.includes("niche_k30"),
   );
   row?.click();
-  window.__landmarksModel.set("color", "niche_k8_res0.3");
-  window.__landmarksModel.set("active_category", "niche_k8_res0.3");
+  window.__landmarksModel.set("color", "niche_k30");
+  window.__landmarksModel.set("active_category", "niche_k30");
   window.__landmarksModel.set("selected_kind", "selection");
   window.__landmarksModel.set("selected_index", 0);
   window.__landmarksModel.save_changes();
 });
 await page.waitForFunction(
   () =>
-    window.__landmarksModel?.get?.("color") === "niche_k8_res0.3" &&
-    window.__landmarksModel?.get?.("active_category") === "niche_k8_res0.3" &&
+    window.__landmarksModel?.get?.("color") === "niche_k30" &&
+    window.__landmarksModel?.get?.("active_category") === "niche_k30" &&
     window.__landmarksModel?.get?.("selected_kind") === "selection" &&
     window.__landmarksModel?.get?.("selected_index") === 0,
   { timeout: 15_000 },

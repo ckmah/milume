@@ -13,20 +13,15 @@
 # default = "docs"
 # runtimes = ["server", "zero-python"]
 # ///
-"""Squidpy neighborhood niche recipe for docs (marimo-studio zero-python export)."""
 
 import marimo
 
-__generated_with = "0.25.1"
+__generated_with = "0.25.2"
 app = marimo.App(width="medium")
 
 
-@app.cell(hide_code=True)
-def recipe_config():
-    import importlib
-    import sys
-    from pathlib import Path
-
+@app.cell
+def imports():
     import marimo as mo
     import matplotlib.pyplot as plt
     import milume as ml
@@ -34,296 +29,307 @@ def recipe_config():
     import pandas as pd
     import squidpy as sq
 
-    _PKG_ROOT = Path(ml.__file__).resolve().parent
-    _REPO_ROOT = _PKG_ROOT.parent
-    _numbers_path = _REPO_ROOT / "demos" / "recipes" / "squidpy_color_numbers.py"
-    if not _numbers_path.is_file():
-        raise FileNotFoundError(f"missing {_numbers_path}")
-    _num_spec = importlib.util.spec_from_file_location("squidpy_color_numbers", _numbers_path)
-    if _num_spec is None or _num_spec.loader is None:
-        raise ImportError(f"cannot load {_numbers_path}")
-    _nums = importlib.util.module_from_spec(_num_spec)
-    sys.modules[_num_spec.name] = _nums
-    _num_spec.loader.exec_module(_nums)
-    NICHE_KS = _nums.NICHE_KS
-    NICHE_RESOLUTIONS = _nums.NICHE_RESOLUTIONS
-    DEFAULT_NICHE_COLOR = _nums.DEFAULT_NICHE_COLOR
-    NICHE_N_NEIGHBORS = _nums.NICHE_N_NEIGHBORS
-    NICHE_RNG = _nums.NICHE_RNG
-    write_recipe_numbers = _nums.write_numbers
-    RECIPE_DATA_DIR = _REPO_ROOT / "demos" / "data"
-    NICHE_CACHE_PATH = RECIPE_DATA_DIR / "ileum_niche_recipe_niches.parquet"
-    ILEUM_H5AD = RECIPE_DATA_DIR / "ileum.h5ad"
-    _science_path = _REPO_ROOT / "scripts" / "ileum_niche_recipe_science.py"
-    if not _science_path.is_file():
-        raise FileNotFoundError(f"missing {_science_path}")
-    _spec = importlib.util.spec_from_file_location("ileum_niche_recipe_science_cfg", _science_path)
-    if _spec is None or _spec.loader is None:
-        raise ImportError(f"cannot load {_science_path}")
-    _science_mod = importlib.util.module_from_spec(_spec)
-    sys.modules[_spec.name] = _science_mod
-    _spec.loader.exec_module(_science_mod)
-    _niche_neighborhood = _science_mod._niche_neighborhood
-    return (
-        DEFAULT_NICHE_COLOR,
-        NICHE_KS,
-        NICHE_N_NEIGHBORS,
-        NICHE_RESOLUTIONS,
-        NICHE_RNG,
-        Path,
-        write_recipe_numbers,
-        ILEUM_H5AD,
-        NICHE_CACHE_PATH,
-        RECIPE_DATA_DIR,
-        _REPO_ROOT,
-        _niche_neighborhood,
-        importlib,
-        ml,
-        mo,
-        np,
-        pd,
-        plt,
-        sq,
-        sys,
-    )
+    return ml, mo, np, pd, plt, sq
 
 
 @app.cell(hide_code=True)
 def run_on_server_tip(mo):
-    mo.md(
-        r"""
-        > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook. After the server connects, click **Run all** (the ▶ button at the bottom right) to run the notebook.
-        """
-    )
-    return
-
-
-@app.cell(hide_code=True)
-def load_adata(
-    Path,
-    ILEUM_H5AD,
-    NICHE_CACHE_PATH,
-    RECIPE_DATA_DIR,
-    _REPO_ROOT,
-    ml,
-    NICHE_KS,
-    NICHE_RESOLUTIONS,
-    pd,
-):
-    ileum = ILEUM_H5AD if ILEUM_H5AD.is_file() else Path("demos/data/ileum.h5ad")
-    if not ileum.is_file():
-        raise FileNotFoundError(
-            f"ileum tier missing: tried {ILEUM_H5AD} and demos/data/ileum.h5ad (cwd={Path.cwd()})"
-        )
-    adata = ml.ds.ileum_merfish_xu2026(path=ileum)
-    cache = NICHE_CACHE_PATH if NICHE_CACHE_PATH.is_file() else RECIPE_DATA_DIR / "ileum_niche_recipe_niches.parquet"
-    if not cache.is_file():
-        cache = Path("demos/data/ileum_niche_recipe_niches.parquet")
-    expected = [f"niche_k{k}_res{r}" for k in NICHE_KS for r in NICHE_RESOLUTIONS]
-    if not cache.is_file():
-        raise FileNotFoundError(f"niche cache missing: tried {NICHE_CACHE_PATH} and {cache}")
-    cached = pd.read_parquet(cache)
-    for col in expected:
-        adata.obs[col] = cached[col].astype("category")
-    return adata, cache, expected
-
-
-@app.cell(hide_code=True)
-def recipe_intro(
-    DEFAULT_NICHE_COLOR,
-    NICHE_KS,
-    NICHE_RESOLUTIONS,
-    adata,
-    cache,
-    importlib,
-    mo,
-    sys,
-):
-    _repo_root = cache.resolve().parent.parent.parent
-    _science_path = _repo_root / "scripts" / "ileum_niche_recipe_science.py"
-    if not _science_path.is_file():
-        raise FileNotFoundError(f"missing {_science_path} (from cache {cache})")
-    _spec = importlib.util.spec_from_file_location("ileum_niche_recipe_science", _science_path)
-    if _spec is None or _spec.loader is None:
-        raise ImportError(f"cannot load {_science_path}")
-    _mod = importlib.util.module_from_spec(_spec)
-    sys.modules[_spec.name] = _mod
-    _spec.loader.exec_module(_mod)
-    _resolution = NICHE_RESOLUTIONS[0]
-    mo.md(
-        f"{_mod.format_intro_markdown(_mod.page_contrast_stats(adata), default_niche_color=DEFAULT_NICHE_COLOR, niche_ks=NICHE_KS, resolution=_resolution)}"
-    )
-    return
-
-
-@app.cell(hide_code=True)
-def niche_sweep_method(NICHE_KS, NICHE_N_NEIGHBORS, NICHE_RESOLUTIONS, NICHE_RNG, mo):
-    _k_lo, _k_hi = NICHE_KS
-    _resolution = NICHE_RESOLUTIONS[0]
-    mo.md(
-        f"""
-        ## Niche sweep (Squidpy)
-
-        The loop below writes one `niche_k{{k}}_res{_resolution}` column per neighborhood size `k`
-        (**{_k_lo}** and **{_k_hi}**) at fixed Leiden resolution **{_resolution}**. On this static page the
-        columns are **precomputed**; in molab, re-run the cell after you change the cache
-        path or delete the parquet file.
-
-        ```python
-        for k in NICHE_KS:
-            sq.gr.spatial_neighbors(adata, coord_type="generic", n_neighs=k)
-            _niche_neighborhood(
-                adata,
-                groups="cell_type",
-                scale=False,
-                n_neighbors={NICHE_N_NEIGHBORS},
-                resolutions=list(NICHE_RESOLUTIONS),
-                rng={NICHE_RNG},
-            )
-            adata.obs[f"niche_k{{k}}_res{_resolution}"] = adata.obs["nhood_niche_res={_resolution}"].astype(str)
-        ```
-        """
-    )
+    mo.md(r"""
+    > **molab:** Switch from **Preview** to **Run on Server** so this notebook runs properly. The widget needs a live kernel to download data and render; Preview alone will not run this notebook. After the server connects, click **Run all** (the ▶ button at the bottom right) to run the notebook.
+    """)
     return
 
 
 @app.cell
-def niche_sweep(
-    NICHE_KS,
-    NICHE_N_NEIGHBORS,
-    NICHE_RESOLUTIONS,
-    NICHE_RNG,
-    _niche_neighborhood,
-    adata,
-    cache,
-    expected,
-    pd,
-    sq,
-):
-    if not all(col in adata.obs for col in expected):
-        frames = {}
-        for k in NICHE_KS:
-            sq.gr.spatial_neighbors(adata, coord_type="generic", n_neighs=k)
-            _niche_neighborhood(
-                adata,
-                groups="cell_type",
-                scale=False,
-                n_neighbors=NICHE_N_NEIGHBORS,
-                resolutions=list(NICHE_RESOLUTIONS),
-                rng=NICHE_RNG,
-            )
-            for r in NICHE_RESOLUTIONS:
-                src = f"nhood_niche_res={r}"
-                dst = f"niche_k{k}_res{r}"
-                adata.obs[dst] = adata.obs[src].astype(str).astype("category")
-                frames[dst] = adata.obs[dst]
-        cache.parent.mkdir(parents=True, exist_ok=True)
-        pd.DataFrame(frames, index=adata.obs_names).to_parquet(cache)
-    return
+def load_adata(ml):
+    # Your data: sc.read_h5ad("slice.h5ad")  # needs obsm["spatial"] and a cell-type column.
+    adata = ml.ds.ileum_merfish_xu2026()
+    return (adata,)
 
 
 @app.cell
-def landmark_map(
-    DEFAULT_NICHE_COLOR,
-    adata,
-    cache,
-    expected,
-    importlib,
-    ml,
-    mo,
-    sys,
-    write_recipe_numbers,
-):
-    import os
-    from pathlib import Path as _Path
-    _repo_root = cache.resolve().parent.parent.parent
-    _science_path = _repo_root / "scripts" / "ileum_niche_recipe_science.py"
-    if not _science_path.is_file():
-        raise FileNotFoundError(f"missing {_science_path} (from cache {cache})")
-    _spec = importlib.util.spec_from_file_location("ileum_niche_recipe_science_landmark", _science_path)
-    if _spec is None or _spec.loader is None:
-        raise ImportError(f"cannot load {_science_path}")
-    _mod = importlib.util.module_from_spec(_spec)
-    sys.modules[_spec.name] = _mod
-    _spec.loader.exec_module(_mod)
-    galt_lasso_vertices = _mod.GALT_FOLLICLE_LASSO_VERTICES
-    galt_point_indices = list(_mod.GALT_FOLLICLE_POINT_INDICES)
-
-    adata_map = adata.copy()
-    adata_map.obs = adata_map.obs[["cell_type", *expected]].copy()
-
-    w = mo.ui.anywidget(
-        ml.peek(
-            adata_map,
-            color=DEFAULT_NICHE_COLOR,
-        )
-    )
-    w.selections = [
-        {
-            "id": "galt-follicle",
-            "type": "polygon",
-            "vertices": galt_lasso_vertices,
-            "point_indices": galt_point_indices,
-        }
-    ]
-    meta_mode = mo.app_meta().mode
-    if os.environ.get("MILUME_RECIPE_WRITE_NUMBERS", "").lower() in ("1", "true", "yes") or meta_mode == "script":
-        out = _Path(
-            os.environ.get(
-                "MILUME_RECIPE_NUMBERS_OUT",
-                str(cache.resolve().parent.parent / "recipes" / "squidpy_color" / "numbers.json"),
-            )
-        )
-        write_recipe_numbers(
+def niche_sweep(adata, sq):
+    LEIDEN_RES = 0.3
+    NICHE_KS = (8, 16, 64)
+    N_NEIGHBORS = 15
+    NICHE_RNG = 0
+    niche_levels = {}
+    for k in NICHE_KS:
+        sq.gr.spatial_neighbors_knn(adata, n_neighs=k)
+        sq.gr.calculate_niche_neighborhood(
             adata,
-            color=w.color,
-            selection_count=len(w.selections or []),
-            path=out,
+            groups="cell_type",
+            scale=False,
+            n_neighbors=N_NEIGHBORS,
+            resolutions=LEIDEN_RES,
+            rng=NICHE_RNG,
         )
+        col = f"niche_k{k}"
+        adata.obs[col] = adata.obs[f"nhood_niche_res={LEIDEN_RES}"].astype(str).astype("category")
+        niche_levels[col] = int(adata.obs[col].nunique())
+    adata_map = adata.copy()
+    return LEIDEN_RES, N_NEIGHBORS, NICHE_KS, adata_map, niche_levels
+
+
+@app.cell(hide_code=True)
+def intro(LEIDEN_RES, N_NEIGHBORS, NICHE_KS, adata, mo, niche_levels):
+    DOI_XU = "10.1016/j.chom.2026.01.018"
+    DOI_SQUIDPY = "10.1038/s41592-021-01346-7"
+    DOI_LIU = "10.1038/s41588-026-02813-6"
+    k_lo, k_mid, k_hi = NICHE_KS
+    n_lo = niche_levels[f"niche_k{k_lo}"]
+    n_mid = niche_levels[f"niche_k{k_mid}"]
+    n_hi = niche_levels[f"niche_k{k_hi}"]
+    mo.md(f"""
+    # Does gut lymphoid tissue sit in its own spatial domain?
+
+    **Gut-associated lymphoid tissue (GALT)** aggregates immune and stromal cells into compact follicles
+    that look unlike the surrounding **lamina propria** on a tissue section. If local neighborhoods carry biology,
+    GALT patches should separate from villus epithelium on a map of cell-type context—not only on a manual layer label.
+
+    We use one ileum slice from [Xu et al., 2026](https://doi.org/{DOI_XU}) (MERFISH, **{adata.n_obs:,}** cells).
+
+    [`calculate_niche_neighborhood`](https://squidpy.readthedocs.io/en/stable/api/squidpy.gr.calculate_niche_neighborhood.html)
+    ([Palla et al., 2021](https://doi.org/{DOI_SQUIDPY})) builds a spatial graph, summarizes the **cell-type mix**
+    around each cell, and clusters those summaries with Leiden—like grouping street blocks by who lives next door,
+    not by a single landmark. Following [Liu and Li, 2026](https://doi.org/{DOI_LIU}), we call those computed regional
+    clusters **spatial domains** in the text below (column names stay `niche_k*`).
+
+    We sweep **k** in **`{k_lo}`**, **`{k_mid}`**, and **`{k_hi}`** nearest neighbors so you can compare tight crypt-scale
+    domains to villus-scale smoothing. Leiden resolution **`{LEIDEN_RES:g}`** with **`n_neighbors={N_NEIGHBORS}`** keeps
+    **`niche_k{k_lo}`** at **{n_lo}** domains, **`niche_k{k_mid}`** at **{n_mid}**, and **`niche_k{k_hi}`** at **{n_hi}** on this slice.
+
+    Open the map, color by **`niche_k{k_hi}`**, then try **`niche_k{k_lo}`**. The default composition plot uses three polygons,
+    one per **GALT** patch on this section; draw your own lassos to compare other regions.
+
+    **Caveat:** a different **k** or **`{LEIDEN_RES:g}`** resolution can split one anatomical region across several domain IDs.
+    If labels look too fragmented, raise **k** or lower the resolution; if GALT melts into the lamina propria, lower **k**.
+
+    [![Open in molab](https://marimo.io/molab-shield.svg)](https://molab.marimo.io/github/ckmah/milume/blob/main/demos/recipes/squidpy_color.py)
+    """)
+    return
+
+
+@app.cell
+def galt_region():
+    # Tight convex hull per annotated GALT patch (DBSCAN clusters), no extra buffer (slice coordinates).
+    GALT_POLYGONS = {
+        "GALT 1": [
+            (-3620.2, -125.98),
+            (-3658.26, -112.54),
+            (-3665.09, -107.44),
+            (-3676.25, -98.46),
+            (-3678.73, -73.95),
+            (-3677.66, -65.59),
+            (-3673.17, -51.78),
+            (-3665.27, -39.7),
+            (-3631.05, -31.14),
+            (-3621.88, -35.79),
+            (-3604.15, -47.5),
+            (-3589.1, -65.9),
+            (-3585.17, -73.5),
+            (-3613.72, -121.79),
+        ],
+        "GALT 2": [
+            (-3976.01, 1246.48),
+            (-3989.17, 1253.08),
+            (-4009.53, 1273.14),
+            (-4011.83, 1279.79),
+            (-4012.99, 1290.28),
+            (-3992.68, 1334.9),
+            (-3977.11, 1344.07),
+            (-3950.67, 1356.98),
+            (-3926.86, 1346.42),
+            (-3894.02, 1330.06),
+            (-3889.96, 1319.42),
+            (-3898.3, 1283.95),
+            (-3905.74, 1270.34),
+            (-3944.06, 1256.34),
+            (-3969.55, 1247.26),
+        ],
+        "GALT 3": [
+            (-3034.12, 1667.94),
+            (-3039.64, 1668.04),
+            (-3055.85, 1676.73),
+            (-3058.78, 1691.55),
+            (-3057.83, 1698.77),
+            (-3054.59, 1715.1),
+            (-3027.98, 1747.03),
+            (-2993.24, 1750.69),
+            (-2983.99, 1747.98),
+            (-2964.16, 1723.35),
+            (-2961.4, 1715.74),
+            (-2969.14, 1697.16),
+            (-3000.04, 1679.67),
+        ],
+    }
+    return (GALT_POLYGONS,)
+
+
+@app.cell
+def landmark_map(GALT_POLYGONS, adata_map, ml, mo):
+    MAP_OBS_EVERY = 8
+    adata_peek = adata_map[::MAP_OBS_EVERY].copy()
+    w = mo.ui.anywidget(ml.peek(adata_peek, color="niche_k64"))
+    if not list(w.selections or []):
+        w.selections = [
+            {
+                "id": f"galt-{i}",
+                "name": label,
+                "type": "polygon",
+                "vertices": [list(v) for v in verts],
+            }
+            for i, (label, verts) in enumerate(GALT_POLYGONS.items(), start=1)
+        ]
     w
     return (w,)
 
 
-@app.cell(hide_code=True)
-def molab_rerun_tip(DEFAULT_NICHE_COLOR, NICHE_KS, mo):
-    _k_hi = NICHE_KS[-1]
-    mo.md(
-        f"""
-        > **molab:** Re-run **`landmark_map`** and the composition cell after you change
-        > the categorical column or draw a new lasso. The static export keeps the default
-        > **`{DEFAULT_NICHE_COLOR}`** column, full-slice fit, and the compact GALT selection
-        > available without focusing it (use the layers list to focus it for a follicle
-        > crop on the orange k{_k_hi} blob).
-        """
-    )
-    return
-
-
 @app.cell
-def niche_composition(adata, np, pd, plt, w):
-    niche_col = w.color
-    sel_ids = [s["id"] for s in w.selections]
-    obs_names = w.get_obs_names(sel_ids[0]) if sel_ids else adata.obs_names
-    sub = adata.obs.loc[obs_names, ["cell_type", niche_col]]
-    ct = pd.crosstab(sub[niche_col], sub["cell_type"])
-    ct = ct.loc[ct.sum(axis=1).sort_values(ascending=False).index]
-    top_types = ct.sum(axis=0).sort_values(ascending=False).head(12).index
-    ct = ct[top_types]
-    fig, ax = plt.subplots(figsize=(7.5, max(2.0, 0.35 * len(ct))))
-    left = np.zeros(len(ct))
-    colors = plt.cm.tab20(np.linspace(0, 1, len(top_types)))
-    y = np.arange(len(ct))
-    for idx, cell_type in enumerate(top_types):
-        vals = ct[cell_type].to_numpy()
-        ax.barh(y, vals, left=left, label=cell_type, color=colors[idx])
-        left = left + vals
-    ax.set_yticks(y)
-    ax.set_yticklabels([f"niche {idx}" for idx in ct.index.astype(str)])
-    ax.set_xlabel("cells in selection")
-    ax.set_title(f"Cell-type mix per niche ({niche_col}, selection={sel_ids[0] if sel_ids else 'all'})")
-    ax.legend(bbox_to_anchor=(1.02, 1), loc="upper left", fontsize=8)
-    fig.tight_layout()
-    fig
+def niche_composition(GALT_POLYGONS, adata_map, mo, np, pd, plt, w):
+    _niche_col = w.color
+    selections = list(w.selections or [])
+
+    def _regions():
+        _default_galt_ids = {"galt-1", "galt-2", "galt-3"}
+        _sel_ids = {str(s["id"]) for s in selections}
+        if selections and not _sel_ids.issubset(_default_galt_ids):
+            return [
+                (str(s.get("name") or s["id"]), w.get_obs_names(str(s["id"])))
+                for s in selections
+            ]
+        from matplotlib.path import Path as MplPath
+
+        _xy = np.asarray(adata_map.obsm["spatial"][:, :2], dtype=float)
+        _regions = []
+        for _label, _verts in GALT_POLYGONS.items():
+            _mask = MplPath(_verts).contains_points(_xy)
+            _regions.append((_label, adata_map.obs_names[_mask]))
+        return _regions
+
+    def _composition_figure():
+        _regions_list = _regions()
+        _min_share = 0.01
+        _other = "Other"
+        _totals: dict[str, int] = {}
+        _shown: set[str] = set()
+        for _, _obs in _regions_list:
+            _counts = adata_map.obs.loc[_obs, "cell_type"].astype(str).value_counts()
+            _n = len(_obs)
+            for _ct, _n_ct in _counts.items():
+                _name = str(_ct)
+                _totals[_name] = _totals.get(_name, 0) + int(_n_ct)
+                if _n and int(_n_ct) / _n >= _min_share:
+                    _shown.add(_name)
+        shown_types = [
+            name
+            for name, _ in sorted(_totals.items(), key=lambda kv: kv[1], reverse=True)
+            if name in _shown
+        ]
+        _uns = getattr(adata_map, "uns", {}) or {}
+        _raw = _uns.get("cell_type_colors")
+        _cats = getattr(
+            getattr(adata_map.obs["cell_type"], "cat", None), "categories", None
+        )
+        _uns_colors = {}
+        if _raw is not None and _cats is not None:
+            _uns_colors = {
+                str(cat): str(_raw[i]) for i, cat in enumerate(_cats) if i < len(_raw)
+            }
+        _to_hex = plt.matplotlib.colors.to_hex
+        _pool = [
+            _to_hex(_cm(i)).lower()
+            for _cm in (plt.cm.tab20, plt.cm.tab20b, plt.cm.tab20c)
+            for i in range(_cm.N)
+        ]
+        _used = {"#9e9e9e"}
+        _fi = 0
+
+        def _fresh() -> str:
+            nonlocal _fi
+            while _fi < len(_pool) and _pool[_fi] in _used:
+                _fi += 1
+            if _fi < len(_pool):
+                _fi += 1
+                return _pool[_fi - 1]
+            _k = len(_used)
+            while True:
+                _color = _to_hex(plt.cm.hsv(_k / (len(shown_types) + 2))).lower()
+                _k += 1
+                if _color not in _used:
+                    return _color
+
+        _type_colors = {_other: "#9e9e9e"}
+        for name in shown_types:
+            _color = _to_hex(_uns_colors[name]).lower() if name in _uns_colors else ""
+            if not _color or _color in _used:
+                _color = _fresh()
+            _type_colors[name] = _color
+            _used.add(_color)
+
+        n_sel = len(_regions_list)
+        fig, axes = plt.subplots(
+            n_sel,
+            1,
+            figsize=(7.5, max(2.0, 2.2 * n_sel)),
+            squeeze=False,
+        )
+        for _ax, (_label, _obs) in zip(axes[:, 0], _regions_list):
+            _sub = adata_map.obs.loc[_obs, ["cell_type", _niche_col]].copy()
+            _sub["cell_type"] = _sub["cell_type"].astype(str)
+            _sub[_niche_col] = _sub[_niche_col].astype(str)
+            _sub["segment"] = np.where(
+                _sub["cell_type"].isin(shown_types), _sub["cell_type"], _other
+            )
+            _ct = pd.crosstab(_sub[_niche_col], _sub["segment"])
+            _ct = _ct.reindex(columns=[*shown_types, _other], fill_value=0)
+            _ct = _ct.loc[_ct.sum(axis=1).sort_values(ascending=False).index]
+            _got = _ct.sum(axis=1).to_numpy(dtype=int)
+            _domain_n = (
+                _sub.groupby(_niche_col)
+                .size()
+                .reindex(_ct.index)
+                .fillna(0)
+                .to_numpy(dtype=int)
+            )
+            if int(_got.sum()) != len(_obs) or not np.array_equal(_got, _domain_n):
+                raise RuntimeError(
+                    f"{_label} composition bars sum to {int(_got.sum())}, n={len(_obs)}"
+                )
+            _y = np.arange(len(_ct))
+            _left = np.zeros(len(_ct))
+            for _cell_type in _ct.columns:
+                _vals = _ct[_cell_type].to_numpy()
+                _ax.barh(_y, _vals, left=_left, color=_type_colors[_cell_type])
+                _left = _left + _vals
+            _ax.set_yticks(_y)
+            _ax.set_yticklabels(_ct.index.astype(str))
+            _ax.set_xlabel("cells")
+            _ax.set_title(f"{_label} — cell-type mix by {_niche_col} domain (n={len(_obs):,})")
+
+        handles = [
+            plt.matplotlib.patches.Patch(color=_type_colors[name], label=name)
+            for name in [*shown_types, _other]
+        ]
+        fig.legend(handles=handles, bbox_to_anchor=(1.02, 0.5), loc="center left", fontsize=8)
+        fig.suptitle("Cell-type composition within each spatial domain", y=1.01)
+        fig.tight_layout()
+        return fig
+
+    _composition_figure()
+
+
+@app.cell(hide_code=True)
+def takeaway(LEIDEN_RES, NICHE_KS, adata_map, mo, w):
+    _color = w.color
+    _domain_col = _color if _color in adata_map.obs else f"niche_k{NICHE_KS[-1]}"
+    _n_domains = int(adata_map.obs[_domain_col].nunique())
+    mo.md(f"""
+    On this slice, **`{_domain_col}`** resolves **{_n_domains}** spatial domains at Leiden resolution **{LEIDEN_RES:g}**.
+    If your regions and the three default **GALT** polygons share a dominant domain ID, Squidpy is picking up a repeatable cell-type context—not just border cells.
+
+    Try another **k** column and ask whether that agreement holds or whether lymphoid patches only separate at a shorter graph range.
+    """)
     return
 
 
