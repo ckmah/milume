@@ -50,6 +50,13 @@ cp -a "${WEBSITE}/landing/." "${OUT}/"
 uv run --directory "${ROOT}" python "${WEBSITE}/scripts/cf_beacon.py" --landing "${OUT}/index.html"
 touch "${OUT}/.nojekyll"
 
+# zensical build --clean deletes website/.cache, and the beacon tests below
+# run that before the docs build. Extract the stamped export first or the
+# stamp is gone by the time we skip the squidpy recompute.
+if [[ "${MILUME_RECIPE_EXPORT_READY:-}" == "1" ]]; then
+  MILUME_RECIPE_ROOT="${ROOT}" python3 "${ROOT}/scripts/recipe_export_cache.py" check
+fi
+
 uv run --directory "${ROOT}" python -m pytest \
   "${WEBSITE}/scripts/test_agent_md_format.py" \
   "${WEBSITE}/scripts/test_api_reference_codegen.py" \
@@ -62,7 +69,6 @@ uv run --directory "${ROOT}" python "${WEBSITE}/scripts/sync-api-docs.py"
 
 chmod +x "${WEBSITE}/scripts/export-recipes.sh"
 if [[ "${MILUME_RECIPE_EXPORT_READY:-}" == "1" ]]; then
-  uv run --directory "${ROOT}" python "${ROOT}/scripts/recipe_export_cache.py" check
   echo "export-recipes: skipped, recipe export reused (no squidpy recompute)"
 else
   uv run --directory "${ROOT}" bash "${WEBSITE}/scripts/export-recipes.sh" prepare-for-zensical
