@@ -1,6 +1,5 @@
 import { formatSliderReadout } from "./slider-readout";
 
-/** Layers diameter slider when a micrometre scale is known. */
 export const DIAMETER_UM_MIN = 1;
 export const DIAMETER_UM_MAX = 50;
 export const DIAMETER_UM_STEP = 0.5;
@@ -16,13 +15,11 @@ export type CellSizeControl = {
   toPointSize: (slider: number) => number;
 };
 
-/** Positive micrometres per data unit, or null when the map stays in raw units. */
 export function knownUmPerUnit(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null;
   return value;
 }
 
-/** Today's raw-unit slider span, from the tissue width. */
 export function pointSizeRange(
   bounds: number[] | undefined,
   pointSize: number,
@@ -34,10 +31,6 @@ export function pointSizeRange(
   return { min: Math.max(0.5, span * 0.005), max: Math.max(base * 4, span * 0.15) };
 }
 
-/**
- * Slider over dot diameter in µm, or over the raw radius when no scale is known.
- * `point_size` is always the radius in data units.
- */
 export function cellSizeControl(
   pointSize: number,
   umPerUnit: number | null,

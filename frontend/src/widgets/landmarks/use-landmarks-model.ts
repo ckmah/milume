@@ -126,11 +126,8 @@ export type LandmarksState = {
   _embedding_values: string;
   _embedding_channel_labels: string[];
   point_size: number;
-  /** False hides the cells. Independent of `point_size`. */
   _cells_visible: boolean;
-  /** Scatter alpha, 0 to 1. */
   _cells_opacity: number;
-  /** Micrometres per data unit, or null when size stays in raw units. */
   _um_per_unit: number | null;
   default_buffer_width: number;
   promote_buffer_tick: number;

@@ -1,5 +1,3 @@
-"""Micrometre scale for the Layers size slider (#473)."""
-
 from __future__ import annotations
 
 import numpy as np
@@ -26,7 +24,6 @@ def test_spatial_units_micrometer_is_one_um_per_unit():
     assert infer_um_per_unit(adata) == pytest.approx(1.0)
     w = LandmarksWidget(adata)
     assert w._um_per_unit == pytest.approx(1.0)
-    # Radius 0.4 * 10 µm spacing = 4 µm, diameter 8 µm, inside 1 to 50.
     assert w.point_size == pytest.approx(4.0)
 
 
@@ -35,18 +32,14 @@ def test_microns_per_pixel_scales_the_default_diameter():
     adata.uns["spatial"] = {"library": {"scalefactors": {"microns_per_pixel": 0.5}}}
     assert infer_um_per_unit(adata) == pytest.approx(0.5)
     w = LandmarksWidget(adata)
-    # Radius 4 px * 0.5 µm/px = 2 µm radius, diameter 4 µm.
     assert w._um_per_unit == pytest.approx(0.5)
     assert w.point_size == pytest.approx(4.0)
     assert 2.0 * w.point_size * w._um_per_unit == pytest.approx(4.0)
 
 
 def test_default_diameter_clamps_into_1_to_50_um():
-    # 0.4 * 2 = 0.8 µm radius, diameter 1.6, stays.
     assert _default_point_radius(0.8, 1.0) == pytest.approx(0.8)
-    # Huge spacing: diameter would be 80 µm, clamp to 50 (radius 25).
     assert _default_point_radius(40.0, 1.0) == pytest.approx(25.0)
-    # Tiny spacing: diameter 0.2 µm, clamp to 1 (radius 0.5).
     assert _default_point_radius(0.1, 1.0) == pytest.approx(0.5)
     assert _default_point_radius(4.0, None) == pytest.approx(4.0)
 

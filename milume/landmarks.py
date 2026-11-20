@@ -175,7 +175,6 @@ def _color_maps_from_uns(adata: Any) -> dict[str, dict[str, str]]:
 _NN_RADIUS_FRAC = 0.4
 # Default neighborhood radius cap as a fraction of spatial diagonal.
 _DEFAULT_RADIUS_MAX_FRAC = 0.05
-# Layers slider, when a micrometre scale is known: dot diameter, not radius.
 _DIAMETER_UM_MIN = 1.0
 _DIAMETER_UM_MAX = 50.0
 
@@ -290,10 +289,6 @@ def _spatial_metrics(
 
 
 def _default_point_radius(point_size: float, um_per_unit: float | None) -> float:
-    """Nearest-neighbor radius, clamped so the dot diameter sits in 1 to 50 µm.
-
-    ``point_size`` stays a radius in data units. With no scale the value is unchanged.
-    """
     if um_per_unit is None or not math.isfinite(um_per_unit) or um_per_unit <= 0:
         return float(point_size)
     diameter = 2.0 * float(point_size) * float(um_per_unit)
@@ -441,12 +436,9 @@ class LandmarksWidget(AnyWidget):
         traitlets.Float(), traitlets.Float(), default_value=(0.0, 1.0)
     ).tag(sync=True)
     points_data = traitlets.Unicode("").tag(sync=True)  # base64 float32 Nx4
-    # Radius in obsm x/y units. Visibility is ``_cells_visible``, not a sentinel radius.
     point_size = traitlets.Float(2.0).tag(sync=True)
     _cells_visible = traitlets.Bool(True).tag(sync=True)
-    # Multiplier on the scatter alpha. 0.8 matches the previous constant opacity.
     _cells_opacity = traitlets.Float(0.8).tag(sync=True)
-    # Micrometres per obsm unit, or None when the map should stay in raw units.
     _um_per_unit = traitlets.Float(allow_none=True, default_value=None).tag(sync=True)
     default_buffer_width = traitlets.Float(0.0).tag(sync=True)
     type_neighborhoods = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
