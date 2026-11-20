@@ -7,14 +7,14 @@ import { resetModeDropdownMemory } from "@/widgets/landmarks/chrome/mode-dropdow
 import { LandmarksView } from "@/widgets/landmarks/LandmarksView";
 
 import { loadFixtureModel } from "./mock-model";
-import { TransectMount, TransectSwitcher } from "./transect/TransectMount";
-import type { TransectOptionId } from "./transect/types";
+import { PseudospaceMount, PseudospaceSwitcher } from "./pseudospace/PseudospaceMount";
+import type { PseudospaceOptionId } from "./pseudospace/types";
 
 type HarnessTheme = "light" | "dark";
 
-function readTransectOption(): TransectOptionId | null {
+function readPseudospaceOption(): PseudospaceOptionId | null {
   if (typeof window === "undefined") return null;
-  const value = new URLSearchParams(window.location.search).get("transect");
+  const value = new URLSearchParams(window.location.search).get("pseudospace");
   if (value === "a" || value === "b" || value === "c") return value;
   return null;
 }
@@ -46,13 +46,13 @@ export function HarnessShell() {
   const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
   const [model, setModel] = useState<AnyModel | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [transect, setTransect] = useState<TransectOptionId | null>(() => readTransectOption());
+  const [pseudospace, setPseudospace] = useState<PseudospaceOptionId | null>(() => readPseudospaceOption());
 
-  const chooseTransect = (next: TransectOptionId) => {
+  const choosePseudospace = (next: PseudospaceOptionId) => {
     const url = new URL(window.location.href);
-    url.searchParams.set("transect", next);
+    url.searchParams.set("pseudospace", next);
     window.history.replaceState(null, "", url);
-    setTransect(next);
+    setPseudospace(next);
   };
 
   useEffect(() => {
@@ -114,7 +114,7 @@ export function HarnessShell() {
           >
             {theme === "dark" ? "Switch to light" : "Switch to dark"}
           </Button>
-          {transect ? <TransectSwitcher option={transect} onChange={chooseTransect} /> : null}
+          {pseudospace ? <PseudospaceSwitcher option={pseudospace} onChange={choosePseudospace} /> : null}
         </div>
       </div>
       <div className="harness-cell-output">
@@ -129,7 +129,7 @@ export function HarnessShell() {
                   hostEl={hostEl}
                   defaultHeight={devShellHeight()}
                 />
-                {transect ? <TransectMount model={model} option={transect} /> : null}
+                {pseudospace ? <PseudospaceMount model={model} option={pseudospace} /> : null}
               </>
             ) : (
               <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>
