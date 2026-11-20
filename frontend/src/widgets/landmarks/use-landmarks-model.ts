@@ -126,6 +126,9 @@ export type LandmarksState = {
   _embedding_values: string;
   _embedding_channel_labels: string[];
   point_size: number;
+  _cells_visible: boolean;
+  _cells_opacity: number;
+  _um_per_unit: number | null;
   default_buffer_width: number;
   promote_buffer_tick: number;
   show_rulers: boolean;
@@ -182,6 +185,9 @@ const MODEL_KEYS: (keyof LandmarksState)[] = [
   "_embedding_values",
   "_embedding_channel_labels",
   "point_size",
+  "_cells_visible",
+  "_cells_opacity",
+  "_um_per_unit",
   "default_buffer_width",
   "promote_buffer_tick",
   "show_rulers",
@@ -286,6 +292,8 @@ export type LandmarksModel = Omit<LandmarksState, "color"> & {
   setImageVisible(visible: boolean): void;
   setImageAlpha(alpha: number): void;
   setPointSize(size: number): void;
+  setCellsVisible(visible: boolean): void;
+  setCellsOpacity(opacity: number): void;
   patchImageChannel(
     name: string,
     patch: Partial<Pick<ImageChannelRow, "visible" | "contrast_limits">> & {
@@ -514,6 +522,14 @@ export function useLandmarksModel(model: AnyModel): LandmarksModel {
     },
     setPointSize(size) {
       model.set("point_size", size);
+      model.save_changes();
+    },
+    setCellsVisible(visible) {
+      model.set("_cells_visible", visible);
+      model.save_changes();
+    },
+    setCellsOpacity(opacity) {
+      model.set("_cells_opacity", Math.max(0, Math.min(1, opacity)));
       model.save_changes();
     },
     patchImageChannel(name, patch) {

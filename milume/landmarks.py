@@ -175,6 +175,8 @@ def _color_maps_from_uns(adata: Any) -> dict[str, dict[str, str]]:
 _NN_RADIUS_FRAC = 0.4
 # Default neighborhood radius cap as a fraction of spatial diagonal.
 _DEFAULT_RADIUS_MAX_FRAC = 0.05
+_DIAMETER_UM_MIN = 1.0
+_DIAMETER_UM_MAX = 50.0
 
 
 def _median_nn_distance(x_arr: "np.ndarray", y_arr: "np.ndarray") -> float | None:
@@ -286,6 +288,14 @@ def _spatial_metrics(
     )
 
 
+def _default_point_radius(point_size: float, um_per_unit: float | None) -> float:
+    if um_per_unit is None or not math.isfinite(um_per_unit) or um_per_unit <= 0:
+        return float(point_size)
+    diameter = 2.0 * float(point_size) * float(um_per_unit)
+    diameter = min(_DIAMETER_UM_MAX, max(_DIAMETER_UM_MIN, diameter))
+    return diameter / (2.0 * float(um_per_unit))
+
+
 _LANDMARKS_API_DOC = """\
 Parameters
 ----------
@@ -320,9 +330,16 @@ Notes
 -----
 The widget keeps a reference to ``adata`` (no ``obs.copy()``, no full-``X``
 densify at construct). Chrome follows the notebook cell width; height starts
-at 720px and is resizable. Marker radius comes from median nearest-neighbor
-distance. Neighbourhood expand runs in the browser from coordinates; no
-``obsp`` graphs are required.
+at 720px and is resizable. ``point_size`` is the marker radius in the same
+units as ``obsm`` x/y (not a visibility flag). It is seeded at 0.4 times the
+median nearest-neighbor distance. ``_cells_visible`` hides the dots and
+restores that same radius. When a micrometre scale is known (``_um_per_unit``,
+from a SpatialData coordinate system in micrometres, an AnnData
+``uns['spatial']`` scale factor, or ``uns['spatial_units']``), the Layers
+slider edits dot diameter from 1 to 50 µm and the seeded radius is clamped
+into that range. With no scale, ``point_size`` stays in raw coordinate units
+and the slider labels them px. Neighbourhood expand runs in the browser from
+coordinates; no ``obsp`` graphs are required.
 
 UI chrome (mode, neighbourhoods, raster controls) stays in the browser and
 is not part of the notebook API. Raster bins and probe scores are built
@@ -420,6 +437,9 @@ class LandmarksWidget(AnyWidget):
     ).tag(sync=True)
     points_data = traitlets.Unicode("").tag(sync=True)  # base64 float32 Nx4
     point_size = traitlets.Float(2.0).tag(sync=True)
+    _cells_visible = traitlets.Bool(True).tag(sync=True)
+    _cells_opacity = traitlets.Float(0.8).tag(sync=True)
+    _um_per_unit = traitlets.Float(allow_none=True, default_value=None).tag(sync=True)
     default_buffer_width = traitlets.Float(0.0).tag(sync=True)
     type_neighborhoods = traitlets.List(traitlets.Dict(), default_value=[]).tag(sync=True)
     _color_options = traitlets.Dict(default_value={}).tag(sync=True)
@@ -614,11 +634,15 @@ class LandmarksWidget(AnyWidget):
         xmin, xmax, ymin, ymax, point_size, buffer_width = _spatial_metrics(
             x_arr, y_arr
         )
-        from .spatial_units import default_raster_scales, infer_obsm_spatial_units
+        from .spatial_units import default_raster_scales, infer_obsm_spatial_units, infer_um_per_unit
 
         spatial_units = infer_obsm_spatial_units(
             adata, spatial_key=spatial_key, sdata=source_sdata
         )
+        um_per_unit = infer_um_per_unit(
+            adata, spatial_key=spatial_key, sdata=source_sdata
+        )
+        point_size = _default_point_radius(point_size, um_per_unit)
         raster_bin_size, raster_window_radius = default_raster_scales(
             x_arr, y_arr, units=spatial_units
         )
@@ -686,6 +710,9 @@ class LandmarksWidget(AnyWidget):
                 y_bounds=(ymin, ymax),
                 points_data=_encode_f32(points),
                 point_size=float(point_size),
+                _cells_visible=True,
+                _cells_opacity=0.8,
+                _um_per_unit=um_per_unit,
                 default_buffer_width=float(buffer_width),
                 _color_options=color_options,
                 _color_state=color_state,

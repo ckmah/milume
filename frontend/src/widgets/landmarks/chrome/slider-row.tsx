@@ -42,6 +42,8 @@ function SliderRow({
   onChange,
   className,
   testId,
+  disabled = false,
+  formatValue,
 }: {
   label: string;
   ariaLabel?: string;
@@ -55,13 +57,20 @@ function SliderRow({
   onChange: (value: number) => void;
   className?: string;
   testId?: string;
+  disabled?: boolean;
+  formatValue?: (value: number) => string;
 }) {
-  const readout = formatSliderReadout(value, step);
+  const readout = formatValue ? formatValue(value) : formatSliderReadout(value, step);
   const bipolar = min < 0 && max > 0;
   return (
     <div
-      className={cn("landmarks-slider-row min-w-0 flex-1", className)}
+      className={cn(
+        "landmarks-slider-row min-w-0 flex-1",
+        disabled && "landmarks-slider-row--disabled",
+        className,
+      )}
       data-testid={testId}
+      data-disabled={disabled ? "true" : undefined}
     >
       <div className="flex items-baseline justify-between gap-3">
         <SliderCaption text={label} hint={hint} />
@@ -80,8 +89,11 @@ function SliderRow({
           max={max}
           step={step}
           value={[value]}
+          disabled={disabled}
           fillFrom={bipolar ? 0 : undefined}
-          getAriaValueText={(next) => formatSliderReadout(next, step)}
+          getAriaValueText={(next) =>
+            formatValue ? formatValue(next) : formatSliderReadout(next, step)
+          }
           onValueChange={(next) => onChange(next[0] ?? value)}
         />
       </div>
@@ -261,6 +273,8 @@ export function TactSliderRow({
   children,
   lowLabel: _lowLabel,
   highLabel: _highLabel,
+  disabled = false,
+  formatValue,
 }: {
   caption?: React.ReactNode;
   value: number[];
@@ -276,6 +290,8 @@ export function TactSliderRow({
   children?: React.ReactNode;
   lowLabel?: string;
   highLabel?: string;
+  disabled?: boolean;
+  formatValue?: (value: number) => string;
 }) {
   if (value.length > 1) {
     const span = Math.max(max - min, 1e-9);
@@ -321,6 +337,8 @@ export function TactSliderRow({
         min={min}
         max={max}
         step={stride}
+        disabled={disabled}
+        formatValue={formatValue}
         onChange={(v) => {
           onValueChange([v]);
           onValueCommit?.([v]);

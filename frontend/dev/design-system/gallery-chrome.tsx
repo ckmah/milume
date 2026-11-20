@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { EyeIcon, LayersIcon, LassoIcon } from "lucide-react";
+import { EyeIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -324,7 +324,6 @@ export function ChromeSections() {
       <DsSection id="layers" title="Layers">
         <StateCell state="open">
           <PanelSectionHeader
-            icon={LayersIcon}
             label="Layers"
             count={3}
             open={layersOpen}
@@ -334,7 +333,6 @@ export function ChromeSections() {
         </StateCell>
         <StateCell state="closed">
           <PanelSectionHeader
-            icon={LayersIcon}
             label="Layers"
             count={0}
             open={false}
@@ -343,7 +341,6 @@ export function ChromeSections() {
         </StateCell>
         <StateCell state="active">
           <PanelSectionHeader
-            icon={LassoIcon}
             label="Selections"
             count={1}
             open

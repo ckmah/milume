@@ -27,6 +27,7 @@ capability** to existing Playwright coverage — not a product roadmap.
 | [canvas-rulers](canvas-rulers.md) | `landmarks.spec.ts` — `"rulers: labels sit on the data and follow a pan; a grid line at every tick above the map"` | — |
 | [fullscreen-dock-chrome](fullscreen-dock-chrome.md) | `landmarks-fullscreen-dock-420.spec.ts` — `docks end above minimap and depth rail in fullscreen` | — |
 | [genes-on-demand](genes-on-demand.md) | `landmarks-genes-lazy.spec.ts` — `"Landmarks lazy genes"` describe block | — |
+| [layers-controls](layers-controls.md) | `landmarks-layers-473.spec.ts` — `"cells visibility, micrometre diameter, image sliders, and scale bar"` | — |
 
 `inspect-cube` and `inspect-history` run under a separate spec file and
 harness (`E2E_HARNESS=landmarks-volume`,

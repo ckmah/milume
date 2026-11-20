@@ -81,7 +81,7 @@ test("default slider readouts follow the step", async ({ page }) => {
   await expect(page.locator("[data-slider-readout]").nth(0)).toHaveText("42");
   await expect(page.locator("[data-slider-readout]").nth(1)).toHaveText("20–80");
   await expect(page.getByTestId("layer-cells-point-size").locator(".tact-readout")).toHaveText(
-    "4.00",
+    "4.00 px",
   );
 
   await expect(page.getByRole("slider", { name: "Opacity hundredths" })).toHaveAttribute(

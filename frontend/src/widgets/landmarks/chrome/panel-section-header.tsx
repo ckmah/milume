@@ -1,4 +1,4 @@
-import { ChevronDownIcon, ChevronRightIcon, XIcon, type LucideIcon } from "lucide-react";
+import { ChevronRightIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,6 @@ export type PanelSectionPin = {
  * Fixed 32px accordion header for the left dock (Selections / Landmarks / Layers).
  */
 export function PanelSectionHeader({
-  icon: Icon,
   label,
   count,
   open,
@@ -26,7 +25,6 @@ export function PanelSectionHeader({
   testId,
   minimise = false,
 }: {
-  icon: LucideIcon;
   label: string;
   count: number;
   open: boolean;
@@ -35,8 +33,6 @@ export function PanelSectionHeader({
   testId?: string;
   minimise?: boolean;
 }) {
-  const Chevron = open ? ChevronDownIcon : ChevronRightIcon;
-
   return (
     <div
       className={cn(
@@ -46,8 +42,27 @@ export function PanelSectionHeader({
       )}
       data-testid={testId}
     >
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className={cn(
+          "landmarks-panel-section-header__toggle landmarks-cat-chevron shrink-0 hover:bg-transparent",
+          chromeHitClass,
+        )}
+        aria-expanded={open}
+        aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
+        onClick={onToggle}
+      >
+        <ChevronRightIcon
+          className={cn(
+            "landmarks-cat-chevron-icon landmarks-panel-section-header__chevron",
+            open && "landmarks-cat-chevron-icon--open",
+          )}
+          aria-hidden
+        />
+      </Button>
       <PanelSectionHeaderMain
-        Icon={Icon}
         label={label}
         open={open}
         pin={pin}
@@ -56,34 +71,18 @@ export function PanelSectionHeader({
       />
       <div className="landmarks-panel-section-header__trail">
         <span className="landmarks-panel-section-header__count">{count}</span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className={cn(
-            "landmarks-panel-section-header__toggle shrink-0 hover:bg-transparent",
-            chromeHitClass,
-          )}
-          aria-expanded={open}
-          aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
-          onClick={onToggle}
-        >
-          <Chevron className="landmarks-panel-section-header__chevron" aria-hidden />
-        </Button>
       </div>
     </div>
   );
 }
 
 function PanelSectionHeaderMain({
-  Icon,
   label,
   open,
   pin,
   minimise,
   onToggle,
 }: {
-  Icon: LucideIcon;
   label: string;
   open: boolean;
   pin?: PanelSectionPin | null;
@@ -104,7 +103,6 @@ function PanelSectionHeaderMain({
         }
       }}
     >
-      <Icon className="landmarks-panel-section-header__icon" aria-hidden />
       <span className="landmarks-panel-section-header__label">{label}</span>
       {pin && (!open || minimise) ? (
         <span

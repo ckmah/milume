@@ -140,6 +140,39 @@ def test_packing_twice_keeps_one_stamp(tmp_path: Path):
     assert cache.read_stamp(root) == cache.cache_key(root)
 
 
+def test_artifact_redirect_drops_the_github_token():
+    from urllib.request import Request
+
+    handler = cache._DropAuthOnRedirect()
+    req = Request(
+        "https://api.github.com/repos/ckmah/milume/actions/artifacts/1/zip",
+        headers={"Authorization": "Bearer secret"},
+    )
+    redirected = handler.redirect_request(
+        req, None, 302, "Found", {}, "https://blob.example/zip"
+    )
+    assert redirected is not None
+    assert redirected.get_header("Authorization") is None
+    assert redirected.full_url == "https://blob.example/zip"
+
+
+def test_wait_queries_the_pull_request_head_not_the_merge_commit(monkeypatch, tmp_path):
+    seen: list[str] = []
+
+    def fake(url, token):
+        seen.append(url)
+        raise SystemExit("stop")
+
+    monkeypatch.setenv("GITHUB_REPOSITORY", "ckmah/milume")
+    monkeypatch.setenv("GITHUB_SHA", "mergesha")
+    monkeypatch.setenv("RECIPE_HEAD_SHA", "headsha")
+    monkeypatch.setenv("GH_TOKEN", "t")
+    monkeypatch.setattr(cache, "_github_json", fake)
+    with pytest.raises(SystemExit, match="stop"):
+        cache.wait_for_producer(tmp_path, attempts=1, pause_s=0)
+    assert "head_sha=headsha" in seen[0]
+
+
 def test_classify_runs_waits_fails_or_downloads_newest_success():
     assert cache.classify_runs([]) == ("wait", None)
     queued = {"status": "queued", "conclusion": None, "created_at": "1", "id": 1}
