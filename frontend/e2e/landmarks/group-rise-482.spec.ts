@@ -10,15 +10,11 @@ function groupBody(section: Locator): Locator {
 async function openClosedGroup(page: Page): Promise<Locator> {
   const layers = page.getByTestId("panel-section-layers");
   const layersSection = page.locator(".landmarks-panel-section").filter({ has: layers });
-  if (await layers.getByRole("button", { name: "Expand Layers" }).count()) {
+  if (await layers.getByRole("button", { name: "Collapse Layers" }).count()) {
     await layers.click();
-    return groupBody(layersSection);
   }
-  await page.getByRole("tab", { name: "cat" }).click();
-  const region = page.getByRole("button", { name: "Expand region" });
-  const cat = region.locator("xpath=ancestor::*[contains(@class,'group/cat')][1]");
-  await region.click();
-  return groupBody(cat);
+  await layers.click();
+  return groupBody(layersSection);
 }
 
 test("stabilizeUi opens a panel group at rest", async ({ page }) => {

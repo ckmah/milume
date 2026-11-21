@@ -146,7 +146,7 @@ The surface is Operate: the data and the tools lead, and visualization controls 
 - Narrow ≤640px: one top-left stack (Layers + Info); no side rail or right dock; minimap hidden
 - Saturated color reserved for canvas data (landmarks, genes, categories)
 - Canvas ground follows the image: black while an image layer is visible, neutral grey otherwise
-- One section open per panel: each dock is an accordion with at most one expanded section; left and right panels can be open together when space allows; a minimise mode folds chrome without moving anything (minimise mode is **target**, not shipped yet)
+- Left dock sections open independently (Selections, Landmarks, and Layers). The right dock is tabs. Minimise folds bodies to headers without moving a control
 
 ## Colors
 
@@ -222,11 +222,23 @@ Both docks share one grid. Rows are `PanelRow` (`data-panel-row`). An open Layer
 - Tool pill (`landmarks__chrome-tools`): reserved top band, centered — docks start below band + gap
 - Wide: left Layers (Selections, Landmarks) + right Explore (View / Color by) and Info (`landmarks__chrome-dock--*`); max-height accounts for band
 - Narrow (`landmarks--narrow`, width < 640px): Info then Explore then Layers in one top-left stack; no side rail, right dock, or minimap
-- Wide left dock: Layers fills remaining height and scrolls inside the card (multi-open accordion; no nested list max-heights)
+- Wide left dock: Selections, Landmarks, and Layers open together under the dock budget. Each open body scrolls. The dock does not. See **Multi-open left dock**
 - Narrow stack: Info capped (~45%), Layers flex-fills and scrolls
 - Zoom lives in the top tool pill (in / out / reset), not a separate bottom cluster
 - **Panel budget (wide).** Fixed-size chrome; panels do not grow with the viewport. Each dock's max height subtracts the tool band, the rulers band, and the minimap / depth rail in its corner, so no two chrome boxes ever overlap at 960×720, 1280×800 or 1440×900. A census of chrome boxes (tools, view cluster, docks, minimap, rail, popovers, Inspect preview) must report 0 overlaps and 0 offscreen (**target** for automated census in `design-scan`; warn-only in CI today)
-- **One section open per panel.** Each dock is an accordion with at most one expanded section: opening Layers in the left card folds Selections or Landmarks, and opening a legend in the right card folds any other right-card section. The left and right panels are independent, so both can be open at once when the panel budgets allow (both are at 960×720 and up). Opening a section never closes the other panel (**target** behaviour; accordions are not fully exclusive in code yet)
+### Multi-open left dock
+
+Selections, Landmarks, and Layers open independently. Opening one never closes another. A click on an open header collapses only that section. Any subset may be open, including none. Default on first mount: all three sections open. The open set is remembered for the widget lifetime and restored when leaving minimise. It is not persisted across notebook cell remounts. Minimise still folds bodies to headers.
+
+**Dock max-height (shipped).** Keep the existing left-dock budget: `calc(100% - var(--lm-chrome-band) - var(--lm-chrome-gap) - var(--lm-minimap-slot) - var(--lm-chrome-inset))`, plus `--lm-ruler-band` when rulers are on. Fullscreen repeats the same modifiers at higher specificity (#420 / #426). The dock must not grow into the minimap or depth rail, and must not introduce a new height rule that drops those subtractions.
+
+**Subpanel body cap.** Open bodies share leftover dock height after the 32px headers (`--lm-hit-size`). A list that fits stays at its content (`flex: 0 1 auto`). When the lists exceed the dock's max-height, lists that fit keep their content and the rest share the leftover, scrolling inside the body (`overflow-y: auto`). Each open section still keeps its header and one row. Headers stay visible. The dock itself does not scroll. A body never grows past the leftover dock.
+
+**Overflow.** Body scrollports reuse the overlay scrollbar (thin, 8px, muted thumb, no gutter shift) without a second inline inset. `overscroll-behavior: contain`. Wheel on the dock already stops at the chrome (`onWheel` stopPropagation on `.landmarks__chrome-dock`) so it never zooms the canvas.
+
+Do not apply this to the right dock (tabs, not sections).
+
+Alternative (not recommended): keep one dock scrollport and cap each body at `min(8 * var(--lm-layer-row-h), 40%)` with sticky headers. Weaker in a short 550px shell. Three sticky headers stack, and toggles can scroll away.
 - **Data card legend and summary bar (target).** While a category legend is open, the donut becomes a **summary bar**: the summary line ("358,173 cells · 21 categories ⌄") over a 24px stacked bar with the donut's slices in the same order, colours and proportions, separated by 1px gaps. Both are pinned above the legend; the chevron brings the full donut back. Fallback: keep the bar while the legend still shows at least min(8, categories) entries under the filter, with the rest scrolling inside the card. Otherwise drop the bar and keep only the summary line. Measured: the bar stays at 1280×800 (18 of 21 visible) and 960×720 (14 of 21), and falls back at 960×600 (6 < 8). Filter pinned at top. Short labels flow into two columns; long labels show top-N by cell count plus "Show all N". The card never grows past its budget
 - **Minimise mode (target)** (`⇧\`). Folds chrome in place: the left card keeps its width, inset and section order, Selections and Landmarks fold to header rows (name, count, caret), Layers stays the third section of the same card, the right card folds to a data chip. Nothing moves to another container. Depth rail and minimap stay. State persists per user
 - **Inspect preview placement.** Never over a dock, dock toggle, minimap, tool pill, view cluster, context bar or depth rail (8px margin), never within 24px of the cursor; nearest free spot to the cursor wins; shrink (480 → 360 → 280) before overlapping anything

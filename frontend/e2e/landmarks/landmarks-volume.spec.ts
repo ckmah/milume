@@ -69,7 +69,8 @@ async function save(page: Page) {
   await expect.poll(async () => (await selectionsOf(page)).length).toBe(before + 1);
   return Number(await getModel(page, "selected_index"));
 }
-const layerToggle = (page: Page, layer: "image" | "labels") => page.getByTestId(`layer-toggle-${layer}`);
+const layerToggle = (page: Page, layer: "image" | "labels") =>
+  page.getByTestId("context-toolbar-l1").getByTestId(`layer-toggle-${layer}`);
 /** Right-click a layer toggle to open its settings menu. */
 async function openLayerMenu(page: Page, layer: "image" | "labels") {
   await layerToggle(page, layer).click({ button: "right" });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { FieldDescription } from "@/components/ui/field";
 import { GroupBody } from "@/components/ui/group-rise";
 import { cn } from "@/lib/utils";
@@ -15,14 +15,86 @@ import { SelectionCard } from "./selection-card";
 
 const NO_SNAPSHOTS = new Map<string, ChipSnapshot>();
 
-type DockSection = "selections" | "landmarks" | "layers";
+const DOCK_SECTIONS = ["selections", "landmarks", "layers"] as const;
+type DockSection = (typeof DOCK_SECTIONS)[number];
 
 function clearSelection(lm: LandmarksModel) {
   lm.select("", -1);
 }
 
+function withToggled(open: ReadonlySet<DockSection>, id: DockSection) {
+  const next = new Set(open);
+  if (next.has(id)) next.delete(id);
+  else next.add(id);
+  return next;
+}
+
 /**
- * Left dock: Selections, Landmarks, and Layers in a single-open accordion.
+ * Cap open bodies to the dock budget. A list that fits the leftover stays at
+ * its content. Lists that do not fit share whatever is left after those.
+ */
+function capOpenBodies(root: HTMLElement, dock: HTMLElement) {
+  const scrolls = [
+    ...root.querySelectorAll<HTMLElement>(".landmarks-panel-section--open .landmarks-panel-section__scroll"),
+  ];
+  for (const scroll of scrolls) scroll.style.maxHeight = "";
+  // Used height is the cap once an uncapped list hits the dock max-height.
+  const budget = dock.getBoundingClientRect().height;
+  if (!Number.isFinite(budget) || budget <= 0 || scrolls.length === 0) return;
+
+  const headers = [...root.querySelectorAll<HTMLElement>(".landmarks-panel-section-header")].reduce(
+    (sum, header) => sum + header.getBoundingClientRect().height,
+    0,
+  );
+  const sectionsEl = root.querySelector(".landmarks-panel-sections");
+  const dockBox = dock.getBoundingClientRect();
+  const sectionsTop = sectionsEl?.getBoundingClientRect().top ?? dockBox.top;
+  const rootStyle = getComputedStyle(root);
+  const below =
+    Number.parseFloat(rootStyle.paddingBottom) + Number.parseFloat(rootStyle.borderBottomWidth);
+  const available = Math.max(0, budget - (sectionsTop - dockBox.top) - below - headers);
+  const contents = scrolls.map((scroll) => scroll.scrollHeight);
+  const order = contents
+    .map((height, index) => ({ height, index }))
+    .sort((a, b) => a.height - b.height || a.index - b.index);
+  let remaining = available;
+  for (let n = 0; n < order.length; n++) {
+    const height = order[n].height;
+    const same = order.slice(n).filter((item) => item.height === height).length;
+    if (height * same <= remaining + 1) {
+      remaining -= height;
+      continue;
+    }
+    const share = Math.max(0, remaining / (order.length - n));
+    for (let k = n; k < order.length; k++) {
+      scrolls[order[k].index].style.maxHeight = `${share}px`;
+    }
+    return;
+  }
+}
+
+/** Scroll lives on the wrapper. GroupBody keeps overflow hidden so the height motion can clip. */
+function SectionBody({
+  open,
+  className,
+  children,
+}: {
+  open: boolean;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="landmarks-panel-section__scroll landmarks-overlay-scroll">
+      <GroupBody open={open} className={className}>
+        {children}
+      </GroupBody>
+    </div>
+  );
+}
+
+/**
+ * Left dock. Selections, Landmarks, and Layers open independently.
+ * The open set lasts for this mount, including minimise. A remount starts with all three open.
  */
 export function LayersPanel({
   lm,
@@ -40,11 +112,13 @@ export function LayersPanel({
   minimise?: boolean;
 }) {
   const { selections, landmarks, selected_kind, selected_index } = lm;
-  const [openSection, setOpenSection] = useState<DockSection | null>("selections");
+  const [openSections, setOpenSections] = useState<ReadonlySet<DockSection>>(
+    () => new Set(DOCK_SECTIONS),
+  );
+  const [minimisePeek, setMinimisePeek] = useState<DockSection | null>(null);
 
   useEffect(() => {
-    if (minimise) setOpenSection(null);
-    else setOpenSection((prev) => prev ?? "selections");
+    if (minimise) setMinimisePeek(null);
   }, [minimise]);
 
   const thumbs = useMemo(
@@ -62,10 +136,10 @@ export function LayersPanel({
 
   const toggleSection = (id: DockSection) => {
     if (minimise) {
-      setOpenSection((prev) => (prev === id ? null : id));
+      setMinimisePeek((prev) => (prev === id ? null : id));
       return;
     }
-    setOpenSection(id);
+    setOpenSections((prev) => withToggled(prev, id));
   };
 
   const selectionPin =
@@ -90,7 +164,20 @@ export function LayersPanel({
 
   const layersCount = layersStackCount(lm);
 
-  const sectionOpen = (id: DockSection) => openSection === id;
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    const dock = root?.closest(".landmarks__chrome-dock");
+    const widget = root?.closest(".milume-widget");
+    if (!root || !(dock instanceof HTMLElement) || !(widget instanceof HTMLElement)) return;
+    const apply = () => capOpenBodies(root, dock);
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(widget);
+    return () => observer.disconnect();
+  }, [openSections, minimise, minimisePeek, selections.length, landmarks.length, layersCount]);
+
+  const sectionOpen = (id: DockSection) =>
+    minimise ? minimisePeek === id : openSections.has(id);
 
   return (
     <div
@@ -101,10 +188,7 @@ export function LayersPanel({
       )}
     >
           <div
-            className={cn(
-              "landmarks-panel-sections flex min-h-0 flex-1 flex-col",
-              !minimise && "landmarks-overlay-scroll py-0",
-            )}
+            className="landmarks-panel-sections flex min-h-0 flex-1 flex-col overflow-hidden"
           >
             <PanelBand
               className={cn(sectionOpen("selections") && "landmarks-panel-section--open")}
@@ -118,7 +202,7 @@ export function LayersPanel({
                 testId="panel-section-selections"
                 minimise={minimise}
               />
-              <GroupBody
+              <SectionBody
                 open={sectionOpen("selections")}
                 className="landmarks-panel-section__body flex flex-col gap-0.5 px-0 pb-1.5"
               >
@@ -157,7 +241,7 @@ export function LayersPanel({
                 ) : (
                   <FieldDescription>No selections yet.</FieldDescription>
                 )}
-              </GroupBody>
+              </SectionBody>
             </PanelBand>
 
             <PanelBand
@@ -172,7 +256,7 @@ export function LayersPanel({
                 testId="panel-section-landmarks"
                 minimise={minimise}
               />
-              <GroupBody
+              <SectionBody
                 open={sectionOpen("landmarks")}
                 className="landmarks-panel-section__body flex flex-col gap-0.5 px-0 pb-1.5"
               >
@@ -200,7 +284,7 @@ export function LayersPanel({
                 ) : (
                   <FieldDescription>No landmarks yet.</FieldDescription>
                 )}
-              </GroupBody>
+              </SectionBody>
             </PanelBand>
 
             <PanelBand
@@ -215,12 +299,12 @@ export function LayersPanel({
                 testId="panel-section-layers"
                 minimise={minimise}
               />
-              <GroupBody
+              <SectionBody
                 open={sectionOpen("layers")}
                 className="landmarks-panel-section__body"
               >
                 <LayersStackSection lm={lm} />
-              </GroupBody>
+              </SectionBody>
             </PanelBand>
           </div>
     </div>
