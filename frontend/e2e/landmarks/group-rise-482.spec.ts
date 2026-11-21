@@ -3,15 +3,8 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { test } from "../fixtures";
 import { bootLandmarksHarness, stabilizeUi } from "../helpers";
 
-/**
- * `data-group-rise` is not on main yet. The open group is the Layers section
- * body (`.landmarks-panel-section__body`), or the category list
- * (`.landmarks-cat-sublist`) when Layers is already open.
- */
 function groupBody(section: Locator): Locator {
-  const marked = section.locator("[data-group-rise]");
-  const fallback = section.locator(".landmarks-panel-section__body, .landmarks-cat-sublist");
-  return marked.or(fallback).first();
+  return section.locator("[data-group-rise]").first();
 }
 
 async function openClosedGroup(page: Page): Promise<Locator> {
