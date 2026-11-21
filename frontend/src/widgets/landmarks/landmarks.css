@@ -1456,15 +1456,6 @@
   overscroll-behavior: contain;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row .landmarks-layers-image-trigger,
-.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row .landmarks-layer-label,
-.milume-widget .landmarks__layers-panel .landmarks-image-channel-row__name {
-  flex: 0 1 auto;
-  width: max-content;
-  max-width: 9rem;
-  min-width: 0;
-}
-
 .landmarks-image-channel-row {
   box-sizing: border-box;
   display: flex;

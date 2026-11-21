@@ -55,7 +55,24 @@ test("cells visibility, micrometre diameter, image sliders, and scale bar", asyn
   expect(chevronBox && labelBox && toggleBox).toBeTruthy();
   expect(chevronBox!.x).toBeLessThan(labelBox!.x);
   expect(toggleBox!.x).toBeGreaterThan(labelBox!.x);
-  expect(toggleBox!.x - (labelBox!.x + labelBox!.width)).toBeLessThan(16);
+  const textEnd = await label.evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return range.getBoundingClientRect().right;
+  });
+  const rowBox = await cells.boundingBox();
+  expect(rowBox).toBeTruthy();
+  expect(toggleBox!.x - textEnd).toBeGreaterThan(24);
+  expect(rowBox!.x + rowBox!.width - (toggleBox!.x + toggleBox!.width)).toBeLessThan(20);
+
+  const panelBox = await page.locator(".landmarks__layers-panel").boundingBox();
+  expect(panelBox).toBeTruthy();
+  for (const id of ["panel-section-selections", "panel-section-landmarks", "panel-section-layers"]) {
+    const headerBox = await page.getByTestId(id).boundingBox();
+    expect(headerBox).toBeTruthy();
+    expect(Math.abs(headerBox!.x - panelBox!.x)).toBeLessThan(2);
+    expect(Math.abs(headerBox!.x + headerBox!.width - (panelBox!.x + panelBox!.width))).toBeLessThan(2);
+  }
   await expect(toggle).toHaveAttribute("aria-checked", "true");
 
   const sectionChevron = page.getByTestId("panel-section-layers").getByRole("button", { name: "Collapse Layers" });
@@ -86,6 +103,7 @@ test("cells visibility, micrometre diameter, image sliders, and scale bar", asyn
 
   const imageRow = page.getByTestId("layers-image-row");
   if ((await imageRow.getAttribute("aria-expanded")) !== "true") await imageRow.click();
+  await expect(page.locator(".landmarks__layers-panel").getByText("Channels", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId("layer-image-opacity")).toBeVisible();
   await expect(page.getByTestId("layer-image-contrast")).toBeVisible();
   await expect(page.locator(".landmarks-slider-caption").filter({ hasText: "DAPI contrast" })).toBeVisible();
@@ -132,6 +150,7 @@ test("image layer sliders are independent and long labels truncate", async ({ pa
   await openLayers(page);
   const imageRow = page.getByTestId("layers-image-row");
   if ((await imageRow.getAttribute("aria-expanded")) !== "true") await imageRow.click();
+  await expect(page.locator(".landmarks__layers-panel").getByText("Channels", { exact: true })).toHaveCount(0);
 
   const dapiOpacity = page.getByTestId("layer-channel-opacity-DAPI").getByRole("slider");
   await dapiOpacity.focus();

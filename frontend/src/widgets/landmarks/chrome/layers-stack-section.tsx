@@ -10,7 +10,6 @@ import { channelDisplayColor } from "@/widgets/volume-cube/tint-palette";
 
 import type { ImageChannelRow, LandmarksModel } from "../use-landmarks-model";
 import { ChannelColorPicker } from "./channel-color-picker";
-import { META_LINE } from "./sections";
 import { cellSizeControl, knownUmPerUnit } from "./layers-size";
 import { formatSliderReadout } from "./slider-readout";
 import { TactSliderRow } from "./slider-row";
@@ -351,7 +350,6 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
               ) : null}
               {displayChannels.length > 1 ? (
                 <div className="flex flex-col gap-1">
-                  <p className={META_LINE}>Channels</p>
                   <div
                     className="landmarks-image-channel-list"
                     data-testid="layer-channel-list"
