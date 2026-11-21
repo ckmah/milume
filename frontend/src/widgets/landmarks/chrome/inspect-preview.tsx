@@ -192,6 +192,8 @@ export function InspectPreview({
   const [failed, setFailed] = useState(false);
 
   const levelsRef = useRef<{ image: ZarrSource[]; levels: Level[] } | null>(null);
+  /** While the float is hidden, keep the last display props so a settings key does not raymarch it. */
+  const heldDisplay = useRef({ contrast: settings.contrast, render: settings.render });
   const regionRef = useRef<Region | null>(null);
   const samplesRef = useRef<{ t: number; x: number; y: number }[]>([]);
   const extentRef = useRef<Extent | null>(null);
@@ -390,6 +392,7 @@ export function InspectPreview({
       last.hover.y <= extent.y[1],
   );
   const visible = active && hovering && inside && !failed;
+  if (visible) heldDisplay.current = { contrast: settings.contrast, render: settings.render };
   const hover = last?.hover;
   if (!last || !hover) return null;
 
@@ -412,7 +415,7 @@ export function InspectPreview({
           windowCy={hover.y}
           windowSizeUm={hover.sizeUm}
           cut={OPEN_CUT}
-          contrast={settings.contrast}
+          contrast={heldDisplay.current.contrast}
           imageChannelRows={lm._image_channels}
           imageMode="mip"
           preset="top"
@@ -422,7 +425,7 @@ export function InspectPreview({
           showImage
           showLabels={false}
           coloring={coloring}
-          render={settings.render}
+          render={heldDisplay.current.render}
           dark={dark}
           height={PREVIEW_PX}
           zStackFraction={[0.25, 0.75]}
