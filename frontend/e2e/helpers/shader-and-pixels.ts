@@ -631,7 +631,10 @@ export async function expectCubePanckOffDimsMagentaLive(page: Page) {
     if (root instanceof HTMLElement) root.focus();
   });
   await page.keyboard.press("[");
-  await page.getByTestId("panel-section-layers").click({ force: true });
+  const layers = page.getByTestId("panel-section-layers");
+  if (await layers.getByRole("button", { name: "Expand Layers" }).count()) {
+    await layers.click({ force: true });
+  }
   const row = page.getByTestId("layers-image-row");
   if ((await row.getAttribute("aria-expanded")) !== "true") await row.click({ force: true });
   await page.getByTestId("layer-channel-PanCK").click({ force: true });
