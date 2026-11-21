@@ -4,7 +4,7 @@ import { Switch as SwitchPrimitive } from "@base-ui/react/switch";
 import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 
-import { MOTION_OFF, SPRING_GLIDE } from "@/lib/motion-springs";
+import { MOTION_OFF } from "@/lib/motion-springs";
 import { cn } from "@/lib/utils";
 
 function Switch({
@@ -39,7 +39,7 @@ function Switch({
         className="tact-switch-glide"
         initial={false}
         animate={{ x: on ? "100%" : "0%" }}
-        transition={reduce ? MOTION_OFF : SPRING_GLIDE}
+        transition={reduce ? MOTION_OFF : { duration: 0.14, ease: "easeOut" }}
       />
       <span data-hot={!on}>Off</span>
       <span data-hot={on}>On</span>

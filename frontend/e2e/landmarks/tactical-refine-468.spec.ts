@@ -34,15 +34,24 @@ test.describe("Tactical refinements #468", () => {
     await bootLandmarksHarness(page);
   });
 
-  test("surface is black glass with a 5px blur", async ({ page }) => {
+  test("surface is black glass with a 4px blur", async ({ page }) => {
     const panel = page.locator(".landmarks-float--panel").first();
     await expect(panel).toBeVisible();
     const paint = await panel.evaluate((el) => {
       const cs = getComputedStyle(el);
-      return { background: cs.backgroundColor, blur: cs.backdropFilter };
+      return {
+        background: cs.backgroundColor,
+        blur: cs.backdropFilter,
+        border: cs.borderTop,
+        shadow: cs.boxShadow,
+        radius: cs.borderRadius,
+      };
     });
-    expect(paint.blur).toContain("blur(5px)");
+    expect(paint.blur).toContain("blur(4px)");
     expect(paint.background).toMatch(/rgba?\(0,\s*0,\s*0,\s*0\.65\)/);
+    expect(paint.border).toMatch(/1px solid rgba\(255,\s*255,\s*255,\s*0\.14\)/);
+    expect(paint.shadow).toContain("rgba(0, 0, 0, 0.5)");
+    expect(paint.radius).toBe("0px");
     const panelCorners = await panel.evaluate((el) => getComputedStyle(el).backgroundImage);
     expect(panelCorners).toContain("linear-gradient");
     const caret = await page.getByTestId("panel-collapse-caret-left").evaluate((el) => {
@@ -59,7 +68,7 @@ test.describe("Tactical refinements #468", () => {
       const cs = getComputedStyle(el);
       return { background: cs.backgroundColor, blur: cs.backdropFilter };
     });
-    expect(paint.blur).toContain("blur(5px)");
+    expect(paint.blur).toContain("blur(4px)");
     expect(paint.background).toMatch(/rgba?\(214,\s*214,\s*214,\s*0\.97\)/);
   });
 

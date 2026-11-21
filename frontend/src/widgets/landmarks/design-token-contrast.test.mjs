@@ -31,11 +31,13 @@ test("banned token list covers Tailwind slate and cyan fallback", () => {
   }
 });
 
-test("tactical surface keeps light glass and dark black glass with a 5px blur", () => {
+test("tactical surface keeps light glass and dark black glass with a 4px blur", () => {
   const css = readFileSync(new URL("../../styles/tactical.css", import.meta.url), "utf8");
   assert.match(css, /--tact-surface: rgb\(214 214 214 \/ 97%\)/);
   assert.match(css, /--tact-surface: rgb\(0 0 0 \/ 65%\)/);
-  assert.match(css, /--tact-blur: blur\(5px\)/);
+  assert.match(css, /--tact-blur: blur\(4px\)/);
+  assert.match(css, /--tact-mark: #edb54a/);
+  assert.match(css, /--tact-edge: rgba\(255, 255, 255, 0\.14\)/);
   assert.doesNotMatch(css, /--tact-surface:[^;]*linear-gradient/);
 
   const lightOnWhite = hex(composite(214, 255, 0.97));

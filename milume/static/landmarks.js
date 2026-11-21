@@ -4480,7 +4480,13 @@ export function mountEngine({
     }
     scaleBar.hidden = false;
     scaleRule.style.width = `${length * pxPerDisplay}px`;
-    scaleLabel.textContent = `${formatScaleLength(length)} ${known ? "µm" : "px"}`;
+    scaleLabel.textContent = scaleBarLabel(length, known);
+  }
+
+  function scaleBarLabel(length, known) {
+    if (!known) return `${formatScaleLength(length)} px`;
+    if (length >= 1000) return `${formatScaleLength(length / 1000)} mm`;
+    return `${formatScaleLength(length)} µm`;
   }
 
   function setDeckLayers() {
