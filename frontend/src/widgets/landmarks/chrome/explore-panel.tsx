@@ -252,7 +252,7 @@ function CategoryCollapsibleRow({
         >
           <button
             type="button"
-            className="min-w-0 cursor-pointer truncate text-left outline-none"
+            className="block w-full min-w-0 cursor-pointer truncate text-left outline-none"
             data-testid="category-name"
             onClick={() => {
               activate();
@@ -358,7 +358,7 @@ export function CategoriesControls({
                       </>
                     }
                   >
-                    <span className="min-w-0 truncate" data-testid="category-name">
+                    <span className="block w-full min-w-0 truncate" data-testid="category-name">
                       {col.name}
                     </span>
                   </PanelRow>
