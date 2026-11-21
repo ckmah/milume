@@ -48,7 +48,6 @@
   --lm-depth-rail-active: 0px;
   /* Matches `.landmarks__resize` (bottom 8px + 16px hit area). */
   --lm-resize-band: calc(8px + 16px);
-  --lm-dock-width: 17rem;
   /* Ruler clear of Soft Float docks / top tools */
   --lm-ruler-band: 1.25rem;
   --lm-ruler-inset: var(--lm-chrome-band);
@@ -70,7 +69,6 @@
   --lm-toolbar-pad: 0.25rem;
   --lm-toolbar-gap: 0.25rem;
   --lm-toolbar-divider: color-mix(in oklab, var(--foreground) 22%, transparent);
-  --lm-hit-size: 32px;
   --lm-hit-radius: 0px;
   --lm-hit-fg: color-mix(in oklab, var(--foreground) 72%, transparent);
   --lm-hit-hover-bg: color-mix(in oklab, var(--foreground) 9%, transparent);
@@ -1018,16 +1016,12 @@
   color: color-mix(in oklab, var(--foreground) 72%, transparent);
 }
 
-/* Left dock accordion — fixed 32px section headers (Selections / Landmarks / Layers). */
+/* Left dock accordion — section headers share the panel-row grid. */
 .landmarks-panel-section-header {
   box-sizing: border-box;
-  display: grid;
-  grid-template-columns: var(--lm-lead, 32px) minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: var(--lm-row-gap, 4px);
-  height: 2rem;
-  min-height: 2rem;
-  max-height: 2rem;
+  height: var(--lm-hit-size);
+  min-height: var(--lm-hit-size);
+  max-height: var(--lm-hit-size);
 }
 
 .landmarks-panel-section-header__main {
@@ -1045,12 +1039,6 @@
 
 .landmarks-panel-section-header--open .landmarks-panel-section-header__main {
   color: var(--foreground);
-}
-
-.landmarks-panel-section-header__wrap {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
 }
 
 .landmarks-panel-section-header__icon {
@@ -1133,7 +1121,7 @@
 }
 
 .landmarks-panel-section-header__toggle.landmarks-hit {
-  width: var(--lm-lead, 32px);
+  width: var(--lm-lead);
   border-radius: var(--lm-hit-radius);
 }
 
