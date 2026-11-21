@@ -106,6 +106,44 @@ test("cells visibility, micrometre diameter, image sliders, and scale bar", asyn
   });
   expect(line.height).toBe("1px");
   expect(line.background).not.toBe("rgba(0, 0, 0, 0)");
+  const lineBox = await page.locator(".landmarks-layers-stack__row").first().evaluate((el) => {
+    const row = el.getBoundingClientRect();
+    const style = getComputedStyle(el, "::before");
+    const left = row.left + parseFloat(style.marginLeft);
+    const right = row.right - parseFloat(style.marginRight);
+    return { left, right };
+  });
+  expect(Math.abs(lineBox.left - labelTextLeft)).toBeLessThan(2);
+  expect(Math.abs(lineBox.right - (toggleBox!.x + toggleBox!.width))).toBeLessThan(2);
+
+  await page.getByRole("tab", { name: "cat" }).click();
+  await page.getByRole("button", { name: "Expand region" }).click();
+  const catName = page.getByTestId("category-name").first();
+  const subLabel = page.locator(".landmarks__explore-panel .landmarks-layer-label").first();
+  const avatar = page.locator(".landmarks__explore-panel .landmarks-cat-avatars").first();
+  const [catNameBox, subLabelBox, avatarBox, layersTitleBox] = await Promise.all([
+    catName.boundingBox(),
+    subLabel.boundingBox(),
+    avatar.boundingBox(),
+    page.getByTestId("panel-section-layers").locator(".landmarks-panel-section-header__label").boundingBox(),
+  ]);
+  const leftPanelBox = await page.locator(".landmarks__layers-panel").boundingBox();
+  const rightCardBox = await page.locator(".landmarks__chrome-dock--right .landmarks-float--panel").boundingBox();
+  expect(catNameBox && subLabelBox && avatarBox && layersTitleBox && leftPanelBox && rightCardBox).toBeTruthy();
+  const titleInset = layersTitleBox!.x - leftPanelBox!.x;
+  expect(Math.abs(catNameBox!.x - rightCardBox!.x - titleInset)).toBeLessThan(2);
+  expect(Math.abs(subLabelBox!.x - catNameBox!.x)).toBeLessThan(2);
+  expect(Math.abs(rightCardBox!.x + rightCardBox!.width - (avatarBox!.x + avatarBox!.width) - (leftPanelBox!.x + leftPanelBox!.width - (toggleBox!.x + toggleBox!.width)))).toBeLessThan(3);
+  const subLine = await page.locator(".landmarks__explore-panel .landmarks-cat-sublist-inner").evaluate((el) => {
+    const row = el.getBoundingClientRect();
+    const style = getComputedStyle(el, "::before");
+    return {
+      left: row.left + parseFloat(style.marginLeft),
+      right: row.right - parseFloat(style.marginRight),
+    };
+  });
+  expect(Math.abs(subLine.left - catNameBox!.x)).toBeLessThan(2);
+  expect(Math.abs(subLine.right - (avatarBox!.x + avatarBox!.width))).toBeLessThan(3);
   await expect(toggle).toHaveAttribute("aria-checked", "true");
 
   const sectionChevron = page.getByTestId("panel-section-layers").getByRole("button", { name: "Collapse Layers" });

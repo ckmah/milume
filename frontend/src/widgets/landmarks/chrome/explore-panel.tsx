@@ -247,21 +247,17 @@ function CategoryCollapsibleRow({
           </button>
           <button
             type="button"
-            className="flex min-w-0 flex-1 cursor-pointer items-center gap-[var(--lm-layer-row-gap,0.375rem)] text-left outline-none"
+            className="min-w-0 cursor-pointer truncate text-left outline-none"
+            data-testid="category-name"
             onClick={() => {
               activate();
             }}
           >
-            <span className="min-w-0 flex-1 truncate" data-testid="category-name">
-              {col.name}
-            </span>
-            <span
-              className="shrink-0 font-normal text-foreground/70"
-              title="Unique subcategories"
-            >
-              ({(col.labels || []).length})
-            </span>
+            {col.name}
           </button>
+          <span className="landmarks-cat-count" title="Unique subcategories">
+            ({(col.labels || []).length})
+          </span>
           {/* Right-edge avatars (points view) — flush to the row end. */}
           <span className="landmarks-cat-avatars">
             <SubcategoryAvatars col={col} />
@@ -360,7 +356,7 @@ export function CategoriesControls({
                   <span className="min-w-0 flex-1 truncate" data-testid="category-name">
                     {col.name}
                   </span>
-                  <span className="shrink-0 font-normal text-foreground/70" title="Unique subcategories">
+                  <span className="landmarks-cat-count" title="Unique subcategories">
                     ({unique})
                   </span>
                   <span className="landmarks-cat-avatars">

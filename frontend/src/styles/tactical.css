@@ -752,18 +752,23 @@
 
 .milume-widget .landmarks__layers-panel .landmarks-layers-stack__row {
   box-sizing: border-box;
+  display: flow-root;
   width: calc(100% + (2 * var(--lm-overlay-inset-x)));
   margin-inline-start: calc(-1 * var(--lm-overlay-inset-x));
   background: none;
   box-shadow: none;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row::before {
+.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row::before,
+.milume-widget .landmarks__explore-panel .landmarks-cat-sublist-inner::before {
   content: "";
   display: block;
   height: 1px;
-  margin-inline: var(--lm-lead);
-  background: color-mix(in oklab, var(--tact-rule) 55%, transparent);
+  margin-top: 0.375rem;
+  margin-bottom: 0.375rem;
+  margin-left: calc(var(--lm-lead) + var(--lm-row-gap));
+  margin-right: calc(var(--lm-overlay-inset-x) + var(--lm-panel-pad));
+  background: color-mix(in oklab, var(--tact-rule) 40%, transparent);
 }
 
 .milume-widget .landmarks__layers-panel .landmarks-layers-stack__row > .landmarks-layer-row,
@@ -801,21 +806,41 @@
   margin-inline-start: calc(-1 * var(--lm-overlay-inset-x));
 }
 
-.milume-widget .landmarks__explore-panel .landmarks-cat-trigger {
-  padding-left: 0;
-  padding-right: calc(var(--lm-overlay-inset-x) + var(--lm-panel-pad));
+.milume-widget .landmarks__explore-panel .landmarks-cat-trigger,
+.milume-widget .landmarks__explore-panel .landmarks-cat-sublist .landmarks-layer-row {
+  display: grid;
+  grid-template-columns: var(--lm-lead) minmax(0, 1fr) auto auto;
+  column-gap: var(--lm-row-gap);
+  align-items: center;
+  width: 100%;
+  padding-left: 0 !important;
+  padding-right: calc(var(--lm-overlay-inset-x) + var(--lm-panel-pad)) !important;
+}
+
+.milume-widget .landmarks__explore-panel .landmarks-cat-chevron,
+.milume-widget .landmarks__explore-panel .landmarks-cat-sublist .landmarks-layer-swatch,
+.milume-widget .landmarks__explore-panel .landmarks-cat-trigger [role="radio"] {
+  justify-self: center;
+}
+
+.milume-widget .landmarks__explore-panel .landmarks-cat-trigger > button:not(.landmarks-cat-chevron) {
+  min-width: 0;
+}
+
+.milume-widget .landmarks__explore-panel .landmarks-cat-count,
+.milume-widget .landmarks__explore-panel .landmarks-cat-avatars {
+  justify-self: end;
+  margin-left: 0;
+  font-weight: 400;
+  color: color-mix(in oklab, var(--foreground) 70%, transparent);
 }
 
 .milume-widget .landmarks__explore-panel .landmarks-cat-sublist {
   padding-left: 0;
 }
 
-.milume-widget .landmarks__explore-panel .landmarks-cat-sublist::before {
-  content: "";
-  display: block;
-  height: 1px;
-  margin-inline: var(--lm-lead);
-  background: color-mix(in oklab, var(--tact-rule) 55%, transparent);
+.milume-widget .landmarks__explore-panel .landmarks-cat-sublist-inner {
+  display: flow-root;
 }
 
 .landmarks-palette-ramp {
