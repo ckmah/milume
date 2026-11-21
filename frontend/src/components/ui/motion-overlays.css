@@ -1,6 +1,6 @@
 /* Presence hold for Radix and Base UI. They unmount a closing panel when
-   animation-name is none. The hold is invisible; motion/react runs SPRING_PANEL.
-   600ms is that spring's time-to-rest (stiffness 420, damping 40, mass 0.5). */
+   animation-name is none. The hold is invisible; motion/react runs SPRING_GLIDE.
+   600ms keeps the node mounted until that glide has settled. */
 @property --milume-overlay-hold {
   syntax: "<number>";
   inherits: false;
@@ -22,8 +22,8 @@
   pointer-events: none;
 }
 
-/* Chrome tooltips keep their keyframes in landmarks.css. This curve is the
-   same SPRING_PANEL sample: scale and fade, no slide. */
+/* Chrome tooltips keep their keyframes in landmarks.css. Open and close
+   scale and fade, no slide. The panel spring is SPRING_GLIDE. */
 @keyframes milume-tooltip-in {
   from {
     opacity: 0;
@@ -101,20 +101,4 @@
       1
     )
     both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .milume-overlay-panel[data-state="closed"],
-  .milume-overlay-panel[data-closed] {
-    animation: none;
-  }
-
-  .landmarks-tooltip.landmarks-tooltip,
-  .landmarks-tooltip.landmarks-tooltip[data-state="delayed-open"],
-  .landmarks-tooltip.landmarks-tooltip[data-state="instant-open"],
-  .landmarks-tooltip.landmarks-tooltip[data-state="closed"] {
-    animation: none !important;
-    opacity: 1 !important;
-    scale: 1 !important;
-  }
 }

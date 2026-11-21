@@ -30,20 +30,3 @@
 .ds-force-active .landmarks-hit.landmarks-hit:not(:disabled):not([data-disabled]) {
   transform: scale(0.93);
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .landmarks-hit.landmarks-hit:is(
-      :hover,
-      :active,
-      :focus-visible,
-      [data-ds-force="hover"],
-      [data-ds-force="active"],
-      [data-ds-force="focus-visible"]
-    ):not(:disabled):not([data-disabled]),
-  .ds-force-hover .landmarks-hit.landmarks-hit:not(:disabled):not([data-disabled]),
-  .ds-force-focus .landmarks-hit.landmarks-hit:not(:disabled):not([data-disabled]),
-  .ds-force-active .landmarks-hit.landmarks-hit:not(:disabled):not([data-disabled]) {
-    transform: none;
-    transition: none;
-  }
-}

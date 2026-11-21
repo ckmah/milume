@@ -260,6 +260,51 @@ Glass is a deliberate float treatment over live canvas, not decorative blur on s
 - Layer swatches: circular dots
 - Active mode: filled circle inverted against pill tray
 
+## Motion
+
+Springs live in `src/lib/motion-springs.ts`. Duration tokens live on `.landmarks` in `landmarks.css`. `motion/react` runs only inside `src/components/ui`.
+
+### Springs
+
+Numbers are stiffness, damping, and mass. `SPRING_GLIDE` sets no mass.
+
+| Token | Spring | Use |
+| --- | --- | --- |
+| `SPRING_PRESS` | 500 / 30 / 0.6 | Chevron and press |
+| `SPRING_PANEL` | 420 / 40 / 0.5 | Defined in `src/lib/motion-springs.ts`. Unused by `SpringPanel` |
+| `SPRING_LAYOUT` | 360 / 32 / 0.6 | Group height and band tone |
+| `SPRING_GLIDE` | 280 / 32 | Popup rise, switch, and tonal block |
+
+### Durations
+
+| Token | Duration |
+| --- | --- |
+| `--duration-stagger` | 40ms |
+| `--duration-micro` | 80ms |
+| `--duration-quick` | 150ms |
+| `--duration-fast` | 250ms |
+| `--duration-medium` | 350ms |
+| `--duration-slow` | 400ms |
+| `--duration-very-slow` | 500ms |
+
+### Panel groups
+
+Panel groups follow spec C through `GroupBody` and `GroupChevron` in `src/components/ui`.
+
+- Height and band tone use `SPRING_LAYOUT`.
+- The chevron uses `SPRING_PRESS`.
+- Rows fade and rise 8px on `SPRING_GLIDE`.
+- The first row starts at 40ms. Later rows follow 40ms apart (`--duration-stagger`).
+- Close reverses the same timing.
+
+### Reduced motion
+
+Reduced motion is one rule. Height, `x`, `y`, scale, and rotate snap. Opacity may fade up to 80ms (`--duration-micro`). `MotionConfig` at the widget root sets `reducedMotion` to `user`. One CSS block covers `prefers-reduced-motion`.
+
+### Harness
+
+`motion/react` stays inside `src/components/ui` so `check-chrome` can see it. `stabilizeUi` sets `MotionGlobalConfig.skipAnimations`.
+
 ## Components
 
 ### Tool pill (`Topbar`)
@@ -270,7 +315,7 @@ Icon-only select + landmark mode groups, zoom (in / out / reset), and fullscreen
 
 Inspect is temporary, so its chrome replaces the normal chrome rather than adding to it.
 
-- **Inspect pill** (`chrome/inspect-pill.tsx`, `InspectPill`): takes the tool pill's top-centre slot while `mode` is Inspect; the two swap with cube-motion `Rise` (the leaving one is `inert`, no clicks), focus follows the swap, and the tool pill does not rise on first mount. Same `TOOLBAR_CLASS` glass plus a **1px dashed outline** (`.landmarks-toolbar.landmarks__inspect-pill`, muted text at 70%), the only bordered toolbar: it reads as a mode, not a tool. Armed: × Exit Inspect · Box icon + "Inspect" · hint "Click to place" · zoom in / out / reset (`ZoomControls`, shared with the tool pill) · full screen. Open: × · "Inspect · {n} µm" · status chip · Save window (BookmarkPlus → BookmarkCheck "Saved", disabled) · full screen. Labels 0.75rem, meta in `--lm-text-muted`
+- **Inspect pill** (`chrome/inspect-pill.tsx`, `InspectPill`): takes the tool pill's top-centre slot while `mode` is Inspect; the two swap with `Rise` from `src/components/ui/rise.tsx` on `SPRING_GLIDE` (the leaving one is `inert`, no clicks), focus follows the swap, and the tool pill does not rise on first mount. Same `TOOLBAR_CLASS` glass plus a **1px dashed outline** (`.landmarks-toolbar.landmarks__inspect-pill`, muted text at 70%), the only bordered toolbar: it reads as a mode, not a tool. Armed: × Exit Inspect · Box icon + "Inspect" · hint "Click to place" · zoom in / out / reset (`ZoomControls`, shared with the tool pill) · full screen. Open: × · "Inspect · {n} µm" · status chip · Save window (BookmarkPlus → BookmarkCheck "Saved", disabled) · full screen. Labels 0.75rem, meta in `--lm-text-muted`
 - **Status chip** (`landmarks__inspect-status`, 0.6875rem, muted, `data-testid="inspect-status"`, `role="status"`): mounted for the whole open session, `data-state` of the load. "Refining" with a gradient band sweeping across the text (`landmarks-shimmer`, 1.4s linear, on `.landmarks__shimmer`). At `data-state="ready"` the chip has no text and uses `sr-only` so it stays in the tree off the flex row. An error in `text-destructive`, max 14rem (8rem narrow) with an ellipsis and the full text in `title`. No sweep under `prefers-reduced-motion`
 - **Inspect bar** (`chrome/inspect-toolbar.tsx`, bottom centre, `TOOLBAR_CLASS`): `Top | Iso | Side` toggle group · divider · Move (hand, `IconBtn`, on = pressed; grab / grabbing cursor in the cube) · Reset view · divider · Adjust · Cross-section. Nothing else on the bar
 - **Bar panels** (`ToolStack`, one open at a time, rising right-aligned above their button): the toolbar glass (`TOOLBAR_CLASS`), capped at `min(45cqh, 22rem)` against the widget box (`.landmarks__chrome` is a size container) and scrolling inside (`overscroll-behavior: contain`), so they never cover most of the cube. While a Soft Float slider is dragged (`data-tuning="true"` on the panel), that panel's glass fades to opacity 0.32 over 120ms so the cube under it stays readable, and returns on release. Show, Mode, Palette, and Reset do not fade it. Adjust: two columns, Image | Labels, each a titled section with its Show switch beside the title and a ghost "Reset" right; rows on the shared capsule (one 10rem width), non-slider controls (Mode toggle, Palette swatch dropdown) at the same width; "Reset all" at the foot. Below 640px the columns stack. Cross-section: one section, X / Y / Z range capsules and Reset. The same cuts are the volume's faces: each grabbable face (normal in the screen) is an axis-coloured plate, X red, Y green, Z blue, including while the cut is still the open window. Near (~40px) and hover strengthen the plate and show the drag direction. A press on the plate cuts along its normal and commits on release; orbit stays everywhere that is not a grabbable face. An inset cut keeps the white box, and the plates ride it. Tissue outside the cut stays in the window at low opacity

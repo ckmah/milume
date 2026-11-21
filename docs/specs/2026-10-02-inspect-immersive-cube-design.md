@@ -31,7 +31,7 @@ that Save, the cut and the highlight act on; the surroundings are context only.
 (`.landmarks__body`) of the widget at its current size, or the whole widget in
 fullscreen. The map stays mounted underneath, hidden, so the engine keeps its
 layout and WebGL context. The cube grows from the hover preview's rect in
-~150–200 ms (`cube-motion` primitives; instant under `prefers-reduced-motion`).
+~150–200 ms (motion/react `Rise`; instant under `prefers-reduced-motion`).
 
 **While open.** The hover preview is suppressed. Camera opens top-down with the
 window framed to fill the viewport. Zoom and pan are allowed out to the loaded
