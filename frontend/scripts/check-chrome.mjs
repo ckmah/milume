@@ -4,9 +4,9 @@
 //      in chrome-baseline.json: counts may go down, never up.
 //   2. Widget styles never set :root / html / body / .dark (host UI would inherit them).
 //   3. Motion has two channels, both switched off by the e2e harness (e2e/helpers.ts
-//      stabilizeUi): CSS animation/transition, and cube-motion's Web Animations. A direct
-//      .animate() call or another animation library would make tests wait out a motion
-//      the harness cannot stop.
+//      stabilizeUi). One channel is CSS animation and transition. The other is
+//      motion/react inside src/components/ui. A direct .animate() call or another
+//      animation library would make tests wait out a motion the harness cannot stop.
 import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -80,7 +80,7 @@ for (const path of hostLeaks) {
   errors.push(`${path}: styles :root/html/body/.dark. Scope tokens under the widget / Soft Float root.`);
 }
 for (const path of offChannelMotion) {
-  errors.push(`${path}: animates outside CSS and cube-motion, so e2e cannot switch it off. Use <Rise>/<Morph> or CSS.`);
+  errors.push(`${path}: animates outside CSS and motion/react inside src/components/ui, so e2e cannot switch it off. Use Rise, GroupBody, GroupChevron, or CSS.`);
 }
 if (errors.length) {
   console.error(errors.join("\n"));

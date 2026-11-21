@@ -27,7 +27,7 @@ const along = (pct: number) => `calc((100% + var(--lm-ruler-band)) * ${pct / 100
  * Edge rulers framing the canvas (top + left axes) and a thin grid line at
  * every tick, over the map and under the chrome (pointer-events none).
  * The map's Y runs down, like the screen. Chrome docks shift via
- * `.landmarks--rulers` (cube-motion curve).
+ * `.landmarks--rulers` (`--duration-slow`).
  */
 export function CanvasRulers({
   lm,
