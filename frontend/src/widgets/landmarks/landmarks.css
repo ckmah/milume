@@ -894,6 +894,11 @@
   overflow: hidden;
 }
 
+/* Resting pose until GroupChevron owns the rotation. No transition. */
+.landmarks-cat-chevron-icon--open {
+  transform: rotate(90deg);
+}
+
 .landmarks-layer-label {
   display: flex;
   min-width: 0;
