@@ -1,5 +1,6 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
 import { Rise } from "@/components/ui/rise";
+import "@/components/ui/skip-motion";
 
 import { useNotebookTheme } from "@/hooks/use-notebook-theme";
 import { cn } from "@/lib/utils";
