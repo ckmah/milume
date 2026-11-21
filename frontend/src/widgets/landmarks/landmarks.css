@@ -351,11 +351,6 @@
   background: transparent;
   animation: landmarks-view-blur-veil var(--lm-view-swap-dur) var(--ease-smooth-out) both;
 }
-@media (prefers-reduced-motion: reduce) {
-  .landmarks__plot--view-swap::after {
-    animation: none;
-  }
-}
 
 .landmarks__error {
   position: absolute;
@@ -880,33 +875,12 @@
   margin: 0;
 }
 
-/* Category disclosure: height follows Base UI's measured panel variable. */
+/* Category disclosure height follows Base UI's measured panel variable.
+   Open and close motion belongs to GroupChevron / GroupBody. */
 .landmarks-cat-sublist {
   height: var(--collapsible-panel-height);
   overflow: hidden;
-  transition: height var(--duration-fast) var(--ease-smooth-out);
 }
-
-.landmarks-cat-chevron-icon {
-  transform: rotate(0deg);
-  transform-origin: center;
-  transition: transform var(--duration-fast) var(--ease-smooth-out);
-}
-
-.landmarks-cat-chevron-icon--open {
-  transform: rotate(90deg);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landmarks-cat-sublist {
-    transition: none;
-  }
-
-  .landmarks-cat-chevron-icon {
-    transition: none !important;
-  }
-}
-
 
 .landmarks-layer-label {
   display: flex;
@@ -984,12 +958,6 @@
 
 .landmarks__selection-card-track {
   background: color-mix(in oklab, var(--foreground) 10%, transparent);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landmarks .landmarks__selection-card {
-    animation: none;
-  }
 }
 
 .landmarks-trail {
@@ -1526,12 +1494,6 @@
   opacity: 0.32;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .landmarks-float:has(> .landmarks-adjust) {
-    transition: none;
-  }
-}
-
 .landmarks-adjust__cols {
   display: flex;
   align-items: flex-start;
@@ -1731,22 +1693,6 @@
   animation: landmarks-progress 1.4s ease-in-out infinite;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .landmarks__progress-bar {
-    animation: none;
-    width: 100%;
-    opacity: 0.45;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landmarks__inspect-status[data-state="refining"] .landmarks__shimmer {
-    animation: none;
-    color: var(--lm-text-muted);
-    background: none;
-  }
-}
-
 /* Sticky bottom-center context toolbar (mirrors top tools).
    Sit above the window-size handle so the two never overlap. */
 .landmarks__chrome-context {
@@ -1799,12 +1745,6 @@
 .landmarks:fullscreen .landmarks__cube-immersive,
 .landmarks--overlay-fs .landmarks__cube-immersive {
   border-radius: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landmarks__cube-immersive {
-    animation: none;
-  }
 }
 
 /* Cut plates sit on the grabbable faces. Near and hover strengthen the fill
@@ -2461,17 +2401,6 @@
   fill: var(--lm-tooltip-bg) !important;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .landmarks-tooltip,
-  .landmarks-tooltip[data-state="delayed-open"],
-  .landmarks-tooltip[data-state="instant-open"],
-  .landmarks-tooltip[data-state="closed"] {
-    animation: none !important;
-    opacity: 1;
-    scale: 1;
-  }
-}
-
 
 /* Shared Soft Float shell for Info + Explore (no dual-card gap). */
 .landmarks__chrome-dock--right {
@@ -2531,14 +2460,6 @@
 }
 
 
-
-@media (prefers-reduced-motion: reduce) {
-  .landmarks-sliding-tabs__pill {
-    transition: none !important;
-  }
-}
-
-
 .landmarks-minimap-float {
   border: 1px solid color-mix(in oklab, var(--foreground) 14%, transparent);
 }
@@ -2561,15 +2482,6 @@
   transform: scale(0.86);
   pointer-events: none;
 }
-@media (prefers-reduced-motion: reduce) {
-  .landmarks-view-cta__icon {
-    transition: none;
-    filter: none;
-  }
-  .landmarks-view-cta__icon--out {
-    transform: none;
-  }
-}
 
 /* View CTA click delight — brief overshoot pop (impeccable delight). */
 @keyframes landmarks-view-cta-pop {
@@ -2579,11 +2491,6 @@
 }
 .landmarks-view-cta--pop {
   animation: landmarks-view-cta-pop var(--duration-medium) var(--ease-smooth-out);
-}
-@media (prefers-reduced-motion: reduce) {
-  .landmarks-view-cta--pop {
-    animation: none;
-  }
 }
 
 /*
@@ -2624,20 +2531,6 @@
 .landmarks-rgb-cube:hover .landmarks-rgb-cube__labels,
 .landmarks-rgb-cube:focus-visible .landmarks-rgb-cube__labels {
   opacity: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landmarks-rgb-cube__svg {
-    transition: none;
-    transform: scale(0.67);
-  }
-  .landmarks-rgb-cube:hover .landmarks-rgb-cube__svg,
-  .landmarks-rgb-cube:focus-visible .landmarks-rgb-cube__svg {
-    transform: scale(0.67);
-  }
-  .landmarks-rgb-cube__labels {
-    transition: opacity 80ms linear;
-  }
 }
 
 /* Canvas rulers — frame the plot (top + left edges); chrome shifts when on */
@@ -2724,19 +2617,20 @@
   transform: translateY(-0.5px);
 }
 
-/* Soft Float chrome shifts inward when rulers are on (cube-motion curve).
- * Context toolbar stays put — only docks / top tools / minimap make room. */
+/* Soft Float chrome shifts inward when rulers are on.
+   Duration is --duration-slow; the curve is cubic-bezier(0.2, 0, 0, 1).
+   Context toolbar stays put — only docks / top tools / minimap make room. */
 .landmarks__chrome-top-row,
 .landmarks__chrome-tools,
 .landmarks__chrome-view,
 .landmarks__chrome-dock,
 .landmarks__chrome-minimap {
   transition:
-    top 400ms cubic-bezier(0.2, 0, 0, 1),
-    left 400ms cubic-bezier(0.2, 0, 0, 1),
-    right 400ms cubic-bezier(0.2, 0, 0, 1),
-    bottom 400ms cubic-bezier(0.2, 0, 0, 1),
-    margin 400ms cubic-bezier(0.2, 0, 0, 1),
+    top var(--duration-slow) cubic-bezier(0.2, 0, 0, 1),
+    left var(--duration-slow) cubic-bezier(0.2, 0, 0, 1),
+    right var(--duration-slow) cubic-bezier(0.2, 0, 0, 1),
+    bottom var(--duration-slow) cubic-bezier(0.2, 0, 0, 1),
+    margin var(--duration-slow) cubic-bezier(0.2, 0, 0, 1),
     transform 180ms ease,
     opacity 180ms ease;
 }
@@ -2807,16 +2701,6 @@
 
 .landmarks--rulers .landmarks__chrome-minimap {
   left: calc(var(--lm-chrome-inset) + var(--lm-ruler-band));
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landmarks__chrome-top-row,
-  .landmarks__chrome-tools,
-  .landmarks__chrome-view,
-  .landmarks__chrome-dock,
-  .landmarks__chrome-minimap {
-    transition: none;
-  }
 }
 
 .landmarks--narrow .landmarks-rulers {

@@ -2,7 +2,7 @@ import { useEffect } from "react";
 
 const ACTIVE = "[aria-pressed='true'], [data-state='on'], [aria-checked='true'], .landmarks-hit--on";
 
-type MarkState = { x: number; v: number; node: HTMLSpanElement };
+type MarkState = { x: number; node: HTMLSpanElement };
 
 /**
  * One ink line per active toolbar item, as wide as that button. A new active item springs
@@ -74,28 +74,29 @@ function edgeY(bar: HTMLElement, el: HTMLElement, edge: "over" | "under"): numbe
   return edge === "over" ? box.top - barBox.top - 2 : box.bottom - barBox.top;
 }
 
+function transformMoves(node: HTMLElement): boolean {
+  return getComputedStyle(node)
+    .transitionProperty.split(",")
+    .some((part) => {
+      const name = part.trim();
+      return name === "transform" || name === "all";
+    });
+}
+
 function runMarks(bar: HTMLElement, host: HTMLElement): () => void {
   const states = new Map<HTMLElement, MarkState>();
-  const motion = window.matchMedia("(prefers-reduced-motion: reduce)");
+  const born = new Set<HTMLElement>();
   let raf = 0;
-  let running = false;
-  let last = 0;
 
-  const kick = () => {
-    if (running) return;
-    running = true;
-    last = 0;
-    raf = requestAnimationFrame(frame);
+  const place = (node: HTMLSpanElement, x: number, w: number, top: number) => {
+    node.style.width = `${w}px`;
+    node.style.top = `${top}px`;
+    node.style.transform = `translateX(${x}px)`;
   };
 
-  const frame = (now: number) => {
-    if (!bar.isConnected) {
-      running = false;
-      return;
-    }
-    const dt = last === 0 ? 0.016 : Math.min(0.032, (now - last) / 1000);
-    last = now;
-    const reduce = motion.matches;
+  const frame = () => {
+    raf = 0;
+    if (!bar.isConnected) return;
     const edge = edgeOf(bar);
     host.dataset.edge = edge;
     const next = actives(bar, host);
@@ -106,7 +107,7 @@ function runMarks(bar: HTMLElement, host: HTMLElement): () => void {
       if (states.has(el)) continue;
       const target = markBox(bar, el);
       let from = target.x;
-      if (!reduce && leaving.length) {
+      if (leaving.length) {
         let best = 0;
         let bestDist = Infinity;
         leaving.forEach((old, index) => {
@@ -123,42 +124,47 @@ function runMarks(bar: HTMLElement, host: HTMLElement): () => void {
       }
       const node = document.createElement("span");
       node.className = "tact-toolbar-mark";
+      place(node, from, target.w, edgeY(bar, el, edge));
       host.appendChild(node);
-      states.set(el, { x: from, v: 0, node });
+      states.set(el, { x: from, node });
+      born.add(el);
+      if (from !== target.x && transformMoves(node)) {
+        requestAnimationFrame(() => {
+          if (!node.isConnected) return;
+          const nextBox = markBox(bar, el);
+          const state = states.get(el);
+          if (!state) return;
+          state.x = nextBox.x;
+          place(node, nextBox.x, nextBox.w, edgeY(bar, el, edgeOf(bar)));
+        });
+      } else {
+        states.get(el)!.x = target.x;
+        place(node, target.x, target.w, edgeY(bar, el, edge));
+      }
     }
 
     for (const old of leaving) {
       states.get(old)!.node.remove();
       states.delete(old);
+      born.delete(old);
     }
 
-    let moving = false;
     for (const el of next) {
+      if (born.has(el)) {
+        born.delete(el);
+        continue;
+      }
       const state = states.get(el);
       if (!state) continue;
       const target = markBox(bar, el);
-      if (reduce || dt === 0) {
-        state.x = target.x;
-        state.v = 0;
-      } else {
-        const stiffness = 380;
-        const damping = 28;
-        const accel = -stiffness * (state.x - target.x) - damping * state.v;
-        state.v += accel * dt;
-        state.x += state.v * dt;
-        if (Math.abs(state.x - target.x) > 0.4 || Math.abs(state.v) > 8) moving = true;
-        else {
-          state.x = target.x;
-          state.v = 0;
-        }
-      }
-      state.node.style.width = `${target.w}px`;
-      state.node.style.transform = `translateX(${state.x}px)`;
-      state.node.style.top = `${edgeY(bar, el, edge)}px`;
+      state.x = target.x;
+      place(state.node, target.x, target.w, edgeY(bar, el, edge));
     }
+  };
 
-    if (moving) raf = requestAnimationFrame(frame);
-    else running = false;
+  const kick = () => {
+    if (raf) return;
+    raf = requestAnimationFrame(frame);
   };
 
   const watch = new MutationObserver(kick);
@@ -170,16 +176,12 @@ function runMarks(bar: HTMLElement, host: HTMLElement): () => void {
   });
   const resize = new ResizeObserver(kick);
   resize.observe(bar);
-  const onMotion = () => kick();
-  motion.addEventListener("change", onMotion);
   kick();
 
   return () => {
-    running = false;
     cancelAnimationFrame(raf);
     watch.disconnect();
     resize.disconnect();
-    motion.removeEventListener("change", onMotion);
     host.remove();
     states.clear();
   };

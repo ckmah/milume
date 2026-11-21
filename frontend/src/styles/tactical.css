@@ -271,6 +271,7 @@
   height: 2px;
   background: var(--tact-ink);
   border-radius: 0;
+  transition: transform var(--duration-fast, 250ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .milume-widget .landmarks__peek-tab,
@@ -779,17 +780,5 @@
 .landmarks-load-card[data-phase="loading"] .landmarks__progress-bar {
   border-radius: 0;
   background: var(--tact-ink);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .milume-widget .tact-switch-glide,
-  .milume-widget .landmarks-sliding-tabs__pill,
-  .milume-widget .landmarks-cat-sublist,
-  .milume-widget .tact-toolbar-mark,
-  [data-milume-portal] .tact-popup,
-  [data-milume-portal] .tact-tooltip {
-    transition: none !important;
-    animation: none !important;
-  }
 }
 
