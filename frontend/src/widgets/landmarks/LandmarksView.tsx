@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react";
+import { MotionConfig } from "@/components/ui/motion-config";
 import { Rise } from "@/components/ui/rise";
 import "@/components/ui/skip-motion";
 
@@ -392,6 +393,7 @@ export function LandmarksView({
 
   return (
     <WidgetPortalContext.Provider value={rootEl}>
+    <MotionConfig reducedMotion="user">
     <div
       ref={rootRef}
       className={cn(
@@ -715,6 +717,7 @@ export function LandmarksView({
         <ToolbarMarks root={rootEl} />
       </div>
     </div>
+    </MotionConfig>
     </WidgetPortalContext.Provider>
   );
 }

@@ -1,0 +1,55 @@
+/*
+ * One reduced-motion rule for widget chrome.
+ * Height, x, y, scale, and rotate snap: animation duration is effectively
+ * none, and transition-property is opacity only.
+ * Opacity may fade for at most --duration-micro (80ms).
+ */
+
+@media (prefers-reduced-motion: reduce) {
+  .milume-widget,
+  .milume-widget *,
+  .milume-widget *::before,
+  .milume-widget *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-property: opacity !important;
+    transition-duration: var(--duration-micro, 80ms) !important;
+    transition-delay: 0s !important;
+  }
+
+  /*
+   * Invisible presence hold. Base UI unmounts a closing panel when this
+   * animation ends. Keep the node mounted for the opacity fade.
+   */
+  .milume-widget .milume-overlay-panel[data-state="closed"],
+  .milume-widget .milume-overlay-panel[data-closed] {
+    animation-duration: var(--duration-micro, 80ms) !important;
+  }
+
+  /*
+   * The refining shimmer is background-clip text with color: transparent.
+   * Stopping the sweep leaves the status unreadable unless the fill is restored.
+   */
+  .milume-widget .landmarks__inspect-status[data-state="refining"] .landmarks__shimmer {
+    color: var(--lm-text-muted);
+    background: none;
+  }
+
+  /* The indeterminate bar is a moving sliver. Reduced motion shows a static bar. */
+  .milume-widget .landmarks__progress-bar {
+    width: 100%;
+    opacity: 0.45;
+  }
+
+  /*
+   * Tooltips mount at opacity 0 and scale(var(--scale-small)).
+   * The open keyframes are what make them visible; keep that end state
+   * when the animation duration is collapsed.
+   */
+  .milume-widget .landmarks-tooltip[data-state="delayed-open"],
+  .milume-widget .landmarks-tooltip[data-state="instant-open"] {
+    opacity: 1;
+    scale: 1;
+  }
+}

@@ -2,7 +2,7 @@
 // Adapted from the beUI popover spring (panel stiffness), without the goo filter,
 // so the panel can sit to the right of a widget anchor.
 
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   forwardRef,
   type ComponentPropsWithoutRef,
@@ -15,17 +15,10 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
-import { MOTION_OFF, SPRING_GLIDE } from "@/lib/motion-springs";
+import { useChromeMotion } from "@/components/ui/reduced-motion";
 import { cn } from "@/lib/utils";
 
 import "./motion-overlays.css";
-
-type SpringPanelProps = ComponentPropsWithoutRef<"div"> & {
-  /** Scale the panel grows from. Tooltip uses 0.94; panels use 0.92. */
-  enterScale?: number;
-  /** Scale the panel leaves toward. */
-  exitScale?: number;
-};
 
 function panelClosed(props: object) {
   const record = props as Record<string, unknown>;
@@ -37,12 +30,9 @@ function panelClosed(props: object) {
 }
 
 /** Shared open and close for portaled Radix and Base UI panels. */
-export const SpringPanel = forwardRef<HTMLDivElement, SpringPanelProps>(
-  function SpringPanel(
-    { className, style, children, enterScale: _enterScale = 0.92, exitScale: _exitScale = 0.96, ...props },
-    ref,
-  ) {
-    const reduce = useReducedMotion() ?? false;
+export const SpringPanel = forwardRef<HTMLDivElement, ComponentPropsWithoutRef<"div">>(
+  function SpringPanel({ className, style, children, ...props }, ref) {
+    const { pose, transition } = useChromeMotion();
     const closed = panelClosed(props);
     const motionProps = props as ComponentPropsWithoutRef<typeof motion.div>;
     return (
@@ -51,13 +41,9 @@ export const SpringPanel = forwardRef<HTMLDivElement, SpringPanelProps>(
         {...motionProps}
         style={style}
         className={cn("milume-overlay-panel", className)}
-        initial={reduce ? false : { opacity: 0, y: 8 }}
-        animate={
-          closed
-            ? { opacity: 0, y: reduce ? 0 : 8 }
-            : { opacity: 1, y: 0 }
-        }
-        transition={reduce ? MOTION_OFF : SPRING_GLIDE}
+        initial={pose({ opacity: 0, y: 8 })}
+        animate={pose(closed ? { opacity: 0, y: 8 } : { opacity: 1, y: 0 })}
+        transition={transition}
       >
         {children}
       </motion.div>
@@ -90,7 +76,7 @@ export function SpringPopover({
   testId?: string;
   children: ReactNode;
 }) {
-  const reduce = useReducedMotion() ?? false;
+  const { pose, transition } = useChromeMotion();
   const panelRef = useRef<HTMLDivElement>(null);
   const [box, setBox] = useState<PopoverBox | null>(null);
 
@@ -156,10 +142,10 @@ export function SpringPopover({
           ref={panelRef}
           role="dialog"
           data-testid={testId}
-          initial={reduce ? false : { opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={reduce ? MOTION_OFF : SPRING_GLIDE}
-          {...(reduce ? {} : { exit: { opacity: 0, y: 8 } })}
+          initial={pose({ opacity: 0, y: 8 })}
+          animate={pose({ opacity: 1, y: 0 })}
+          exit={pose({ opacity: 0, y: 8 })}
+          transition={transition}
           style={{
             position: "fixed",
             left: box?.left ?? 0,

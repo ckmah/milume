@@ -1,9 +1,10 @@
 // Adapted from beUI color-selector (https://beui.dev/components/motion/color-selector).
 // Swatch size fits the Layers channel popover. Springs come from motion-springs.
 
-import { LayoutGroup, motion, useReducedMotion } from "motion/react";
+import { LayoutGroup, motion } from "motion/react";
 import { type ComponentPropsWithRef, createContext, useContext, useId, useState } from "react";
 
+import { useChromeMotion } from "@/components/ui/reduced-motion";
 import { cn } from "@/lib/utils";
 import { SPRING_PRESS } from "@/lib/motion-springs";
 
@@ -77,7 +78,7 @@ export function ColorSelectorItem({
   label: string;
 }) {
   const context = useContext(ColorSelectorContext);
-  const reduce = useReducedMotion();
+  const { gesture } = useChromeMotion();
   if (!context) throw new Error("ColorSelectorItem must be used within ColorSelector");
   const selected = context.value === value;
   const unavailable = disabled || context.disabled;
@@ -85,7 +86,7 @@ export function ColorSelectorItem({
     <motion.label
       tabIndex={-1}
       data-checked={selected ? "true" : "false"}
-      whileTap={reduce || unavailable ? undefined : { scale: 0.98 }}
+      whileTap={unavailable ? undefined : gesture({ scale: 0.98 })}
       transition={SPRING_PRESS}
       className={cn(
         "landmarks-channel-color-option relative",
