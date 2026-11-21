@@ -28,10 +28,6 @@ function applyHarnessTheme(theme: HarnessTheme) {
   window.localStorage.setItem(STORAGE_KEY, theme);
 }
 
-function devShellHeight() {
-  return Math.round(Math.min(1400, Math.max(820, window.innerHeight * 0.86)));
-}
-
 export function HarnessShell() {
   const [theme, setTheme] = useState<HarnessTheme>(() => readStoredTheme());
   const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
@@ -108,7 +104,6 @@ export function HarnessShell() {
               <LandmarksView
                 model={model}
                 hostEl={hostEl}
-                defaultHeight={devShellHeight()}
               />
             ) : (
               <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>
