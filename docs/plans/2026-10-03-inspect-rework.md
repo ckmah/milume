@@ -4,9 +4,9 @@
 
 **Goal:** Rework the immersive Inspect cube per the PR #58 review: drop the context region, let the user pan the live window in XY, draw labels as shells, swap the top toolbar for a dotted Inspect pill with a Refining→Ready status, reorganise the bottom controls (per-layer projection, Cross-section panel), and replace the history strip with selection info in the Selections panel.
 
-**Architecture:** All work lands on branch `claude/inspect-mode-fullscreen-zoom-2442d5` (PR #58). `VolumeCube` goes back to window-only and gains a pan gesture (`onPan`). The Viv extension becomes one extension with `imageMip`/`cellMip` uniforms and shell-only cells. The top `Topbar` swaps with a new `InspectPill` via `cube-motion`'s `<Rise>`; the old actions row and history strip are deleted. The engine names new selections at creation (`<top category> · <count>`); a shadcn `hover-card` on selection rows shows the thumbnail and live composition.
+**Architecture:** All work lands on branch `claude/inspect-mode-fullscreen-zoom-2442d5` (PR #58). `VolumeCube` goes back to window-only and gains a pan gesture (`onPan`). The Viv extension becomes one extension with `imageMip`/`cellMip` uniforms and shell-only cells. The top `Topbar` swaps with a new `InspectPill` via motion/react `<Rise>`; the old actions row and history strip are deleted. The engine names new selections at creation (`<top category> · <count>`); a shadcn `hover-card` on selection rows shows the thumbnail and live composition.
 
-**Tech Stack:** React 19, TypeScript, Viv 0.22 / deck.gl 9.2 / luma.gl 9.2 (GLSL injected through Viv extensions), `cube-motion/react`, shadcn/ui, Playwright e2e (no unit runner), vanilla engine `milume/static/landmarks.js`.
+**Tech Stack:** React 19, TypeScript, Viv 0.22 / deck.gl 9.2 / luma.gl 9.2 (GLSL injected through Viv extensions), `motion/react`, shadcn/ui, Playwright e2e (no unit runner), vanilla engine `milume/static/landmarks.js`.
 
 **Spec:** [`docs/specs/2026-10-03-inspect-rework-design.md`](../specs/2026-10-03-inspect-rework-design.md)
 
@@ -19,7 +19,7 @@
 - `VolumeCube` stays backward compatible for the hover preview (`inspect-preview.tsx` passes `mode="mip"` today; it keeps drawing as before).
 - One deck.gl/luma.gl root stack; no new runtime dependencies except what `shadcn add hover-card` pulls (it uses the already-installed `radix-ui`).
 - `_esm` stays a `pathlib.Path`; bundles are git-ignored.
-- Motion uses `cube-motion` (`<Rise>`, `<Morph>`), never ad-hoc keyframes for the pill swap; honour `prefers-reduced-motion` (cube-motion does this itself; CSS shimmer must also).
+- Motion uses `motion/react` (`<Rise>`, `<Morph>`), never ad-hoc keyframes for the pill swap; honour `prefers-reduced-motion` (`motion/react` does this itself; CSS shimmer must also).
 - Tests: Playwright only. Prefer `expect.poll` / web-first asserts; a fixed wait only for a negative check that must outlast a debounce, with a comment. Never delete an existing test without escalating; adapt it.
 - Before any e2e run, `lsof -iTCP:5173 -sTCP:LISTEN` must be empty (Playwright reuses a stale server on that port). Stop any server you start.
 - Commit messages end with: `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`. Do not push; do not touch the PR.
@@ -669,7 +669,7 @@ cd frontend && lsof -iTCP:5173 -sTCP:LISTEN; E2E_HARNESS=landmarks-volume npx pl
 
 - [ ] **Step 4: `InspectPill`**
 
-Create `chrome/inspect-pill.tsx` with `TOOLBAR_CLASS`, `ChromeTooltip`, `ToolbarDivider`, `chromeHitClass`, `chromeHitTextClass`, lucide `XIcon`, `BoxIcon`, `PlusIcon`, `MinusIcon`, `Maximize2Icon`, `MaximizeIcon`, `MinimizeIcon`, `BookmarkPlusIcon`, `BookmarkCheckIcon`, and `Morph` from `cube-motion/react` for the status. Structure (armed vs open from `props.open`):
+Create `chrome/inspect-pill.tsx` with `TOOLBAR_CLASS`, `ChromeTooltip`, `ToolbarDivider`, `chromeHitClass`, `chromeHitTextClass`, lucide `XIcon`, `BoxIcon`, `PlusIcon`, `MinusIcon`, `Maximize2Icon`, `MaximizeIcon`, `MinimizeIcon`, `BookmarkPlusIcon`, `BookmarkCheckIcon`, and `Morph` from `motion/react` for the status. Structure (armed vs open from `props.open`):
 
 ```tsx
 export function InspectPill(p: InspectPillProps) {
@@ -759,7 +759,7 @@ function StatusChip({ status, error }: { status: "refining" | "ready" | "error";
 
 - [ ] **Step 5: Swap in `LandmarksView` and exit logic**
 
-In the `landmarks__chrome-tools` block replace the single `<Topbar …/>` with two `<Rise>` children (import `Rise` from `cube-motion/react`, as `selection-toolbar.tsx` does):
+In the `landmarks__chrome-tools` block replace the single `<Topbar …/>` with two `<Rise>` children (import `Rise` from `motion/react`, as `selection-toolbar.tsx` does):
 
 ```tsx
           <Rise show={!inspecting}>

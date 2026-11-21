@@ -34,5 +34,5 @@ Helpers: `bootLandmarksHarness`, `canvasBox`, `setModel` (in
 
 ## Gotchas
 
-- Rulers rise in (cube-motion `Rise`): poll positions until they settle rather than reading once.
+- Rulers rise in (motion/react `Rise`). Poll positions until they settle rather than reading once.
 - Labels use `toPrecision(3)` (e.g. `2.86e+3`); read a tick's value from `data-value`, not its text.
