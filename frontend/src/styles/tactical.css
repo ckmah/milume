@@ -46,6 +46,7 @@
   --lm-hit-radius: 0px;
   --lm-panel-pad: 10px;
   --lm-lead: 28px;
+  --lm-row-gap: 8px;
   --lm-hit-on-bg: transparent;
   --lm-hit-on-fg: var(--tact-ink);
   --lm-layer-radius: 0px;
@@ -712,7 +713,7 @@
 .milume-widget .landmarks__layers-panel .landmarks-image-channel-row {
   display: grid;
   grid-template-columns: var(--lm-lead) minmax(0, 1fr) auto;
-  column-gap: 8px;
+  column-gap: var(--lm-row-gap);
   align-items: center;
   padding-left: var(--lm-panel-pad) !important;
   padding-right: var(--lm-panel-pad) !important;
@@ -721,6 +722,13 @@
 .milume-widget .landmarks__layers-panel .landmarks-layer-row > :first-child,
 .milume-widget .landmarks__layers-panel .landmarks-image-channel-row > :first-child {
   justify-self: center;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row > .landmarks-layer-row > .landmarks-cat-chevron {
+  justify-self: start;
+  width: 2rem;
+  height: 1.5rem;
+  flex: 0 0 2rem;
 }
 
 .milume-widget .landmarks__layers-panel .landmarks-panel-section-header__trail,
@@ -756,7 +764,7 @@
 }
 
 .milume-widget .landmarks__layers-panel .landmarks-layers-stack__nested .landmarks-slider-row {
-  padding-left: 0;
+  padding-left: calc(var(--lm-lead) + var(--lm-row-gap));
   padding-right: calc(var(--lm-overlay-inset-x) + var(--lm-panel-pad));
 }
 

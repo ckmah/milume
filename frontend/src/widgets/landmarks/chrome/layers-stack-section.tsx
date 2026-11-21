@@ -206,7 +206,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
   }
 
   return (
-    <div className="landmarks-layers-stack flex flex-col gap-0.5 pb-2">
+    <div className="landmarks-layers-stack flex flex-col gap-0.5">
       {category_columns.length ? (
         <div className="landmarks-layers-stack__row">
           <div
