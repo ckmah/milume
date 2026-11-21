@@ -47,12 +47,15 @@ export async function setModel(page: Page, patch: Record<string, unknown>) {
 }
 
 /**
- * cube-motion runs on the Web Animations API, which the CSS reset below cannot stop. Its entrances
- * last 640 ms and lift the element, so Playwright's stability check waits them out on every click.
- * Zero every animation's timing instead; `finished` still resolves, so leave-then-unmount keeps working.
+ * motion/react springs run on their own frame loop, and CSS animation and transition
+ * keep playing too. Playwright's stability check waits those out on every click.
+ * Zero every Web Animations timing (`finished` still resolves, so leave-then-unmount keeps working)
+ * and set MotionGlobalConfig.skipAnimations through the app hook.
  */
 function zeroWebAnimations() {
   const w = window as any;
+  w.__milumeSkipMotion = true;
+  if (typeof w.__milumeApplySkipMotion === "function") w.__milumeApplySkipMotion();
   if (w.__motionOff) return;
   w.__motionOff = true;
   const animate = Element.prototype.animate;
