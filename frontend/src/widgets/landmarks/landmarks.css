@@ -1385,6 +1385,36 @@
   gap: var(--lm-stack-gap);
 }
 
+/* Layers panel: label, track, and readout share one line. The label slot is
+   fixed so every track starts at the same x inside the 14rem dock. */
+.landmarks-slider-row--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.landmarks-slider-row--inline .landmarks-slider-caption {
+  flex: 0 0 4.5rem;
+  width: 4.5rem;
+  max-width: 4.5rem;
+  min-width: 0;
+}
+
+.landmarks-slider-row--inline .landmarks-slider-control {
+  flex: 1 1 auto;
+  min-width: 2.5rem;
+  width: auto;
+}
+
+.landmarks-slider-row--inline .tact-readout {
+  flex: 0 0 3.75rem;
+  width: 3.75rem;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .landmarks-slider-caption {
   flex: 1 1 auto;
   min-width: var(--lm-slider-caption-w, 0px);
@@ -1420,10 +1450,19 @@
 .landmarks-image-channel-list {
   display: flex;
   flex-direction: column;
-  gap: 0;
-  max-height: calc(8 * 24px);
+  gap: 0.5rem;
+  max-height: 320px;
   overflow-y: auto;
   overscroll-behavior: contain;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-layers-image-trigger,
+.milume-widget .landmarks__layers-panel .landmarks-image-channel-row__name,
+.milume-widget .landmarks__layers-panel .landmarks-layer-label {
+  flex: 0 1 auto;
+  width: max-content;
+  max-width: 9rem;
+  min-width: 0;
 }
 
 .landmarks-image-channel-row {
@@ -1492,6 +1531,10 @@
 
 .landmarks-slider-row .landmarks-slider-control {
   min-width: 7.5rem;
+}
+
+.landmarks-slider-row--inline .landmarks-slider-control {
+  min-width: 2.5rem;
 }
 
 /* Inspect bar panels: Adjust (Image | Labels columns) and Cross-section, one capsule width. */

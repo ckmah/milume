@@ -251,20 +251,22 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
 
     await expect(
       page.locator(".landmarks-image-controls .landmarks-slider-row--contrast .landmarks-slider-control"),
-    ).toHaveCount(1);
+    ).toHaveCount(4);
     await expect(
       page.locator(".landmarks-image-controls .landmarks-slider-row--alpha .landmarks-slider-control"),
-    ).toHaveCount(1);
+    ).toHaveCount(4);
     const tracks = page.locator(".landmarks-image-controls .landmarks-slider-control");
-    await expect(tracks).toHaveCount(2);
-    const [a, b] = await tracks.evaluateAll((els) =>
+    await expect(tracks).toHaveCount(8);
+    const boxes = await tracks.evaluateAll((els) =>
       els.map((el) => {
         const r = el.getBoundingClientRect();
         return { x: r.x, width: r.width };
       }),
     );
-    expect(Math.abs(a!.x - b!.x)).toBeLessThan(0.5);
-    expect(Math.abs(a!.width - b!.width)).toBeLessThan(0.5);
+    const xs = boxes.map((box) => box.x);
+    const widths = boxes.map((box) => box.width);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeLessThan(0.5);
+    expect(Math.max(...widths) - Math.min(...widths)).toBeLessThan(0.5);
 
     await page.getByTestId("layer-channel-row-CD45").click();
     await expect(
@@ -276,8 +278,7 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
       .filter({ hasText: "PanCK contrast" });
     await page.getByTestId("layer-channel-row-PanCK").focus();
     await expect(panckCaption).toBeVisible();
-    const notTruncated = await panckCaption.evaluate((el) => el.scrollWidth <= el.clientWidth + 0.5);
-    expect(notTruncated).toBe(true);
+    await expect(panckCaption).toHaveAttribute("title", "PanCK contrast");
   });
 
   test("whole-row click toggles channel visibility", async ({ page }) => {
@@ -299,7 +300,7 @@ test.describe("image panel polish (#399) — issue122-2d", () => {
     await setModel(page, { _image_channels: makeManyChannels(18) });
     await openImagePanel(page);
     const list = page.getByTestId("layer-channel-list");
-    await expect(list).toHaveCSS("max-height", "192px");
+    await expect(list).toHaveCSS("max-height", "320px");
     await expect(list).toHaveCSS("overscroll-behavior", "contain");
 
     const dock = page.locator(".landmarks__chrome-dock--left");

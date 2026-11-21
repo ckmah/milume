@@ -710,8 +710,8 @@
 .milume-widget .landmarks__layers-panel .landmarks-cat-trigger,
 .milume-widget .landmarks__layers-panel .landmarks-image-channel-row {
   display: grid;
-  grid-template-columns: var(--lm-lead) minmax(0, 1fr) auto;
-  column-gap: 8px;
+  grid-template-columns: var(--lm-lead) max-content auto minmax(0, 1fr);
+  column-gap: 4px;
   align-items: center;
   padding-left: var(--lm-panel-pad) !important;
   padding-right: var(--lm-panel-pad) !important;
@@ -728,7 +728,11 @@
   margin-left: 0;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-layers-stack__nested,
+.milume-widget .landmarks__layers-panel .landmarks-layers-stack__nested {
+  padding-left: 0;
+  padding-right: 0;
+}
+
 .milume-widget .landmarks__layers-panel .landmarks-cat-sublist {
   padding-left: var(--lm-panel-nest);
   padding-right: 0;
