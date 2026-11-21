@@ -9,6 +9,9 @@ import { SPRING_GLIDE } from "@/lib/motion-springs";
  */
 export const OPACITY_FADE_REDUCED: Transition = { duration: 0.08, ease: "linear" };
 
+/** Height, rotate, and tone. Reduced motion snaps them. */
+export const SNAP: Transition = { duration: 0 };
+
 const MOVE_KEYS = [
   "x",
   "y",
