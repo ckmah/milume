@@ -26,12 +26,8 @@ function cssColorToHex(css: string): string {
 
 async function ensureLandmarksSectionOpen(page: Page) {
   const section = page.getByTestId("panel-section-landmarks");
-  const isOpen = await section.evaluate((el) =>
-    el.classList.contains("landmarks-panel-section--open"),
-  );
-  if (!isOpen) {
-    await section.locator(".landmarks-panel-section-header__main").click();
-  }
+  const open = await section.getByRole("button", { name: "Collapse Landmarks" }).count();
+  if (!open) await section.locator(".landmarks-panel-section-header__main").click();
 }
 
 async function panelSwatchHex(page: Page, label: string) {

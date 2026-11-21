@@ -98,7 +98,7 @@ test.describe("panel layout (option 1)", () => {
     await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
     await waitForEngine(page);
     await setModel(page, { selected_kind: "landmark", selected_index: 0 });
-    await page.getByTestId("panel-section-selections").click();
+    await page.getByTestId("panel-section-landmarks").click();
     const pinLabel = page
       .getByTestId("panel-section-landmarks")
       .locator(".landmarks-panel-section-header__pin-label");
@@ -179,7 +179,7 @@ test.describe("panel layout (option 1)", () => {
     await page.goto("/?fixture=/fixture.json", { waitUntil: "networkidle" });
     await waitForEngine(page);
     await setModel(page, { selected_kind: "landmark", selected_index: 0 });
-    await page.getByTestId("panel-section-selections").click();
+    await page.getByTestId("panel-section-landmarks").click();
     const pin = page
       .getByTestId("panel-section-landmarks")
       .locator(".landmarks-panel-section-header__pin");

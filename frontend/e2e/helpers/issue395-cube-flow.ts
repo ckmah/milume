@@ -186,7 +186,10 @@ export async function openLayersPanelWithCubeOpen(page: Page) {
     await page.getByRole("button", { name: "Show left panel" }).click();
   }
   await page.keyboard.press("[");
-  await page.getByTestId("panel-section-layers").click({ force: true });
+  const layers = page.getByTestId("panel-section-layers");
+  if (await layers.getByRole("button", { name: "Expand Layers" }).count()) {
+    await layers.click({ force: true });
+  }
   const row = page.getByTestId("layers-image-row");
   if ((await row.getAttribute("aria-expanded")) !== "true") await row.click({ force: true });
   await page.getByTestId("layer-channel-PanCK").waitFor({ state: "visible", timeout: 30_000 });
