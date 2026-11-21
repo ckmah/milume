@@ -3,8 +3,7 @@ import { ChevronRightIcon, XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-import { chromeHitClass } from "./primitives";
-import { PANEL_INSET } from "./sections";
+import { chromeHitClass, PanelRow } from "./primitives";
 
 export type PanelSectionPin = {
   label: string;
@@ -34,34 +33,36 @@ export function PanelSectionHeader({
   minimise?: boolean;
 }) {
   return (
-    <div
+    <PanelRow
       className={cn(
         "landmarks-panel-section-header",
-        PANEL_INSET,
         open && "landmarks-panel-section-header--open",
       )}
       data-testid={testId}
-    >
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        className={cn(
-          "landmarks-panel-section-header__toggle landmarks-cat-chevron shrink-0 hover:bg-transparent",
-          chromeHitClass,
-        )}
-        aria-expanded={open}
-        aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
-        onClick={onToggle}
-      >
-        <ChevronRightIcon
+      lead={
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
           className={cn(
-            "landmarks-cat-chevron-icon landmarks-panel-section-header__chevron",
-            open && "landmarks-cat-chevron-icon--open",
+            "landmarks-panel-section-header__toggle landmarks-cat-chevron shrink-0 hover:bg-transparent",
+            chromeHitClass,
           )}
-          aria-hidden
-        />
-      </Button>
+          aria-expanded={open}
+          aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
+          onClick={onToggle}
+        >
+          <ChevronRightIcon
+            className={cn(
+              "landmarks-cat-chevron-icon landmarks-panel-section-header__chevron",
+              open && "landmarks-cat-chevron-icon--open",
+            )}
+            aria-hidden
+          />
+        </Button>
+      }
+      end={<span className="landmarks-panel-count landmarks-panel-section-header__count">{count}</span>}
+    >
       <PanelSectionHeaderMain
         label={label}
         open={open}
@@ -69,10 +70,7 @@ export function PanelSectionHeader({
         minimise={minimise}
         onToggle={onToggle}
       />
-      <div className="landmarks-panel-section-header__trail">
-        <span className="landmarks-panel-section-header__count">{count}</span>
-      </div>
-    </div>
+    </PanelRow>
   );
 }
 

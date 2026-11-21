@@ -14,6 +14,8 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const src = join(here, "..", "src");
 const baselinePath = join(here, "chrome-baseline.json");
+const padBaselinePath = join(here, "chrome-pad-baseline.json");
+const PAD = /(?:^|[\s"'`])!?p(?:x|y|t|r|b|l|s|e)?-(?:\[[^\]]+\]|[^\s"'`]+)/g;
 const RAW = /<(button|input|select|textarea)\b/g;
 const OFF_CHANNEL_MOTION = /\.animate\(|new Animation\(|from ["'](framer-motion|motion|motion\/react|gsap|animejs)["']/;
 const HOST_SELECTOR = /(^|[\s,}])(:root|html|body|\.dark)\s*[,{]/;
@@ -27,6 +29,7 @@ function walk(dir) {
 const rel = (p) => relative(join(here, ".."), p).split("\\").join("/");
 
 const raw = {};
+const pad = {};
 const hostLeaks = [];
 const offChannelMotion = [];
 for (const file of walk(src)) {
@@ -37,6 +40,10 @@ for (const file of walk(src)) {
   if (/\.(tsx|jsx)$/.test(file)) {
     const n = (text.match(RAW) ?? []).length;
     if (n) raw[path] = n;
+    if (path.startsWith("src/widgets/landmarks/chrome/")) {
+      const pads = text.match(PAD) ?? [];
+      if (pads.length) pad[path] = pads.length;
+    }
   } else if (file.endsWith(".css")) {
     const code = text.replace(/\/\*[\s\S]*?\*\//g, "");
     if (HOST_SELECTOR.test(code)) hostLeaks.push(path);
@@ -45,12 +52,22 @@ for (const file of walk(src)) {
 
 if (process.argv.includes("--update-baseline")) {
   writeFileSync(baselinePath, JSON.stringify(raw, null, 2) + "\n");
-  console.log(`baseline written: ${Object.keys(raw).length} files`);
+  writeFileSync(padBaselinePath, JSON.stringify(pad, null, 2) + "\n");
+  console.log(`baseline written: ${Object.keys(raw).length} files, ${Object.keys(pad).length} chrome pad files`);
   process.exit(0);
 }
 
 const baseline = JSON.parse(readFileSync(baselinePath, "utf8"));
+const padBaseline = JSON.parse(readFileSync(padBaselinePath, "utf8"));
 const errors = [];
+for (const [path, n] of Object.entries(pad)) {
+  const allowed = padBaseline[path] ?? 0;
+  if (n > allowed) {
+    errors.push(
+      `${path}: ${n} Tailwind padding class(es), baseline ${allowed}. Use the panel-grid tokens instead of adding padding utilities.`,
+    );
+  }
+}
 for (const [path, n] of Object.entries(raw)) {
   const allowed = baseline[path] ?? 0;
   if (n > allowed) {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { EyeIcon } from "lucide-react";
+import { ChevronRightIcon, EyeIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -43,6 +43,8 @@ import {
   ColorSwatch,
   LayerRow,
   ModeToggle,
+  PanelBand,
+  PanelRow,
   ToolbarDivider,
 } from "@/widgets/landmarks/chrome/primitives";
 import { RasterSection } from "@/widgets/landmarks/chrome/raster-section";
@@ -520,6 +522,27 @@ export function ChromeSections() {
             })}
             onExpand={noop}
           />
+        </StateCell>
+      </DsSection>
+
+      <DsSection id="panel-grid" title="Panel grid">
+        <StateCell state="default">
+          <div className="milume-widget dark w-[17rem]">
+            <PanelBand shade className="landmarks-panel-section--open">
+              <PanelRow
+                lead={<ChevronRightIcon className="size-3.5" aria-hidden />}
+                end={<span className="landmarks-panel-count">1</span>}
+              >
+                Layers
+              </PanelRow>
+              <PanelRow
+                lead={<span className="size-2.5 bg-[#1f77b4]" aria-hidden />}
+                end={<span className="landmarks-panel-count">(4)</span>}
+              >
+                region
+              </PanelRow>
+            </PanelBand>
+          </div>
         </StateCell>
       </DsSection>
 

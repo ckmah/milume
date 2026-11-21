@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Card } from "@/components/ui/card";
 import { FieldDescription } from "@/components/ui/field";
 import { ItemGroup } from "@/components/ui/item";
 import { cn } from "@/lib/utils";
@@ -10,10 +9,9 @@ import type { LandmarksModel } from "../use-landmarks-model";
 import { type ChipSnapshot, windowKey } from "./cube-snapshots";
 import { LayersStackSection, layersStackCount } from "./layers-stack-section";
 import { PanelSectionHeader } from "./panel-section-header";
-import { LayerRow } from "./primitives";
+import { LayerRow, PanelBand } from "./primitives";
 import { useWidgetPortal } from "./widget-portal-context";
 import { SelectionCard } from "./selection-card";
-import { FLOAT_PANEL, FLOAT_PANEL_CLIP } from "./sections";
 
 const NO_SNAPSHOTS = new Map<string, ChipSnapshot>();
 
@@ -98,23 +96,18 @@ export function LayersPanel({
     <div
       ref={rootRef}
       className={cn(
-        "landmarks__layers-panel flex h-full min-h-0 flex-1 flex-col",
+        "landmarks__layers-panel landmarks-float landmarks-float--panel pointer-events-auto flex h-full min-h-0 max-h-full flex-1 flex-col overflow-hidden",
         minimise && "landmarks__layers-panel--minimise",
       )}
     >
-      <Card className={cn(FLOAT_PANEL, "flex h-full min-h-0 flex-1 flex-col")}>
-        <div className={cn(FLOAT_PANEL_CLIP, "flex h-full min-h-0 flex-1 flex-col")}>
           <div
             className={cn(
               "landmarks-panel-sections flex min-h-0 flex-1 flex-col",
               !minimise && "landmarks-overlay-scroll py-0",
             )}
           >
-            <section
-              className={cn(
-                "landmarks-panel-section",
-                sectionOpen("selections") && "landmarks-panel-section--open",
-              )}
+            <PanelBand
+              className={cn(sectionOpen("selections") && "landmarks-panel-section--open")}
             >
               <PanelSectionHeader
                 label="Selections"
@@ -166,13 +159,10 @@ export function LayersPanel({
                   )}
                 </div>
               ) : null}
-            </section>
+            </PanelBand>
 
-            <section
-              className={cn(
-                "landmarks-panel-section",
-                sectionOpen("landmarks") && "landmarks-panel-section--open",
-              )}
+            <PanelBand
+              className={cn(sectionOpen("landmarks") && "landmarks-panel-section--open")}
             >
               <PanelSectionHeader
                 label="Landmarks"
@@ -213,13 +203,11 @@ export function LayersPanel({
                   )}
                 </div>
               ) : null}
-            </section>
+            </PanelBand>
 
-            <section
-              className={cn(
-                "landmarks-panel-section",
-                sectionOpen("layers") && "landmarks-panel-section--open",
-              )}
+            <PanelBand
+              shade={sectionOpen("layers")}
+              className={cn(sectionOpen("layers") && "landmarks-panel-section--open")}
             >
               <PanelSectionHeader
                 label="Layers"
@@ -234,10 +222,8 @@ export function LayersPanel({
                   <LayersStackSection lm={lm} />
                 </div>
               ) : null}
-            </section>
+            </PanelBand>
           </div>
-        </div>
-      </Card>
     </div>
   );
 }

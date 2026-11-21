@@ -140,10 +140,18 @@ function parseChannelTint(hex) {
   return [(n >> 16) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
 }
 
-function additiveRgbFromPlane(gray, rgb, plane, tint) {
+function channelOpacity(ch, fallback) {
+  const own = Number(ch && ch.alpha);
+  const raw = Number.isFinite(own) ? own : Number(fallback);
+  if (!Number.isFinite(raw)) return 0.55;
+  return Math.max(0, Math.min(1, raw));
+}
+
+function additiveRgbFromPlane(gray, rgb, plane, tint, alpha) {
   const [tr, tg, tb] = tint;
+  const a = Number.isFinite(alpha) ? Math.max(0, Math.min(1, alpha)) : 1;
   for (let i = 0; i < plane; i++) {
-    const n = gray[i] / 255;
+    const n = (gray[i] / 255) * a;
     rgb[i * 3] = Math.min(1, rgb[i * 3] + n * tr);
     rgb[i * 3 + 1] = Math.min(1, rgb[i * 3 + 1] + n * tg);
     rgb[i * 3 + 2] = Math.min(1, rgb[i * 3 + 2] + n * tb);
@@ -279,7 +287,7 @@ export function createMapImageBackdrop({
     const vis = visibleChannels(model)
       .map(
         (c) =>
-          `${c.name}:${c.contrast_limits?.[0] ?? 0},${c.contrast_limits?.[1] ?? 1}:${c.color || ""}`,
+          `${c.name}:${c.contrast_limits?.[0] ?? 0},${c.contrast_limits?.[1] ?? 1}:${c.color || ""}:${c.alpha ?? ""}`,
       )
       .join("|");
     const vs = viewState || lastViewState || {};
@@ -377,18 +385,12 @@ export function createMapImageBackdrop({
       const hi = ch.contrast_limits?.[1] ?? vol.contrast_limits?.[1] ?? 255;
       const gray = maxProjectSlice(chunk.data, box, lo, hi);
       const tint = parseChannelTint(displayTint(ch, entries));
-      additiveRgbFromPlane(gray, rgb, plane, tint);
+      additiveRgbFromPlane(gray, rgb, plane, tint, channelOpacity(ch, model.get("_image_alpha")));
     }
 
     const wPx = box.x1 - box.x0;
     const hPx = box.y1 - box.y0;
-    const alphaMult = Number(model.get("_image_alpha"));
-    const pixels = rgbaFromRgb(
-      rgb,
-      wPx,
-      hPx,
-      Number.isFinite(alphaMult) ? alphaMult : 0.55,
-    );
+    const pixels = rgbaFromRgb(rgb, wPx, hPx, 1);
     const imageData = new ImageData(pixels, wPx, hPx);
     const bitmap = await createImageBitmap(imageData, { premultiplyAlpha: "none" });
     if (gen !== fetchGen || disposed) {

@@ -200,10 +200,25 @@ Framer-neutral greys.
 - **Canvas legend** (400, 0.625rem): in-plot only
 - **Ruler tick** (400, 9px, line-height 1): canvas rulers only. Below the UI floor on purpose: ticks are measurement marks, not readable UI text. The legend overflow badge (`+N`) uses `label`, not 9px
 
+## Panel grid
+
+Both docks share one grid. Rows are `PanelRow` (`data-panel-row`). An open Layers section is a `PanelBand` with `shade`.
+
+- Text starts at `--lm-text-start` (36px), which is `--lm-lead` (32px) plus `--lm-row-gap` (4px).
+- The chevron sits in that 32px lead box (`--lm-hit-size` is 32px). Explore chevrons use the same box. `--lm-trail-hit` stays 24px for menu hits.
+- Counts, switches, and readouts end at `--lm-edge-end` (20px), x 252 in a 17rem dock.
+- An open group is a full-width band, not an indent. The band fill is `--tact-tone` (light `rgba(26, 26, 26, 0.1)`, dark `rgba(242, 242, 242, 0.16)`), inset `--lm-band-inset` (4px) from the glass edge and flush with the section bottom. Only Layers shades, and only through the `shade` prop.
+- The subsection line (`--lm-sub-rule`, `--lm-sub-gap` 6px) sits between groups inside that shaded section. Category labels do not get a line.
+- Headers span the panel. There is no extra subheading under a group title.
+- One glass surface. The scroll body is its only child.
+- Corner brackets belong on the panel edge, not on a row control.
+
+`--lm-panel-inset` and `--lm-panel-pad` are 10px.
+
 ## Layout
 
 - Shell height default 550px (400–1400); plot fills figure under floating chrome
-- Shared chrome scale on `.landmarks`: `--lm-space-*` (4px base), `--lm-chrome-inset` (0.5rem), `--lm-chrome-gap` (0.25rem), `--lm-chrome-band` (3.75rem), `--lm-dock-width` (14rem / 15rem fullscreen)
+- Shared chrome scale on `.landmarks`: `--lm-space-*` (4px base), `--lm-chrome-inset` (0.5rem), `--lm-chrome-gap` (0.25rem), `--lm-chrome-band` (3.75rem), `--lm-dock-width` (17rem, 15rem fullscreen)
 - Tool pill (`landmarks__chrome-tools`): reserved top band, centered — docks start below band + gap
 - Wide: left Layers (Selections, Landmarks) + right Explore (View / Color by) and Info (`landmarks__chrome-dock--*`); max-height accounts for band
 - Narrow (`landmarks--narrow`, width < 640px): Info then Explore then Layers in one top-left stack; no side rail, right dock, or minimap
@@ -227,7 +242,7 @@ Framer-neutral greys.
 - **Shadow-only Soft Float:** panels and toolbars have no hairline border; elevation is fill + soft drop shadow (craft floor: declare elevation once). `--lm-float-border` stays transparent for token compatibility. One deliberate exception: the Inspect pill's 1px dashed outline marks a temporary mode, not elevation.
 - Denser frosted fill (88% card mix, same in light and dark) so borderless glass separates from busy tissue and chrome text holds AA over it
 - Panels and toolbars share the same glass material; `--toolbar` is slightly rounder than `--panel`
-- Inner chrome stays quiet: slider capsules are fill-only (no inset rings); section dividers use spacing, not rules; segmented controls sit in muted trays without outline strokes
+- Inner chrome stays quiet: slider capsules are fill-only (no inset rings); segmented controls sit in muted trays without outline strokes. A subsection rule is the one exception, and only between groups inside a shaded section (`--lm-sub-rule`, `--lm-sub-gap`)
 - Tabs / segments: Soft Float sliding pill Tabs (lowercase category / genes / embed) are the Explore color control — `PILL_TABS_LIST` / `PILL_TABS_TRIGGER` in `chrome/sections.ts`.
 - Floating View CTA: top-right Soft Float **icon hover flip** (`ViewCta`) for Points/Raster — current mode at rest, hover reveals the destination icon, click commits. View is no longer nested in Explore.
 - Explore distill: Color by only in the right dock; similarity scale only when Bins; status copy only when computing/error/pinned; Color-by meta line only for genes/embedding
@@ -318,7 +333,7 @@ One set for the main tool pill, View CTA, context L1/L2, Inspect pill, Inspect b
 ### Do:
 
 - **Do** scope tokens under `.milume-widget` and follow notebook light/dark ancestors.
-- **Do** keep docks ~14rem; scroll inside panels.
+- **Do** keep docks at `--lm-dock-width` (17rem); scroll inside panels.
 - **Do** use the shared glass float tokens for every floating chrome surface.
 - **Do** prefer shadcn primitives with Soft Float surface classes.
 - **Do** stack Layers + Info in one top-left dock under 640px (no side rail).

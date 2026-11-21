@@ -1,5 +1,6 @@
 import {
   useState,
+  type ComponentProps,
   type ComponentType,
   type ReactElement,
   type ReactNode,
@@ -248,6 +249,48 @@ export function ModeToggle({
   );
 }
 
+/** Three-slot dock row. Lead is the 32px box, text is the shared column, end is the right edge. */
+export function PanelRow({
+  lead,
+  end,
+  children,
+  className,
+  ...props
+}: ComponentProps<"div"> & { lead?: ReactNode; end?: ReactNode }) {
+  return (
+    <div className={cn("landmarks-panel-row", className)} data-panel-row="" {...props}>
+      <div className="landmarks-panel-row__lead" data-panel-lead="">
+        {lead}
+      </div>
+      <div className="landmarks-panel-row__text" data-panel-text="">
+        {children}
+      </div>
+      <div className="landmarks-panel-row__end" data-panel-end="">
+        {end}
+      </div>
+    </div>
+  );
+}
+
+/** Open group. `shade` paints the whole section, header included. */
+export function PanelBand({
+  shade = false,
+  className,
+  children,
+  ...props
+}: ComponentProps<"section"> & { shade?: boolean }) {
+  return (
+    <section
+      className={cn("landmarks-panel-section", shade && "landmarks-panel-band", className)}
+      data-panel-band={shade ? "shade" : undefined}
+      {...props}
+    >
+      {shade ? <div className="landmarks-panel-band__plate" data-panel-shade="" aria-hidden /> : null}
+      {children}
+    </section>
+  );
+}
+
 export function LayerRow({
   active,
   color,
@@ -296,7 +339,7 @@ export function LayerRow({
   };
 
   const row = (
-    <div
+    <PanelRow
       role="listitem"
       data-testid={testId}
       aria-current={active || undefined}
@@ -318,23 +361,77 @@ export function LayerRow({
           onSelect();
         }
       }}
+      lead={
+        thumbnail ? (
+          <img
+            data-testid="selection-thumb"
+            src={thumbnail}
+            alt=""
+            className="landmarks-layer-thumb size-7 shrink-0 object-cover"
+            style={color ? { borderColor: color } : undefined}
+          />
+        ) : (
+          <ColorSwatch
+            color={color}
+            variant={swatchVariant}
+            fillOpacity={swatchFillOpacity}
+            className="landmarks-layer-swatch"
+          />
+        )
+      }
+      end={
+        hasMenu ? (
+          <div className="landmarks-trail">
+            <DropdownMenu onOpenChange={setMenuOpen}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="landmarks-trail-hit"
+                  aria-label="Layer actions"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <EllipsisIcon />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                side="right"
+                align="start"
+                sideOffset={6}
+                container={menuContainer}
+                className={chromeMenuClass}
+                onCloseAutoFocus={(e) => e.preventDefault()}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {onToggleHidden ? (
+                  <DropdownMenuItem className="gap-2 text-xs" onSelect={() => onToggleHidden()}>
+                    {hidden ? <EyeIcon className="size-3.5" /> : <EyeOffIcon className="size-3.5" />}
+                    {hidden ? "Show" : "Hide"}
+                  </DropdownMenuItem>
+                ) : null}
+                {onRename ? (
+                  <DropdownMenuItem className="gap-2 text-xs" onSelect={() => startRename()}>
+                    <PencilIcon className="size-3.5" />
+                    Rename
+                  </DropdownMenuItem>
+                ) : null}
+                {onDelete ? (
+                  <DropdownMenuItem
+                    variant="destructive"
+                    className="gap-2 text-xs"
+                    onSelect={() => onDelete()}
+                  >
+                    <Trash2Icon className="size-3.5" />
+                    Delete
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        ) : null
+      }
     >
-      {thumbnail ? (
-        <img
-          data-testid="selection-thumb"
-          src={thumbnail}
-          alt=""
-          className="landmarks-layer-thumb size-7 shrink-0 object-cover"
-          style={color ? { borderColor: color } : undefined}
-        />
-      ) : (
-        <ColorSwatch
-          color={color}
-          variant={swatchVariant}
-          fillOpacity={swatchFillOpacity}
-          className="landmarks-layer-swatch"
-        />
-      )}
       <div className="landmarks-layer-label">
         {editing && onRename ? (
           <Input
@@ -379,67 +476,7 @@ export function LayerRow({
           </span>
         )}
       </div>
-      {hasMenu ? (
-        <div className="landmarks-trail">
-          <DropdownMenu onOpenChange={setMenuOpen}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                className="landmarks-trail-hit"
-                aria-label="Layer actions"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <EllipsisIcon />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent
-              side="right"
-              align="start"
-              sideOffset={6}
-              container={menuContainer}
-              className={chromeMenuClass}
-              onCloseAutoFocus={(e) => e.preventDefault()}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {onToggleHidden ? (
-                <DropdownMenuItem
-                  className="gap-2 text-xs"
-                  onSelect={() => onToggleHidden()}
-                >
-                  {hidden ? (
-                    <EyeIcon className="size-3.5" />
-                  ) : (
-                    <EyeOffIcon className="size-3.5" />
-                  )}
-                  {hidden ? "Show" : "Hide"}
-                </DropdownMenuItem>
-              ) : null}
-              {onRename ? (
-                <DropdownMenuItem
-                  className="gap-2 text-xs"
-                  onSelect={() => startRename()}
-                >
-                  <PencilIcon className="size-3.5" />
-                  Rename
-                </DropdownMenuItem>
-              ) : null}
-              {onDelete ? (
-                <DropdownMenuItem
-                  variant="destructive"
-                  className="gap-2 text-xs"
-                  onSelect={() => onDelete()}
-                >
-                  <Trash2Icon className="size-3.5" />
-                  Delete
-                </DropdownMenuItem>
-              ) : null}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ) : null}
-    </div>
+    </PanelRow>
   );
 
   if (!hoverContent) return row;

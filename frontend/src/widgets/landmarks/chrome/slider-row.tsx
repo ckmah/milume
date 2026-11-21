@@ -35,6 +35,7 @@ function SliderRow({
   ariaLabel,
   hint,
   ends = false,
+  inline = false,
   value,
   min,
   max,
@@ -50,6 +51,8 @@ function SliderRow({
   hint?: string;
   /** Minus and plus marks at the ends of a signed track. */
   ends?: boolean;
+  /** Label, track, and readout on one line. The label ellipsizes past its max width. */
+  inline?: boolean;
   value: number;
   min: number;
   max: number;
@@ -62,41 +65,62 @@ function SliderRow({
 }) {
   const readout = formatValue ? formatValue(value) : formatSliderReadout(value, step);
   const bipolar = min < 0 && max > 0;
+  const caption = inline ? (
+    <span className="landmarks-slider-caption" title={label}>
+      {label}
+    </span>
+  ) : (
+    <SliderCaption text={label} hint={hint} />
+  );
+  const control = (
+    <div className="landmarks-slider-control relative w-full">
+      {ends && bipolar ? (
+        <span className="landmarks-slider-ends" aria-hidden>
+          <span>−</span>
+          <span>+</span>
+        </span>
+      ) : null}
+      <Slider
+        aria-label={ariaLabel ?? label}
+        min={min}
+        max={max}
+        step={step}
+        value={[value]}
+        disabled={disabled}
+        fillFrom={bipolar ? 0 : undefined}
+        getAriaValueText={(next) =>
+          formatValue ? formatValue(next) : formatSliderReadout(next, step)
+        }
+        onValueChange={(next) => onChange(next[0] ?? value)}
+      />
+    </div>
+  );
   return (
     <div
       className={cn(
         "landmarks-slider-row min-w-0 flex-1",
+        inline && "landmarks-slider-row--inline",
         disabled && "landmarks-slider-row--disabled",
         className,
       )}
       data-testid={testId}
       data-disabled={disabled ? "true" : undefined}
     >
-      <div className="flex items-baseline justify-between gap-3">
-        <SliderCaption text={label} hint={hint} />
-        <span className="tact-readout shrink-0">{readout}</span>
-      </div>
-      <div className="landmarks-slider-control relative w-full">
-        {ends && bipolar ? (
-          <span className="landmarks-slider-ends" aria-hidden>
-            <span>−</span>
-            <span>+</span>
-          </span>
-        ) : null}
-        <Slider
-          aria-label={ariaLabel ?? label}
-          min={min}
-          max={max}
-          step={step}
-          value={[value]}
-          disabled={disabled}
-          fillFrom={bipolar ? 0 : undefined}
-          getAriaValueText={(next) =>
-            formatValue ? formatValue(next) : formatSliderReadout(next, step)
-          }
-          onValueChange={(next) => onChange(next[0] ?? value)}
-        />
-      </div>
+      {inline ? (
+        <>
+          {caption}
+          {control}
+          <span className="tact-readout shrink-0">{readout}</span>
+        </>
+      ) : (
+        <>
+          <div className="flex items-baseline justify-between gap-3">
+            {caption}
+            <span className="tact-readout shrink-0">{readout}</span>
+          </div>
+          {control}
+        </>
+      )}
     </div>
   );
 }
@@ -107,6 +131,7 @@ function RangeRow({
   min,
   max,
   step,
+  inline = false,
   onValueChange,
   onValueCommit,
   "aria-label": ariaLabel,
@@ -119,6 +144,7 @@ function RangeRow({
   min: number;
   max: number;
   step: number;
+  inline?: boolean;
   onValueChange: (v: number[]) => void;
   onValueCommit?: (v: number[]) => void;
   "aria-label"?: string;
@@ -126,26 +152,51 @@ function RangeRow({
   readout: React.ReactNode;
   className?: string;
 }) {
+  const caption = (
+    <span className="landmarks-slider-caption" title={inline ? label : undefined}>
+      {label}
+    </span>
+  );
+  const control = (
+    <div className="landmarks-slider-control w-full">
+      <Slider
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        minStepsBetweenThumbs={0}
+        getAriaValueText={(next) => formatSliderReadout(next, step)}
+        thumbLabel={(index) => `${ariaLabel ?? label}, ${index === 0 ? "minimum" : "maximum"}`}
+        onValueChange={onValueChange}
+        onValueCommit={onValueCommit}
+        aria-label={ariaLabel ?? label}
+      />
+    </div>
+  );
   return (
-    <div className={cn("landmarks-slider-row min-w-0 flex-1", className)} data-testid={testId}>
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="landmarks-slider-caption">{label}</span>
-        <span className="tact-readout shrink-0">{readout}</span>
-      </div>
-      <div className="landmarks-slider-control w-full">
-        <Slider
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          minStepsBetweenThumbs={0}
-          getAriaValueText={(next) => formatSliderReadout(next, step)}
-          thumbLabel={(index) => `${ariaLabel ?? label}, ${index === 0 ? "minimum" : "maximum"}`}
-          onValueChange={onValueChange}
-          onValueCommit={onValueCommit}
-          aria-label={ariaLabel ?? label}
-        />
-      </div>
+    <div
+      className={cn(
+        "landmarks-slider-row min-w-0 flex-1",
+        inline && "landmarks-slider-row--inline",
+        className,
+      )}
+      data-testid={testId}
+    >
+      {inline ? (
+        <>
+          {caption}
+          {control}
+          <span className="tact-readout shrink-0">{readout}</span>
+        </>
+      ) : (
+        <>
+          <div className="flex items-baseline justify-between gap-3">
+            {caption}
+            <span className="tact-readout shrink-0">{readout}</span>
+          </div>
+          {control}
+        </>
+      )}
     </div>
   );
 }
@@ -275,6 +326,7 @@ export function TactSliderRow({
   highLabel: _highLabel,
   disabled = false,
   formatValue,
+  inline = false,
 }: {
   caption?: React.ReactNode;
   value: number[];
@@ -292,6 +344,8 @@ export function TactSliderRow({
   highLabel?: string;
   disabled?: boolean;
   formatValue?: (value: number) => string;
+  /** Label, track, and readout on one line. */
+  inline?: boolean;
 }) {
   if (value.length > 1) {
     const span = Math.max(max - min, 1e-9);
@@ -307,6 +361,7 @@ export function TactSliderRow({
         min={min}
         max={max}
         step={stride}
+        inline={inline}
         onValueChange={onValueChange}
         onValueCommit={onValueCommit}
         aria-label={ariaLabel ?? label}
@@ -333,6 +388,7 @@ export function TactSliderRow({
       <SliderRow
         label={label}
         ariaLabel={ariaLabel}
+        inline={inline}
         value={value[0] ?? min}
         min={min}
         max={max}

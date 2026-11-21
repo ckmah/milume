@@ -55,6 +55,8 @@ export type ImageChannelRow = {
   constant_zero?: boolean;
   /** Display tint for map backdrop and layer swatch (optional). */
   color?: string;
+  /** Per-layer opacity in 0..1. Omitted rows fall back to `_image_alpha`. */
+  alpha?: number;
 };
 
 /** Synced colour catalog (`_color_options`). */
@@ -296,7 +298,7 @@ export type LandmarksModel = Omit<LandmarksState, "color"> & {
   setCellsOpacity(opacity: number): void;
   patchImageChannel(
     name: string,
-    patch: Partial<Pick<ImageChannelRow, "visible" | "contrast_limits">> & {
+    patch: Partial<Pick<ImageChannelRow, "visible" | "contrast_limits" | "alpha">> & {
       /** `null` clears a picked color and restores the display default. */
       color?: string | null;
     },
@@ -536,7 +538,7 @@ export function useLandmarksModel(model: AnyModel): LandmarksModel {
       const rows = [...(model.get("_image_channels") as ImageChannelRow[] | undefined) || []];
       const vol = { ...(model.get("volume") as LandmarksVolume | undefined) };
       const volChannels = [...(vol.channels || [])];
-      const apply = (list: ImageChannelRow[]) => {
+      const apply = (list: ImageChannelRow[], writeAlpha: boolean) => {
         const i = list.findIndex((c) => c.name === name);
         if (i < 0) return list;
         const next: ImageChannelRow = { ...list[i] };
@@ -549,12 +551,15 @@ export function useLandmarksModel(model: AnyModel): LandmarksModel {
             patch.contrast_limits[1],
           ] as [number, number];
         }
+        if (writeAlpha && typeof patch.alpha === "number" && Number.isFinite(patch.alpha)) {
+          next.alpha = Math.max(0, Math.min(1, patch.alpha));
+        }
         const out = list.slice();
         out[i] = next;
         return out;
       };
-      const nextRows = apply(rows);
-      const nextVolChannels = apply(volChannels);
+      const nextRows = apply(rows, true);
+      const nextVolChannels = apply(volChannels, false);
       model.set("_image_channels", nextRows);
       model.set("volume", { ...vol, channels: nextVolChannels });
       model.save_changes();

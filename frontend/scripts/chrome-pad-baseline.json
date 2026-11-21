@@ -1,0 +1,22 @@
+{
+  "src/widgets/landmarks/chrome/channel-color-picker.tsx": 4,
+  "src/widgets/landmarks/chrome/explore-panel.tsx": 5,
+  "src/widgets/landmarks/chrome/genes-legend.tsx": 6,
+  "src/widgets/landmarks/chrome/info-donut.tsx": 2,
+  "src/widgets/landmarks/chrome/info-panel.tsx": 13,
+  "src/widgets/landmarks/chrome/inspect-minimap-panel.tsx": 1,
+  "src/widgets/landmarks/chrome/inspect-pill.tsx": 1,
+  "src/widgets/landmarks/chrome/inspect-toolbar.tsx": 3,
+  "src/widgets/landmarks/chrome/landmark-canvas-menu.tsx": 3,
+  "src/widgets/landmarks/chrome/layers-panel.tsx": 5,
+  "src/widgets/landmarks/chrome/layers-stack-section.tsx": 6,
+  "src/widgets/landmarks/chrome/load-indicator.tsx": 2,
+  "src/widgets/landmarks/chrome/minimap-panel.tsx": 1,
+  "src/widgets/landmarks/chrome/minimise-color-chip.tsx": 4,
+  "src/widgets/landmarks/chrome/mode-dropdown.tsx": 1,
+  "src/widgets/landmarks/chrome/obs-ramp-legend.tsx": 1,
+  "src/widgets/landmarks/chrome/primitives.tsx": 3,
+  "src/widgets/landmarks/chrome/right-stack.tsx": 2,
+  "src/widgets/landmarks/chrome/selection-toolbar.tsx": 3,
+  "src/widgets/landmarks/chrome/slider-row.tsx": 1
+}
