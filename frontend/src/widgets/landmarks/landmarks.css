@@ -1386,7 +1386,7 @@
 }
 
 /* Layers panel: label, track, and readout share one line. The label slot is
-   fixed so every track starts at the same x inside the 14rem dock. */
+   fixed so every track starts at the same x inside the dock. */
 .landmarks-slider-row--inline {
   flex-direction: row;
   align-items: center;
@@ -1456,9 +1456,9 @@
   overscroll-behavior: contain;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-layers-image-trigger,
-.milume-widget .landmarks__layers-panel .landmarks-image-channel-row__name,
-.milume-widget .landmarks__layers-panel .landmarks-layer-label {
+.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row .landmarks-layers-image-trigger,
+.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row .landmarks-layer-label,
+.milume-widget .landmarks__layers-panel .landmarks-image-channel-row__name {
   flex: 0 1 auto;
   width: max-content;
   max-width: 9rem;

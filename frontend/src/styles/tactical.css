@@ -710,11 +710,17 @@
 .milume-widget .landmarks__layers-panel .landmarks-cat-trigger,
 .milume-widget .landmarks__layers-panel .landmarks-image-channel-row {
   display: grid;
-  grid-template-columns: var(--lm-lead) max-content auto minmax(0, 1fr);
-  column-gap: 4px;
+  grid-template-columns: var(--lm-lead) minmax(0, 1fr) auto;
+  column-gap: 8px;
   align-items: center;
   padding-left: var(--lm-panel-pad) !important;
   padding-right: var(--lm-panel-pad) !important;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row > .landmarks-layer-row,
+.milume-widget .landmarks__layers-panel .landmarks-image-channel-row {
+  grid-template-columns: var(--lm-lead) max-content auto minmax(0, 1fr);
+  column-gap: 4px;
 }
 
 .milume-widget .landmarks__layers-panel .landmarks-layer-row > :first-child,

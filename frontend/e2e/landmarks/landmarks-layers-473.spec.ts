@@ -27,6 +27,20 @@ test("cells visibility, micrometre diameter, image sliders, and scale bar", asyn
     _image_alpha: 0.55,
   });
   await stabilizeUi(page);
+
+  const selectionsHeader = page.getByTestId("panel-section-selections");
+  if (!(await selectionsHeader.getByRole("button", { name: "Collapse Selections" }).count())) {
+    await selectionsHeader.click();
+  }
+  const selectionMenu = page.getByTestId("selection-row").first().getByRole("button", { name: "Layer actions" });
+  const dock = page.locator(".landmarks__chrome-dock--left");
+  const [selectionMenuBox, dockBox] = await Promise.all([
+    selectionMenu.boundingBox(),
+    dock.boundingBox(),
+  ]);
+  expect(selectionMenuBox && dockBox).toBeTruthy();
+  expect(dockBox!.x + dockBox!.width - (selectionMenuBox!.x + selectionMenuBox!.width)).toBeLessThan(24);
+
   await openLayers(page);
 
   const cells = page.getByTestId("layers-cells-row");
