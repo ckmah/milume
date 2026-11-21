@@ -88,7 +88,23 @@ test("design system sections render in both themes", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("data-ds-theme", "dark");
   await page.getByTestId("ds-theme-toggle").click();
   await expect(page.locator("html")).toHaveAttribute("data-ds-theme", "light");
-  await expect(page.locator("section[data-ds-section='buttons']")).toBeVisible();
+  await expect(page.locator("section[data-ds-section='icon-buttons']")).toBeVisible();
+  await expect(page.locator("section[data-ds-section='buttons']")).toHaveCount(0);
+
+  const layerSwitch = page.getByTestId("ds-layer-switch");
+  await expect(layerSwitch).toHaveAttribute("aria-checked", "false");
+  await layerSwitch.click();
+  await expect(layerSwitch).toHaveAttribute("aria-checked", "true");
+
+  await page.getByTestId("channel-color-DAPI").click();
+  await expect(page.getByTestId("channel-color-hex-DAPI")).toBeVisible();
+
+  const hex = page.getByTestId("ds-hex-input");
+  await hex.fill("#ff3b3b");
+  await expect(hex).toHaveValue("#ff3b3b");
+  await hex.fill("zz");
+  await expect(page.getByText("Not a hex color")).toBeVisible();
+
   await page.getByTestId("ds-theme-toggle").click();
   await expect(page.locator("html")).toHaveAttribute("data-ds-theme", "dark");
 

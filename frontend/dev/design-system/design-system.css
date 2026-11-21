@@ -224,41 +224,15 @@ body {
   min-height: 0;
 }
 
-/* Same token values as landmarks.css :hover / :focus-visible, keyed off the specimen wrapper. */
-.ds-force-hover .landmarks-hit {
-  background: var(--lm-hit-hover-bg);
-  color: var(--lm-hit-hover-fg);
-}
-
-.ds-force-focus .landmarks-hit {
-  outline: none;
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
-}
-
-.ds-force-active .landmarks-hit {
-  transform: scale(0.97);
-}
-
-.ds-force-hover .landmarks-layer-row {
-  background-color: var(--lm-layer-hover-bg);
-}
-
-.ds-force-hover .landmarks-slider-control [data-slot="slider-thumb"],
-.ds-force-focus .landmarks-slider-control [data-slot="slider-thumb"],
-.ds-force-active .landmarks-slider-control [data-slot="slider-thumb"] {
-  background: var(--lm-slider-thumb-on);
-  opacity: 1;
-  height: var(--lm-slider-thumb-h-active);
-}
-
-.ds-force-hover .landmarks-rgb-cube .landmarks-rgb-cube__svg,
-.ds-force-focus .landmarks-rgb-cube .landmarks-rgb-cube__svg {
-  transform: scale(1);
-}
-
-.ds-force-hover .landmarks-rgb-cube .landmarks-rgb-cube__labels,
-.ds-force-focus .landmarks-rgb-cube .landmarks-rgb-cube__labels {
-  opacity: 1;
+.ds-cycle {
+  margin-top: 0.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ds-muted);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
 }
 
 .ds-float-demo {
