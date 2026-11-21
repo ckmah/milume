@@ -293,7 +293,7 @@ Panel groups follow spec C through `GroupBody` and `GroupChevron` in `src/compon
 
 - Height and band tone use `SPRING_LAYOUT`.
 - The chevron uses `SPRING_PRESS`.
-- Rows fade and move 8px on `SPRING_GLIDE`.
+- Rows fade and rise 8px on `SPRING_GLIDE`.
 - The first row starts at 40ms. Later rows follow 40ms apart (`--duration-stagger`).
 - Close reverses the same timing.
 

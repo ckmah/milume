@@ -920,8 +920,7 @@
   box-shadow: none;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-layers-stack__nested,
-.milume-widget .landmarks__layers-panel .landmarks-cat-sublist {
+.milume-widget .landmarks__layers-panel .landmarks-layers-stack__nested {
   padding-left: 0;
   padding-right: 0;
   background: none;

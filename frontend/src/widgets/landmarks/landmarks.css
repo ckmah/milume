@@ -875,25 +875,6 @@
   line-height: 0;
 }
 
-/* Points-view subcategory list — no gap under the header or between rows. */
-.landmarks-cat-sublist,
-.landmarks-cat-sublist [data-slot="item-group"] {
-  margin: 0;
-  padding-block: 0;
-  gap: 0;
-}
-
-.landmarks-cat-sublist .landmarks-layer-row {
-  margin: 0;
-}
-
-/* Category disclosure height follows Base UI's measured panel variable.
-   Open and close motion belongs to GroupChevron / GroupBody. */
-.landmarks-cat-sublist {
-  height: var(--collapsible-panel-height);
-  overflow: hidden;
-}
-
 .landmarks-layer-label {
   display: flex;
   min-width: 0;
