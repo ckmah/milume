@@ -1652,7 +1652,8 @@
 }
 
 .landmarks-toolbar.landmarks__inspect-pill {
-  border: 1px dashed color-mix(in oklab, var(--lm-text-muted) 70%, transparent);
+  /* The toolbar glass rule sets a solid edge with !important. The armed pill stays dashed. */
+  border: 1px dashed color-mix(in oklab, var(--lm-text-muted) 70%, transparent) !important;
 }
 
 .landmarks__inspect-title {
