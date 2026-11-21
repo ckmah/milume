@@ -97,8 +97,15 @@ test("cells visibility, micrometre diameter, image sliders, and scale bar", asyn
   const bodyBox = await page.locator(".landmarks-panel-section__body--layers, .landmarks-panel-section__body").last().boundingBox();
   expect(stackBox && bodyBox).toBeTruthy();
   expect(Math.abs(bodyBox!.y + bodyBox!.height - (stackBox!.y + stackBox!.height))).toBeLessThan(2);
-  const groupBg = await page.locator(".landmarks-layers-stack__row").first().evaluate((el) => getComputedStyle(el).backgroundColor);
-  expect(groupBg).not.toBe("rgba(0, 0, 0, 0)");
+  const layersSection = page.getByTestId("panel-section-layers").locator("xpath=..");
+  const sectionBg = await layersSection.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(sectionBg).not.toBe("rgba(0, 0, 0, 0)");
+  const line = await page.locator(".landmarks-layers-stack__row").first().evaluate((el) => {
+    const style = getComputedStyle(el, "::before");
+    return { height: style.height, background: style.backgroundColor };
+  });
+  expect(line.height).toBe("1px");
+  expect(line.background).not.toBe("rgba(0, 0, 0, 0)");
   await expect(toggle).toHaveAttribute("aria-checked", "true");
 
   const sectionChevron = page.getByTestId("panel-section-layers").getByRole("button", { name: "Collapse Layers" });

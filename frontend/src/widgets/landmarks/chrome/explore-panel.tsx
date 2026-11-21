@@ -268,7 +268,7 @@ function CategoryCollapsibleRow({
           </span>
         </div>
       </ChromeTooltip>
-      <CollapsibleContent className="landmarks-cat-sublist overflow-hidden pl-4">
+      <CollapsibleContent className="landmarks-cat-sublist overflow-hidden">
         <div className="landmarks-cat-sublist-inner">
           <ItemGroup className="gap-0 p-0">
             {(col.labels || []).map((label, i) => (
