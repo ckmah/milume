@@ -36,6 +36,7 @@ export default defineConfig({
       : [
           "**/landmarks-volume.spec.ts",
           "**/landmarks-cube-idle.spec.ts",
+          "**/landmarks-display-redraw.spec.ts",
           "**/landmarks-inspect-minimap.spec.ts",
           smokeSpec,
           "**/hero-webgl.spec.ts",

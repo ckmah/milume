@@ -14,7 +14,8 @@ inside the cube. Esc closes the cube and stays in Inspect; a second Esc, or
 
 **Spec:** `frontend/e2e/landmarks/landmarks-volume.spec.ts` — `"Landmarks inspect cube"` describe block
 (`E2E_HARNESS=landmarks-volume`, run via `npm run test:e2e:landmarks`). Issue #383 idle regressions:
-`frontend/e2e/landmarks/landmarks-cube-idle.spec.ts` — `"Landmarks cube idle renders (#383)"`.
+`frontend/e2e/landmarks/landmarks-cube-idle.spec.ts` — `"Landmarks cube idle renders (#383)"`. Issue #476 display redraws:
+`frontend/e2e/landmarks/landmarks-display-redraw.spec.ts` — `"Inspect display redraws (#476)"` (volume harness only).
 
 **Kernel comm (Python side only):** `frontend/e2e/marimo/landmarks-inspect.spec.ts` loads `demos/landmarks.py` on a real kernel and checks the comm image store and DataView decode; no UI gestures. Inspect UI is verified in the harness spec above.
 

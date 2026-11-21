@@ -320,7 +320,7 @@ jobs:
       - uses: ./.github/actions/node-modules
       - uses: ./.github/actions/playwright-browser
       - name: Run volume smoke e2e
-        run: npx playwright test e2e/landmarks/landmarks-volume-smoke.spec.ts
+        run: npx playwright test e2e/landmarks/landmarks-volume-smoke.spec.ts e2e/landmarks/landmarks-display-redraw.spec.ts
         env:
           CI: true
           E2E_HARNESS: landmarks-volume
