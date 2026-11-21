@@ -759,8 +759,7 @@
   box-shadow: none;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row::before,
-.milume-widget .landmarks__explore-panel .landmarks-cat-sublist-inner::before {
+.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row::before {
   content: "";
   display: block;
   height: 1px;
@@ -837,10 +836,6 @@
 
 .milume-widget .landmarks__explore-panel .landmarks-cat-sublist {
   padding-left: 0;
-}
-
-.milume-widget .landmarks__explore-panel .landmarks-cat-sublist-inner {
-  display: flow-root;
 }
 
 .landmarks-palette-ramp {

@@ -134,16 +134,11 @@ test("cells visibility, micrometre diameter, image sliders, and scale bar", asyn
   expect(Math.abs(catNameBox!.x - rightCardBox!.x - titleInset)).toBeLessThan(2);
   expect(Math.abs(subLabelBox!.x - catNameBox!.x)).toBeLessThan(2);
   expect(Math.abs(rightCardBox!.x + rightCardBox!.width - (avatarBox!.x + avatarBox!.width) - (leftPanelBox!.x + leftPanelBox!.width - (toggleBox!.x + toggleBox!.width)))).toBeLessThan(3);
-  const subLine = await page.locator(".landmarks__explore-panel .landmarks-cat-sublist-inner").evaluate((el) => {
-    const row = el.getBoundingClientRect();
-    const style = getComputedStyle(el, "::before");
-    return {
-      left: row.left + parseFloat(style.marginLeft),
-      right: row.right - parseFloat(style.marginRight),
-    };
-  });
-  expect(Math.abs(subLine.left - catNameBox!.x)).toBeLessThan(2);
-  expect(Math.abs(subLine.right - (avatarBox!.x + avatarBox!.width))).toBeLessThan(3);
+  const regionList = page.locator(".group\\/cat").filter({ hasText: "Cortex" });
+  const subLine = await regionList.locator(".landmarks-cat-sublist-inner").evaluate((el) => getComputedStyle(el, "::before").content);
+  expect(subLine).toBe("none");
+  await expect(page.getByTestId("category-row")).toHaveCount(3);
+  await expect(regionList.locator(".landmarks-layer-label")).toHaveCount(4);
   await expect(toggle).toHaveAttribute("aria-checked", "true");
 
   const sectionChevron = page.getByTestId("panel-section-layers").getByRole("button", { name: "Collapse Layers" });
