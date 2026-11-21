@@ -834,7 +834,7 @@
   padding-right: 0;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-panel-section__body > [data-slot="field-description"] {
+.milume-widget .landmarks__layers-panel .landmarks-panel-section__body [data-slot="field-description"] {
   padding-left: var(--lm-panel-pad);
   padding-right: var(--lm-panel-pad);
 }

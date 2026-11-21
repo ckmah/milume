@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FieldDescription } from "@/components/ui/field";
-import { ItemGroup } from "@/components/ui/item";
+import { GroupBody } from "@/components/ui/group-rise";
 import { cn } from "@/lib/utils";
 
 import { landmarkColor, SELECTION_COLORS } from "../helpers";
@@ -118,47 +118,46 @@ export function LayersPanel({
                 testId="panel-section-selections"
                 minimise={minimise}
               />
-              {sectionOpen("selections") ? (
-                <div className="landmarks-panel-section__body px-0 pb-1.5">
-                  {selections.length ? (
-                    <ItemGroup className="gap-0.5">
-                      {selections.map((sel, i) => (
-                        <LayerRow
-                          key={`${sel.id}-${i}`}
-                          testId="selection-row"
-                          active={
-                            selected_kind === "selection" && selected_index === i
-                          }
-                          color={SELECTION_COLORS[i % SELECTION_COLORS.length]}
-                          swatchVariant="selection"
-                          label={sel.id}
-                          hidden={!!sel.hidden}
-                          menuContainer={menuContainer}
-                          thumbnail={thumbs[i]?.url ?? null}
-                          hoverContent={
-                            <SelectionCard
-                              lm={lm}
-                              index={i}
-                              snapshot={thumbs[i] ?? null}
-                              stackZ={stackZ}
-                            />
-                          }
-                          onSelect={() =>
-                            inspectWindowOf(sel) && onFocusEntry
-                              ? onFocusEntry(i)
-                              : lm.select("selection", i)
-                          }
-                          onRename={(next) => lm.renameSelection(i, next)}
-                          onToggleHidden={() => lm.toggleSelectionHidden(i)}
-                          onDelete={() => lm.deleteSelection(i)}
+              <GroupBody
+                open={sectionOpen("selections")}
+                className="landmarks-panel-section__body flex flex-col gap-0.5 px-0 pb-1.5"
+              >
+                {selections.length ? (
+                  selections.map((sel, i) => (
+                    <LayerRow
+                      key={`${sel.id}-${i}`}
+                      testId="selection-row"
+                      active={
+                        selected_kind === "selection" && selected_index === i
+                      }
+                      color={SELECTION_COLORS[i % SELECTION_COLORS.length]}
+                      swatchVariant="selection"
+                      label={sel.id}
+                      hidden={!!sel.hidden}
+                      menuContainer={menuContainer}
+                      thumbnail={thumbs[i]?.url ?? null}
+                      hoverContent={
+                        <SelectionCard
+                          lm={lm}
+                          index={i}
+                          snapshot={thumbs[i] ?? null}
+                          stackZ={stackZ}
                         />
-                      ))}
-                    </ItemGroup>
-                  ) : (
-                    <FieldDescription>No selections yet.</FieldDescription>
-                  )}
-                </div>
-              ) : null}
+                      }
+                      onSelect={() =>
+                        inspectWindowOf(sel) && onFocusEntry
+                          ? onFocusEntry(i)
+                          : lm.select("selection", i)
+                      }
+                      onRename={(next) => lm.renameSelection(i, next)}
+                      onToggleHidden={() => lm.toggleSelectionHidden(i)}
+                      onDelete={() => lm.deleteSelection(i)}
+                    />
+                  ))
+                ) : (
+                  <FieldDescription>No selections yet.</FieldDescription>
+                )}
+              </GroupBody>
             </PanelBand>
 
             <PanelBand
@@ -173,40 +172,39 @@ export function LayersPanel({
                 testId="panel-section-landmarks"
                 minimise={minimise}
               />
-              {sectionOpen("landmarks") ? (
-                <div className="landmarks-panel-section__body px-0 pb-1.5">
-                  {landmarks.length ? (
-                    <ItemGroup className="gap-0.5">
-                      {landmarks.map((lmItem, i) => {
-                        const color = landmarkColor(lmItem, i);
-                        return (
-                          <LayerRow
-                            key={`${lmItem.id}-${i}`}
-                            active={
-                              selected_kind === "landmark" && selected_index === i
-                            }
-                            color={color}
-                            swatchVariant="solid"
-                            label={String(lmItem.id)}
-                            hidden={!!lmItem.hidden}
-                            menuContainer={menuContainer}
-                            onSelect={() => lm.select("landmark", i)}
-                            onRename={(next) => lm.renameLandmark(i, next)}
-                            onToggleHidden={() => lm.toggleLandmarkHidden(i)}
-                            onDelete={() => lm.deleteLandmark(i)}
-                          />
-                        );
-                      })}
-                    </ItemGroup>
-                  ) : (
-                    <FieldDescription>No landmarks yet.</FieldDescription>
-                  )}
-                </div>
-              ) : null}
+              <GroupBody
+                open={sectionOpen("landmarks")}
+                className="landmarks-panel-section__body flex flex-col gap-0.5 px-0 pb-1.5"
+              >
+                {landmarks.length ? (
+                  landmarks.map((lmItem, i) => {
+                    const color = landmarkColor(lmItem, i);
+                    return (
+                      <LayerRow
+                        key={`${lmItem.id}-${i}`}
+                        active={
+                          selected_kind === "landmark" && selected_index === i
+                        }
+                        color={color}
+                        swatchVariant="solid"
+                        label={String(lmItem.id)}
+                        hidden={!!lmItem.hidden}
+                        menuContainer={menuContainer}
+                        onSelect={() => lm.select("landmark", i)}
+                        onRename={(next) => lm.renameLandmark(i, next)}
+                        onToggleHidden={() => lm.toggleLandmarkHidden(i)}
+                        onDelete={() => lm.deleteLandmark(i)}
+                      />
+                    );
+                  })
+                ) : (
+                  <FieldDescription>No landmarks yet.</FieldDescription>
+                )}
+              </GroupBody>
             </PanelBand>
 
             <PanelBand
-              shade={sectionOpen("layers")}
+              tone={sectionOpen("layers")}
               className={cn(sectionOpen("layers") && "landmarks-panel-section--open")}
             >
               <PanelSectionHeader
@@ -217,11 +215,12 @@ export function LayersPanel({
                 testId="panel-section-layers"
                 minimise={minimise}
               />
-              {sectionOpen("layers") ? (
-                <div className="landmarks-panel-section__body">
-                  <LayersStackSection lm={lm} />
-                </div>
-              ) : null}
+              <GroupBody
+                open={sectionOpen("layers")}
+                className="landmarks-panel-section__body"
+              >
+                <LayersStackSection lm={lm} />
+              </GroupBody>
             </PanelBand>
           </div>
     </div>

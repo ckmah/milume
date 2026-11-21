@@ -2,10 +2,6 @@ import { useEffect, useState } from "react";
 
 import { Card, CardContent } from "@/components/ui/card";
 import {
-  Collapsible,
-  CollapsibleContent,
-} from "@/components/ui/collapsible";
-import {
   Combobox,
   ComboboxContent,
   ComboboxEmpty,
@@ -14,8 +10,8 @@ import {
   ComboboxList,
 } from "@/components/ui/combobox";
 import { FieldDescription } from "@/components/ui/field";
+import { GroupBody, GroupChevron } from "@/components/ui/group-rise";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ItemGroup } from "@/components/ui/item";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
@@ -219,7 +215,7 @@ function CategoryCollapsibleRow({
   };
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="group/cat">
+    <div className="group/cat">
       <ChromeTooltip label={col.name}>
         <PanelRow
           className={cn(
@@ -238,12 +234,9 @@ function CategoryCollapsibleRow({
                 setOpen((v) => !v);
               }}
             >
-              <ChevronRightIcon
-                className={cn(
-                  "landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0",
-                  open && "landmarks-cat-chevron-icon--open",
-                )}
-              />
+              <GroupChevron open={open}>
+                <ChevronRightIcon className="landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0" />
+              </GroupChevron>
             </button>
           }
           end={
@@ -269,32 +262,28 @@ function CategoryCollapsibleRow({
           </button>
         </PanelRow>
       </ChromeTooltip>
-      <CollapsibleContent className="landmarks-cat-sublist overflow-hidden">
-        <div className="landmarks-cat-sublist-inner">
-          <ItemGroup className="gap-0 p-0">
-            {(col.labels || []).map((label, i) => (
-              <LayerRow
-                key={`${col.name}-${label}`}
-                active={isTypeRowActive(i, {
-                  selected_kind,
-                  selected_index,
-                  selected_type_indices,
-                  active_category,
-                  columnName: col.name,
-                })}
-                color={
-                  (col.palette || [])[
-                    i % Math.max((col.palette || []).length, 1)
-                  ]
-                }
-                label={label}
-                onSelect={(e) => lm.selectType(col, i, e)}
-              />
-            ))}
-          </ItemGroup>
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
+      <GroupBody open={open} className="flex flex-col">
+        {(col.labels || []).map((label, i) => (
+          <LayerRow
+            key={`${col.name}-${label}`}
+            active={isTypeRowActive(i, {
+              selected_kind,
+              selected_index,
+              selected_type_indices,
+              active_category,
+              columnName: col.name,
+            })}
+            color={
+              (col.palette || [])[
+                i % Math.max((col.palette || []).length, 1)
+              ]
+            }
+            label={label}
+            onSelect={(e) => lm.selectType(col, i, e)}
+          />
+        ))}
+      </GroupBody>
+    </div>
   );
 }
 
