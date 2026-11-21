@@ -1,8 +1,16 @@
-import { useCallback, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import {
+  useCallback,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactElement,
+} from "react";
 import { ChevronRightIcon } from "lucide-react";
 
 import { FieldDescription } from "@/components/ui/field";
 import { Button } from "@/components/ui/button";
+import { GroupBody, GroupChevron } from "@/components/ui/group-rise";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
@@ -31,7 +39,7 @@ function contrastCeiling(name: string, hi: number, domain: Map<string, number>):
   return next;
 }
 
-function ImageChannelSliders({
+function imageSliderRows({
   ch,
   fallbackAlpha,
   domain,
@@ -43,45 +51,45 @@ function ImageChannelSliders({
   domain: Map<string, number>;
   solo: boolean;
   lm: LandmarksModel;
-}) {
+}): ReactElement[] {
   const lo = ch.contrast_limits?.[0] ?? 0;
   const hi = ch.contrast_limits?.[1] ?? 255;
   const ceiling = contrastCeiling(ch.name, hi, domain);
   const alpha = channelAlpha(ch, fallbackAlpha);
   const contrastLabel = `${ch.name} contrast`;
   const opacityLabel = `${ch.name} opacity`;
-  return (
-    <div className="landmarks-slider-stack landmarks-image-controls">
-      <TactSliderRow
-        inline
-        className="landmarks-slider-row--contrast"
-        caption={contrastLabel}
-        aria-label={contrastLabel}
-        testId={solo ? "layer-image-contrast" : `layer-channel-contrast-${ch.name}`}
-        min={0}
-        max={ceiling}
-        step={1}
-        value={[lo, hi]}
-        readout={`${formatSliderReadout(lo, 1)}–${formatSliderReadout(hi, 1)}`}
-        onValueChange={(v) => {
-          lm.patchImageChannel(ch.name, { contrast_limits: [v[0]!, v[1]!] });
-        }}
-      />
-      <TactSliderRow
-        inline
-        className="landmarks-slider-row--alpha"
-        caption={opacityLabel}
-        aria-label={opacityLabel}
-        testId={solo ? "layer-image-opacity" : `layer-channel-opacity-${ch.name}`}
-        min={0}
-        max={1}
-        step={0.01}
-        value={[alpha]}
-        readout={formatSliderReadout(alpha, 0.01)}
-        onValueChange={(v) => lm.patchImageChannel(ch.name, { alpha: v[0] ?? alpha })}
-      />
-    </div>
-  );
+  return [
+    <TactSliderRow
+      key={`${ch.name}-contrast`}
+      inline
+      className="landmarks-slider-row--contrast"
+      caption={contrastLabel}
+      aria-label={contrastLabel}
+      testId={solo ? "layer-image-contrast" : `layer-channel-contrast-${ch.name}`}
+      min={0}
+      max={ceiling}
+      step={1}
+      value={[lo, hi]}
+      readout={`${formatSliderReadout(lo, 1)}–${formatSliderReadout(hi, 1)}`}
+      onValueChange={(v) => {
+        lm.patchImageChannel(ch.name, { contrast_limits: [v[0]!, v[1]!] });
+      }}
+    />,
+    <TactSliderRow
+      key={`${ch.name}-opacity`}
+      inline
+      className="landmarks-slider-row--alpha"
+      caption={opacityLabel}
+      aria-label={opacityLabel}
+      testId={solo ? "layer-image-opacity" : `layer-channel-opacity-${ch.name}`}
+      min={0}
+      max={1}
+      step={0.01}
+      value={[alpha]}
+      readout={formatSliderReadout(alpha, 0.01)}
+      onValueChange={(v) => lm.patchImageChannel(ch.name, { alpha: v[0] ?? alpha })}
+    />,
+  ];
 }
 
 function formatImageHeaderLabel(channels: ImageChannelRow[]): string {
@@ -208,6 +216,47 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
     );
   }
 
+  const multiImage = displayChannels.length > 1;
+  const imageBody = (
+    <GroupBody
+      open={imageOpen}
+      className="landmarks-layers-stack__nested landmarks-image-controls flex flex-col gap-1.5 pb-1"
+    >
+      {multiImage
+        ? displayChannels.flatMap((ch, index) => [
+            <ImageChannelRowControl
+              key={`${ch.name}-row`}
+              ch={ch}
+              index={index}
+              solo={ch.visible && visibleChannels.length === 1}
+              onToggle={(next) => toggleChannel(ch.name, next)}
+              onColor={(next) => lm.patchImageChannel(ch.name, { color: next })}
+            />,
+            ...imageSliderRows({
+              ch,
+              fallbackAlpha: imageAlpha,
+              domain: contrastDomain.current,
+              solo: false,
+              lm,
+            }),
+          ])
+        : displayChannels[0]
+          ? imageSliderRows({
+              ch: displayChannels[0],
+              fallbackAlpha: imageAlpha,
+              domain: contrastDomain.current,
+              solo: true,
+              lm,
+            })
+          : null}
+      {multiImage && channelCapHint ? (
+        <p key="channel-cap" className="m-0 text-[11px] text-foreground/80">
+          At most {MAX_VISIBLE_CHANNELS} channels at once.
+        </p>
+      ) : null}
+    </GroupBody>
+  );
+
   return (
     <div className="landmarks-layers-stack flex flex-col gap-0.5">
       {category_columns.length ? (
@@ -226,13 +275,12 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                 data-testid="layers-cells-header"
                 onClick={() => setCellsOpen((v) => !v)}
               >
-                <ChevronRightIcon
-                  className={cn(
-                    "landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0 opacity-70",
-                    cellsOpen && "landmarks-cat-chevron-icon--open",
-                  )}
-                  aria-hidden
-                />
+                <GroupChevron open={cellsOpen}>
+                  <ChevronRightIcon
+                    className="landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0 opacity-70"
+                    aria-hidden
+                  />
+                </GroupChevron>
               </Button>
             }
             end={
@@ -262,42 +310,41 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
               </span>
             </Button>
           </PanelRow>
-          {cellsOpen ? (
-            <div className="landmarks-layers-stack__nested flex flex-col gap-2 pb-1">
-              <div className="landmarks-slider-stack">
-                <TactSliderRow
-                  inline
-                  className="landmarks-slider-row--point-size"
-                  caption={sizeControl.caption}
-                  aria-label={umPerUnit != null ? "Cell dot diameter" : "Cell point size"}
-                  testId="layer-cells-point-size"
-                  min={sizeControl.min}
-                  max={sizeControl.max}
-                  step={sizeControl.step}
-                  disabled={!cellsVisible}
-                  value={[sizeControl.value]}
-                  formatValue={(v) => `${formatSliderReadout(v, sizeControl.step)} ${sizeControl.unit}`}
-                  onValueChange={(v) => {
-                    const next = v[0];
-                    if (next == null || !cellsVisible) return;
-                    lm.setPointSize(sizeControl.toPointSize(next));
-                  }}
-                />
-                <TactSliderRow
-                  inline
-                  className="landmarks-slider-row--cells-opacity"
-                  caption="Opacity"
-                  aria-label="Cells opacity"
-                  testId="layer-cells-opacity"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={[cellsOpacity]}
-                  onValueChange={(v) => lm.setCellsOpacity(v[0] ?? cellsOpacity)}
-                />
-              </div>
-            </div>
-          ) : null}
+          <GroupBody
+            open={cellsOpen}
+            className="landmarks-layers-stack__nested flex flex-col gap-1.5 pb-1"
+          >
+            <TactSliderRow
+              inline
+              className="landmarks-slider-row--point-size"
+              caption={sizeControl.caption}
+              aria-label={umPerUnit != null ? "Cell dot diameter" : "Cell point size"}
+              testId="layer-cells-point-size"
+              min={sizeControl.min}
+              max={sizeControl.max}
+              step={sizeControl.step}
+              disabled={!cellsVisible}
+              value={[sizeControl.value]}
+              formatValue={(v) => `${formatSliderReadout(v, sizeControl.step)} ${sizeControl.unit}`}
+              onValueChange={(v) => {
+                const next = v[0];
+                if (next == null || !cellsVisible) return;
+                lm.setPointSize(sizeControl.toPointSize(next));
+              }}
+            />
+            <TactSliderRow
+              inline
+              className="landmarks-slider-row--cells-opacity"
+              caption="Opacity"
+              aria-label="Cells opacity"
+              testId="layer-cells-opacity"
+              min={0}
+              max={1}
+              step={0.01}
+              value={[cellsOpacity]}
+              onValueChange={(v) => lm.setCellsOpacity(v[0] ?? cellsOpacity)}
+            />
+          </GroupBody>
         </div>
       ) : null}
 
@@ -320,13 +367,12 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                 data-testid="layers-image-row"
                 onClick={() => setImageOpen((v) => !v)}
               >
-                <ChevronRightIcon
-                  className={cn(
-                    "landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0 opacity-70",
-                    imageOpen && "landmarks-cat-chevron-icon--open",
-                  )}
-                  aria-hidden
-                />
+                <GroupChevron open={imageOpen}>
+                  <ChevronRightIcon
+                    className="landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0 opacity-70"
+                    aria-hidden
+                  />
+                </GroupChevron>
               </Button>
             }
             end={
@@ -351,51 +397,16 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
               </span>
             </Button>
           </PanelRow>
-          {imageOpen ? (
-            <div className="landmarks-layers-stack__nested flex flex-col gap-2 pb-1">
-              {displayChannels.length === 1 && displayChannels[0] ? (
-                <ImageChannelSliders
-                  ch={displayChannels[0]}
-                  fallbackAlpha={imageAlpha}
-                  domain={contrastDomain.current}
-                  solo
-                  lm={lm}
-                />
-              ) : null}
-              {displayChannels.length > 1 ? (
-                <div className="flex flex-col gap-1">
-                  <div
-                    className="landmarks-image-channel-list"
-                    data-testid="layer-channel-list"
-                  >
-                    {displayChannels.map((ch, index) => (
-                      <div key={ch.name} className="landmarks-image-channel">
-                        <ImageChannelRowControl
-                          ch={ch}
-                          index={index}
-                          solo={ch.visible && visibleChannels.length === 1}
-                          onToggle={(next) => toggleChannel(ch.name, next)}
-                          onColor={(next) => lm.patchImageChannel(ch.name, { color: next })}
-                        />
-                        <ImageChannelSliders
-                          ch={ch}
-                          fallbackAlpha={imageAlpha}
-                          domain={contrastDomain.current}
-                          solo={false}
-                          lm={lm}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  {channelCapHint ? (
-                    <p className="m-0 text-[11px] text-foreground/80">
-                      At most {MAX_VISIBLE_CHANNELS} channels at once.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
+          {multiImage ? (
+            <div
+              className="landmarks-image-channel-list overflow-x-hidden"
+              data-testid="layer-channel-list"
+            >
+              {imageBody}
             </div>
-          ) : null}
+          ) : (
+            imageBody
+          )}
         </div>
       ) : null}
     </div>

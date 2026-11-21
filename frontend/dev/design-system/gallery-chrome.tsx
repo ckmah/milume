@@ -528,7 +528,7 @@ export function ChromeSections() {
       <DsSection id="panel-grid" title="Panel grid">
         <StateCell state="default">
           <div className="milume-widget dark w-[17rem]">
-            <PanelBand shade className="landmarks-panel-section--open">
+            <PanelBand tone className="landmarks-panel-section--open">
               <PanelRow
                 lead={<ChevronRightIcon className="size-3.5" aria-hidden />}
                 end={<span className="landmarks-panel-count">1</span>}

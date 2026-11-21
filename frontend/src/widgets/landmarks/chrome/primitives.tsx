@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import "@/styles/tactical.css";
 
+import { BandPlate } from "@/components/ui/group-rise";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -272,20 +273,24 @@ export function PanelRow({
   );
 }
 
-/** Open group. `shade` paints the whole section, header included. */
+/** Section shell. Passing `tone` keeps the band positioned and fades its plate. */
 export function PanelBand({
-  shade = false,
+  tone,
   className,
   children,
   ...props
-}: ComponentProps<"section"> & { shade?: boolean }) {
+}: ComponentProps<"section"> & { tone?: boolean }) {
   return (
     <section
-      className={cn("landmarks-panel-section", shade && "landmarks-panel-band", className)}
-      data-panel-band={shade ? "shade" : undefined}
+      className={cn(
+        "landmarks-panel-section",
+        tone !== undefined && "landmarks-panel-band",
+        className,
+      )}
+      data-panel-band={tone ? "shade" : undefined}
       {...props}
     >
-      {shade ? <div className="landmarks-panel-band__plate" data-panel-shade="" aria-hidden /> : null}
+      {tone !== undefined ? <BandPlate show={tone} /> : null}
       {children}
     </section>
   );

@@ -1,6 +1,7 @@
 import { ChevronRightIcon, XIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { GroupChevron } from "@/components/ui/group-rise";
 import { cn } from "@/lib/utils";
 
 import { chromeHitClass, PanelRow } from "./primitives";
@@ -52,13 +53,12 @@ export function PanelSectionHeader({
           aria-label={open ? `Collapse ${label}` : `Expand ${label}`}
           onClick={onToggle}
         >
-          <ChevronRightIcon
-            className={cn(
-              "landmarks-cat-chevron-icon landmarks-panel-section-header__chevron",
-              open && "landmarks-cat-chevron-icon--open",
-            )}
-            aria-hidden
-          />
+          <GroupChevron open={open}>
+            <ChevronRightIcon
+              className="landmarks-cat-chevron-icon landmarks-panel-section-header__chevron"
+              aria-hidden
+            />
+          </GroupChevron>
         </Button>
       }
       end={<span className="landmarks-panel-count landmarks-panel-section-header__count">{count}</span>}
