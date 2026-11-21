@@ -1,3 +1,5 @@
+import { MotionGlobalConfig } from "motion/react";
+
 /**
  * Shared springs for widget chrome. Later motion work reuses these
  * instead of picking new stiffness values per component.
@@ -32,3 +34,24 @@ export const SPRING_GLIDE = {
 } as const;
 
 export const MOTION_OFF = { duration: 0 } as const;
+
+type MilumeWindow = Window & {
+  __milumeSkipMotion?: boolean;
+  __milumeApplySkipMotion?: () => void;
+  /** Live copy of MotionGlobalConfig.skipAnimations, set only by this hook. */
+  __milumeSkipAnimations?: boolean;
+};
+
+function applySkipMotion() {
+  MotionGlobalConfig.skipAnimations = true;
+  const live = MotionGlobalConfig.skipAnimations === true;
+  const w = window as MilumeWindow;
+  w.__milumeSkipAnimations = live;
+  if (live) document.documentElement.dataset.milumeSkipAnimations = "true";
+}
+
+if (typeof window !== "undefined") {
+  const w = window as MilumeWindow;
+  w.__milumeApplySkipMotion = applySkipMotion;
+  if (w.__milumeSkipMotion === true) applySkipMotion();
+}
