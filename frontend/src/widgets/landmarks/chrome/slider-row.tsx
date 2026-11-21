@@ -110,13 +110,17 @@ function SliderRow({
         <>
           {caption}
           {control}
-          <span className="tact-readout shrink-0">{readout}</span>
+          <span className="tact-readout shrink-0" title={readout}>
+            {readout}
+          </span>
         </>
       ) : (
         <>
           <div className="flex items-baseline justify-between gap-3">
             {caption}
-            <span className="tact-readout shrink-0">{readout}</span>
+            <span className="tact-readout shrink-0" title={readout}>
+              {readout}
+            </span>
           </div>
           {control}
         </>
@@ -186,13 +190,23 @@ function RangeRow({
         <>
           {caption}
           {control}
-          <span className="tact-readout shrink-0">{readout}</span>
+          <span
+            className="tact-readout shrink-0"
+            title={typeof readout === "string" ? readout : undefined}
+          >
+            {readout}
+          </span>
         </>
       ) : (
         <>
           <div className="flex items-baseline justify-between gap-3">
             {caption}
-            <span className="tact-readout shrink-0">{readout}</span>
+            <span
+              className="tact-readout shrink-0"
+              title={typeof readout === "string" ? readout : undefined}
+            >
+              {readout}
+            </span>
           </div>
           {control}
         </>

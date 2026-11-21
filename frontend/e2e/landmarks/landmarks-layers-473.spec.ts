@@ -52,14 +52,17 @@ test("cells visibility, micrometre diameter, image sliders, and scale bar", asyn
   await expect(toggle).toHaveAttribute("aria-checked", "true");
 
   const size = page.getByTestId("layer-cells-point-size");
-  await expect(size.locator(".tact-readout")).toHaveText("8.0 µm");
+  const readout = size.locator(".tact-readout");
+  await expect(readout).toHaveText("8.0 µm");
   await expect(size.getByRole("slider")).toBeEnabled();
+  expect(await readout.evaluate((el) => getComputedStyle(el).color)).toBe("rgb(237, 181, 74)");
   await expect(page.getByTestId("layer-cells-opacity")).toBeVisible();
 
   const before = await page.evaluate(() => (window as any).__landmarksModel.get("point_size"));
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-checked", "false");
   await expect(size.getByRole("slider")).toBeDisabled();
+  expect(await readout.evaluate((el) => getComputedStyle(el).color)).toBe("rgb(208, 208, 208)");
   await expect.poll(async () => page.evaluate(() => (window as any).__landmarksEngine.getLayerIds() as string[])).not.toContain("landmarks-points");
   expect(await page.evaluate(() => (window as any).__landmarksModel.get("point_size"))).toBe(before);
 
@@ -78,8 +81,31 @@ test("cells visibility, micrometre diameter, image sliders, and scale bar", asyn
   await expect(page.locator(".landmarks-slider-caption").filter({ hasText: "Opacity" }).last()).toBeVisible();
 
   const scale = page.getByTestId("map-scale-bar");
+  const minimap = page.getByTestId("minimap-panel");
   await expect(scale).toBeVisible();
-  await expect(scale).toContainText("µm");
+  await expect(scale).toContainText(/\d+(?:\.\d+)? µm/);
+  const rule = scale.locator(".landmarks-scale-bar__rule");
+  const rulePaint = await rule.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return {
+      height: cs.height,
+      left: cs.borderLeftWidth,
+      right: cs.borderRightWidth,
+      fill: cs.backgroundColor,
+    };
+  });
+  expect(rulePaint.height).toBe("4px");
+  expect(rulePaint.left).toBe("0px");
+  expect(rulePaint.right).toBe("0px");
+  expect(rulePaint.fill).toBe("rgb(255, 255, 255)");
+  const [scaleBox, miniBox] = await Promise.all([scale.boundingBox(), minimap.boundingBox()]);
+  expect(scaleBox && miniBox).toBeTruthy();
+  expect(scaleBox!.x).toBeGreaterThan(miniBox!.x + miniBox!.width - 1);
+  expect(scaleBox!.x).toBeLessThan(miniBox!.x + miniBox!.width + 20);
+  await setModel(page, { _um_per_unit: 1_000_000 });
+  await expect(scale).toContainText(/\d+(?:\.\d+)? mm/);
+  await setModel(page, { _um_per_unit: 0 });
+  await expect(scale).toContainText(/\d+(?:\.\d+)? px/);
 
   const contrastRow = page.getByTestId("layer-image-contrast");
   const [captionBox, trackBox, readoutBox] = await Promise.all([

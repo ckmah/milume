@@ -23,7 +23,11 @@
   --tact-rule: rgba(26, 26, 26, 0.78);
   --tact-surface: rgb(214 214 214 / 97%);
   --tact-veil: var(--tact-surface);
-  --tact-blur: blur(5px);
+  --tact-blur: blur(4px);
+  --tact-edge: rgba(26, 26, 26, 0.14);
+  --tact-lift: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --tact-mark: #edb54a;
+  --tact-on: #111111;
   --tact-mono: "IBM Plex Mono", ui-monospace, monospace;
   --foreground: var(--tact-ink);
   --muted-foreground: var(--tact-muted);
@@ -84,9 +88,8 @@
   --tact-track: rgba(242, 242, 242, 0.28);
   --tact-range: rgba(242, 242, 242, 0.62);
   --tact-rule: rgba(242, 242, 242, 0.78);
-  /* #3a3a3a at 97% composites to #383838 on black, edge 1.79:1.
-     Ink #f2f2f2 on that composite is 10.47:1. Muted #d0d0d0 is 7.60:1. */
-  --tact-surface: rgb(58 58 58 / 97%);
+  --tact-surface: rgb(0 0 0 / 65%);
+  --tact-edge: rgba(255, 255, 255, 0.14);
   --primary-foreground: #141414;
   color-scheme: dark;
 }
@@ -141,10 +144,29 @@
     0 100%, 0 100%,
     100% 100%, 100% 100% !important;
   background-repeat: no-repeat !important;
-  box-shadow: none !important;
+  border: 1px solid var(--tact-edge) !important;
+  box-shadow: var(--tact-lift) !important;
   -webkit-backdrop-filter: var(--tact-blur);
   backdrop-filter: var(--tact-blur);
   color: var(--tact-ink);
+}
+
+.milume-widget.landmarks,
+[data-milume-portal] {
+  --lm-float-bg: var(--tact-surface);
+  --lm-float-blur: var(--tact-blur);
+  --lm-float-shadow: var(--tact-lift);
+}
+
+.milume-widget .landmarks-float[data-slot="card"],
+.milume-widget .landmarks-float.bg-card,
+[data-milume-portal] .landmarks-float[data-slot="card"],
+[data-milume-portal] .landmarks-float.bg-card {
+  border: 1px solid var(--tact-edge) !important;
+  border-radius: 0 !important;
+  box-shadow: var(--tact-lift) !important;
+  -webkit-backdrop-filter: var(--tact-blur) !important;
+  backdrop-filter: var(--tact-blur) !important;
 }
 
 .tact-tooltip,
@@ -159,6 +181,12 @@
   border-color: transparent !important;
   -webkit-backdrop-filter: var(--tact-blur) !important;
   backdrop-filter: var(--tact-blur) !important;
+}
+
+.milume-widget .landmarks-menu,
+[data-milume-portal] .landmarks-menu {
+  border: 1px solid var(--tact-edge) !important;
+  box-shadow: var(--tact-lift) !important;
 }
 
 .tact-tooltip,
@@ -331,7 +359,7 @@
 }
 
 .milume-widget .landmarks-panel-section-header__main {
-  color: var(--tact-muted) !important;
+  color: color-mix(in srgb, var(--tact-ink) 45%, transparent) !important;
 }
 
 .milume-widget .landmarks-panel-section-header--open .landmarks-panel-section-header__main {
@@ -367,8 +395,10 @@
   background: transparent;
   color: var(--tact-muted);
   font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 400;
+  font-variant: small-caps;
+  letter-spacing: 0.14em;
+  text-transform: none;
 }
 
 .tact-switch--sm {
@@ -387,8 +417,12 @@
   width: 50%;
   height: auto;
   border-radius: 0;
-  background: var(--tact-tone);
+  background: transparent;
   pointer-events: none;
+}
+
+.tact-switch[aria-checked="true"] > .tact-switch-glide {
+  background: var(--tact-mark);
 }
 
 .tact-switch > span:not(.tact-switch-glide) {
@@ -400,6 +434,10 @@
 
 .tact-switch > span[data-hot="true"] {
   color: var(--tact-ink);
+}
+
+.tact-switch[aria-checked="true"] > span[data-hot="true"] {
+  color: var(--tact-on);
 }
 
 .tact-tabs,
@@ -459,17 +497,46 @@
 
 .tact-slider-track {
   position: relative;
-  height: 2px;
+  height: 1px;
   width: 100%;
   overflow: visible;
   border-radius: 0;
   background: var(--tact-track);
 }
 
+.tact-slider-track::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 4px);
+  height: 6px;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--tact-track), var(--tact-track)),
+    linear-gradient(var(--tact-track), var(--tact-track)),
+    linear-gradient(var(--tact-track), var(--tact-track)),
+    linear-gradient(var(--tact-track), var(--tact-track)),
+    linear-gradient(var(--tact-track), var(--tact-track));
+  background-size:
+    1px 6px,
+    1px 4px,
+    1px 4px,
+    1px 4px,
+    1px 6px;
+  background-position:
+    0 0,
+    25% 2px,
+    50% 2px,
+    75% 2px,
+    100% 0;
+  background-repeat: no-repeat;
+}
+
 .tact-slider-range {
   position: absolute;
   height: 100%;
-  background: var(--tact-range);
+  background: var(--tact-mark);
 }
 
 .landmarks-slider-ends {
@@ -488,11 +555,11 @@
 
 .tact-slider-thumb {
   position: absolute;
-  width: 4px;
-  height: 16px;
+  width: 1px;
+  height: 13px;
   border: 0;
   border-radius: 0;
-  background: var(--tact-ink);
+  background: var(--tact-mark);
   box-shadow: none;
 }
 
@@ -504,7 +571,31 @@
 
 .tact-readout {
   font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  color: var(--tact-mark);
+}
+
+.landmarks-slider-row--disabled .tact-readout {
   color: var(--tact-muted);
+}
+
+.landmarks-slider-row--disabled .tact-slider-thumb {
+  background: var(--tact-muted);
+}
+
+.landmarks-slider-row--disabled .tact-slider-range {
+  background: var(--tact-range);
+}
+
+.landmarks-slider-row:not(.landmarks-slider-row--inline) .tact-readout {
+  flex: 0 0 4rem;
+  width: 4rem;
+  max-width: 4rem;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .milume-widget [data-slot="input"],
@@ -549,9 +640,28 @@
   scrollbar-color: var(--tact-track) transparent;
 }
 
-.landmarks-image-channel-row__name,
-.landmarks-layer-label {
+.landmarks-image-channel-row__name {
   font-family: var(--tact-mono);
+}
+
+.landmarks-layer-label,
+.landmarks-panel-section-header__label {
+  font-family: var(--tact-mono);
+  font-size: 12px;
+  font-weight: 400;
+  font-variant: small-caps;
+  letter-spacing: 0.14em;
+  text-transform: none;
+}
+
+.milume-widget .landmarks-layer-label {
+  color: var(--tact-ink);
+}
+
+.milume-widget .landmarks-layer-label.opacity-45,
+.milume-widget .landmarks-layer-row:has([role="switch"][aria-checked="false"]) .landmarks-layer-label {
+  opacity: 1;
+  color: color-mix(in srgb, var(--tact-ink) 45%, transparent);
 }
 
 .landmarks-image-channel-row__name {
