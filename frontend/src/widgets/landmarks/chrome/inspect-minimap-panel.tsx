@@ -19,7 +19,13 @@ import {
   mapLayout,
   toCanvasXY,
 } from "./minimap-panel";
-import { frameFromVolume, loadInspectOverview, type InspectOverview } from "./inspect-minimap-overview";
+import {
+  frameFromVolume,
+  inspectOverviewFromSource,
+  loadInspectOverviewSource,
+  type InspectOverview,
+  type InspectOverviewSource,
+} from "./inspect-minimap-overview";
 
 type Range = [number, number];
 
@@ -139,6 +145,7 @@ export function InspectMinimapPanel({
   const pendingClient = useRef<{ x: number; y: number } | null>(null);
   const squareRef = useRef("");
   const [overview, setOverview] = useState<InspectOverview | null>(null);
+  const [overviewSource, setOverviewSource] = useState<{ url: string; source: InspectOverviewSource } | null>(null);
   const overviewRef = useRef<InspectOverview | null>(null);
   overviewRef.current = overview;
 
@@ -158,8 +165,25 @@ export function InspectMinimapPanel({
     const url = lm.volume?.image_url;
     if (!url) return;
     let cancelled = false;
-    const contrast = lm.volume?.contrast_limits ?? [0, 255];
-    loadInspectOverview(url, frameFromVolume(lm.volume ?? {}), contrast, volumeComm, chunkCache)
+    loadInspectOverviewSource(url, frameFromVolume(lm.volume ?? {}), volumeComm, chunkCache)
+      .then((source) => {
+        if (!cancelled) setOverviewSource({ url, source });
+      })
+      .catch(() => {
+        if (!cancelled) setOverviewSource(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [lm.volume?.image_url, volumeComm, chunkCache]);
+
+  useEffect(() => {
+    const url = lm.volume?.image_url;
+    if (!overviewSource || overviewSource.url !== url) return;
+    let cancelled = false;
+    const limits = lm.volume?.contrast_limits;
+    const contrast: [number, number] = limits ? [limits[0], limits[1]] : [0, 255];
+    inspectOverviewFromSource(overviewSource.source, contrast)
       .then((o) => {
         if (!cancelled) setOverview(o);
       })
@@ -169,7 +193,7 @@ export function InspectMinimapPanel({
     return () => {
       cancelled = true;
     };
-  }, [lm.volume?.image_url, lm.volume?.contrast_limits, volumeComm, chunkCache]);
+  }, [overviewSource, lm.volume?.image_url, lm.volume?.contrast_limits]);
 
   const paint = useCallback(() => {
     const canvas = canvasRef.current;

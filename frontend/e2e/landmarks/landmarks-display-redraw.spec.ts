@@ -65,6 +65,11 @@ async function nudge(page: Page, name: string) {
   const before = await slider.getAttribute("aria-valuenow");
   await slider.focus();
   await resetCubeRenderCount(page);
+  await page.evaluate(() => {
+    const w = window as { __redrawMark?: number; __redrawAt?: number };
+    w.__redrawMark = -1;
+    w.__redrawAt = performance.now();
+  });
   const t0 = Date.now();
   await page.keyboard.press("ArrowRight");
   await expect(slider).not.toHaveAttribute("aria-valuenow", before ?? "");
@@ -106,6 +111,10 @@ test.describe("Inspect display redraws (#476)", () => {
 
     const burst = async (gesture: () => Promise<void>) => {
       await resetCubeRenderCount(page);
+      await page.evaluate(() => {
+        const w = window as { __redrawMark?: number };
+        w.__redrawMark = -1;
+      });
       await page.evaluate(() => {
         const w = window as {
           __volumeCubeRenderCount?: number;

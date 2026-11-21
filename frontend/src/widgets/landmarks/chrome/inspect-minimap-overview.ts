@@ -69,6 +69,14 @@ export type InspectOverview = {
   aspect: number;
 };
 
+/** Coarsest level, kept so a contrast change can reproject without another volume_get. */
+export type InspectOverviewSource = {
+  data: ArrayLike<number>;
+  box: Box;
+  xBounds: [number, number];
+  yBounds: [number, number];
+};
+
 function worldBounds(level: Level, frame: Frame): { x: [number, number]; y: [number, number] } {
   const box = levelBox(level);
   const [, fy, fx] = level.factor;
@@ -81,29 +89,40 @@ function worldBounds(level: Level, frame: Frame): { x: [number, number]; y: [num
 }
 
 /**
- * Load the inspect minimap overview: lowest pyramid level, max intensity along Z.
- * Repaint only when this promise resolves or the URL changes.
+ * Load the inspect minimap source: lowest pyramid level. Contrast is not an
+ * input, so a later limit change reprojects this chunk and does not fetch.
  */
-export async function loadInspectOverview(
+export async function loadInspectOverviewSource(
   imageUrl: string,
   frame: Frame,
-  contrast: [number, number],
   volumeComm: VolumeCommClient | null,
   chunkCache: ChunkCache | null,
-): Promise<InspectOverview> {
+): Promise<InspectOverviewSource> {
   const pyramid = await loadVolumePyramid(imageUrl, volumeComm);
   pyramid.forEach((src, i) => chunkCache?.attach(src._data, `${imageUrl}#${i}`));
   const levels = pyramidLevels(pyramid);
   const level = levels[levels.length - 1]!;
   const box = levelBox(level);
   const chunk = await fetchBox(level.source, box);
-  const data = chunk.data as ArrayLike<number>;
+  const { x, y } = worldBounds(level, frame);
+  return { data: chunk.data as ArrayLike<number>, box, xBounds: x, yBounds: y };
+}
+
+/** Z-max overview at `contrast` from a source already loaded. */
+export async function inspectOverviewFromSource(
+  source: InspectOverviewSource,
+  contrast: [number, number],
+): Promise<InspectOverview> {
   const [lo, hi] = contrast;
-  const { pixels, width, height } = zMaxProjection(data, box, lo, hi);
+  const { pixels, width, height } = zMaxProjection(source.data, source.box, lo, hi);
   const imageData = new ImageData(new Uint8ClampedArray(pixels), width, height);
   const bitmap = await createImageBitmap(imageData);
-  const { x, y } = worldBounds(level, frame);
-  return { bitmap, xBounds: x, yBounds: y, aspect: width / height };
+  return {
+    bitmap,
+    xBounds: source.xBounds,
+    yBounds: source.yBounds,
+    aspect: width / height,
+  };
 }
 
 export function frameFromVolume(volume: {

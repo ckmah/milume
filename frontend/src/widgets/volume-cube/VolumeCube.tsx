@@ -1,6 +1,7 @@
 import type React from "react";
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Matrix4 } from "@math.gl/core";
+import { Deck } from "@deck.gl/core";
 import { VivViewer } from "@hms-dbmi/viv";
 import { loadVolumePyramid } from "./load-volume-pyramid";
 
@@ -995,9 +996,6 @@ export function VolumeCube({
   }, [contrastLimitsKey, contrastLimits]);
   useEffect(() => {
     setViewState((prev) => (prev ? { ...prev } : prev));
-  }, [contrastLimitsKey]);
-  useEffect(() => {
-    setViewState((prev) => (prev ? { ...prev } : prev));
   }, [activeImageChannels.length]);
   const shownRenderForDeck = useMemo(
     () => ({ ...shownRender, traitContrast: contrastLimits }),
@@ -1150,6 +1148,7 @@ export function VolumeCube({
   const deckProps = useMemo(
     () => ({
       effects: [CELL_MESH_LIGHTING],
+      Deck: VolumeDeck,
       onAfterRender: ({ gl }: { gl: WebGL2RenderingContext }) => {
         if (typeof window !== "undefined") {
           const w = window as unknown as { __volumeCubeRenderCount?: number };
@@ -1680,11 +1679,37 @@ type VolumeCubeDeckProps = {
   views: FramedVolumeView[];
   viewStates: ViewState[];
   onViewStateChange: (args: { viewId: string; viewState: ViewState }) => ViewState;
-  deckProps: { effects: unknown[]; onAfterRender: (args: { gl: WebGL2RenderingContext }) => void };
+  deckProps: {
+    effects: unknown[];
+    Deck: typeof VolumeDeck;
+    onAfterRender: (args: { gl: WebGL2RenderingContext }) => void;
+  };
 };
 
-/** Viv deck only: cut-face hover updates skip this subtree so deck does not redraw. */
-const VolumeCubeDeck = memo(function VolumeCubeDeck({
+/**
+ * DeckGL's layout effect calls `redraw('Initial render')` before the animation
+ * frame runs `updateLayers`, so one layer commit draws twice. Applying the
+ * queued layers inside `redraw` makes that forced draw the only one.
+ */
+class VolumeDeck extends Deck {
+  override redraw(reason?: string): void {
+    this.layerManager?.updateLayers();
+    super.redraw(reason);
+  }
+}
+
+function sameDeckProps(a: VolumeCubeDeckProps, b: VolumeCubeDeckProps) {
+  return (
+    a.deckKey === b.deckKey &&
+    a.layerProps === b.layerProps &&
+    a.views === b.views &&
+    a.viewStates === b.viewStates &&
+    a.onViewStateChange === b.onViewStateChange &&
+    a.deckProps === b.deckProps
+  );
+}
+
+const VolumeCubeFrame = memo(function VolumeCubeFrame({
   deckKey,
   layerProps,
   views,
@@ -1705,6 +1730,25 @@ const VolumeCubeDeck = memo(function VolumeCubeDeck({
       } as unknown as React.ComponentProps<typeof VivViewer>)}
     />
   );
+});
+
+/** Viv deck only: cut-face hover updates skip this subtree so deck does not redraw. */
+const VolumeCubeDeck = memo(function VolumeCubeDeck(props: VolumeCubeDeckProps) {
+  const latest = useRef(props);
+  latest.current = props;
+  const [shown, setShown] = useState(props);
+  const shownRef = useRef(shown);
+  shownRef.current = shown;
+  const raf = useRef(0);
+  useEffect(() => {
+    if (sameDeckProps(shownRef.current, latest.current)) return;
+    raf.current = requestAnimationFrame(() => {
+      raf.current = 0;
+      setShown(latest.current);
+    });
+    return () => cancelAnimationFrame(raf.current);
+  });
+  return <VolumeCubeFrame {...shown} />;
 });
 
 function errorText(err: unknown): string {
