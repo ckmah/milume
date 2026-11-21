@@ -52,25 +52,6 @@ export function WidgetStage({
   );
 }
 
-/** Ancestor class forces raw `:hover` / `:focus-visible` rules from landmarks.css. */
-export function ForceState({
-  state,
-  children,
-}: {
-  state: string;
-  children: ReactNode;
-}) {
-  const cls =
-    state === "hover"
-      ? "ds-force-hover"
-      : state === "focus-visible"
-        ? "ds-force-focus"
-        : state === "active"
-          ? "ds-force-active"
-          : undefined;
-  return <div className={cls}>{children}</div>;
-}
-
 export function StateCell({
   state,
   children,
@@ -83,9 +64,7 @@ export function StateCell({
   return (
     <div data-ds-state={state}>
       <div className="ds-state-label">{state}</div>
-      <WidgetStage className={stageClassName}>
-        <ForceState state={state}>{children}</ForceState>
-      </WidgetStage>
+      <WidgetStage className={stageClassName}>{children}</WidgetStage>
     </div>
   );
 }

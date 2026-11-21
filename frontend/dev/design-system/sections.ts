@@ -1,12 +1,8 @@
 /** Section anchors. The nav, the page, and the Vite harness spec share this list. */
 export const DESIGN_SYSTEM_SECTIONS = [
-  ["buttons", "Buttons"],
   ["icon-buttons", "Icon buttons"],
   ["toggles", "Toggles"],
   ["sliders", "Sliders"],
-  ["popovers", "Popovers"],
-  ["menus", "Menus"],
-  ["tabs", "Tabs"],
   ["dock", "Dock"],
   ["layers", "Layers"],
   ["legends", "Legends and ramps"],
@@ -14,7 +10,7 @@ export const DESIGN_SYSTEM_SECTIONS = [
   ["color-picker", "Color picker"],
   ["tooltips", "Tooltips"],
   ["inputs", "Inputs"],
-  ["badges", "Badges"],
+  ["volume-cube", "Volume cube"],
   ["panels", "Panels"],
   ["empty-loading", "Empty and loading"],
   ["gaps", "Gaps"],
@@ -45,15 +41,15 @@ export const DESIGN_SYSTEM_GAPS: { component: string; reason: string }[] = [
   },
   {
     component: "ModeDropdown open menu",
-    reason: "The menu open state is internal. The closed trigger is shown. The open menu is the DropdownMenu specimen.",
+    reason: "Opens from the Dock ModeDropdown trigger (right-click or chevron). Not force-mounted.",
   },
   {
     component: "Combobox open list",
-    reason: "A forced-open combobox whose input sits outside the popup marks the rest of the page aria-hidden. The field is shown closed, with an empty query. The open menu is the DropdownMenu specimen.",
+    reason: "GenesCombobox in Gene picker opens on click. A forced-open list marks the rest of the page aria-hidden.",
   },
   {
     component: "ChannelColorPicker disabled",
-    reason: "No disabled prop. ColorSelector shows disabled.",
+    reason: "No disabled prop.",
   },
   {
     component: "Button loading",
