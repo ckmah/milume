@@ -43,10 +43,12 @@ test.describe("Tactical refinements #468", () => {
     });
     expect(paint.blur).toContain("blur(5px)");
     expect(paint.background).toMatch(/rgba?\(58,\s*58,\s*58,\s*0\.97\)/);
-    const corners = await page.getByTestId("panel-collapse-caret-left").evaluate((el) => {
+    const panelCorners = await panel.evaluate((el) => getComputedStyle(el).backgroundImage);
+    expect(panelCorners).toContain("linear-gradient");
+    const caret = await page.getByTestId("panel-collapse-caret-left").evaluate((el) => {
       return getComputedStyle(el).backgroundImage;
     });
-    expect(corners).toContain("linear-gradient");
+    expect(caret).toBe("none");
   });
 
   test("surface blur and opacity follow the light notebook theme", { tag: "@isolated" }, async ({ page }) => {

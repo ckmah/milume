@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Card } from "@/components/ui/card";
 import { FieldDescription } from "@/components/ui/field";
 import { ItemGroup } from "@/components/ui/item";
 import { cn } from "@/lib/utils";
@@ -13,7 +12,6 @@ import { PanelSectionHeader } from "./panel-section-header";
 import { LayerRow } from "./primitives";
 import { useWidgetPortal } from "./widget-portal-context";
 import { SelectionCard } from "./selection-card";
-import { FLOAT_PANEL, FLOAT_PANEL_CLIP } from "./sections";
 
 const NO_SNAPSHOTS = new Map<string, ChipSnapshot>();
 
@@ -98,12 +96,10 @@ export function LayersPanel({
     <div
       ref={rootRef}
       className={cn(
-        "landmarks__layers-panel flex h-full min-h-0 flex-1 flex-col",
+        "landmarks__layers-panel landmarks-float landmarks-float--panel pointer-events-auto flex h-full min-h-0 max-h-full flex-1 flex-col overflow-hidden",
         minimise && "landmarks__layers-panel--minimise",
       )}
     >
-      <Card className={cn(FLOAT_PANEL, "flex h-full min-h-0 flex-1 flex-col")}>
-        <div className={cn(FLOAT_PANEL_CLIP, "flex h-full min-h-0 flex-1 flex-col")}>
           <div
             className={cn(
               "landmarks-panel-sections flex min-h-0 flex-1 flex-col",
@@ -236,8 +232,6 @@ export function LayersPanel({
               ) : null}
             </section>
           </div>
-        </div>
-      </Card>
     </div>
   );
 }

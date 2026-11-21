@@ -72,7 +72,19 @@ test("cells visibility, micrometre diameter, image sliders, and scale bar", asyn
     expect(headerBox).toBeTruthy();
     expect(Math.abs(headerBox!.x - panelBox!.x)).toBeLessThan(2);
     expect(Math.abs(headerBox!.x + headerBox!.width - (panelBox!.x + panelBox!.width))).toBeLessThan(2);
+    const countBox = await page.getByTestId(id).locator(".landmarks-panel-section-header__count").boundingBox();
+    expect(countBox).toBeTruthy();
+    expect(Math.abs(countBox!.x + countBox!.width - (toggleBox!.x + toggleBox!.width))).toBeLessThan(3);
   }
+  const opacityReadout = await page.getByTestId("layer-cells-opacity").locator(".tact-readout").boundingBox();
+  expect(opacityReadout).toBeTruthy();
+  expect(Math.abs(opacityReadout!.x + opacityReadout!.width - (toggleBox!.x + toggleBox!.width))).toBeLessThan(3);
+  const rowBoxForNest = await page.getByTestId("layers-cells-header").locator("..").boundingBox();
+  const sliderBox = await page.getByTestId("layer-cells-point-size").boundingBox();
+  expect(rowBoxForNest && sliderBox).toBeTruthy();
+  expect(Math.abs(sliderBox!.x - rowBoxForNest!.x)).toBeLessThan(4);
+  const nestedBg = await page.locator(".landmarks-layers-stack__nested").first().evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(nestedBg).not.toBe("rgba(0, 0, 0, 0)");
   await expect(toggle).toHaveAttribute("aria-checked", "true");
 
   const sectionChevron = page.getByTestId("panel-section-layers").getByRole("button", { name: "Collapse Layers" });
