@@ -379,6 +379,7 @@ def _initial_image_channels(src: Any, channels: list[str] | None) -> list[dict[s
                 "visible": name in visible_names and i not in constant_zero,
                 "contrast_limits": (lo, hi),
                 "constant_zero": i in constant_zero,
+                "alpha": 0.55,
             }
         )
     return out

@@ -25,6 +25,28 @@ def test_channels_single_3d_ok(sdata):
     assert len(visible) == 1 and visible[0]["name"] == first
 
 
+def test_channel_alpha_round_trip_is_per_layer(tmp_path):
+    pytest.importorskip("spatialdata")
+    from milume import LandmarksWidget
+    from tests.helpers import issue395_3d_multichannel_spatialdata
+
+    sdata = issue395_3d_multichannel_spatialdata(tmp_path / "mc-alpha.zarr")
+    w = LandmarksWidget(sdata, channels=["DAPI", "PanCK"])
+    trait = {c["name"]: c["alpha"] for c in w._image_channels}
+    assert trait == {"DAPI": 0.55, "PanCK": 0.55}
+    assert all("alpha" not in c for c in w.volume["channels"])
+
+    rows = []
+    for entry in w._image_channels:
+        row = dict(entry)
+        if row["name"] == "DAPI":
+            row["alpha"] = 0.15
+        rows.append(row)
+    w._image_channels = rows
+    got = {c["name"]: c["alpha"] for c in w._image_channels}
+    assert got == {"DAPI": 0.15, "PanCK": 0.55}
+
+
 def test_channels_two_on_3d_ok(tmp_path):
     pytest.importorskip("spatialdata")
     from milume import LandmarksWidget
