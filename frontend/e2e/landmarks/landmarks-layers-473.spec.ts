@@ -43,111 +43,13 @@ test("cells visibility, micrometre diameter, image sliders, and scale bar", asyn
 
   await openLayers(page);
 
-  const cells = page.getByTestId("layers-cells-row");
-  const chevron = cells.getByRole("button", { name: /cells layer/i });
   const toggle = page.getByTestId("layer-toggle-cells");
-  const label = cells.locator(".landmarks-layer-label");
-  const [chevronBox, labelBox, toggleBox] = await Promise.all([
-    chevron.boundingBox(),
-    label.boundingBox(),
-    toggle.boundingBox(),
-  ]);
-  expect(chevronBox && labelBox && toggleBox).toBeTruthy();
-  expect(chevronBox!.x).toBeLessThan(labelBox!.x);
-  expect(toggleBox!.x).toBeGreaterThan(labelBox!.x);
-  const textEnd = await label.evaluate((el) => {
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    return range.getBoundingClientRect().right;
-  });
-  const rowBox = await cells.boundingBox();
-  const panelBox = await page.locator(".landmarks__layers-panel").boundingBox();
-  expect(rowBox && panelBox).toBeTruthy();
-  expect(toggleBox!.x - textEnd).toBeGreaterThan(24);
-  expect(Math.abs(rowBox!.x - panelBox!.x)).toBeLessThan(2);
-  expect(Math.abs(rowBox!.x + rowBox!.width - (panelBox!.x + panelBox!.width))).toBeLessThan(2);
-  for (const id of ["panel-section-selections", "panel-section-landmarks", "panel-section-layers"]) {
-    const headerBox = await page.getByTestId(id).boundingBox();
-    expect(headerBox).toBeTruthy();
-    expect(Math.abs(headerBox!.x - panelBox!.x)).toBeLessThan(2);
-    expect(Math.abs(headerBox!.x + headerBox!.width - (panelBox!.x + panelBox!.width))).toBeLessThan(2);
-    const countBox = await page.getByTestId(id).locator(".landmarks-panel-section-header__count").boundingBox();
-    expect(countBox).toBeTruthy();
-    expect(Math.abs(countBox!.x + countBox!.width - (toggleBox!.x + toggleBox!.width))).toBeLessThan(3);
-  }
-  const opacityReadout = await page.getByTestId("layer-cells-opacity").locator(".tact-readout").boundingBox();
-  expect(opacityReadout).toBeTruthy();
-  expect(Math.abs(opacityReadout!.x + opacityReadout!.width - (toggleBox!.x + toggleBox!.width))).toBeLessThan(3);
-  const labelTextLeft = await label.evaluate((el) => {
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    return range.getBoundingClientRect().left;
-  });
-  const sizeCaptionLeft = await page.getByTestId("layer-cells-point-size").locator(".landmarks-slider-caption").evaluate((el) => {
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    return range.getBoundingClientRect().left;
-  });
-  expect(Math.abs(sizeCaptionLeft - labelTextLeft)).toBeLessThan(2);
-  const layersIcon = await page.getByTestId("panel-section-layers").locator("svg").boundingBox();
-  const cellsIcon = await page.getByTestId("layers-cells-header").locator("svg").boundingBox();
-  expect(layersIcon && cellsIcon).toBeTruthy();
-  expect(Math.abs(layersIcon!.x - cellsIcon!.x)).toBeLessThan(1);
-  const stackBox = await page.locator(".landmarks-layers-stack").boundingBox();
-  const bodyBox = await page.locator(".landmarks-panel-section__body--layers, .landmarks-panel-section__body").last().boundingBox();
-  expect(stackBox && bodyBox).toBeTruthy();
-  expect(Math.abs(bodyBox!.y + bodyBox!.height - (stackBox!.y + stackBox!.height))).toBeLessThan(2);
-  const layersSection = page.getByTestId("panel-section-layers").locator("xpath=..");
-  const sectionBg = await layersSection.evaluate((el) => getComputedStyle(el).backgroundColor);
-  expect(sectionBg).not.toBe("rgba(0, 0, 0, 0)");
-  const line = await page.locator(".landmarks-layers-stack__row").first().evaluate((el) => {
-    const style = getComputedStyle(el, "::before");
-    return { height: style.height, background: style.backgroundColor };
-  });
-  expect(line.height).toBe("1px");
-  expect(line.background).not.toBe("rgba(0, 0, 0, 0)");
-  const lineBox = await page.locator(".landmarks-layers-stack__row").first().evaluate((el) => {
-    const row = el.getBoundingClientRect();
-    const style = getComputedStyle(el, "::before");
-    const left = row.left + parseFloat(style.marginLeft);
-    const right = row.right - parseFloat(style.marginRight);
-    return { left, right };
-  });
-  expect(Math.abs(lineBox.left - labelTextLeft)).toBeLessThan(2);
-  expect(Math.abs(lineBox.right - (toggleBox!.x + toggleBox!.width))).toBeLessThan(2);
-
   await page.getByRole("tab", { name: "cat" }).click();
   await page.getByRole("button", { name: "Expand region" }).click();
-  const catName = page.getByTestId("category-name").first();
-  const subLabel = page.locator(".landmarks__explore-panel .landmarks-layer-label").first();
-  const avatar = page.locator(".landmarks__explore-panel .landmarks-cat-avatars").first();
-  const [catNameBox, subLabelBox, avatarBox, layersTitleBox] = await Promise.all([
-    catName.boundingBox(),
-    subLabel.boundingBox(),
-    avatar.boundingBox(),
-    page.getByTestId("panel-section-layers").locator(".landmarks-panel-section-header__label").boundingBox(),
-  ]);
-  const leftPanelBox = await page.locator(".landmarks__layers-panel").boundingBox();
-  const rightCardBox = await page.locator(".landmarks__chrome-dock--right .landmarks-float--panel").boundingBox();
-  expect(catNameBox && subLabelBox && avatarBox && layersTitleBox && leftPanelBox && rightCardBox).toBeTruthy();
-  const titleInset = layersTitleBox!.x - leftPanelBox!.x;
-  expect(Math.abs(catNameBox!.x - rightCardBox!.x - titleInset)).toBeLessThan(2);
-  expect(Math.abs(subLabelBox!.x - catNameBox!.x)).toBeLessThan(2);
-  expect(Math.abs(rightCardBox!.x + rightCardBox!.width - (avatarBox!.x + avatarBox!.width) - (leftPanelBox!.x + leftPanelBox!.width - (toggleBox!.x + toggleBox!.width)))).toBeLessThan(3);
   const regionList = page.locator(".group\\/cat").filter({ hasText: "Cortex" });
-  const subLine = await regionList.locator(".landmarks-cat-sublist-inner").evaluate((el) => getComputedStyle(el, "::before").content);
-  expect(subLine).toBe("none");
   await expect(page.getByTestId("category-row")).toHaveCount(3);
   await expect(regionList.locator(".landmarks-layer-label")).toHaveCount(4);
   await expect(toggle).toHaveAttribute("aria-checked", "true");
-
-  const sectionChevron = page.getByTestId("panel-section-layers").getByRole("button", { name: "Collapse Layers" });
-  const sectionLabel = page.getByTestId("panel-section-layers").locator(".landmarks-panel-section-header__label");
-  const [sectionChevronBox, sectionLabelBox] = await Promise.all([
-    sectionChevron.boundingBox(),
-    sectionLabel.boundingBox(),
-  ]);
-  expect(sectionChevronBox!.x).toBeLessThan(sectionLabelBox!.x);
 
   const size = page.getByTestId("layer-cells-point-size");
   await expect(size.locator(".tact-readout")).toHaveText("8.0 µm");

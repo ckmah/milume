@@ -26,6 +26,7 @@ A computational biologist inside a marimo/Jupyter cell, reading tissue and cell 
 - Panel hide = carets; minimise = boxed −/+; one section open per panel (each dock is an accordion with at most one expanded section; left and right can be open together when space allows); minimise never moves a control.
 - Legend open in the data card: keep the 24px summary bar (donut slices, same colours and proportions) above the list while at least 8 entries fit, else fall back to the one-line summary.
 - Chrome text ≥ 11px; only canvas ruler ticks may be 9px.
+- Dock rows use the panel grid in `frontend/DESIGN.md` (`Panel grid`): one text column, a 32px lead, one right edge, and a shaded band only on open Layers.
 - Inspect never draws points.
 
 ## Signature move
