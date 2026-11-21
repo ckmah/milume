@@ -38,7 +38,7 @@
   --lm-space-5: 1.25rem;
   --lm-chrome-inset: var(--lm-space-2);
   --lm-chrome-gap: var(--lm-space-1);
-  --lm-panel-inset: 0.625rem;
+  --lm-panel-inset: 10px;
   --lm-stack-gap: 0.375rem;
   --lm-chrome-band: 3.75rem;
   /* Room under the left dock for the bottom-left minimap (width ≈ 11.5rem, aspect ≈ 1.35). */
@@ -48,7 +48,7 @@
   --lm-depth-rail-active: 0px;
   /* Matches `.landmarks__resize` (bottom 8px + 16px hit area). */
   --lm-resize-band: calc(8px + 16px);
-  --lm-dock-width: 14rem;
+  --lm-dock-width: 17rem;
   /* Ruler clear of Soft Float docks / top tools */
   --lm-ruler-band: 1.25rem;
   --lm-ruler-inset: var(--lm-chrome-band);
@@ -70,7 +70,7 @@
   --lm-toolbar-pad: 0.25rem;
   --lm-toolbar-gap: 0.25rem;
   --lm-toolbar-divider: color-mix(in oklab, var(--foreground) 22%, transparent);
-  --lm-hit-size: 2rem;
+  --lm-hit-size: 32px;
   --lm-hit-radius: 0px;
   --lm-hit-fg: color-mix(in oklab, var(--foreground) 72%, transparent);
   --lm-hit-hover-bg: color-mix(in oklab, var(--foreground) 9%, transparent);
@@ -786,7 +786,7 @@
   --lm-layer-hover-bg: color-mix(in srgb, var(--accent) 35%, transparent);
   --lm-layer-active-bg: color-mix(in srgb, var(--accent) 55%, transparent);
   --lm-layer-active-hover-bg: color-mix(in srgb, var(--accent) 80%, transparent);
-  --lm-trail-hit: 1.5rem;
+  --lm-trail-hit: 24px;
   --lm-trail: var(--lm-trail-hit);
 }
 
@@ -1022,9 +1022,9 @@
 .landmarks-panel-section-header {
   box-sizing: border-box;
   display: grid;
-  grid-template-columns: var(--lm-lead, 28px) minmax(0, 1fr) auto;
+  grid-template-columns: var(--lm-lead, 32px) minmax(0, 1fr) auto;
   align-items: center;
-  column-gap: 8px;
+  column-gap: var(--lm-row-gap, 4px);
   height: 2rem;
   min-height: 2rem;
   max-height: 2rem;
@@ -1133,7 +1133,7 @@
 }
 
 .landmarks-panel-section-header__toggle.landmarks-hit {
-  width: var(--lm-lead, 28px);
+  width: var(--lm-lead, 32px);
   border-radius: var(--lm-hit-radius);
 }
 
@@ -2028,7 +2028,7 @@
 
 /* Soft Float overlay scroll — paints over content, no layout gutter shift */
 .landmarks-overlay-scroll {
-  --lm-overlay-inset-x: 0.625rem; /* match PANEL_INSET px-2.5 */
+  --lm-overlay-inset-x: var(--lm-panel-inset);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;

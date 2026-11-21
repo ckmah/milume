@@ -12,6 +12,7 @@ import type { ImageChannelRow, LandmarksModel } from "../use-landmarks-model";
 import { ChannelColorPicker } from "./channel-color-picker";
 import { cellSizeControl, knownUmPerUnit } from "./layers-size";
 import { formatSliderReadout } from "./slider-readout";
+import { PanelRow } from "./primitives";
 import { TactSliderRow } from "./slider-row";
 
 const MAX_VISIBLE_CHANNELS = 6;
@@ -116,7 +117,7 @@ function ImageChannelRowControl({
   };
 
   return (
-    <div
+    <PanelRow
       role="button"
       tabIndex={0}
       data-testid={`layer-channel-row-${ch.name}`}
@@ -124,19 +125,21 @@ function ImageChannelRowControl({
       onClick={() => onToggle(!ch.visible)}
       onFocus={() => onFocus?.()}
       onKeyDown={onRowKey}
+      lead={<ChannelColorPicker name={ch.name} color={tint} onColorChange={onColor} />}
+      end={
+        <Switch
+          size="sm"
+          checked={ch.visible}
+          aria-label={`Show ${ch.name}`}
+          data-testid={`layer-channel-${ch.name}`}
+          onCheckedChange={(next) => onToggle(next)}
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        />
+      }
     >
-      <ChannelColorPicker name={ch.name} color={tint} onColorChange={onColor} />
       <span className="landmarks-image-channel-row__name">{ch.name}</span>
-      <Switch
-        size="sm"
-        checked={ch.visible}
-        aria-label={`Show ${ch.name}`}
-        data-testid={`layer-channel-${ch.name}`}
-        onCheckedChange={(next) => onToggle(next)}
-        onClick={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-      />
-    </div>
+    </PanelRow>
   );
 }
 
@@ -209,32 +212,44 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
     <div className="landmarks-layers-stack flex flex-col gap-0.5">
       {category_columns.length ? (
         <div className="landmarks-layers-stack__row">
-          <div
-            className="landmarks-layer-row justify-between text-xs text-foreground"
+          <PanelRow
+            className="landmarks-layer-row text-xs text-foreground"
             data-testid="layers-cells-row"
+            lead={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="landmarks-cat-chevron shrink-0"
+                aria-expanded={cellsOpen}
+                aria-label={cellsOpen ? "Collapse cells layer" : "Expand cells layer"}
+                data-testid="layers-cells-header"
+                onClick={() => setCellsOpen((v) => !v)}
+              >
+                <ChevronRightIcon
+                  className={cn(
+                    "landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0 opacity-70",
+                    cellsOpen && "landmarks-cat-chevron-icon--open",
+                  )}
+                  aria-hidden
+                />
+              </Button>
+            }
+            end={
+              <Switch
+                size="sm"
+                className="shrink-0"
+                checked={cellsVisible}
+                aria-label={cellsVisible ? "Hide cells layer" : "Show cells layer"}
+                data-testid="layer-toggle-cells"
+                onCheckedChange={(next) => lm.setCellsVisible(next)}
+              />
+            }
           >
             <Button
               type="button"
               variant="ghost"
-              size="icon-sm"
-              className="landmarks-cat-chevron shrink-0"
-              aria-expanded={cellsOpen}
-              aria-label={cellsOpen ? "Collapse cells layer" : "Expand cells layer"}
-              data-testid="layers-cells-header"
-              onClick={() => setCellsOpen((v) => !v)}
-            >
-              <ChevronRightIcon
-                className={cn(
-                  "landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0 opacity-70",
-                  cellsOpen && "landmarks-cat-chevron-icon--open",
-                )}
-                aria-hidden
-              />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="landmarks-layers-image-trigger h-full min-h-0 min-w-0 flex-1 justify-start gap-1.5 px-0 text-xs font-normal text-foreground hover:bg-transparent"
+              className="landmarks-layers-image-trigger h-full min-h-0 min-w-0 justify-start px-0 text-xs font-normal text-foreground hover:bg-transparent"
               onClick={() => setCellsOpen((v) => !v)}
             >
               <span
@@ -246,15 +261,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
                 {cellsHeader}
               </span>
             </Button>
-            <Switch
-              size="sm"
-              className="shrink-0"
-              checked={cellsVisible}
-              aria-label={cellsVisible ? "Hide cells layer" : "Show cells layer"}
-              data-testid="layer-toggle-cells"
-              onCheckedChange={(next) => lm.setCellsVisible(next)}
-            />
-          </div>
+          </PanelRow>
           {cellsOpen ? (
             <div className="landmarks-layers-stack__nested flex flex-col gap-2 pb-1">
               <div className="landmarks-slider-stack">
@@ -294,49 +301,56 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
         </div>
       ) : null}
 
+      {category_columns.length && hasImage ? (
+        <div className="landmarks-panel-rule" data-panel-rule="" />
+      ) : null}
       {hasImage ? (
         <div className="landmarks-layers-stack__row">
-          <div
-            className="landmarks-layer-row justify-between text-xs text-foreground"
+          <PanelRow
+            className="landmarks-layer-row text-xs text-foreground"
             data-testid="layers-image-header"
+            lead={
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                className="landmarks-cat-chevron shrink-0"
+                aria-expanded={imageOpen}
+                aria-label={imageOpen ? "Collapse image layer" : "Expand image layer"}
+                data-testid="layers-image-row"
+                onClick={() => setImageOpen((v) => !v)}
+              >
+                <ChevronRightIcon
+                  className={cn(
+                    "landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0 opacity-70",
+                    imageOpen && "landmarks-cat-chevron-icon--open",
+                  )}
+                  aria-hidden
+                />
+              </Button>
+            }
+            end={
+              <Switch
+                size="sm"
+                className="shrink-0"
+                checked={imageVisible}
+                aria-label={imageVisible ? "Hide image layer" : "Show image layer"}
+                data-testid="layer-toggle-image"
+                onCheckedChange={(next) => lm.setImageVisible(next)}
+              />
+            }
           >
             <Button
               type="button"
               variant="ghost"
-              size="icon-sm"
-              className="landmarks-cat-chevron shrink-0"
-              aria-expanded={imageOpen}
-              aria-label={imageOpen ? "Collapse image layer" : "Expand image layer"}
-              data-testid="layers-image-row"
-              onClick={() => setImageOpen((v) => !v)}
-            >
-              <ChevronRightIcon
-                className={cn(
-                  "landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0 opacity-70",
-                  imageOpen && "landmarks-cat-chevron-icon--open",
-                )}
-                aria-hidden
-              />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              className="landmarks-layers-image-trigger h-full min-h-0 min-w-0 flex-1 justify-start gap-1.5 px-0 text-xs font-normal text-foreground hover:bg-transparent"
+              className="landmarks-layers-image-trigger h-full min-h-0 min-w-0 justify-start px-0 text-xs font-normal text-foreground hover:bg-transparent"
               onClick={() => setImageOpen((v) => !v)}
             >
               <span className="landmarks-layer-label min-w-0 flex-1 truncate text-left">
                 {imageHeaderLabel}
               </span>
             </Button>
-            <Switch
-              size="sm"
-              className="shrink-0"
-              checked={imageVisible}
-              aria-label={imageVisible ? "Hide image layer" : "Show image layer"}
-              data-testid="layer-toggle-image"
-              onCheckedChange={(next) => lm.setImageVisible(next)}
-            />
-          </div>
+          </PanelRow>
           {imageOpen ? (
             <div className="landmarks-layers-stack__nested flex flex-col gap-2 pb-1">
               {displayChannels.length === 1 && displayChannels[0] ? (

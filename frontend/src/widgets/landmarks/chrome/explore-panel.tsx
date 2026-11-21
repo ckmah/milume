@@ -38,7 +38,7 @@ import {
   type ColorSignal,
 } from "./coloring";
 import { GenesCombobox } from "./genes-legend";
-import { ChromeTooltip, LayerRow } from "./primitives";
+import { ChromeTooltip, LayerRow, PanelRow } from "./primitives";
 import {
   EMBEDDED_PANEL,
   FLOAT_PANEL,
@@ -221,30 +221,42 @@ function CategoryCollapsibleRow({
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="group/cat">
       <ChromeTooltip label={col.name}>
-        <div
+        <PanelRow
           className={cn(
             "landmarks-cat-trigger text-xs font-medium text-foreground/70",
             isShown && "landmarks-cat-trigger--active text-foreground",
           )}
           data-testid="category-row"
+          lead={
+            <button
+              type="button"
+              className="landmarks-cat-chevron"
+              aria-label={open ? `Collapse ${col.name}` : `Expand ${col.name}`}
+              aria-expanded={open}
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen((v) => !v);
+              }}
+            >
+              <ChevronRightIcon
+                className={cn(
+                  "landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0",
+                  open && "landmarks-cat-chevron-icon--open",
+                )}
+              />
+            </button>
+          }
+          end={
+            <>
+              <span className="landmarks-panel-count" title="Unique subcategories">
+                ({(col.labels || []).length})
+              </span>
+              <span className="landmarks-cat-avatars">
+                <SubcategoryAvatars col={col} />
+              </span>
+            </>
+          }
         >
-          <button
-            type="button"
-            className="landmarks-cat-chevron"
-            aria-label={open ? `Collapse ${col.name}` : `Expand ${col.name}`}
-            aria-expanded={open}
-            onClick={(e) => {
-              e.stopPropagation();
-              setOpen((v) => !v);
-            }}
-          >
-            <ChevronRightIcon
-              className={cn(
-                "landmarks-layer-icon landmarks-cat-chevron-icon size-[0.875rem] shrink-0",
-                open && "landmarks-cat-chevron-icon--open",
-              )}
-            />
-          </button>
           <button
             type="button"
             className="min-w-0 cursor-pointer truncate text-left outline-none"
@@ -255,14 +267,7 @@ function CategoryCollapsibleRow({
           >
             {col.name}
           </button>
-          <span className="landmarks-cat-count" title="Unique subcategories">
-            ({(col.labels || []).length})
-          </span>
-          {/* Right-edge avatars (points view) — flush to the row end. */}
-          <span className="landmarks-cat-avatars">
-            <SubcategoryAvatars col={col} />
-          </span>
-        </div>
+        </PanelRow>
       </ChromeTooltip>
       <CollapsibleContent className="landmarks-cat-sublist overflow-hidden">
         <div className="landmarks-cat-sublist-inner">
@@ -338,30 +343,36 @@ export function CategoriesControls({
             const unique = (col.labels || []).length;
             return (
               <ChromeTooltip key={col.name} label={col.name}>
-                <Label
-                  htmlFor={id}
-                  data-testid="category-row"
-                  className={cn(
-                    // Match selection / landmark LayerRow height (landmarks-cat-trigger).
-                    "landmarks-cat-trigger cursor-pointer gap-[var(--lm-layer-row-gap,0.375rem)] text-xs leading-none font-medium text-foreground/70",
-                    "hover:text-foreground",
-                    selected && "landmarks-cat-trigger--active text-foreground",
-                  )}
-                >
-                  <RadioGroupItem
-                    value={col.name}
-                    id={id}
-                    className="size-[var(--lm-layer-swatch)] border-foreground/25 shadow-none"
-                  />
-                  <span className="min-w-0 flex-1 truncate" data-testid="category-name">
-                    {col.name}
-                  </span>
-                  <span className="landmarks-cat-count" title="Unique subcategories">
-                    ({unique})
-                  </span>
-                  <span className="landmarks-cat-avatars">
-                    <SubcategoryAvatars col={col} />
-                  </span>
+                <Label htmlFor={id} className="block">
+                  <PanelRow
+                    data-testid="category-row"
+                    className={cn(
+                      "landmarks-cat-trigger cursor-pointer text-xs leading-none font-medium text-foreground/70",
+                      "hover:text-foreground",
+                      selected && "landmarks-cat-trigger--active text-foreground",
+                    )}
+                    lead={
+                      <RadioGroupItem
+                        value={col.name}
+                        id={id}
+                        className="size-[var(--lm-layer-swatch)] border-foreground/25 shadow-none"
+                      />
+                    }
+                    end={
+                      <>
+                        <span className="landmarks-panel-count" title="Unique subcategories">
+                          ({unique})
+                        </span>
+                        <span className="landmarks-cat-avatars">
+                          <SubcategoryAvatars col={col} />
+                        </span>
+                      </>
+                    }
+                  >
+                    <span className="min-w-0 truncate" data-testid="category-name">
+                      {col.name}
+                    </span>
+                  </PanelRow>
                 </Label>
               </ChromeTooltip>
             );

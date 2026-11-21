@@ -44,9 +44,17 @@
   --lm-float-shadow: none;
   --lm-dock-width: 17rem;
   --lm-hit-radius: 0px;
+  --lm-panel-inset: 10px;
   --lm-panel-pad: 10px;
-  --lm-lead: 28px;
-  --lm-row-gap: 8px;
+  --lm-lead: 32px;
+  --lm-row-gap: 4px;
+  --lm-hit-size: 32px;
+  --lm-text-start: 36px;
+  --lm-edge-end: 20px;
+  --lm-band-inset: 4px;
+  --lm-trail-hit: 24px;
+  --lm-sub-gap: 6px;
+  --lm-sub-rule: color-mix(in oklab, var(--tact-rule) 40%, transparent);
   --lm-hit-on-bg: transparent;
   --lm-hit-on-fg: var(--tact-ink);
   --lm-layer-radius: 0px;
@@ -687,17 +695,9 @@
   min-height: 14px;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-panel-section-header {
-  box-sizing: border-box;
-  width: calc(100% + (2 * var(--lm-overlay-inset-x)));
-  margin-inline-start: calc(-1 * var(--lm-overlay-inset-x));
-  padding-left: 0 !important;
-  padding-right: calc(var(--lm-overlay-inset-x) + var(--lm-panel-pad)) !important;
-}
-
 .milume-widget .landmarks__layers-panel .landmarks-panel-section-header__main {
   display: flex;
-  gap: 8px;
+  gap: var(--lm-row-gap);
 }
 
 .milume-widget .landmarks__layers-panel .landmarks-panel-section-header__main:has(.landmarks-panel-section-header__pin) {
@@ -708,27 +708,94 @@
   justify-self: center;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-layer-row,
-.milume-widget .landmarks__layers-panel .landmarks-cat-trigger,
-.milume-widget .landmarks__layers-panel .landmarks-image-channel-row {
+.milume-widget [data-panel-row] {
+  box-sizing: border-box;
   display: grid;
   grid-template-columns: var(--lm-lead) minmax(0, 1fr) auto;
   column-gap: var(--lm-row-gap);
   align-items: center;
-  padding-left: var(--lm-panel-pad) !important;
-  padding-right: var(--lm-panel-pad) !important;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-layer-row > :first-child,
-.milume-widget .landmarks__layers-panel .landmarks-image-channel-row > :first-child {
-  justify-self: center;
+.milume-widget .landmarks-overlay-scroll [data-panel-row] {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: var(--lm-lead) minmax(0, 1fr) auto;
+  column-gap: var(--lm-row-gap);
+  align-items: center;
+  width: calc(100% + (2 * var(--lm-overlay-inset-x)));
+  margin-inline-start: calc(-1 * var(--lm-overlay-inset-x));
+  padding-left: 0;
+  padding-right: var(--lm-edge-end);
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row > .landmarks-layer-row > .landmarks-cat-chevron {
-  justify-self: start;
-  width: 2rem;
-  height: 1.5rem;
-  flex: 0 0 2rem;
+.milume-widget [data-panel-lead] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--lm-lead);
+  min-width: var(--lm-lead);
+  height: var(--lm-hit-size);
+}
+
+.milume-widget [data-panel-lead] > .landmarks-cat-chevron,
+.milume-widget [data-panel-lead] > .landmarks-panel-section-header__toggle {
+  width: var(--lm-lead);
+  height: var(--lm-hit-size);
+  flex: 0 0 var(--lm-lead);
+}
+
+.milume-widget [data-panel-text] {
+  min-width: 0;
+}
+
+.milume-widget [data-panel-end] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--lm-row-gap);
+  min-width: 0;
+}
+
+.milume-widget .landmarks-panel-count,
+.milume-widget .landmarks-panel-section-header__count {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in oklab, var(--foreground) 62%, transparent);
+}
+
+.milume-widget .landmarks-panel-band {
+  position: relative;
+}
+
+.milume-widget .landmarks-panel-band__plate {
+  position: absolute;
+  z-index: 0;
+  top: 0;
+  bottom: 0;
+  left: var(--lm-band-inset);
+  right: var(--lm-band-inset);
+  background: var(--tact-tone);
+  pointer-events: none;
+}
+
+.milume-widget .landmarks-overlay-scroll .landmarks-panel-band__plate {
+  left: calc(-1 * var(--lm-overlay-inset-x) + var(--lm-band-inset));
+  right: calc(-1 * var(--lm-overlay-inset-x) + var(--lm-band-inset));
+}
+
+.milume-widget .landmarks-panel-band > :not(.landmarks-panel-band__plate) {
+  position: relative;
+  z-index: 1;
+}
+
+.milume-widget .landmarks-overlay-scroll .landmarks-panel-rule {
+  height: 1px;
+  margin-top: var(--lm-sub-gap);
+  margin-bottom: var(--lm-sub-gap);
+  margin-left: calc(-1 * var(--lm-overlay-inset-x) + var(--lm-text-start));
+  margin-right: calc(-1 * var(--lm-overlay-inset-x) + var(--lm-edge-end));
+  background: var(--lm-sub-rule);
 }
 
 .milume-widget .landmarks__layers-panel .landmarks-panel-section-header__trail,
@@ -737,43 +804,9 @@
   margin-left: 0;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-panel-section--open:has(> [data-testid="panel-section-layers"]) {
-  box-sizing: border-box;
-  width: calc(100% + (2 * var(--lm-overlay-inset-x)));
-  margin-inline-start: calc(-1 * var(--lm-overlay-inset-x));
-  background-color: var(--tact-tone);
-}
-
-.milume-widget .landmarks__layers-panel .landmarks-panel-section--open:has(> [data-testid="panel-section-layers"]) > .landmarks-panel-section-header,
-.milume-widget .landmarks__layers-panel .landmarks-panel-section--open:has(> [data-testid="panel-section-layers"]) .landmarks-layers-stack__row {
-  width: 100%;
-  margin-inline-start: 0;
-}
-
 .milume-widget .landmarks__layers-panel .landmarks-layers-stack__row {
-  box-sizing: border-box;
-  display: flow-root;
-  width: calc(100% + (2 * var(--lm-overlay-inset-x)));
-  margin-inline-start: calc(-1 * var(--lm-overlay-inset-x));
   background: none;
   box-shadow: none;
-}
-
-.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row::before {
-  content: "";
-  display: block;
-  height: 1px;
-  margin-top: 0.375rem;
-  margin-bottom: 0.375rem;
-  margin-left: calc(var(--lm-lead) + var(--lm-row-gap));
-  margin-right: calc(var(--lm-overlay-inset-x) + var(--lm-panel-pad));
-  background: color-mix(in oklab, var(--tact-rule) 40%, transparent);
-}
-
-.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row > .landmarks-layer-row,
-.milume-widget .landmarks__layers-panel .landmarks-layers-stack__row .landmarks-image-channel-row {
-  padding-left: 0 !important;
-  padding-right: calc(var(--lm-overlay-inset-x) + var(--lm-panel-pad)) !important;
 }
 
 .milume-widget .landmarks__layers-panel .landmarks-layers-stack__nested,
@@ -788,9 +821,17 @@
   padding: 0.125rem 0 !important;
 }
 
+.milume-widget .landmarks-overlay-scroll .landmarks-layers-stack__nested {
+  box-sizing: border-box;
+  width: calc(100% + (2 * var(--lm-overlay-inset-x)));
+  margin-inline-start: calc(-1 * var(--lm-overlay-inset-x));
+  padding-left: var(--lm-text-start);
+  padding-right: var(--lm-edge-end);
+}
+
 .milume-widget .landmarks__layers-panel .landmarks-layers-stack__nested .landmarks-slider-row {
-  padding-left: calc(var(--lm-lead) + var(--lm-row-gap));
-  padding-right: calc(var(--lm-overlay-inset-x) + var(--lm-panel-pad));
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .milume-widget .landmarks__layers-panel .landmarks-panel-section__body > [data-slot="field-description"] {
@@ -798,44 +839,8 @@
   padding-right: var(--lm-panel-pad);
 }
 
-.milume-widget .landmarks__explore-panel .landmarks-overlay-scroll .group\/cat,
-.milume-widget .landmarks__explore-panel .landmarks-overlay-scroll [data-testid="explore-category-radios"] [data-testid="category-row"] {
-  box-sizing: border-box;
-  width: calc(100% + (2 * var(--lm-overlay-inset-x)));
-  margin-inline-start: calc(-1 * var(--lm-overlay-inset-x));
-}
-
-.milume-widget .landmarks__explore-panel .landmarks-cat-trigger,
-.milume-widget .landmarks__explore-panel .landmarks-cat-sublist .landmarks-layer-row {
-  display: grid;
-  grid-template-columns: var(--lm-lead) minmax(0, 1fr) auto auto;
-  column-gap: var(--lm-row-gap);
-  align-items: center;
-  width: 100%;
-  padding-left: 0 !important;
-  padding-right: calc(var(--lm-overlay-inset-x) + var(--lm-panel-pad)) !important;
-}
-
-.milume-widget .landmarks__explore-panel .landmarks-cat-chevron,
-.milume-widget .landmarks__explore-panel .landmarks-cat-sublist .landmarks-layer-swatch,
-.milume-widget .landmarks__explore-panel .landmarks-cat-trigger [role="radio"] {
-  justify-self: center;
-}
-
-.milume-widget .landmarks__explore-panel .landmarks-cat-trigger > button:not(.landmarks-cat-chevron) {
-  min-width: 0;
-}
-
-.milume-widget .landmarks__explore-panel .landmarks-cat-count,
 .milume-widget .landmarks__explore-panel .landmarks-cat-avatars {
-  justify-self: end;
   margin-left: 0;
-  font-weight: 400;
-  color: color-mix(in oklab, var(--foreground) 70%, transparent);
-}
-
-.milume-widget .landmarks__explore-panel .landmarks-cat-sublist {
-  padding-left: 0;
 }
 
 .landmarks-palette-ramp {

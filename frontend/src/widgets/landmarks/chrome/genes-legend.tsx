@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { flushSync } from "react-dom";
 
 import { Button } from "@/components/ui/button";
+import { PanelRow } from "./primitives";
 import {
   Combobox,
   ComboboxChip,
@@ -128,33 +129,41 @@ export function GenesScaleToggles({ lm }: { lm: LandmarksModel }) {
   return (
     <TooltipProvider delayDuration={80} skipDelayDuration={0}>
       <div className="flex flex-col gap-0">
-        <div className="landmarks-layer-row justify-between text-xs text-foreground">
+        <PanelRow
+          className="landmarks-layer-row text-xs text-foreground"
+          end={
+            <Switch
+              size="sm"
+              checked={gene_scale_mode === "shared"}
+              onCheckedChange={(on) =>
+                lm.setGeneScaleMode(on ? "shared" : "independent")
+              }
+            />
+          }
+        >
           <span className="inline-flex min-w-0 items-center gap-0.5">
             Shared scale
             <ScaleInfoTip label="Max of selected genes" />
           </span>
-          <Switch
-            size="sm"
-            checked={gene_scale_mode === "shared"}
-            onCheckedChange={(on) =>
-              lm.setGeneScaleMode(on ? "shared" : "independent")
-            }
-          />
-        </div>
-        <div className="landmarks-layer-row justify-between text-xs text-foreground">
+        </PanelRow>
+        <PanelRow
+          className="landmarks-layer-row text-xs text-foreground"
+          end={
+            <Switch
+              size="sm"
+              checked={!!gene_log1p}
+              disabled={!!gene_expression_logged}
+              onCheckedChange={(on) => {
+                if (!gene_expression_logged) lm.setGeneLog1p(on);
+              }}
+            />
+          }
+        >
           <span className="inline-flex min-w-0 items-center gap-0.5">
             Log scale
             <ScaleInfoTip label="Compress high expression" />
           </span>
-          <Switch
-            size="sm"
-            checked={!!gene_log1p}
-            disabled={!!gene_expression_logged}
-            onCheckedChange={(on) => {
-              if (!gene_expression_logged) lm.setGeneLog1p(on);
-            }}
-          />
-        </div>
+        </PanelRow>
       </div>
     </TooltipProvider>
   );

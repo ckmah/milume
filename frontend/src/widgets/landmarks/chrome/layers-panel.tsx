@@ -9,7 +9,7 @@ import type { LandmarksModel } from "../use-landmarks-model";
 import { type ChipSnapshot, windowKey } from "./cube-snapshots";
 import { LayersStackSection, layersStackCount } from "./layers-stack-section";
 import { PanelSectionHeader } from "./panel-section-header";
-import { LayerRow } from "./primitives";
+import { LayerRow, PanelBand } from "./primitives";
 import { useWidgetPortal } from "./widget-portal-context";
 import { SelectionCard } from "./selection-card";
 
@@ -106,11 +106,8 @@ export function LayersPanel({
               !minimise && "landmarks-overlay-scroll py-0",
             )}
           >
-            <section
-              className={cn(
-                "landmarks-panel-section",
-                sectionOpen("selections") && "landmarks-panel-section--open",
-              )}
+            <PanelBand
+              className={cn(sectionOpen("selections") && "landmarks-panel-section--open")}
             >
               <PanelSectionHeader
                 label="Selections"
@@ -162,13 +159,10 @@ export function LayersPanel({
                   )}
                 </div>
               ) : null}
-            </section>
+            </PanelBand>
 
-            <section
-              className={cn(
-                "landmarks-panel-section",
-                sectionOpen("landmarks") && "landmarks-panel-section--open",
-              )}
+            <PanelBand
+              className={cn(sectionOpen("landmarks") && "landmarks-panel-section--open")}
             >
               <PanelSectionHeader
                 label="Landmarks"
@@ -209,13 +203,11 @@ export function LayersPanel({
                   )}
                 </div>
               ) : null}
-            </section>
+            </PanelBand>
 
-            <section
-              className={cn(
-                "landmarks-panel-section",
-                sectionOpen("layers") && "landmarks-panel-section--open",
-              )}
+            <PanelBand
+              shade={sectionOpen("layers")}
+              className={cn(sectionOpen("layers") && "landmarks-panel-section--open")}
             >
               <PanelSectionHeader
                 label="Layers"
@@ -230,7 +222,7 @@ export function LayersPanel({
                   <LayersStackSection lm={lm} />
                 </div>
               ) : null}
-            </section>
+            </PanelBand>
           </div>
     </div>
   );
