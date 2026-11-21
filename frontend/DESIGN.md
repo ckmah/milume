@@ -218,6 +218,7 @@ Both docks share one grid. Rows are `PanelRow` (`data-panel-row`). An open Layer
 ## Layout
 
 - Shell height default 550px (400–1400); plot fills figure under floating chrome
+- The Vite harness frames that default like a marimo edit-mode output cell. The mock output area is `max-height: 610px`, `padding: 1rem`, `box-sizing: border-box`, `overflow: auto` ([Cell.css](https://github.com/marimo-team/marimo/blob/a8d229e006bc96261b557c2f67341b68e6564371/frontend/src/css/app/Cell.css) `.marimo-cell.interactive .output-area` and `.output-area`). Its width is marimo's default medium column, `--content-width-medium: 1110px` ([App.css](https://github.com/marimo-team/marimo/blob/a8d229e006bc96261b557c2f67341b68e6564371/frontend/src/css/app/App.css)), applied as a max width so a narrow window still shrinks the cell. Usable height inside the padding is 578px, so the 550px shell fits without a scrollbar
 - Shared chrome scale on `.landmarks`: `--lm-space-*` (4px base), `--lm-chrome-inset` (0.5rem), `--lm-chrome-gap` (0.25rem), `--lm-chrome-band` (3.75rem), `--lm-dock-width` (17rem, 15rem fullscreen)
 - Tool pill (`landmarks__chrome-tools`): reserved top band, centered — docks start below band + gap
 - Wide: left Layers (Selections, Landmarks) + right Explore (View / Color by) and Info (`landmarks__chrome-dock--*`); max-height accounts for band

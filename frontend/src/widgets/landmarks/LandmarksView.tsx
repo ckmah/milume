@@ -53,7 +53,7 @@ import { usePointZExtent } from "./use-point-z-extent";
 import { useWidgetFullscreen } from "./use-widget-fullscreen";
 import { usePlotBootstrap } from "./use-plot-bootstrap";
 
-const SHELL_HEIGHT = 720;
+const SHELL_HEIGHT = 550;
 const MIN_HEIGHT = 400;
 const MAX_HEIGHT = 1400;
 const NARROW_BREAKPOINT = 640;
@@ -81,7 +81,7 @@ export function LandmarksView({
 }: {
   hostEl: HTMLElement;
   model: AnyModel;
-  /** Dev harness can pass a taller initial shell height; notebooks keep the 720px default. */
+  /** Dev harness can pass a different initial shell height; notebooks keep the 550px default. */
   defaultHeight?: number;
   /** Harness only: voxel budgets for the cube's coarse step (`preview`) and fine level (`dock`). */
   cubeBudgets?: { preview: number; dock: number };
