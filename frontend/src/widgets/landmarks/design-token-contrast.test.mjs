@@ -31,20 +31,20 @@ test("banned token list covers Tailwind slate and cyan fallback", () => {
   }
 });
 
-test("tactical surface is 97% opaque with a 5px blur", () => {
+test("tactical surface keeps light glass and dark black glass with a 5px blur", () => {
   const css = readFileSync(new URL("../../styles/tactical.css", import.meta.url), "utf8");
   assert.match(css, /--tact-surface: rgb\(214 214 214 \/ 97%\)/);
-  assert.match(css, /--tact-surface: rgb\(58 58 58 \/ 97%\)/);
+  assert.match(css, /--tact-surface: rgb\(0 0 0 \/ 65%\)/);
   assert.match(css, /--tact-blur: blur\(5px\)/);
+  assert.doesNotMatch(css, /--tact-surface:[^;]*linear-gradient/);
 
   const lightOnWhite = hex(composite(214, 255, 0.97));
-  const darkOnBlack = hex(composite(58, 0, 0.97));
+  const darkOnWhite = hex(composite(0, 255, 0.65));
   assert.ok(contrastRatio("#1a1a1a", lightOnWhite) >= 4.5, lightOnWhite);
   assert.ok(contrastRatio("#3a3a3a", lightOnWhite) >= 4.5, "light muted");
-  assert.ok(contrastRatio("#f2f2f2", darkOnBlack) >= 4.5, darkOnBlack);
-  assert.ok(contrastRatio("#d0d0d0", darkOnBlack) >= 4.5, "dark muted");
+  assert.ok(contrastRatio("#f2f2f2", darkOnWhite) >= 4.5, darkOnWhite);
+  assert.ok(contrastRatio("#d0d0d0", darkOnWhite) >= 4.5, "dark muted");
   assert.ok(contrastRatio(lightOnWhite, "#ffffff") >= 1.3, "light edge");
-  assert.ok(contrastRatio(darkOnBlack, "#000000") >= 1.3, "dark edge");
 });
 
 test("lm-caption proxy meets 4.5:1 on glass panel fill", () => {

@@ -84,9 +84,7 @@
   --tact-track: rgba(242, 242, 242, 0.28);
   --tact-range: rgba(242, 242, 242, 0.62);
   --tact-rule: rgba(242, 242, 242, 0.78);
-  /* #3a3a3a at 97% composites to #383838 on black, edge 1.79:1.
-     Ink #f2f2f2 on that composite is 10.47:1. Muted #d0d0d0 is 7.60:1. */
-  --tact-surface: rgb(58 58 58 / 97%);
+  --tact-surface: rgb(0 0 0 / 65%);
   --primary-foreground: #141414;
   color-scheme: dark;
 }

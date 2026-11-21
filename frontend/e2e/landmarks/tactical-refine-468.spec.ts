@@ -34,7 +34,7 @@ test.describe("Tactical refinements #468", () => {
     await bootLandmarksHarness(page);
   });
 
-  test("surface is 97% opaque with a 5px blur", async ({ page }) => {
+  test("surface is black glass with a 5px blur", async ({ page }) => {
     const panel = page.locator(".landmarks-float--panel").first();
     await expect(panel).toBeVisible();
     const paint = await panel.evaluate((el) => {
@@ -42,7 +42,7 @@ test.describe("Tactical refinements #468", () => {
       return { background: cs.backgroundColor, blur: cs.backdropFilter };
     });
     expect(paint.blur).toContain("blur(5px)");
-    expect(paint.background).toMatch(/rgba?\(58,\s*58,\s*58,\s*0\.97\)/);
+    expect(paint.background).toMatch(/rgba?\(0,\s*0,\s*0,\s*0\.65\)/);
     const panelCorners = await panel.evaluate((el) => getComputedStyle(el).backgroundImage);
     expect(panelCorners).toContain("linear-gradient");
     const caret = await page.getByTestId("panel-collapse-caret-left").evaluate((el) => {
