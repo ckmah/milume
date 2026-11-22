@@ -1145,6 +1145,29 @@
   padding-right: var(--lm-edge-end);
 }
 
+.pseudospace-group {
+  min-height: 2rem;
+  margin: 0.25rem 0.5rem;
+  border: 1px solid var(--tact-rule);
+}
+
+.pseudospace-row,
+.pseudospace-note {
+  padding-inline: var(--lm-edge-end);
+}
+
+.pseudospace-note {
+  padding-block: 0.25rem;
+}
+
+.pseudospace-outside {
+  min-height: 2rem;
+}
+
+.pseudospace-outside {
+  min-height: 2rem;
+}
+
 .landmarks__layers-panel .landmarks-panel-section__scroll {
   flex: 1 1 auto;
   min-height: 0;

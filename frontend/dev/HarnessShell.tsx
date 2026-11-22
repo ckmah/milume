@@ -7,14 +7,8 @@ import { resetModeDropdownMemory } from "@/widgets/landmarks/chrome/mode-dropdow
 import { LandmarksView } from "@/widgets/landmarks/LandmarksView";
 
 import { loadFixtureModel } from "./mock-model";
-import { PseudospaceMount } from "./pseudospace/PseudospaceMount";
 
 type HarnessTheme = "light" | "dark";
-
-function readPseudospace(): boolean {
-  if (typeof window === "undefined") return false;
-  return new URLSearchParams(window.location.search).has("pseudospace");
-}
 
 const STORAGE_KEY = "milume-harness-theme";
 
@@ -39,7 +33,6 @@ export function HarnessShell() {
   const [hostEl, setHostEl] = useState<HTMLElement | null>(null);
   const [model, setModel] = useState<AnyModel | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [pseudospace] = useState(() => readPseudospace());
 
   useEffect(() => {
     applyHarnessTheme(theme);
@@ -108,10 +101,7 @@ export function HarnessShell() {
         ) : (
           <div ref={setHostEl} className="w-full min-w-0">
             {hostEl && model ? (
-              <>
-                <LandmarksView model={model} hostEl={hostEl} />
-                {pseudospace ? <PseudospaceMount model={model} /> : null}
-              </>
+              <LandmarksView model={model} hostEl={hostEl} />
             ) : (
               <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>
             )}

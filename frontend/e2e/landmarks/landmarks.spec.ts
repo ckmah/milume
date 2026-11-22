@@ -1063,4 +1063,74 @@ test.describe("LandmarksWidget", () => {
     const panelHex = await panelSwatchHex(page, "artery");
     expect(panelHex).toBe(strokeHex);
   });
+
+  test("pseudospace groups landmarks and colors cells", async ({ page }) => {
+    await ensureLandmarksSectionOpen(page);
+    const sparkle = page.getByTestId("pseudospace-sparkle");
+    await expect(sparkle).toHaveAttribute("aria-pressed", "false");
+    await sparkle.click();
+    await expect(sparkle).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("pseudospace-readout")).toHaveCount(0);
+
+    const state = () =>
+      page.evaluate(() => (window as any).__landmarksEngine.getPseudospaceState() as {
+        badges: string[];
+        painted: number;
+      });
+    const groupLabels = () =>
+      page.getByTestId("pseudospace-group").getByTestId("pseudospace-index").allTextContents();
+
+    const dragHandleTo = async (id: string, target: ReturnType<Page["getByTestId"]>) => {
+      const handle = page.getByTestId(`pseudospace-handle-${id}`);
+      const from = await handle.boundingBox();
+      const to = await target.boundingBox();
+      expect(from && to).toBeTruthy();
+      await page.mouse.move(from!.x + from!.width / 2, from!.y + from!.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(to!.x + to!.width / 2, to!.y + to!.height - 4, { steps: 12 });
+      await page.mouse.up();
+    };
+
+    await dragHandleTo("harness-line", page.getByTestId("pseudospace-group"));
+    await expect.poll(async () => (await groupLabels()).length).toBe(1);
+    await expect.poll(async () => (await state()).painted).toBe(0);
+
+    await dragHandleTo("harness-point", page.getByTestId("pseudospace-group"));
+    await expect.poll(async () => (await state()).painted).toBeGreaterThan(0);
+    await expect.poll(groupLabels).toEqual(["1", "2"]);
+    await expect.poll(async () => (await state()).badges).toEqual(["1", "2"]);
+
+    const rowIds = () =>
+      page.getByTestId("pseudospace-group").locator("[data-testid^='pseudospace-row-']").evaluateAll((els) =>
+        els.map((el) => (el.getAttribute("data-testid") || "").replace("pseudospace-row-", "")),
+      );
+    const before = await rowIds();
+    expect(before).toEqual(["harness-line", "harness-point"]);
+    await page.getByTestId(`pseudospace-handle-${before[0]}`).focus();
+    await page.keyboard.press("ArrowDown");
+    await expect.poll(rowIds).toEqual([before[1], before[0]]);
+    await expect.poll(groupLabels).toEqual(["1", "2"]);
+    await expect.poll(async () => (await state()).badges).toEqual(["1", "2"]);
+
+    const box = await canvasBox(page);
+    const projected = await page.evaluate(
+      () => (window as any).__landmarksEngine.projectPoint(0) as { x: number; y: number } | null,
+    );
+    expect(projected).toBeTruthy();
+    await page.mouse.move(box.x + projected!.x, box.y + projected!.y);
+    await expect(page.getByTestId("pseudospace-readout")).toHaveText(/^\d+\.\d{2}$/);
+
+    const outside = page.getByTestId("pseudospace-outside");
+    await expect(outside).toBeVisible();
+    const outsideBox = await outside.boundingBox();
+    expect(outsideBox && outsideBox.height).toBeGreaterThan(16);
+    await dragHandleTo("harness-point", outside);
+    await expect.poll(async () => (await state()).painted).toBe(0);
+    await expect(page.getByTestId("pseudospace-readout")).toHaveCount(0);
+
+    await sparkle.click();
+    await expect(sparkle).toHaveAttribute("aria-pressed", "false");
+    await expect.poll(async () => (await state()).painted).toBe(0);
+    await expect(page.getByTestId("pseudospace-group")).toHaveCount(0);
+  });
 });

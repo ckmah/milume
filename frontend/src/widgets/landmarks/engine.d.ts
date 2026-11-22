@@ -187,6 +187,12 @@ export type EngineHandle = {
     color: [number, number, number, number];
     radius: number;
   }[];
+  setPseudospacePaint(
+    paint: { colors: Uint8Array; badges: { x: number; y: number; text: string }[] } | null,
+  ): void;
+  nearestPoint(px: number, py: number): { index: number } | null;
+  projectPoint(index: number): { x: number; y: number } | null;
+  getPseudospaceState(): { badges: string[]; painted: number };
   destroy(): void;
 };
 

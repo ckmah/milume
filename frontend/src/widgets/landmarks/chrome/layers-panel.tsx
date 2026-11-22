@@ -9,7 +9,8 @@ import type { LandmarksModel } from "../use-landmarks-model";
 import { type ChipSnapshot, windowKey } from "./cube-snapshots";
 import { LayersStackSection, layersStackCount } from "./layers-stack-section";
 import { PanelSectionHeader } from "./panel-section-header";
-import { usePseudospaceSlot } from "./pseudospace-slot";
+import type { EngineHandle } from "../engine";
+import { PseudospaceGroup, SparkleButton } from "./pseudospace-group";
 import { LayerRow, PanelBand } from "./primitives";
 import { useWidgetPortal } from "./widget-portal-context";
 import { SelectionCard } from "./selection-card";
@@ -99,6 +100,7 @@ function SectionBody({
  */
 export function LayersPanel({
   lm,
+  engine = null,
   snapshots = NO_SNAPSHOTS,
   snapshotVersion = 0,
   stackZ = null,
@@ -106,6 +108,7 @@ export function LayersPanel({
   minimise = false,
 }: {
   lm: LandmarksModel;
+  engine?: EngineHandle | null;
   snapshots?: Map<string, ChipSnapshot>;
   snapshotVersion?: number;
   stackZ?: [number, number] | null;
@@ -117,8 +120,8 @@ export function LayersPanel({
     () => new Set(DOCK_SECTIONS),
   );
   const [minimisePeek, setMinimisePeek] = useState<DockSection | null>(null);
-  const pseudospace = usePseudospaceSlot();
-  const grouping = pseudospace != null;
+  const [grouping, setGrouping] = useState(false);
+  const [pseudospaceOrder, setPseudospaceOrder] = useState<string[]>([]);
 
   useEffect(() => {
     if (minimise) setMinimisePeek(null);
@@ -257,11 +260,19 @@ export function LayersPanel({
             >
               <PanelSectionHeader
                 label="Landmarks"
-                count={pseudospace?.count ?? landmarks.length}
+                count={landmarks.length}
                 open={sectionOpen("landmarks")}
                 onToggle={() => toggleSection("landmarks")}
                 pin={landmarkPin}
-                action={pseudospace?.action}
+                action={
+                  <SparkleButton
+                    on={grouping}
+                    onToggle={() => {
+                      setGrouping((on) => !on);
+                      setPseudospaceOrder([]);
+                    }}
+                  />
+                }
                 testId="panel-section-landmarks"
                 minimise={minimise}
               />
@@ -269,8 +280,13 @@ export function LayersPanel({
                 open={sectionOpen("landmarks")}
                 className="landmarks-panel-section__body flex flex-col gap-0.5 px-0 pb-1.5"
               >
-                {pseudospace ? (
-                  pseudospace.body
+                {grouping ? (
+                  <PseudospaceGroup
+                    lm={lm}
+                    engine={engine}
+                    order={pseudospaceOrder}
+                    onOrder={setPseudospaceOrder}
+                  />
                 ) : landmarks.length ? (
                   landmarks.map((lmItem, i) => {
                     const color = landmarkColor(lmItem, i);

@@ -587,6 +587,7 @@ export function LandmarksView({
               </div>
               <LayersPanel
                 lm={lm}
+                engine={engine}
                 snapshots={snapshots}
                 snapshotVersion={snapshotVersion}
                 stackZ={inspectCube.stackZ}
@@ -619,6 +620,7 @@ export function LandmarksView({
               />
               <LayersPanel
                 lm={lm}
+                engine={engine}
                 snapshots={snapshots}
                 snapshotVersion={snapshotVersion}
                 stackZ={inspectCube.stackZ}

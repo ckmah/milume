@@ -546,6 +546,9 @@ export function mountEngine({
   let benchForceKnnEdges = false;
   /** GPU scatter: base fill colors (full opacity), rebuilt when coloring changes. */
   let pointFillColors = null;
+  let pseudospaceColors = null;
+  let pseudospaceBadges = [];
+  let pseudospaceBadgeRev = 0;
   let pointDimColors = null;
   let pointFillColorsKey = "";
   let pointPositionBuffer = null;
@@ -712,6 +715,7 @@ export function mountEngine({
       scatterDisplayColors.set(base);
       scatterDisplayRadii.fill(size);
       applyCellsOpacity(scatterDisplayColors);
+      applyPseudospaceColors();
       scatterRoleRevision++;
       return;
     }
@@ -734,7 +738,20 @@ export function mountEngine({
       }
     }
     applyCellsOpacity(scatterDisplayColors);
+    applyPseudospaceColors();
     scatterRoleRevision++;
+  }
+
+  function applyPseudospaceColors() {
+    if (!pseudospaceColors || !scatterDisplayColors) return;
+    const n = Math.min(pseudospaceColors.length, scatterDisplayColors.length);
+    for (let i = 0; i < n; i += 4) {
+      if (!pseudospaceColors[i + 3]) continue;
+      scatterDisplayColors[i] = pseudospaceColors[i];
+      scatterDisplayColors[i + 1] = pseudospaceColors[i + 1];
+      scatterDisplayColors[i + 2] = pseudospaceColors[i + 2];
+      scatterDisplayColors[i + 3] = 255;
+    }
   }
 
   function ensurePointPositionBuffer(data) {
@@ -3552,6 +3569,29 @@ export function mountEngine({
             getColor: [model.get("landmarks"), kind, selectedIdx],
             getBackgroundColor: [model.get("landmarks")],
             getPosition: [model.get("landmarks")],
+          },
+        })
+      );
+    }
+    if (pseudospaceBadges.length) {
+      layers.push(
+        new TextLayer({
+          id: "pseudospace-badges",
+          data: pseudospaceBadges,
+          getText: (d) => d.text,
+          getPosition: (d) => [d.x, d.y, 0],
+          getColor: [255, 255, 255, 255],
+          getSize: 11,
+          sizeUnits: "pixels",
+          fontWeight: 600,
+          background: true,
+          backgroundPadding: [5, 3],
+          getBackgroundColor: [20, 20, 20, 220],
+          pickable: false,
+          parameters: OVERLAY_GL,
+          updateTriggers: {
+            getText: [pseudospaceBadgeRev],
+            getPosition: [pseudospaceBadgeRev],
           },
         })
       );
@@ -7371,6 +7411,73 @@ export function mountEngine({
       if (typeof fn !== "function") return () => {};
       inspectListeners.add(fn);
       return () => inspectListeners.delete(fn);
+    },
+    setPseudospacePaint(paint) {
+      if (!paint) {
+        pseudospaceColors = null;
+        pseudospaceBadges = [];
+      } else {
+        pseudospaceColors = paint.colors || null;
+        pseudospaceBadges = paint.badges || [];
+      }
+      pseudospaceBadgeRev++;
+      syncScatterRoleAttributes();
+      setDeckLayers();
+    },
+    nearestPoint(px, py) {
+      if (!deckgl) return null;
+      let vp = null;
+      try {
+        vp = deckgl.getViewports?.()?.[0];
+      } catch {
+        return null;
+      }
+      if (!vp?.unproject) return null;
+      const p = vp.unproject([px, py]);
+      if (!p || !Number.isFinite(p[0])) return null;
+      const pts = getPointsData();
+      const limit = pixelsToWorld(16);
+      const lim2 = limit * limit;
+      let best = -1;
+      let bestD = Infinity;
+      for (let i = 0; i < pts.length; i++) {
+        const dx = pts[i].x - p[0];
+        const dy = pts[i].y - p[1];
+        const d = dx * dx + dy * dy;
+        if (d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      }
+      if (best < 0 || bestD > lim2) return null;
+      return { index: best };
+    },
+    projectPoint(index) {
+      const pts = getPointsData();
+      const point = pts[index];
+      if (!point || !deckgl) return null;
+      let vp = null;
+      try {
+        vp = deckgl.getViewports?.()?.[0];
+      } catch {
+        return null;
+      }
+      if (!vp?.project) return null;
+      const s = vp.project([point.x, point.y, 0]);
+      if (!s || !Number.isFinite(s[0])) return null;
+      return { x: s[0], y: s[1] };
+    },
+    getPseudospaceState() {
+      let painted = 0;
+      if (pseudospaceColors) {
+        for (let i = 3; i < pseudospaceColors.length; i += 4) {
+          if (pseudospaceColors[i]) painted++;
+        }
+      }
+      return {
+        badges: pseudospaceBadges.map((badge) => String(badge.text)),
+        painted,
+      };
     },
     setInspectWindowVisible(v) {
       volumeWindowVisible = Boolean(v);
