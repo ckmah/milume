@@ -259,7 +259,7 @@ export function PseudospaceGroup({
           </p>
         ) : null}
         {order.length ? order.map((id, index) => row(id, index)) : (
-          <p className="pseudospace-note text-xs text-muted-foreground">Drag landmarks here</p>
+          <p className="pseudospace-note pseudospace-note--empty text-xs">Drag landmarks here</p>
         )}
       </div>
       <div className="pseudospace-outside min-h-8" data-testid="pseudospace-outside">

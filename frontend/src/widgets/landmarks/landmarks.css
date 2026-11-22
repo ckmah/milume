@@ -1151,6 +1151,21 @@
   border: 1px solid var(--tact-rule);
 }
 
+.pseudospace-group:not(:has(.pseudospace-row)) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-color: var(--tact-accent);
+}
+
+.pseudospace-note--empty {
+  width: 100%;
+  margin: 0;
+  color: var(--tact-accent);
+  font-weight: 600;
+  text-align: center;
+}
+
 .pseudospace-row,
 .pseudospace-note {
   padding-inline: var(--lm-edge-end);

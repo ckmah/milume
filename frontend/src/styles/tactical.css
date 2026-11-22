@@ -18,6 +18,7 @@
   --tact-muted: #3a3a3a;
   --tact-tone: rgba(26, 26, 26, 0.1);
   --tact-accent: #3d7dff;
+  --tact-accent-ink: #111111;
   --tact-track: rgba(26, 26, 26, 0.28);
   --tact-range: rgba(26, 26, 26, 0.62);
   --tact-rule: rgba(26, 26, 26, 0.78);
@@ -59,8 +60,8 @@
   --lm-trail-hit: 24px;
   --lm-sub-gap: 6px;
   --lm-sub-rule: color-mix(in oklab, var(--tact-rule) 40%, transparent);
-  --lm-hit-on-bg: transparent;
-  --lm-hit-on-fg: var(--tact-ink);
+  --lm-hit-on-bg: var(--tact-accent);
+  --lm-hit-on-fg: var(--tact-accent-ink);
   --lm-layer-radius: 0px;
   --lm-layer-hover-bg: transparent;
   --lm-layer-active-bg: var(--tact-tone);
@@ -219,8 +220,9 @@
 .tact-menu-item:focus,
 .tact-menu-item[data-checked] {
   border-radius: 0;
-  box-shadow: inset 3px 0 0 var(--tact-accent);
-  background: transparent;
+  box-shadow: none;
+  background: var(--tact-accent);
+  color: var(--tact-accent-ink);
 }
 
 .tact-menu-item--destructive {
@@ -243,13 +245,21 @@
 .landmarks-hit[aria-pressed="true"],
 .landmarks-hit[data-state="on"],
 .landmarks-hit[data-pressed],
+.landmarks-hit[aria-checked="true"],
 .landmarks-hit.landmarks-hit--on,
 .tact-toggle[aria-pressed="true"],
 .tact-toggle[data-pressed] {
   border-radius: 0 !important;
-  background: transparent !important;
-  color: var(--tact-ink) !important;
-  box-shadow: inset 3px 0 0 var(--tact-accent) !important;
+  background: var(--tact-accent) !important;
+  color: var(--tact-accent-ink) !important;
+  box-shadow: none !important;
+}
+
+.landmarks-view-minimise-toggle.landmarks-hit[aria-pressed="true"],
+.landmarks-view-minimise-toggle.landmarks-hit[aria-pressed="true"]:hover {
+  background: var(--lm-hit-bg) !important;
+  color: var(--foreground) !important;
+  box-shadow: none !important;
 }
 
 .milume-widget .landmarks-toolbar .landmarks-hit,
@@ -271,41 +281,31 @@
 .milume-widget .landmarks-toolbar .landmarks-hit[aria-pressed="true"],
 .milume-widget .landmarks-toolbar .landmarks-hit[data-state="on"],
 .milume-widget .landmarks-toolbar .landmarks-hit[data-pressed],
+.milume-widget .landmarks-toolbar .landmarks-hit[aria-checked="true"],
 .milume-widget .landmarks-toolbar .landmarks-hit.landmarks-hit--on,
 .milume-widget .landmarks-toolbar .tact-toggle[aria-pressed="true"],
 .milume-widget .landmarks-toolbar .tact-toggle[data-pressed] {
   border-radius: 0 !important;
-  background: transparent !important;
-  color: var(--tact-ink) !important;
+  background: var(--tact-accent) !important;
+  color: var(--tact-accent-ink) !important;
   box-shadow: none !important;
 }
 
 .milume-widget .landmarks-toolbar .landmarks-hit[aria-pressed="true"]:hover,
 .milume-widget .landmarks-toolbar .landmarks-hit[data-state="on"]:hover,
+.milume-widget .landmarks-toolbar .landmarks-hit[aria-checked="true"]:hover,
 .milume-widget .landmarks-toolbar .landmarks-hit.landmarks-hit--on:hover {
-  background: var(--tact-tone) !important;
+  background: var(--tact-accent) !important;
+  color: var(--tact-accent-ink) !important;
   box-shadow: none !important;
+}
+
+.milume-widget .landmarks-sliding-tab[data-state="active"] {
+  color: var(--tact-accent-ink) !important;
 }
 
 .milume-widget .landmarks-toolbar {
   position: relative;
-}
-
-.tact-toolbar-marks {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 3;
-}
-
-.tact-toolbar-mark {
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 2px;
-  background: var(--tact-ink);
-  border-radius: 0;
-  transition: transform var(--duration-fast, 250ms) var(--ease-smooth-out, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .milume-widget .landmarks__peek-tab,
@@ -472,11 +472,11 @@
 .tact-tab[data-active],
 .landmarks-sliding-tab[data-state="active"],
 .landmarks-sliding-tab[aria-selected="true"] {
-  color: var(--tact-ink) !important;
+  color: var(--tact-accent-ink) !important;
 }
 
 .landmarks-sliding-tabs__pill {
-  background: var(--tact-tone) !important;
+  background: var(--tact-accent) !important;
   border-radius: 0 !important;
 }
 
@@ -736,9 +736,9 @@
 }
 
 .milume-widget [data-slot="combobox-item"][data-highlighted] {
-  color: var(--tact-ink);
-  background: transparent;
-  box-shadow: inset 3px 0 0 var(--tact-accent);
+  color: var(--tact-accent-ink);
+  background: var(--tact-accent);
+  box-shadow: none;
 }
 
 .milume-widget [data-slot="combobox-empty"],
@@ -771,8 +771,9 @@
 }
 
 .landmarks-channel-color-option[data-checked="true"] {
-  color: var(--tact-ink);
-  box-shadow: inset 3px 0 0 var(--tact-accent);
+  color: var(--tact-accent-ink);
+  background: var(--tact-accent);
+  box-shadow: none;
 }
 
 .milume-widget .landmarks-chip,
