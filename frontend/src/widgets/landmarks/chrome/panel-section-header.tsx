@@ -19,7 +19,6 @@ export type PanelSectionPin = {
  */
 export function PanelSectionHeader({
   label,
-  count,
   open,
   onToggle,
   pin,
@@ -28,7 +27,6 @@ export function PanelSectionHeader({
   minimise = false,
 }: {
   label: string;
-  count: number;
   open: boolean;
   onToggle: () => void;
   pin?: PanelSectionPin | null;
@@ -67,7 +65,6 @@ export function PanelSectionHeader({
       end={
         <>
           {action}
-          <span className="landmarks-panel-count landmarks-panel-section-header__count">{count}</span>
         </>
       }
     >

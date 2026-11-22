@@ -229,7 +229,6 @@ export function LayersPanel({
             >
               <PanelSectionHeader
                 label="Selections"
-                count={selections.length}
                 open={sectionOpen("selections")}
                 onToggle={() => toggleSection("selections")}
                 pin={selectionPin}
@@ -283,7 +282,6 @@ export function LayersPanel({
             >
               <PanelSectionHeader
                 label="Landmarks"
-                count={landmarks.length}
                 open={sectionOpen("landmarks")}
                 onToggle={() => toggleSection("landmarks")}
                 pin={landmarkPin}
@@ -343,7 +341,6 @@ export function LayersPanel({
             >
               <PanelSectionHeader
                 label="Layers"
-                count={layersCount}
                 open={sectionOpen("layers")}
                 onToggle={() => toggleSection("layers")}
                 testId="panel-section-layers"

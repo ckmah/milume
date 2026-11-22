@@ -199,6 +199,42 @@ export function ChromeSections() {
 
   return (
     <>
+      <DsSection
+        id="type"
+        title="Type"
+        note="The hierarchy from DESIGN.md, set in the widget so you can restyle it. The last row is the section label the dock ships."
+      >
+        <StateCell state="Hierarchy">
+          <div className="ds-type-list">
+            {(
+              [
+                ["Panel title", "600 · 0.8125rem", "ds-type-panel-title", "Layers"],
+                ["Section trigger", "600 · 0.6875rem", "ds-type-section", "Selections"],
+                ["Section trigger, closed", "600 · 0.6875rem, muted", "ds-type-section ds-type-section--muted", "Landmarks"],
+                ["Field label", "500 · 0.6875rem", "ds-type-field", "Contrast"],
+                ["Control text", "500 · 0.75rem", "ds-type-control", "Inspect"],
+                ["Canvas legend", "400 · 0.625rem", "ds-type-legend", "Region"],
+                ["Ruler tick", "400 · 9px", "ds-type-tick", "120"],
+              ] as const
+            ).map(([role, spec, className, sample]) => (
+              <div key={role} className="ds-type-row">
+                <div className="ds-type-meta">
+                  <div>{role}</div>
+                  <div>{spec}</div>
+                </div>
+                <div className={className}>{sample}</div>
+              </div>
+            ))}
+            <div className="ds-type-row">
+              <div className="ds-type-meta">
+                <div>Shipped section label</div>
+                <div>landmarks-panel-section-header__label</div>
+              </div>
+              <span className="landmarks-panel-section-header__label">Selections</span>
+            </div>
+          </div>
+        </StateCell>
+      </DsSection>
       <IconButtonsSection />
       <TogglesSection />
       <SlidersSection />
@@ -269,7 +305,6 @@ export function ChromeSections() {
         <StateCell state="PanelSectionHeader">
           <PanelSectionHeader
             label="Layers"
-            count={3}
             open={layersOpen}
             onToggle={() => setLayersOpen((v) => !v)}
             testId="harness-layers"

@@ -203,7 +203,7 @@ Both docks share one grid. Rows are `PanelRow` (`data-panel-row`). An open Layer
 
 - Text starts at `--lm-text-start` (36px), which is `--lm-lead` (32px) plus `--lm-row-gap` (4px).
 - The chevron sits in that 32px lead box (`--lm-hit-size` is 32px). Explore chevrons use the same box. `--lm-trail-hit` stays 24px for menu hits.
-- Counts, switches, and readouts end at `--lm-edge-end` (20px), x 252 in a 17rem dock.
+- Switches and readouts end at `--lm-edge-end` (20px), x 252 in a 17rem dock. Section headers do not show a count.
 - An open group is a full-width band, not an indent. The band fill is `--tact-tone` (light `rgba(26, 26, 26, 0.1)`, dark `rgba(242, 242, 242, 0.16)`), inset `--lm-band-inset` (4px) from the glass edge and flush with the section bottom. Only Layers shades, and only through the `shade` prop.
 - The subsection line (`--lm-sub-rule`, `--lm-sub-gap` 6px) sits between groups inside that shaded section. Category labels do not get a line.
 - Headers span the panel. There is no extra subheading under a group title.

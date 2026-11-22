@@ -8,7 +8,7 @@ import {
 import {
   BoxIcon,
   CircleIcon,
-  EllipsisIcon,
+  EllipsisVerticalIcon,
   EyeIcon,
   EyeOffIcon,
   HandIcon,
@@ -397,7 +397,7 @@ export function LayerRow({
                   aria-label="Layer actions"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <EllipsisIcon />
+                  <EllipsisVerticalIcon />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent

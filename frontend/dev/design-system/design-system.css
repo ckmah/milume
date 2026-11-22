@@ -220,6 +220,75 @@ body {
   color: var(--ds-muted);
 }
 
+.ds-section[data-ds-section="type"] .ds-state-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ds-type-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ds-type-row {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.ds-type-meta {
+  font-family: system-ui, sans-serif;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--tact-muted);
+}
+
+.ds-type-panel-title,
+.ds-type-section,
+.ds-type-field,
+.ds-type-control,
+.ds-type-legend,
+.ds-type-tick {
+  font-family: system-ui, sans-serif;
+  color: var(--tact-ink);
+}
+
+.ds-type-panel-title {
+  font-weight: 600;
+  font-size: 0.8125rem;
+}
+
+.ds-type-section {
+  font-weight: 600;
+  font-size: 0.6875rem;
+}
+
+.ds-type-section--muted {
+  color: var(--tact-muted);
+}
+
+.ds-type-field {
+  font-weight: 500;
+  font-size: 0.6875rem;
+}
+
+.ds-type-control {
+  font-weight: 500;
+  font-size: 0.75rem;
+}
+
+.ds-type-legend {
+  font-weight: 400;
+  font-size: 0.625rem;
+}
+
+.ds-type-tick {
+  font-weight: 400;
+  font-size: 9px;
+  line-height: 1;
+}
+
 .ds-widget-stage .milume-widget.landmarks {
   min-height: 0;
 }
