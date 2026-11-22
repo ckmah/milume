@@ -945,24 +945,6 @@
   padding: 0.125rem 0 !important;
 }
 
-.milume-widget .landmarks-panel-nested {
-  box-sizing: border-box;
-  border: 1px solid color-mix(in oklab, var(--tact-rule) 50%, transparent);
-  background: color-mix(in oklab, var(--tact-tone) 80%, transparent);
-}
-
-.milume-widget .landmarks-overlay-scroll .landmarks-panel-nested {
-  width: calc(100% + (2 * var(--lm-overlay-inset-x)));
-  margin-inline-start: calc(-1 * var(--lm-overlay-inset-x));
-  padding-left: var(--lm-text-start);
-  padding-right: var(--lm-edge-end);
-}
-
-.milume-widget .landmarks-overlay-scroll .landmarks-layers-stack__nested.landmarks-panel-nested {
-  margin-block: 0.25rem;
-  padding-block: 0.25rem 0.375rem;
-}
-
 .milume-widget .landmarks-overlay-scroll .pseudospace-group {
   box-sizing: border-box;
   width: 100%;
