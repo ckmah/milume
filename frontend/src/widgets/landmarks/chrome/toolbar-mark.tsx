@@ -5,9 +5,10 @@ const ACTIVE = "[aria-pressed='true'], [data-state='on'], [aria-checked='true'],
 type MarkState = { x: number; node: HTMLSpanElement };
 
 /**
- * One ink line per active toolbar item, as wide as that button. A new active
- * item springs from the item it replaced. Main bars draw the line on the edge
- * that faces the canvas. A popup bar draws it on the bottom edge of the button.
+ * One ink line per active toolbar item, as wide as that button. A new active item springs
+ * from the item it replaced. Top and side toolbars draw the line under the
+ * item. A toolbar in the lower part of the widget draws it over the item,
+ * on the edge that faces the canvas.
  */
 export function ToolbarMarks({ root }: { root: HTMLElement | null }) {
   useEffect(() => {
@@ -70,7 +71,6 @@ function markBox(bar: HTMLElement, el: HTMLElement): { x: number; w: number } {
 function edgeY(bar: HTMLElement, el: HTMLElement, edge: "over" | "under"): number {
   const barBox = bar.getBoundingClientRect();
   const box = el.getBoundingClientRect();
-  if (bar.classList.contains("landmarks-toolbar--popup")) return box.bottom - barBox.top - 2;
   return edge === "over" ? box.top - barBox.top - 2 : box.bottom - barBox.top;
 }
 

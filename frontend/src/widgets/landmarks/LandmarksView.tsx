@@ -108,6 +108,8 @@ export function LandmarksView({
   const plotBootstrap = usePlotBootstrap(engine);
   const [shellHeight, setShellHeight] = useState(defaultHeight);
   const [narrow, setNarrow] = useState(false);
+  const [grouping, setGrouping] = useState(false);
+  const [pseudospaceOrder, setPseudospaceOrder] = useState<string[]>([]);
   const [collapsed, setCollapsed] = useState({ left: false, right: false });
   const [minimise, setMinimise] = useState(false);
   const [rightCardExpanded, setRightCardExpanded] = useState(false);
@@ -593,6 +595,10 @@ export function LandmarksView({
                 stackZ={inspectCube.stackZ}
                 onFocusEntry={inspectCube.focusEntry}
                 minimise={minimise}
+                grouping={grouping}
+                onGroupingChange={setGrouping}
+                pseudospaceOrder={pseudospaceOrder}
+                onPseudospaceOrderChange={setPseudospaceOrder}
               />
             </div>
             {collapsed.left ? (
@@ -626,6 +632,10 @@ export function LandmarksView({
                 stackZ={inspectCube.stackZ}
                 onFocusEntry={inspectCube.focusEntry}
                 minimise={minimise}
+                grouping={grouping}
+                onGroupingChange={setGrouping}
+                pseudospaceOrder={pseudospaceOrder}
+                onPseudospaceOrderChange={setPseudospaceOrder}
               />
             </div>
             {collapsed.left ? (

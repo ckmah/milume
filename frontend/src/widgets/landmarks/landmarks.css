@@ -1164,10 +1164,6 @@
   min-height: 2rem;
 }
 
-.pseudospace-outside {
-  min-height: 2rem;
-}
-
 .landmarks__layers-panel .landmarks-panel-section__scroll {
   flex: 1 1 auto;
   min-height: 0;
@@ -2373,7 +2369,7 @@
   z-index: 22;
 }
 
-/* Narrow: Info on top (natural height, capped); Layers fills and scrolls. */
+/* Narrow: the explore stack is capped; Layers fills the rest and scrolls. */
 .landmarks--narrow .landmarks__chrome-dock {
   display: none;
 }
@@ -2384,22 +2380,44 @@
   overflow: visible;
 }
 
-.landmarks--narrow .landmarks__chrome-dock--narrow-stack > [data-testid="info-panel"] {
+.landmarks--narrow .landmarks__chrome-dock--narrow-stack > [data-testid="info-explore-stack"] {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   flex-direction: column;
+  height: auto;
   max-height: 45%;
   min-height: 0;
   overflow: hidden;
 }
 
-.landmarks--narrow .landmarks__chrome-dock--narrow-stack > [data-testid="info-panel"] [data-slot="card-content"] {
+.landmarks--narrow .landmarks__chrome-dock--narrow-stack > [data-testid="info-explore-stack"] [data-slot="card-content"] {
   min-height: 0;
   overflow-y: auto;
 }
 
 .landmarks--narrow .landmarks__chrome-dock--narrow-stack > .landmarks__layers-panel {
   flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.landmarks--narrow .landmarks__layers-panel .landmarks-panel-sections {
+  flex: none;
+  max-height: none;
+  overflow: visible;
+}
+
+.landmarks--narrow .landmarks__layers-panel .landmarks-panel-section--open {
+  flex: none;
+}
+
+.landmarks--narrow .landmarks__layers-panel .landmarks-panel-section__scroll {
+  flex: none;
+  height: auto;
+  /* The body cap is an inline max-height. On the phone the panel scrolls instead. */
+  max-height: none !important;
+  overflow: visible;
 }
 
 .landmarks:fullscreen .landmarks__chrome,

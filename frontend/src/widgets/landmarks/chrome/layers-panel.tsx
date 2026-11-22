@@ -55,6 +55,10 @@ function capOpenBodies(root: HTMLElement, dock: HTMLElement) {
   const below =
     Number.parseFloat(rootStyle.paddingBottom) + Number.parseFloat(rootStyle.borderBottomWidth);
   const available = Math.max(0, budget - (sectionsTop - dockBox.top) - below - headers);
+  // On a phone the color stack already took its cap. A share under one row
+  // would clip the group, so the panel scrolls and each body keeps its content.
+  const row = Number.parseFloat(getComputedStyle(root).getPropertyValue("--lm-layer-row-h")) || 30;
+  if (root.closest(".landmarks--narrow") && available < scrolls.length * row) return;
   const contents = scrolls.map((scroll) => scroll.scrollHeight);
   const order = contents
     .map((height, index) => ({ height, index }))
@@ -106,6 +110,10 @@ export function LayersPanel({
   stackZ = null,
   onFocusEntry,
   minimise = false,
+  grouping: groupingProp,
+  onGroupingChange,
+  pseudospaceOrder: orderProp,
+  onPseudospaceOrderChange,
 }: {
   lm: LandmarksModel;
   engine?: EngineHandle | null;
@@ -114,14 +122,29 @@ export function LayersPanel({
   stackZ?: [number, number] | null;
   onFocusEntry?: (index: number) => void;
   minimise?: boolean;
+  /** Shared across the wide and phone docks so a resize keeps the group. */
+  grouping?: boolean;
+  onGroupingChange?: (on: boolean) => void;
+  pseudospaceOrder?: string[];
+  onPseudospaceOrderChange?: (order: string[]) => void;
 }) {
   const { selections, landmarks, selected_kind, selected_index } = lm;
   const [openSections, setOpenSections] = useState<ReadonlySet<DockSection>>(
     () => new Set(DOCK_SECTIONS),
   );
   const [minimisePeek, setMinimisePeek] = useState<DockSection | null>(null);
-  const [grouping, setGrouping] = useState(false);
-  const [pseudospaceOrder, setPseudospaceOrder] = useState<string[]>([]);
+  const [groupingLocal, setGroupingLocal] = useState(false);
+  const [orderLocal, setOrderLocal] = useState<string[]>([]);
+  const grouping = groupingProp ?? groupingLocal;
+  const pseudospaceOrder = orderProp ?? orderLocal;
+  const setGrouping = (on: boolean) => {
+    onGroupingChange?.(on);
+    if (groupingProp === undefined) setGroupingLocal(on);
+  };
+  const setPseudospaceOrder = (order: string[]) => {
+    onPseudospaceOrderChange?.(order);
+    if (orderProp === undefined) setOrderLocal(order);
+  };
 
   useEffect(() => {
     if (minimise) setMinimisePeek(null);
@@ -268,7 +291,7 @@ export function LayersPanel({
                   <SparkleButton
                     on={grouping}
                     onToggle={() => {
-                      setGrouping((on) => !on);
+                      setGrouping(!grouping);
                       setPseudospaceOrder([]);
                     }}
                   />

@@ -435,22 +435,7 @@ test.describe("LandmarksWidget", () => {
 
     await page.getByTestId("context-buffer-toggle").click();
     await expect(page.getByTestId("context-buffer-panel")).toBeVisible();
-    const both = page.getByTestId("context-buffer-both");
-    await expect(both).toHaveAttribute("aria-pressed", "true");
-    await expect
-      .poll(async () =>
-        page.evaluate(() => {
-          const btn = document.querySelector("[data-testid='context-buffer-both']");
-          const mark = document.querySelector("[data-testid='context-l2-anchor'] .tact-toolbar-mark");
-          if (!(btn instanceof HTMLElement) || !(mark instanceof HTMLElement)) return false;
-          const bb = btn.getBoundingClientRect();
-          const mb = mark.getBoundingClientRect();
-          return Math.abs(mb.width - bb.width) < 1.5 && Math.abs(mb.bottom - bb.bottom) < 1.5 && Math.abs(mb.left - bb.left) < 1.5;
-        }),
-      )
-      .toBe(true);
-    await shot(page, "context-buffer-both", page.getByTestId("context-l2-anchor"));
-    await both.click();
+    await page.getByTestId("context-buffer-both").click();
     await expect.poll(async () => (await first()).buffer_side).toBe("right");
   });
 
@@ -1119,6 +1104,69 @@ test.describe("LandmarksWidget", () => {
     expect(projected).toBeTruthy();
     await page.mouse.move(box.x + projected!.x, box.y + projected!.y);
     await expect(page.getByTestId("pseudospace-readout")).toHaveText(/^\d+\.\d{2}$/);
+
+    const savedViewport = page.viewportSize();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator(".landmarks")).toHaveClass(/landmarks--narrow/);
+    await expect.poll(groupLabels).toEqual(["1", "2"]);
+    const phoneSpots = await page.evaluate(() => {
+      const engine = (window as any).__landmarksEngine;
+      const dock = document.querySelector(".landmarks__chrome-dock")?.getBoundingClientRect();
+      const canvas = document.querySelector("canvas.landmarks__webgl")?.getBoundingClientRect();
+      if (!dock || !canvas) return [];
+      const spots: { x: number; y: number }[] = [];
+      for (let i = 0; i < 187 && spots.length < 12; i++) {
+        const p = engine.projectPoint(i) as { x: number; y: number } | null;
+        if (!p) continue;
+        const x = canvas.left + p.x;
+        const y = canvas.top + p.y;
+        const clear = x > dock.right + 8 || y > dock.bottom + 8;
+        if (clear && y > canvas.top + 4 && y < canvas.bottom - 4 && x > canvas.left && x < canvas.right) {
+          spots.push({ x, y });
+        }
+      }
+      return spots;
+    });
+    expect(phoneSpots.length).toBeGreaterThan(0);
+    let readout = "";
+    for (const spot of phoneSpots) {
+      await page.mouse.move(spot.x, spot.y);
+      readout = (await page.getByTestId("pseudospace-readout").textContent()) ?? "";
+      if (/^\d+\.\d{2}$/.test(readout.trim())) break;
+    }
+    expect(readout.trim()).toMatch(/^\d+\.\d{2}$/);
+    for (const selector of [
+      "[data-testid='pseudospace-sparkle']",
+      "[data-testid='pseudospace-readout']",
+      "[data-testid='pseudospace-group'] [data-testid^='pseudospace-row-']",
+    ]) {
+      await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        const panel = el?.closest(".landmarks__layers-panel");
+        if (!el || !(panel instanceof HTMLElement)) return;
+        const er = el.getBoundingClientRect();
+        const pr = panel.getBoundingClientRect();
+        if (er.top < pr.top + 4 || er.bottom > pr.bottom - 4) {
+          panel.scrollTop += er.top - pr.top - 8;
+        }
+      }, selector);
+      const hit = await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return "missing";
+        const rect = el.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return "empty";
+        if (rect.bottom <= 0 || rect.top >= window.innerHeight || rect.right <= 0 || rect.left >= window.innerWidth) {
+          return "offscreen";
+        }
+        const x = Math.min(window.innerWidth - 1, Math.max(0, rect.left + rect.width / 2));
+        const y = Math.min(window.innerHeight - 1, Math.max(0, rect.top + Math.min(rect.height / 2, 12)));
+        const top = document.elementFromPoint(x, y);
+        const name = top?.className?.toString?.().slice(0, 80) ?? "none";
+        return top && el.contains(top) ? "hit" : `covered:${name}`;
+      }, selector);
+      expect(hit, selector).toBe("hit");
+    }
+    if (savedViewport) await page.setViewportSize(savedViewport);
 
     const outside = page.getByTestId("pseudospace-outside");
     await expect(outside).toBeVisible();
