@@ -1076,13 +1076,6 @@
   gap: 0.125rem;
 }
 
-.landmarks-panel-section-header__count {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: color-mix(in oklab, var(--foreground) 62%, transparent);
-}
-
 .landmarks-panel-section-header__toggle.landmarks-hit {
   width: var(--lm-lead);
   border-radius: var(--lm-hit-radius);

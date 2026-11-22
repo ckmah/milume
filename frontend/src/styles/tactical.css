@@ -882,8 +882,7 @@
   min-width: 0;
 }
 
-.milume-widget .landmarks-panel-count,
-.milume-widget .landmarks-panel-section-header__count {
+.milume-widget .landmarks-panel-count {
   font-size: 0.6875rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
