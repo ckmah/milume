@@ -139,6 +139,7 @@ function PlotLoadCycle() {
 export function ChromeSections() {
   const [mode, setMode] = useState("select");
   const [layersOpen, setLayersOpen] = useState(true);
+  const [panelGrouping, setPanelGrouping] = useState(true);
   const [genes, setGenes] = useState(["Epcam", "Col1a1", "Lgr5", "Muc2"]);
   const [scale, setScale] = useState<"independent" | "shared">("independent");
   const [log1p, setLog1p] = useState(false);
@@ -307,7 +308,7 @@ export function ChromeSections() {
       </DsSection>
 
       <DsSection id="layers" title="Layers">
-        <StateCell state="PanelSectionHeader">
+        <StateCell state="PanelSectionHeader" stageClassName="ds-dock-preview">
           <PanelSectionHeader
             label="Layers"
             open={layersOpen}
@@ -315,7 +316,7 @@ export function ChromeSections() {
             testId="harness-layers"
           />
         </StateCell>
-        <StateCell state="LayerRow" stageClassName="min-h-24">
+        <StateCell state="LayerRow" stageClassName="ds-dock-preview min-h-24">
           <LayerRow
             active={false}
             color="#3d7dff"
@@ -329,12 +330,16 @@ export function ChromeSections() {
         </StateCell>
         <StateCell
           state="LayersStackSection"
-          stageClassName="ds-dock-preview max-h-80 overflow-auto"
+          stageClassName="ds-dock-preview ds-dock-preview--scroll max-h-96"
         >
           <LayersStackSection lm={base} />
         </StateCell>
-        <StateCell state="LayersPanel" stageClassName="ds-dock-preview h-72 overflow-hidden">
-          <LayersPanel lm={base} />
+        <StateCell state="LayersPanel" stageClassName="ds-dock-preview ds-dock-preview--panel">
+          <LayersPanel
+            lm={base}
+            grouping={panelGrouping}
+            onGroupingChange={setPanelGrouping}
+          />
         </StateCell>
       </DsSection>
 

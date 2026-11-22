@@ -225,6 +225,7 @@ export function LayersPanel({
             className="landmarks-panel-sections flex min-h-0 flex-1 flex-col overflow-hidden"
           >
             <PanelBand
+              tone={sectionOpen("selections")}
               className={cn(sectionOpen("selections") && "landmarks-panel-section--open")}
             >
               <PanelSectionHeader
@@ -278,6 +279,7 @@ export function LayersPanel({
             </PanelBand>
 
             <PanelBand
+              tone={sectionOpen("landmarks")}
               className={cn(sectionOpen("landmarks") && "landmarks-panel-section--open")}
             >
               <PanelSectionHeader
