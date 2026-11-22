@@ -142,15 +142,18 @@ export async function drawLassoStroke(
   const rx = box.width * (0.5 - inset);
   const ry = box.height * (0.5 - inset);
   const delayMs = Math.max(1, Math.floor(durationMs / steps));
+  // Bottom of the ellipse. The rightmost point sits under the right dock at the
+  // 550px shell, so a press there never reaches the plot.
+  const phase = Math.PI / 2;
 
-  await page.mouse.move(cx + rx, cy);
+  await page.mouse.move(cx + Math.cos(phase) * rx, cy + Math.sin(phase) * ry);
   await page.mouse.down();
   if (opts.afterPress) await opts.afterPress();
   for (let i = 0; i <= steps; i++) {
     if (opts.pickingLeaveAtStep === i) {
       await page.evaluate(() => (window as any).__molabPickingLeaveHook?.());
     }
-    const a = (i / steps) * Math.PI * 2;
+    const a = phase + (i / steps) * Math.PI * 2;
     await page.mouse.move(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry);
     if (i < steps) await page.waitForTimeout(delayMs);
   }
