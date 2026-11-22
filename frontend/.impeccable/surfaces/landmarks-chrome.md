@@ -31,7 +31,7 @@ A computational biologist inside a marimo/Jupyter cell, reading tissue and cell 
 
 ## Signature move
 
-Soft Float: one translucent glass material for every float over a live specimen, with inverted active glyphs in muted trays.
+Bracketed Tactical Veil: one square translucent surface (`--tact-surface`, 4px blur) for every float over live tissue, with 10px corner brackets and gold (`--tact-mark`) inverted hits for active controls.
 
 ## Open decisions
 

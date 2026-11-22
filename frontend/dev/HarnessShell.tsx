@@ -101,10 +101,7 @@ export function HarnessShell() {
         ) : (
           <div ref={setHostEl} className="w-full min-w-0">
             {hostEl && model ? (
-              <LandmarksView
-                model={model}
-                hostEl={hostEl}
-              />
+              <LandmarksView model={model} hostEl={hostEl} />
             ) : (
               <p className="p-4 text-sm text-muted-foreground">Loading fixture…</p>
             )}

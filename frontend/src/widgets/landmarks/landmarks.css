@@ -1014,9 +1014,8 @@
   flex: none;
   font-size: 12px;
   font-weight: 400;
-  font-variant: small-caps;
-  letter-spacing: 0.14em;
-  text-transform: none;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .landmarks-panel-section-header__main:has(.landmarks-panel-section-header__pin) {
@@ -1077,13 +1076,6 @@
   gap: 0.125rem;
 }
 
-.landmarks-panel-section-header__count {
-  font-size: 0.6875rem;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-  color: color-mix(in oklab, var(--foreground) 62%, transparent);
-}
-
 .landmarks-panel-section-header__toggle.landmarks-hit {
   width: var(--lm-lead);
   border-radius: var(--lm-hit-radius);
@@ -1142,7 +1134,48 @@
 .landmarks__layers-panel .landmarks-panel-section-header {
   flex: 0 0 var(--lm-hit-size);
   box-sizing: border-box;
-  padding-right: var(--lm-edge-end);
+}
+
+.pseudospace-group--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--tact-accent);
+  background: transparent;
+}
+
+.pseudospace-note--empty {
+  width: 100%;
+  margin: 0;
+  color: var(--tact-accent);
+  font-weight: 600;
+  text-align: center;
+}
+
+.pseudospace-note {
+  padding-block: 0.25rem;
+}
+
+.pseudospace-outside {
+  min-height: 2.5rem;
+}
+
+.landmarks-layer-row--dragging {
+  opacity: 0.55;
+}
+
+.landmarks-reorder-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.landmarks-reorder-handle:active {
+  cursor: grabbing;
+}
+
+body.landmarks-pseudospace-dragging,
+body.landmarks-pseudospace-dragging * {
+  cursor: grabbing !important;
 }
 
 .landmarks__layers-panel .landmarks-panel-section__scroll {
@@ -1191,7 +1224,7 @@
 }
 
 .landmarks-panel-sections .landmarks-panel-section + .landmarks-panel-section {
-  border-top: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-top: 0;
 }
 
 .landmarks-panel-collapse-caret__glyph,
@@ -1531,8 +1564,8 @@
 
 .landmarks-layers-stack__row + .landmarks-layers-stack__row {
   margin-top: 0.125rem;
-  padding-top: 0.125rem;
-  border-top: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  padding-top: 0;
+  border-top: 0;
 }
 
 .landmarks-layers-stack__row > .landmarks-layer-row {
@@ -2350,7 +2383,7 @@
   z-index: 22;
 }
 
-/* Narrow: Info on top (natural height, capped); Layers fills and scrolls. */
+/* Narrow: the explore stack is capped; Layers fills the rest and scrolls. */
 .landmarks--narrow .landmarks__chrome-dock {
   display: none;
 }
@@ -2361,22 +2394,44 @@
   overflow: visible;
 }
 
-.landmarks--narrow .landmarks__chrome-dock--narrow-stack > [data-testid="info-panel"] {
+.landmarks--narrow .landmarks__chrome-dock--narrow-stack > [data-testid="info-explore-stack"] {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   flex-direction: column;
+  height: auto;
   max-height: 45%;
   min-height: 0;
   overflow: hidden;
 }
 
-.landmarks--narrow .landmarks__chrome-dock--narrow-stack > [data-testid="info-panel"] [data-slot="card-content"] {
+.landmarks--narrow .landmarks__chrome-dock--narrow-stack > [data-testid="info-explore-stack"] [data-slot="card-content"] {
   min-height: 0;
   overflow-y: auto;
 }
 
 .landmarks--narrow .landmarks__chrome-dock--narrow-stack > .landmarks__layers-panel {
   flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.landmarks--narrow .landmarks__layers-panel .landmarks-panel-sections {
+  flex: none;
+  max-height: none;
+  overflow: visible;
+}
+
+.landmarks--narrow .landmarks__layers-panel .landmarks-panel-section--open {
+  flex: none;
+}
+
+.landmarks--narrow .landmarks__layers-panel .landmarks-panel-section__scroll {
+  flex: none;
+  height: auto;
+  /* The body cap is an inline max-height. On the phone the panel scrolls instead. */
+  max-height: none !important;
+  overflow: visible;
 }
 
 .landmarks:fullscreen .landmarks__chrome,

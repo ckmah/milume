@@ -1,0 +1,548 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-22T21:00:00Z",
+  "title": "Design System: milume",
+  "extensions": {
+    "colorMeta": {
+      "tact-mark": {
+        "role": "primary",
+        "displayName": "Instrument Gold",
+        "canonical": "#edb54a",
+        "tonalRamp": [
+          "oklch(18% 0.04 80.6)",
+          "oklch(30% 0.08 80.6)",
+          "oklch(42% 0.11 80.6)",
+          "oklch(54% 0.13 80.6)",
+          "oklch(66% 0.137 80.6)",
+          "oklch(78% 0.12 80.6)",
+          "oklch(86% 0.07 80.6)",
+          "oklch(95% 0.03 80.6)"
+        ]
+      },
+      "tact-accent-ink": {
+        "role": "primary",
+        "displayName": "Active Ink",
+        "canonical": "#111111",
+        "tonalRamp": [
+          "oklch(15% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(95% 0 90)"
+        ]
+      },
+      "tact-ink": {
+        "role": "neutral",
+        "displayName": "Veil Ink",
+        "canonical": "#1a1a1a",
+        "tonalRamp": [
+          "oklch(15% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(95% 0 90)"
+        ]
+      },
+      "tact-ink-dark": {
+        "role": "neutral",
+        "displayName": "Veil Ink Dark",
+        "canonical": "#f2f2f2",
+        "tonalRamp": [
+          "oklch(95% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(15% 0 90)"
+        ]
+      },
+      "tact-muted": {
+        "role": "neutral",
+        "displayName": "Veil Muted",
+        "canonical": "#3a3a3a",
+        "tonalRamp": [
+          "oklch(15% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(95% 0 90)"
+        ]
+      },
+      "tact-muted-dark": {
+        "role": "neutral",
+        "displayName": "Veil Muted Dark",
+        "canonical": "#d0d0d0",
+        "tonalRamp": [
+          "oklch(95% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(15% 0 90)"
+        ]
+      },
+      "tact-tone": {
+        "role": "neutral",
+        "displayName": "Veil Tone",
+        "canonical": "rgba(26, 26, 26, 0.1)",
+        "tonalRamp": [
+          "oklch(15% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(95% 0 90)"
+        ]
+      },
+      "tact-tone-dark": {
+        "role": "neutral",
+        "displayName": "Veil Tone Dark",
+        "canonical": "rgba(242, 242, 242, 0.16)",
+        "tonalRamp": [
+          "oklch(95% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(15% 0 90)"
+        ]
+      },
+      "tact-surface": {
+        "role": "neutral",
+        "displayName": "Veil Surface",
+        "canonical": "rgb(214 214 214 / 97%)",
+        "tonalRamp": [
+          "oklch(15% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(95% 0 90)"
+        ]
+      },
+      "tact-surface-dark": {
+        "role": "neutral",
+        "displayName": "Veil Surface Dark",
+        "canonical": "rgb(0 0 0 / 65%)",
+        "tonalRamp": [
+          "oklch(15% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(95% 0 90)"
+        ]
+      },
+      "tact-edge": {
+        "role": "neutral",
+        "displayName": "Veil Edge",
+        "canonical": "rgba(26, 26, 26, 0.14)",
+        "tonalRamp": [
+          "oklch(15% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(95% 0 90)"
+        ]
+      },
+      "tact-edge-dark": {
+        "role": "neutral",
+        "displayName": "Veil Edge Dark",
+        "canonical": "rgba(255, 255, 255, 0.14)",
+        "tonalRamp": [
+          "oklch(95% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(15% 0 90)"
+        ]
+      },
+      "tact-rule": {
+        "role": "neutral",
+        "displayName": "Bracket Rule",
+        "canonical": "rgba(26, 26, 26, 0.78)",
+        "tonalRamp": [
+          "oklch(15% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(95% 0 90)"
+        ]
+      },
+      "tact-rule-dark": {
+        "role": "neutral",
+        "displayName": "Bracket Rule Dark",
+        "canonical": "rgba(242, 242, 242, 0.78)",
+        "tonalRamp": [
+          "oklch(95% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(15% 0 90)"
+        ]
+      },
+      "tact-track": {
+        "role": "neutral",
+        "displayName": "Track",
+        "canonical": "rgba(26, 26, 26, 0.28)",
+        "tonalRamp": [
+          "oklch(15% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(95% 0 90)"
+        ]
+      },
+      "tact-track-dark": {
+        "role": "neutral",
+        "displayName": "Track Dark",
+        "canonical": "rgba(242, 242, 242, 0.28)",
+        "tonalRamp": [
+          "oklch(95% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(15% 0 90)"
+        ]
+      },
+      "tact-range": {
+        "role": "neutral",
+        "displayName": "Range",
+        "canonical": "rgba(26, 26, 26, 0.62)",
+        "tonalRamp": [
+          "oklch(15% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(95% 0 90)"
+        ]
+      },
+      "tact-range-dark": {
+        "role": "neutral",
+        "displayName": "Range Dark",
+        "canonical": "rgba(242, 242, 242, 0.62)",
+        "tonalRamp": [
+          "oklch(95% 0 90)",
+          "oklch(86% 0 90)",
+          "oklch(76% 0 90)",
+          "oklch(64% 0 90)",
+          "oklch(52% 0 90)",
+          "oklch(40% 0 90)",
+          "oklch(28% 0 90)",
+          "oklch(15% 0 90)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "body": {
+        "displayName": "Body",
+        "purpose": "Widget copy that tactical does not retarget."
+      },
+      "section": {
+        "displayName": "Section header",
+        "purpose": "12px small-caps mono on section and layer labels."
+      },
+      "label": {
+        "displayName": "Tact label",
+        "purpose": "10px uppercase mono captions."
+      },
+      "tab": {
+        "displayName": "Tab",
+        "purpose": "11px uppercase mono tab labels."
+      },
+      "switch": {
+        "displayName": "Switch",
+        "purpose": "10px small-caps mono on the two-state switch."
+      },
+      "readout": {
+        "displayName": "Readout",
+        "purpose": "11px tabular mono in instrument gold."
+      },
+      "canvas-legend": {
+        "displayName": "Canvas legend",
+        "purpose": "10px system-ui in-plot legend."
+      },
+      "ruler-tick": {
+        "displayName": "Ruler tick",
+        "purpose": "9px measurement marks on the canvas rulers only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "tact-lift",
+        "value": "0 8px 24px rgba(0, 0, 0, 0.5)",
+        "purpose": "Panels, toolbars, popups, menus, and card-slot floats."
+      },
+      {
+        "name": "plot-body",
+        "value": "0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.08)",
+        "purpose": "Widget body only. The plot canvas stays flat."
+      },
+      {
+        "name": "tooltip",
+        "value": "none",
+        "purpose": "Square tooltips. No shadow and no arrow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "SPRING_PRESS",
+        "value": "stiffness 500, damping 30, mass 0.6",
+        "purpose": "Chevron and press."
+      },
+      {
+        "name": "SPRING_PANEL",
+        "value": "stiffness 420, damping 40, mass 0.5",
+        "purpose": "Defined in motion-springs.ts. Unused by SpringPanel."
+      },
+      {
+        "name": "SPRING_LAYOUT",
+        "value": "stiffness 360, damping 32, mass 0.6",
+        "purpose": "Group height and band tone."
+      },
+      {
+        "name": "SPRING_GLIDE",
+        "value": "stiffness 280, damping 32",
+        "purpose": "Popup rise, switch, and tonal block."
+      },
+      {
+        "name": "duration-stagger",
+        "value": "40ms",
+        "purpose": "Row stagger."
+      },
+      {
+        "name": "duration-micro",
+        "value": "80ms",
+        "purpose": "Reduced-motion opacity cap."
+      },
+      {
+        "name": "duration-quick",
+        "value": "150ms",
+        "purpose": "Cube open and quick fades."
+      },
+      {
+        "name": "duration-fast",
+        "value": "250ms",
+        "purpose": "Fast chrome motion."
+      },
+      {
+        "name": "duration-medium",
+        "value": "350ms",
+        "purpose": "Medium chrome motion."
+      },
+      {
+        "name": "duration-slow",
+        "value": "400ms",
+        "purpose": "Slow chrome motion."
+      },
+      {
+        "name": "duration-very-slow",
+        "value": "500ms",
+        "purpose": "Slowest duration token."
+      },
+      {
+        "name": "tact-blur",
+        "value": "blur(4px)",
+        "purpose": "Veil backdrop blur."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow",
+        "value": "640px"
+      },
+      {
+        "name": "shell",
+        "value": "550px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Toolbar hit",
+      "kind": "button",
+      "refersTo": "button-hit",
+      "description": "Square 2rem tool hit at rest.",
+      "html": "<button class=\"ds-hit\" type=\"button\" aria-pressed=\"false\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" aria-hidden=\"true\"><rect x=\"2.5\" y=\"2.5\" width=\"11\" height=\"11\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg></button>",
+      "css": ".ds-hit {\n  width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 0;\n  background: transparent; color: #1a1a1a; display: inline-flex;\n  align-items: center; justify-content: center; cursor: pointer;\n}\n.ds-hit:hover { background: rgba(26, 26, 26, 0.1); color: #1a1a1a; }\n.ds-hit:focus-visible { outline: 1px solid #1a1a1a; outline-offset: 3px; }"
+    },
+    {
+      "name": "Toolbar hit on",
+      "kind": "button",
+      "refersTo": "button-hit-on",
+      "description": "Active tool hit. Gold fill and #111111 ink.",
+      "html": "<button class=\"ds-hit-on\" type=\"button\" aria-pressed=\"true\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 16 16\" fill=\"none\" aria-hidden=\"true\"><rect x=\"2.5\" y=\"2.5\" width=\"11\" height=\"11\" stroke=\"currentColor\" stroke-width=\"1.5\"/></svg></button>",
+      "css": ".ds-hit-on {\n  width: 2rem; height: 2rem; padding: 0; border: 0; border-radius: 0;\n  background: #edb54a; color: #111111; display: inline-flex;\n  align-items: center; justify-content: center; cursor: pointer; box-shadow: none;\n}\n.ds-hit-on:hover, .ds-hit-on:active { background: #edb54a; color: #111111; }\n.ds-hit-on:focus-visible { outline: 1px solid #1a1a1a; outline-offset: 3px; }"
+    },
+    {
+      "name": "Bracketed panel",
+      "kind": "card",
+      "refersTo": "card-panel",
+      "description": "Top-level float. Veil, 4px blur, lift, and corner brackets.",
+      "html": "<div class=\"ds-panel\"><span class=\"ds-panel-label\">Layers</span></div>",
+      "css": ".ds-panel {\n  min-width: 17rem; min-height: 7.5rem; padding: 10px; border-radius: 0;\n  border: 1px solid rgba(26, 26, 26, 0.14);\n  background-color: rgb(214 214 214 / 97%);\n  background-image:\n    linear-gradient(rgba(26, 26, 26, 0.78), rgba(26, 26, 26, 0.78)),\n    linear-gradient(rgba(26, 26, 26, 0.78), rgba(26, 26, 26, 0.78)),\n    linear-gradient(rgba(26, 26, 26, 0.78), rgba(26, 26, 26, 0.78)),\n    linear-gradient(rgba(26, 26, 26, 0.78), rgba(26, 26, 26, 0.78)),\n    linear-gradient(rgba(26, 26, 26, 0.78), rgba(26, 26, 26, 0.78)),\n    linear-gradient(rgba(26, 26, 26, 0.78), rgba(26, 26, 26, 0.78)),\n    linear-gradient(rgba(26, 26, 26, 0.78), rgba(26, 26, 26, 0.78)),\n    linear-gradient(rgba(26, 26, 26, 0.78), rgba(26, 26, 26, 0.78));\n  background-size: 10px 1px, 1px 10px, 10px 1px, 1px 10px, 10px 1px, 1px 10px, 10px 1px, 1px 10px;\n  background-position: 0 0, 0 0, 100% 0, 100% 0, 0 100%, 0 100%, 100% 100%, 100% 100%;\n  background-repeat: no-repeat;\n  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);\n  backdrop-filter: blur(4px); color: #1a1a1a;\n}\n.ds-panel-label {\n  font-family: \"IBM Plex Mono\", ui-monospace, monospace; font-size: 12px; font-weight: 400;\n  font-variant: small-caps; letter-spacing: 0.14em; color: #1a1a1a;\n}"
+    },
+    {
+      "name": "Tact switch",
+      "kind": "custom",
+      "refersTo": "switch",
+      "description": "Two-column mono switch. Checked half is gold.",
+      "html": "<button class=\"ds-switch\" type=\"button\" role=\"switch\" aria-checked=\"true\"><span class=\"ds-switch-glide\"></span><span>Off</span><span data-hot=\"true\">On</span></button>",
+      "css": ".ds-switch {\n  position: relative; display: grid; grid-template-columns: 1fr 1fr;\n  align-items: center; width: 4.75rem; height: 22px; border: 0; border-radius: 0;\n  background: transparent; color: #3a3a3a; font-family: \"IBM Plex Mono\", ui-monospace, monospace;\n  font-size: 10px; font-weight: 400; font-variant: small-caps;\n  letter-spacing: 0.14em; padding: 0; cursor: pointer;\n}\n.ds-switch-glide {\n  position: absolute; z-index: 0; top: 0; bottom: 0; left: 50%; width: 50%;\n  background: #edb54a; pointer-events: none;\n}\n.ds-switch > span:not(.ds-switch-glide) { position: relative; z-index: 1; text-align: center; }\n.ds-switch > span[data-hot=\"true\"] { color: #111111; }\n.ds-switch:focus-visible { outline: 1px solid #1a1a1a; outline-offset: 3px; }\n.ds-switch:hover { color: #1a1a1a; }"
+    },
+    {
+      "name": "Tact tab strip",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "Square gold block on the selected tab. No underline.",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\"><button class=\"ds-tab\" type=\"button\" role=\"tab\">Category</button><button class=\"ds-tab ds-tab-on\" type=\"button\" role=\"tab\" aria-selected=\"true\">Genes</button><button class=\"ds-tab\" type=\"button\" role=\"tab\">Embed</button></div>",
+      "css": ".ds-tabs {\n  position: relative; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;\n  width: 16rem; height: 32px; gap: 0; padding: 0; background: transparent; border-radius: 0;\n}\n.ds-tab {\n  position: relative; z-index: 1; height: 28px; border: 0; border-radius: 0;\n  background: transparent; color: #3a3a3a; font-family: \"IBM Plex Mono\", ui-monospace, monospace;\n  font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;\n}\n.ds-tab:hover { color: #1a1a1a; }\n.ds-tab-on { color: #111111; background: #edb54a; }\n.ds-tab-on:hover { color: #111111; background: #edb54a; }\n.ds-tab:focus-visible { outline: 1px solid #1a1a1a; outline-offset: 3px; }"
+    },
+    {
+      "name": "Menu item highlighted",
+      "kind": "custom",
+      "refersTo": "menu-item-highlighted",
+      "description": "Menu row. Highlight uses the same gold fill as an active hit.",
+      "html": "<div class=\"ds-menu\" role=\"menu\"><div class=\"ds-menu-item\" role=\"menuitem\">Hide</div><div class=\"ds-menu-item ds-menu-item-on\" role=\"menuitem\" data-highlighted=\"true\">Rename</div></div>",
+      "css": ".ds-menu {\n  display: flex; flex-direction: column; gap: 2px; min-width: 13rem;\n  padding: 8px 6px; border-radius: 0; border: 1px solid rgba(26, 26, 26, 0.14);\n  background: rgb(214 214 214 / 97%); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);\n  backdrop-filter: blur(4px);\n}\n.ds-menu-item {\n  border-radius: 0; background: transparent; color: #1a1a1a;\n  font-family: \"IBM Plex Mono\", ui-monospace, monospace; font-size: 12px; padding: 6px 8px;\n}\n.ds-menu-item:hover, .ds-menu-item-on { background: #edb54a; color: #111111; box-shadow: none; }"
+    },
+    {
+      "name": "Section header",
+      "kind": "custom",
+      "refersTo": "section-label",
+      "description": "12px small-caps mono label. No count badge.",
+      "html": "<div class=\"ds-section\"><span class=\"ds-section-mark\" aria-hidden=\"true\"></span><span class=\"ds-section-label\">Landmarks</span></div>",
+      "css": ".ds-section {\n  display: grid; grid-template-columns: 32px minmax(0, 1fr); column-gap: 4px;\n  align-items: center; width: 17rem; height: 32px; color: #1a1a1a;\n}\n.ds-section-mark {\n  width: 8px; height: 8px; margin: auto; border-right: 1.5px solid currentColor;\n  border-bottom: 1.5px solid currentColor; transform: rotate(-45deg);\n}\n.ds-section-label {\n  font-family: \"IBM Plex Mono\", ui-monospace, monospace; font-size: 12px; font-weight: 400;\n  font-variant: small-caps; letter-spacing: 0.14em; text-transform: none;\n}"
+    },
+    {
+      "name": "Tact slider",
+      "kind": "input",
+      "refersTo": "tact-slider",
+      "description": "1px track, five tick marks, gold range and thumb.",
+      "html": "<div class=\"ds-slider\"><div class=\"ds-slider-track\"><div class=\"ds-slider-range\"></div><div class=\"ds-slider-thumb\"></div></div></div>",
+      "css": ".ds-slider { position: relative; width: 12rem; height: 24px; display: flex; align-items: center; }\n.ds-slider-track {\n  position: relative; height: 1px; width: 100%; background: rgba(26, 26, 26, 0.28);\n}\n.ds-slider-track::after {\n  content: \"\"; position: absolute; left: 0; right: 0; top: calc(100% + 4px); height: 6px;\n  background-image:\n    linear-gradient(rgba(26, 26, 26, 0.28), rgba(26, 26, 26, 0.28)),\n    linear-gradient(rgba(26, 26, 26, 0.28), rgba(26, 26, 26, 0.28)),\n    linear-gradient(rgba(26, 26, 26, 0.28), rgba(26, 26, 26, 0.28)),\n    linear-gradient(rgba(26, 26, 26, 0.28), rgba(26, 26, 26, 0.28)),\n    linear-gradient(rgba(26, 26, 26, 0.28), rgba(26, 26, 26, 0.28));\n  background-size: 1px 6px, 1px 4px, 1px 4px, 1px 4px, 1px 6px;\n  background-position: 0 0, 25% 2px, 50% 2px, 75% 2px, 100% 0;\n  background-repeat: no-repeat;\n}\n.ds-slider-range { position: absolute; left: 0; width: 42%; height: 100%; background: #edb54a; }\n.ds-slider-thumb { position: absolute; left: 42%; top: -6px; width: 1px; height: 13px; background: #edb54a; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Bracketed Tactical Veil",
+    "overview": "milume floats instrument chrome over a live spatial plot. The chrome is square, translucent, and bracketed at the corners. IBM Plex Mono carries the labels. Gold (`#edb54a`) is the only chromatic chrome color, and it marks the active state.\n\nDocks, sheets, toolbars, and `.tact-popup` share one veil. The fill is `--tact-surface`, the blur is 4px, the edge is 1px `--tact-edge`, and the shadow is `--tact-lift`. Each corner draws a 10px by 1px `--tact-rule` stroke. An active hit, a highlighted menu row, and the on half of a switch fill with `--tact-accent` and set the ink to `#111111`.\n\nThe surface is Operate. The data and the tools lead. A control that only tunes the picture stays off screen when the default is right for most datasets. Tokens live on `.milume-widget` and `[data-milume-portal]`, never on `:root`.",
+    "keyCharacteristics": [
+      "Gold mark `#edb54a` for active chrome, with `#111111` ink on that fill",
+      "Veil surface, 4px blur, 1px edge, and `--tact-lift` (`0 8px 24px rgba(0, 0, 0, 0.5)`)",
+      "Corner brackets on panel, toolbar, and popup floats. Chrome radius is 0",
+      "IBM Plex Mono for labels, section headers, tabs, and switches. Body text stays system-ui",
+      "Square hits. No pill trays, no underline tab indicators, no section count badges",
+      "Saturated color stays on canvas data (landmarks, genes, categories)",
+      "Canvas ground follows the image. Black while an image layer is visible, neutral grey otherwise",
+      "Left dock sections open independently. The right dock is tabs. Minimise folds bodies to headers"
+    ],
+    "rules": [
+      {
+        "name": "The Image Sets the Ground Rule",
+        "body": "When an image is shown the canvas matches the image's black. Chrome never draws a grey frame around tissue.",
+        "section": "colors"
+      },
+      {
+        "name": "The Data Owns Saturation Rule",
+        "body": "Neon hues appear on canvas entities and layer swatches. Panel fills stay the veil grey. Gold is the only chromatic chrome color.",
+        "section": "colors"
+      },
+      {
+        "name": "The Scoped Widget Rule",
+        "body": "Never set `:root` theme tokens globally. Tokens live under `.milume-widget` and `[data-milume-portal]`, including the dark ancestor selectors in `tactical.css`.",
+        "section": "colors"
+      },
+      {
+        "name": "The Gold Marks State Rule",
+        "body": "Active, selected, and checked chrome use `--tact-accent` with `--tact-accent-ink`. Hover on an active hit keeps that pair. There is no side bar and no underline.",
+        "section": "colors"
+      },
+      {
+        "name": "The Mono Label Rule",
+        "body": "Instrument labels, section headers, tabs, switches, shortcuts, and readouts use IBM Plex Mono at weight 400. Do not invent a second weight. The shipped face file is 400 only.",
+        "section": "typography"
+      },
+      {
+        "name": "The Bracket Rule",
+        "body": "Depth on a top-level float is the veil fill, the 4px blur, the 1px edge, the lift shadow, and the corner rule lines together. A shadow alone is not the float. Brackets stay on the panel edge.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Flat Plot Rule",
+        "body": "Scatter and image canvases do not take a drop shadow. The widget body may.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Square Chrome Rule",
+        "body": "Hits, tabs, switches, menus, and docks are rectangles with 0 radius. Do not put a pill radius on a toolbar or a mode hit.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "**Do** scope tokens under `.milume-widget` and `[data-milume-portal]`, and follow notebook light and dark ancestors.",
+      "**Do** paint floating chrome with `--tact-surface`, `blur(4px)`, `--tact-edge`, `--tact-lift`, and the 10px corner brackets.",
+      "**Do** mark active hits, highlighted menu rows, and the checked switch with `#edb54a` and `#111111` ink.",
+      "**Do** set instrument labels, section headers, tabs, and switches in IBM Plex Mono at the sizes in Typography.",
+      "**Do** keep docks at `--lm-dock-width` (17rem) and scroll inside panels.",
+      "**Do** keep section headers free of count badges, and put row actions on the 24px vertical-ellipsis trail hit.",
+      "**Do** clear the plot to black while an image layer is visible.",
+      "**Do** keep chrome box overlap at zero at 960\u00d7720 and 1280\u00d7800.",
+      "**Do** keep the summary bar above an open legend while at least 8 entries still fit. Otherwise show the one-line summary.",
+      "**Do** keep chrome text at 10px or larger, except canvas ruler ticks at 9px."
+    ],
+    "donts": [
+      "**Don't** use rounded pills, sliding underline indicators, or foreground-filled active glyphs.",
+      "**Don't** put a count badge in a section header.",
+      "**Don't** set global `:root` or `body` colors from widget CSS.",
+      "**Don't** apply drop shadows to the plot canvas.",
+      "**Don't** hand-roll a button or input when a shadcn component exists.",
+      "**Don't** invent a second float material. Use `landmarks-float` and let tactical.css supply the veil.",
+      "**Don't** move a control between containers when entering minimise mode.",
+      "**Don't** close one left-dock section because another opened.",
+      "**Don't** draw points in the Inspect preview or cube.",
+      "**Don't** use Unicode glyphs as icons. Carets, boxes, and the vertical ellipsis come from Lucide."
+    ]
+  }
+}

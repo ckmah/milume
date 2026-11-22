@@ -139,6 +139,7 @@ function PlotLoadCycle() {
 export function ChromeSections() {
   const [mode, setMode] = useState("select");
   const [layersOpen, setLayersOpen] = useState(true);
+  const [panelGrouping, setPanelGrouping] = useState(true);
   const [genes, setGenes] = useState(["Epcam", "Col1a1", "Lgr5", "Muc2"]);
   const [scale, setScale] = useState<"independent" | "shared">("independent");
   const [log1p, setLog1p] = useState(false);
@@ -199,6 +200,47 @@ export function ChromeSections() {
 
   return (
     <>
+      <DsSection
+        id="type"
+        title="Type"
+        note="Tactical type from DESIGN.md. The shipped row mounts inside the widget so IBM Plex Mono and tact tokens apply."
+      >
+        <StateCell state="Hierarchy" bare>
+          <div className="ds-type-list ds-type-list--flat">
+            {(
+              [
+                ["Body", "400 · 0.875rem", "ds-type-body", "12,450 cells in view"],
+                [
+                  "Section header",
+                  "400 · 12px uppercase · landmarks-panel-section-header__label",
+                  "landmarks-panel-section-header__label",
+                  "Selections",
+                ],
+                [
+                  "Section header, closed",
+                  "ink at 45%",
+                  "landmarks-panel-section-header__label ds-type-section-label--closed",
+                  "Landmarks",
+                ],
+                ["Tact label", "400 · 10px uppercase", "ds-type-tact-label", "Contrast"],
+                ["Tab", "400 · 11px uppercase", "ds-type-tab", "Category"],
+                ["Switch", "400 · 10px small-caps", "ds-type-switch", "Off · On"],
+                ["Readout", "400 · 11px tabular", "ds-type-readout", "0.42"],
+                ["Canvas legend", "400 · 10px", "ds-type-legend", "Region"],
+                ["Ruler tick", "400 · 9px", "ds-type-tick", "120"],
+              ] as const
+            ).map(([role, spec, className, sample]) => (
+              <div key={role} className="ds-type-row">
+                <div className="ds-type-meta">
+                  <div>{role}</div>
+                  <div>{spec}</div>
+                </div>
+                <div className={className}>{sample}</div>
+              </div>
+            ))}
+          </div>
+        </StateCell>
+      </DsSection>
       <IconButtonsSection />
       <TogglesSection />
       <SlidersSection />
@@ -265,17 +307,20 @@ export function ChromeSections() {
         </StateCell>
       </DsSection>
 
-      <DsSection id="layers" title="Layers">
-        <StateCell state="PanelSectionHeader">
+      <DsSection
+        id="layers"
+        title="Layers"
+        note="Dock previews use 22rem to match the multi-open shell width budget."
+      >
+        <StateCell state="PanelSectionHeader" stageClassName="ds-dock-preview">
           <PanelSectionHeader
             label="Layers"
-            count={3}
             open={layersOpen}
             onToggle={() => setLayersOpen((v) => !v)}
             testId="harness-layers"
           />
         </StateCell>
-        <StateCell state="LayerRow" stageClassName="min-h-24">
+        <StateCell state="LayerRow" stageClassName="ds-dock-preview min-h-24">
           <LayerRow
             active={false}
             color="#3d7dff"
@@ -287,11 +332,18 @@ export function ChromeSections() {
             hoverContent={<SelectionCard lm={base} index={0} snapshot={null} />}
           />
         </StateCell>
-        <StateCell state="LayersStackSection" stageClassName="max-h-80 overflow-auto">
+        <StateCell
+          state="LayersStackSection"
+          stageClassName="ds-dock-preview ds-dock-preview--scroll max-h-96"
+        >
           <LayersStackSection lm={base} />
         </StateCell>
-        <StateCell state="LayersPanel" stageClassName="h-72 overflow-auto">
-          <LayersPanel lm={base} />
+        <StateCell state="LayersPanel" stageClassName="ds-dock-preview ds-dock-preview--panel">
+          <LayersPanel
+            lm={base}
+            grouping={panelGrouping}
+            onGroupingChange={setPanelGrouping}
+          />
         </StateCell>
       </DsSection>
 

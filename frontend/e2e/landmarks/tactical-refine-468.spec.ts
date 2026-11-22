@@ -91,24 +91,17 @@ test.describe("Tactical refinements #468", () => {
     await expect(page.locator("[data-slot=tooltip-content]")).toHaveText(CATEGORY);
   });
 
-  test("toolbar indicator matches the active button width", async ({ page }) => {
+  test("active toolbar button fills with the accent", async ({ page }) => {
     const bar = page.getByRole("toolbar", { name: "Drawing tools" });
     const button = bar.getByRole("radio", { name: "Select", exact: true });
     await expect(button).toHaveAttribute("aria-checked", "true");
-    await expect.poll(async () => {
-      const buttonBox = await button.boundingBox();
-      if (!buttonBox) return false;
-      const marks = bar.locator(".tact-toolbar-mark");
-      const count = await marks.count();
-      for (let i = 0; i < count; i++) {
-        const markBox = await marks.nth(i).boundingBox();
-        if (!markBox) continue;
-        const width = Math.abs(markBox.width - buttonBox.width) < 1.5;
-        const left = Math.abs(markBox.x - buttonBox.x) < 2;
-        if (width && left) return true;
-      }
-      return false;
-    }).toBe(true);
+    await expect(bar.locator(".tact-toolbar-mark")).toHaveCount(0);
+    const paint = await button.evaluate((el) => {
+      const style = getComputedStyle(el);
+      return { background: style.backgroundColor, color: style.color };
+    });
+    expect(paint.background).toBe("rgb(237, 181, 74)");
+    expect(paint.color).toBe("rgb(17, 17, 17)");
   });
 
   test("signed buffer popup stays narrow and the fill starts at zero", async ({ page }) => {

@@ -1,5 +1,7 @@
 import { expect, type Page } from "@playwright/test";
 
+import { PSEUDOSPACE_COLORS } from "../../../milume/static/pseudospace-colors.js";
+
 import { test } from "../fixtures";
 
 import {
@@ -1047,5 +1049,205 @@ test.describe("LandmarksWidget", () => {
     expectBufferHueMatchesStroke(strokeHex!, bufferFillHex!);
     const panelHex = await panelSwatchHex(page, "artery");
     expect(panelHex).toBe(strokeHex);
+  });
+
+  test("pseudospace groups landmarks and colors cells", async ({ page }) => {
+    await ensureLandmarksSectionOpen(page);
+    const scatterColors = () =>
+      page.evaluate(() =>
+        ((window as any).__landmarksEngine.getScatterPointsInWindow(0, 0, 1e9) as { color: number[] }[]).map(
+          (point) => point.color.slice(0, 3).join(","),
+        ),
+      );
+    const categoryColors = await scatterColors();
+
+    const sparkle = page.getByTestId("pseudospace-sparkle");
+    await expect(sparkle).toHaveAttribute("aria-pressed", "false");
+    await sparkle.click();
+    await expect(sparkle).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByTestId("pseudospace-readout")).toHaveCount(0);
+
+    const state = () =>
+      page.evaluate(() => (window as any).__landmarksEngine.getPseudospaceState() as {
+        badges: string[];
+        painted: number;
+      });
+    const groupLabels = () =>
+      page.getByTestId("pseudospace-group").getByTestId("pseudospace-index").allTextContents();
+
+    const dragHandleTo = async (id: string, target: ReturnType<Page["getByTestId"]>) => {
+      const handle = page.getByTestId(`pseudospace-handle-${id}`);
+      const from = await handle.boundingBox();
+      const to = await target.boundingBox();
+      expect(from && to).toBeTruthy();
+      await page.mouse.move(from!.x + from!.width / 2, from!.y + from!.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(to!.x + to!.width / 2, to!.y + to!.height - 4, { steps: 12 });
+      await page.mouse.up();
+    };
+
+    await dragHandleTo("harness-line", page.getByTestId("pseudospace-group"));
+    await expect.poll(async () => (await groupLabels()).length).toBe(1);
+    await expect.poll(async () => (await state()).painted).toBe(0);
+
+    await dragHandleTo("harness-point", page.getByTestId("pseudospace-group"));
+    await expect.poll(async () => (await state()).painted).toBeGreaterThan(0);
+    await page.evaluate(() => {
+      const points = (window as any).__landmarksEngine.getScatterPointsInWindow(0, 0, 1e9) as {
+        x: number;
+        y: number;
+      }[];
+      const first = points[0]!;
+      let last = points[points.length - 1]!;
+      let far = 0;
+      for (const point of points) {
+        const distance = (point.x - first.x) ** 2 + (point.y - first.y) ** 2;
+        if (distance > far) {
+          far = distance;
+          last = point;
+        }
+      }
+      const model = (window as any).__landmarksModel;
+      const landmarks = (model.get("landmarks") as { id: string }[]).map((item) => {
+        if (item.id === "harness-line") return { ...item, type: "point", vertices: [[first.x, first.y]] };
+        if (item.id === "harness-point") return { ...item, type: "point", vertices: [[last.x, last.y]] };
+        return item;
+      });
+      model.set("landmarks", landmarks);
+      model.save_changes();
+    });
+    const rampEnds = () => page.evaluate(() => {
+      const points = (window as any).__landmarksEngine.getScatterPointsInWindow(0, 0, 1e9) as {
+        x: number;
+        y: number;
+        color: number[];
+      }[];
+      const landmarks = (window as any).__landmarksModel.get("landmarks") as {
+        id: string;
+        vertices: number[][];
+      }[];
+      const nearest = (id: string) => {
+        const geom = landmarks.find((item) => item.id === id);
+        const vertices = geom?.vertices ?? [];
+        const cx = vertices.reduce((sum, vertex) => sum + vertex[0]!, 0) / vertices.length;
+        const cy = vertices.reduce((sum, vertex) => sum + vertex[1]!, 0) / vertices.length;
+        let best = points[0]!;
+        let bestDistance = Infinity;
+        for (const point of points) {
+          const distance = (point.x - cx) ** 2 + (point.y - cy) ** 2;
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            best = point;
+          }
+        }
+        return best.color.slice(0, 3);
+      };
+      return { first: nearest("harness-line"), last: nearest("harness-point") };
+    });
+    const ramp = PSEUDOSPACE_COLORS.ramp;
+    const ends = {
+      first: [...ramp[0]!.rgb],
+      last: [...ramp[ramp.length - 1]!.rgb],
+    };
+    await expect.poll(rampEnds).toEqual(ends);
+    await expect.poll(groupLabels).toEqual(["1", "2"]);
+    await expect.poll(async () => (await state()).badges).toEqual(["1", "2"]);
+
+    const rowIds = () =>
+      page.getByTestId("pseudospace-group").locator("[data-testid^='pseudospace-row-']").evaluateAll((els) =>
+        els.map((el) => (el.getAttribute("data-testid") || "").replace("pseudospace-row-", "")),
+      );
+    const before = await rowIds();
+    expect(before).toEqual(["harness-line", "harness-point"]);
+    await page.getByTestId(`pseudospace-handle-${before[0]}`).focus();
+    await page.keyboard.press("ArrowDown");
+    await expect.poll(rowIds).toEqual([before[1], before[0]]);
+    await expect.poll(groupLabels).toEqual(["1", "2"]);
+    await expect.poll(async () => (await state()).badges).toEqual(["1", "2"]);
+
+    const box = await canvasBox(page);
+    const projected = await page.evaluate(
+      () => (window as any).__landmarksEngine.projectPoint(0) as { x: number; y: number } | null,
+    );
+    expect(projected).toBeTruthy();
+    await page.mouse.move(box.x + projected!.x, box.y + projected!.y);
+    await expect(page.getByTestId("pseudospace-readout")).toHaveText(/^\d+\.\d{2}$/);
+
+    const savedViewport = page.viewportSize();
+    await page.setViewportSize({ width: 390, height: 844 });
+    await expect(page.locator(".landmarks")).toHaveClass(/landmarks--narrow/);
+    await expect.poll(groupLabels).toEqual(["1", "2"]);
+    const phoneSpots = await page.evaluate(() => {
+      const engine = (window as any).__landmarksEngine;
+      const dock = document.querySelector(".landmarks__chrome-dock")?.getBoundingClientRect();
+      const canvas = document.querySelector("canvas.landmarks__webgl")?.getBoundingClientRect();
+      if (!dock || !canvas) return [];
+      const spots: { x: number; y: number }[] = [];
+      for (let i = 0; i < 187 && spots.length < 12; i++) {
+        const p = engine.projectPoint(i) as { x: number; y: number } | null;
+        if (!p) continue;
+        const x = canvas.left + p.x;
+        const y = canvas.top + p.y;
+        const clear = x > dock.right + 8 || y > dock.bottom + 8;
+        if (clear && y > canvas.top + 4 && y < canvas.bottom - 4 && x > canvas.left && x < canvas.right) {
+          spots.push({ x, y });
+        }
+      }
+      return spots;
+    });
+    expect(phoneSpots.length).toBeGreaterThan(0);
+    let readout = "";
+    for (const spot of phoneSpots) {
+      await page.mouse.move(spot.x, spot.y);
+      readout = (await page.getByTestId("pseudospace-readout").textContent()) ?? "";
+      if (/^\d+\.\d{2}$/.test(readout.trim())) break;
+    }
+    expect(readout.trim()).toMatch(/^\d+\.\d{2}$/);
+    for (const selector of [
+      "[data-testid='pseudospace-sparkle']",
+      "[data-testid='pseudospace-readout']",
+      "[data-testid='pseudospace-group'] [data-testid^='pseudospace-row-']",
+    ]) {
+      await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        const panel = el?.closest(".landmarks__layers-panel");
+        if (!el || !(panel instanceof HTMLElement)) return;
+        const er = el.getBoundingClientRect();
+        const pr = panel.getBoundingClientRect();
+        if (er.top < pr.top + 4 || er.bottom > pr.bottom - 4) {
+          panel.scrollTop += er.top - pr.top - 8;
+        }
+      }, selector);
+      const hit = await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return "missing";
+        const rect = el.getBoundingClientRect();
+        if (rect.width < 1 || rect.height < 1) return "empty";
+        if (rect.bottom <= 0 || rect.top >= window.innerHeight || rect.right <= 0 || rect.left >= window.innerWidth) {
+          return "offscreen";
+        }
+        const x = Math.min(window.innerWidth - 1, Math.max(0, rect.left + rect.width / 2));
+        const y = Math.min(window.innerHeight - 1, Math.max(0, rect.top + Math.min(rect.height / 2, 12)));
+        const top = document.elementFromPoint(x, y);
+        const name = top?.className?.toString?.().slice(0, 80) ?? "none";
+        return top && el.contains(top) ? "hit" : `covered:${name}`;
+      }, selector);
+      expect(hit, selector).toBe("hit");
+    }
+    if (savedViewport) await page.setViewportSize(savedViewport);
+
+    const outside = page.getByTestId("pseudospace-outside");
+    await expect(outside).toBeVisible();
+    const outsideBox = await outside.boundingBox();
+    expect(outsideBox && outsideBox.height).toBeGreaterThan(16);
+    await dragHandleTo("harness-point", outside);
+    await expect.poll(async () => (await state()).painted).toBe(0);
+    await expect(page.getByTestId("pseudospace-readout")).toHaveCount(0);
+
+    await sparkle.click();
+    await expect(sparkle).toHaveAttribute("aria-pressed", "false");
+    await expect.poll(async () => (await state()).painted).toBe(0);
+    await expect(page.getByTestId("pseudospace-group")).toHaveCount(0);
+    expect(await scatterColors()).toEqual(categoryColors);
   });
 });

@@ -1,5 +1,6 @@
 /** Section anchors. The nav, the page, and the Vite harness spec share this list. */
 export const DESIGN_SYSTEM_SECTIONS = [
+  ["type", "Type"],
   ["icon-buttons", "Icon buttons"],
   ["toggles", "Toggles"],
   ["sliders", "Sliders"],

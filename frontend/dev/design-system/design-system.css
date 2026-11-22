@@ -220,6 +220,156 @@ body {
   color: var(--ds-muted);
 }
 
+.ds-section[data-ds-section="type"] .ds-state-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ds-type-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.ds-section[data-ds-section="type"] .ds-widget-stage,
+.ds-section[data-ds-section="type"] .milume-widget.landmarks {
+  padding: 0.75rem 1rem;
+}
+
+.ds-type-list--flat {
+  gap: 0.65rem;
+}
+
+.ds-type-row {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.ds-type-meta {
+  font-family: system-ui, sans-serif;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  color: var(--tact-muted);
+}
+
+.ds-type-body,
+.ds-type-tact-label,
+.ds-type-tab,
+.ds-type-switch,
+.ds-type-readout,
+.ds-type-legend,
+.ds-type-tick {
+  color: var(--foreground);
+}
+
+.ds-type-body {
+  font-family: system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.ds-type-tact-label {
+  font-family: var(--tact-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tact-muted, var(--muted-foreground));
+}
+
+.ds-type-section-label {
+  font-family: var(--tact-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.ds-type-section-label--closed {
+  color: color-mix(in srgb, var(--tact-ink, var(--foreground)) 45%, transparent);
+}
+
+.ds-type-tab {
+  font-family: var(--tact-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tact-muted, var(--muted-foreground));
+}
+
+.ds-type-switch {
+  font-family: var(--tact-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 400;
+  font-variant: small-caps;
+  letter-spacing: 0.14em;
+}
+
+.ds-type-readout {
+  font-family: var(--tact-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--tact-mark, #edb54a);
+}
+
+.ds-type-legend {
+  font-family: system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 10px;
+  line-height: 1.25;
+}
+
+.ds-type-tick {
+  font-family: system-ui, sans-serif;
+  font-weight: 400;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.ds-section[data-ds-section="layers"] {
+  --lm-dock-width: 22rem;
+}
+
+.ds-section[data-ds-section="layers"] .ds-state-grid {
+  grid-template-columns: minmax(22rem, 22rem);
+}
+
+.ds-dock-preview {
+  box-sizing: border-box;
+  width: var(--lm-dock-width, 22rem);
+  max-width: var(--lm-dock-width, 22rem);
+  overflow-x: hidden;
+}
+
+.ds-dock-preview.ds-dock-preview--panel {
+  min-height: 26rem;
+  max-height: 36rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.ds-dock-preview.ds-dock-preview--scroll {
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.ds-section[data-ds-section="layers"] .ds-dock-preview.milume-widget.landmarks,
+.ds-section[data-ds-section="layers"] .ds-dock-preview .milume-widget.landmarks {
+  width: 100%;
+  max-width: var(--lm-dock-width, 22rem);
+  min-height: 0;
+  padding-inline: 0;
+}
+
+.ds-section[data-ds-section="layers"] .ds-dock-preview--panel .landmarks__layers-panel {
+  max-height: none;
+}
+
 .ds-widget-stage .milume-widget.landmarks {
   min-height: 0;
 }

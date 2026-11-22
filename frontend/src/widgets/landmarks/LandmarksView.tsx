@@ -36,7 +36,6 @@ import {
 } from "./chrome";
 import type { ChipSnapshot } from "./chrome/cube-snapshots";
 import { FLOAT_PANEL } from "./chrome/sections";
-import { ToolbarMarks } from "./chrome/toolbar-mark";
 import { WidgetPortalContext } from "./chrome/widget-portal-context";
 import { cubeCellColoring } from "./cube-highlight";
 import { INSPECT_WINDOW_UM, mountEngine, type EngineHandle } from "./engine";
@@ -108,6 +107,8 @@ export function LandmarksView({
   const plotBootstrap = usePlotBootstrap(engine);
   const [shellHeight, setShellHeight] = useState(defaultHeight);
   const [narrow, setNarrow] = useState(false);
+  const [grouping, setGrouping] = useState(false);
+  const [pseudospaceOrder, setPseudospaceOrder] = useState<string[]>([]);
   const [collapsed, setCollapsed] = useState({ left: false, right: false });
   const [minimise, setMinimise] = useState(false);
   const [rightCardExpanded, setRightCardExpanded] = useState(false);
@@ -587,11 +588,16 @@ export function LandmarksView({
               </div>
               <LayersPanel
                 lm={lm}
+                engine={engine}
                 snapshots={snapshots}
                 snapshotVersion={snapshotVersion}
                 stackZ={inspectCube.stackZ}
                 onFocusEntry={inspectCube.focusEntry}
                 minimise={minimise}
+                grouping={grouping}
+                onGroupingChange={setGrouping}
+                pseudospaceOrder={pseudospaceOrder}
+                onPseudospaceOrderChange={setPseudospaceOrder}
               />
             </div>
             {collapsed.left ? (
@@ -619,11 +625,16 @@ export function LandmarksView({
               />
               <LayersPanel
                 lm={lm}
+                engine={engine}
                 snapshots={snapshots}
                 snapshotVersion={snapshotVersion}
                 stackZ={inspectCube.stackZ}
                 onFocusEntry={inspectCube.focusEntry}
                 minimise={minimise}
+                grouping={grouping}
+                onGroupingChange={setGrouping}
+                pseudospaceOrder={pseudospaceOrder}
+                onPseudospaceOrderChange={setPseudospaceOrder}
               />
             </div>
             {collapsed.left ? (
@@ -714,7 +725,6 @@ export function LandmarksView({
           </>
         )}
         <LandmarkCanvasMenu lm={lm} engine={engine} rootEl={rootEl} />
-        <ToolbarMarks root={rootEl} />
       </div>
     </div>
     </MotionConfig>

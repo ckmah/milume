@@ -41,7 +41,7 @@ function Switch({
         initial={false}
         animate={glide.animate}
         style={glide.style}
-        transition={chrome.reduce ? chrome.transition : { duration: 0.14, ease: "easeOut" }}
+        transition={chrome.reduce ? chrome.transition : { duration: 0.14, ease: "easeInOut" }}
       />
       <span data-hot={!on}>Off</span>
       <span data-hot={on}>On</span>

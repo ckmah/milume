@@ -9,6 +9,8 @@ import type { LandmarksModel } from "../use-landmarks-model";
 import { type ChipSnapshot, windowKey } from "./cube-snapshots";
 import { LayersStackSection, layersStackCount } from "./layers-stack-section";
 import { PanelSectionHeader } from "./panel-section-header";
+import type { EngineHandle } from "../engine";
+import { PseudospaceGroup, SparkleButton } from "./pseudospace-group";
 import { LayerRow, PanelBand } from "./primitives";
 import { useWidgetPortal } from "./widget-portal-context";
 import { SelectionCard } from "./selection-card";
@@ -53,6 +55,10 @@ function capOpenBodies(root: HTMLElement, dock: HTMLElement) {
   const below =
     Number.parseFloat(rootStyle.paddingBottom) + Number.parseFloat(rootStyle.borderBottomWidth);
   const available = Math.max(0, budget - (sectionsTop - dockBox.top) - below - headers);
+  // On a phone the color stack already took its cap. A share under one row
+  // would clip the group, so the panel scrolls and each body keeps its content.
+  const row = Number.parseFloat(getComputedStyle(root).getPropertyValue("--lm-layer-row-h")) || 30;
+  if (root.closest(".landmarks--narrow") && available < scrolls.length * row) return;
   const contents = scrolls.map((scroll) => scroll.scrollHeight);
   const order = contents
     .map((height, index) => ({ height, index }))
@@ -98,28 +104,56 @@ function SectionBody({
  */
 export function LayersPanel({
   lm,
+  engine = null,
   snapshots = NO_SNAPSHOTS,
   snapshotVersion = 0,
   stackZ = null,
   onFocusEntry,
   minimise = false,
+  grouping: groupingProp,
+  onGroupingChange,
+  pseudospaceOrder: orderProp,
+  onPseudospaceOrderChange,
 }: {
   lm: LandmarksModel;
+  engine?: EngineHandle | null;
   snapshots?: Map<string, ChipSnapshot>;
   snapshotVersion?: number;
   stackZ?: [number, number] | null;
   onFocusEntry?: (index: number) => void;
   minimise?: boolean;
+  /** Shared across the wide and phone docks so a resize keeps the group. */
+  grouping?: boolean;
+  onGroupingChange?: (on: boolean) => void;
+  pseudospaceOrder?: string[];
+  onPseudospaceOrderChange?: (order: string[]) => void;
 }) {
   const { selections, landmarks, selected_kind, selected_index } = lm;
   const [openSections, setOpenSections] = useState<ReadonlySet<DockSection>>(
     () => new Set(DOCK_SECTIONS),
   );
   const [minimisePeek, setMinimisePeek] = useState<DockSection | null>(null);
+  const [groupingLocal, setGroupingLocal] = useState(false);
+  const [orderLocal, setOrderLocal] = useState<string[]>([]);
+  const grouping = groupingProp ?? groupingLocal;
+  const pseudospaceOrder = orderProp ?? orderLocal;
+  const setGrouping = (on: boolean) => {
+    onGroupingChange?.(on);
+    if (groupingProp === undefined) setGroupingLocal(on);
+  };
+  const setPseudospaceOrder = (order: string[]) => {
+    onPseudospaceOrderChange?.(order);
+    if (orderProp === undefined) setOrderLocal(order);
+  };
 
   useEffect(() => {
     if (minimise) setMinimisePeek(null);
   }, [minimise]);
+
+  useEffect(() => {
+    if (!grouping || minimise) return;
+    setOpenSections((prev) => (prev.has("landmarks") ? prev : new Set([...prev, "landmarks"])));
+  }, [grouping, minimise]);
 
   const thumbs = useMemo(
     () =>
@@ -191,11 +225,11 @@ export function LayersPanel({
             className="landmarks-panel-sections flex min-h-0 flex-1 flex-col overflow-hidden"
           >
             <PanelBand
+              tone={sectionOpen("selections")}
               className={cn(sectionOpen("selections") && "landmarks-panel-section--open")}
             >
               <PanelSectionHeader
                 label="Selections"
-                count={selections.length}
                 open={sectionOpen("selections")}
                 onToggle={() => toggleSection("selections")}
                 pin={selectionPin}
@@ -245,14 +279,23 @@ export function LayersPanel({
             </PanelBand>
 
             <PanelBand
+              tone={sectionOpen("landmarks")}
               className={cn(sectionOpen("landmarks") && "landmarks-panel-section--open")}
             >
               <PanelSectionHeader
                 label="Landmarks"
-                count={landmarks.length}
                 open={sectionOpen("landmarks")}
                 onToggle={() => toggleSection("landmarks")}
                 pin={landmarkPin}
+                action={
+                  <SparkleButton
+                    on={grouping}
+                    onToggle={() => {
+                      setGrouping(!grouping);
+                      setPseudospaceOrder([]);
+                    }}
+                  />
+                }
                 testId="panel-section-landmarks"
                 minimise={minimise}
               />
@@ -260,7 +303,17 @@ export function LayersPanel({
                 open={sectionOpen("landmarks")}
                 className="landmarks-panel-section__body flex flex-col gap-0.5 px-0 pb-1.5"
               >
-                {landmarks.length ? (
+                {grouping ? (
+                  <PseudospaceGroup
+                    lm={lm}
+                    engine={engine}
+                    order={pseudospaceOrder}
+                    onOrder={setPseudospaceOrder}
+                    menuContainer={menuContainer}
+                    selectedKind={selected_kind}
+                    selectedIndex={selected_index}
+                  />
+                ) : landmarks.length ? (
                   landmarks.map((lmItem, i) => {
                     const color = landmarkColor(lmItem, i);
                     return (
@@ -293,7 +346,6 @@ export function LayersPanel({
             >
               <PanelSectionHeader
                 label="Layers"
-                count={layersCount}
                 open={sectionOpen("layers")}
                 onToggle={() => toggleSection("layers")}
                 testId="panel-section-layers"
