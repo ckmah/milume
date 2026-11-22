@@ -70,16 +70,27 @@
         color: var(--harness-banner);
       }
 
+      /*
+        Marimo edit-mode output cell. max-height, padding, and overflow match
+        .marimo-cell.interactive .output-area and .output-area in
+        marimo-team/marimo frontend/src/css/app/Cell.css (a8d229e).
+        Width is the medium app column, --content-width-medium in
+        frontend/src/css/app/App.css (same commit). The column is a max width,
+        so a narrow viewport still shrinks the cell.
+      */
       .harness-cell-output {
         box-sizing: border-box;
-        width: 100%;
-        padding: 0.75rem;
+        width: min(100%, 1110px);
+        max-height: 610px;
+        margin-inline: auto;
+        padding: 1rem;
+        overflow: auto;
         /* Flat notebook cell — avoid card-like radius/shadow that nests float panels. */
         background: var(--harness-cell-bg);
       }
     </style>
-    <script type="module" crossorigin src="/milume/pr/490/assets/index-DNgDXa7X.js"></script>
-    <link rel="stylesheet" crossorigin href="/milume/pr/490/assets/index-CZM3hIdP.css">
+    <script type="module" crossorigin src="/milume/pr/490/assets/index-Dm48FQWG.js"></script>
+    <link rel="stylesheet" crossorigin href="/milume/pr/490/assets/index-BLUrgwE5.css">
   </head>
   <body>
     <div id="harness-root"></div>
