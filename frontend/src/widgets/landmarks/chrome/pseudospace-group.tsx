@@ -7,14 +7,9 @@ import { cn } from "@/lib/utils";
 import { decodeF32Base64 } from "../binary";
 import type { EngineHandle } from "../engine";
 import type { LandmarkItem } from "../helpers";
-import { centroid, divergingRgb, pseudospaceField, type Geom, type GeomKind } from "../pseudospace";
+import { centroid, pseudospaceField, pseudospaceRgb, type Geom, type GeomKind } from "../pseudospace";
 import type { LandmarksModel } from "../use-landmarks-model";
 import { chromeHitClass, chromeHitOnClass } from "./primitives";
-
-const NEUTRAL = {
-  dark: [138, 138, 138] as const,
-  light: [92, 92, 92] as const,
-};
 
 function kindOf(type: string): GeomKind {
   if (type === "line" || type === "spline" || type === "shape" || type === "point") return type;
@@ -114,11 +109,10 @@ export function PseudospaceGroup({
       return clear;
     }
     const dark = document.documentElement.classList.contains("dark");
-    const neutral = dark ? NEUTRAL.dark : NEUTRAL.light;
     const colors = new Uint8Array(cells.length * 4);
     for (let i = 0; i < cells.length; i++) {
       const value = field.values[i] ?? Number.NaN;
-      const rgb = Number.isFinite(value) ? divergingRgb(value, field.valueMax) : neutral;
+      const rgb = pseudospaceRgb(value, field.valueMax, dark);
       const o = i * 4;
       colors[o] = rgb[0];
       colors[o + 1] = rgb[1];

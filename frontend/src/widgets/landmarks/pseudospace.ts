@@ -1,5 +1,9 @@
 /** Geodesic pseudospace between consecutive landmark geometries. */
 
+import { PSEUDOSPACE_COLORS } from "../../../../milume/static/pseudospace-colors.js";
+
+export { PSEUDOSPACE_COLORS };
+
 export type GeomKind = "point" | "line" | "spline" | "shape";
 
 export type Geom = {
@@ -171,21 +175,23 @@ export function pseudospaceField(cells: readonly Cell[], ordered: readonly Geom[
   return { values, valueMax: ordered.length - 1 };
 }
 
-const DIVERGE: { u: number; rgb: [number, number, number] }[] = [
-  { u: 0, rgb: [165, 15, 21] },
-  { u: 0.28, rgb: [252, 141, 89] },
-  { u: 0.5, rgb: [247, 247, 247] },
-  { u: 0.72, rgb: [107, 174, 214] },
-  { u: 1, rgb: [84, 39, 136] },
-];
+const RAMP = PSEUDOSPACE_COLORS.ramp;
+
+export function pseudospaceRgb(value: number, valueMax: number, dark: boolean): [number, number, number] {
+  if (!Number.isFinite(value)) {
+    const neutral = dark ? PSEUDOSPACE_COLORS.neutral.dark : PSEUDOSPACE_COLORS.neutral.light;
+    return [neutral[0], neutral[1], neutral[2]];
+  }
+  return divergingRgb(value, valueMax);
+}
 
 export function divergingRgb(value: number, valueMax: number): [number, number, number] {
   const u = valueMax <= 0 ? 0 : Math.min(1, Math.max(0, value / valueMax));
-  let a = DIVERGE[0]!;
-  let b = DIVERGE[DIVERGE.length - 1]!;
-  for (let i = 0; i < DIVERGE.length - 1; i++) {
-    const left = DIVERGE[i];
-    const right = DIVERGE[i + 1];
+  let a = RAMP[0]!;
+  let b = RAMP[RAMP.length - 1]!;
+  for (let i = 0; i < RAMP.length - 1; i++) {
+    const left = RAMP[i];
+    const right = RAMP[i + 1];
     if (left && right && u >= left.u && u <= right.u) {
       a = left;
       b = right;

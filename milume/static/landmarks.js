@@ -33,6 +33,7 @@ import {
   COLOR_DERIVED_WATCH_KEYS,
   COLOR_BULK_WATCH_KEYS,
 } from "./landmarks_color_access.js";
+import { PSEUDOSPACE_COLORS } from "./pseudospace-colors.js";
 import {
   neighborhoodFor as neighborhoodForArgs,
   patchLandmark,
@@ -740,6 +741,18 @@ export function mountEngine({
     applyCellsOpacity(scatterDisplayColors);
     applyPseudospaceColors();
     scatterRoleRevision++;
+  }
+
+  function pseudospaceRgbForPoint(index) {
+    if (!pseudospaceColors) return null;
+    const o = index * 4;
+    if (!pseudospaceColors[o + 3]) return null;
+    return [
+      pseudospaceColors[o],
+      pseudospaceColors[o + 1],
+      pseudospaceColors[o + 2],
+      255,
+    ];
   }
 
   function applyPseudospaceColors() {
@@ -3580,13 +3593,13 @@ export function mountEngine({
           data: pseudospaceBadges,
           getText: (d) => d.text,
           getPosition: (d) => [d.x, d.y, 0],
-          getColor: [255, 255, 255, 255],
+          getColor: PSEUDOSPACE_COLORS.badge.ink,
           getSize: 11,
           sizeUnits: "pixels",
           fontWeight: 600,
           background: true,
           backgroundPadding: [5, 3],
-          getBackgroundColor: [20, 20, 20, 220],
+          getBackgroundColor: PSEUDOSPACE_COLORS.badge.fill,
           pickable: false,
           parameters: OVERLAY_GL,
           updateTriggers: {
@@ -7542,7 +7555,7 @@ export function mountEngine({
           x: d.x,
           y: d.y,
           z: d.z,
-          color: fillColorForPoint(d, probeField),
+          color: pseudospaceRgbForPoint(d.i) || fillColorForPoint(d, probeField),
           radius: radiusForPoint(d),
         });
       }
