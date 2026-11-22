@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 import { ChromeSections } from "./gallery-chrome";
-import { UiSections } from "./gallery-ui";
 import { DESIGN_SYSTEM_SECTIONS } from "./sections";
 import { HarnessThemeProvider, type HarnessTheme } from "./stage";
 
@@ -40,20 +39,19 @@ export function DesignSystemHarness() {
             <div>
               <h1>milume UI</h1>
               <p className="ds-lede">
-                Widget chrome in every state. The toggle switches light and dark on the same components.
+                Shipped chrome, one interactive instance each. The toggle switches light and dark.
               </p>
             </div>
             <Button
               type="button"
               size="sm"
-              variant="outline"
+              variant="ghost"
               data-testid="ds-theme-toggle"
               onClick={() => setWidgetTheme((t) => (t === "dark" ? "light" : "dark"))}
             >
               Widget {widgetTheme === "dark" ? "light" : "dark"}
             </Button>
           </header>
-          <UiSections />
           <ChromeSections />
         </main>
       </div>

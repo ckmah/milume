@@ -95,24 +95,19 @@ spacing:
   chrome-band: "3.75rem"
   toolbar: "0.25rem"
 components:
-  button-default:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.primary-foreground}"
-    rounded: "{rounded.control}"
-    padding: "0 1rem"
-    height: "2.25rem"
-  button-outline:
-    backgroundColor: "{colors.background}"
+  button-ghost-icon:
+    backgroundColor: transparent
     textColor: "{colors.foreground}"
-    rounded: "{rounded.control}"
-    padding: "0 1rem"
-    height: "2.25rem"
-  button-ghost:
-    backgroundColor: "transparent"
+    rounded: "0px"
+    padding: "0"
+    height: "2rem"
+    width: "2rem"
+  button-ghost-text:
+    backgroundColor: transparent
     textColor: "{colors.foreground}"
-    rounded: "{rounded.control}"
-    padding: "0 0.75rem"
-    height: "2.25rem"
+    rounded: "0px"
+    padding: "0 0.625rem"
+    height: "2rem"
   card-panel:
     backgroundColor: "{colors.card}"
     textColor: "{colors.foreground}"
@@ -130,6 +125,8 @@ components:
 ## Overview
 
 Visual direction is pending a redesign issue. The chrome rebuild uses Base UI (`@base-ui/react`), shadcn components generated for Base UI, Tailwind 4, and Motion. The notes below describe the chrome that is shipped.
+
+Landmarks buttons are ghost hits. Icon hits are `button-ghost-icon` (`chromeHitClass`, 2rem square, no padding, square corners). Text hits are `button-ghost-text` (`landmarks-hit--text`, 2rem tall, 0.625rem inline padding) for Reset and Save window. The design-system page mounts each shipped component once. Hover, focus, open, and disabled happen on that instance. Volume cube keeps two cube-only pieces, the outline legend badge and the outline Reset.
 
 **Creative North Star: Soft Float + Glass**
 
@@ -368,7 +365,7 @@ One set for the main tool pill, View CTA, context L1/L2, Inspect pill, Inspect b
 | Role | Class / constant | Tokens |
 | --- | --- | --- |
 | Toolbar surface | `TOOLBAR_CLASS` (`landmarks-float--toolbar landmarks-toolbar`) | `--lm-toolbar-h` 2.5rem, `--lm-toolbar-pad` / `--lm-toolbar-gap` 0.25rem, `--lm-toolbar-divider` (fg 22%) |
-| Icon hit / toggle item | `chromeHitClass` (`landmarks-hit`), `--wide`, `--text` | `--lm-hit-size` 2rem, full radius, idle `--lm-hit-fg` (fg 72%), hover `--lm-hit-hover-bg` (fg 9%), disabled 0.4 |
+| Icon hit / toggle item | `chromeHitClass` (`landmarks-hit`), `--wide`, `--text` | `--lm-hit-size` 2rem, `--lm-hit-radius` 0, idle `--lm-hit-fg` (fg 72%), hover `--lm-hit-hover-bg` (fg 9%), disabled 0.4 |
 | On state | `aria-pressed="true"`, `data-state="on"`, or `chromeHitOnClass` | `--lm-hit-on-bg` foreground / `--lm-hit-on-fg` background, kept on hover (sliding Explore tabs use it too) |
 | Slider row | `TactSliderRow` / `TactCapsuleSlider` / `TactSignedSlider` | caption (`--lm-caption`) · 1.75rem capsule, readout inside left, neutral `--lm-slider-fill`; ranges are the same capsule with two thumbs |
 | Chip / badge | `CHIP_CLASS` (`landmarks-chip`) | `--lm-chip-bg` card, `--lm-chip-fg` foreground, `--lm-chip-border` (fg 50% into card, ≥3:1 on glass and muted trays) |
