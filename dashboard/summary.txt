@@ -1,7 +1,7 @@
-as_of: Sat Nov 21, 4:33 PM PT
+as_of: Sat Nov 21, 4:45 PM PT
 needs_you: 0
   (none)
-open_prs: 2
+open_prs: 1
 last_nightly: 2026-11-21 cancelled
 stale_prs: none
 red_nightlies: 2026-11-09, 2026-11-10, 2026-11-11, 2026-11-14, 2026-11-17, 2026-11-21
@@ -9,4 +9,4 @@ last_red_nightly: 2026-11-21
 ci_failure_issues: none
 html: dashboard.html
 status: PUBLISH
-hash: 282f464baf23
+hash: 2e776c9e74b1
