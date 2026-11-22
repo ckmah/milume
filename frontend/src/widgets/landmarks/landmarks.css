@@ -1142,13 +1142,6 @@
 .landmarks__layers-panel .landmarks-panel-section-header {
   flex: 0 0 var(--lm-hit-size);
   box-sizing: border-box;
-  padding-right: var(--lm-edge-end);
-}
-
-.pseudospace-group {
-  min-height: 2rem;
-  margin: 0.25rem 0.5rem;
-  border: 1px solid var(--tact-rule);
 }
 
 .pseudospace-group:not(:has(.pseudospace-row)) {

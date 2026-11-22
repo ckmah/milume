@@ -244,49 +244,92 @@ body {
   color: var(--tact-muted);
 }
 
-.ds-type-panel-title,
-.ds-type-section,
-.ds-type-field,
-.ds-type-control,
+.ds-type-body,
+.ds-type-tact-label,
+.ds-type-tab,
+.ds-type-switch,
+.ds-type-readout,
 .ds-type-legend,
 .ds-type-tick {
+  color: var(--foreground);
+}
+
+.ds-type-body {
   font-family: system-ui, sans-serif;
-  color: var(--tact-ink);
+  font-weight: 400;
+  font-size: 0.875rem;
+  line-height: 1.4;
 }
 
-.ds-type-panel-title {
-  font-weight: 600;
-  font-size: 0.8125rem;
+.ds-type-tact-label {
+  font-family: var(--tact-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tact-muted, var(--muted-foreground));
 }
 
-.ds-type-section {
-  font-weight: 600;
-  font-size: 0.6875rem;
+.ds-type-section-label {
+  font-family: var(--tact-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 12px;
+  font-weight: 400;
+  font-variant: small-caps;
+  letter-spacing: 0.14em;
+  text-transform: none;
 }
 
-.ds-type-section--muted {
-  color: var(--tact-muted);
+.ds-type-section-label--closed {
+  color: color-mix(in srgb, var(--tact-ink, var(--foreground)) 45%, transparent);
 }
 
-.ds-type-field {
-  font-weight: 500;
-  font-size: 0.6875rem;
+.ds-type-tab {
+  font-family: var(--tact-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tact-muted, var(--muted-foreground));
 }
 
-.ds-type-control {
-  font-weight: 500;
-  font-size: 0.75rem;
+.ds-type-switch {
+  font-family: var(--tact-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 10px;
+  font-weight: 400;
+  font-variant: small-caps;
+  letter-spacing: 0.14em;
+}
+
+.ds-type-readout {
+  font-family: var(--tact-mono, "IBM Plex Mono", ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--tact-mark, #edb54a);
 }
 
 .ds-type-legend {
+  font-family: system-ui, sans-serif;
   font-weight: 400;
-  font-size: 0.625rem;
+  font-size: 10px;
+  line-height: 1.25;
 }
 
 .ds-type-tick {
+  font-family: system-ui, sans-serif;
   font-weight: 400;
   font-size: 9px;
   line-height: 1;
+}
+
+.ds-section[data-ds-section="layers"] .ds-state-grid {
+  grid-template-columns: minmax(17rem, 17rem);
+}
+
+.ds-dock-preview {
+  width: 17rem;
+  max-width: 17rem;
 }
 
 .ds-widget-stage .milume-widget.landmarks {

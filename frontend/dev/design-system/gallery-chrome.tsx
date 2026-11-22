@@ -57,7 +57,7 @@ import { INFO_HEAT_BINS } from "@/widgets/landmarks/chrome/info-stats";
 
 import { DESIGN_SYSTEM_GAPS } from "./sections";
 import { harnessModel, ONE_POINT_B64 } from "./fixture";
-import { DsSection, StateCell } from "./stage";
+import { DsSection, StateCell, WidgetStage } from "./stage";
 
 const noop = () => {};
 const LONG = "A channel name long enough to overflow the row";
@@ -202,37 +202,46 @@ export function ChromeSections() {
       <DsSection
         id="type"
         title="Type"
-        note="The hierarchy from DESIGN.md, set in the widget so you can restyle it. The last row is the section label the dock ships."
+        note="Tactical type from DESIGN.md. The shipped row mounts inside the widget so IBM Plex Mono and tact tokens apply."
       >
         <StateCell state="Hierarchy">
-          <div className="ds-type-list">
-            {(
-              [
-                ["Panel title", "600 · 0.8125rem", "ds-type-panel-title", "Layers"],
-                ["Section trigger", "600 · 0.6875rem", "ds-type-section", "Selections"],
-                ["Section trigger, closed", "600 · 0.6875rem, muted", "ds-type-section ds-type-section--muted", "Landmarks"],
-                ["Field label", "500 · 0.6875rem", "ds-type-field", "Contrast"],
-                ["Control text", "500 · 0.75rem", "ds-type-control", "Inspect"],
-                ["Canvas legend", "400 · 0.625rem", "ds-type-legend", "Region"],
-                ["Ruler tick", "400 · 9px", "ds-type-tick", "120"],
-              ] as const
-            ).map(([role, spec, className, sample]) => (
-              <div key={role} className="ds-type-row">
-                <div className="ds-type-meta">
-                  <div>{role}</div>
-                  <div>{spec}</div>
+          <WidgetStage>
+            <div className="ds-type-list">
+              {(
+                [
+                  ["Body", "400 · 0.875rem", "ds-type-body", "12,450 cells in view"],
+                  ["Section header", "400 · 12px small-caps", "ds-type-section-label", "Selections"],
+                  [
+                    "Section header, closed",
+                    "ink at 45%",
+                    "ds-type-section-label ds-type-section-label--closed",
+                    "Landmarks",
+                  ],
+                  ["Tact label", "400 · 10px uppercase", "ds-type-tact-label", "Contrast"],
+                  ["Tab", "400 · 11px uppercase", "ds-type-tab", "Category"],
+                  ["Switch", "400 · 10px small-caps", "ds-type-switch", "Off · On"],
+                  ["Readout", "400 · 11px tabular", "ds-type-readout", "0.42"],
+                  ["Canvas legend", "400 · 10px", "ds-type-legend", "Region"],
+                  ["Ruler tick", "400 · 9px", "ds-type-tick", "120"],
+                ] as const
+              ).map(([role, spec, className, sample]) => (
+                <div key={role} className="ds-type-row">
+                  <div className="ds-type-meta">
+                    <div>{role}</div>
+                    <div>{spec}</div>
+                  </div>
+                  <div className={className}>{sample}</div>
                 </div>
-                <div className={className}>{sample}</div>
+              ))}
+              <div className="ds-type-row">
+                <div className="ds-type-meta">
+                  <div>Shipped section label</div>
+                  <div>landmarks-panel-section-header__label</div>
+                </div>
+                <span className="landmarks-panel-section-header__label">Selections</span>
               </div>
-            ))}
-            <div className="ds-type-row">
-              <div className="ds-type-meta">
-                <div>Shipped section label</div>
-                <div>landmarks-panel-section-header__label</div>
-              </div>
-              <span className="landmarks-panel-section-header__label">Selections</span>
             </div>
-          </div>
+          </WidgetStage>
         </StateCell>
       </DsSection>
       <IconButtonsSection />
@@ -322,10 +331,13 @@ export function ChromeSections() {
             hoverContent={<SelectionCard lm={base} index={0} snapshot={null} />}
           />
         </StateCell>
-        <StateCell state="LayersStackSection" stageClassName="max-h-80 overflow-auto">
+        <StateCell
+          state="LayersStackSection"
+          stageClassName="ds-dock-preview max-h-80 overflow-auto"
+        >
           <LayersStackSection lm={base} />
         </StateCell>
-        <StateCell state="LayersPanel" stageClassName="h-72 overflow-auto">
+        <StateCell state="LayersPanel" stageClassName="ds-dock-preview h-72 overflow-hidden">
           <LayersPanel lm={base} />
         </StateCell>
       </DsSection>

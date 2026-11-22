@@ -252,7 +252,11 @@ export function PseudospaceGroup({
 
   return (
     <div className="flex flex-col gap-1">
-      <div ref={groupRef} className="pseudospace-group" data-testid="pseudospace-group">
+      <div
+        ref={groupRef}
+        className="pseudospace-group landmarks-panel-nested"
+        data-testid="pseudospace-group"
+      >
         {hover != null ? (
           <p className="pseudospace-note text-xs tabular-nums" data-testid="pseudospace-readout">
             {hover.toFixed(2)}
