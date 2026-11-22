@@ -16,7 +16,10 @@ async function openLayersSection(page: import("@playwright/test").Page) {
   if ((await left.getAttribute("data-collapsed")) === "true") {
     await page.getByRole("button", { name: "Show left panel" }).click();
   }
-  await page.getByTestId("panel-section-layers").click();
+  const layers = page.getByTestId("panel-section-layers");
+  if (await layers.getByRole("button", { name: "Expand Layers" }).count()) {
+    await layers.click();
+  }
 }
 
 async function openImagePanel(page: import("@playwright/test").Page) {
