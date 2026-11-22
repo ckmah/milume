@@ -331,14 +331,18 @@ body {
   line-height: 1;
 }
 
+.ds-section[data-ds-section="layers"] {
+  --lm-dock-width: 22rem;
+}
+
 .ds-section[data-ds-section="layers"] .ds-state-grid {
-  grid-template-columns: minmax(17rem, 17rem);
+  grid-template-columns: minmax(22rem, 22rem);
 }
 
 .ds-dock-preview {
   box-sizing: border-box;
-  width: 17rem;
-  max-width: 17rem;
+  width: var(--lm-dock-width, 22rem);
+  max-width: var(--lm-dock-width, 22rem);
   overflow-x: hidden;
 }
 
@@ -357,7 +361,7 @@ body {
 .ds-section[data-ds-section="layers"] .ds-dock-preview.milume-widget.landmarks,
 .ds-section[data-ds-section="layers"] .ds-dock-preview .milume-widget.landmarks {
   width: 100%;
-  max-width: 17rem;
+  max-width: var(--lm-dock-width, 22rem);
   min-height: 0;
   padding-inline: 0;
 }

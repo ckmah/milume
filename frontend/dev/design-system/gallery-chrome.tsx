@@ -307,7 +307,11 @@ export function ChromeSections() {
         </StateCell>
       </DsSection>
 
-      <DsSection id="layers" title="Layers">
+      <DsSection
+        id="layers"
+        title="Layers"
+        note="Dock previews use 22rem to match the multi-open shell width budget."
+      >
         <StateCell state="PanelSectionHeader" stageClassName="ds-dock-preview">
           <PanelSectionHeader
             label="Layers"

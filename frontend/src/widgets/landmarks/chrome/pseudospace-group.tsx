@@ -300,10 +300,7 @@ export function PseudospaceGroup({
       ) : null}
       <div
         ref={groupRef}
-        className={cn(
-          "pseudospace-group landmarks-panel-nested",
-          !order.length && "pseudospace-group--empty",
-        )}
+        className={cn("pseudospace-group", !order.length && "pseudospace-group--empty")}
         data-testid="pseudospace-group"
       >
         {order.length ? (

@@ -1140,7 +1140,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-color: var(--tact-accent);
+  border: 1px dashed var(--tact-accent);
+  background: transparent;
 }
 
 .pseudospace-note--empty {
