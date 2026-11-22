@@ -17,7 +17,7 @@
   --tact-ink: #1a1a1a;
   --tact-muted: #3a3a3a;
   --tact-tone: rgba(26, 26, 26, 0.1);
-  --tact-accent: #3d7dff;
+  --tact-accent: var(--tact-mark);
   --tact-accent-ink: #111111;
   --tact-track: rgba(26, 26, 26, 0.28);
   --tact-range: rgba(26, 26, 26, 0.62);

@@ -384,7 +384,7 @@ One set for the main tool pill, View CTA, context L1/L2, Inspect pill, Inspect b
 | --- | --- | --- |
 | Toolbar surface | `TOOLBAR_CLASS` (`landmarks-float--toolbar landmarks-toolbar`) | `--lm-toolbar-h` 2.5rem, `--lm-toolbar-pad` / `--lm-toolbar-gap` 0.25rem, `--lm-toolbar-divider` (fg 22%) |
 | Icon hit / toggle item | `chromeHitClass` (`landmarks-hit`), `--wide`, `--text` | `--lm-hit-size` 2rem, `--lm-hit-radius` 0, idle `--lm-hit-fg` (fg 72%), hover `--lm-hit-hover-bg` (fg 9%), disabled 0.4 |
-| On state | `aria-pressed="true"`, `data-state="on"`, `aria-checked="true"`, or `chromeHitOnClass` | Fill `--tact-accent`, ink `--tact-accent-ink`. No side bar. Kept on hover. Sliding Explore tabs use the same fill |
+| On state | `aria-pressed="true"`, `data-state="on"`, `aria-checked="true"`, or `chromeHitOnClass` | Fill `--tact-accent` (the gold `--tact-mark`), ink `--tact-accent-ink`. No side bar. Kept on hover. Sliding Explore tabs use the same fill |
 | Slider row | `TactSliderRow` / `TactCapsuleSlider` / `TactSignedSlider` | caption (`--lm-caption`) · 1.75rem capsule, readout inside left, neutral `--lm-slider-fill`; ranges are the same capsule with two thumbs |
 | Chip / badge | `CHIP_CLASS` (`landmarks-chip`) | `--lm-chip-bg` card, `--lm-chip-fg` foreground, `--lm-chip-border` (fg 50% into card, ≥3:1 on glass and muted trays) |
 | Swatch edge | `.landmarks-layer-swatch` | `--lm-swatch-ring` (light only, fg 55%) |

@@ -100,7 +100,7 @@ test.describe("Tactical refinements #468", () => {
       const style = getComputedStyle(el);
       return { background: style.backgroundColor, color: style.color };
     });
-    expect(paint.background).toBe("rgb(61, 125, 255)");
+    expect(paint.background).toBe("rgb(237, 181, 74)");
     expect(paint.color).toBe("rgb(17, 17, 17)");
   });
 
