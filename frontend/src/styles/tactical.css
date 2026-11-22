@@ -815,12 +815,6 @@
   min-height: 14px;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-panel-section-header.landmarks-panel-row {
-  padding-inline-start: var(--lm-panel-inset);
-  padding-inline-end: var(--lm-edge-end);
-  box-sizing: border-box;
-}
-
 .milume-widget .landmarks__layers-panel .landmarks-panel-section-header__main {
   display: flex;
   gap: var(--lm-row-gap);
