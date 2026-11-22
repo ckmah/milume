@@ -23,46 +23,52 @@ export function useHarnessTheme(): HarnessTheme {
 }
 
 export function WidgetStage({
+  bare,
   children,
   className,
 }: {
+  bare?: boolean;
   children: ReactNode;
   className?: string;
 }) {
   const theme = useHarnessTheme();
   const [portal, setPortal] = useState<HTMLDivElement | null>(null);
-  return (
-    <div className="ds-widget-stage">
-      <WidgetPortalContext.Provider value={portal}>
-        <div
-          ref={setPortal}
-          className={cn(
-            "milume-widget landmarks relative w-full rounded-[var(--radius)] p-2.5",
-            theme === "dark" && "dark",
-            className,
-          )}
-          style={{ background: "var(--background)" }}
-        >
-          <TooltipProvider delayDuration={0}>{children}</TooltipProvider>
-        </div>
-      </WidgetPortalContext.Provider>
-    </div>
+  const widget = (
+    <WidgetPortalContext.Provider value={portal}>
+      <div
+        ref={setPortal}
+        className={cn(
+          "milume-widget landmarks relative w-full rounded-[var(--radius)] p-2.5",
+          theme === "dark" && "dark",
+          className,
+        )}
+        style={{ background: "var(--background)" }}
+      >
+        <TooltipProvider delayDuration={0}>{children}</TooltipProvider>
+      </div>
+    </WidgetPortalContext.Provider>
   );
+  if (bare) return widget;
+  return <div className="ds-widget-stage">{widget}</div>;
 }
 
 export function StateCell({
   state,
   children,
   stageClassName,
+  bare,
 }: {
   state: string;
   children: ReactNode;
   stageClassName?: string;
+  bare?: boolean;
 }) {
   return (
     <div data-ds-state={state}>
       <div className="ds-state-label">{state}</div>
-      <WidgetStage className={stageClassName}>{children}</WidgetStage>
+      <WidgetStage bare={bare} className={stageClassName}>
+        {children}
+      </WidgetStage>
     </div>
   );
 }

@@ -307,6 +307,9 @@ export function LayersPanel({
                     engine={engine}
                     order={pseudospaceOrder}
                     onOrder={setPseudospaceOrder}
+                    menuContainer={menuContainer}
+                    selectedKind={selected_kind}
+                    selectedIndex={selected_index}
                   />
                 ) : landmarks.length ? (
                   landmarks.map((lmItem, i) => {

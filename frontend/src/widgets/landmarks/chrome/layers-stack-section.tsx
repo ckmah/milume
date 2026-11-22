@@ -220,7 +220,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
   const imageBody = (
     <GroupBody
       open={imageOpen}
-      className="landmarks-layers-stack__nested landmarks-panel-nested landmarks-image-controls flex flex-col gap-1.5 pb-1"
+      className="landmarks-layers-stack__nested landmarks-image-controls flex flex-col gap-1.5 pb-1"
     >
       {multiImage
         ? displayChannels.flatMap((ch, index) => [
@@ -312,7 +312,7 @@ export function LayersStackSection({ lm }: { lm: LandmarksModel }) {
           </PanelRow>
           <GroupBody
             open={cellsOpen}
-            className="landmarks-layers-stack__nested landmarks-panel-nested flex flex-col gap-1.5 pb-1"
+            className="landmarks-layers-stack__nested flex flex-col gap-1.5 pb-1"
           >
             <TactSliderRow
               inline

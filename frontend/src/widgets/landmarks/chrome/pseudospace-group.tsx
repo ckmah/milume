@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { GripVerticalIcon, SparklesIcon } from "lucide-react";
+import { SparklesIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 import { decodeF32Base64 } from "../binary";
 import type { EngineHandle } from "../engine";
-import type { LandmarkItem } from "../helpers";
+import { landmarkColor, type LandmarkItem } from "../helpers";
 import { centroid, pseudospaceField, pseudospaceRgb, type Geom, type GeomKind } from "../pseudospace";
 import type { LandmarksModel } from "../use-landmarks-model";
-import { chromeHitClass, chromeHitOnClass } from "./primitives";
+import { chromeHitClass, chromeHitOnClass, LayerRow } from "./primitives";
 
 function kindOf(type: string): GeomKind {
   if (type === "line" || type === "spline" || type === "shape" || type === "point") return type;
@@ -71,18 +71,26 @@ export function PseudospaceGroup({
   engine,
   order,
   onOrder,
+  menuContainer,
+  selectedKind,
+  selectedIndex,
 }: {
   lm: LandmarksModel;
   engine: EngineHandle | null;
   order: readonly string[];
   onOrder: (next: string[]) => void;
+  menuContainer?: HTMLElement | null;
+  selectedKind: string;
+  selectedIndex: number;
 }) {
   const groupRef = useRef<HTMLDivElement>(null);
+  const outsideRef = useRef<HTMLDivElement>(null);
   const valuesRef = useRef<Float64Array | null>(null);
   const orderRef = useRef(order);
   orderRef.current = order;
   const [hover, setHover] = useState<number | null>(null);
   const dragRef = useRef<string | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   useEffect(() => {
     const ids = new Set(lm.landmarks.map((item) => String(item.id)));
@@ -163,22 +171,46 @@ export function PseudospaceGroup({
   const onPointerDown = (id: string) => (event: ReactPointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
     dragRef.current = id;
-    const finish = (up: PointerEvent) => {
-      window.removeEventListener("pointerup", finish, true);
+    setDraggingId(id);
+    document.body.classList.add("landmarks-pseudospace-dragging");
+    let settled = false;
+    const finish = (up: Event) => {
+      if (settled) return;
       const current = dragRef.current;
-      dragRef.current = null;
       if (!current) return;
+      settled = true;
+      window.removeEventListener("pointerup", finish, true);
+      window.removeEventListener("mouseup", finish, true);
+      dragRef.current = null;
+      setDraggingId(null);
+      document.body.classList.remove("landmarks-pseudospace-dragging");
+      const point =
+        up instanceof PointerEvent
+          ? { x: up.clientX, y: up.clientY }
+          : up instanceof MouseEvent
+            ? { x: up.clientX, y: up.clientY }
+            : null;
+      if (!point) return;
       const group = groupRef.current;
-      const box = group?.getBoundingClientRect();
-      const inside =
-        !!box &&
-        up.clientX >= box.left &&
-        up.clientX <= box.right &&
-        up.clientY >= box.top &&
-        up.clientY <= box.bottom;
+      const outsideBox = outsideRef.current?.getBoundingClientRect();
+      const inOutside =
+        !!outsideBox &&
+        point.x >= outsideBox.left &&
+        point.x <= outsideBox.right &&
+        point.y >= outsideBox.top &&
+        point.y <= outsideBox.bottom;
+      const groupBox = group?.getBoundingClientRect();
+      const inGroup =
+        !inOutside &&
+        !!groupBox &&
+        point.x >= groupBox.left &&
+        point.x <= groupBox.right &&
+        point.y >= groupBox.top &&
+        point.y <= groupBox.bottom;
+      const inside = inGroup;
       let insertAt: number | null = null;
       if (inside && group) {
-        const rows = [...group.querySelectorAll<HTMLElement>("[data-pseudospace-index]")].filter(
+        const rows = [...group.querySelectorAll<HTMLElement>("[data-pseudospace-id][data-pseudospace-index]")].filter(
           (row) => row.dataset.pseudospaceId !== current,
         );
         insertAt = rows.length;
@@ -186,7 +218,7 @@ export function PseudospaceGroup({
           const row = rows[i];
           if (!row) continue;
           const rowBox = row.getBoundingClientRect();
-          if (up.clientY < rowBox.top + rowBox.height / 2) {
+          if (point.y < rowBox.top + rowBox.height / 2) {
             insertAt = i;
             break;
           }
@@ -195,6 +227,7 @@ export function PseudospaceGroup({
       onOrder(place(orderRef.current, current, inside, insertAt));
     };
     window.addEventListener("pointerup", finish, true);
+    window.addEventListener("mouseup", finish, true);
   };
 
   const nudge = (id: string, dir: -1 | 1) => {
@@ -209,65 +242,82 @@ export function PseudospaceGroup({
   };
 
   const grouped = new Set(order);
-  const outside = lm.landmarks.filter((item) => !grouped.has(String(item.id)));
-  const byId = new Map(lm.landmarks.map((item) => [String(item.id), item]));
+  const byId = new Map(lm.landmarks.map((item, index) => [String(item.id), { item, index }] as const));
 
-  const row = (id: string, index: number | null) => {
-    const item = byId.get(id);
-    if (!item) return null;
+  const landmarkRow = (id: string, groupIndex: number | null) => {
+    const entry = byId.get(id);
+    if (!entry) return null;
+    const { item, index } = entry;
+    const inGroup = groupIndex != null;
     return (
       <div
         key={id}
-        className="pseudospace-row flex items-center gap-1"
-        data-testid={`pseudospace-row-${id}`}
         data-pseudospace-id={id}
-        data-pseudospace-index={index == null ? undefined : String(index)}
+        data-pseudospace-index={inGroup ? String(groupIndex) : undefined}
       >
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className={cn(chromeHitClass, "size-6")}
-          data-testid={`pseudospace-handle-${id}`}
-          aria-label={`Reorder ${id}`}
-          onPointerDown={onPointerDown(id)}
-          onKeyDown={(event) => {
-            if (event.key === "ArrowUp" || event.key === "ArrowDown") {
-              event.preventDefault();
-              nudge(id, event.key === "ArrowUp" ? -1 : 1);
-            }
+        <LayerRow
+          testId={inGroup ? `pseudospace-row-${id}` : undefined}
+          active={selectedKind === "landmark" && selectedIndex === index}
+          color={landmarkColor(item, index)}
+          swatchVariant="solid"
+          label={String(item.id)}
+          hidden={!!item.hidden}
+          menuContainer={menuContainer}
+          groupIndex={groupIndex ?? undefined}
+          onSelect={() => lm.select("landmark", index)}
+          onRename={(next) => lm.renameLandmark(index, next)}
+          onToggleHidden={() => lm.toggleLandmarkHidden(index)}
+          onDelete={() => lm.deleteLandmark(index)}
+          reorder={{
+            handleTestId: `pseudospace-handle-${id}`,
+            dragging: draggingId === id,
+            onPointerDown: onPointerDown(id),
+            onKeyDown: (event) => {
+              if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                event.preventDefault();
+                if (inGroup) nudge(id, event.key === "ArrowUp" ? -1 : 1);
+              }
+            },
           }}
-        >
-          <GripVerticalIcon className="size-3.5" />
-        </Button>
-        {index != null ? (
-          <span className="w-4 text-center text-xs tabular-nums" data-testid="pseudospace-index">
-            {index + 1}
-          </span>
-        ) : null}
-        <span className="truncate text-xs">{id}</span>
+        />
       </div>
     );
   };
 
+  const outside = lm.landmarks
+    .map((item) => String(item.id))
+    .filter((id) => !grouped.has(id));
+
   return (
-    <div className="flex flex-col gap-1">
+    <div className="landmarks-pseudospace flex flex-col gap-0.5">
+      {hover != null ? (
+        <p
+          className="pseudospace-note m-0 px-0 text-xs tabular-nums text-muted-foreground"
+          data-testid="pseudospace-readout"
+        >
+          {hover.toFixed(2)}
+        </p>
+      ) : null}
       <div
         ref={groupRef}
-        className="pseudospace-group landmarks-panel-nested"
+        className={cn(
+          "pseudospace-group landmarks-panel-nested",
+          !order.length && "pseudospace-group--empty",
+        )}
         data-testid="pseudospace-group"
       >
-        {hover != null ? (
-          <p className="pseudospace-note text-xs tabular-nums" data-testid="pseudospace-readout">
-            {hover.toFixed(2)}
-          </p>
-        ) : null}
-        {order.length ? order.map((id, index) => row(id, index)) : (
+        {order.length ? (
+          order.map((id, index) => landmarkRow(id, index))
+        ) : (
           <p className="pseudospace-note pseudospace-note--empty text-xs">Drag landmarks here</p>
         )}
       </div>
-      <div className="pseudospace-outside min-h-8" data-testid="pseudospace-outside">
-        {outside.map((item) => row(String(item.id), null))}
+      <div
+        ref={outsideRef}
+        className="pseudospace-outside flex flex-col gap-0.5"
+        data-testid="pseudospace-outside"
+      >
+        {outside.map((id) => landmarkRow(id, null))}
       </div>
     </div>
   );

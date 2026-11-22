@@ -232,7 +232,7 @@ Landmark cyan, magenta, and lime (and amber, violet, and mint) are for annotatio
 ### Hierarchy
 
 - **Body** (400, 0.875rem, line-height 1.4): widget copy that tactical does not retarget.
-- **Section header** (400, 12px, letter-spacing 0.14em, `font-variant: small-caps`): `.landmarks-panel-section-header__label` and `.landmarks-layer-label`. A closed header main is ink at 45%. An open header main is full `--tact-ink`.
+- **Section header** (400, 12px, letter-spacing 0.12em, uppercase): `.landmarks-panel-section-header__label`. A closed header main is ink at 45%. An open header main is full `--tact-ink`. Layer row names use `.landmarks-layer-label` at sentence case.
 - **Tact label** (400, 10px, letter-spacing 0.12em, uppercase): `.tact-label`, `.landmarks-section-label`, and `.landmarks-toolbar-caption`. Color is `--tact-muted`.
 - **Tab** (400, 11px, letter-spacing 0.08em, uppercase): `.tact-tab` and `.landmarks-sliding-tab`. Idle color is `--tact-muted`. Selected color is `--tact-accent-ink`.
 - **Switch** (400, 10px, letter-spacing 0.14em, small-caps): `.tact-switch`. The hot label is `--tact-ink`, and `--tact-on` (`#111111`) when checked.

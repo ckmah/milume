@@ -9,6 +9,7 @@ import {
   BoxIcon,
   CircleIcon,
   EllipsisVerticalIcon,
+  GripVerticalIcon,
   EyeIcon,
   EyeOffIcon,
   HandIcon,
@@ -296,6 +297,13 @@ export function PanelBand({
   );
 }
 
+export type LayerRowReorder = {
+  onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => void;
+  onKeyDown?: (event: React.KeyboardEvent<HTMLButtonElement>) => void;
+  handleTestId?: string;
+  dragging?: boolean;
+};
+
 export function LayerRow({
   active,
   color,
@@ -312,6 +320,8 @@ export function LayerRow({
   thumbnail,
   hoverContent,
   testId,
+  groupIndex,
+  reorder,
 }: {
   active: boolean;
   color?: string;
@@ -330,6 +340,8 @@ export function LayerRow({
   /** A hover card beside the row; mounted only while it is open. */
   hoverContent?: ReactNode;
   testId?: string;
+  groupIndex?: number;
+  reorder?: LayerRowReorder;
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(label);
@@ -354,6 +366,7 @@ export function LayerRow({
         disabled ? "cursor-default opacity-60" : "cursor-pointer",
         active && "landmarks-layer-row--active",
         hidden && "opacity-50",
+        reorder?.dragging && "landmarks-layer-row--dragging",
       )}
       tabIndex={disabled ? -1 : 0}
       onClick={(e) => {
@@ -367,7 +380,27 @@ export function LayerRow({
         }
       }}
       lead={
-        thumbnail ? (
+        reorder ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn(chromeHitClass, "landmarks-reorder-handle size-7 shrink-0")}
+            data-testid={reorder.handleTestId}
+            aria-label={`Reorder ${label}`}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+              reorder.onPointerDown(event);
+            }}
+            onKeyDown={(event) => {
+              event.stopPropagation();
+              reorder.onKeyDown?.(event);
+            }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <GripVerticalIcon className="size-3.5" aria-hidden />
+          </Button>
+        ) : thumbnail ? (
           <img
             data-testid="selection-thumb"
             src={thumbnail}
@@ -466,7 +499,7 @@ export function LayerRow({
         ) : (
           <span
             className={cn(
-              "max-w-full truncate text-[11px] text-foreground",
+              "flex min-w-0 max-w-full items-center gap-1.5 truncate text-[11px] text-foreground",
               active ? "font-medium" : "font-normal",
             )}
             title={label}
@@ -477,7 +510,15 @@ export function LayerRow({
               startRename();
             }}
           >
-            {label}
+            {groupIndex != null ? (
+              <span
+                className="w-4 shrink-0 text-center tabular-nums text-muted-foreground"
+                data-testid="pseudospace-index"
+              >
+                {groupIndex + 1}
+              </span>
+            ) : null}
+            <span className="truncate">{label}</span>
           </span>
         )}
       </div>

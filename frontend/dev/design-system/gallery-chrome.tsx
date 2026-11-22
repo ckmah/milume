@@ -57,7 +57,7 @@ import { INFO_HEAT_BINS } from "@/widgets/landmarks/chrome/info-stats";
 
 import { DESIGN_SYSTEM_GAPS } from "./sections";
 import { harnessModel, ONE_POINT_B64 } from "./fixture";
-import { DsSection, StateCell, WidgetStage } from "./stage";
+import { DsSection, StateCell } from "./stage";
 
 const noop = () => {};
 const LONG = "A channel name long enough to overflow the row";
@@ -204,44 +204,40 @@ export function ChromeSections() {
         title="Type"
         note="Tactical type from DESIGN.md. The shipped row mounts inside the widget so IBM Plex Mono and tact tokens apply."
       >
-        <StateCell state="Hierarchy">
-          <WidgetStage>
-            <div className="ds-type-list">
-              {(
+        <StateCell state="Hierarchy" bare>
+          <div className="ds-type-list ds-type-list--flat">
+            {(
+              [
+                ["Body", "400 · 0.875rem", "ds-type-body", "12,450 cells in view"],
                 [
-                  ["Body", "400 · 0.875rem", "ds-type-body", "12,450 cells in view"],
-                  ["Section header", "400 · 12px small-caps", "ds-type-section-label", "Selections"],
-                  [
-                    "Section header, closed",
-                    "ink at 45%",
-                    "ds-type-section-label ds-type-section-label--closed",
-                    "Landmarks",
-                  ],
-                  ["Tact label", "400 · 10px uppercase", "ds-type-tact-label", "Contrast"],
-                  ["Tab", "400 · 11px uppercase", "ds-type-tab", "Category"],
-                  ["Switch", "400 · 10px small-caps", "ds-type-switch", "Off · On"],
-                  ["Readout", "400 · 11px tabular", "ds-type-readout", "0.42"],
-                  ["Canvas legend", "400 · 10px", "ds-type-legend", "Region"],
-                  ["Ruler tick", "400 · 9px", "ds-type-tick", "120"],
-                ] as const
-              ).map(([role, spec, className, sample]) => (
-                <div key={role} className="ds-type-row">
-                  <div className="ds-type-meta">
-                    <div>{role}</div>
-                    <div>{spec}</div>
-                  </div>
-                  <div className={className}>{sample}</div>
-                </div>
-              ))}
-              <div className="ds-type-row">
+                  "Section header",
+                  "400 · 12px uppercase · landmarks-panel-section-header__label",
+                  "landmarks-panel-section-header__label",
+                  "Selections",
+                ],
+                [
+                  "Section header, closed",
+                  "ink at 45%",
+                  "landmarks-panel-section-header__label ds-type-section-label--closed",
+                  "Landmarks",
+                ],
+                ["Tact label", "400 · 10px uppercase", "ds-type-tact-label", "Contrast"],
+                ["Tab", "400 · 11px uppercase", "ds-type-tab", "Category"],
+                ["Switch", "400 · 10px small-caps", "ds-type-switch", "Off · On"],
+                ["Readout", "400 · 11px tabular", "ds-type-readout", "0.42"],
+                ["Canvas legend", "400 · 10px", "ds-type-legend", "Region"],
+                ["Ruler tick", "400 · 9px", "ds-type-tick", "120"],
+              ] as const
+            ).map(([role, spec, className, sample]) => (
+              <div key={role} className="ds-type-row">
                 <div className="ds-type-meta">
-                  <div>Shipped section label</div>
-                  <div>landmarks-panel-section-header__label</div>
+                  <div>{role}</div>
+                  <div>{spec}</div>
                 </div>
-                <span className="landmarks-panel-section-header__label">Selections</span>
+                <div className={className}>{sample}</div>
               </div>
-            </div>
-          </WidgetStage>
+            ))}
+          </div>
         </StateCell>
       </DsSection>
       <IconButtonsSection />

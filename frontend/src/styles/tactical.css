@@ -647,13 +647,19 @@
   font-family: var(--tact-mono);
 }
 
-.landmarks-layer-label,
 .landmarks-panel-section-header__label {
   font-family: var(--tact-mono);
   font-size: 12px;
   font-weight: 400;
-  font-variant: small-caps;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.landmarks-layer-label {
+  font-family: var(--tact-mono);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
   text-transform: none;
 }
 
@@ -959,16 +965,17 @@
 }
 
 .milume-widget .landmarks-overlay-scroll .pseudospace-group.landmarks-panel-nested {
-  margin-block: 0.25rem;
+  margin-block: 0.125rem;
   min-height: 2rem;
+  padding-block: 0.125rem;
 }
 
 .milume-widget .landmarks-overlay-scroll .landmarks-layers-stack__nested {
   box-sizing: border-box;
-  width: calc(100% + (2 * var(--lm-overlay-inset-x)));
-  margin-inline-start: calc(-1 * var(--lm-overlay-inset-x));
-  padding-left: var(--lm-text-start);
-  padding-right: var(--lm-edge-end);
+  width: 100%;
+  margin-inline: 0;
+  padding-left: 0;
+  padding-right: 0;
 }
 
 .milume-widget .landmarks__layers-panel .landmarks-layers-stack__nested .landmarks-slider-row {

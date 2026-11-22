@@ -230,6 +230,15 @@ body {
   gap: 0.85rem;
 }
 
+.ds-section[data-ds-section="type"] .ds-widget-stage,
+.ds-section[data-ds-section="type"] .milume-widget.landmarks {
+  padding: 0.75rem 1rem;
+}
+
+.ds-type-list--flat {
+  gap: 0.65rem;
+}
+
 .ds-type-row {
   display: grid;
   grid-template-columns: 11rem minmax(0, 1fr);
@@ -274,9 +283,8 @@ body {
   font-family: var(--tact-mono, "IBM Plex Mono", ui-monospace, monospace);
   font-size: 12px;
   font-weight: 400;
-  font-variant: small-caps;
-  letter-spacing: 0.14em;
-  text-transform: none;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .ds-type-section-label--closed {
