@@ -40,8 +40,10 @@ async function measureRows(page: Page) {
 }
 
 async function measureBand(page: Page) {
-  const shade = page.locator("[data-panel-shade]");
-  const band = page.locator("[data-panel-band='shade']");
+  const band = page
+    .getByTestId("panel-section-layers")
+    .locator("xpath=ancestor::section[@data-panel-band='shade'][1]");
+  const shade = band.locator("[data-panel-shade]");
   const dock = page.locator(".landmarks__layers-panel");
   const [shadeBox, bandBox, dockBox] = await Promise.all([
     shade.boundingBox(),
