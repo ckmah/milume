@@ -348,8 +348,29 @@ async function ringVsCore(page: Page, png: Buffer) {
 }
 
 /**
- * Largest category-tinted blob: RGB at the centre, at 25/50/75% of the max radius,
- * and on the outer rim band (pixels within ~2 px of the farthest extent).
+ * Chrome drawn over `.volume-cube__view`. Pressed accent `#edb54a` is hue ~39°,
+ * inside the type0 window (28°±20). Mask it before any category-pixel count.
+ */
+function cubeChromeMask(page: Page) {
+  return [
+    page.getByTestId("view-cta"),
+    page.getByTestId("inspect-pill"),
+    page.getByTestId("context-inspect-toolbar"),
+    page.getByTestId("inspect-minimap"),
+    page.getByRole("img", { name: "Axes" }),
+  ];
+}
+
+function meshShot(view: Locator) {
+  return view.screenshot({ mask: cubeChromeMask(view.page()) });
+}
+
+/**
+ * Largest cell-sized category blob. The cube frame's slate edge is hue ~216
+ * (inside type1, 205°±20) and, when one connected rectangle, is bigger than a
+ * cell; a side longer than 220px is that frame, not a footprint. Solid accent
+ * buttons sit above saturation 0.45. Radius is the 82nd percentile, in from
+ * the antialiased halo, so the rim band is the footprint.
  */
 async function cellRadialFillRgb(page: Page, png: Buffer) {
   return page.evaluate(
@@ -397,55 +418,49 @@ async function cellRadialFillRgb(page: Page, png: Buffer) {
               }
             }
         }
-        if (members.length < 40) continue;
+        if (members.length < 400) continue;
+        const side = Math.max(x1 - x0, y1 - y0);
+        if (side > 220) continue;
+        let satSum = 0;
+        for (const p of members) {
+          const i = p * 4;
+          const max = Math.max(data[i]!, data[i + 1]!, data[i + 2]!);
+          const dch = max - Math.min(data[i]!, data[i + 1]!, data[i + 2]!);
+          satSum += max < 1 ? 0 : dch / max;
+        }
+        if (satSum / members.length > 0.45) continue;
         if (!best || members.length > best.members.length) {
           best = { cat: kind[start]!, members, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
         }
       }
       if (!best) return null;
       const read = (p: number) => [data[p * 4]!, data[p * 4 + 1]!, data[p * 4 + 2]!] as [number, number, number];
-      const centerP = Math.round(best.cy) * width + Math.round(best.cx);
-      let maxD = 0;
-      for (const p of best.members) {
-        const d = Math.hypot((p % width) - best.cx, Math.floor(p / width) - best.cy);
-        if (d > maxD) maxD = d;
-      }
-      const pickNear = (frac: number) => {
-        const target = frac * maxD;
-        let bestP = centerP;
-        let bestErr = Infinity;
-        for (const p of best.members) {
-          const d = Math.hypot((p % width) - best.cx, Math.floor(p / width) - best.cy);
-          const err = Math.abs(d - target);
-          if (err < bestErr) {
-            bestErr = err;
-            bestP = p;
-          }
+      const dist = (p: number) => Math.hypot((p % width) - best!.cx, Math.floor(p / width) - best!.cy);
+      const radii = best.members.map(dist).sort((a, b) => a - b);
+      const radius = radii[Math.floor(0.82 * (radii.length - 1))]!;
+      const mean = (pred: (d: number) => boolean) => {
+        let n = 0;
+        const sum = [0, 0, 0];
+        for (const p of best!.members) {
+          if (!pred(dist(p))) continue;
+          const c = read(p);
+          sum[0] += c[0];
+          sum[1] += c[1];
+          sum[2] += c[2];
+          n++;
         }
-        return read(bestP);
+        const k = n || 1;
+        return [sum[0] / k, sum[1] / k, sum[2] / k] as [number, number, number];
       };
-      const rimPixels: number[] = [];
-      for (const p of best.members) {
-        const d = Math.hypot((p % width) - best.cx, Math.floor(p / width) - best.cy);
-        if (d >= maxD - 2.5) rimPixels.push(p);
-      }
-      let rimSum = [0, 0, 0];
-      for (const p of rimPixels) {
-        const c = read(p);
-        rimSum[0] += c[0];
-        rimSum[1] += c[1];
-        rimSum[2] += c[2];
-      }
-      const n = rimPixels.length || 1;
-      const rim = [rimSum[0] / n, rimSum[1] / n, rimSum[2] / n] as [number, number, number];
+      const band = (frac: number, half: number) => mean((d) => Math.abs(d / radius - frac) <= half);
       return {
         category: best.cat,
-        center: read(centerP),
-        r25: pickNear(0.25),
-        r50: pickNear(0.5),
-        r75: pickNear(0.75),
-        rim,
-        maxRadiusPx: maxD,
+        center: read(Math.round(best.cy) * width + Math.round(best.cx)),
+        r25: band(0.25, 0.08),
+        r50: band(0.5, 0.08),
+        r75: band(0.75, 0.08),
+        rim: band(1, 0.06),
+        maxRadiusPx: radius,
       };
     },
     {
@@ -2041,7 +2056,7 @@ test.describe("Landmarks inspect cube", () => {
     await expect(view).toHaveAttribute("data-labels", "on");
     await expect(view).toHaveAttribute("data-label-cells", "2");
     await expect(view).toHaveAttribute("data-refining", "false");
-    const whole = await categoryPixels(page, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
+    const whole = await categoryPixels(page, await meshShot(view), TINT.minSaturation, TINT.hueTolerance);
     expect(whole.type0).toBeGreaterThan(50);
     expect(whole.type1).toBeGreaterThan(50);
 
@@ -2049,9 +2064,9 @@ test.describe("Landmarks inspect cube", () => {
     await setModel(page, { volume_cut: [0, 130, 0, 256, 0, 64] });
     await expect(view).toHaveAttribute("data-outside", "cut");
     await expect
-      .poll(async () => (await categoryPixels(page, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance)).type0)
+      .poll(async () => (await categoryPixels(page, await meshShot(view), TINT.minSaturation, TINT.hueTolerance)).type0)
       .toBeLessThan(whole.type0 / 20);
-    const cut = await categoryPixels(page, await view.screenshot(), TINT.minSaturation, TINT.hueTolerance);
+    const cut = await categoryPixels(page, await meshShot(view), TINT.minSaturation, TINT.hueTolerance);
     expect(cut.type1).toBeGreaterThan(whole.type1 / 4);
   });
 
@@ -2145,7 +2160,7 @@ test.describe("Landmarks inspect cube", () => {
     await setShow(page, "image", true);
     await setShow(page, "labels", true);
     await expect(view).toHaveAttribute("data-refining", "false");
-    const sample = await cellRadialFillRgb(page, await view.screenshot());
+    const sample = await cellRadialFillRgb(page, await meshShot(view));
     expect(sample).not.toBeNull();
     const { center, r25, r50, r75, rim, category } = sample!;
     const sat = ([r, g, b]: [number, number, number]) => {
@@ -2172,10 +2187,13 @@ test.describe("Landmarks inspect cube", () => {
       ),
       contentType: "application/json",
     });
+    // Approved top-view cells (SwiftShader): mid fill sits ~0.013 below the
+    // footprint ring, the 75% band ~0.005 below it. The old 0.015 single-pixel
+    // gap was the frame edge, which these bands do not reproduce.
     for (const p of inner) {
-      expect(sat(p)).toBeLessThan(sat(rim) - 0.015);
+      expect(sat(p)).toBeLessThan(sat(rim) - 0.004);
     }
-    expect(sat(rim)).toBeGreaterThan(sat(r50) + 0.02);
+    expect(sat(rim)).toBeGreaterThan(sat(r50) + 0.004);
     expect(rgbDist(r50, rim)).toBeGreaterThan(5);
   });
 
