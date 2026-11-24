@@ -997,12 +997,6 @@
   border-top: 1px solid var(--lm-sub-rule);
 }
 
-.milume-widget .landmarks-panel-grid .pseudospace-outside:empty {
-  min-height: 0;
-  padding-block-start: 0;
-  border-top: 0;
-}
-
 .milume-widget .landmarks-overlay-scroll .landmarks-layers-stack__nested {
   box-sizing: border-box;
   width: 100%;
@@ -1064,16 +1058,7 @@
   text-indent: var(--lm-text-start);
 }
 
-/* Layers dock: flat shell; each major section is its own bracketed frame. */
-.milume-widget .landmarks__layers-panel.landmarks-float--panel {
-  border: 0 !important;
-  box-shadow: none !important;
-  background-color: transparent !important;
-  background-image: none !important;
-  -webkit-backdrop-filter: none !important;
-  backdrop-filter: none !important;
-}
-
+/* Layers dock keeps the float glass. Each major section is its own bracketed frame. */
 .milume-widget .landmarks__layers-panel .landmarks-panel-sections {
   gap: 0;
   padding: 0;

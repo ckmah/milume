@@ -48,7 +48,7 @@ test("cells visibility, micrometre diameter, image sliders, and scale bar", asyn
   await page.getByRole("button", { name: "Expand region" }).click();
   const regionList = page.locator(".group\\/cat").filter({ hasText: "Cortex" });
   await expect(page.getByTestId("category-row")).toHaveCount(3);
-  await expect(regionList.locator(".landmarks-layer-label")).toHaveCount(4);
+  await expect(regionList.locator("[data-group-row] .landmarks-layer-label")).toHaveCount(4);
   await expect(toggle).toHaveAttribute("aria-checked", "true");
 
   const size = page.getByTestId("layer-cells-point-size");
@@ -100,8 +100,11 @@ test("cells visibility, micrometre diameter, image sliders, and scale bar", asyn
   expect(rulePaint.fill).toBe("rgb(255, 255, 255)");
   const [scaleBox, miniBox] = await Promise.all([scale.boundingBox(), minimap.boundingBox()]);
   expect(scaleBox && miniBox).toBeTruthy();
-  expect(scaleBox!.x).toBeGreaterThan(miniBox!.x + miniBox!.width - 1);
-  expect(scaleBox!.x).toBeLessThan(miniBox!.x + miniBox!.width + 20);
+  // Minimap is bottom-right. The depth-rail slot, then the scale bar, sit to its left.
+  const gap = miniBox!.x - (scaleBox!.x + scaleBox!.width);
+  expect(gap).toBeGreaterThan(60);
+  expect(gap).toBeLessThan(140);
+  expect(Math.abs(scaleBox!.y + scaleBox!.height - (miniBox!.y + miniBox!.height))).toBeLessThan(2);
   await setModel(page, { _um_per_unit: 1_000_000 });
   await expect(scale).toContainText(/\d+(?:\.\d+)? mm/);
   await setModel(page, { _um_per_unit: 0 });

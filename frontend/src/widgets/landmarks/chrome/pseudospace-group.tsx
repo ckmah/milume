@@ -6,11 +6,10 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { SparklesIcon } from "lucide-react";
-import { LayoutGroup, motion } from "motion/react";
 
 import { Button } from "@/components/ui/button";
+import { ChromeLayoutGroup, LayoutSlot } from "@/components/ui/layout-slot";
 import { useChromeMotion } from "@/components/ui/reduced-motion";
-import { SPRING_LAYOUT } from "@/lib/motion-springs";
 import { cn } from "@/lib/utils";
 
 import { decodeF32Base64 } from "../binary";
@@ -150,7 +149,6 @@ export function PseudospaceGroup({
   const [dragSession, setDragSession] = useState<DragSession | null>(null);
   const [dragPoint, setDragPoint] = useState<{ x: number; y: number } | null>(null);
   const { reduce } = useChromeMotion();
-  const layoutOn = !reduce;
 
   useEffect(() => {
     const ids = new Set(lm.landmarks.map((item) => String(item.id)));
@@ -335,13 +333,9 @@ export function PseudospaceGroup({
         {isDragged ? (
           <div className="pseudospace-row-slot__gap" aria-hidden />
         ) : (
-          <motion.div
-            layout={layoutOn}
-            layoutId={layoutOn ? `pseudospace-landmark-${id}` : undefined}
-            transition={SPRING_LAYOUT}
-          >
+          <LayoutSlot layoutId={`pseudospace-landmark-${id}`}>
             {renderLayerRow(id, groupIndex, false)}
-          </motion.div>
+          </LayoutSlot>
         )}
       </div>
     );
@@ -382,7 +376,7 @@ export function PseudospaceGroup({
     .filter((id) => !grouped.has(id));
 
   return (
-    <LayoutGroup id="landmarks-pseudospace">
+    <ChromeLayoutGroup id="landmarks-pseudospace">
       <div
         className={cn(
           "landmarks-pseudospace",
@@ -408,6 +402,6 @@ export function PseudospaceGroup({
         </div>
       </div>
       {dragGhost}
-    </LayoutGroup>
+    </ChromeLayoutGroup>
   );
 }
