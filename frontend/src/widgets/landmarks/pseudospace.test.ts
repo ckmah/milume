@@ -53,6 +53,22 @@ describe("pseudospaceField", () => {
     assert.equal(field.valueMax, 2);
   });
 
+  it("keeps cells before the first and past the last on the nearest pair ratio", () => {
+    // DESIGN.md: value 0 is the first landmark and the ramp ends at the last.
+    // A cell off that span stays on the nearest consecutive pair:
+    // pairIndex + d0 / (d0 + d1). It is not clamped to 0 or to valueMax.
+    const ordered = [point("a", 0, 0), point("b", 10, 0), point("c", 20, 0)];
+    const field = pseudospaceField([cell(-10, 0), cell(0, 0), cell(20, 0), cell(30, 0)], ordered);
+    assert.ok(field);
+    assert.equal(field.valueMax, 2);
+    assert.equal(field.values[0], 10 / 30);
+    assert.equal(field.values[1], 0);
+    assert.equal(field.values[2], 2);
+    assert.equal(field.values[3], 1 + 20 / 30);
+    assert.notEqual(field.values[0], 0);
+    assert.notEqual(field.values[3], field.valueMax);
+  });
+
   it("paints a non-finite value with the neutral grey", () => {
     const empty = (id: string): Geom => ({ id, kind: "point", vertices: [] });
     const field = pseudospaceField([cell(1, 1)], [empty("a"), empty("b")]);
