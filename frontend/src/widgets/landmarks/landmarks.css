@@ -1146,6 +1146,13 @@
   min-height: calc(var(--lm-hit-size) + var(--lm-layer-row-h));
 }
 
+/* A short pseudospace list stays in the section. Proportional shrink was
+   parking the reorder handles under the next section, so the drag hit Layers.
+   A long list still shrinks to its min once the other sections are at theirs. */
+.landmarks__layers-panel .landmarks-panel-section--open:has(.landmarks-pseudospace) {
+  flex-shrink: 0.05;
+}
+
 .landmarks__layers-panel .landmarks-panel-section-header {
   flex: 0 0 auto;
   box-sizing: border-box;
