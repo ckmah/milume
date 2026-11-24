@@ -2035,11 +2035,13 @@ body.landmarks-pseudospace-dragging * {
   height: min(
     max-content,
     calc(
-      100% - var(--lm-chrome-band) - var(--lm-chrome-gap) - var(--lm-chrome-inset)
+      100% - var(--lm-chrome-band) - var(--lm-chrome-gap) - var(--lm-minimap-slot) -
+        var(--lm-chrome-inset)
     )
   );
   max-height: calc(
-    100% - var(--lm-chrome-band) - var(--lm-chrome-gap) - var(--lm-chrome-inset)
+    100% - var(--lm-chrome-band) - var(--lm-chrome-gap) - var(--lm-minimap-slot) -
+      var(--lm-chrome-inset)
   );
 }
 
@@ -2491,10 +2493,12 @@ body.landmarks-pseudospace-dragging * {
 .landmarks--overlay-fs .landmarks__chrome-dock--left {
   height: min(
     max-content,
-    calc(100% - var(--lm-chrome-band) - var(--lm-chrome-gap) - var(--lm-chrome-inset))
+    calc(
+      100% - var(--lm-chrome-band) - var(--lm-chrome-gap) - var(--lm-minimap-slot) - var(--lm-chrome-inset)
+    )
   );
   max-height: calc(
-    100% - var(--lm-chrome-band) - var(--lm-chrome-gap) - var(--lm-chrome-inset)
+    100% - var(--lm-chrome-band) - var(--lm-chrome-gap) - var(--lm-minimap-slot) - var(--lm-chrome-inset)
   );
 }
 
