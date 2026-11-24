@@ -1,4 +1,4 @@
-as_of: Mon Nov 23, 10:01 PM PT
+as_of: Tue Nov 24, 5:27 AM PT
 needs_you: 0
   (none)
 open_prs: 0
@@ -6,8 +6,7 @@ last_nightly: 2026-11-23 failure
 stale_prs: none
 red_nightlies: 2026-11-10, 2026-11-11, 2026-11-14, 2026-11-17, 2026-11-21, 2026-11-23
 last_red_nightly: 2026-11-23
-ci_failure_issues:
-  #492 Nightly landmarks e2e failed (2026-11-23)
+ci_failure_issues: none
 html: dashboard.html
 status: PUBLISH
-hash: eef3c2282e34
+hash: a8d37b2c4aa1
