@@ -1,14 +1,13 @@
-as_of: Mon Nov 23, 6:17 PM PT
+as_of: Mon Nov 23, 10:01 PM PT
 needs_you: 0
   (none)
-open_prs: 1
+open_prs: 0
 last_nightly: 2026-11-23 failure
-stale_prs:
-  #494 panel-grid-pseudospace-chrome (failing CI)
+stale_prs: none
 red_nightlies: 2026-11-10, 2026-11-11, 2026-11-14, 2026-11-17, 2026-11-21, 2026-11-23
 last_red_nightly: 2026-11-23
 ci_failure_issues:
   #492 Nightly landmarks e2e failed (2026-11-23)
 html: dashboard.html
 status: PUBLISH
-hash: dc640fddedf3
+hash: eef3c2282e34
