@@ -397,9 +397,9 @@
   color: var(--tact-muted);
   font-size: 10px;
   font-weight: 400;
-  font-variant: small-caps;
+  font-variant: normal;
   letter-spacing: 0.14em;
-  text-transform: none;
+  text-transform: uppercase;
 }
 
 .tact-switch--sm {
@@ -667,6 +667,10 @@
   color: var(--tact-ink);
 }
 
+.milume-widget .landmarks-cat-trigger:not(.landmarks-cat-trigger--active) .landmarks-layer-label {
+  color: color-mix(in srgb, var(--tact-ink) 70%, transparent);
+}
+
 .milume-widget .landmarks-layer-label.opacity-45,
 .milume-widget .landmarks-layer-row:has([role="switch"][aria-checked="false"]) .landmarks-layer-label {
   opacity: 1;
@@ -815,12 +819,6 @@
   min-height: 14px;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-panel-section-header.landmarks-panel-row {
-  padding-inline-start: 0;
-  padding-inline-end: var(--lm-edge-end);
-  box-sizing: border-box;
-}
-
 .milume-widget .landmarks__layers-panel .landmarks-panel-section-header__main {
   display: flex;
   gap: var(--lm-row-gap);
@@ -840,6 +838,12 @@
   grid-template-columns: var(--lm-lead) minmax(0, 1fr) auto;
   column-gap: var(--lm-row-gap);
   align-items: center;
+}
+
+.milume-widget [data-panel-row].landmarks-layer-row,
+.milume-widget [data-panel-row].landmarks-cat-trigger {
+  min-height: var(--lm-layer-row-h);
+  max-height: var(--lm-layer-row-h);
 }
 
 .milume-widget .landmarks-overlay-scroll [data-panel-row] {
@@ -945,16 +949,58 @@
   padding: 0.125rem 0 !important;
 }
 
-.milume-widget .landmarks-overlay-scroll .pseudospace-group {
+.milume-widget .landmarks-panel-grid .landmarks-pseudospace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lm-sub-gap);
+  width: 100%;
+  min-width: 0;
+}
+
+.milume-widget .landmarks-panel-grid .pseudospace-group {
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   width: 100%;
   margin-inline: 0;
-  margin-block: 0.125rem;
-  min-height: 2rem;
-  padding-block: 0.125rem;
+  padding-block: var(--lm-sub-gap);
   padding-inline: 0;
-  border: none;
-  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--tact-accent) 55%, var(--tact-edge));
+  background: color-mix(in srgb, var(--tact-accent) 6%, var(--tact-tone));
+  min-height: calc(var(--lm-hit-size) + var(--lm-sub-gap));
+}
+
+.milume-widget .landmarks-panel-grid .pseudospace-group__label {
+  margin: 0;
+  padding-inline: var(--lm-panel-pad);
+  padding-block-end: var(--lm-sub-gap);
+}
+
+.milume-widget .landmarks-panel-grid .pseudospace-group--empty {
+  align-items: center;
+  justify-content: center;
+  width: auto;
+  margin-inline: var(--lm-panel-pad);
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--tact-accent) 70%, transparent);
+  background: color-mix(in srgb, var(--tact-accent) 4%, transparent);
+}
+
+.milume-widget .landmarks-panel-grid .pseudospace-outside {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  width: 100%;
+  min-height: var(--lm-hit-size);
+  padding-block-start: var(--lm-sub-gap);
+  border-top: 1px solid var(--lm-sub-rule);
+}
+
+.milume-widget .landmarks-panel-grid .pseudospace-outside:empty {
+  min-height: 0;
+  padding-block-start: 0;
+  border-top: 0;
 }
 
 .milume-widget .landmarks-overlay-scroll .landmarks-layers-stack__nested {
@@ -965,14 +1011,207 @@
   padding-right: 0;
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-layers-stack__nested .landmarks-slider-row {
-  padding-left: 0;
-  padding-right: 0;
+.milume-widget .landmarks-panel-grid .landmarks-layers-stack {
+  gap: var(--lm-sub-gap);
 }
 
-.milume-widget .landmarks__layers-panel .landmarks-panel-section__body [data-slot="field-description"] {
-  padding-left: var(--lm-panel-pad);
-  padding-right: var(--lm-panel-pad);
+.milume-widget .landmarks-panel-grid .landmarks-layers-stack__row {
+  width: 100%;
+  min-width: 0;
+}
+
+.milume-widget .landmarks-panel-grid .landmarks-layers-stack__nested {
+  gap: var(--lm-sub-gap);
+  padding: 0;
+}
+
+.milume-widget .landmarks-panel-grid .landmarks-layers-stack__nested .landmarks-slider-row {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  padding-block: 0;
+  padding-inline-start: calc(var(--lm-panel-pad) + var(--lm-text-start));
+  padding-inline-end: var(--lm-panel-pad);
+}
+
+.milume-widget .landmarks-panel-grid .landmarks-layers-stack__nested .landmarks-slider-row--inline {
+  min-height: var(--lm-layer-row-h);
+  max-height: var(--lm-layer-row-h);
+}
+
+.milume-widget .landmarks-panel-grid .landmarks-layers-stack__nested .landmarks-slider-row--inline .tact-readout {
+  flex: 0 0 4.25rem;
+  width: 4.25rem;
+}
+
+.milume-widget .landmarks-panel-grid .landmarks-slider-caption {
+  font-size: 10px;
+  font-weight: 400;
+  font-variant: normal;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tact-muted);
+}
+
+.milume-widget .landmarks-trail-hit.landmarks-hit--on {
+  background: var(--tact-accent) !important;
+  color: var(--tact-accent-ink) !important;
+}
+
+.milume-widget .landmarks-panel-grid .landmarks-panel-section__body [data-slot="field-description"] {
+  padding-inline: var(--lm-panel-pad);
+  padding-block: 0;
+  text-indent: var(--lm-text-start);
+}
+
+/* Layers dock: flat shell; each major section is its own bracketed frame. */
+.milume-widget .landmarks__layers-panel.landmarks-float--panel {
+  border: 0 !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-sections {
+  gap: 0;
+  padding: 0;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-section + .landmarks-panel-section {
+  margin-top: -1px;
+}
+
+/*
+ * Panel grid inset: one rule for Layers framed bands and Explore category list.
+ * Rows own horizontal gutter (full-width washes); scroll owns bottom breath only.
+ */
+.milume-widget .landmarks-panel-grid [data-panel-row] {
+  box-sizing: border-box;
+  width: 100%;
+  margin-inline: 0;
+  padding-block: 0;
+  padding-inline-start: 0;
+  padding-inline-end: var(--lm-panel-pad);
+}
+
+.milume-widget .landmarks-panel-grid > .landmarks-panel-section-header,
+.milume-widget .landmarks-panel-grid > [data-panel-row].landmarks-panel-section-header {
+  height: auto;
+  min-height: var(--lm-hit-size);
+  max-height: none;
+  align-items: center;
+}
+
+.milume-widget
+  .landmarks-panel-grid
+  > .landmarks-panel-section-header:has([data-panel-end] .landmarks-trail-hit) {
+  min-height: calc(var(--lm-hit-size) + var(--lm-sub-gap));
+}
+
+.milume-widget .landmarks-panel-grid.landmarks-panel-section--open > .landmarks-panel-section-header {
+  padding-block: 0;
+  padding-inline-start: 0;
+  padding-inline-end: var(--lm-panel-pad);
+}
+
+.milume-widget .landmarks-panel-grid .landmarks-panel-section-header [data-panel-lead] .landmarks-panel-section-header__toggle {
+  box-sizing: border-box;
+  width: var(--lm-lead);
+  min-width: var(--lm-lead);
+  height: var(--lm-hit-size);
+  margin: 0;
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+}
+
+.milume-widget .landmarks-panel-grid [data-panel-lead] > .landmarks-cat-chevron,
+.milume-widget .landmarks-panel-grid [data-panel-lead] > .landmarks-panel-section-header__toggle,
+.milume-widget .landmarks-panel-grid [data-panel-lead] > .landmarks-hit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.milume-widget .landmarks-panel-grid .landmarks-panel-section-header__main {
+  gap: var(--lm-row-gap);
+  padding: 0;
+}
+
+.milume-widget .landmarks-panel-grid.landmarks-panel-section:not(.landmarks-panel-section--open)
+  > .landmarks-panel-section-header {
+  padding-block: var(--lm-panel-pad);
+}
+
+.milume-widget .landmarks-panel-grid .landmarks-panel-section__scroll {
+  --lm-overlay-inset-x: 0;
+  margin-inline-end: 0;
+  padding-inline: 0;
+  padding-block-end: calc(var(--lm-panel-pad) / 2);
+}
+
+.milume-widget .landmarks-panel-grid.landmarks-overlay-scroll {
+  --lm-overlay-inset-x: 0;
+  margin-inline-end: 0;
+  padding-inline-start: 0;
+  padding-inline-end: 8px;
+}
+
+.milume-widget .landmarks-panel-grid [data-group-rise],
+.milume-widget .landmarks-panel-grid [data-group-row],
+.milume-widget .landmarks-panel-grid .group\/cat {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Right explore stack: same horizontal gutter as category PanelRows (not generic px-2.5). */
+.milume-widget .landmarks__explore-panel .landmarks-panel-grid__inset-x {
+  box-sizing: border-box;
+  padding-inline: var(--lm-panel-pad);
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-band__plate {
+  display: none;
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-section {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--tact-edge);
+  background-color: var(--tact-surface);
+  background-image:
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule)),
+    linear-gradient(var(--tact-rule), var(--tact-rule));
+  background-size:
+    10px 1px, 1px 10px,
+    10px 1px, 1px 10px,
+    10px 1px, 1px 10px,
+    10px 1px, 1px 10px;
+  background-position:
+    0 0, 0 0,
+    100% 0, 100% 0,
+    0 100%, 0 100%,
+    100% 100%, 100% 100%;
+  background-repeat: no-repeat;
+  -webkit-backdrop-filter: var(--tact-blur);
+  backdrop-filter: var(--tact-blur);
+}
+
+.milume-widget .landmarks__layers-panel .landmarks-panel-section--open,
+.milume-widget .landmarks__layers-panel .landmarks-panel-section[data-panel-band="shade"] {
+  background-color: color-mix(in oklab, var(--tact-tone) 55%, var(--tact-surface));
 }
 
 .milume-widget .landmarks__explore-panel .landmarks-cat-avatars {
@@ -1014,5 +1253,19 @@
 .landmarks-load-card[data-phase="loading"] .landmarks__progress-bar {
   border-radius: 0;
   background: var(--tact-ink);
+}
+
+/* Coarse pointers (touch): enlarge chrome hits without changing the desktop grid. */
+@media (pointer: coarse) {
+  .milume-widget,
+  [data-milume-portal] {
+    --lm-hit-size: 44px;
+  }
+
+  .tact-menu-item,
+  [data-slot="dropdown-menu-item"] {
+    min-height: 44px;
+    align-items: center;
+  }
 }
 

@@ -1,4 +1,4 @@
-/** Geodesic pseudospace between consecutive landmark geometries. */
+/** Pseudospace field: geometry distance to ordered landmarks (no graph walk). */
 
 import { PSEUDOSPACE_COLORS } from "../../../../milume/static/pseudospace-colors.js";
 
@@ -13,10 +13,6 @@ export type Geom = {
 };
 
 export type Cell = { x: number; y: number };
-
-const KNN_K = 8;
-
-type Edge = { to: number; w: number };
 
 function hypot(ax: number, ay: number, bx: number, by: number) {
   return Math.hypot(ax - bx, ay - by);
@@ -90,68 +86,23 @@ function distanceToGeometry(x: number, y: number, geom: Geom) {
   return best;
 }
 
-function knn(cells: readonly Cell[], k: number): Edge[][] {
-  const adj: Edge[][] = cells.map(() => []);
-  for (let i = 0; i < cells.length; i++) {
-    const origin = cells[i];
-    if (!origin) continue;
-    const near: Edge[] = [];
-    for (let j = 0; j < cells.length; j++) {
-      if (i === j) continue;
-      const other = cells[j];
-      if (!other) continue;
-      near.push({ to: j, w: hypot(origin.x, origin.y, other.x, other.y) });
-    }
-    near.sort((a, b) => a.w - b.w);
-    for (const edge of near.slice(0, k)) {
-      adj[i]!.push(edge);
-      adj[edge.to]!.push({ to: i, w: edge.w });
-    }
-  }
-  return adj;
-}
-
-function geodesicToLandmark(cells: readonly Cell[], adj: readonly Edge[][], geom: Geom): Float64Array {
-  const eu = cells.map((cell) => distanceToGeometry(cell.x, cell.y, geom));
-  let nearest = Infinity;
-  for (const d of eu) if (d < nearest) nearest = d;
-  const cutoff = Math.max(nearest * 1.25, nearest + 1e-9);
+function distanceColumn(cells: readonly Cell[], geom: Geom): Float64Array {
   const dist = new Float64Array(cells.length);
-  dist.fill(Infinity);
   for (let i = 0; i < cells.length; i++) {
-    if ((eu[i] ?? Infinity) <= cutoff) dist[i] = eu[i] ?? 0;
-  }
-  const used = new Uint8Array(cells.length);
-  for (;;) {
-    let u = -1;
-    let best = Infinity;
-    for (let i = 0; i < dist.length; i++) {
-      if (!used[i] && (dist[i] ?? Infinity) < best) {
-        best = dist[i] ?? Infinity;
-        u = i;
-      }
-    }
-    if (u < 0 || best === Infinity) break;
-    used[u] = 1;
-    for (const edge of adj[u] ?? []) {
-      const next = (dist[u] ?? Infinity) + edge.w;
-      if (next < (dist[edge.to] ?? Infinity)) dist[edge.to] = next;
-    }
-  }
-  for (let i = 0; i < dist.length; i++) {
-    if (!Number.isFinite(dist[i])) dist[i] = eu[i] ?? 0;
+    const cell = cells[i];
+    dist[i] = cell ? distanceToGeometry(cell.x, cell.y, geom) : Infinity;
   }
   return dist;
 }
 
 /**
  * Value is 0 at the first landmark and `ordered.length - 1` at the last.
+ * Each cell uses Euclidean distance to landmark geometry (point / segment / shape).
  * Display labels are 1-based and are not this number.
  */
 export function pseudospaceField(cells: readonly Cell[], ordered: readonly Geom[]): { values: Float64Array; valueMax: number } | null {
   if (ordered.length < 2 || !cells.length) return null;
-  const adj = knn(cells, KNN_K);
-  const columns = ordered.map((geom) => geodesicToLandmark(cells, adj, geom));
+  const columns = ordered.map((geom) => distanceColumn(cells, geom));
   const values = new Float64Array(cells.length);
   for (let index = 0; index < cells.length; index++) {
     let pair = 0;

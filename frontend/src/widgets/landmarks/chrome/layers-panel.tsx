@@ -11,7 +11,7 @@ import { LayersStackSection, layersStackCount } from "./layers-stack-section";
 import { PanelSectionHeader } from "./panel-section-header";
 import type { EngineHandle } from "../engine";
 import { PseudospaceGroup, SparkleButton } from "./pseudospace-group";
-import { LayerRow, PanelBand } from "./primitives";
+import { LayerRow, PanelBand, PanelGridScroll } from "./primitives";
 import { useWidgetPortal } from "./widget-portal-context";
 import { SelectionCard } from "./selection-card";
 
@@ -90,11 +90,11 @@ function SectionBody({
   children: ReactNode;
 }) {
   return (
-    <div className="landmarks-panel-section__scroll landmarks-overlay-scroll">
+    <PanelGridScroll>
       <GroupBody open={open} className={className}>
         {children}
       </GroupBody>
-    </div>
+    </PanelGridScroll>
   );
 }
 
@@ -238,7 +238,7 @@ export function LayersPanel({
               />
               <SectionBody
                 open={sectionOpen("selections")}
-                className="landmarks-panel-section__body flex flex-col gap-0.5 px-0 pb-1.5"
+                className="landmarks-panel-section__body flex flex-col gap-0.5 px-0"
               >
                 {selections.length ? (
                   selections.map((sel, i) => (
@@ -301,7 +301,7 @@ export function LayersPanel({
               />
               <SectionBody
                 open={sectionOpen("landmarks")}
-                className="landmarks-panel-section__body flex flex-col gap-0.5 px-0 pb-1.5"
+                className="landmarks-panel-section__body flex flex-col gap-0.5 px-0"
               >
                 {grouping ? (
                   <PseudospaceGroup

@@ -23,8 +23,9 @@ import {
 import { GenesCombobox } from "./genes-legend";
 import { InfoPanel } from "./info-panel";
 import { MinimiseColorChip } from "./minimise-color-chip";
+import { PanelBand, PanelGridScroll } from "./primitives";
 import { RasterSection } from "./raster-section";
-import { EMBEDDED_PANEL, PANEL_INSET, PILL_TABS_TRIGGER, STACK_GAP_SM } from "./sections";
+import { EMBEDDED_PANEL, PILL_TABS_TRIGGER, STACK_GAP_SM } from "./sections";
 import { TactSlidingTabsList } from "./sliding-tabs";
 
 /**
@@ -75,34 +76,26 @@ export function RightChromeStack({
     <div
       className={cn(
         EMBEDDED_PANEL,
-        "landmarks__explore-panel flex h-full min-h-0 w-full flex-1 flex-col",
+        "landmarks__explore-panel landmarks-float-clip flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden pt-1.5",
       )}
       data-testid="info-explore-stack"
     >
+      {chipMode ? (
+        <MinimiseColorChip lm={lm} onExpand={() => onExpandRightCard?.()} />
+      ) : null}
       <div
         className={cn(
-          "landmarks__chrome-stack landmarks-float-clip flex h-full min-h-0 w-full flex-1 flex-col overflow-hidden",
-          // Top inset on the stack; bottom inset is a shrink-0 spacer below the
-          // scrollport so it never steals height from the controls.
-          "pt-1.5",
+          "landmarks__chrome-stack-body flex min-h-0 flex-1 flex-col",
+          chipMode && "hidden",
         )}
       >
-        {chipMode ? (
-          <MinimiseColorChip lm={lm} onExpand={() => onExpandRightCard?.()} />
-        ) : null}
-        <div
-          className={cn(
-            "landmarks__chrome-stack-body flex min-h-0 flex-1 flex-col",
-            chipMode && "hidden",
-          )}
-        >
         <Tabs
           value={colorBy}
           onValueChange={onColorBy}
           className="flex min-h-0 flex-1 flex-col gap-2"
           data-testid="explore-color-by"
         >
-          <div className={cn("shrink-0", PANEL_INSET)}>
+          <div className="landmarks-panel-grid__inset-x shrink-0">
             <TactSlidingTabsList value={colorBy} aria-label="Color">
               {(lm.category_columns?.length ?? 0) > 0 ? (
                 <TabsTrigger value="categories" className={PILL_TABS_TRIGGER}>
@@ -124,47 +117,42 @@ export function RightChromeStack({
             {detail}
           </span>
 
-          <div className={cn("shrink-0", PANEL_INSET)}>
+          <div className="landmarks-panel-grid__inset-x shrink-0">
             <InfoPanel lm={lm} engine={engine} embedded bare />
           </div>
 
-          <div className={cn("shrink-0", PANEL_INSET)}>
+          <div className="landmarks-panel-grid__inset-x shrink-0">
             <RasterSection lm={lm} />
           </div>
 
-          {/* Match left Layers: overlay-scroll owns inline pad + scrollbar lane. */}
-          <div
-            className="landmarks-overlay-scroll min-h-0 flex-1"
-            data-testid="explore-panel"
-          >
-            <div data-testid="explore-color-controls">
-              <TabsContent value="categories" className="m-0 flex-none">
-                <CategoriesControls lm={lm} signal={colorBy} />
-              </TabsContent>
-              <TabsContent value="numeric" className="m-0 flex-none">
-                <NumericObsCombobox lm={lm} />
-              </TabsContent>
-              <TabsContent value="genes" className="m-0 flex-none">
-                {lm.gene_names.length ? (
-                  <GenesCombobox lm={lm} />
-                ) : (
-                  <FieldDescription>
-                    No genes loaded. Pass genes=… to LandmarksWidget (default:
-                    all var names) or call set_expression.
-                  </FieldDescription>
-                )}
-              </TabsContent>
-              <TabsContent value="embedding" className="m-0 flex-none">
-                <div className={STACK_GAP_SM}>
-                  <EmbeddingCombobox lm={lm} />
-                </div>
-              </TabsContent>
-            </div>
-          </div>
+          <PanelBand className="landmarks-panel-section--open flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            <PanelGridScroll data-testid="explore-panel">
+              <div data-testid="explore-color-controls">
+                <TabsContent value="categories" className="m-0 flex-none">
+                  <CategoriesControls lm={lm} signal={colorBy} />
+                </TabsContent>
+                <TabsContent value="numeric" className="m-0 flex-none">
+                  <NumericObsCombobox lm={lm} />
+                </TabsContent>
+                <TabsContent value="genes" className="m-0 flex-none">
+                  {lm.gene_names.length ? (
+                    <GenesCombobox lm={lm} />
+                  ) : (
+                    <FieldDescription>
+                      No genes loaded. Pass genes=… to LandmarksWidget (default:
+                      all var names) or call set_expression.
+                    </FieldDescription>
+                  )}
+                </TabsContent>
+                <TabsContent value="embedding" className="m-0 flex-none">
+                  <div className={STACK_GAP_SM}>
+                    <EmbeddingCombobox lm={lm} />
+                  </div>
+                </TabsContent>
+              </div>
+            </PanelGridScroll>
+          </PanelBand>
         </Tabs>
-        {/* Matches pt-1.5; shrink-0 so it stays when the dock hits max-height. */}
-        <div className="h-1.5 shrink-0" aria-hidden />
-        </div>
       </div>
     </div>
   );

@@ -71,20 +71,19 @@
       }
 
       /*
-        Marimo edit-mode output cell. max-height, padding, and overflow match
-        .marimo-cell.interactive .output-area and .output-area in
-        marimo-team/marimo frontend/src/css/app/Cell.css (a8d229e).
-        Width is the medium app column, --content-width-medium in
-        frontend/src/css/app/App.css (same commit). The column is a max width,
-        so a narrow viewport still shrinks the cell.
+        Marimo edit-mode output cell width and padding match
+        .marimo-cell.interactive .output-area in marimo-team/marimo
+        frontend/src/css/app/Cell.css (a8d229e). Width is the medium app
+        column, --content-width-medium in frontend/src/css/app/App.css (same
+        commit). No max-height here: the widget defaults to 550px (marimo cell
+        content height) and the shell resize handle can grow it for dev tests.
       */
       .harness-cell-output {
         box-sizing: border-box;
         width: min(100%, 1110px);
-        max-height: 610px;
         margin-inline: auto;
         padding: 1rem;
-        overflow: auto;
+        overflow: visible;
         /* Flat notebook cell — avoid card-like radius/shadow that nests float panels. */
         background: var(--harness-cell-bg);
       }

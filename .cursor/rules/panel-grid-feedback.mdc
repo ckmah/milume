@@ -1,0 +1,52 @@
+---
+description: Interpret Landmarks panel spacing feedback (browser pick or plain text) into landmarks-panel-grid token/rule edits only.
+alwaysApply: true
+---
+
+# Panel grid — user feedback interpreter
+
+Clarence does not need to name DOM nodes or CSS layers. When he picks something in the harness preview or describes spacing in ordinary language, **you** classify the target and edit only the contract below.
+
+## Contract (single implementation surface)
+
+- **Shell:** `landmarks-panel-grid` on framed `PanelBand` and the explore category scroll (`right-stack.tsx`).
+- **CSS:** one block in `frontend/src/styles/tactical.css` under `.milume-widget .landmarks-panel-grid …`.
+- **Tokens:** `--lm-panel-pad`, `--lm-edge-end`, `--lm-text-start`, `--lm-layer-row-h` on `.milume-widget`.
+- **Spec:** `frontend/e2e/landmarks/panel-grid.spec.ts`.
+
+Do not add per-dock padding, scroll inline inset, or `padding-block` on `[data-panel-row].landmarks-layer-row`. Do not reintroduce `padding-inline: 0` on section headers.
+
+## Map `browser_element` picks (dom_path / class / visible_text)
+
+| Signal | Layer | Allowed change |
+| --- | --- | --- |
+| `section.landmarks-panel-section`, brackets, “SELECTIONS …” whole box | **frame** | section `padding` stays 0; bracket/tone only |
+| `landmarks-panel-section__scroll`, list area below header | **scroll breath** | `padding-block-end` on `.landmarks-panel-grid .landmarks-panel-section__scroll`; explore scroll keeps 8px scrollbar lane |
+| `landmarks-panel-section-header`, “SELECTIONS” header row | **header row** | block start / collapsed block via `.landmarks-panel-grid.landmarks-panel-section… > .landmarks-panel-section-header`; horizontal gutter comes from grid row rule |
+| `data-panel-row` + `landmarks-layer-row`, item labels (lasso, Cortex, …) | **body row** | `.landmarks-panel-grid [data-panel-row]` inline gutters only |
+| `explore-panel`, category list container | **grid scope** | ensure `landmarks-panel-grid` on scroll; same row rule |
+| User CSS edit `padding` on scroll | **reject pattern** | move inset to row rule or token |
+| User CSS edit `padding: 10px` on row | **reject pattern** | inline only; never block pad (fixed row height) |
+
+Use `component_stack` / `visible_text` only to disambiguate; implementation always goes through the table above.
+
+## Plain-language → action (no jargon required)
+
+| User says (examples) | You do |
+| --- | --- |
+| “too tight / flush” on **right or bottom** | try ↑ `--lm-panel-pad` or scroll `padding-block-end`; check row `padding-inline-end` uses `--lm-edge-end` |
+| “icons / chevron don’t line up” | verify header is not stripping inline pad; one `.landmarks-panel-grid [data-panel-row]` rule for header + body |
+| “highlight / grey bar doesn’t span” or “black bars on sides” | row must live under `landmarks-panel-grid`; row `width: 100%`; parent wrappers `w-full`; kill scroll horizontal pad |
+| “text clipped / cut off vertically” | remove block padding on rows; never ship browser `padding: 10px` all sides on layer rows |
+| “more space under last item” | scroll `padding-block-end`, not section padding |
+| “only explore” / “only left panel” | still edit shared `landmarks-panel-grid` or tokens unless Clarence explicitly wants a product exception in DESIGN.md |
+
+## Your reply pattern
+
+1. One sentence: what layer you heard (frame / scroll breath / header / body row / token).
+2. What you changed (token name or panel-grid rule), not a list of selectors unless he asks.
+3. Remind him: pick + “still off on the right” is enough; no need to name components.
+
+## Verify
+
+After spacing changes touching tactical or panel chrome: `cd frontend && npx playwright test e2e/landmarks/panel-grid.spec.ts`.
