@@ -18,15 +18,15 @@ function hypot(ax: number, ay: number, bx: number, by: number) {
   return Math.hypot(ax - bx, ay - by);
 }
 
-function segmentDistance(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
+function closestOnSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number) {
   const dx = bx - ax;
   const dy = by - ay;
   const len2 = dx * dx + dy * dy;
-  if (len2 === 0) return hypot(px, py, ax, ay);
+  if (len2 === 0) return { x: ax, y: ay };
   let t = ((px - ax) * dx + (py - ay) * dy) / len2;
   if (t < 0) t = 0;
   else if (t > 1) t = 1;
-  return hypot(px, py, ax + t * dx, ay + t * dy);
+  return { x: ax + t * dx, y: ay + t * dy };
 }
 
 function splinePolyline(vertices: readonly { x: number; y: number }[], steps = 8) {
@@ -68,22 +68,49 @@ function polyline(geom: Geom) {
   return geom.vertices;
 }
 
-function distanceToGeometry(x: number, y: number, geom: Geom) {
+function closestPoint(x: number, y: number, geom: Geom): { x: number; y: number } | null {
   const vertices = polyline(geom);
-  if (!vertices.length) return Infinity;
+  if (!vertices.length) return null;
   const first = vertices[0];
-  if (!first) return Infinity;
-  if (vertices.length === 1) return hypot(x, y, first.x, first.y);
-  let best = Infinity;
+  if (!first) return null;
+  if (vertices.length === 1) return { x: first.x, y: first.y };
+  let bestD = Infinity;
+  let best = { x: first.x, y: first.y };
   const closed = geom.kind === "shape";
   const n = closed ? vertices.length : vertices.length - 1;
   for (let i = 0; i < n; i++) {
     const a = vertices[i];
     const b = vertices[(i + 1) % vertices.length];
     if (!a || !b) continue;
-    best = Math.min(best, segmentDistance(x, y, a.x, a.y, b.x, b.y));
+    const point = closestOnSegment(x, y, a.x, a.y, b.x, b.y);
+    const d = hypot(x, y, point.x, point.y);
+    if (d < bestD) {
+      bestD = d;
+      best = point;
+    }
   }
   return best;
+}
+
+function distanceToGeometry(x: number, y: number, geom: Geom) {
+  const point = closestPoint(x, y, geom);
+  if (!point) return Infinity;
+  return hypot(x, y, point.x, point.y);
+}
+
+/**
+ * t = 0 at the closest point on the first geometry of the pair, t = 1 at the
+ * closest point on the second. t < 0 is beyond the first, t > 1 beyond the second.
+ */
+function pairProjection(cell: Cell, first: Geom, second: Geom): number {
+  const c0 = closestPoint(cell.x, cell.y, first);
+  const c1 = closestPoint(cell.x, cell.y, second);
+  if (!c0 || !c1) return Number.NaN;
+  const dx = c1.x - c0.x;
+  const dy = c1.y - c0.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return 0;
+  return ((cell.x - c0.x) * dx + (cell.y - c0.y) * dy) / len2;
 }
 
 function distanceColumn(cells: readonly Cell[], geom: Geom): Float64Array {
@@ -98,6 +125,8 @@ function distanceColumn(cells: readonly Cell[], geom: Geom): Float64Array {
 /**
  * Value is 0 at the first landmark and `ordered.length - 1` at the last.
  * Each cell uses Euclidean distance to landmark geometry (point / segment / shape).
+ * A cell whose nearest pair is the first and whose projection t is < 0, or whose
+ * nearest pair is the last and t is > 1, is outside the span and gets NaN.
  * Display labels are 1-based and are not this number.
  */
 export function pseudospaceField(cells: readonly Cell[], ordered: readonly Geom[]): { values: Float64Array; valueMax: number } | null {
@@ -116,7 +145,17 @@ export function pseudospaceField(cells: readonly Cell[], ordered: readonly Geom[
     }
     const d0 = columns[pair]?.[index] ?? 0;
     const d1 = columns[pair + 1]?.[index] ?? 0;
-    if (!Number.isFinite(d0) || !Number.isFinite(d1)) {
+    const cell = cells[index];
+    const geom0 = ordered[pair];
+    const geom1 = ordered[pair + 1];
+    if (!cell || !geom0 || !geom1 || !Number.isFinite(d0) || !Number.isFinite(d1)) {
+      values[index] = Number.NaN;
+      continue;
+    }
+    const t = pairProjection(cell, geom0, geom1);
+    const beyondStart = pair === 0 && t < 0;
+    const beyondEnd = pair === ordered.length - 2 && t > 1;
+    if (!Number.isFinite(t) || beyondStart || beyondEnd) {
       values[index] = Number.NaN;
       continue;
     }

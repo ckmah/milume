@@ -53,20 +53,44 @@ describe("pseudospaceField", () => {
     assert.equal(field.valueMax, 2);
   });
 
-  it("keeps cells before the first and past the last on the nearest pair ratio", () => {
-    // DESIGN.md: value 0 is the first landmark and the ramp ends at the last.
-    // A cell off that span stays on the nearest consecutive pair:
-    // pairIndex + d0 / (d0 + d1). It is not clamped to 0 or to valueMax.
+  it("gives no value outside the span and keeps interior cells", () => {
     const ordered = [point("a", 0, 0), point("b", 10, 0), point("c", 20, 0)];
-    const field = pseudospaceField([cell(-10, 0), cell(0, 0), cell(20, 0), cell(30, 0)], ordered);
+    const beside = Math.hypot(10, 5);
+    const field = pseudospaceField(
+      [cell(-10, 0), cell(0, 0), cell(5, 0), cell(10, 5), cell(15, 0), cell(20, 0), cell(30, 0)],
+      ordered,
+    );
     assert.ok(field);
     assert.equal(field.valueMax, 2);
-    assert.equal(field.values[0], 10 / 30);
-    assert.equal(field.values[1], 0);
-    assert.equal(field.values[2], 2);
-    assert.equal(field.values[3], 1 + 20 / 30);
-    assert.notEqual(field.values[0], 0);
-    assert.notEqual(field.values[3], field.valueMax);
+    const shown = (value: number) => (Number.isFinite(value) ? value : null);
+    assert.equal(shown(field.values[0]!), null);
+    assert.equal(shown(field.values[1]!), 0);
+    assert.equal(shown(field.values[2]!), 0.5);
+    assert.equal(shown(field.values[3]!), beside / (beside + 5));
+    assert.equal(shown(field.values[4]!), 1.5);
+    assert.equal(shown(field.values[5]!), 2);
+    assert.equal(shown(field.values[6]!), null);
+    assert.deepEqual(pseudospaceRgb(field.values[0]!, field.valueMax, true), [
+      ...PSEUDOSPACE_COLORS.neutral.dark,
+    ]);
+    assert.deepEqual(pseudospaceRgb(field.values[6]!, field.valueMax, false), [
+      ...PSEUDOSPACE_COLORS.neutral.light,
+    ]);
+  });
+
+  it("treats a line the same way: t < 0 beyond the first geometry is outside", () => {
+    const line: Geom = {
+      id: "line",
+      kind: "line",
+      vertices: [
+        { x: 0, y: -1 },
+        { x: 0, y: 1 },
+      ],
+    };
+    const field = pseudospaceField([cell(-4, 0), cell(4, 0)], [line, point("b", 10, 0)]);
+    assert.ok(field);
+    assert.equal(Number.isFinite(field.values[0]), false);
+    assert.equal(field.values[1], 0.4);
   });
 
   it("paints a non-finite value with the neutral grey", () => {
