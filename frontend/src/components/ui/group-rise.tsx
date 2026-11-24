@@ -81,7 +81,7 @@ export function GroupBody({
             <motion.div
               key={rowKey(row, index)}
               data-group-row=""
-              className="min-w-0"
+              className="min-w-0 w-full"
               variants={variants.row}
             >
               {row}

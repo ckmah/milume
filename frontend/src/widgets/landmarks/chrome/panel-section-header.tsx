@@ -14,9 +14,7 @@ export type PanelSectionPin = {
   clearLabel: string;
 };
 
-/**
- * Fixed 32px accordion header for the left dock (Selections / Landmarks / Layers).
- */
+/** Accordion header for the left dock (Selections / Landmarks / Layers). */
 export function PanelSectionHeader({
   label,
   open,

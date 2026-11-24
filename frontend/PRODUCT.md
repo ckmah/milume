@@ -87,4 +87,23 @@ Do not fabricate testimonials, case studies, benchmarks, or customer logos. Scre
 
 ## Accessibility & Inclusion
 
-Widget chrome (React/shadcn controls, labels, sliders, accordions) must meet WCAG 2.1 AA. Canvas-based spatial drawing (deck.gl landmarks layer) follows platform expectations for pointer interaction; document keyboard gaps where canvas semantics cannot fully map.
+Widget chrome (React/shadcn controls, labels, sliders, accordions) must meet WCAG 2.1 AA. Canvas-based spatial drawing (deck.gl landmarks layer) is pointer-primary: lasso, rectangle, and freehand landmark geometry require pointer or stylus input on the plot. Chrome around the canvas is fully keyboard-reachable.
+
+**Chrome keyboard paths (Landmarks)**
+
+| Input | Action |
+| ----- | ------ |
+| Tab / Shift+Tab | Move focus across toolbar, docks, sliders, and menus inside the widget |
+| Arrow keys on toolbar | Change interaction mode when focus is on the tool cluster |
+| `[` / `]` | Toggle collapse of the left / right dock (ignored while typing in an input) |
+| Shift+`\` | Toggle minimise mode (panel bodies fold to headers) |
+| Escape | Close open context menus; exit transient overlays per focused control |
+| F | Exit widget fullscreen when fullscreen is active |
+| Arrow keys on pseudospace reorder handles | Reorder landmarks inside a pseudospace group |
+| Depth rail (when focused) | Arrow keys step Z (Shift multiplies step); Escape cancels an in-progress drag |
+
+**Shell resize** — The bottom **Resize height** control is a focusable button; it adjusts widget height with pointer drag and keeps the same focus ring as toolbar hits.
+
+**Touch** — On coarse pointers, chrome hits expand to 44px and menu rows meet a 44px minimum height without changing the desktop layout. See `DESIGN.md` (Accessibility).
+
+**Known gaps** — Plot pan, zoom, and region drawing do not expose a complete keyboard-only equivalent to mouse paths. Users can change modes, adjust layers, and drive analysis chrome from the keyboard while using pointer input on the map.

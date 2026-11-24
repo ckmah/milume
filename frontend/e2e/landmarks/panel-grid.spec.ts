@@ -20,9 +20,12 @@ async function measureRows(page: Page) {
     const row = rows.nth(i);
     const box = await row.boundingBox();
     if (!box || box.width < 8 || box.height < 8) continue;
-    const dock = row.locator("xpath=ancestor::*[contains(@class,'landmarks-float--panel')][1]");
-    const dockBox = await dock.boundingBox();
-    expect(dockBox).toBeTruthy();
+    const pad = Number.parseFloat(
+      await row.evaluate((el) => getComputedStyle(el).paddingLeft),
+    );
+    const edgeEnd = Number.parseFloat(
+      await row.evaluate((el) => getComputedStyle(el).paddingRight),
+    );
     const text = row.locator("[data-panel-text]");
     const lead = row.locator("[data-panel-lead]");
     const end = row.locator("[data-panel-end]");
@@ -32,10 +35,12 @@ async function measureRows(page: Page) {
       end.boundingBox(),
     ]);
     expect(textBox && leadBox && endBox).toBeTruthy();
-    expect(Math.abs(textBox!.x - (dockBox!.x + 36))).toBeLessThan(2);
+    const originX = box!.x + pad;
+    const endX = box!.x + box!.width - edgeEnd;
+    expect(Math.abs(textBox!.x - (originX + 36))).toBeLessThan(2);
     expect(Math.abs(leadBox!.width - 32)).toBeLessThan(1);
-    expect(Math.abs(leadBox!.x - dockBox!.x)).toBeLessThan(2);
-    expect(Math.abs(endBox!.x + endBox!.width - (dockBox!.x + dockBox!.width - 20))).toBeLessThan(2);
+    expect(Math.abs(leadBox!.x - originX)).toBeLessThan(2);
+    expect(Math.abs(endBox!.x + endBox!.width - endX)).toBeLessThan(2);
   }
 }
 
@@ -43,17 +48,14 @@ async function measureBand(page: Page) {
   const band = page
     .getByTestId("panel-section-layers")
     .locator("xpath=ancestor::section[@data-panel-band='shade'][1]");
-  const shade = band.locator("[data-panel-shade]");
   const dock = page.locator(".landmarks__layers-panel");
-  const [shadeBox, bandBox, dockBox] = await Promise.all([
-    shade.boundingBox(),
-    band.boundingBox(),
-    dock.boundingBox(),
-  ]);
-  expect(shadeBox && bandBox && dockBox).toBeTruthy();
-  expect(Math.abs(shadeBox!.x - (dockBox!.x + 4))).toBeLessThan(2);
-  expect(Math.abs(shadeBox!.x + shadeBox!.width - (dockBox!.x + dockBox!.width - 4))).toBeLessThan(2);
-  expect(Math.abs(shadeBox!.y + shadeBox!.height - (bandBox!.y + bandBox!.height))).toBeLessThan(2);
+  const [bandBox, dockBox] = await Promise.all([band.boundingBox(), dock.boundingBox()]);
+  expect(bandBox && dockBox).toBeTruthy();
+  // The framed section is the band. It spans the dock; the shade plate stays hidden
+  // so it does not cover the section's corner brackets.
+  expect(Math.abs(bandBox!.width - dockBox!.width)).toBeLessThan(4);
+  expect(bandBox!.x).toBeGreaterThanOrEqual(dockBox!.x - 1);
+  expect(bandBox!.x + bandBox!.width).toBeLessThanOrEqual(dockBox!.x + dockBox!.width + 1);
   await expect(page.locator(".landmarks__explore-panel [data-panel-rule]")).toHaveCount(0);
 }
 

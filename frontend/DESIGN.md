@@ -204,7 +204,16 @@ Light is the unmarked mode in `tactical.css`. Dark reassigns the same names.
 
 ### Canvas
 
-Landmark cyan, magenta, and lime (and amber, violet, and mint) are for annotations only. Categorical points use matplotlib tab pools sized to the category count (tab10, tab20, tab20+b, tab20+b+c) and avoid that neon triad. Multi-gene and embedding use additive magenta, lime, and azure on the first three channels. Continuous single-gene coloring defaults to warm cream (`#f3e6d4`) toward magenta (`#ff0099`). Points and bins share observation signals. Composition bins use majority cell-type colors from the point palette. Similarity scrubbing uses blue, then light, then magenta. Selections stay neutral greys (`#a3a3a3`). Neighborhood wash is `#b3f2e8` in light. La Jolla anchors are `#191900` and `#fffecb`.
+Landmark cyan, magenta, and lime (and amber, violet, and mint) are for annotations only. Categorical points use matplotlib tab pools sized to the category count (tab10, tab20, tab20+b, tab20+b+c) and avoid that neon triad. Multi-gene and embedding use additive magenta, lime, and azure on the first three channels. Continuous single-gene coloring defaults to warm cream (`#f3e6d4`) toward magenta (`#ff0099`). Points and bins share observation signals. Composition bins use majority cell-type colors from the point palette. Similarity scrubbing uses blue, then light, then magenta. Selections stay neutral greys (`#a3a3a3`, `#8a8a8a`, `#737373`, `#c4c4c4` in `SELECTION_COLORS`). Neighborhood wash is `#b3f2e8` in light. La Jolla anchors are `#191900` and `#fffecb`.
+
+**Engine literals (not chrome).** These hex values are intentional data ramps, not veil drift. They live in `helpers.ts`, engine tables, or static JS and may appear in CSS gradients:
+
+- **Probe / similarity legend (Crameri lajolla):** `#191900`, `#372411`, `#67342a`, `#a64644`, `#d9604e`, `#e58751`, `#ecac54`, `#f7d971`, `#fffecb` (`SIMILARITY_LEGEND_CSS`).
+- **Selection strokes (quiet):** `#a3a3a3`, `#8a8a8a`, `#737373`, `#c4c4c4`.
+- **Multi-gene additive channels:** `#ff0099`, `#5cbf00`, `#0088cc` (`GENE_COLORS`).
+- **Cube depth highlight neutral:** `#737373` (`cube-highlight.ts`).
+
+**Dev harness only.** `frontend/dev/design-system` gallery fixtures may use saturated demo accents (`#3d7dff`, `#ff8a00`, `#ff3b3b`) to stress-test layer swatches. Those colors are not part of the shipped Landmarks chrome palette.
 
 ### Plot ground
 
@@ -235,7 +244,7 @@ Landmark cyan, magenta, and lime (and amber, violet, and mint) are for annotatio
 - **Section header** (400, 12px, letter-spacing 0.12em, uppercase): `.landmarks-panel-section-header__label`. A closed header main is ink at 45%. An open header main is full `--tact-ink`. Layer row names use `.landmarks-layer-label` at sentence case.
 - **Tact label** (400, 10px, letter-spacing 0.12em, uppercase): `.tact-label`, `.landmarks-section-label`, and `.landmarks-toolbar-caption`. Color is `--tact-muted`.
 - **Tab** (400, 11px, letter-spacing 0.08em, uppercase): `.tact-tab` and `.landmarks-sliding-tab`. Idle color is `--tact-muted`. Selected color is `--tact-accent-ink`.
-- **Switch** (400, 10px, letter-spacing 0.14em, small-caps): `.tact-switch`. The hot label is `--tact-ink`, and `--tact-on` (`#111111`) when checked.
+- **Switch** (400, 10px, letter-spacing 0.14em, uppercase): `.tact-switch`. The hot label is `--tact-ink`, and `--tact-on` (`#111111`) when checked.
 - **Readout** (400, 11px, letter-spacing 0.04em, tabular numerals): `.tact-readout`, color `--tact-mark`. Disabled readouts use `--tact-muted`.
 - **Canvas legend** (400, 10px, line-height 1.25): `.landmarks__legend`. Color is `--lm-text`, which tactical points at `--tact-ink`. The overflow badge (`+N`) is 0.6875rem.
 - **Ruler tick** (400, 9px, line-height 1): `.landmarks-ruler--x` and `.landmarks-ruler--y` only. Ticks are measurement marks. Heat-strip ticks (`[data-legend-tick]`) are 11px mono, not 9px.
@@ -248,7 +257,7 @@ Landmark cyan, magenta, and lime (and amber, violet, and mint) are for annotatio
 
 The shell height defaults to 550px, in a 400 to 1400 range. The plot fills the figure under floating chrome.
 
-The Vite harness frames that default like a marimo edit-mode output cell. The mock output area is `max-height: 610px`, `padding: 1rem`, `box-sizing: border-box`, `overflow: auto` ([Cell.css](https://github.com/marimo-team/marimo/blob/a8d229e006bc96261b557c2f67341b68e6564371/frontend/src/css/app/Cell.css) `.marimo-cell.interactive .output-area` and `.output-area`). Its width is marimo's default medium column, `--content-width-medium: 1110px` ([App.css](https://github.com/marimo-team/marimo/blob/a8d229e006bc96261b557c2f67341b68e6564371/frontend/src/css/app/App.css)), applied as a max width so a narrow window still shrinks the cell. Usable height inside the padding is 578px, so the 550px shell fits without a scrollbar.
+The Vite harness frames that default like a marimo edit-mode output cell. The mock output area uses `padding: 1rem`, `box-sizing: border-box`, and `overflow: visible` ([Cell.css](https://github.com/marimo-team/marimo/blob/a8d229e006bc96261b557c2f67341b68e6564371/frontend/src/css/app/Cell.css) `.marimo-cell.interactive .output-area` padding and width). Its width is marimo's default medium column, `--content-width-medium: 1110px` ([App.css](https://github.com/marimo-team/marimo/blob/a8d229e006bc96261b557c2f67341b68e6564371/frontend/src/css/app/App.css)), applied as a max width so a narrow window still shrinks the cell. It does not copy marimo's output `max-height: 610px`, so the shell resize handle can grow the widget during dev without a harness scrollbar.
 
 Shared chrome scale on `.landmarks` is `--lm-space-*` (4px base), `--lm-chrome-inset` (0.5rem), `--lm-chrome-gap` (0.25rem), `--lm-chrome-band` (3.75rem), and `--lm-dock-width` (17rem, 15rem fullscreen). Tactical restates the dock width, the 10px panel inset, and the 10px panel pad on `.milume-widget`.
 
@@ -262,12 +271,13 @@ Both docks share one grid. Rows are `PanelRow` (`data-panel-row`). An open Layer
 
 - Text starts at `--lm-text-start` (36px), which is `--lm-lead` (32px) plus `--lm-row-gap` (4px).
 - The chevron sits in that 32px lead box (`--lm-hit-size` is 32px). Explore chevrons use the same box. `--lm-trail-hit` stays 24px for the vertical-ellipsis menu hit.
-- Switches and readouts end at `--lm-edge-end` (20px). Section headers do not show a count.
+- Framed `landmarks-panel-grid` rows use flush lead (`padding-inline-start: 0`, end at `--lm-panel-pad`); body rows keep `padding-block: 0`. Open section headers share the same horizontal gutter. Section scrollports add half `--lm-panel-pad` below the list. Explore category rows use the same rule as left dock rows.
 - An open group is a full-width band, not an indent. The band fill is `--tact-tone`, inset `--lm-band-inset` (4px) from the glass edge and flush with the section bottom. Only Layers shades, and only through the `shade` prop.
 - The subsection line (`--lm-sub-rule`, `--lm-sub-gap` 6px) sits between groups inside that shaded section. Category labels do not get a line.
 - Headers span the panel. There is no extra subheading under a group title.
 - One veil surface. The scroll body is its only child.
 - Corner brackets belong on the panel edge, not on a row control.
+- **`landmarks-panel-grid`** wraps framed Layers `PanelBand` sections and the Explore category scroll. The bracketed section has no padding. Every `PanelRow` inside a grid shares the same horizontal gutter (0 start, `--lm-panel-pad` end). The section scrollport only adds half that below the list. Never add block padding on layer rows (`--lm-layer-row-h` is fixed). Do not tune docks separately in CSS — extend this class or its tokens instead.
 
 ### Multi-open left dock
 
@@ -275,15 +285,17 @@ Selections, Landmarks, and Layers open independently. Opening one never closes a
 
 **Dock max-height (shipped).** Keep the existing left-dock budget, `calc(100% - var(--lm-chrome-band) - var(--lm-chrome-gap) - var(--lm-minimap-slot) - var(--lm-chrome-inset))`, plus `--lm-ruler-band` when rulers are on. Fullscreen repeats the same modifiers at higher specificity. The dock must not grow into the minimap or depth rail, and must not introduce a new height rule that drops those subtractions.
 
-**Subpanel body cap.** Open bodies share leftover dock height after the 32px headers (`--lm-hit-size`). A list that fits stays at its content (`flex: 0 1 auto`). When the lists exceed the dock's max-height, lists that fit keep their content and the rest share the leftover, scrolling inside the body (`overflow-y: auto`). Each open section still keeps its header and one row. Headers stay visible. The dock itself does not scroll. A body never grows past the leftover dock.
+**Subpanel body cap.** Open bodies share leftover dock height after section headers (`--lm-hit-size`, 32px desktop / 44px coarse pointer). A list that fits stays at its content (`flex: 0 1 auto`). When the lists exceed the dock's max-height, lists that fit keep their content and the rest share the leftover, scrolling inside the body (`overflow-y: auto`). Each open section still keeps its header and one row. Headers stay visible. The dock itself does not scroll. A body never grows past the leftover dock.
 
 **Overflow.** Body scrollports reuse the overlay scrollbar without a second inline inset. `overscroll-behavior: contain`. Wheel on the dock already stops at the chrome (`onWheel` stopPropagation on `.landmarks__chrome-dock`) so it never zooms the canvas. Tactical paints the landmarks scrollbar thumb with `--tact-ink`, square, 10px wide, with a 2px transparent border.
 
 Do not apply the multi-open section rules to the right dock. The right dock is tabs, not sections.
 
+**Explore category list.** Color-by tabs, info, and raster sit above a headerless `PanelBand` (`landmarks-panel-grid`) with the same `PanelGridScroll` / `landmarks-panel-section__scroll` contract as the left dock section bodies, so row gutters and scroll breath stay in one CSS block.
+
 ### Pseudospace grouping
 
-The Landmarks header has a sparkle. While it is off, the section lists landmarks as usual. While it is on, a bordered group holds the ordered landmarks. Dragging a handle into the group appends that landmark. Dropping the handle on a grouped row inserts it there. Dragging a grouped row out of the group removes it. Arrow keys on a handle reorder the group. A landmark left outside the group does not color cells. With at least two landmarks in the group, cells take a diverging ramp from the first landmark to the last. The first landmark's value is 0, and its panel row and map badge both show 1. The ramp, the neutral gray, and the badge ink are `PSEUDOSPACE_COLORS` in `milume/static/pseudospace-colors.js`. The ramp runs red `[165, 15, 21]`, orange `[252, 141, 89]`, white `[247, 247, 247]`, light blue `[107, 174, 214]`, then blue-purple `[84, 39, 136]`. A cell with no finite pair stays neutral gray, `[138, 138, 138]` on a dark page and `[92, 92, 92]` on a light page. The map badge is white ink on `[20, 20, 20, 220]`. Hovering a colored cell shows that value to two decimals.
+The Landmarks header has a sparkle. While it is off, the section lists landmarks as usual. While it is on, a bordered pseudospace frame (accent stroke, faint accent wash, caption when non-empty) holds the ordered landmarks; the empty drop target is inset horizontally only. Ungrouped landmarks sit below a subsection rule with no extra caption. Dragging a handle into the group appends that landmark. Dropping the handle on a grouped row inserts it there. Dragging a grouped row out of the group removes it. Arrow keys on a handle reorder the group. A landmark left outside the group does not color cells. With at least two landmarks in the group, cells take a diverging ramp from the first landmark to the last. Distance is straight-line (or perpendicular-to-segment) to each landmark geometry—not a kNN graph walk. The first landmark's value is 0, and its panel row and map badge both show 1. A cell outside the span has no value and renders the neutral gray. Outside means the nearest consecutive pair is the first pair and the cell's projection parameter on that pair is t < 0 (beyond landmark 0), or the pair is the last pair and t > 1 (beyond landmark n-1). t is 0 at the closest point on the earlier geometry and 1 at the closest point on the later one, so a line or polygon uses the same test as two points. A cell on an interior pair, including one beside an interior landmark and off the chain axis, keeps `pairIndex + d0/(d0+d1)`. The ramp, the neutral gray, and the badge ink are `PSEUDOSPACE_COLORS` in `milume/static/pseudospace-colors.js`. The ramp runs red `[165, 15, 21]`, orange `[252, 141, 89]`, white `[247, 247, 247]`, light blue `[107, 174, 214]`, then blue-purple `[84, 39, 136]`. A cell with no finite pair stays neutral gray, `[138, 138, 138]` on a dark page and `[92, 92, 92]` on a light page. The map badge is white ink on `[20, 20, 20, 220]`.
 
 - **Data card legend and summary bar (target).** While a category legend is open, the donut becomes a summary bar. The summary line ("358,173 cells · 21 categories") sits over a 24px stacked bar with the donut's slices in the same order, colours, and proportions, separated by 1px gaps. Both are pinned above the legend. The chevron brings the full donut back. Fallback: keep the bar while the legend still shows at least min(8, categories) entries under the filter, with the rest scrolling inside the card. Otherwise drop the bar and keep only the summary line. Measured: the bar stays at 1280×800 (18 of 21 visible) and 960×720 (14 of 21), and falls back at 960×600 (6 is under 8). Filter stays pinned at the top. Short labels flow into two columns. Long labels show the top N by cell count plus "Show all N". The card never grows past its budget.
 - **Minimise mode (target)** (`Shift+\`). Folds chrome in place. The left card keeps its width, inset, and section order. Selections and Landmarks fold to header rows (name, caret). Layers stays the third section of the same card. The right card folds to a data chip. Nothing moves to another container. Depth rail and minimap stay. State persists per user.
@@ -291,6 +303,20 @@ The Landmarks header has a sparkle. While it is off, the section lists landmarks
 - Inspect collapses both side docks. Peek tabs stay. Leaving Inspect restores the docks.
 - Inspect is a temporary mode with its own chrome. The Inspect pill takes the tool cluster's slot. The Inspect bar sits at the bottom centre.
 - Inspect cube. An immersive takeover of the plot area, not a floating window. `role="dialog"` "Cube" fills the plot area (`z-index` 21, under the top cluster at 22) and has no chrome of its own. Save and Exit live on the Inspect pill. The view options live on the Inspect bar. Corners match `.landmarks__body` (0 radius, including fullscreen). While it is open (`.landmarks--cube-open`) the docks and peek tabs float over it at `z-index` 22, so a category or Selection can still be focused to colour it and a saved window reopened from its row. Leaving Inspect closes it. It fades and scales in from the viewport centre (`--duration-quick`). Under `prefers-reduced-motion` that animation does not run.
+
+## Accessibility
+
+**Operate target:** WCAG 2.1 AA on chrome. The scatter plot is pointer-primary for draw and pan gestures.
+
+**Hits.** Desktop chrome uses `--lm-hit-size: 32px`. Coarse pointers (`@media (pointer: coarse)`) bump `--lm-hit-size` to 44px on `.milume-widget` and `[data-milume-portal]`. Context menu rows (`.tact-menu-item`, `[data-slot="dropdown-menu-item"]`) get `min-height: 44px` under the same query.
+
+**Shell resize.** `.landmarks__resize` keeps a 4px pill (`::after`) centered in a 72×44px button with `touch-action: none`. Focus uses the same ring as `.landmarks-hit`. `--lm-resize-band` reserves space above the handle for minimap and depth rail.
+
+**Keyboard.** Dock collapse (`[` / `]`), minimise (`Shift+\`), toolbar radios, tabs, switches, sliders, menus, Inspect exit, and pseudospace reorder handles are keyboard-operable. Full shortcut inventory lives in `PRODUCT.md` (Accessibility & Inclusion).
+
+**Motion.** `MotionConfig reducedMotion="user"` wraps the widget. Inspect cube entrance respects `prefers-reduced-motion`.
+
+**Canvas gaps.** Region drawing and map navigation still require pointer input on the plot; document that boundary in product copy rather than implying full keyboard parity on the deck.gl surface.
 
 ## Elevation & Depth
 

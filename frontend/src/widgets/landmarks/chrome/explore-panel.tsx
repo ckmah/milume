@@ -219,8 +219,8 @@ function CategoryCollapsibleRow({
       <ChromeTooltip label={col.name}>
         <PanelRow
           className={cn(
-            "landmarks-cat-trigger text-xs font-medium text-foreground/70",
-            isShown && "landmarks-cat-trigger--active text-foreground",
+            "landmarks-cat-trigger",
+            isShown && "landmarks-cat-trigger--active",
           )}
           data-testid="category-row"
           lead={
@@ -252,7 +252,7 @@ function CategoryCollapsibleRow({
         >
           <button
             type="button"
-            className="block w-full min-w-0 cursor-pointer truncate text-left outline-none"
+            className="landmarks-layer-label block w-full min-w-0 cursor-pointer truncate text-left outline-none"
             data-testid="category-name"
             onClick={() => {
               activate();
@@ -336,9 +336,8 @@ export function CategoriesControls({
                   <PanelRow
                     data-testid="category-row"
                     className={cn(
-                      "landmarks-cat-trigger cursor-pointer text-xs leading-none font-medium text-foreground/70",
-                      "hover:text-foreground",
-                      selected && "landmarks-cat-trigger--active text-foreground",
+                      "landmarks-cat-trigger cursor-pointer",
+                      selected && "landmarks-cat-trigger--active",
                     )}
                     lead={
                       <RadioGroupItem
@@ -358,7 +357,10 @@ export function CategoriesControls({
                       </>
                     }
                   >
-                    <span className="block w-full min-w-0 truncate" data-testid="category-name">
+                    <span
+                      className="landmarks-layer-label block w-full min-w-0 truncate"
+                      data-testid="category-name"
+                    >
                       {col.name}
                     </span>
                   </PanelRow>

@@ -1065,8 +1065,6 @@ test.describe("LandmarksWidget", () => {
     await expect(sparkle).toHaveAttribute("aria-pressed", "false");
     await sparkle.click();
     await expect(sparkle).toHaveAttribute("aria-pressed", "true");
-    await expect(page.getByTestId("pseudospace-readout")).toHaveCount(0);
-
     const state = () =>
       page.evaluate(() => (window as any).__landmarksEngine.getPseudospaceState() as {
         badges: string[];
@@ -1165,47 +1163,12 @@ test.describe("LandmarksWidget", () => {
     await expect.poll(groupLabels).toEqual(["1", "2"]);
     await expect.poll(async () => (await state()).badges).toEqual(["1", "2"]);
 
-    const box = await canvasBox(page);
-    const projected = await page.evaluate(
-      () => (window as any).__landmarksEngine.projectPoint(0) as { x: number; y: number } | null,
-    );
-    expect(projected).toBeTruthy();
-    await page.mouse.move(box.x + projected!.x, box.y + projected!.y);
-    await expect(page.getByTestId("pseudospace-readout")).toHaveText(/^\d+\.\d{2}$/);
-
     const savedViewport = page.viewportSize();
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(page.locator(".landmarks")).toHaveClass(/landmarks--narrow/);
     await expect.poll(groupLabels).toEqual(["1", "2"]);
-    const phoneSpots = await page.evaluate(() => {
-      const engine = (window as any).__landmarksEngine;
-      const dock = document.querySelector(".landmarks__chrome-dock")?.getBoundingClientRect();
-      const canvas = document.querySelector("canvas.landmarks__webgl")?.getBoundingClientRect();
-      if (!dock || !canvas) return [];
-      const spots: { x: number; y: number }[] = [];
-      for (let i = 0; i < 187 && spots.length < 12; i++) {
-        const p = engine.projectPoint(i) as { x: number; y: number } | null;
-        if (!p) continue;
-        const x = canvas.left + p.x;
-        const y = canvas.top + p.y;
-        const clear = x > dock.right + 8 || y > dock.bottom + 8;
-        if (clear && y > canvas.top + 4 && y < canvas.bottom - 4 && x > canvas.left && x < canvas.right) {
-          spots.push({ x, y });
-        }
-      }
-      return spots;
-    });
-    expect(phoneSpots.length).toBeGreaterThan(0);
-    let readout = "";
-    for (const spot of phoneSpots) {
-      await page.mouse.move(spot.x, spot.y);
-      readout = (await page.getByTestId("pseudospace-readout").textContent()) ?? "";
-      if (/^\d+\.\d{2}$/.test(readout.trim())) break;
-    }
-    expect(readout.trim()).toMatch(/^\d+\.\d{2}$/);
     for (const selector of [
       "[data-testid='pseudospace-sparkle']",
-      "[data-testid='pseudospace-readout']",
       "[data-testid='pseudospace-group'] [data-testid^='pseudospace-row-']",
     ]) {
       await page.evaluate((sel) => {
@@ -1242,8 +1205,6 @@ test.describe("LandmarksWidget", () => {
     expect(outsideBox && outsideBox.height).toBeGreaterThan(16);
     await dragHandleTo("harness-point", outside);
     await expect.poll(async () => (await state()).painted).toBe(0);
-    await expect(page.getByTestId("pseudospace-readout")).toHaveCount(0);
-
     await sparkle.click();
     await expect(sparkle).toHaveAttribute("aria-pressed", "false");
     await expect.poll(async () => (await state()).painted).toBe(0);

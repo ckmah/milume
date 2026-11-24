@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-22T21:00:00Z",
+  "generatedAt": "2026-11-23T00:32:00Z",
   "title": "Design System: milume",
   "extensions": {
     "colorMeta": {
@@ -518,6 +518,16 @@
         "name": "The Square Chrome Rule",
         "body": "Hits, tabs, switches, menus, and docks are rectangles with 0 radius. Do not put a pill radius on a toolbar or a mode hit.",
         "section": "shapes"
+      },
+      {
+        "name": "The Coarse Hit Rule",
+        "body": "Desktop chrome uses 32px hits. Under `@media (pointer: coarse)`, `--lm-hit-size` is 44px and menu rows have a 44px minimum height without changing the desktop grid.",
+        "section": "accessibility"
+      },
+      {
+        "name": "The Shell Resize Rule",
+        "body": "The marimo height handle is a 72×44px focusable button with a 4px visual pill. Focus ring matches toolbar hits. Canvas draw and pan remain pointer-primary.",
+        "section": "accessibility"
       }
     ],
     "dos": [

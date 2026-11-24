@@ -274,6 +274,28 @@ export function PanelRow({
   );
 }
 
+/**
+ * Shared list scrollport for framed panel-grid sections (left dock bodies, right explore categories).
+ * Parent must carry `landmarks-panel-grid` (e.g. `PanelBand`).
+ */
+export function PanelGridScroll({
+  className,
+  children,
+  ...props
+}: ComponentProps<"div">) {
+  return (
+    <div
+      className={cn(
+        "landmarks-panel-section__scroll landmarks-overlay-scroll min-h-0 flex-1",
+        className,
+      )}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+}
+
 /** Section shell. Passing `tone` keeps the band positioned and fades its plate. */
 export function PanelBand({
   tone,
@@ -285,6 +307,7 @@ export function PanelBand({
     <section
       className={cn(
         "landmarks-panel-section",
+        "landmarks-panel-grid",
         tone !== undefined && "landmarks-panel-band",
         className,
       )}
@@ -362,7 +385,7 @@ export function LayerRow({
       aria-current={active || undefined}
       aria-disabled={disabled || undefined}
       className={cn(
-        "landmarks-layer-row text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+        "landmarks-layer-row text-xs outline-none",
         disabled ? "cursor-default opacity-60" : "cursor-pointer",
         active && "landmarks-layer-row--active",
         hidden && "opacity-50",

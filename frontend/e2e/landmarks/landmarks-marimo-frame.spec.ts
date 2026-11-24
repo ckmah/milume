@@ -39,13 +39,13 @@ test.describe("marimo output frame", () => {
     });
 
     expect(frame.boxSizing).toBe("border-box");
-    expect(frame.maxHeight).toBe("610px");
+    expect(frame.maxHeight).toBe("none");
     expect(frame.paddingTop).toBe("16px");
     expect(frame.paddingRight).toBe("16px");
     expect(frame.paddingBottom).toBe("16px");
     expect(frame.paddingLeft).toBe("16px");
-    expect(frame.overflowX).toBe("auto");
-    expect(frame.overflowY).toBe("auto");
+    expect(frame.overflowX).toBe("visible");
+    expect(frame.overflowY).toBe("visible");
     // Default 1280 viewport: marimo medium column (--content-width-medium).
     expect(frame.width).toBe(1110);
     expect(frame.scrollHeight).toBeLessThanOrEqual(frame.clientHeight);

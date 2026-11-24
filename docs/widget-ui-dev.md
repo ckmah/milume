@@ -25,6 +25,10 @@ Refresh mock data after Python traitlet changes:
 cd frontend && npm run dev:fixture
 ```
 
+## Panel spacing feedback (no DOM vocabulary needed)
+
+Pick any row or section in the harness preview (or say “too tight on the right”, “black bars”, “text clipped”). Agents follow [`.cursor/rules/panel-grid-feedback.mdc`](../.cursor/rules/panel-grid-feedback.mdc): they map the pick or plain text to `landmarks-panel-grid` / tokens in `tactical.css`, not ad-hoc padding on the parent you clicked. Global inset tweaks: change `--lm-panel-pad` or `--lm-edge-end` on `.milume-widget`. Regression: `npx playwright test e2e/landmarks/panel-grid.spec.ts`.
+
 ## Widget UI design loop (impeccable)
 
 Authority: `frontend/PRODUCT.md`, `frontend/DESIGN.md`, and `frontend/.impeccable/surfaces/landmarks-chrome.md`. Visual direction is pending a redesign issue. Chrome rebuild work follows `.cursor/skills/base-ui/SKILL.md`.

@@ -53,6 +53,46 @@ describe("pseudospaceField", () => {
     assert.equal(field.valueMax, 2);
   });
 
+  it("gives no value outside the span and keeps interior cells", () => {
+    const ordered = [point("a", 0, 0), point("b", 10, 0), point("c", 20, 0)];
+    const beside = Math.hypot(10, 5);
+    const field = pseudospaceField(
+      [cell(-10, 0), cell(0, 0), cell(5, 0), cell(10, 5), cell(15, 0), cell(20, 0), cell(30, 0)],
+      ordered,
+    );
+    assert.ok(field);
+    assert.equal(field.valueMax, 2);
+    const shown = (value: number) => (Number.isFinite(value) ? value : null);
+    assert.equal(shown(field.values[0]!), null);
+    assert.equal(shown(field.values[1]!), 0);
+    assert.equal(shown(field.values[2]!), 0.5);
+    assert.equal(shown(field.values[3]!), beside / (beside + 5));
+    assert.equal(shown(field.values[4]!), 1.5);
+    assert.equal(shown(field.values[5]!), 2);
+    assert.equal(shown(field.values[6]!), null);
+    assert.deepEqual(pseudospaceRgb(field.values[0]!, field.valueMax, true), [
+      ...PSEUDOSPACE_COLORS.neutral.dark,
+    ]);
+    assert.deepEqual(pseudospaceRgb(field.values[6]!, field.valueMax, false), [
+      ...PSEUDOSPACE_COLORS.neutral.light,
+    ]);
+  });
+
+  it("treats a line the same way: t < 0 beyond the first geometry is outside", () => {
+    const line: Geom = {
+      id: "line",
+      kind: "line",
+      vertices: [
+        { x: 0, y: -1 },
+        { x: 0, y: 1 },
+      ],
+    };
+    const field = pseudospaceField([cell(-4, 0), cell(4, 0)], [line, point("b", 10, 0)]);
+    assert.ok(field);
+    assert.equal(Number.isFinite(field.values[0]), false);
+    assert.equal(field.values[1], 0.4);
+  });
+
   it("paints a non-finite value with the neutral grey", () => {
     const empty = (id: string): Geom => ({ id, kind: "point", vertices: [] });
     const field = pseudospaceField([cell(1, 1)], [empty("a"), empty("b")]);

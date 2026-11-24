@@ -41,13 +41,13 @@
   --lm-panel-inset: 10px;
   --lm-stack-gap: 0.375rem;
   --lm-chrome-band: 3.75rem;
-  /* Room under the left dock for the bottom-left minimap (width ≈ 11.5rem, aspect ≈ 1.35). */
-  --lm-minimap-slot: calc(11.5rem / 1.35 + var(--lm-chrome-gap) + 1.75rem);
+  /* Room above the depth rail for the bottom-right minimap (width ≈ 11.5rem, aspect ≈ 1.35). */
+  --lm-minimap-slot: calc(11.5rem / 1.35 + var(--lm-chrome-gap));
   /* Depth rail footprint (58×220) + gap when 3D z is present. */
   --lm-depth-rail-slot: calc(4.75rem + 13.75rem + var(--lm-chrome-gap));
   --lm-depth-rail-active: 0px;
-  /* Matches `.landmarks__resize` (bottom 8px + 16px hit area). */
-  --lm-resize-band: calc(8px + 16px);
+  /* Matches `.landmarks__resize` (bottom 8px + 44px hit area). */
+  --lm-resize-band: calc(8px + 44px);
   /* Ruler clear of Soft Float docks / top tools */
   --lm-ruler-band: 1.25rem;
   --lm-ruler-inset: var(--lm-chrome-band);
@@ -280,7 +280,11 @@
 .landmarks-scale-bar {
   position: absolute;
   z-index: 4;
-  left: calc(var(--lm-chrome-inset) + min(11.5rem, 30vw) + 8px);
+  right: calc(
+    var(--lm-chrome-inset) + min(11.5rem, 30vw) + var(--lm-chrome-gap) + 4.75rem +
+      var(--lm-chrome-gap)
+  );
+  left: auto;
   bottom: var(--lm-chrome-inset);
   display: flex;
   flex-direction: column;
@@ -304,11 +308,15 @@
 }
 
 .landmarks--rulers .landmarks-scale-bar {
-  left: calc(var(--lm-chrome-inset) + var(--lm-ruler-band) + min(11.5rem, 30vw) + 8px);
+  right: calc(
+    var(--lm-chrome-inset) + var(--lm-ruler-band) + min(11.5rem, 30vw) + var(--lm-chrome-gap) +
+      4.75rem + var(--lm-chrome-gap)
+  );
 }
 
 .landmarks--narrow .landmarks-scale-bar {
-  left: var(--lm-chrome-inset);
+  right: var(--lm-chrome-inset);
+  left: auto;
 }
 
 .landmarks-scale-bar__rule {
@@ -510,13 +518,15 @@
   left: 50%;
   bottom: 8px;
   z-index: 25;
-  width: 56px;
-  height: 16px;
+  width: 72px;
+  min-height: 44px;
+  height: 44px;
   margin: 0;
   padding: 0;
   border: 0;
   transform: translateX(-50%);
   cursor: ns-resize;
+  touch-action: none;
   pointer-events: auto;
   background: transparent;
 }
@@ -545,6 +555,7 @@
 
 .landmarks__resize:focus-visible {
   outline: none;
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
 }
 
 .landmarks__resize:focus-visible::after {
@@ -979,12 +990,16 @@
   color: color-mix(in oklab, var(--foreground) 72%, transparent);
 }
 
-/* Left dock accordion — section headers share the panel-row grid. */
+/* Left dock accordion — section headers share the panel-row grid (height grows with trail actions). */
 .landmarks-panel-section-header {
   box-sizing: border-box;
-  height: var(--lm-hit-size);
   min-height: var(--lm-hit-size);
-  max-height: var(--lm-hit-size);
+}
+
+.landmarks-panel-grid > .landmarks-panel-section-header {
+  height: auto;
+  max-height: none;
+  align-items: center;
 }
 
 .landmarks-panel-section-header__main {
@@ -1131,17 +1146,24 @@
   min-height: calc(var(--lm-hit-size) + var(--lm-layer-row-h));
 }
 
+/* A short pseudospace list stays in the section. Proportional shrink was
+   parking the reorder handles under the next section, so the drag hit Layers.
+   A long list still shrinks to its min once the other sections are at theirs. */
+.landmarks__layers-panel .landmarks-panel-section--open:has(.landmarks-pseudospace) {
+  flex-shrink: 0.05;
+}
+
 .landmarks__layers-panel .landmarks-panel-section-header {
-  flex: 0 0 var(--lm-hit-size);
+  flex: 0 0 auto;
   box-sizing: border-box;
 }
 
-.pseudospace-group--empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px dashed var(--tact-accent);
-  background: transparent;
+.landmarks__layers-panel .landmarks-panel-grid > .landmarks-panel-section-header {
+  min-height: var(--lm-hit-size);
+}
+
+.pseudospace-group--empty .pseudospace-note--empty {
+  padding-inline: var(--lm-panel-pad);
 }
 
 .pseudospace-note--empty {
@@ -1160,8 +1182,23 @@
   min-height: 2.5rem;
 }
 
-.landmarks-layer-row--dragging {
-  opacity: 0.55;
+.pseudospace-row-slot__gap {
+  height: var(--lm-layer-row-h);
+  flex: none;
+}
+
+.pseudospace-row--floating .landmarks-layer-row {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--tact-accent) 45%, transparent),
+    0 12px 28px color-mix(in srgb, var(--foreground) 22%, transparent);
+}
+
+.landmarks-pseudospace-dragging .pseudospace-row-slot:not(:has(.pseudospace-row--floating)) .landmarks-layer-row {
+  transition: transform var(--duration-quick) var(--ease-smooth-out);
+}
+
+.landmarks-pseudospace-dragging .pseudospace-row-slot:not(:has(.pseudospace-row--floating)) {
+  transition: opacity var(--duration-quick) var(--ease-out);
 }
 
 .landmarks-reorder-handle {
@@ -2017,17 +2054,16 @@ body.landmarks-pseudospace-dragging * {
 
 .landmarks__chrome-dock--right {
   right: var(--lm-chrome-inset);
-  /* Same definite height budget as left (minimap lives bottom-left only). */
   height: min(
     max-content,
     calc(
       100% - var(--lm-chrome-band) - (2 * var(--lm-chrome-gap)) - var(--lm-chrome-inset) -
-        var(--lm-depth-rail-active)
+        var(--lm-depth-rail-active) - var(--lm-minimap-slot)
     )
   );
   max-height: calc(
     100% - var(--lm-chrome-band) - (2 * var(--lm-chrome-gap)) - var(--lm-chrome-inset) -
-      var(--lm-depth-rail-active)
+      var(--lm-depth-rail-active) - var(--lm-minimap-slot)
   );
 }
 
@@ -2122,10 +2158,10 @@ body.landmarks-pseudospace-dragging * {
   flex: 1 1 auto;
 }
 
-/* Bottom-left overview; equal inset on bottom + left. Hidden on narrow. */
+/* Bottom-right corner: minimap flush to inset; depth rail + scale bar sit to its left. */
 .landmarks__chrome-minimap {
   position: absolute;
-  left: var(--lm-chrome-inset);
+  right: var(--lm-chrome-inset);
   bottom: var(--lm-chrome-inset);
   z-index: 16;
   width: min(11.5rem, 30vw);
@@ -2142,8 +2178,14 @@ body.landmarks-pseudospace-dragging * {
   border: 1px solid color-mix(in oklab, var(--foreground) 14%, transparent);
 }
 
+.landmarks__chrome-minimap .landmarks-minimap-float,
+.landmarks__chrome-minimap .landmarks-float-clip {
+  border-bottom-right-radius: 0;
+}
+
 .landmarks__chrome-minimap canvas {
   border-radius: calc(var(--lm-float-radius) - 1px);
+  border-bottom-right-radius: 0;
 }
 
 .landmarks--narrow .landmarks__chrome-minimap {
@@ -2157,7 +2199,7 @@ body.landmarks-pseudospace-dragging * {
 
 .landmarks__chrome-depth-rail {
   position: absolute;
-  right: var(--lm-chrome-inset);
+  right: calc(var(--lm-chrome-inset) + min(11.5rem, 30vw) + var(--lm-chrome-gap));
   bottom: var(--lm-chrome-inset);
   z-index: 16;
   width: 4.75rem;
@@ -2474,12 +2516,12 @@ body.landmarks-pseudospace-dragging * {
     max-content,
     calc(
       100% - var(--lm-chrome-band) - (2 * var(--lm-chrome-gap)) - var(--lm-chrome-inset) -
-        var(--lm-depth-rail-active)
+        var(--lm-depth-rail-active) - var(--lm-minimap-slot)
     )
   );
   max-height: calc(
     100% - var(--lm-chrome-band) - (2 * var(--lm-chrome-gap)) - var(--lm-chrome-inset) -
-      var(--lm-depth-rail-active)
+      var(--lm-depth-rail-active) - var(--lm-minimap-slot)
   );
 }
 
@@ -2847,7 +2889,13 @@ body.landmarks-pseudospace-dragging * {
 }
 
 .landmarks--rulers .landmarks__chrome-minimap {
-  left: calc(var(--lm-chrome-inset) + var(--lm-ruler-band));
+  right: calc(var(--lm-chrome-inset) + var(--lm-ruler-band));
+}
+
+.landmarks--rulers .landmarks__chrome-depth-rail {
+  right: calc(
+    var(--lm-chrome-inset) + var(--lm-ruler-band) + min(11.5rem, 30vw) + var(--lm-chrome-gap)
+  );
 }
 
 .landmarks--narrow .landmarks-rulers {
