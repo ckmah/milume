@@ -17,7 +17,7 @@ import type { EngineHandle } from "../engine";
 import { landmarkColor, type LandmarkItem } from "../helpers";
 import { centroid, pseudospaceField, pseudospaceRgb, type Geom, type GeomKind } from "../pseudospace";
 import type { LandmarksModel } from "../use-landmarks-model";
-import { chromeHitClass, chromeHitOnClass, LayerRow } from "./primitives";
+import { chromeHitOnClass, LayerRow } from "./primitives";
 
 function kindOf(type: string): GeomKind {
   if (type === "line" || type === "spline" || type === "shape" || type === "point") return type;
