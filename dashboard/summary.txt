@@ -1,12 +1,12 @@
-as_of: Wed Nov 25, 12:46 AM PT
+as_of: Wed Nov 25, 11:22 AM PT
 needs_you: 0
   (none)
 open_prs: 0
-last_nightly: 2026-11-24 success
+last_nightly: 2026-11-25 success
 stale_prs: none
-red_nightlies: 2026-11-11, 2026-11-14, 2026-11-17, 2026-11-21, 2026-11-23
+red_nightlies: 2026-11-14, 2026-11-17, 2026-11-21, 2026-11-23
 last_red_nightly: 2026-11-23
 ci_failure_issues: none
 html: dashboard.html
 status: PUBLISH
-hash: af9caa6a1966
+hash: 343a2a57e1ee
