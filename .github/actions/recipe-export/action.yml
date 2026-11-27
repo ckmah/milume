@@ -14,19 +14,42 @@ runs:
   steps:
     - id: key
       shell: bash
-      run: echo "key=$(python3 scripts/recipe_export_cache.py key)" >> "$GITHUB_OUTPUT"
+      run: |
+        echo "key=$(python3 scripts/recipe_export_cache.py key)" >> "$GITHUB_OUTPUT"
+        echo "compute=$(python3 scripts/recipe_export_cache.py compute-key)" >> "$GITHUB_OUTPUT"
 
     # Exact key only. A prefix restore would reuse another commit's export.
-    - id: cache
+    # v2 splits the squidpy export (no frontend sources) from the full stamp.
+    - id: cache-full
       uses: actions/cache/restore@v4
       with:
         path: website/.cache/recipe-export
-        key: recipe-export-v1-${{ runner.os }}-${{ steps.key.outputs.key }}
+        key: recipe-export-v2-${{ runner.os }}-${{ steps.key.outputs.key }}
+
+    - id: cache-compute
+      if: steps.cache-full.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: website/.cache/recipe-export
+        key: recipe-compute-v2-${{ runner.os }}-${{ steps.key.outputs.compute }}
+
+    - name: Node for widget repack
+      if: steps.cache-full.outputs.cache-hit != 'true' && steps.cache-compute.outputs.cache-hit == 'true'
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+
+    - name: Frontend deps for widget repack
+      if: steps.cache-full.outputs.cache-hit != 'true' && steps.cache-compute.outputs.cache-hit == 'true'
+      uses: ./.github/actions/node-modules
+      with:
+        dir: frontend
 
     - shell: bash
       env:
         MODE: ${{ inputs.mode }}
-        CACHE_HIT: ${{ steps.cache.outputs.cache-hit }}
+        CACHE_HIT_FULL: ${{ steps.cache-full.outputs.cache-hit }}
+        CACHE_HIT_COMPUTE: ${{ steps.cache-compute.outputs.cache-hit }}
         CACHE_KEY: ${{ steps.key.outputs.key }}
         GH_TOKEN: ${{ github.token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
@@ -36,12 +59,21 @@ runs:
         RECIPE_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
       run: bash scripts/recipe_export_fetch.sh
 
-    - if: inputs.mode == 'produce' && steps.cache.outputs.cache-hit != 'true'
+    - if: inputs.mode == 'produce' && steps.cache-full.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       continue-on-error: true
       with:
         path: website/.cache/recipe-export
-        key: recipe-export-v1-${{ runner.os }}-${{ steps.key.outputs.key }}
+        key: recipe-export-v2-${{ runner.os }}-${{ steps.key.outputs.key }}
+
+    # Only a full squidpy run may publish the compute cache. A repack is
+    # frontend-specific and must not replace that blob.
+    - if: inputs.mode == 'produce' && steps.cache-full.outputs.cache-hit != 'true' && steps.cache-compute.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      continue-on-error: true
+      with:
+        path: website/.cache/recipe-export
+        key: recipe-compute-v2-${{ runner.os }}-${{ steps.key.outputs.compute }}
 
     # .cache is a hidden path segment. Without this flag the artifact is empty
     # and every consumer fails the stamp check.
