@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """One squidpy recipe export per input hash, shared by the CI workflows.
 
-The hash covers recipe code, the ileum dataset, milume, the widget sources,
-uv.lock, and the export/verify scripts. A matching stamp means those inputs
-already produced the packed site fragments and both verify scripts passed.
-`check` fails closed when the stamp is missing or the inputs moved.
+The compute hash covers recipe code, the ileum dataset, milume Python,
+uv.lock, and the export/verify scripts. It does not cover the widget
+sources: those only change the hoisted ESM and CSS, which `repack` rebuilds
+onto a compute-cache hit. The stamp `check` compares is the full hash
+(compute inputs plus frontend sources). `check` fails closed when that
+stamp is missing or any input moved.
 """
 
 from __future__ import annotations
@@ -138,9 +140,25 @@ def key_files(root: Path) -> list[Path]:
     return [found[rel] for rel in sorted(found)]
 
 
-def cache_key(root: Path) -> str:
+FRONTEND_FILES = frozenset(
+    {
+        "frontend/package.json",
+        "frontend/package-lock.json",
+        "frontend/vite.config.ts",
+    }
+)
+
+_LANDMARKS_ASSET = re.compile(r"landmarks-[0-9a-f]{64}\.mjs")
+
+
+def _is_frontend_input(rel: str) -> bool:
+    """Widget bundle inputs. Squidpy numbers do not read these files."""
+    return rel in FRONTEND_FILES or rel.startswith("frontend/src/")
+
+
+def _digest(rows: list[tuple[str, str]]) -> str:
     digest = hashlib.sha256()
-    for rel, file_hash in hash_manifest(root):
+    for rel, file_hash in rows:
         digest.update(rel.encode())
         digest.update(b"\0")
         digest.update(file_hash.encode())
@@ -148,12 +166,37 @@ def cache_key(root: Path) -> str:
     return digest.hexdigest()
 
 
-def hash_manifest(root: Path) -> list[tuple[str, str]]:
+def cache_key(root: Path) -> str:
+    """Full stamp: compute inputs and frontend sources."""
+    return _digest(hash_manifest(root))
+
+
+def compute_key(root: Path) -> str:
+    """Hash of the inputs that change squidpy numbers or prepared widget state."""
+    rows = hash_manifest(root, include="compute")
+    if not rows:
+        raise SystemExit("recipe-compute: compute key is empty")
+    return _digest(rows)
+
+
+def hash_manifest(root: Path, *, include: str = "all") -> list[tuple[str, str]]:
+    if include not in {"all", "compute", "frontend"}:
+        raise SystemExit(f"recipe-compute: unknown manifest {include}")
     rows: list[tuple[str, str]] = []
     for path in key_files(root):
         rel = path.relative_to(root).as_posix()
+        frontend = _is_frontend_input(rel)
+        if include == "compute" and frontend:
+            continue
+        if include == "frontend" and not frontend:
+            continue
         rows.append((rel, hashlib.sha256(path.read_bytes()).hexdigest()))
     return rows
+
+
+def _widget_asset_filename(content: bytes) -> str:
+    # Same content address as website/scripts/recipe_widget_esm.widget_asset_filename.
+    return f"landmarks-{hashlib.sha256(content).hexdigest()}.mjs"
 
 
 def _safe_members(tar: tarfile.TarFile, root: Path) -> list[tarfile.TarInfo]:
@@ -227,6 +270,13 @@ def read_stamp(root: Path) -> str:
     return key_path.read_text(encoding="utf-8").strip()
 
 
+def read_compute_stamp(root: Path) -> str:
+    key_path = bundle_dir(root) / "compute-key"
+    if not key_path.is_file():
+        return ""
+    return key_path.read_text(encoding="utf-8").strip()
+
+
 def outputs_match(root: Path) -> bool:
     stamped = read_stamp(root)
     return bool(stamped) and stamped == cache_key(root) and outputs_present(root)
@@ -254,6 +304,9 @@ def pack(root: Path, key: str, log: str, manifest: list[tuple[str, str]]) -> Non
     key_tmp = bundle / "key.tmp"
     key_tmp.write_text(key + "\n", encoding="utf-8")
     key_tmp.replace(bundle / "key")
+    compute_tmp = bundle / "compute-key.tmp"
+    compute_tmp.write_text(compute_key(root) + "\n", encoding="utf-8")
+    compute_tmp.replace(bundle / "compute-key")
     manifest_tmp = bundle / "manifest.txt.tmp"
     manifest_tmp.write_text(
         "".join(f"{file_hash} {rel}\n" for rel, file_hash in manifest),
@@ -340,6 +393,210 @@ def _initial_color_column(raw: str) -> str:
         return match.group(1)
     match = re.search(r'"active_category"\s*:\s*"([^"]+)"', raw)
     return match.group(1) if match else ""
+
+
+def _output_files(root: Path) -> list[Path]:
+    files: list[Path] = []
+    for rel in OUTPUTS:
+        path = root / rel
+        if path.is_file():
+            files.append(path)
+        elif path.is_dir():
+            files.extend(item for item in path.rglob("*") if item.is_file())
+    return files
+
+
+def _read_text(path: Path) -> str | None:
+    if path.suffix.lower() in {".mjs", ".png", ".jpg", ".webp", ".gif", ".woff", ".woff2"}:
+        return None
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
+def _json_string_at(text: str, index: int) -> tuple[str, int]:
+    value, end = json.JSONDecoder().raw_decode(text, index)
+    if not isinstance(value, str):
+        raise TypeError(f"expected a JSON string at {index}")
+    return value, end
+
+
+def _replace_widget_fields(
+    text: str, css: str, old_md5: dict[str, str]
+) -> tuple[str, int, int]:
+    """Replace `_css` and ESM md5 fields. Leave every other byte alone."""
+    out: list[str] = []
+    index = 0
+    css_found = 0
+    hashes = 0
+    length = len(text)
+    while index < length:
+        if text[index] != '"':
+            out.append(text[index])
+            index += 1
+            continue
+        try:
+            key, after_key = _json_string_at(text, index)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            out.append(text[index])
+            index += 1
+            continue
+        cursor = after_key
+        while cursor < length and text[cursor] in " \t\r\n":
+            cursor += 1
+        if cursor >= length or text[cursor] != ":":
+            out.append(text[index:after_key])
+            index = after_key
+            continue
+        cursor += 1
+        while cursor < length and text[cursor] in " \t\r\n":
+            cursor += 1
+        if cursor >= length or text[cursor] != '"':
+            out.append(text[index:after_key])
+            index = after_key
+            continue
+        try:
+            value, after_value = _json_string_at(text, cursor)
+        except (json.JSONDecodeError, ValueError, TypeError):
+            out.append(text[index:after_key])
+            index = after_key
+            continue
+        replacement: str | None = None
+        if key == "_css":
+            css_found += 1
+            if value != css:
+                replacement = json.dumps(css, ensure_ascii=False)
+        elif key == "hash" and value in old_md5:
+            hashes += 1
+            replacement = json.dumps(old_md5[value])
+        if replacement is None:
+            out.append(text[index:after_key])
+            index = after_key
+            continue
+        out.append(text[index:cursor])
+        out.append(replacement)
+        index = after_value
+    return "".join(out), css_found, hashes
+
+
+def rebuild_widget(root: Path) -> None:
+    """Build landmarks.mjs and widgets.css the same way export-recipes.sh does."""
+    script = """
+set -euo pipefail
+cd frontend
+if [[ "${MILUME_DEPS_READY_FRONTEND:-}" == "1" ]]; then
+  echo "recipe-compute: frontend/node_modules cached, skipping npm ci"
+elif [[ -f package-lock.json ]]; then
+  npm ci --silent
+else
+  npm install --silent
+fi
+npm run -s build
+"""
+    _run(["bash", "-c", script], root)
+
+
+def swap_hoisted_widget(root: Path, esm: bytes, css: str) -> None:
+    """Point the packed export at a freshly built widget bundle.
+
+    Marimo stores the ESM as a hoisted ``landmarks-<sha256>.mjs`` and the CSS
+    as the ``_css`` string in prepared cell JSON. The ``@file`` lookup key
+    stays put; only the href, the modulepreload, and the ESM md5 move.
+    """
+    if not esm or not css:
+        raise SystemExit("recipe-compute: widget bundle is empty")
+    asset_dir = root / "website/content/assets/recipe-widgets"
+    asset_dir.mkdir(parents=True, exist_ok=True)
+    new_name = _widget_asset_filename(esm)
+    new_md5 = hashlib.md5(esm, usedforsecurity=False).hexdigest()
+    old_md5: dict[str, str] = {}
+    for path in asset_dir.glob("landmarks-*.mjs"):
+        if path.name == new_name:
+            continue
+        old_md5[hashlib.md5(path.read_bytes(), usedforsecurity=False).hexdigest()] = new_md5
+    dest = asset_dir / new_name
+    if not dest.is_file() or dest.read_bytes() != esm:
+        dest.write_bytes(esm)
+
+    replaced_names = 0
+    css_found = 0
+    for path in _output_files(root):
+        if path.suffix == ".mjs" and path.parent == asset_dir:
+            continue
+        text = _read_text(path)
+        if text is None or (
+            "landmarks-" not in text and "_css" not in text and "hash" not in text
+        ):
+            continue
+        updated, name_hits = _LANDMARKS_ASSET.subn(
+            lambda match: match.group(0) if match.group(0) == new_name else new_name,
+            text,
+        )
+        replaced_names += name_hits
+        if path.suffix == ".json":
+            updated, found, _hashes = _replace_widget_fields(updated, css, old_md5)
+            css_found += found
+        if updated != text:
+            path.write_text(updated, encoding="utf-8")
+
+    if css_found == 0:
+        raise SystemExit("recipe-compute: repack found no widget _css in the export")
+    stale = [
+        path.name
+        for path in asset_dir.glob("landmarks-*.mjs")
+        if path.name != new_name
+    ]
+    if stale and replaced_names == 0:
+        raise SystemExit(
+            "recipe-compute: repack found a widget bundle it did not relink: "
+            + ", ".join(stale)
+        )
+    referenced = set()
+    for path in _output_files(root):
+        text = _read_text(path)
+        if text:
+            referenced.update(_LANDMARKS_ASSET.findall(text))
+    if new_name not in referenced:
+        raise SystemExit("recipe-compute: repack found no hoisted widget ESM")
+    for path in asset_dir.glob("landmarks-*.mjs"):
+        if path.name != new_name and path.name not in referenced:
+            path.unlink()
+
+
+def repack(root: Path) -> None:
+    """Rebuild the widget onto a compute-cache hit. Does not re-run squidpy."""
+    ensure_bundle_layout(root)
+    stamped_compute = read_compute_stamp(root)
+    current_compute = compute_key(root)
+    if stamped_compute != current_compute:
+        raise SystemExit(
+            "recipe-compute: compute stamp "
+            f"{stamped_compute or '(missing)'} does not match compute inputs {current_compute}"
+        )
+    if read_stamp(root) == cache_key(root):
+        print(f"recipe-compute: compute cache already matches {cache_key(root)}", flush=True)
+        return
+    apply_tar(root)
+    log_path = bundle_dir(root) / "export.log"
+    if not log_path.is_file():
+        raise SystemExit("recipe-compute: compute cache is missing export.log")
+    log = log_path.read_text(encoding="utf-8")
+    assert_prepared_log(log)
+    started = time.perf_counter()
+    rebuild_widget(root)
+    bundled = root / "milume" / "static" / "bundled"
+    esm_path = bundled / "landmarks.mjs"
+    css_path = bundled / "widgets.css"
+    if not esm_path.is_file() or not css_path.is_file():
+        raise SystemExit(f"recipe-compute: widget build did not write {bundled}")
+    swap_hoisted_widget(root, esm_path.read_bytes(), css_path.read_text(encoding="utf-8"))
+    pack(root, cache_key(root), log, hash_manifest(root))
+    print(
+        f"recipe-compute: repacked widget in {time.perf_counter() - started:.0f}s "
+        f"key {cache_key(root)}",
+        flush=True,
+    )
 
 
 def compute(root: Path) -> None:
@@ -567,11 +824,17 @@ def main(argv: list[str]) -> int:
     if cmd == "key":
         print(cache_key(root))
         return 0
+    if cmd == "compute-key":
+        print(compute_key(root))
+        return 0
     if cmd == "check":
         check(root)
         return 0
     if cmd == "compute":
         compute(root)
+        return 0
+    if cmd == "repack":
+        repack(root)
         return 0
     if cmd == "assert-views":
         check(root)
@@ -582,7 +845,7 @@ def main(argv: list[str]) -> int:
         check(root)
         return 0
     print(
-        "usage: recipe_export_cache.py key|check|compute|assert-views|wait",
+        "usage: recipe_export_cache.py key|compute-key|check|compute|repack|assert-views|wait",
         file=sys.stderr,
     )
     return 2

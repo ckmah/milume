@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import json
 import shutil
 from pathlib import Path
 
@@ -38,6 +40,15 @@ def test_real_repo_key_covers_recipe_inputs_and_ignores_shot_lists():
     assert "scripts/verify_squidpy_svg.py" in rels
     assert any(rel.startswith("milume/") and rel.endswith(".py") for rel in rels)
     assert any(rel.startswith("frontend/src/") for rel in rels)
+    compute_rels = {rel for rel, _hash in cache.hash_manifest(ROOT, include="compute")}
+    assert "milume/landmarks.py" in compute_rels
+    assert "uv.lock" in compute_rels
+    assert "demos/data/ileum.h5ad" in compute_rels
+    assert "scripts/verify_squidpy_color.py" in compute_rels
+    assert "scripts/verify_squidpy_svg.py" in compute_rels
+    assert "frontend/vite.config.ts" not in compute_rels
+    assert not any(rel.startswith("frontend/src/") for rel in compute_rels)
+    assert cache.compute_key(ROOT) != cache.cache_key(ROOT)
     assert not any(rel.endswith("shots.yaml") for rel in rels)
     assert not any("_marimo-studio" in rel or ".test." in rel for rel in rels)
 
@@ -199,3 +210,166 @@ def test_prepared_log_requires_both_recipes():
     cache.assert_prepared_log("Prepared committed\nPrepared reused\n")
     with pytest.raises(SystemExit, match="both recipes"):
         cache.assert_prepared_log("Prepared committed\n")
+
+
+def test_widget_asset_filename_matches_the_hoist_helper():
+    import sys
+
+    scripts = str(ROOT / "website" / "scripts")
+    sys.path.insert(0, scripts)
+    from recipe_widget_esm import widget_asset_filename
+
+    raw = b"export default 1\n"
+    assert cache._widget_asset_filename(raw) == widget_asset_filename(raw)
+
+
+def test_compute_key_ignores_frontend_and_tracks_recipe_inputs(tmp_path: Path):
+    root = _fixture(tmp_path)
+    base = cache.compute_key(root)
+    full = cache.cache_key(root)
+    (root / "frontend/src/widget.ts").write_text("ui\n", encoding="utf-8")
+    assert cache.compute_key(root) == base
+    assert cache.cache_key(root) != full
+    (root / "frontend/package-lock.json").write_text("lockfile\n", encoding="utf-8")
+    (root / "frontend/vite.config.ts").write_text("vite\n", encoding="utf-8")
+    assert cache.compute_key(root) == base
+    (root / "uv.lock").write_text("uv changed\n", encoding="utf-8")
+    assert cache.compute_key(root) != base
+    moved = cache.compute_key(root)
+    (root / "milume/widgets.py").write_text("py changed\n", encoding="utf-8")
+    assert cache.compute_key(root) != moved
+    moved = cache.compute_key(root)
+    (root / "scripts/verify_squidpy_svg.py").write_text("verify changed\n", encoding="utf-8")
+    assert cache.compute_key(root) != moved
+    moved = cache.compute_key(root)
+    (root / "demos/data/ileum.h5ad").write_bytes(b"ileum-changed")
+    assert cache.compute_key(root) != moved
+    moved = cache.compute_key(root)
+    (root / "demos/recipes/squidpy_color.py").write_text("recipe changed\n", encoding="utf-8")
+    assert cache.compute_key(root) != moved
+
+
+def test_compute_runs_export_and_both_verify_scripts(tmp_path: Path, monkeypatch):
+    root = _fixture(tmp_path)
+    _write_outputs(root)
+    calls: list[list[str]] = []
+
+    def fake(cmd, _root):
+        calls.append(cmd)
+        return "Prepared committed\nPrepared reused\n"
+
+    monkeypatch.setattr(cache, "_run", fake)
+    monkeypatch.setattr(cache, "assert_views", lambda _root: None)
+    cache.compute(root)
+    flat = [" ".join(cmd) for cmd in calls]
+    assert any("export-recipes.sh" in item and "prepare-for-zensical" in item for item in flat)
+    assert any("verify_squidpy_color.py" in item for item in flat)
+    assert any("verify_squidpy_svg.py" in item for item in flat)
+    assert cache.read_stamp(root) == cache.cache_key(root)
+    assert cache.read_compute_stamp(root) == cache.compute_key(root)
+
+
+def _hoist(root: Path, esm: bytes, css: str, md5: str) -> str:
+    name = cache._widget_asset_filename(esm)
+    asset = root / "website/content/assets/recipe-widgets"
+    asset.mkdir(parents=True, exist_ok=True)
+    (asset / name).write_bytes(esm)
+    cell = (
+        root
+        / "website/content/how-to/recipes/squidpy_color/_marimo-studio/views/landmark_map.cell.json"
+    )
+    cell.parent.mkdir(parents=True, exist_ok=True)
+    sha = hashlib.sha256(esm).hexdigest()
+    cell.write_text(
+        json.dumps(
+            {
+                "n": 1.25,
+                "resources": {
+                    "files": {
+                        f"/@file/4-anywidget-{sha}.js": f"../../../assets/recipe-widgets/{name}",
+                    }
+                },
+                "esm_spec": {"hash": md5, "url": f"./@file/4-anywidget-{sha}.js"},
+                "state": {"_css": css, "keep": "1.25"},
+            },
+            separators=(",", ":"),
+        ),
+        encoding="utf-8",
+    )
+    head = root / "website/overrides/partials/recipe-studio-squidpy_color-head.html"
+    head.write_text(
+        f'<link href="../../../assets/recipe-widgets/{name}">\n',
+        encoding="utf-8",
+    )
+    return name
+
+
+def test_repack_swaps_widget_bytes_and_fails_closed_on_a_stale_compute_stamp(
+    tmp_path: Path, monkeypatch
+):
+    root = _fixture(tmp_path)
+    _write_outputs(root)
+    old = b"export const old=1\n"
+    old_md5 = hashlib.md5(old).hexdigest()
+    old_name = _hoist(root, old, "old css", old_md5)
+    cache.pack(
+        root,
+        cache.cache_key(root),
+        "Prepared committed\nPrepared reused\n",
+        cache.hash_manifest(root),
+    )
+    compute_before = cache.compute_key(root)
+    (root / "frontend/src/widget.ts").write_text("frontend changed\n", encoding="utf-8")
+    assert cache.compute_key(root) == compute_before
+    assert cache.read_stamp(root) != cache.cache_key(root)
+    new = b"export const new=2\n"
+    new_css = 'body{content:"x"}\n'
+    bundled = root / "milume/static/bundled"
+    bundled.mkdir(parents=True)
+    (bundled / "landmarks.mjs").write_bytes(new)
+    (bundled / "widgets.css").write_text(new_css, encoding="utf-8")
+    monkeypatch.setattr(cache, "rebuild_widget", lambda _root: None)
+    monkeypatch.setattr(
+        cache,
+        "_run",
+        lambda cmd, _root: (_ for _ in ()).throw(AssertionError(cmd)),
+    )
+    cache.repack(root)
+    assert cache.read_stamp(root) == cache.cache_key(root)
+    assert cache.read_compute_stamp(root) == compute_before
+    new_name = cache._widget_asset_filename(new)
+    cell = (
+        root
+        / "website/content/how-to/recipes/squidpy_color/_marimo-studio/views/landmark_map.cell.json"
+    )
+    raw = cell.read_text(encoding="utf-8")
+    old_sha = hashlib.sha256(old).hexdigest()
+    assert f"/@file/4-anywidget-{old_sha}.js" in raw
+    assert new_name in raw
+    assert old_name not in raw
+    assert "1.25" in raw
+    data = json.loads(raw)
+    assert data["n"] == 1.25
+    assert data["state"]["_css"] == new_css
+    assert data["state"]["keep"] == "1.25"
+    assert data["esm_spec"]["hash"] == hashlib.md5(new).hexdigest()
+    assert data["esm_spec"]["url"] == f"./@file/4-anywidget-{old_sha}.js"
+    head = (
+        root / "website/overrides/partials/recipe-studio-squidpy_color-head.html"
+    ).read_text(encoding="utf-8")
+    assert new_name in head
+    assert not (root / "website/content/assets/recipe-widgets" / old_name).exists()
+    cell.unlink()
+    cache.check(root)
+    assert new_name in cell.read_text(encoding="utf-8")
+    (root / "demos/data/ileum.h5ad").write_bytes(b"changed-ileum")
+    with pytest.raises(SystemExit, match="compute stamp"):
+        cache.repack(root)
+    with pytest.raises(SystemExit, match="does not match inputs"):
+        cache.check(root)
+
+
+def test_repack_fails_closed_without_a_compute_stamp(tmp_path: Path):
+    root = _fixture(tmp_path)
+    with pytest.raises(SystemExit, match="compute stamp"):
+        cache.repack(root)

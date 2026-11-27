@@ -7,11 +7,20 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT}"
 
 MODE="${MODE:?MODE=produce or MODE=consume}"
-CACHE_HIT="${CACHE_HIT:-false}"
+CACHE_HIT_FULL="${CACHE_HIT_FULL:-false}"
+CACHE_HIT_COMPUTE="${CACHE_HIT_COMPUTE:-false}"
 
-if [[ "${CACHE_HIT}" == "true" ]]; then
+if [[ "${CACHE_HIT_FULL}" == "true" ]]; then
   python3 scripts/recipe_export_cache.py check
   echo "recipe-compute: cache hit ${CACHE_KEY:?}"
+  exit 0
+fi
+
+# Frontend-only change: squidpy export is reusable; rebuild the widget ESM/CSS.
+if [[ "${CACHE_HIT_COMPUTE}" == "true" ]]; then
+  python3 scripts/recipe_export_cache.py repack
+  python3 scripts/recipe_export_cache.py check
+  echo "recipe-compute: repacked widget onto compute cache ${CACHE_KEY:?}"
   exit 0
 fi
 
